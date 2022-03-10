@@ -329,17 +329,30 @@ impl pallet_template::Config for Runtime {
 pub enum ProxyType {
 	Any,
 	NonTransfer,
+	Publisher,
+	Subscriber,
 }
+
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
 	}
 }
+
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		match self {
+			// Add appropriate condition for Any ProxyType.
 			ProxyType::Any => true,
+
+			// Add appropriate condition for NonTransfer ProxyType.
 			ProxyType::NonTransfer => !matches!(c, Call::Balances(..)),
+
+			// Add appropriate condition for Publisher ProxyType.
+			ProxyType::Publisher => true,
+
+			// Add appropriate condition for Subscriber ProxyType.
+			ProxyType::Subscriber => true,
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
@@ -348,6 +361,7 @@ impl InstanceFilter<Call> for ProxyType {
 			(ProxyType::Any, _) => true,
 			(_, ProxyType::Any) => false,
 			(ProxyType::NonTransfer, _) => true,
+			_ => true,
 		}
 	}
 }

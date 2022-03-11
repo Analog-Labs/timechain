@@ -47,7 +47,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 /// Import the template pallet.
 pub use pallet_template;
-
+pub use pallet_transaction;
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -180,6 +180,11 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
+}
+
+impl pallet_transaction::Config for Runtime {
+	type Event = Event;
+	type TimeProvider = pallet_timestamp::Pallet<Runtime>;
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -437,6 +442,7 @@ construct_runtime!(
 		TemplateModule: pallet_template,
 		Proxy: pallet_proxy,
 		Contracts: pallet_contracts,
+		TransactionPallet: pallet_transaction,
 	}
 );
 
@@ -455,6 +461,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
+	pallet_transaction::ValidateTransaction<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.

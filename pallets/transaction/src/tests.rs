@@ -21,7 +21,7 @@ fn sample_transaction1() -> Transaction {
 fn test_create_new_event() {
 	new_test_ext().execute_with(|| {
 		let transaction = sample_transaction1();
-		assert_ok!(TransactionModule::create_event(Origin::signed(1), transaction));
+		assert_ok!(TransactionPallet::create_event(Origin::signed(1), transaction.clone()));
 	});
 }
 
@@ -32,11 +32,11 @@ fn test_create_event_that_already_exists() {
 		let transaction_copy = transaction.clone();
 
 		// Event Created
-		assert_ok!(TransactionModule::create_event(Origin::signed(1), transaction));
+		assert_ok!(TransactionPallet::create_event(Origin::signed(1), transaction));
 
 		// Evet already exists
 		assert_noop!(
-			TransactionModule::create_event(Origin::signed(1), transaction_copy),
+			TransactionPallet::create_event(Origin::signed(1), transaction_copy),
 			Error::<Test>::EventAlreadyExists
 		);
 	});
@@ -49,10 +49,10 @@ fn test_delete_event_by_owner() {
 		let transaction_copy = transaction.clone();
 
 		// Create an event first
-		TransactionModule::create_event(Origin::signed(1), transaction).unwrap();
+		TransactionPallet::create_event(Origin::signed(1), transaction).unwrap();
 
 		// Delete the event
-		assert_ok!(TransactionModule::delete_event(Origin::signed(1), transaction_copy));
+		assert_ok!(TransactionPallet::delete_event(Origin::signed(1), transaction_copy));
 	});
 }
 
@@ -63,7 +63,7 @@ fn test_delete_event_that_doese_not_exist() {
 
 		// Try to delete an event that doesn't exist
 		assert_noop!(
-			TransactionModule::delete_event(Origin::signed(1), transaction),
+			TransactionPallet::delete_event(Origin::signed(1), transaction),
 			Error::<Test>::NoSuchEvent
 		);
 	});
@@ -78,11 +78,11 @@ fn test_delete_event_created_by_some_other_owner() {
 		let owner2 = 2;
 
 		// Create an event first
-		TransactionModule::create_event(Origin::signed(owner1), transaction).unwrap();
+		TransactionPallet::create_event(Origin::signed(owner1), transaction).unwrap();
 
 		// Try to delete an event that doesn't exist
 		assert_noop!(
-			TransactionModule::delete_event(Origin::signed(owner2), transaction_copy),
+			TransactionPallet::delete_event(Origin::signed(owner2), transaction_copy),
 			Error::<Test>::NotEventOwner
 		);
 	});

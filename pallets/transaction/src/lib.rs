@@ -61,6 +61,12 @@ pub mod pallet {
 		pub footer: TxFooter,
 	}
 
+	impl MaxEncodedLen for Transaction {
+		fn max_encoded_len() -> usize {
+			usize::MAX
+		}
+	}
+
 	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 	#[derive(
 		PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash, Debug, TypeInfo,
@@ -68,6 +74,12 @@ pub mod pallet {
 	pub struct TxHeader {
 		pub event_hash: H256,
 		pub previous_hash: H256,
+	}
+
+	impl MaxEncodedLen for TxHeader {
+		fn max_encoded_len() -> usize {
+			usize::MAX
+		}
 	}
 
 	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -82,6 +94,12 @@ pub mod pallet {
 		pub time_attributes: u128,
 	}
 
+	impl MaxEncodedLen for TxBody {
+		fn max_encoded_len() -> usize {
+			usize::MAX
+		}
+	}
+
 	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 	#[derive(
 		PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash, Debug, TypeInfo,
@@ -90,12 +108,24 @@ pub mod pallet {
 		pub broadcaster_signature: H512,
 	}
 
+	impl MaxEncodedLen for TxFooter {
+		fn max_encoded_len() -> usize {
+			usize::MAX
+		}
+	}
+
 	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 	#[derive(
 		PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash, Debug, TypeInfo,
 	)]
 	pub struct PreviousHashes {
 		pub hash_list: Vec<H256>,
+	}
+
+	impl MaxEncodedLen for PreviousHashes {
+		fn max_encoded_len() -> usize {
+			usize::MAX
+		}
 	}
 
 	#[pallet::pallet]
@@ -108,7 +138,7 @@ pub mod pallet {
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	pub(super) type Transactions<T: Config> =
-		StorageMap<_, Blake2_128Concat, Transaction, (T::AccountId, T::BlockNumber), ValueQuery>;
+		StorageMap<_, Blake2_128Concat, Transaction, (H256, T::BlockNumber), ValueQuery>;
 
 	#[pallet::storage]
 	pub(super) type Transferes<T: Config> =
@@ -167,7 +197,9 @@ pub mod pallet {
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
 			// Store the proof with the sender and block number.
-			Transactions::<T>::insert(&transaction, (&sender, current_block));
+			let encoded_account_id = &sender.encode()[..];
+			let h256 = &H256::from_slice(encoded_account_id);
+			Transactions::<T>::insert(&transaction, (&h256, current_block));
 
 			Self::deposit_event(Event::EventCreated(sender, transaction));
 			Ok(())
@@ -176,15 +208,16 @@ pub mod pallet {
 		#[pallet::weight(1_1000)]
 		pub fn delete_event(origin: OriginFor<T>, transaction: Transaction) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
+			let sender_hash = H256::from_slice(&sender.encode()[..]);
 
 			// Verify that the specified event has been created.
 			ensure!(Transactions::<T>::contains_key(&transaction), Error::<T>::NoSuchEvent);
 
 			// Get owner of the claim.
-			let (owner, _) = Transactions::<T>::get(&transaction);
+			let (owner_hash, _) = Transactions::<T>::get(&transaction);
 
 			// Verify that sender of the current call is the event owner.
-			ensure!(sender == owner, Error::<T>::NotEventOwner);
+			ensure!(sender_hash == owner_hash, Error::<T>::NotEventOwner);
 
 			// Remove claim from storage.
 			Transactions::<T>::remove(&transaction);
@@ -286,6 +319,16 @@ pub mod pallet {
 				},
 				_ => Ok(Default::default()),
 			}
+		}
+
+		fn pre_dispatch(
+			self,
+			_who: &Self::AccountId,
+			_call: &Self::Call,
+			_info: &DispatchInfoOf<Self::Call>,
+			_len: usize,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(Default::default())
 		}
 
 		fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {

@@ -19,7 +19,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		TransactionModule: pallet_transaction::{Pallet, Call, Storage, Event<T>},
+		TransactionPallet: pallet_transaction::{Pallet, Call, Storage, Event<T>},
 		Aura: pallet_aura,
 	}
 
@@ -54,6 +54,7 @@ impl system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_transaction::Config for Test {

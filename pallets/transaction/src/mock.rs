@@ -1,7 +1,7 @@
 use crate as pallet_transaction;
 use frame_support::parameter_types;
 use frame_system as system;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+//use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		TransactionPallet: pallet_transaction::{Pallet, Call, Storage, Event<T>},
-		Aura: pallet_aura,
+		//Aura: pallet_aura,
 	}
 
 );
@@ -66,16 +66,16 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = 0;
 	pub const MaxAuthorities: u32 = 32;
 }
-
+/*
 impl pallet_aura::Config for Test {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = MaxAuthorities;
 }
-
+*/
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }

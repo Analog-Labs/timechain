@@ -197,8 +197,9 @@ pub mod pallet {
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
 			// Store the proof with the sender and block number.
-			let encoded_account_id = &sender.encode()[..];
-			let h256 = &H256::from_slice(encoded_account_id);
+			let mut encoded_account_id = sender.encode();
+			encoded_account_id.resize(32, 0);
+			let h256 = &H256::from_slice(&encoded_account_id[..]);
 			Transactions::<T>::insert(&transaction, (&h256, current_block));
 
 			Self::deposit_event(Event::EventCreated(sender, transaction));
@@ -208,7 +209,9 @@ pub mod pallet {
 		#[pallet::weight(1_1000)]
 		pub fn delete_event(origin: OriginFor<T>, transaction: Transaction) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			let sender_hash = H256::from_slice(&sender.encode()[..]);
+			let mut encoded_account_id = sender.encode();
+			encoded_account_id.resize(32, 0);
+			let sender_hash = H256::from_slice(&encoded_account_id[..]);
 
 			// Verify that the specified event has been created.
 			ensure!(Transactions::<T>::contains_key(&transaction), Error::<T>::NoSuchEvent);

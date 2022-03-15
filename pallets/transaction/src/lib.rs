@@ -41,6 +41,7 @@ pub mod pallet {
 	pub(crate) const ERR_INVALID_EVENT_CATEGORY: u8 = 102;
 	pub(crate) const ERR_INVALID_EVENT_SUBJECT: u8 = 103;
 	pub(crate) const ERR_INVALID_EVENT_OBJECT: u8 = 104;
+	pub(crate) const ERR_INVALID_RECEIVER: u8 = 105;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -128,6 +129,19 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+	#[derive(
+		PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash, Debug, TypeInfo,
+	)]
+	pub struct TransactionList {
+		pub transactions: Vec<Transaction>,
+	}
+	impl MaxEncodedLen for TransactionList {
+		fn max_encoded_len() -> usize {
+			usize::MAX
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
@@ -142,7 +156,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub(super) type Transferes<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, Transaction, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountId, TransactionList, ValueQuery>;
 
 	#[pallet::storage]
 	pub(super) type PreviousHash<T: Config> =
@@ -272,8 +286,10 @@ pub mod pallet {
 				PreviousHash::<T>::insert(&sender, previous_hashes);
 			}
 
-			// Get owner of the claim.
-			Transferes::<T>::insert(&to, &transaction);
+			//Get the list of transaction received by an account
+			let mut transaction_list: TransactionList = Transferes::<T>::get(&to);
+			transaction_list.transactions.insert(0, transaction.clone());
+			Transferes::<T>::insert(&to, &transaction_list);
 
 			Self::deposit_event(Event::EventTransfered(sender, to, transaction));
 			Ok(())
@@ -318,7 +334,11 @@ pub mod pallet {
 					validate_event_name(event_name.clone())?;
 					validate_event_category(event_category.clone())?;
 					validate_subject(H256::from_slice(&who.encode()[..]))?;
-					validate_object(H256::from_slice(&to.encode()[..]))
+					validate_object(H256::from_slice(&to.encode()[..]))?;
+					validate_different_receiver(
+						H256::from_slice(&who.encode()[..]),
+						H256::from_slice(&to.encode()[..]),
+					)
 				},
 				_ => Ok(Default::default()),
 			}
@@ -367,6 +387,14 @@ pub mod pallet {
 	fn validate_object(object: H256) -> TransactionValidity {
 		if object.as_bytes().len() <= 0 || object.as_bytes().len() > 32 {
 			Err(InvalidTransaction::Custom(ERR_INVALID_EVENT_OBJECT).into())
+		} else {
+			Ok(Default::default())
+		}
+	}
+
+	fn validate_different_receiver(from: H256, to: H256) -> TransactionValidity {
+		if to == from {
+			Err(InvalidTransaction::Custom(ERR_INVALID_RECEIVER).into())
 		} else {
 			Ok(Default::default())
 		}

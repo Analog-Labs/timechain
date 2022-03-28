@@ -334,29 +334,46 @@ impl pallet_template::Config for Runtime {
 pub enum ProxyType {
 	Any,
 	NonTransfer,
+	Publisher,
+	Subscriber,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
 	}
 }
+
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		match self {
+			// Any ProxyType have permission to perform all tasks on time-chain.
 			ProxyType::Any => true,
+
+			// NonTransfer ProxyType have permission to perform all tasks except balance
+			// related transaction on time-chain.
 			ProxyType::NonTransfer => !matches!(c, Call::Balances(..)),
+
+			// Publisher ProxyType have permission to publish the data on time-chain.
+			ProxyType::Publisher => matches!(c, Call::TransactionPallet(..)),
+
+			// Subscriber ProxyType have permission to subscribe the data of time-chain.
+			// Its mock for now as this module is not implemented yet.
+			ProxyType::Subscriber => false,
 		}
 	}
+
 	fn is_superset(&self, o: &Self) -> bool {
 		match (self, o) {
 			(x, y) if x == y => true,
 			(ProxyType::Any, _) => true,
 			(_, ProxyType::Any) => false,
 			(ProxyType::NonTransfer, _) => true,
+			_ => false,
 		}
 	}
 }
 
+/// Configure the pallet_proxy for time-chain.
 impl pallet_proxy::Config for Runtime {
 	type Event = Event;
 	type Call = Call;

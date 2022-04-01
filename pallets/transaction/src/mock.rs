@@ -1,5 +1,6 @@
 use crate as pallet_transaction;
 use frame_support::parameter_types;
+use frame_support::traits::UnixTime;
 use frame_system as system;
 //use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
@@ -20,6 +21,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		TransactionPallet: pallet_transaction::{Pallet, Call, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		//Aura: pallet_aura,
 	}
 

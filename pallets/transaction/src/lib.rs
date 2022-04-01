@@ -261,8 +261,20 @@ pub mod pallet {
 			event_data: Vec<u8>,
 		) -> DispatchResult {
 			let account = ensure_signed(origin)?;
+			let acc_encoded = &account.encode()[..];
+			let mut acc_vec = acc_encoded.to_vec();
 
-			let account_hash = H256::from_slice(&account.encode()[..]);
+			let account_hash: H256;
+
+			// Unit tests sends an account id of 8 bytes
+			if acc_vec.len() < 32 {
+				let mut acc_vec_fix_size = vec![];
+				acc_vec_fix_size.resize(32 - acc_vec.len(), 0);
+				acc_vec_fix_size.append(&mut acc_vec);
+				account_hash = H256::from_slice(&acc_vec_fix_size[..]);
+			} else {
+				account_hash = H256::from_slice(&acc_encoded[..]);
+			}
 
 			let mut transaction = Transaction {
 				header: TxHeader {
@@ -321,6 +333,8 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	fn get_account_hash(account: T::)
 
 	#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	#[scale_info(skip_type_params(T))]

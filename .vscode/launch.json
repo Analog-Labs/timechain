@@ -38,7 +38,9 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": [
+                "--dev"
+            ],
             "cwd": "${workspaceFolder}"
         },
         {

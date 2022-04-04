@@ -334,8 +334,6 @@ pub mod pallet {
 		}
 	}
 
-	fn get_account_hash(account: T::)
-
 	#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct ValidateTransaction<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);

@@ -1,6 +1,6 @@
 use super::*;
-use crate::{mock::*, Error};
-use frame_support::{assert_noop, assert_ok};
+use crate::mock::*;
+use frame_support::assert_ok;
 use sp_core::{H256, H512};
 
 #[test]
@@ -26,7 +26,7 @@ fn test_published_event_stored_in_db() {
 	new_test_ext().execute_with(|| {
 		let tx = sample_transaction1();
 
-		TransactionPallet::publish_event(
+		assert_ok!(TransactionPallet::publish_event(
 			Origin::signed(1),
 			tx.clone().header.source_chain_id,
 			tx.clone().header.destination_chain_id,
@@ -35,7 +35,7 @@ fn test_published_event_stored_in_db() {
 			tx.clone().body.event_name,
 			tx.clone().body.event_category,
 			tx.clone().body.event_data,
-		);
+		));
 
 		let account = vec![1, 0, 0, 0, 0, 0, 0, 0];
 		let acc_slice = &account[..];

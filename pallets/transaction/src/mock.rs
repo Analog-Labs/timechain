@@ -20,6 +20,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		TransactionPallet: pallet_transaction::{Pallet, Call, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		//Aura: pallet_aura,
 	}
 

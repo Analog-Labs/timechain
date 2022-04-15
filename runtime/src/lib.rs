@@ -271,6 +271,20 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+/// Configure the pallet-membership in pallets/membership.
+impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
+	type Event = Event;
+	type AddOrigin = frame_system::EnsureRoot<AccountId>;
+	type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+	type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+	type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+	type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
+	type MembershipInitialized = ();
+	type MembershipChanged = ();
+	type MaxMembers = ConstU32<10>;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -288,6 +302,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		Membership: pallet_membership::<Instance1>,
 	}
 );
 

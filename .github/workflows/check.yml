@@ -37,3 +37,5 @@ jobs:
           cd /home/ubuntu/actions-runner/_work/testnet/testnet
           sudo docker-compose down
           sudo docker-compose up -d
+          
+    ####

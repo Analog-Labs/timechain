@@ -6,7 +6,7 @@ services:
     image: paritytech/ci-linux:production
     ports:
       - "9944:9944"
-      - "9933-9933"
+      - "9933:9933"
     volumes:
       - type: bind
         source: /home/ubuntu/actions-runner/_work/testnet/testnet

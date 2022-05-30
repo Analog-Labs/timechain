@@ -5,7 +5,7 @@ services:
     container_name: node-template
     image: paritytech/ci-linux:production
     ports:
-      - "9933:9933"
+      - "9900:9933"
       - "9944:9944"
     volumes:
       - type: bind

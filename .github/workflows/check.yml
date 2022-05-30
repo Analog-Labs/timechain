@@ -34,6 +34,6 @@ jobs:
     
       - name: Check Build
         run: |
-          cd /home/analog/actions-runner/_work/testnet/testnet
+          cd /home/ubuntu/actions-runner/_work/testnet/testnet
           sudo docker-compose down
           sudo docker-compose up -d

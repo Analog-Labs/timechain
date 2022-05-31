@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'node-template'",
+            "name": "Debug unit tests in library 'timechain-node'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=node-template"
+                    "--package=timechain-node"
                 ],
                 "filter": {
-                    "name": "node-template",
+                    "name": "timechain-node",
                     "kind": "lib"
                 }
             },
@@ -26,15 +26,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'node-template'",
+            "name": "Debug executable 'timechain-node'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=node-template",
-                    "--package=node-template"
+                    "--bin=timechain-node",
+                    "--package=timechain-node"
                 ],
                 "filter": {
-                    "name": "node-template",
+                    "name": "timechain-node",
                     "kind": "bin"
                 }
             },
@@ -46,16 +46,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'node-template'",
+            "name": "Debug unit tests in executable 'timechain-node'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=node-template",
-                    "--package=node-template"
+                    "--bin=timechain-node",
+                    "--package=timechain-node"
                 ],
                 "filter": {
-                    "name": "node-template",
+                    "name": "timechain-node",
                     "kind": "bin"
                 }
             },
@@ -65,16 +65,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'node-template-runtime'",
+            "name": "Debug unit tests in library 'timechain-runtime'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=node-template-runtime"
+                    "--package=timechain-runtime"
                 ],
                 "filter": {
-                    "name": "node-template-runtime",
+                    "name": "timechain-runtime",
                     "kind": "lib"
                 }
             },

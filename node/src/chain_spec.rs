@@ -1,6 +1,6 @@
 use node_template_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, MembershipConfig, WASM_BINARY,
+	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, MembershipConfig,
+	Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -59,7 +59,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 				],
-				vec![get_account_id_from_seed::<sr25519::Public>("Alice"),],
+				vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
 				true,
 			)
 		},
@@ -108,7 +108,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
-				vec![get_account_id_from_seed::<sr25519::Public>("Alice"),],
+				vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
 				true,
 			)
 		},
@@ -155,9 +155,6 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		membership: MembershipConfig {
-			members: membership.clone(),
-			phantom: Default::default(),
-		}
+		membership: MembershipConfig { members: membership.clone(), phantom: Default::default() },
 	}
 }

@@ -1,0 +1,22 @@
+{
+  "name": "nodejs_cli",
+  "version": "1.0.0",
+  "description": "client",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "mbship": "node ./src/index.js"
+  },
+  "dependencies": {
+    "@polkadot/api": "^8.0.2",
+    "@types/node": "^16.11.6",
+    "async-channel": "^0.2.0",
+    "typescript": "^4.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.6",
+    "ts-node": "^10.4.0"
+  }
+}

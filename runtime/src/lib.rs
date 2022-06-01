@@ -19,11 +19,11 @@ use sp_runtime::{
 	create_runtime_str,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdLookup, BlakeTwo256, Block as BlockT, NumberFor, OpaqueKeys,
-		SaturatedConversion, StaticLookup, IdentifyAccount, Verify
+		AccountIdLookup, BlakeTwo256, Block as BlockT, NumberFor,
+		IdentifyAccount, Verify
 	},
-	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber,  Percent,  Perquintill, MultiSignature,
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, FixedPointNumber, Perquintill, MultiSignature,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]

@@ -17,6 +17,8 @@ name = "timechain-node"
 [dependencies]
 jsonrpsee = { version = "0.13.0", features = ["server"] }
 clap = { version = "3.1.18", features = ["derive"] }
+hex-literal = "0.3.4"
+rand = "0.8"
 
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22", features = ["wasmtime"] }
 sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
@@ -58,6 +60,9 @@ pallet-contracts-rpc = { version = "4.0.0-dev", default-features = false, git = 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
+
+# frame dependencies
+pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
 
 # Local Dependencies
 timechain-runtime = { version = "0.0.1", path = "../runtime" }

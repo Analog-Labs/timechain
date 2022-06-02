@@ -17,6 +17,12 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+    
+      - name: Remove old files
+        run: |
+          cd /home/ubuntu/actions-runner/_work/testnet/testnet
+          rm -rf *
+          
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
@@ -31,10 +37,15 @@ jobs:
           rustup update nightly
           rustup update stable
           rustup target add wasm32-unknown-unknown --toolchain nightly
+      
+      - name: Compiling the Build
+        run : |
+           cd /home/ubuntu/actions-runner/_work/testnet/testnet
+           cargo build --release
+           ./target/release/node-template --dev --ws-external
     
       - name: Check Build
         run: |
-          cd /home/ubuntu/actions-runner/_work/testnet/testnet
           sudo docker-compose down
           sudo docker-compose up -d
           

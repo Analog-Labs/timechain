@@ -21,7 +21,7 @@ jobs:
       - name: Remove old files
         run: |
           cd /home/ubuntu/actions-runner/_work/testnet/testnet
-          rm -rf *
+          sudo rm -rf *
           
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3

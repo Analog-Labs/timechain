@@ -11,4 +11,5 @@ services:
     command: bash -c "./target/release/node-template --dev --ws-external"
     
     networks:
-      - nodenetwork
+      name: testnet_nodenetwork
+      external: true

@@ -48,5 +48,9 @@ jobs:
         run: |
           sudo docker-compose down
           sudo docker-compose up -d
+          sleep 300
+          docker-compose -f docker-compose-2.yml down
+          docker-compose -f docker-compose-2.yml up -d
+          
           
     #####

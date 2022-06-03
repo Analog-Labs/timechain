@@ -41,7 +41,7 @@ jobs:
       - name: Compiling the Build
         run : |
            cd /home/ubuntu/actions-runner/_work/testnet/testnet
-           cargo build --release
+           
          
     
       - name: Check Build

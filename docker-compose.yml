@@ -11,7 +11,7 @@ services:
       - type: bind
         source: /home/ubuntu/actions-runner/_work/testnet/testnet
         target: /builds
-    command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
+    command: bash -c "cargo build --release"
     networks:
       - nodenetwork
              

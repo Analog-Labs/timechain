@@ -11,7 +11,16 @@ services:
       - type: bind
         source: /home/ubuntu/actions-runner/_work/testnet/testnet
         target: /builds
-    command: bash -c "cargo build --release"
+    command: bash -c "cargo build --release && ./target/release/node-template \
+                      --base-path /tmp/alice \
+                      --chain local \
+                      --alice \
+                      --port 30333 \ 
+                      --ws-port 9945 \
+                      --rpc-port 9933 \
+                      --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
+                      --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+                      --validator""
     networks:
       - nodenetwork
              

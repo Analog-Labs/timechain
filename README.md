@@ -2,12 +2,12 @@
 
   <h1><code>Timechain Node</code></h1>
 
-  <strong>This is the timechain node, which is part of the analog network. <a href="https://github.com/analog-labs">Analog</a>.</strong>
+  <strong>This repo is for the timechain node, which is part of the analog network. <a href="https://github.com/analog-labs">Analog</a>.</strong>
 
   <h3>
     <a href="https://analog.one/">Docs</a>
     <span> | </span>
-    <a href="https://matrix.to/#/!HzySYSaIhtyWrwiwEV:matrix.org?via=matrix.parity.io&via=matrix.org&via=web3.foundation">Chat</a>
+    <a href="mailto:hello@analog.one">Support</a>
   </h3>
 
 </div>

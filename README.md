@@ -20,6 +20,12 @@ This repo includes the minimum required components to start a timechain PoA test
 * Governance related pallets: membership
 * Event data related pallets: transactions
 
+### Membership pallet:
+The Membership pallet allows control of membership of a set of AccountIds, useful for managing membership of a collective.
+
+### Transaction Pallet:
+The transaction pallet allows user to publish the time data event on the chain.
+
 **Notes:** The code is still under active development and not production ready, use it at your own risk.
 
 ## Getting Started
@@ -55,13 +61,20 @@ cargo build --release
       --base-path  /tmp/validator1 \
       --chain   timechain-staging-raw.json \
       --bootnodes  /ip4/<your-bootnode-ip>/tcp/30333/p2p/<your-bootnode-peerid> \
-	    --port 30336 \
-	    --ws-port 9947 \
-	    --rpc-port 9936 \
+      --port 30336 \
+      --ws-port 9947 \
+      --rpc-port 9936 \
       --name  validator1 \
       --validator
   ```
 * [Insert session keys](https://substrate.dev/docs/en/tutorials/start-a-private-network/customchain#add-keys-to-keystore)
-* Attract enough validators from community in waiting
-* Enable governance, and remove sudo
-* Enable transfer and other functions
+
+## Upcoming features
+* Update the time-chain with Proof of time consensus protocol.
+* Attract enough validators from community.
+* Enable governance, and remove sudo.
+* Enable transfer and other functions.
+* Add XCEDT for cross-chain event data transfer.
+* Smart Contact SDK.
+* Update the time-chain to give proper support to publisher and subscriber so that a user can easily publish time data on chain and use it by subscribing the chain data.
+

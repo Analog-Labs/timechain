@@ -2,16 +2,27 @@ version: "3.7"
 
 services:
   dev:
-    container_name: timechain-node
-    image: paritytech/ci-linux:974ba3ac-20201006
-    working_dir: /var/www/timechain-node
+    container_name: node-template
+    image: paritytech/ci-linux:production
     ports:
+      - "9933:9933"
       - "9944:9944"
-    environment:
-      - CARGO_HOME=/var/www/timechain-node/.cargo
     volumes:
-      - .:/var/www/timechain-node
       - type: bind
-        source: ./.local
-        target: /root/.local
-    command: bash -c "cargo build --release && ./target/release/timechain-node --dev --ws-external"
+        source: /home/ubuntu/actions-runner/_work/testnet/testnet
+        target: /builds
+    command: bash -c "cargo build --release && ./target/release/node-template \
+                      --base-path /tmp/alice \
+                      --chain local \
+                      --alice \
+                      --port 30333 \ 
+                      --ws-port 9945 \
+                      --rpc-port 9933 \
+                      --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
+                      --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+                      --validator"
+    networks:
+      - nodenetwork
+             
+networks:
+  nodenetwork:

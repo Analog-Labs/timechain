@@ -1,22 +1,21 @@
-use timechain_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY, MembershipConfig, TokensConfig, CurrencyId,
-};
-use sc_telemetry::TelemetryEndpoints;
 use hex_literal::hex;
 use sc_service::ChainType;
+use sc_telemetry::TelemetryEndpoints;
+use serde_json::map::Map;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use serde_json ::map::Map;
+use timechain_runtime::{
+	AccountId, AuraConfig, BalancesConfig, CurrencyId, GenesisConfig, GrandpaConfig,
+	MembershipConfig, Signature, SudoConfig, SystemConfig, TokensConfig, WASM_BINARY,
+};
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
-
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -39,16 +38,14 @@ where
 
 /// Generate an Aura authority key.
 /// Helper function to generate stash, controller and session key from seed
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId,AccountId, AccountId) {
+pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, AccountId, AccountId) {
 	(
 		get_from_seed::<AuraId>(s),
 		get_from_seed::<GrandpaId>(s),
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", s)),
 		get_account_id_from_seed::<sr25519::Public>(s),
-
 	)
 }
-
 
 pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
@@ -170,12 +167,12 @@ pub fn staging_network_config() -> Result<ChainSpec, String> {
 }
 
 fn staging_network_config_genesis() -> GenesisConfig {
-	// for i in 1 2 3 4; do for j in stash controller; do subkey inspect "$SECRET//$i//$j"; done; done
-	// for i in 1 2 3 4; do for j in aura; do subkey --sr25519 inspect "$SECRET//$i//$j"; done; done
-	// for i in 1 2 3 4; do for j in grandpa; do subkey --ed25519 inspect "$SECRET//$i//$j"; done; done
-	let initial_authorities: Vec<(AuraId, GrandpaId, AccountId, AccountId )> = vec![
+	// for i in 1 2 3 4; do for j in stash controller; do subkey inspect "$SECRET//$i//$j"; done;
+	// done for i in 1 2 3 4; do for j in aura; do subkey --sr25519 inspect "$SECRET//$i//$j"; done;
+	// done for i in 1 2 3 4; do for j in grandpa; do subkey --ed25519 inspect "$SECRET//$i//$j";
+	// done; done
+	let initial_authorities: Vec<(AuraId, GrandpaId, AccountId, AccountId)> = vec![
 		(
-
 			// 5Dhd2QbrSE4dyNn3YUg8j5TY3fG7ZAWZMoRRF9KUc7VPVGmC
 			hex!["48640c12bc1b351cf4b051ac1cf7b5740765d02e34989d0a9dd935ce054ebb21"]
 				.unchecked_into(),
@@ -211,7 +208,6 @@ fn staging_network_config_genesis() -> GenesisConfig {
 			// 5F92x4qKNYaHtfp5Yy7kb9r6gHCHkN3YSvNuedERPHgrURTn
 			hex!["8801f479e09a78515f1badee0169864dae45648109091e29b03a7b4ea97ec018"].into(),
 		),
-
 	];
 
 	// generated with secret: subkey inspect "$secret"/fir
@@ -243,31 +239,29 @@ fn testnet_genesis(
 	membership: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
-		GenesisConfig {
-
-			system: SystemConfig {
-				// Add Wasm runtime to storage.
-				code: wasm_binary.to_vec(),
-			},
-			balances: BalancesConfig {
-				// Configure endowed accounts with initial balance of 1 << 60.
-				balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-				
-			},
-			aura: AuraConfig {
-				authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-			},
-			grandpa: GrandpaConfig {
-				authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
-			},
-			sudo: SudoConfig {
-				// Assign network admin rights.
-				key: Some(root_key),
-			},
-			transaction_payment: Default::default(),
-			membership: MembershipConfig { members: membership.clone(), phantom: Default::default() },
-			tokens: TokensConfig {
-				balances: endowed_accounts
+	GenesisConfig {
+		system: SystemConfig {
+			// Add Wasm runtime to storage.
+			code: wasm_binary.to_vec(),
+		},
+		balances: BalancesConfig {
+			// Configure endowed accounts with initial balance of 1 << 60.
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+		},
+		aura: AuraConfig {
+			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+		},
+		grandpa: GrandpaConfig {
+			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			// Assign network admin rights.
+			key: Some(root_key),
+		},
+		transaction_payment: Default::default(),
+		membership: MembershipConfig { members: membership.clone(), phantom: Default::default() },
+		tokens: TokensConfig {
+			balances: endowed_accounts
 				.iter()
 				.flat_map(|x| {
 					vec![
@@ -276,6 +270,6 @@ fn testnet_genesis(
 					]
 				})
 				.collect(),
-			},
-		}
+		},
+	}
 }

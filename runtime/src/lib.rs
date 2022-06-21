@@ -12,27 +12,23 @@ use pallet_contracts::weights::WeightInfo;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str,
-	generic, impl_opaque_keys,
+	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, NumberFor,
-		IdentifyAccount, Verify, Zero
+		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, Perquintill, MultiSignature,
-	RuntimeDebug,
+	ApplyExtrinsicResult, FixedPointNumber, MultiSignature, Perquintill, RuntimeDebug,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
 
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
@@ -41,8 +37,8 @@ use orml_traits::parameter_type_with_key;
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU8, InstanceFilter, KeyOwnerProofSystem, Randomness, StorageInfo,
-		Nothing, Contains
+		ConstU128, ConstU32, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem, Nothing,
+		Randomness, StorageInfo,
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -86,7 +82,19 @@ pub type Hash = sp_core::H256;
 
 pub type Amount = i128;
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy,Clone, RuntimeDebug, PartialOrd, Ord,scale_info::TypeInfo, codec::MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	Eq,
+	PartialEq,
+	Copy,
+	Clone,
+	RuntimeDebug,
+	PartialOrd,
+	Ord,
+	scale_info::TypeInfo,
+	codec::MaxEncodedLen,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CurrencyId {
 	Native,
@@ -115,7 +123,7 @@ pub mod opaque {
 		pub struct SessionKeys {
 			pub aura: Aura,
 			pub grandpa: Grandpa,
-			
+
 
 		}
 	}
@@ -140,7 +148,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -158,7 +165,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 // Prints debug output of the `contracts` pallet to stdout if the node is
 // started with `-lruntime::contracts=debug`.
 const CONTRACTS_DEBUG_OUTPUT: bool = true;
-
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -316,7 +322,6 @@ parameter_types! {
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 }
-
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
@@ -478,7 +483,7 @@ parameter_types! {
 	pub const GetNativeCurrencyId: CurrencyId = CurrencyId::Native;
 }
 
-impl orml_currencies::Config for Runtime {	
+impl orml_currencies::Config for Runtime {
 	type MultiCurrency = Tokens;
 	type NativeCurrency = BasicCurrencyAdapter<Runtime, Balances, Amount, BlockNumber>;
 	type GetNativeCurrencyId = GetNativeCurrencyId;
@@ -487,10 +492,10 @@ impl orml_currencies::Config for Runtime {
 pub struct DustRemovalWhitelist;
 
 impl Contains<AccountId> for DustRemovalWhitelist {
-    fn contains(_: &AccountId) -> bool {
-        true
-    }
-} 
+	fn contains(_: &AccountId) -> bool {
+		true
+	}
+}
 impl orml_tokens::Config for Runtime {
 	type Event = Event;
 	type Balance = Balance;

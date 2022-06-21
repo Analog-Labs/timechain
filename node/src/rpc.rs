@@ -8,12 +8,12 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use timechain_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
-use pallet_contracts_rpc::{ContractsRpc, ContractsApiServer};
+use pallet_contracts_rpc::{ContractsApiServer, ContractsRpc};
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use timechain_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
 
 pub use sc_rpc_api::DenyUnsafe;
 
@@ -41,20 +41,18 @@ where
 	C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
 	P: TransactionPool + 'static,
 {
-	use pallet_transaction_payment_rpc::{TransactionPaymentRpc, TransactionPaymentApiServer};
-	use substrate_frame_rpc_system::{SystemRpc, SystemApiServer};
+	use pallet_transaction_payment_rpc::{TransactionPaymentApiServer, TransactionPaymentRpc};
+	use substrate_frame_rpc_system::{SystemApiServer, SystemRpc};
 
 	let mut io = RpcModule::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
 	// Contracts RPC API extension
 	io.merge(ContractsRpc::new(client.clone()).into_rpc())?;
-		
+
 	io.merge(SystemRpc::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 
 	io.merge(TransactionPaymentRpc::new(client).into_rpc())?;
-
-
 
 	// Extend this RPC with a custom API by using the following syntax.
 	// `YourRpcStruct` should have a reference to a client, which is needed

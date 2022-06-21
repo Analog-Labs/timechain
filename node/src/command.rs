@@ -5,10 +5,10 @@ use crate::{
 	service,
 };
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-use timechain_runtime::Block;
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 use std::sync::Arc;
+use timechain_runtime::Block;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {

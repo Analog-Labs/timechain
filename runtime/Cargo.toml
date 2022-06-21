@@ -13,6 +13,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+serde = { version = "1.0.119", optional = true, features = ["derive"] }
 
 pallet-aura = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
@@ -37,6 +38,7 @@ sp-std = { version = "4.0.0-dev", default-features = false, git = "https://githu
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
 sp-version = { version = "5.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
 pallet-proxy = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
+pallet-im-online = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
 
 # Contracts specific packages
 pallet-contracts = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
@@ -52,6 +54,12 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "h
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22", optional = true }
 hex-literal = { version = "0.3.4", optional = true }
 
+#orml 
+orml-currencies = { version = '0.4.1-dev', git = "https://github.com/open-web3-stack/open-runtime-module-library.git",  default-features = false }
+orml-tokens = { version = '0.4.1-dev', git = "https://github.com/open-web3-stack/open-runtime-module-library.git", default-features = false }
+orml-traits = { version = '0.4.1-dev', git = "https://github.com/open-web3-stack/open-runtime-module-library.git", default-features = false }
+
+
 # Local Dependencies
 pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 pallet-membership = { version = "4.0.0-dev", default-features = false, path = "../pallets/membership" }
@@ -64,6 +72,7 @@ substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/pari
 default = ["std"]
 std = [
 	"codec/std",
+	"serde",
 	"scale-info/std",
 	"frame-executive/std",
 	"frame-support/std",
@@ -88,6 +97,10 @@ std = [
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"pallet-im-online/std",
+	'orml-currencies/std',
+    'orml-tokens/std',
+	'orml-traits/std',
 	"node-primitives/std",
 	"sp-std/std",
 	"sp-transaction-pool/std",
@@ -106,4 +119,5 @@ runtime-benchmarks = [
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
 ]

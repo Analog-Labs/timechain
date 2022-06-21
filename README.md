@@ -13,7 +13,7 @@ the [Substrate Playground](https://docs.substrate.io/playground/) :hammer_and_wr
 ### Using Nix
 
 Install [nix](https://nixos.org/) and optionally [direnv](https://github.com/direnv/direnv) and
-[lorri](https://github.com/target/lorri) for a fully plug and play experience for setting up the
+[lorri](https://github.com/target/lorri) for a fully plug and play experience while setting up the
 development environment. To get all the correct dependencies activate direnv `direnv allow` and
 lorri `lorri shell`.
 

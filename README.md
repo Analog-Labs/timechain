@@ -42,38 +42,29 @@ Use the following command to build the node and run it after build successfully:
 
 ```sh
 cargo build --release
-./target/release/timechain-node --dev
+./target/release/timechain-node --staging
 ```
 
 ## Run public testnet
 
 * Start your bootnodes, node key can be generate with command `./target/release/timechain-node key generate-node-key`.
   ```shell
-      ./target/release/timechain-node \
-      --base-path /tmp/bootnode01 \
-      --chain ./timechain-staging.json \
-      --port 30333 \
-      --ws-port 9945 \
-      --rpc-port 9933 \
-      --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
-      --validator \
-      --rpc-methods Unsafe \
-      --name BootNode01
+      ./target/release/timechnode --base-path /tmp/bootnode01 --chain ./timechain-staging.json --port 30333 --ws-port 9945 --rpc-port 9933 --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" --validator --rpc-methods Unsafe --name BootNode01
   ```
   
 * [Insert session keys](https://substrate.dev/docs/en/tutorials/start-a-private-network/customchain#add-keys-to-keystore)
 
 * Start your initial validators,
   ```shell
-  ./target/release/timechain-node \
-      --base-path  /tmp/validator1 \
-      --chain   timechain-staging.json \
-      --bootnodes  /ip4/<your-bootnode-ip>/tcp/30333/p2p/<your-bootnode-peerid> \
-      --port 30336 \
-      --ws-port 9947 \
-      --rpc-port 9936 \
-      --name  validator1 \
-      --validator
+    ./target/release/node-template \
+    --base-path /tmp/bob \
+    --chain staging \
+    --port 30334 \
+    --ws-port 9946 \
+    --rpc-port 9934 \
+    --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+    --validator \
+    --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWDAzWc9PWDapTfx89NmAhxuySLnVU9N62ojYS25Va7gif
   ```
 
 

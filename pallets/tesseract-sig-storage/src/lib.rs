@@ -6,13 +6,10 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use frame_support::inherent::Vec;
+	
 
-	pub type ReferenceId = u128;
-	pub type ThresholdSig = u128;
-	pub type SigHash = u128;
-
-	#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-	pub struct Signature(ReferenceId, ThresholdSig);
+	pub type SignatureData = Vec<u8>;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -20,20 +17,24 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
+
+
 	#[pallet::storage]
-	#[pallet::getter(fn signatures)]
-	pub type Signatures<T: Config> =
-		StorageMap<_, Blake2_128Concat, SigHash, Signature, OptionQuery>;
+	#[pallet::getter(fn signature_data)]
+
+	pub type SignatureDataStore<T> = StorageValue<_, SignatureData>;
+
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The event data for stored signature are :
 		/// the extrinsic caller and the reference id
-		SignatureStored(T::AccountId, ReferenceId),
+		SignatureStored(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -45,15 +46,13 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn store_signature(
 			origin: OriginFor<T>,
-			ref_id: ReferenceId,
-			threshold_sig: ThresholdSig,
-			signature_hash: SigHash,
+			signature_data: SignatureData,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			<Signatures<T>>::insert(signature_hash, Signature(ref_id, threshold_sig));
+			<SignatureDataStore<T>>::put(signature_data);
 
-			Self::deposit_event(Event::SignatureStored(caller, ref_id));
+			Self::deposit_event(Event::SignatureStored(caller));
 
 			Ok(())
 		}

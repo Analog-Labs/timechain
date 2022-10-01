@@ -4,11 +4,14 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::inherent::Vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::inherent::Vec;
-	
 
+	/// type that uniquely identify a signature data
+	pub type SignatureKey = Vec<u8>;
+
+	/// The type representing a sugnature data
 	pub type SignatureData = Vec<u8>;
 
 	#[pallet::config]
@@ -21,20 +24,17 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-
-
 	#[pallet::storage]
-	#[pallet::getter(fn signature_data)]
-
-	pub type SignatureDataStore<T> = StorageValue<_, SignatureData>;
-
+	#[pallet::getter(fn signature_store)]
+	pub type SignatureStore<T: Config> =
+		StorageMap<_, Blake2_128Concat, SignatureKey, SignatureData, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The event data for stored signature are :
-		/// the extrinsic caller and the reference id
-		SignatureStored(T::AccountId),
+		/// The event data for stored signature
+		/// the signature id that uniquely identify the signature
+		SignatureStored(SignatureKey),
 	}
 
 	#[pallet::error]
@@ -46,13 +46,14 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn store_signature(
 			origin: OriginFor<T>,
+			signature_key: SignatureKey,
 			signature_data: SignatureData,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let _ = ensure_signed(origin)?;
 
-			<SignatureDataStore<T>>::put(signature_data);
+			<SignatureStore<T>>::insert(signature_key.clone(), signature_data);
 
-			Self::deposit_event(Event::SignatureStored(caller));
+			Self::deposit_event(Event::SignatureStored(signature_key));
 
 			Ok(())
 		}

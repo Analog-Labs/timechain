@@ -11,7 +11,7 @@ pub mod pallet {
 	/// type that uniquely identify a signature data
 	pub type SignatureKey = Vec<u8>;
 
-	/// The type representing a sugnature data
+	/// The type representing a signature data
 	pub type SignatureData = Vec<u8>;
 
 	#[pallet::config]

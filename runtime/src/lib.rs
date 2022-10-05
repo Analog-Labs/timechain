@@ -513,6 +513,7 @@ impl orml_tokens::Config for Runtime {
 // Analog pallets
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type Event = Event;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -584,6 +585,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_template, TemplateModule]
+		[pallet_tesseract_sig_storage, TesseractSigStorage]
 	);
 }
 

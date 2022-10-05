@@ -1,9 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod mock;
-
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+pub mod weights;
 
 pub use pallet::*;
 
@@ -13,17 +17,18 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	use crate::weights::WeightInfo;
+
 	/// type that uniquely identify a signature data
 	pub type SignatureKey = Vec<u8>;
 
 	/// The type representing a signature data
 	pub type SignatureData = Vec<u8>;
-
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type WeightInfo: WeightInfo;
 	}
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -48,7 +53,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
-		#[pallet::weight(10_000)]
+		#[pallet::weight(T::WeightInfo::store_signature())]
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_key: SignatureKey,

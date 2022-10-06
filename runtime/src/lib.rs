@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::DispatchClass;
+
 use pallet_contracts::weights::WeightInfo;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -20,7 +21,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify, Zero,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify, Zero, SaturatedConversion
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, MultiSignature, Perquintill, RuntimeDebug,
@@ -33,11 +34,14 @@ use sp_version::RuntimeVersion;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 
+pub mod impls;
+use impls::CreditToBlockAuthor;
+
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem, Nothing,
+		ConstU128, ConstU64, ConstU32, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem, Nothing,
 		Randomness, StorageInfo,
 	},
 	weights::{
@@ -61,6 +65,8 @@ use constants::{currency::*, time::*};
 /// Import the template pallet.
 pub use pallet_template;
 pub use pallet_transaction;
+pub use pallet_offchain_worker;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -337,10 +343,102 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
+parameter_types! {
+	pub const IndexDeposit: Balance = 1 * CENTS;
+}
+
+impl pallet_indices::Config for Runtime {
+	type AccountIndex = u32;
+	type Currency = Balances;
+	type Deposit = IndexDeposit;
+	type Event = Event;
+	type WeightInfo = pallet_indices::weights::SubstrateWeight<Runtime>;
+}
+
 /// Configure the pallet-template in pallets/template.
 impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
+
+impl pallet_asset_tx_payment::Config for Runtime {
+	type Event = Event;
+	type Fungibles = Assets;
+	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
+		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
+		CreditToBlockAuthor,
+	>;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+	Call: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		public: <Signature as sp_runtime::traits::Verify>::Signer,
+		account: AccountId,
+		nonce: Index,
+	) -> Option<(Call, <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+		// Some((call, (nonce, ())))
+
+		let tip = 0;
+		// take the biggest period possible.
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		let current_block = System::block_number()
+			.saturated_into::<u64>()
+			// The `System::block_number` is initialized with `n+1`,
+			// so the actual block number is `n`.
+			.saturating_sub(1);
+		let era = sp_runtime::generic::Era::mortal(period, current_block);
+		let extra = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+		);
+		let raw_payload = SignedPayload::new(call, extra)
+			.map_err(|e| {
+				log::warn!("Unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let address = Indices::unlookup(account);
+		let (call, extra, _) = raw_payload.deconstruct();
+		Some((call, (none, signature, extra)))
+	}
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	Call: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = Call;
+}
+
+parameter_types! {
+	pub const UnsignedPriority: u64 = 1 << 20;
+}
+
+// impl pallet_offchain_worker::Config for Runtime {
+// 	type Event = Event;
+// 	type AuthorityId = crypto::TestAuthId;
+// 	type Call = Call;
+// 	type GracePeriod = ConstU64<5>;
+// 	type UnsignedInterval = ConstU64<128>;
+// 	type UnsignedPriority = UnsignedPriority;
+// 	type MaxPrices = ConstU32<64>;
+// }
 
 /// The type used to represent the kinds of proxying allowed.
 #[derive(
@@ -519,6 +617,8 @@ construct_runtime!(
 		System: frame_system,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
 		Timestamp: pallet_timestamp,
+		AssetTxPayment: pallet_asset_tx_payment,
+		Indices: pallet_indices,
 		Aura: pallet_aura,
 		Grandpa: pallet_grandpa,
 		Balances: pallet_balances,
@@ -532,6 +632,7 @@ construct_runtime!(
 		Membership: pallet_membership::<Instance1>,
 		Currencies: orml_currencies,
 		Tokens: orml_tokens,
+		// OffchainWorker: pallet_offchain_worker::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );
 

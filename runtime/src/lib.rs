@@ -509,6 +509,13 @@ impl orml_tokens::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type DustRemovalWhitelist = DustRemovalWhitelist;
 }
+
+// Analog pallets
+impl pallet_tesseract_sig_storage::Config for Runtime {
+	type Event = Event;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -532,6 +539,7 @@ construct_runtime!(
 		Membership: pallet_membership::<Instance1>,
 		Currencies: orml_currencies,
 		Tokens: orml_tokens,
+		TesseractSigStorage: pallet_tesseract_sig_storage,
 	}
 );
 
@@ -577,6 +585,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_template, TemplateModule]
+		[pallet_tesseract_sig_storage, TesseractSigStorage]
 	);
 }
 

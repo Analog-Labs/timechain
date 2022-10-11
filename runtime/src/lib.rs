@@ -21,7 +21,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify, Zero, SaturatedConversion
+		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor,
+		SaturatedConversion, Verify, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, MultiSignature, Perquintill, RuntimeDebug,
@@ -34,13 +35,12 @@ use sp_version::RuntimeVersion;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 
-
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU128, ConstU64, ConstU32, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem, Nothing,
-		Randomness, StorageInfo,
+		ConstU128, ConstU32, ConstU64, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem,
+		Nothing, Randomness, StorageInfo,
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -60,10 +60,10 @@ pub use sp_runtime::{Perbill, Permill};
 pub mod constants;
 use constants::{currency::*, time::*};
 
+pub use pallet_offchain_worker;
 /// Import the template pallet.
 pub use pallet_template;
 pub use pallet_transaction;
-pub use pallet_offchain_worker;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -584,6 +584,13 @@ impl orml_tokens::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type DustRemovalWhitelist = DustRemovalWhitelist;
 }
+
+// Analog pallets
+impl pallet_tesseract_sig_storage::Config for Runtime {
+	type Event = Event;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -608,6 +615,7 @@ construct_runtime!(
 		Currencies: orml_currencies,
 		Tokens: orml_tokens,
 		OffchainWorker: pallet_offchain_worker::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		TesseractSigStorage: pallet_tesseract_sig_storage,
 	}
 );
 
@@ -653,6 +661,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_template, TemplateModule]
+		[pallet_tesseract_sig_storage, TesseractSigStorage]
 	);
 }
 

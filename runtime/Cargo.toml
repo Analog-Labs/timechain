@@ -68,6 +68,7 @@ pallet-template = { version = "4.0.0-dev", default-features = false, path = "../
 pallet-membership = { version = "4.0.0-dev", default-features = false, path = "../pallets/membership" }
 pallet-transaction = { version = "1.0.0-dev", default-features = false, path = "../pallets/transaction" }
 pallet-offchain-worker = { version = "4.0.0-dev", default-features = false, path = "../pallets/offchain-worker" }
+pallet-tesseract-sig-storage = {version = "0.1.0", default-features = false, path = "../pallets/tesseract-sig-storage" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.22" }
@@ -91,10 +92,12 @@ std = [
 	"pallet-randomness-collective-flip/std",
 	"pallet-sudo/std",
 	"pallet-template/std",
+	"pallet-tesseract-sig-storage/std",
 	"pallet-transaction/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-membership/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -125,6 +128,7 @@ runtime-benchmarks = [
 	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-template/runtime-benchmarks",
+	"pallet-tesseract-sig-storage/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",

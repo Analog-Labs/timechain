@@ -11,21 +11,17 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use codec::{Decode, Encode};
-	use frame_support::dispatch::DispatchResult;
-	use frame_support::pallet_prelude::*;
-	use frame_support::traits::IsSubType;
-	use frame_support::traits::UnixTime;
+	use frame_support::{
+		dispatch::DispatchResult,
+		pallet_prelude::*,
+		traits::{IsSubType, UnixTime},
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::TypeInfo;
-	use sp_core::Hasher;
-	use sp_core::H256;
-	use sp_core::H512;
+	use sp_core::{Hasher, H256, H512};
 	use sp_runtime::{
 		traits::{BlakeTwo256, DispatchInfoOf, SignedExtension},
 		transaction_validity::{InvalidTransaction, TransactionValidity, TransactionValidityError},

@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::DispatchClass;
+
 use pallet_contracts::weights::WeightInfo;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -20,7 +21,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify, Zero,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor,
+		SaturatedConversion, Verify, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, MultiSignature, Perquintill, RuntimeDebug,
@@ -37,8 +39,8 @@ use orml_traits::parameter_type_with_key;
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem, Nothing,
-		Randomness, StorageInfo,
+		ConstU128, ConstU32, ConstU64, ConstU8, Contains, InstanceFilter, KeyOwnerProofSystem,
+		Nothing, Randomness, StorageInfo,
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -58,9 +60,11 @@ pub use sp_runtime::{Perbill, Permill};
 pub mod constants;
 use constants::{currency::*, time::*};
 
+pub use pallet_offchain_worker;
 /// Import the template pallet.
 pub use pallet_template;
 pub use pallet_transaction;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -342,6 +346,77 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+	Call: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		public: <Signature as sp_runtime::traits::Verify>::Signer,
+		account: AccountId,
+		nonce: Index,
+	) -> Option<(Call, <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+		// Some((call, (nonce, ())))
+
+		let tip = 0;
+		// take the biggest period possible.
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		let current_block = System::block_number()
+			.saturated_into::<u64>()
+			// The `System::block_number` is initialized with `n+1`,
+			// so the actual block number is `n`.
+			.saturating_sub(1);
+		let era = sp_runtime::generic::Era::mortal(period, current_block);
+		let extra = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		);
+		let raw_payload = SignedPayload::new(call, extra)
+			.map_err(|e| {
+				log::warn!("Unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let address = account;
+		let (call, extra, _) = raw_payload.deconstruct();
+		Some((call, (sp_runtime::MultiAddress::Id(address), signature, extra)))
+	}
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	Call: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = Call;
+}
+
+parameter_types! {
+	pub const UnsignedPriority: u64 = 1 << 20;
+}
+
+impl pallet_offchain_worker::Config for Runtime {
+	type Event = Event;
+	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
+	type Call = Call;
+	type GracePeriod = ConstU32<5>;
+	type UnsignedInterval = ConstU32<128>;
+	type UnsignedPriority = UnsignedPriority;
+	type MaxPrices = ConstU32<64>;
+}
+
 /// The type used to represent the kinds of proxying allowed.
 #[derive(
 	Copy,
@@ -539,6 +614,7 @@ construct_runtime!(
 		Membership: pallet_membership::<Instance1>,
 		Currencies: orml_currencies,
 		Tokens: orml_tokens,
+		OffchainWorker: pallet_offchain_worker::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 		TesseractSigStorage: pallet_tesseract_sig_storage,
 	}
 );

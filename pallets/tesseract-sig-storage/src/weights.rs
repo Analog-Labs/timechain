@@ -28,29 +28,66 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+
+//use frame_support::{traits::Get, weights::Weight};
 use frame_support::{traits::Get, weights::{constants::RocksDbWeight,Weight}};
+
 use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_tesseract_sig_storage`.
 
 pub trait WeightInfo {
+	fn add_member() -> Weight;
 	fn store_signature() -> Weight;
+	fn remove_member() -> Weight;
 }
 
 pub struct SigWeightInfo<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
-	// Storage: TesseractSigStorage SignatureStore (r:0 w:1)
-	fn store_signature() -> Weight {
-		(23_155_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
+	// Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
+    fn add_member() -> Weight {
+        Weight::from_ref_time(33_000_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+
+    // Storage: TesseractSigStorage TesseractMembers (r:1 w:0)
+    // Storage: TesseractSigStorage SignatureStore (r:0 w:1)
+    /// The range of component `s` is `[0, 100]`.
+    fn store_signature() -> Weight {
+        Weight::from_ref_time(38_000_000 as u64)
+            // Standard Error: 2_151
+            .saturating_add(Weight::from_ref_time(68_175 as u64).saturating_mul(100 as u64))
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+
+    // Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
+    fn remove_member() -> Weight {
+        Weight::from_ref_time(33_000_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+
+
 }
 
 
 impl WeightInfo for () {
+
+		// Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
+		fn add_member() -> Weight {
+			Weight::from_ref_time(33_000_000 as u64)
+				.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		}
+
 	fn store_signature() -> Weight {
-		(23_155_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(33_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
+
+	   // Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
+	   fn remove_member() -> Weight {
+        Weight::from_ref_time(33_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }

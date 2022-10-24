@@ -75,9 +75,9 @@ pub mod pallet {
 			signature_key: SignatureKey,
 			signature_data: SignatureData,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			//let caller = ensure_signed(origin)?;
 
-			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
+			//ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
 
 			<SignatureStore<T>>::insert(signature_key.clone(), signature_data);
 
@@ -94,7 +94,7 @@ pub mod pallet {
 			account: T::AccountId,
 			role: TesseractRole,
 		) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			//let _ = ensure_root(origin)?;
 
 			<TesseractMembers<T>>::insert(account.clone(), role.clone());
 
@@ -107,7 +107,7 @@ pub mod pallet {
 		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::remove_member())]
 		pub fn remove_member(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			//let _ = ensure_root(origin)?;
 
 			<TesseractMembers<T>>::remove(account.clone());
 

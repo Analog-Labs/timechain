@@ -1,8 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{inherent::Vec, PartialEqNoBound};
+use frame_support::{ PartialEqNoBound};
 use scale_info::TypeInfo;
-use sp_std::fmt::Debug;
-
+use sp_std::prelude::*;
 /// type that uniquely identify a signature data
 pub type SignatureKey = Vec<u8>;
 

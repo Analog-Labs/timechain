@@ -24,6 +24,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+pub use runtime_common::constants;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -236,6 +237,7 @@ impl pallet_timestamp::Config for Runtime {
 
 /// Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u128 = 500;
+
 
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;

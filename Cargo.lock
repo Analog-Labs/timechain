@@ -5072,6 +5072,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "runtime-common"
+version = "1.0.0"
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7530,6 +7534,7 @@ dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "runtime-common",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -7583,6 +7588,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "runtime-common",
  "scale-info",
  "sp-api",
  "sp-block-builder",

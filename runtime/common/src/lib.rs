@@ -3,10 +3,11 @@
 pub mod constants {
 
 	pub type Balance = u128;
-	pub const TOCK: Balance = 100_000_000;
-	pub const MICROANLOG: Balance = 1_00 * TOCK;
-	pub const MILLIANLOG: Balance = 1_000 * MICROANLOG;
-	pub const ANLOG: Balance = 1_000 * MILLIANLOG;
+
+	pub const ANLOG: Balance = 100_000_000;
+	pub const MILLIANLOG: Balance = ANLOG / 1000;
+	pub const MICROANLOG: Balance = MILLIANLOG / 1000;
+	pub const TOCK: Balance = MICROANLOG / 100;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		items as Balance * 15 * MICROANLOG + (bytes as Balance) * 6 * MICROANLOG

@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use timechain_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::BlockBackend;
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 pub use sc_executor::NativeElseWasmExecutor;
@@ -10,6 +9,7 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
+use timechain_runtime::{self, opaque::Block, RuntimeApi};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;

@@ -37,7 +37,55 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
-pub fn development_config() -> Result<ChainSpec, String> {
+/// Generate a default spec for the Analog live chain (Prod).
+pub fn analog_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Analog live wasm not available".to_string())?;
+
+	// Give your base currency a unit name and decimal places
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "ANLOG".into());
+	properties.insert("tokenDecimals".into(), 8.into());
+	properties.insert("ss58Format".into(), 42.into());
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Analog Live",
+		// ID
+		"Prod",
+		ChainType::Live,
+		move || {
+			testnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities
+				vec![authority_keys_from_seed("Alice")],
+				// Sudo account
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Pre-funded accounts
+				vec![
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				],
+				true,
+			)
+		},
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		None,
+		None,
+		// Properties
+		None,
+		// Extensions
+		None,
+	))
+}
+
+/// Generate a chain spec for Analog development chain.
+pub fn analog_development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
@@ -83,7 +131,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	))
 }
 
-pub fn local_testnet_config() -> Result<ChainSpec, String> {
+/// Generate a chain spec for Analog testnet chain.
+pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places

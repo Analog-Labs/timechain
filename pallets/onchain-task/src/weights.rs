@@ -38,7 +38,7 @@ use sp_std::marker::PhantomData;
 
 pub trait WeightInfo {
 	fn add_task() -> Weight;
-	fn store_onchain_data() -> Weight;
+	fn store_onchain_task() -> Weight;
 	fn remove_task() -> Weight;
 }
 
@@ -54,7 +54,7 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
     // Storage: OnChainTask TesseractMembers (r:1 w:0)
     // Storage: OnChainTask SignatureStore (r:0 w:1)
     /// The range of component `s` is `[0, 100]`.
-    fn store_onchain_data() -> Weight {
+    fn store_onchain_task() -> Weight {
         Weight::from_ref_time(38_000_000 as u64)
             // Standard Error: 2_151
             .saturating_add(Weight::from_ref_time(68_175 as u64).saturating_mul(100 as u64))
@@ -80,7 +80,7 @@ impl WeightInfo for () {
 				.saturating_add(RocksDbWeight::get().writes(1 as u64))
 		}
 
-	fn store_onchain_data() -> Weight {
+	fn store_onchain_task() -> Weight {
 		Weight::from_ref_time(33_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

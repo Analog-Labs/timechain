@@ -41,23 +41,14 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, T::AccountId, TesseractTask, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn onchain_task_store)]
+	#[pallet::getter(fn task_store)]
 	pub type OnchainTaskStore<T: Config> =
-		StorageMap<
-					_, Blake2_128Concat,
-					ChainKey, Chain,
-					ChainEndpoint, Exchange, 
-					ExchangeAddress, ExchangeEndpoint, 
-					Token, TokenAddress, TokenEndpoint, 
-					SwapToken, SwapTokenAddress, SwapTokenEndpoint, 
-					OptionQuery
-				>;
+		StorageMap<_, Blake2_128Concat, ChainKey, ChainData, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The event data for stored onchain data
-		/// the chain id that uniquely identify the chain data
+		/// The chain id that uniquely identify the chain data
 		OnchainDataStored(ChainKey),
 
 		/// A tesseract task has been added
@@ -77,34 +68,19 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing onchain data
 		#[pallet::weight(
-			T::WeightInfo::store_onchain_data()
+			T::WeightInfo::store_onchain_task()
 		)]
-		pub fn store_onchain_data(
+		pub fn store_onchain_task(
 			origin: OriginFor<T>,
 			chain_key: ChainKey,
-			chain: Chain,
-			chain_endpoint: ChainEndpoint,
-			exchange: Exchange,
-			exchange_address: ExchangeAddress,
-			exchange_endpoint: ExchangeEndpoint,
-			token: Token,
-			token_address: TokenAddress,
-			token_endpoint: TokenEndpoint,
-			swap_token: SwapToken,
-			swap_token_address: SwapTokenAddress,
-			swap_token_endpoint: SwapTokenEndpoint,
+			chain_data: ChainData,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			ensure!(TesseractTaskAdded::<T>::contains_key(caller), Error::<T>::UnknownTask);
+			ensure!(TesseractTasks::<T>::contains_key(caller), Error::<T>::UnknownTask);
 
 			<OnchainTaskStore<T>>::insert(
-				chain_key.clone(), chain.clone(), 
-				chain_endpoint.clone(), exchange.clone(), 
-				exchange_address.clone(), exchange_endpoint.clone(), 
-				token.clone(), token_address.clone(), 
-				token_endpoint.clone(), swap_token.clone(), 
-				swap_token_address.clone(), swap_token_endpoint.clone()
+				chain_key.clone(), chain_data.clone(),
 			);
 
 			Self::deposit_event(Event::OnchainDataStored(chain_key));
@@ -131,7 +107,7 @@ pub mod pallet {
 		/// Extrinsic for adding a node's task
 		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::remove_task())]
-		pub fn remove_task(account: T::AccountId) -> DispatchResult {
+		pub fn remove_task(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			_ = ensure_root(origin)?;
 
 			<TesseractTasks<T>>::remove(account.clone());

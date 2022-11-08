@@ -1,3 +1,4 @@
+use hex_literal::hex;
 use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -11,6 +12,17 @@ use timechain_runtime::{
 
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
+
+/// Total supply of token is 90_570_710.
+/// Initially we are distributing the total supply to the multiple accounts which is representing
+/// its category pool which we will update in later part of development.
+const SEED_ROUND_SUPPLY: Balance = ANLOG * 24_275_362;
+const TEAM_SUPPLY: Balance = ANLOG * 17_210_144;
+const PUBLIC_SALE_SUPPLY: Balance = ANLOG * 1_449_275;
+const TREASURY_SUPPLY: Balance = ANLOG * 13_224_637;
+const COMMUNITY_SUPPLY: Balance = ANLOG * 27_173_913;
+const DEVELOPER_SUPPLY: Balance = ANLOG * 4_528_989;
+const BOUNTY_PROGRAM_SUPPLY: Balance = ANLOG * 2_717_391;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -65,10 +77,41 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+					(
+						hex!["88fd77d706e168d78713a6a927c1ddfae367b081fb2829b119bbcc6db9af401d"]
+							.into(),
+						SEED_ROUND_SUPPLY,
+					),
+					(
+						hex!["04063fc1cbba917ced6c45091bf631de6a4db584dd55c1d67431661a5d57a575"]
+							.into(),
+						TEAM_SUPPLY,
+					),
+					(
+						hex!["b2e1b641dad4cac54938a00db749e135e95a4781cf4bc52aaac7b833fbb5cd0a"]
+							.into(),
+						PUBLIC_SALE_SUPPLY,
+					),
+					(
+						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
+							.into(),
+						TREASURY_SUPPLY,
+					),
+					(
+						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
+							.into(),
+						COMMUNITY_SUPPLY,
+					),
+					(
+						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
+							.into(),
+						DEVELOPER_SUPPLY,
+					),
+					(
+						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
+							.into(),
+						BOUNTY_PROGRAM_SUPPLY,
+					),
 				],
 				true,
 			)
@@ -112,10 +155,41 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+					(
+						hex!["88fd77d706e168d78713a6a927c1ddfae367b081fb2829b119bbcc6db9af401d"]
+							.into(),
+						SEED_ROUND_SUPPLY,
+					),
+					(
+						hex!["04063fc1cbba917ced6c45091bf631de6a4db584dd55c1d67431661a5d57a575"]
+							.into(),
+						TEAM_SUPPLY,
+					),
+					(
+						hex!["b2e1b641dad4cac54938a00db749e135e95a4781cf4bc52aaac7b833fbb5cd0a"]
+							.into(),
+						PUBLIC_SALE_SUPPLY,
+					),
+					(
+						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
+							.into(),
+						TREASURY_SUPPLY,
+					),
+					(
+						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
+							.into(),
+						COMMUNITY_SUPPLY,
+					),
+					(
+						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
+							.into(),
+						DEVELOPER_SUPPLY,
+					),
+					(
+						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
+							.into(),
+						BOUNTY_PROGRAM_SUPPLY,
+					),
 				],
 				true,
 			)
@@ -159,18 +233,18 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), 2000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), 10000000),
+					(get_account_id_from_seed::<sr25519::Public>("Eve"), 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 10000000),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1000),
+					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1000),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1000),
 				],
 				true,
 			)
@@ -194,20 +268,17 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
-	const TOTAL_SUPPLY: u128 = 90_579_710;
-	const TOTAL_TOKEN: u128 = ANLOG * TOTAL_SUPPLY;
-
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
 			code: wasm_binary.to_vec(),
 		},
 		balances: BalancesConfig {
-			// Configure endowed accounts with initial balance of 90580000
-			balances: endowed_accounts.iter().cloned().map(|aid| (aid, TOTAL_TOKEN)).collect(),
+			// Configure pool accounts with its initial supply.
+			balances: endowed_accounts,
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),

@@ -1,4 +1,4 @@
-use runtime_common::constants::ANLOG;
+use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
@@ -8,6 +8,9 @@ use timechain_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
 	SystemConfig, WASM_BINARY,
 };
+
+const TOKEN_SYMBOL: &str = "ANLOG";
+const SS_58_FORMAT: u32 = 51;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -43,15 +46,15 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ANLOG".into());
-	properties.insert("tokenDecimals".into(), 8.into());
-	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
+	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Analog Live",
 		// ID
-		"Prod",
+		"prod",
 		ChainType::Live,
 		move || {
 			testnet_genesis(
@@ -90,9 +93,9 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ANLOG".into());
-	properties.insert("tokenDecimals".into(), 8.into());
-	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
+	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -137,9 +140,9 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ANLOG".into());
-	properties.insert("tokenDecimals".into(), 8.into());
-	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
+	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -194,7 +197,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
-	const TOTAL_SUPPLY: u128 = 90_580_000;
+	const TOTAL_SUPPLY: u128 = 90_579_710;
 	const TOTAL_TOKEN: u128 = ANLOG * TOTAL_SUPPLY;
 
 	GenesisConfig {

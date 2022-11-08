@@ -4,10 +4,14 @@ use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
 
-/// types that uniquely identify a chain
-/// types for storing chain data
-pub type ChainKey = Vec<u8>;
-pub type ChainData = Vec<u8>;
+// Struct for holding Onchain Task information.
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
+pub struct OnchainTaskData<Hash>{
+    pub id: Hash,
+    pub chain_data: Vec<u8>,
+    pub methods:Vec<u8>,
+}
+    
 
 
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
@@ -15,12 +19,15 @@ pub enum TesseractTask {
     AddChain,
 	FetchEvents,
     AddTokens,
-    SwapTokens,
+    OnChainTask,
 }
+
+
 
 impl Default for TesseractTask {
     fn default() -> Self{
         TesseractTask::AddChain
     }
 }
+
 

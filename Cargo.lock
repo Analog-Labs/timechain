@@ -3949,10 +3949,12 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

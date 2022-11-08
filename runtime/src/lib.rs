@@ -277,6 +277,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 impl onchain_task_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type TaskRandomness = RandomnessCollectiveFlip;
 }
 
 

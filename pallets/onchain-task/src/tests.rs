@@ -32,21 +32,26 @@ fn removing_tesseract_task() {
 
 #[test]
 fn storing_and_get_chain_key() {
-	let chain_key: ChainKey = "chain_key_1".as_bytes().to_owned();
-	let chain_data: ChainData = "this_is_the_chain_data".as_bytes().to_owned();
+	let chain_data = "this_is_the_chain_data".as_bytes().to_owned();
+	let chain_methods = "this_is_the_chain_method".as_bytes().to_owned();
 
 	new_test_ext().execute_with(|| {
 		// We first add the Task with root privilege
 		assert_ok!(OnChainTask::add_task(RawOrigin::Root.into(), 1, TesseractTask::AddChain));
+		//let account = AccountKeyring::Alice.to_account_id().;
+		let random_hash = OnChainTask::random_hash(&1);
+		let stored_chain_data = OnchainTaskData{
+			id: random_hash.clone(),
+			chain_data: chain_data.clone(),
+			methods: chain_methods.clone(),
+		};
 
 		// Call the store task signature extrinsic
 		assert_ok!(OnChainTask::store_onchain_task(
 			RawOrigin::Signed(1).into(),
-			chain_key.clone(),
-			chain_data.clone(),
+			stored_chain_data.clone(),
 		));
-
 		// Retreiving the signature stored via it's key and assert the result.
-		assert_eq!(OnChainTask::task_store(chain_key), Some(chain_data));
+		assert_eq!(OnChainTask::task_store(stored_chain_data.id), Some(stored_chain_data));
 	});
 }

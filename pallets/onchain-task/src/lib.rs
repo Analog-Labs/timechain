@@ -20,7 +20,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::{Randomness, IsType};
-	use sp_core::H256;
 	use frame_support::sp_runtime::traits::Hash;
 	use crate::weights::WeightInfo;
 
@@ -91,14 +90,20 @@ pub mod pallet {
 		)]
 		pub fn store_onchain_task(
 			origin: OriginFor<T>,
-			chain_data: OnchainTaskData<T::Hash>,
+			chain_data: ChainData,
+			methods: Methods,	
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			let random_hash = Self::random_hash(&caller.clone());
 			ensure!(TesseractTasks::<T>::contains_key(caller.clone()), Error::<T>::UnknownTask);
+			let onchain_task = OnchainTaskData {
+				id: random_hash,
+				chain_data,
+				methods,
+			};
 
 			<OnchainTaskStore<T>>::insert(
-				random_hash, chain_data.clone(),
+				random_hash, onchain_task.clone(),
 			);
 
 			Self::deposit_event(Event::OnchainDataStored(caller.clone(), random_hash));
@@ -107,14 +112,13 @@ pub mod pallet {
 		}
 
 		/// Extrinsic for adding a node's task
-		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::add_task())]
 		pub fn add_task(
 			origin: OriginFor<T>,
 			account: T::AccountId,
 			task: TesseractTask,
 		) -> DispatchResult {
-			_ = ensure_root(origin)?;
+			_ = ensure_signed(origin)?;
 			<TesseractTasks<T>>::insert(account.clone(), task.clone());
 
 			Self::deposit_event(Event::TesseractTaskAdded(account, task));
@@ -123,10 +127,9 @@ pub mod pallet {
 		}
 
 		/// Extrinsic for adding a node's task
-		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::remove_task())]
 		pub fn remove_task(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			_ = ensure_root(origin)?;
+			_ = ensure_signed(origin)?;
 
 			<TesseractTasks<T>>::remove(account.clone());
 

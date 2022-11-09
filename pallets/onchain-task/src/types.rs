@@ -4,14 +4,17 @@ use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
 /// type that uniquely identify a chain data
+pub type ChainId = Vec<u8>;
+
+/// type that uniquely identify a chain data
 pub type ChainData = Vec<u8>;
 
 /// The type representing a methods
 pub type Methods = Vec<u8>;
 // Struct for holding Onchain Task information.
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct OnchainTaskData<Hash>{
-    pub id: Hash,
+pub struct OnchainTaskData{
+    pub chain_id: ChainId,
     pub chain_data: ChainData,
     pub methods: Methods,
 }

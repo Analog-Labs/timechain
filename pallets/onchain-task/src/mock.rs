@@ -18,6 +18,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
+		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
 		OnChainTask: onchain_task_pallet::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -49,10 +50,12 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl pallet_randomness_collective_flip::Config for Test {}
 
 impl onchain_task_pallet::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type TaskRandomness = RandomnessCollectiveFlip;
 }
 
 // Build genesis storage according to the mock runtime.

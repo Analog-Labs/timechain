@@ -1,5 +1,6 @@
 use super::mock::*;
 use crate::types::*;
+use core::hash;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
@@ -38,6 +39,7 @@ fn storing_and_get_chain_data() {
 		assert_ok!(OnChainTask::add_task(RawOrigin::Signed(1).into(), 1, TesseractTask::AddChain));
 		// let account_id: u64 = 0;
 		// Call the store task signature extrinsic
+		let hash = OnChainTask::random_hash(&1);
 		let onchain_task = OnchainTaskData {
 			chain_id: chain_id.clone(),
 			chain_data: chain_data.clone(),
@@ -45,11 +47,12 @@ fn storing_and_get_chain_data() {
 		};
 		assert_ok!(OnChainTask::store_onchain_task(
 			RawOrigin::Signed(1).into(),
+			hash.clone(),
 			chain_id.clone(),
 			chain_data.clone(),
 			chain_methods.clone(),
 		));
 		// Retreiving the signature stored via it's key and assert the result.
-		assert_eq!(OnChainTask::task_store(chain_id), Some(onchain_task.clone()));
+		assert_eq!(OnChainTask::task_store(hash), Some(onchain_task.clone()));
 	});
 }

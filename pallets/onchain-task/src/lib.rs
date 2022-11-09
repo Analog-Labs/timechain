@@ -17,9 +17,11 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+
+use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::IsType;
+	use frame_support::traits::{Randomness, IsType};
+	use frame_support::sp_runtime::traits::Hash;
 	use crate::weights::WeightInfo;
 
 
@@ -35,15 +37,12 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type TaskRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_nonce)]
-	pub(super) type Nonce<T: Config> = StorageValue<
-	_,
-	u64,
-	ValueQuery
-	>;
+	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tesseract_tasks)]
@@ -53,13 +52,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, ChainId, OnchainTaskData, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::Hash, OnchainTaskData, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The chain id that uniquely identify the chain data
-		OnchainDataStored(T::AccountId, ChainData),
+		OnchainDataStored(T::Hash, OnchainTaskData),
 
 		/// A tesseract task has been added
 		TesseractTaskAdded(T::AccountId, TesseractTask),
@@ -87,6 +86,7 @@ pub mod pallet {
 		)]
 		pub fn store_onchain_task(
 			origin: OriginFor<T>,
+			hash: T::Hash,
 			chain_id: ChainId,
 			chain_data: ChainData,
 			methods: Methods,	
@@ -100,10 +100,10 @@ pub mod pallet {
 			};
 
 			<OnchainTaskStore<T>>::insert(
-				chain_id.clone(), onchain_task.clone(),
+				hash, onchain_task.clone(),
 			);
 
-			Self::deposit_event(Event::OnchainDataStored(caller.clone(), chain_data.clone()));
+			Self::deposit_event(Event::OnchainDataStored(hash, onchain_task.clone()));
 
 			Ok(())
 		}
@@ -134,6 +134,25 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+
+	impl<T: Config> Pallet<T>{
+		/// Helper function to add a tesseract task
+        fn increment_nonce() -> DispatchResult{
+			<Nonce<T>>::try_mutate(|nonce|{
+				let next = nonce.checked_add(1).ok_or(Error::<T>::NonceOverflow)?;
+				*nonce = next;
+				Ok(().into())
+			})
+		}
+
+        pub fn random_hash(sender: &T::AccountId) -> T::Hash{
+			let nonce = <Nonce<T>>::get();
+			let seed = T::TaskRandomness::random_seed();
+			
+			T::Hashing::hash_of(&(seed, sender, nonce))
+		}
+
 	}
 
 }

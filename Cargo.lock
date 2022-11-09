@@ -4176,7 +4176,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-vesting"
+name = "pallet-utility"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
@@ -4186,6 +4186,10 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -7622,7 +7626,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-vesting",
+ "pallet-utility",
  "parity-scale-codec",
  "runtime-common",
  "scale-info",

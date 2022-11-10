@@ -71,7 +71,7 @@ pub mod pallet {
 			chain: SupportedChain,
 			chain_id: ChainId,
 			chain_data: ChainData,
-			methods: TaskMethod,
+			method: TaskMethod,
 			task: ChainTask,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
@@ -79,7 +79,7 @@ pub mod pallet {
 			let onchain_task = OnchainTaskData {
 				chain_id: chain_id.clone(),
 				chain_data: chain_data.clone(),
-				methods,
+				method,
 				task,
 			};
 			onchain_data.push(onchain_task.clone());

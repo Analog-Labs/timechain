@@ -20,7 +20,7 @@ fn storing_and_get_chain_data() {
 	let onchain_task = OnchainTaskData {
 		chain_id: chain_id.clone(),
 		chain_data: chain_data.clone(),
-		methods: task_methods.clone(),
+		method: task_methods.clone(),
 		task: new_task.clone(),
 	};
 	task.push(onchain_task);

@@ -9,7 +9,7 @@ pub type ChainId = Vec<u8>;
 /// type that uniquely identify a chain data
 pub type ChainData = Vec<u8>;
 
-/// The type representing a methods
+/// The type representing a method
 pub type MethodName = Vec<u8>;
 pub type MethodArguments = Vec<u8>;
 // Struct for holding Onchain Task information.
@@ -17,7 +17,7 @@ pub type MethodArguments = Vec<u8>;
 pub struct OnchainTaskData{
     pub chain_id: ChainId,
     pub chain_data: ChainData,
-    pub methods: TaskMethod,
+    pub method: TaskMethod,
     pub task: ChainTask,
 }
 

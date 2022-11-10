@@ -21,7 +21,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
-	use frame_support::traits::{Randomness, IsType};
+	use frame_support::traits::IsType;
 	use crate::weights::WeightInfo;
 
 
@@ -38,12 +38,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type TaskRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 	}
-
-	#[pallet::storage]
-	#[pallet::getter(fn get_nonce)]
-	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tesseract_tasks)]
@@ -53,13 +48,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, ChainId, Vec<OnchainTaskData>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The chain id that uniquely identify the chain data
-		OnchainTaskStored(ChainId, Vec<OnchainTaskData>),
+		OnchainTaskStored(SupportedChain, Vec<OnchainTaskData>),
 
 		/// A supported chain has been added
 		SupportedChainAdded(T::AccountId, SupportedChain),
@@ -71,11 +66,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The Tesseract task is not known
+		/// The chain is not known
 		UnknownChain,
-
-		/// Nonce has overflowed past u64 limits
-		NonceOverflow,
 	}
 
 
@@ -87,11 +79,13 @@ pub mod pallet {
 		)]
 		pub fn store_onchain_task(
 			origin: OriginFor<T>,
+			chain: SupportedChain,
 			chain_id: ChainId,
 			chain_data: ChainData,
 			methods: Methods,	
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
+
 			ensure!(SupportedChains::<T>::contains_key(caller.clone()), Error::<T>::UnknownChain);
 			let mut onchain_data = Vec::new();
 			let onchain_task = OnchainTaskData {
@@ -101,10 +95,10 @@ pub mod pallet {
 			};
 			onchain_data.push(onchain_task.clone());
 			<OnchainTaskStore<T>>::append(
-				chain_id.clone(), onchain_task.clone(),
+				chain.clone(), onchain_task.clone(),
 			);
 
-			Self::deposit_event(Event::OnchainTaskStored(chain_id.clone(), onchain_data.clone()));
+			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), onchain_data.clone()));
 
 			Ok(())
 		}

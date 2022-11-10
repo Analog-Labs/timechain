@@ -18,10 +18,9 @@ fn storing_and_get_chain_data() {
 		arguments: chain_arguments,
 	};
 	let onchain_task = OnchainTaskData {
-		chain_id: chain_id.clone(),
+		task: new_task.clone(),
 		chain_data: chain_data.clone(),
 		method: task_methods.clone(),
-		task: new_task.clone(),
 	};
 	task.push(onchain_task);
 
@@ -30,12 +29,13 @@ fn storing_and_get_chain_data() {
 		assert_ok!(OnChainTask::store_onchain_task(
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
+			new_task.clone(),
 			chain_id.clone(),
 			chain_data.clone(),
 			task_methods.clone(),
-			new_task.clone(),
+
 		));
 		// Retreiving the task stored via it's key and assert the result.
-		assert_eq!(OnChainTask::task_store(chain.clone()), Some(task.clone()));
+		assert_eq!(OnChainTask::task_store(chain_id.clone(), chain.clone()), Some(task.clone()));
 	});
 }

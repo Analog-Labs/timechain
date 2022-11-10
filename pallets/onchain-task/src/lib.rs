@@ -43,13 +43,16 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>, OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, ChainId, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The chain id that uniquely identify the chain data
-		OnchainTaskStored(SupportedChain, Vec<OnchainTaskData>),
+		OnchainTaskStored(SupportedChain, ChainId, Vec<OnchainTaskData>),
+
+		/// Remove on chain task
+		OnchainTaskRemoved(ChainId),
 		
 	}
 
@@ -69,25 +72,24 @@ pub mod pallet {
 		pub fn store_onchain_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,
+			task: ChainTask,
 			chain_id: ChainId,
 			chain_data: ChainData,
-			method: TaskMethod,
-			task: ChainTask,	
+			method: TaskMethod,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let mut onchain_data = Vec::new();
 			let onchain_task = OnchainTaskData {
-				chain_id: chain_id.clone(),
+				task,
 				chain_data: chain_data.clone(),
 				method,
-				task,
 			};
 			onchain_data.push(onchain_task.clone());
 			<OnchainTaskStore<T>>::append(
-				chain.clone(), onchain_task.clone(),
+				chain_id.clone(), chain.clone(), onchain_task.clone(),
 			);
 
-			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), onchain_data.clone()));
+			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), chain_id.clone(), onchain_data.clone()));
 
 			Ok(())
 		}

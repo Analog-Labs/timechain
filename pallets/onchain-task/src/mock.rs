@@ -18,7 +18,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		OnChainTask: onchain_task_pallet::{Pallet, Call, Storage, Event<T>},
+		OnChainTask: onchain_task_pallet,
 	}
 );
 

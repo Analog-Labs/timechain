@@ -3,10 +3,11 @@ use frame_support::PartialEqNoBound;
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
-/// type that uniquely identify a chain data
+/// type that uniquely identify a chain_id
+/// 
 pub type ChainId = Vec<u8>;
 
-/// type that uniquely identify a chain data
+/// type that uniquely identify a chain_data
 pub type ChainData = Vec<u8>;
 
 /// The type representing a method
@@ -15,10 +16,9 @@ pub type MethodArguments = Vec<u8>;
 // Struct for holding Onchain Task information.
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
 pub struct OnchainTaskData{
-    pub chain_id: ChainId,
+    pub task: ChainTask,
     pub chain_data: ChainData,
     pub method: TaskMethod,
-    pub task: ChainTask,
 }
 
 // Struct for holding Task Methods.

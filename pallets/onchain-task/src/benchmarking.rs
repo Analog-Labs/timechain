@@ -10,20 +10,12 @@ use crate::{types::*};
 
 benchmarks! {
 
-	add_chain {
-		let tesseract: T::AccountId = whitelisted_caller();
-	}: _(tesseract.clone(), TesseractTask::AddChain)
-	verify {
-		assert_eq!(TesseractTasks::<T>::get(tesseract), Some(TesseractTask::AddChain));
-	}
 
 	store_onchain_task {
 
 		let s in 0 .. 100;
 
 		let tesseract: T::AccountId = whitelisted_caller();
-
-		TesseractTasks::<T>::insert(tesseract.clone(), TesseractTask::AddChain);
 
 		let chain_key =
 			format!("{}{}","chain_key_".to_owned(),s).as_bytes().to_owned();
@@ -37,12 +29,7 @@ benchmarks! {
 		assert_eq!(OnchainTaskStore::<T>::get(chain_key), Some(chain_data));
 	}
 
-	remove_chain {
-		let tesseract: T::AccountId = whitelisted_caller();
-	}: _(RawOrigin::Root, tesseract.clone())
-	verify {
-		assert_eq!(TesseractTasks::<T>::get(tesseract), None);
-	}
+
 
 	impl_benchmark_test_suite!(OnChainTask, crate::mock::new_test_ext(), crate::mock::Test);
 }

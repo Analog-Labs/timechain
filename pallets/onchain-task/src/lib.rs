@@ -41,11 +41,6 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn tesseract_tasks)]
-	pub type SupportedChains<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, SupportedChain, OptionQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
 		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>, OptionQuery>;
@@ -55,12 +50,6 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The chain id that uniquely identify the chain data
 		OnchainTaskStored(SupportedChain, Vec<OnchainTaskData>),
-
-		/// A supported chain has been added
-		SupportedChainAdded(T::AccountId, SupportedChain),
-
-		/// A supported chain has been removed
-		SupportedChainRemoved(T::AccountId),
 		
 	}
 
@@ -82,11 +71,9 @@ pub mod pallet {
 			chain: SupportedChain,
 			chain_id: ChainId,
 			chain_data: ChainData,
-			methods: Methods,	
+			methods: TaskMethod,	
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
-
-			ensure!(SupportedChains::<T>::contains_key(caller.clone()), Error::<T>::UnknownChain);
+			let _caller = ensure_signed(origin)?;
 			let mut onchain_data = Vec::new();
 			let onchain_task = OnchainTaskData {
 				chain_id: chain_id.clone(),
@@ -103,32 +90,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Extrinsic for adding a node's task
-		#[pallet::weight(T::WeightInfo::add_chain())]
-		pub fn add_chain(
-			origin: OriginFor<T>,
-			account: T::AccountId,
-			task: SupportedChain,
-		) -> DispatchResult {
-			_ = ensure_signed(origin)?;
-			<SupportedChains<T>>::insert(account.clone(), task.clone());
 
-			Self::deposit_event(Event::SupportedChainAdded(account, task));
-
-			Ok(())
-		}
-
-		/// Extrinsic for adding a node's task
-		#[pallet::weight(T::WeightInfo::remove_chain())]
-		pub fn remove_chain(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			_ = ensure_signed(origin)?;
-
-			<SupportedChains<T>>::remove(account.clone());
-
-			Self::deposit_event(Event::SupportedChainRemoved(account));
-
-			Ok(())
-		}
 	}
 
 }

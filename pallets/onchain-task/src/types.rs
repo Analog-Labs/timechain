@@ -22,18 +22,18 @@ pub struct OnchainTaskData{
 
 
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
-pub enum TesseractTask {
-    AddChain,
-	FetchEvents,
-    AddTokens,
-    RunTask,
+pub enum SupportedChain {
+    Cosmos,
+	Ethereum,
+    Polkadot,
+    Timechain,
 }
 
 
 
-impl Default for TesseractTask {
+impl Default for SupportedChain {
     fn default() -> Self{
-        TesseractTask::AddChain
+        SupportedChain::Timechain
     }
 }
 

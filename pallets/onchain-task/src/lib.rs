@@ -18,11 +18,12 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 
-use frame_support::pallet_prelude::*;
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_std::prelude::*;
 	use frame_support::traits::{Randomness, IsType};
-	use frame_support::sp_runtime::traits::Hash;
 	use crate::weights::WeightInfo;
+
 
 
 
@@ -46,32 +47,32 @@ use frame_support::pallet_prelude::*;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tesseract_tasks)]
-	pub type TesseractTasks<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, TesseractTask, OptionQuery>;
+	pub type SupportedChains<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, SupportedChain, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::Hash, OnchainTaskData, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ChainId, Vec<OnchainTaskData>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The chain id that uniquely identify the chain data
-		OnchainDataStored(T::Hash, OnchainTaskData),
+		OnchainTaskStored(ChainId, Vec<OnchainTaskData>),
 
-		/// A tesseract task has been added
-		TesseractTaskAdded(T::AccountId, TesseractTask),
+		/// A supported chain has been added
+		SupportedChainAdded(T::AccountId, SupportedChain),
 
-		/// A tesseract task removed
-		TesseractTaskRemoved(T::AccountId),
+		/// A supported chain has been removed
+		SupportedChainRemoved(T::AccountId),
 		
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The Tesseract task is not known
-		UnknownTask,
+		UnknownChain,
 
 		/// Nonce has overflowed past u64 limits
 		NonceOverflow,
@@ -86,73 +87,54 @@ use frame_support::pallet_prelude::*;
 		)]
 		pub fn store_onchain_task(
 			origin: OriginFor<T>,
-			hash: T::Hash,
 			chain_id: ChainId,
 			chain_data: ChainData,
 			methods: Methods,	
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(TesseractTasks::<T>::contains_key(caller.clone()), Error::<T>::UnknownTask);
+			ensure!(SupportedChains::<T>::contains_key(caller.clone()), Error::<T>::UnknownChain);
+			let mut onchain_data = Vec::new();
 			let onchain_task = OnchainTaskData {
 				chain_id: chain_id.clone(),
 				chain_data: chain_data.clone(),
 				methods,
 			};
-
-			<OnchainTaskStore<T>>::insert(
-				hash, onchain_task.clone(),
+			onchain_data.push(onchain_task.clone());
+			<OnchainTaskStore<T>>::append(
+				chain_id.clone(), onchain_task.clone(),
 			);
 
-			Self::deposit_event(Event::OnchainDataStored(hash, onchain_task.clone()));
+			Self::deposit_event(Event::OnchainTaskStored(chain_id.clone(), onchain_data.clone()));
 
 			Ok(())
 		}
 
 		/// Extrinsic for adding a node's task
-		#[pallet::weight(T::WeightInfo::add_task())]
-		pub fn add_task(
+		#[pallet::weight(T::WeightInfo::add_chain())]
+		pub fn add_chain(
 			origin: OriginFor<T>,
 			account: T::AccountId,
-			task: TesseractTask,
+			task: SupportedChain,
 		) -> DispatchResult {
 			_ = ensure_signed(origin)?;
-			<TesseractTasks<T>>::insert(account.clone(), task.clone());
+			<SupportedChains<T>>::insert(account.clone(), task.clone());
 
-			Self::deposit_event(Event::TesseractTaskAdded(account, task));
+			Self::deposit_event(Event::SupportedChainAdded(account, task));
 
 			Ok(())
 		}
 
 		/// Extrinsic for adding a node's task
-		#[pallet::weight(T::WeightInfo::remove_task())]
-		pub fn remove_task(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::remove_chain())]
+		pub fn remove_chain(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			_ = ensure_signed(origin)?;
 
-			<TesseractTasks<T>>::remove(account.clone());
+			<SupportedChains<T>>::remove(account.clone());
 
-			Self::deposit_event(Event::TesseractTaskRemoved(account));
+			Self::deposit_event(Event::SupportedChainRemoved(account));
 
 			Ok(())
 		}
-	}
-
-	impl<T: Config> Pallet<T>{
-		/// Helper function to add a tesseract task
-        fn increment_nonce() -> DispatchResult{
-			<Nonce<T>>::try_mutate(|nonce|{
-				let next = nonce.checked_add(1).ok_or(Error::<T>::NonceOverflow)?;
-				*nonce = next;
-				Ok(().into())
-			})
-		}
-
-        pub fn random_hash(sender: &T::AccountId) -> T::Hash{
-			let nonce = <Nonce<T>>::get();
-			let seed = T::TaskRandomness::random_seed();
-			
-			T::Hashing::hash_of(&(seed, sender, nonce))
-		}
-
 	}
 
 }

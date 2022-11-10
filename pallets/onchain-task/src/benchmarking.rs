@@ -10,7 +10,7 @@ use crate::{types::*};
 
 benchmarks! {
 
-	add_task {
+	add_chain {
 		let tesseract: T::AccountId = whitelisted_caller();
 	}: _(tesseract.clone(), TesseractTask::AddChain)
 	verify {
@@ -37,7 +37,7 @@ benchmarks! {
 		assert_eq!(OnchainTaskStore::<T>::get(chain_key), Some(chain_data));
 	}
 
-	remove_task {
+	remove_chain {
 		let tesseract: T::AccountId = whitelisted_caller();
 	}: _(RawOrigin::Root, tesseract.clone())
 	verify {

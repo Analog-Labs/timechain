@@ -18,6 +18,7 @@ pub struct OnchainTaskData{
     pub chain_id: ChainId,
     pub chain_data: ChainData,
     pub methods: TaskMethod,
+    pub task: ChainTask,
 }
 
 // Struct for holding Onchain Task information.
@@ -37,6 +38,13 @@ pub enum SupportedChain {
     Timechain,
 }
 
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum ChainTask {
+    SwapToken,
+	FetchEvents,
+    FetchBalance,
+    FetchBlocks,
+}
 
 
 

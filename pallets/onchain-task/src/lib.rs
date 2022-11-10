@@ -71,7 +71,8 @@ pub mod pallet {
 			chain: SupportedChain,
 			chain_id: ChainId,
 			chain_data: ChainData,
-			methods: TaskMethod,	
+			methods: TaskMethod,
+			task: ChainTask,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let mut onchain_data = Vec::new();
@@ -79,6 +80,7 @@ pub mod pallet {
 				chain_id: chain_id.clone(),
 				chain_data: chain_data.clone(),
 				methods,
+				task,
 			};
 			onchain_data.push(onchain_task.clone());
 			<OnchainTaskStore<T>>::append(

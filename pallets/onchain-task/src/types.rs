@@ -21,7 +21,7 @@ pub struct OnchainTaskData{
     pub task: ChainTask,
 }
 
-// Struct for holding Onchain Task information.
+// Struct for holding Task Methods.
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
 pub struct TaskMethod{
     pub name: MethodName,

@@ -37,22 +37,14 @@ use sp_std::marker::PhantomData;
 /// Weight functions for `pallet_tesseract_sig_storage`.
 
 pub trait WeightInfo {
-	fn add_chain() -> Weight;
 	fn store_onchain_task() -> Weight;
-	fn remove_chain() -> Weight;
 }
 
 pub struct TaskWeightInfo<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
-	// Storage: OnChainTask TesseractMembers (r:0 w:1)
-    fn add_chain() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(T::DbWeight::get().writes(1 as u64))
-    }
 
-    // Storage: OnChainTask TesseractMembers (r:1 w:0)
-    // Storage: OnChainTask SignatureStore (r:0 w:1)
+    // Storage: OnChainTask OnchainTaskStore (r:0 w:1)
     /// The range of component `s` is `[0, 100]`.
     fn store_onchain_task() -> Weight {
         Weight::from_ref_time(38_000_000 as u64)
@@ -62,11 +54,6 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
 
-    // Storage: OnChainTask TesseractMembers (r:0 w:1)
-    fn remove_chain() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(T::DbWeight::get().writes(1 as u64))
-    }
 
 
 }
@@ -74,20 +61,9 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
 
 impl WeightInfo for () {
 
-		// Storage: OnChainTask TesseractMembers (r:0 w:1)
-		fn add_chain() -> Weight {
-			Weight::from_ref_time(33_000_000 as u64)
-				.saturating_add(RocksDbWeight::get().writes(1 as u64))
-		}
-
 	fn store_onchain_task() -> Weight {
 		Weight::from_ref_time(33_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
-	   // Storage: OnChainTask TesseractMembers (r:0 w:1)
-	   fn remove_chain() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
-    }
 }

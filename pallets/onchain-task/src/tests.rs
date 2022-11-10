@@ -26,7 +26,7 @@ fn storing_and_get_chain_data() {
 	task.push(onchain_task);
 
 	new_test_ext().execute_with(|| {
-		// Call the store task signature extrinsic
+		// Call the store task  extrinsic
 		assert_ok!(OnChainTask::store_onchain_task(
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
@@ -35,7 +35,7 @@ fn storing_and_get_chain_data() {
 			task_methods.clone(),
 			new_task.clone(),
 		));
-		// Retreiving the signature stored via it's key and assert the result.
+		// Retreiving the task stored via it's key and assert the result.
 		assert_eq!(OnChainTask::task_store(chain.clone()), Some(task.clone()));
 	});
 }

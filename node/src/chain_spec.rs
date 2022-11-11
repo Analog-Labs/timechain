@@ -7,7 +7,7 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use timechain_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	SystemConfig, VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -88,27 +88,27 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 						TEAM_SUPPLY,
 					),
 					(
-						hex!["b2e1b641dad4cac54938a00db749e135e95a4781cf4bc52aaac7b833fbb5cd0a"]
+						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
 							.into(),
 						PUBLIC_SALE_SUPPLY,
 					),
 					(
-						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
+						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
 							.into(),
 						TREASURY_SUPPLY,
 					),
 					(
-						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
+						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
 							.into(),
 						COMMUNITY_SUPPLY,
 					),
 					(
-						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
+						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
 							.into(),
 						DEVELOPER_SUPPLY,
 					),
 					(
-						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
+						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
 							.into(),
 						BOUNTY_PROGRAM_SUPPLY,
 					),
@@ -166,27 +166,27 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 						TEAM_SUPPLY,
 					),
 					(
-						hex!["b2e1b641dad4cac54938a00db749e135e95a4781cf4bc52aaac7b833fbb5cd0a"]
+						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
 							.into(),
 						PUBLIC_SALE_SUPPLY,
 					),
 					(
-						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
+						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
 							.into(),
 						TREASURY_SUPPLY,
 					),
 					(
-						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
+						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
 							.into(),
 						COMMUNITY_SUPPLY,
 					),
 					(
-						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
+						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
 							.into(),
 						DEVELOPER_SUPPLY,
 					),
 					(
-						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
+						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
 							.into(),
 						BOUNTY_PROGRAM_SUPPLY,
 					),
@@ -271,6 +271,18 @@ fn testnet_genesis(
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
+	type VestingPeriod = u32;
+	type LockingPeriod = u32;
+
+	// 	3 months in terms of 6s blocks is 1,296,000 blocks, i.e. period = 1,296,000
+	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
+	// 	ONE_MONTH: u32 = 332_000; // 30 days from block 0, implies 332_000 blocks
+
+	let vesting_accounts_json = &include_bytes!("../../resources/vesting_test.json")[..];
+	let vesting_accounts: Vec<(AccountId, VestingPeriod, LockingPeriod, Balance)> =
+		serde_json::from_slice(vesting_accounts_json)
+			.expect("The file vesting_test.json is not exist or not having valid data.");
+
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -291,6 +303,6 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		vesting: Default::default(),
+		vesting: VestingConfig { vesting: vesting_accounts },
 	}
 }

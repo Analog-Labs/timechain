@@ -43,16 +43,16 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ChainId, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>, OptionQuery, GetDefault, GetDefault>;
+		StorageMap<_, Blake2_128Concat, SupportedChain, OnchainTaskData, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The chain id that uniquely identify the chain data
-		OnchainTaskStored(SupportedChain, Vec<OnchainTaskData>),
+		/// Emitted when the onchain task is stored successfully
+		OnchainTaskStored(SupportedChain, OnchainTaskData),
 
-		/// Remove on chain task
-		OnchainTaskRemoved(ChainId),
+		/// Emitted when the onchain task is removed successfully
+		OnchainTaskRemoved(SupportedChain),
 		
 	}
 
@@ -65,31 +65,22 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing onchain data
+		/// Extrinsic for storing onchain task
 		#[pallet::weight(
 			T::WeightInfo::store_onchain_task()
 		)]
 		pub fn store_onchain_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,
-			task: ChainTask,
-			chain_id: ChainId,
-			chain_data: ChainData,
-			method: TaskMethod,	
+			chain_data: OnchainTaskData,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			let mut onchain_data = Vec::new();
-			let onchain_task = OnchainTaskData {
-				task,
-				chain_data: chain_data.clone(),
-				method,
-			};
-			onchain_data.push(onchain_task.clone());
-			<OnchainTaskStore<T>>::append(
-				chain_id.clone(), chain.clone(), onchain_task.clone(),
+
+			<OnchainTaskStore<T>>::insert(
+				chain.clone(), chain_data.clone(),
 			);
 
-			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), onchain_data.clone()));
+			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), chain_data.clone()));
 
 			Ok(())
 		}
@@ -97,12 +88,12 @@ pub mod pallet {
 		/// Extrinsic for removing onchain task
 		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::remove_onchain_task())]
-		pub fn remove_onchain_task(origin: OriginFor<T>, chain: SupportedChain, chain_id: ChainId,) -> DispatchResult {
+		pub fn remove_onchain_task(origin: OriginFor<T>, chain: SupportedChain) -> DispatchResult {
 			let _ = ensure_root(origin)?;
 
-			<OnchainTaskStore<T>>::remove(chain_id.clone(), chain.clone());
+			<OnchainTaskStore<T>>::remove(chain.clone());
 
-			Self::deposit_event(Event::OnchainTaskRemoved(chain_id.clone()));
+			Self::deposit_event(Event::OnchainTaskRemoved(chain.clone()));
 
 			Ok(())
 		}

@@ -94,6 +94,18 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Extrinsic for removing onchain task
+		/// Callable only by root for now
+		#[pallet::weight(T::WeightInfo::remove_onchain_task())]
+		pub fn remove_onchain_task(origin: OriginFor<T>, chain: SupportedChain, chain_id: ChainId,) -> DispatchResult {
+			let _ = ensure_root(origin)?;
+
+			<OnchainTaskStore<T>>::remove(chain_id.clone(), chain.clone());
+
+			Self::deposit_event(Event::OnchainTaskRemoved(chain_id.clone()));
+
+			Ok(())
+		}
 
 	}
 

@@ -38,6 +38,7 @@ use sp_std::marker::PhantomData;
 
 pub trait WeightInfo {
 	fn store_onchain_task() -> Weight;
+    fn remove_onchain_task() -> Weight;
 }
 
 pub struct TaskWeightInfo<T>(PhantomData<T>);
@@ -54,6 +55,11 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
 
+    // Storage: Onchaintask OnchainTaskStore (r:0 w:1)
+    fn remove_onchain_task() -> Weight {
+        Weight::from_ref_time(33_000_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
 
 
 }
@@ -66,4 +72,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
+	// Storage: Onchaintask OnchainTaskStore (r:0 w:1)
+	fn remove_onchain_task() -> Weight {
+        Weight::from_ref_time(33_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }

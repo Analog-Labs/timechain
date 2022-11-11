@@ -39,3 +39,17 @@ fn storing_and_get_chain_data() {
 		assert_eq!(OnChainTask::task_store(chain_id.clone(), chain.clone()), Some(task.clone()));
 	});
 }
+
+#[test]
+fn it_works_removing_tesseract_member() {
+
+	let chain: SupportedChain = SupportedChain::Timechain;
+	let chain_id: ChainId = "this_is_the_chain_name".as_bytes().to_owned();
+
+	new_test_ext().execute_with(|| {
+		// Call the remove task extrinsic
+		assert_ok!(OnChainTask::remove_onchain_task(RawOrigin::Root.into(), chain.clone(), chain_id.clone()));
+		// Checking that the task has been rmoved
+		assert_eq!(OnChainTask::task_store(chain_id.clone(), chain.clone()), None);
+	});
+}

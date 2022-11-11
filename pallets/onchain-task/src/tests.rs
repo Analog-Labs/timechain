@@ -8,7 +8,7 @@ use frame_system::RawOrigin;
 fn storing_and_get_chain_data() {
 	let chain: SupportedChain = SupportedChain::Timechain;
 	let new_task: ChainTask = ChainTask::SwapToken;
-	let chain_id: ChainId = "this_is_the_chain_name".as_bytes().to_owned();
+	let chain_id: ChainId = "this_is_the_chain_id".as_bytes().to_owned();
 	let chain_data: ChainData = "this_is_the_chain_data".as_bytes().to_owned();
 	let chain_methods: MethodName = "this_is_the_chain_method".as_bytes().to_owned();
 	let chain_arguments: MethodArguments = "this_is_the_chain_arguments".as_bytes().to_owned();
@@ -44,7 +44,7 @@ fn storing_and_get_chain_data() {
 fn it_works_removing_tesseract_member() {
 
 	let chain: SupportedChain = SupportedChain::Timechain;
-	let chain_id: ChainId = "this_is_the_chain_name".as_bytes().to_owned();
+	let chain_id: ChainId = "this_is_the_chain_id".as_bytes().to_owned();
 
 	new_test_ext().execute_with(|| {
 		// Call the remove task extrinsic

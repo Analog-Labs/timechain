@@ -43,13 +43,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ChainId, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>>;
+		StorageDoubleMap<_, Blake2_128Concat, ChainId, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>, OptionQuery, GetDefault, GetDefault>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The chain id that uniquely identify the chain data
-		OnchainTaskStored(SupportedChain, ChainId, Vec<OnchainTaskData>),
+		OnchainTaskStored(SupportedChain, Vec<OnchainTaskData>),
 
 		/// Remove on chain task
 		OnchainTaskRemoved(ChainId),
@@ -89,7 +89,7 @@ pub mod pallet {
 				chain_id.clone(), chain.clone(), onchain_task.clone(),
 			);
 
-			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), chain_id.clone(), onchain_data.clone()));
+			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), onchain_data.clone()));
 
 			Ok(())
 		}

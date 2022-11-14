@@ -5,6 +5,7 @@ use crate::Pallet as OnChainTask;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_std::borrow::ToOwned;
+use scale_info::prelude::format;
 use crate::{types::*};
 use sp_std::prelude::*;
 
@@ -13,23 +14,25 @@ benchmarks! {
 
 	store_onchain_task {
 
+		let s in 0 .. 100;
+
 		let who: T::AccountId = whitelisted_caller();
 		let chain: SupportedChain = SupportedChain::Timechain;
 		let mut task = Vec::new();
 		let mut task_methods = Vec::new();
 		let task_method = TaskMethod {
-			name: "this_is_the_chain_method".as_bytes().to_owned(),
-			arguments: "this_is_the_chain_arguments".as_bytes().to_owned(),
+			name: format!("{}{}", "this_is_the_chain_method", s).as_bytes().to_owned(),
+			arguments: format!("{}{}","this_is_the_chain_arguments", s).as_bytes().to_owned(),
 		};
 		task_methods.push(task_method);
 		let onchain_task = TaskData {
 			task:  ChainTask::SwapToken,
-			chain_data: "this_is_the_chain_data".as_bytes().to_owned(),
+			chain_data: format!("{}{}","this_is_the_chain_data", s).as_bytes().to_owned(),
 			method: task_methods.clone(),
 		};
 		task.push(onchain_task);
 		let mut chain_task = Vec::new();
-		let chain_tasks = 	OnchainTaskData{
+		let chain_tasks = OnchainTaskData{
 			task,
 		};
 		chain_task.push(chain_tasks.clone());

@@ -115,6 +115,21 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::weight(T::WeightInfo::remove_onchain_task())]
+		pub fn remove_single_task_data(
+			origin: OriginFor<T>,
+			chain: SupportedChain,
+			task_data: OnchainTaskData,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			let index = Self::get_task_index(chain.clone(), task_data.clone())?;
+			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(task_data.clone() == onchain_task[index], Error::<T>::TaskNotFound);
+			onchain_task.remove(index);
+			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
+			Ok(())
+		}
+
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -130,6 +145,5 @@ pub mod pallet {
 		}
 
 	}
-
 
 }

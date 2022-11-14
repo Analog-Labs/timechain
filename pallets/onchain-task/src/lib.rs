@@ -55,8 +55,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The chain is not known
-		UnknownChain,
 		/// The task is not known
 		UnknownTask,
 		/// Task not found

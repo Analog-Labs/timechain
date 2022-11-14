@@ -37,8 +37,8 @@ use sp_std::marker::PhantomData;
 /// Weight functions for `onchain_task_pallet`.
 
 pub trait WeightInfo {
-	fn store_onchain_task() -> Weight;
-    fn remove_onchain_task() -> Weight;
+	fn store_task() -> Weight;
+    fn remove_task() -> Weight;
 }
 
 pub struct TaskWeightInfo<T>(PhantomData<T>);
@@ -47,7 +47,7 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
 
     // Storage: OnChainTask OnchainTaskStore (r:0 w:1)
     /// The range of component `s` is `[0, 100]`.
-    fn store_onchain_task() -> Weight {
+    fn store_task() -> Weight {
         Weight::from_ref_time(33_000_000 as u64)
             // Standard Error: 2_151
             .saturating_add(Weight::from_ref_time(68_175 as u64).saturating_mul(100 as u64))
@@ -56,7 +56,7 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
     }
 
     // Storage: Onchaintask OnchainTaskStore (r:0 w:1)
-    fn remove_onchain_task() -> Weight {
+    fn remove_task() -> Weight {
         Weight::from_ref_time(33_000_000 as u64)
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
@@ -67,13 +67,13 @@ impl<T: frame_system::Config> WeightInfo for TaskWeightInfo<T> {
 
 impl WeightInfo for () {
 
-	fn store_onchain_task() -> Weight {
+	fn store_task() -> Weight {
 		Weight::from_ref_time(33_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Onchaintask OnchainTaskStore (r:0 w:1)
-	fn remove_onchain_task() -> Weight {
+	fn remove_task() -> Weight {
         Weight::from_ref_time(33_000_000 as u64)
             .saturating_add(RocksDbWeight::get().writes(1 as u64))
     }

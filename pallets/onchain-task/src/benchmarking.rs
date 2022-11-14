@@ -12,7 +12,7 @@ use sp_std::prelude::*;
 benchmarks! {
 
 
-	store_onchain_task {
+	store_task {
 
 		let s in 0 .. 100;
 
@@ -26,23 +26,23 @@ benchmarks! {
 		};
 		task_methods.push(task_method);
 		let onchain_task = TaskData {
-			task:  ChainTask::SwapToken,
-			chain_data: format!("{}{}","this_is_the_chain_data", s).as_bytes().to_owned(),
+			task:  SupportedTasks::SwapToken,
+			task_data: format!("{}{}","this_is_the_chain_task", s).as_bytes().to_owned(),
 			method: task_methods.clone(),
 		};
 		task.push(onchain_task);
-		let mut chain_task = Vec::new();
-		let chain_tasks = OnchainTaskData{
+		let mut task_data = Vec::new();
+		let chain_tasks = OnchainTasks{
 			task,
 		};
-		chain_task.push(chain_tasks.clone());
+		task_data.push(chain_tasks.clone());
 
 	}: _(RawOrigin::Signed(who), chain.clone(), chain_tasks.clone())
 	verify {
-		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(chain_task.clone()));
+		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(task_data.clone()));
 	}
 
-	edit_task_data {
+	edit_task {
 
 		let s in 0 .. 100;
 
@@ -63,34 +63,34 @@ benchmarks! {
 		task_methods.push(task_method);
 		task_methods2.push(task_method2);
 		let onchain_task = TaskData {
-			task:  ChainTask::SwapToken,
-			chain_data: format!("{}{}","this_is_the_chain_data", s).as_bytes().to_owned(),
+			task:  SupportedTasks::SwapToken,
+			task_data: format!("{}{}","this_is_the_chain_task", s).as_bytes().to_owned(),
 			method: task_methods.clone(),
 		};
 		let onchain_task2 = TaskData {
-			task:  ChainTask::SwapToken,
-			chain_data: format!("{}{}","this_is_the_chain_data", s).as_bytes().to_owned(),
+			task:  SupportedTasks::SwapToken,
+			task_data: format!("{}{}","this_is_the_chain_task", s).as_bytes().to_owned(),
 			method: task_methods.clone(),
 		};
 		task.push(onchain_task);
 		task2.push(onchain_task2);
-		let mut chain_task = Vec::new();
+		let mut task_data = Vec::new();
 		let mut chain_task2 = Vec::new();
-		let chain_tasks = OnchainTaskData{
+		let chain_tasks = OnchainTasks{
 			task,
 		};
-		let chain_tasks2 = OnchainTaskData{
+		let chain_tasks2 = OnchainTasks{
 			task: task2,
 		};
-		chain_task.push(chain_tasks.clone());
+		task_data.push(chain_tasks.clone());
 		chain_task2.push(chain_tasks2.clone());
 
 	}: _(RawOrigin::Signed(who), chain.clone(), chain_tasks.clone(), chain_tasks2.clone())
 	verify {
-		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(chain_task.clone()));
+		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(task_data.clone()));
 	}
 
-	remove_single_task_data {
+	remove_single_task {
 
 		let s in 0 .. 100;
 
@@ -104,23 +104,23 @@ benchmarks! {
 		};
 		task_methods.push(task_method);
 		let onchain_task = TaskData {
-			task:  ChainTask::SwapToken,
-			chain_data: format!("{}{}","this_is_the_chain_data", s).as_bytes().to_owned(),
+			task:  SupportedTasks::SwapToken,
+			task_data: format!("{}{}","this_is_the_chain_task", s).as_bytes().to_owned(),
 			method: task_methods.clone(),
 		};
 		task.push(onchain_task);
-		let mut chain_task = Vec::new();
-		let chain_tasks = OnchainTaskData{
+		let mut task_data = Vec::new();
+		let chain_tasks = OnchainTasks{
 			task,
 		};
-		chain_task.push(chain_tasks.clone());
+		task_data.push(chain_tasks.clone());
 
 	}: _(RawOrigin::Signed(who), chain.clone(), chain_tasks.clone())
 	verify {
-		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(chain_task.clone()));
+		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(task_data.clone()));
 	}
 
-	remove_onchain_task {
+	remove_task {
 		let who: T::AccountId = whitelisted_caller();
 		let chain: SupportedChain = SupportedChain::Timechain;
 

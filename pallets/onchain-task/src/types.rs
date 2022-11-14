@@ -3,9 +3,6 @@ use frame_support::PartialEqNoBound;
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
-/// type that uniquely identify a chain_id
-
-
 /// type that uniquely identify a chain_data
 pub type ChainData = Vec<u8>;
 
@@ -49,8 +46,6 @@ pub enum ChainTask {
     FetchBalance,
     FetchBlocks,
 }
-
-
 
 impl Default for SupportedChain {
     fn default() -> Self{

@@ -23,10 +23,6 @@ pub mod pallet {
 	use sp_std::prelude::*;
 	use frame_support::traits::IsType;
 	use crate::weights::WeightInfo;
-
-
-
-
 	use crate::types::*;
 	
 	#[pallet::pallet]
@@ -43,7 +39,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, SupportedChain, OnchainTaskData, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTaskData>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -51,7 +47,8 @@ pub mod pallet {
 		/// Emitted when the onchain task is stored successfully
 		OnchainTaskStored(SupportedChain, OnchainTaskData),
 
-		/// Emitted when the onchain task is removed successfully
+		/// Emitted when the onchain tasks 
+		/// for a supported chain is removed successfully
 		OnchainTaskRemoved(SupportedChain),
 		
 	}
@@ -60,8 +57,9 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The chain is not known
 		UnknownChain,
+		/// The task is not known
+		UnknownTask,
 	}
-
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -75,8 +73,8 @@ pub mod pallet {
 			chain_data: OnchainTaskData,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-
-			<OnchainTaskStore<T>>::insert(
+			ensure!(chain_data.task.len() > 0, Error::<T>::UnknownTask);
+			<OnchainTaskStore<T>>::append(
 				chain.clone(), chain_data.clone(),
 			);
 
@@ -85,7 +83,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Extrinsic for removing onchain task
+		/// Extrinsic for removing onchain all tasks
+		/// for a supported chain
 		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::remove_onchain_task())]
 		pub fn remove_onchain_task(origin: OriginFor<T>, chain: SupportedChain) -> DispatchResult {
@@ -98,6 +97,36 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::weight(000)]
+		pub fn edit_task_data(
+			origin: OriginFor<T>,
+			chain: SupportedChain,
+			old_data: OnchainTaskData,
+			new_data: OnchainTaskData,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			let index = Self::get_task_index(chain.clone(), old_data)?;
+			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
+			onchain_task[index] = new_data;
+			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
+			Ok(())
+		}
+
 	}
+
+	impl<T: Config> Pallet<T> {
+		/// Helper functions to get the onchain task for a supported chain
+		/// Also to get index of the task in the vector
+		fn get_task_index(
+			chain: SupportedChain,
+			task_data: OnchainTaskData,
+		) -> Result<usize, DispatchError> {
+			let onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownChain)?;
+			let index = onchain_task.iter().position(|r| r.clone() == task_data).unwrap();
+			Ok(index)
+		}
+
+	}
+
 
 }

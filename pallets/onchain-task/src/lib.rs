@@ -59,6 +59,10 @@ pub mod pallet {
 		UnknownChain,
 		/// The task is not known
 		UnknownTask,
+		/// Task not found
+		TaskNotFound,
+		/// Empty task error
+		EmptyTask,
 	}
 
 	#[pallet::call]
@@ -73,7 +77,7 @@ pub mod pallet {
 			chain_data: OnchainTaskData,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			ensure!(chain_data.task.len() > 0, Error::<T>::UnknownTask);
+			ensure!(chain_data.task.len() > 0, Error::<T>::EmptyTask);
 			<OnchainTaskStore<T>>::append(
 				chain.clone(), chain_data.clone(),
 			);
@@ -105,8 +109,9 @@ pub mod pallet {
 			new_data: OnchainTaskData,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
-			let index = Self::get_task_index(chain.clone(), old_data)?;
+			let index = Self::get_task_index(chain.clone(), old_data.clone())?;
 			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(old_data.clone() == onchain_task[index], Error::<T>::TaskNotFound);
 			onchain_task[index] = new_data;
 			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
 			Ok(())
@@ -121,7 +126,7 @@ pub mod pallet {
 			chain: SupportedChain,
 			task_data: OnchainTaskData,
 		) -> Result<usize, DispatchError> {
-			let onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownChain)?;
+			let onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
 			let index = onchain_task.iter().position(|r| r.clone() == task_data).unwrap();
 			Ok(index)
 		}

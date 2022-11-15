@@ -44,6 +44,11 @@ pub mod pallet {
 	pub type SignatureStore<T: Config> =
 		StorageMap<_, Blake2_128Concat, SignatureKey, SignatureData, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn signature_storage)]
+	pub type SignatureStoreData<T: Config> =
+		StorageMap<_, Blake2_128Concat, SignatureKey, SignatureStorage, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -82,6 +87,25 @@ pub mod pallet {
 			<SignatureStore<T>>::insert(signature_key.clone(), signature_data);
 
 			Self::deposit_event(Event::SignatureStored(signature_key));
+
+			Ok(())
+		}
+
+		#[pallet::weight(
+			T::WeightInfo::store_signature_data()
+		)]
+		pub fn store_signature_data(
+			origin: OriginFor<T>,
+			signature_data: SignatureStorage,
+		) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+
+			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
+			let signature_temp = signature_data.clone();
+			
+			<SignatureStoreData<T>>::insert(signature_temp.signature_key.clone(), signature_data);
+
+			Self::deposit_event(Event::SignatureStored(signature_temp.signature_key));
 
 			Ok(())
 		}

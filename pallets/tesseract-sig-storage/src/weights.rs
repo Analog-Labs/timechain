@@ -39,6 +39,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn add_member() -> Weight;
 	fn store_signature() -> Weight;
+    fn store_signature_data() -> Weight;
 	fn remove_member() -> Weight;
 }
 
@@ -56,6 +57,14 @@ impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
     /// The range of component `s` is `[0, 100]`.
     fn store_signature() -> Weight {
         Weight::from_ref_time(38_000_000 as u64)
+            // Standard Error: 2_151
+            .saturating_add(Weight::from_ref_time(68_175 as u64).saturating_mul(100 as u64))
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+
+    fn store_signature_data() -> Weight {
+        Weight::from_ref_time(39_000_000 as u64)
             // Standard Error: 2_151
             .saturating_add(Weight::from_ref_time(68_175 as u64).saturating_mul(100 as u64))
             .saturating_add(T::DbWeight::get().reads(1 as u64))
@@ -81,6 +90,11 @@ impl WeightInfo for () {
 		}
 
 	fn store_signature() -> Weight {
+		Weight::from_ref_time(33_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+
+    fn store_signature_data() -> Weight {
 		Weight::from_ref_time(33_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

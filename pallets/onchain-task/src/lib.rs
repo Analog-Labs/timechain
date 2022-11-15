@@ -150,7 +150,7 @@ pub mod pallet {
 			let onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
 			let index = match onchain_task.iter().position(|r| r.clone() == task_data) {
 				Some(index) => index,
-				None => return Err(Error::<T>::EmptyTask.into()),
+				None => return Err(Error::<T>::TaskNotFound.into()),
 			};
 			Ok(index)
 		}

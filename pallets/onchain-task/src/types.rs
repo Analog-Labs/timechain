@@ -29,8 +29,6 @@ pub struct TaskMethod{
     pub arguments: MethodArguments,
 }
     
-
-
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedChain {
     Cosmos,

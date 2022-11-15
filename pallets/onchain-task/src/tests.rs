@@ -21,7 +21,7 @@ fn storing_and_get_chain_task() {
 	};
 	task.push(onchain_task);
 	let mut task_data = Vec::new();
-	let chain_tasks = 	OnchainTasks{
+	let chain_tasks = OnchainTasks{
 		task,
 	};
 	task_data.push(chain_tasks.clone());
@@ -148,7 +148,7 @@ fn it_works_removing_onchain_task() {
 
 	new_test_ext().execute_with(|| {
 		// Call the remove task extrinsic
-		assert_ok!(OnChainTask::remove_task(RawOrigin::Root.into(), chain.clone()));
+		assert_ok!(OnChainTask::remove_chain_tasks(RawOrigin::Root.into(), chain.clone()));
 		// Checking that the task has been rmoved
 		assert_eq!(OnChainTask::task_store(chain.clone()), None);
 	});

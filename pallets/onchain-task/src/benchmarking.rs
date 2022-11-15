@@ -120,7 +120,7 @@ benchmarks! {
 		assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(task_data.clone()));
 	}
 
-	remove_task {
+	remove_chain_tasks {
 		let who: T::AccountId = whitelisted_caller();
 		let chain: SupportedChain = SupportedChain::Timechain;
 

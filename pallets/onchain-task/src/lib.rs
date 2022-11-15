@@ -47,9 +47,15 @@ pub mod pallet {
 		/// Emitted when the onchain task is stored successfully
 		OnchainTaskStored(SupportedChain, OnchainTasks),
 
-		/// Emitted when the onchain tasks 
-		/// for a supported chain is removed successfully
-		OnchainTaskRemoved(SupportedChain),
+		/// Emitted when onchain task is edited successfully
+		OnchainTaskEdited(SupportedChain, OnchainTasks),
+
+		/// Emitted when all onchain tasks 
+		/// for a supported chain are removed successfully
+		OnchainTasksRemoved(SupportedChain),
+
+		/// Emitted when the onchain task is removed successfully
+		OnchainTaskRemoved(SupportedChain, OnchainTasks),
 		
 	}
 
@@ -88,13 +94,13 @@ pub mod pallet {
 		/// Extrinsic for removing onchain all tasks
 		/// for a supported chain
 		/// Callable only by root for now
-		#[pallet::weight(T::WeightInfo::remove_task())]
-		pub fn remove_task(origin: OriginFor<T>, chain: SupportedChain) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::remove_chain_tasks())]
+		pub fn remove_chain_tasks(origin: OriginFor<T>, chain: SupportedChain) -> DispatchResult {
 			let _ = ensure_root(origin)?;
 
 			<OnchainTaskStore<T>>::remove(chain.clone());
 
-			Self::deposit_event(Event::OnchainTaskRemoved(chain.clone()));
+			Self::deposit_event(Event::OnchainTasksRemoved(chain.clone()));
 
 			Ok(())
 		}
@@ -110,12 +116,13 @@ pub mod pallet {
 			let index = Self::get_task_index(chain.clone(), old_task.clone())?;
 			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(old_task.clone() == onchain_task[index], Error::<T>::TaskNotFound);
-			onchain_task[index] = new_task;
+			onchain_task[index] = new_task.clone();
 			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
+			Self::deposit_event(Event::OnchainTaskEdited(chain.clone(), new_task.clone()));
 			Ok(())
 		}
 
-		#[pallet::weight(T::WeightInfo::remove_task())]
+		#[pallet::weight(T::WeightInfo::remove_chain_tasks())]
 		pub fn remove_single_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,
@@ -127,6 +134,7 @@ pub mod pallet {
 			ensure!(task_data.clone() == onchain_task[index], Error::<T>::TaskNotFound);
 			onchain_task.remove(index);
 			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
+			Self::deposit_event(Event::OnchainTaskRemoved(chain.clone(), task_data.clone()));
 			Ok(())
 		}
 

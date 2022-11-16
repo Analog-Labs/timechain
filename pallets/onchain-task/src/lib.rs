@@ -83,8 +83,11 @@ pub mod pallet {
 			task_data: OnchainTasks,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			/// Check if the task is already stored
-			let mut tasks = Self::task_store(&chain);
+			// Check if the task is already stored
+			let tasks = match Self::task_store(&chain){
+				Some(tasks) => tasks,
+				None => Vec::new(),
+			};
 			ensure!(!tasks.contains(&task_data), Error::<T>::TaskAlreadyExists);
 			ensure!(task_data.task.len() > 0, Error::<T>::EmptyTask);
 			<OnchainTaskStore<T>>::append(

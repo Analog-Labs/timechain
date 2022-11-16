@@ -67,6 +67,8 @@ pub mod pallet {
 		TaskNotFound,
 		/// Empty task error
 		EmptyTask,
+		/// Task already exists
+		TaskAlreadyExists,
 	}
 
 	#[pallet::call]
@@ -81,6 +83,9 @@ pub mod pallet {
 			task_data: OnchainTasks,	
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
+			/// Check if the task is already stored
+			let mut tasks = Self::task_store(&chain);
+			ensure!(!tasks.contains(&task_data), Error::<T>::TaskAlreadyExists);
 			ensure!(task_data.task.len() > 0, Error::<T>::EmptyTask);
 			<OnchainTaskStore<T>>::append(
 				chain.clone(), task_data.clone(),
@@ -131,7 +136,6 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let index = Self::get_task_index(chain.clone(), task_data.clone())?;
 			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(task_data.clone() == onchain_task[index], Error::<T>::TaskNotFound);
 			onchain_task.remove(index);
 			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
 			Self::deposit_event(Event::OnchainTaskRemoved(chain.clone(), task_data.clone()));

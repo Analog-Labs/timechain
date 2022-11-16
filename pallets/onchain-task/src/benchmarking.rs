@@ -99,8 +99,8 @@ benchmarks! {
 		let mut task = Vec::new();
 		let mut task_methods = Vec::new();
 		let task_method = TaskMethod {
-			name: format!("{}{}", "this_is_the_chain_method", s).as_bytes().to_owned(),
-			arguments: format!("{}{}","this_is_the_chain_arguments", s).as_bytes().to_owned(),
+			name: format!("{}{}", "this_is_the_chain_method_", s).as_bytes().to_owned(),
+			arguments: format!("{}{}","this_is_the_chain_arguments_", s).as_bytes().to_owned(),
 		};
 		task_methods.push(task_method);
 		let onchain_task = TaskData {

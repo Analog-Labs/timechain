@@ -3,7 +3,7 @@ use frame_support::{ PartialEqNoBound};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 /// type that uniquely identify a signature data
-pub type SignatureKey = Vec<u8>;
+pub type SignatureKey = u64;//Vec<u8>;
 
 /// The type representing a signature data
 pub type SignatureData = Vec<u8>;

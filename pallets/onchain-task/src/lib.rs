@@ -113,7 +113,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(000)]
+		#[pallet::weight(T::WeightInfo::edit_task())]
 		pub fn edit_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,
@@ -130,7 +130,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(T::WeightInfo::remove_chain_tasks())]
+		#[pallet::weight(T::WeightInfo::remove_single_task())]
 		pub fn remove_single_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,

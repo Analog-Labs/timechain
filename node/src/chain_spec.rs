@@ -271,15 +271,15 @@ fn testnet_genesis(
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
-	type VestingPeriod = u32;
-	type LockingPeriod = u32;
+	type BlockNumer = u32;
+	type NoOfVest = u32;
 
 	// 	3 months in terms of 6s blocks is 1,296,000 blocks, i.e. period = 1,296,000
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 332_000; // 30 days from block 0, implies 332_000 blocks
 
 	let vesting_accounts_json = &include_bytes!("../../resources/vesting_test.json")[..];
-	let vesting_accounts: Vec<(AccountId, VestingPeriod, LockingPeriod, Balance)> =
+	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
 

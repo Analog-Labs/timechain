@@ -1,0 +1,54 @@
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::PartialEqNoBound;
+use scale_info::TypeInfo;
+use sp_std::prelude::*;
+
+/// type that uniquely identify a task_data
+pub type ChainData = Vec<u8>;
+
+/// The type representing a method
+pub type MethodName = Vec<u8>;
+pub type MethodArguments = Vec<u8>;
+
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
+pub struct OnchainTasks{
+    pub task: Vec<TaskData>
+}
+// Struct for holding Onchain Task information.
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
+pub struct TaskData{
+    pub task: SupportedTasks,
+    pub task_data: ChainData,
+    pub method: Vec<TaskMethod>,
+}
+
+// Struct for holding Task Methods.
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
+pub struct TaskMethod{
+    pub name: MethodName,
+    pub arguments: MethodArguments,
+}
+    
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum SupportedChain {
+    Cosmos,
+	Ethereum,
+    Polkadot,
+    Timechain,
+}
+
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum SupportedTasks {
+    SwapToken,
+	FetchEvents,
+    FetchBalance,
+    FetchBlocks,
+}
+
+impl Default for SupportedChain {
+    fn default() -> Self{
+        SupportedChain::Timechain
+    }
+}
+
+

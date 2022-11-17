@@ -283,6 +283,12 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl onchain_task_pallet::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+}
+
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -301,6 +307,7 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage,
+		OnchainTask: onchain_task_pallet,
 	}
 );
 
@@ -348,6 +355,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
+		[onchain_task_pallet, OnchainTask]
 
 	);
 }

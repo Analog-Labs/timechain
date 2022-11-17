@@ -2,6 +2,7 @@
 members = [
     "node",
     "pallets/tesseract-sig-storage",
+    "pallets/onchain-task",
     "runtime",
 ]
 [profile.release]

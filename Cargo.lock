@@ -3959,6 +3959,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
 
 [[package]]
+name = "onchain-task-pallet"
+version = "0.0.1-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "opaque-debug"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7641,6 +7656,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "orml-vesting",
+ "onchain-task-pallet",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",

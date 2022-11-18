@@ -16,13 +16,14 @@ const SS_58_FORMAT: u32 = 51;
 /// Total supply of token is 90_570_710.
 /// Initially we are distributing the total supply to the multiple accounts which is representing
 /// its category pool which we will update in later part of development.
-const SEED_ROUND_SUPPLY: Balance = ANLOG * 24_275_362;
-const TEAM_SUPPLY: Balance = ANLOG * 17_210_144;
-const PUBLIC_SALE_SUPPLY: Balance = ANLOG * 1_449_275;
-const TREASURY_SUPPLY: Balance = ANLOG * 13_224_637;
-const COMMUNITY_SUPPLY: Balance = ANLOG * 27_173_913;
-const DEVELOPER_SUPPLY: Balance = ANLOG * 4_528_989;
-const BOUNTY_PROGRAM_SUPPLY: Balance = ANLOG * 2_717_391;
+const SEED_ROUND_SUPPLY: Balance = ANLOG * 24_275_364;
+const INITIAL_PRIVATE_SALE: Balance = ANLOG * 1_837_476;
+const PRIVATE_SALE: Balance = ANLOG * 8_919_012;
+const PUBLIC_SALE: Balance = ANLOG * 1_449_275;
+const TEAM_SUPPLY: Balance = ANLOG * 17_210_160;
+const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
+const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
+const VALIDATOR_SUPPLY: Balance = ANLOG * 1;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -85,32 +86,37 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 					(
 						hex!["04063fc1cbba917ced6c45091bf631de6a4db584dd55c1d67431661a5d57a575"]
 							.into(),
-						TEAM_SUPPLY,
+						INITIAL_PRIVATE_SALE,
 					),
 					(
 						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
 							.into(),
-						PUBLIC_SALE_SUPPLY,
+						PRIVATE_SALE,
 					),
 					(
 						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
 							.into(),
-						TREASURY_SUPPLY,
+						PUBLIC_SALE,
 					),
 					(
 						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
 							.into(),
-						COMMUNITY_SUPPLY,
+						TEAM_SUPPLY,
 					),
 					(
 						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
 							.into(),
-						DEVELOPER_SUPPLY,
+						TREASURY_SUPPLY,
 					),
 					(
 						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
 							.into(),
-						BOUNTY_PROGRAM_SUPPLY,
+						COMMUNITY_SUPPLY,
+					),
+					(
+						hex!["088f0e5d722a420339685a4e6ab358a4df4e39206bfad00e30617abf1633d37a"]
+							.into(),
+						VALIDATOR_SUPPLY,
 					),
 				],
 				true,
@@ -163,32 +169,37 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 					(
 						hex!["04063fc1cbba917ced6c45091bf631de6a4db584dd55c1d67431661a5d57a575"]
 							.into(),
-						TEAM_SUPPLY,
+						INITIAL_PRIVATE_SALE,
 					),
 					(
 						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
 							.into(),
-						PUBLIC_SALE_SUPPLY,
+						PRIVATE_SALE,
 					),
 					(
 						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
 							.into(),
-						TREASURY_SUPPLY,
+						PUBLIC_SALE,
 					),
 					(
 						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
 							.into(),
-						COMMUNITY_SUPPLY,
+						TEAM_SUPPLY,
 					),
 					(
 						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
 							.into(),
-						DEVELOPER_SUPPLY,
+						TREASURY_SUPPLY,
 					),
 					(
 						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
 							.into(),
-						BOUNTY_PROGRAM_SUPPLY,
+						COMMUNITY_SUPPLY,
+					),
+					(
+						hex!["088f0e5d722a420339685a4e6ab358a4df4e39206bfad00e30617abf1633d37a"]
+							.into(),
+						VALIDATOR_SUPPLY,
 					),
 				],
 				true,
@@ -278,7 +289,7 @@ fn testnet_genesis(
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 332_000; // 30 days from block 0, implies 332_000 blocks
 
-	let vesting_accounts_json = &include_bytes!("../../resources/vesting_test.json")[..];
+	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");

@@ -6,7 +6,7 @@ use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
-
+use pallet_randomness_collective_flip;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -52,6 +52,10 @@ impl system::Config for Test {
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+}
+
+impl pallet_randomness_collective_flip::Config for Test {
+
 }
 
 // Build genesis storage according to the mock runtime.

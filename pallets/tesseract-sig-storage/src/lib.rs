@@ -8,7 +8,6 @@ mod tests;
 mod types;
 
 pub mod weights;
-pub mod helper;
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -20,7 +19,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use crate::weights::WeightInfo;
-	use crate::helper::Lib_Fn;
 	use sp_std::vec::Vec;
 	use pallet_randomness_collective_flip;
 	use crate::types::*;
@@ -109,14 +107,10 @@ pub mod pallet {
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			
-			// let sig_key: Vec<u8> = string_gen().as_bytes().to_owned();
-			// let hash_key = calculate_hash(&sig_key);
 			let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random_seed();
 			
 			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
-			let time_stamp = Lib_Fn::calculate_timeStamp();
-			// let sig_key = Lib_Fn::calculate_timeStamp().to_string().as_bytes().to_owned();
+			let time_stamp = random_value.0;
 			let hash_key = random_value.0;// random_value.0.to_string();// as u64;// Lib_Fn::calculate_timeStamp();
 			let storage_data = SignatureStorage::new(hash_key.clone(), signature_data.clone(), network_id.to_vec().clone(), block_height, time_stamp);
 			let signature_temp = storage_data.clone();

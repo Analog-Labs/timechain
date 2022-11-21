@@ -15,7 +15,7 @@ pub struct SignatureStorage<T> {
 	pub signature_data: SignatureData,
 	pub network_id: Vec<u8>,
 	pub block_height: u64,
-	pub time_stamp: u64
+	pub time_stamp: T
 }
 
 impl<T> SignatureStorage <T>{
@@ -24,7 +24,7 @@ impl<T> SignatureStorage <T>{
 		signature_data: SignatureData,
 		network_id: Vec<u8>,
 		block_height: u64,
-		time_stamp:u64
+		time_stamp:T
 	)-> Self {
 		SignatureStorage {
 			signature_key,

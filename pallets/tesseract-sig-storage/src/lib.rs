@@ -107,8 +107,8 @@ pub mod pallet {
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random_seed();
-			
+			// let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random_seed();
+			let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
 			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
 			let time_stamp = random_value.0;
 			let hash_key = random_value.0;// random_value.0.to_string();// as u64;// Lib_Fn::calculate_timeStamp();

@@ -10,17 +10,17 @@ use sp_std::hash::Hash;
 pub type SignatureData = Vec<u8>;
 
 #[derive(Clone, Encode, Decode,PartialEq,TypeInfo, Debug)]
-pub struct SignatureStorage<T> {
-	pub signature_key: T,
+pub struct SignatureStorage<S,T> {
+	pub signature_key: S,
 	pub signature_data: SignatureData,
 	pub network_id: Vec<u8>,
 	pub block_height: u64,
 	pub time_stamp: T
 }
 
-impl<T> SignatureStorage <T>{
+impl<S,T> SignatureStorage <S, T>{
 	pub fn new (
-		signature_key: T,
+		signature_key: S,
 		signature_data: SignatureData,
 		network_id: Vec<u8>,
 		block_height: u64,

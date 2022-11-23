@@ -55,7 +55,7 @@ fn test_signature_storage() {
 
 	let sig_data: SignatureData = "this_is_the_signature_data_1".as_bytes().to_owned();
 	let network_id = "12345".as_bytes();
-	let block_height = 1234;
+	let block_height = 1;
 	new_test_ext().execute_with(|| {
 		// We first add the Tesseract as a member with root privilege
 		assert_ok!(TesseractSigStorage::add_member(RawOrigin::Root.into(), 1, TesseractRole::Collector));

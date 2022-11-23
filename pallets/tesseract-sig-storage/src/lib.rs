@@ -138,7 +138,7 @@ pub mod pallet {
 			account: T::AccountId,
 			role: TesseractRole,
 		) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			let _ = ensure_signed_or_root(origin)?;
 
 			<TesseractMembers<T>>::insert(account.clone(), role.clone());
 
@@ -151,7 +151,7 @@ pub mod pallet {
 		/// Callable only by root for now
 		#[pallet::weight(T::WeightInfo::remove_member())]
 		pub fn remove_member(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			let _ = ensure_signed_or_root(origin)?;
 
 			<TesseractMembers<T>>::remove(account.clone());
 

@@ -20,11 +20,16 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use crate::weights::WeightInfo;
 	use sp_std::vec::Vec;
-	use pallet_randomness_collective_flip;
+	// use pallet_randomness_collective_flip;
 	use crate::types::*;
 	use frame_support::traits::Randomness;
-	use sp_std::hash::Hash;
+	// use sp_std::hash::Hash;
+	use sp_io::hashing::blake2_128;
+	use sp_runtime::{traits::Hash, RuntimeDebug};
 	
+	// #[cfg(feature = "std")]
+    // use serde::{Deserialize, Serialize};
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -33,11 +38,15 @@ pub mod pallet {
     // pub trait Config: frame_system::Config + pallet_randomness_collective_flip::Config {}
     
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_randomness_collective_flip::Config {
+	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type StoreRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 	}
 	
+	#[pallet::storage]
+	#[pallet::getter(fn get_nonce)]
+	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tesseract_members)]
@@ -73,7 +82,8 @@ pub mod pallet {
 		/// The Tesseract address in not known
 		UnknownTesseract,
 	}
-
+	
+	
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
@@ -86,8 +96,10 @@ pub mod pallet {
 			signature_data: SignatureData,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random_seed();
-			let signature_key = random_value.0;
+			let random_value  = Self::random_hash(&caller);
+			// let random_value  = Self::gen_dna();
+			// let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random_seed();
+			let signature_key = random_value;
 			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
 
 			<SignatureStore<T>>::insert(signature_key.clone(), signature_data);
@@ -108,16 +120,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			// let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random_seed();
-			let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
-			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
-			let time_stamp = random_value.0;
-			let hash_key = random_value.0;// random_value.0.to_string();// as u64;// Lib_Fn::calculate_timeStamp();
+			// let random_value = <pallet_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
+			ensure!(TesseractMembers::<T>::contains_key(caller.clone()), Error::<T>::UnknownTesseract);
+			let random_value  = Self::random_hash(&caller);
+			// let random_value  = Self::gen_dna();
+			frame_support::runtime_print!("my value is {}", 3);
+			let time_stamp = random_value.clone();
+			let hash_key = random_value.clone();// random_value.0.to_string();// as u64;// Lib_Fn::calculate_timeStamp();
 			let storage_data = SignatureStorage::new(hash_key.clone(), signature_data.clone(), network_id.to_vec().clone(), block_height, time_stamp);
-			let signature_temp = storage_data.clone();
 			
-			<SignatureStoreData<T>>::insert(signature_temp.signature_key.clone(), storage_data);
+			<SignatureStoreData<T>>::insert(random_value.clone(), storage_data);
 
-			Self::deposit_event(Event::SignatureStored(signature_temp.signature_key));
+			Self::deposit_event(Event::SignatureStored(random_value));
 
 			Ok(())
 		}
@@ -152,7 +166,34 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-	
+	impl<T: Config> Pallet<T>{
+		pub fn random_hash(sender: &T::AccountId) -> T::Hash{
+			let nonce = <Nonce<T>>::get();
+			let seed = T::StoreRandomness::random(&b"dna"[..]).0;
+			
+			T::Hashing::hash_of(&(seed, sender, nonce))
+		}
+
+		pub fn random_hash1() -> T::Hash {
+			let random_value = T::StoreRandomness::random_seed();
+			let nonce = <Nonce<T>>::get();
+
+			// T::Hashing::hash_of(&(random_value, nonce))
+			random_value.0
+		}
+
+		pub fn gen_dna() -> [u8; 16] {
+			let payload = (
+				T::StoreRandomness::random(&b"dna"[..]).0,
+				<frame_system::Pallet<T>>::block_number(),
+			);
+			payload.using_encoded(blake2_128)
+		}
+		pub fn random_hash2() {
+			let val = T::StoreRandomness::random(&b"dna"[..]);
+			
+		}
+	}
 	// fn calculate_hash<T: Hash>(t: &T) -> u64 {
 	// 	let mut s = DefaultHasher::new();
 	// 	t.hash(&mut s);

@@ -13,7 +13,6 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use pallet_timestamp::{self as timestamp};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -23,12 +22,10 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use crate::types::*;
 	use frame_support::{
-		sp_runtime::traits::Scale,
+		sp_runtime::traits::{Hash, Scale},
 		traits::{Randomness, Time}
 	};
-	use sp_io::hashing::blake2_128;
-	use sp_runtime::{traits::Hash, RuntimeDebug};
-	use scale_info::{StaticTypeInfo, TypeInfo};
+	use scale_info::StaticTypeInfo;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]

@@ -1,5 +1,5 @@
 use crate as pallet_tesseract_sig_storage;
-use frame_support::traits::{ConstU16, ConstU64, Randomness, OnTimestampSet};
+use frame_support::traits::{ConstU16, ConstU64, OnTimestampSet};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{

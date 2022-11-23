@@ -120,7 +120,6 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ensure!(TesseractMembers::<T>::contains_key(caller.clone()), Error::<T>::UnknownTesseract);
 			let random_value  = Self::random_hash(&caller);
-			frame_support::runtime_print!("my value is {}", 3);
 			let storage_data = SignatureStorage::new(random_value.clone(), signature_data.clone(), network_id.to_vec().clone(), block_height, T::Timestamp::now());
 			
 			<SignatureStoreData<T>>::insert(random_value.clone(), storage_data);

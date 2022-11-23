@@ -282,6 +282,8 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type StoreRandomness = RandomnessCollectiveFlip;
+	type Moment = u64;
+	type Timestamp = Timestamp;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

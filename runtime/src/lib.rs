@@ -283,6 +283,9 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type StoreRandomness = RandomnessCollectiveFlip;
+	type Moment = u64;
+	type Timestamp = Timestamp;
 }
 
 parameter_types! {

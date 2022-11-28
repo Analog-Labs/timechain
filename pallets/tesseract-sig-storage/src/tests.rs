@@ -1,7 +1,8 @@
 use super::mock::*;
-use crate::{types::{SignatureData, SignatureKey, TesseractRole}};
-use frame_support::assert_ok;
+use crate::{types::{SignatureData, TesseractRole}};
+use frame_support::{assert_ok};
 use frame_system::RawOrigin;
+
 
 #[test]
 fn it_works_adding_tesseract_member() {
@@ -31,23 +32,23 @@ fn it_works_removing_tesseract_member() {
 }
 
 #[test]
-fn it_works_storing_and_get_signature_data() {
-	let sig_key: SignatureKey = "signature_key_1".as_bytes().to_owned();
+fn test_signature_storage() {
 
 	let sig_data: SignatureData = "this_is_the_signature_data_1".as_bytes().to_owned();
-
+	let network_id = "12345".as_bytes();
+	let block_height = 1;
 	new_test_ext().execute_with(|| {
 		// We first add the Tesseract as a member with root privilege
 		assert_ok!(TesseractSigStorage::add_member(RawOrigin::Root.into(), 1, TesseractRole::Collector));
 
-		// Call the store signature extrinsic
-		assert_ok!(TesseractSigStorage::store_signature(
+		assert_ok!(TesseractSigStorage::store_signature_data(
 			RawOrigin::Signed(1).into(),
-			sig_key.clone(),
-			sig_data.clone()
+			sig_data.clone(),
+			network_id.clone().to_vec(),
+			block_height.clone()
 		));
 
 		// Retreiving the signature stored via it's key and assert the result.
-		assert_eq!(TesseractSigStorage::signature_store(sig_key), Some(sig_data));
+		// assert_eq!(TesseractSigStorage::signature_storage(hash_key), Some(storage_data));
 	});
 }

@@ -17,7 +17,7 @@ benchmarks! {
 		assert_eq!(TesseractMembers::<T>::get(tesseract), Some(TesseractRole::Collector));
 	}
 
-	store_signature {
+	store_signature_data {
 
 		let s in 0 .. 100;
 
@@ -25,16 +25,13 @@ benchmarks! {
 
 		TesseractMembers::<T>::insert(tesseract.clone(), TesseractRole::Collector);
 
-		let signature_key =
-			format!("{}{}","signature_key_".to_owned(),s).as_bytes().to_owned();
-
-		let signature_data =
-			format!("{}{}","this_is_the_signature_data_".to_owned(),s).as_bytes().to_owned();
+		let signature_data: SignatureData ="this_is_the_signature_data_1".as_bytes().to_owned();
+		let network_id =
+			format!("{}{}","network_id_".to_owned(),s).as_bytes().to_owned();
+		let block_height = 1245;
 			
-	}: _(RawOrigin::Signed(tesseract), signature_key.clone(), signature_data.clone())
-	verify {
-		assert_eq!(SignatureStore::<T>::get(signature_key), Some(signature_data));
-	}
+	}: _(RawOrigin::Signed(tesseract), signature_data.clone(), network_id, block_height )
+	
 
 	remove_member {
 		let tesseract: T::AccountId = whitelisted_caller();

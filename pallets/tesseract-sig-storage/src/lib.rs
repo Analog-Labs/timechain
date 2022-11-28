@@ -140,6 +140,7 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+	
 	impl<T: Config> Pallet<T>{
 		fn random_hash(sender: &T::AccountId) -> T::Hash{
 			let nonce = <Nonce<T>>::get();

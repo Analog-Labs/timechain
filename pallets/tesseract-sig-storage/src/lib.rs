@@ -88,25 +88,6 @@ pub mod pallet {
 	
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing a signature
-		#[pallet::weight(
-			T::WeightInfo::store_signature()
-		)]
-		pub fn store_signature(
-			origin: OriginFor<T>,
-			signature_data: SignatureData,
-		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
-			let random_value  = Self::random_hash(&caller);
-			let signature_key = random_value;
-			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
-
-			<SignatureStore<T>>::insert(signature_key.clone(), &signature_data);
-
-			Self::deposit_event(Event::SignatureStored(random_value, signature_data));
-
-			Ok(())
-		}
 
 		#[pallet::weight(
 			T::WeightInfo::store_signature_data()
@@ -159,6 +140,7 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+	
 	impl<T: Config> Pallet<T>{
 		fn random_hash(sender: &T::AccountId) -> T::Hash{
 			let nonce = <Nonce<T>>::get();

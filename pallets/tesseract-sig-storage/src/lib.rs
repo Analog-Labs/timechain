@@ -89,10 +89,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
-		#[pallet::weight(
-			T::WeightInfo::store_signature_data()
-		)]
-		pub fn store_signature_data(
+		#[pallet::weight(T::WeightInfo::store_signature_data())]
+		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
 			network_id: Vec<u8>,

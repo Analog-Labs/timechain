@@ -1,12 +1,12 @@
 use super::*;
 
+use crate::types::*;
 #[allow(unused)]
 use crate::Pallet as TesseractSigStorage;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_std::borrow::ToOwned;
-use crate::{types::*};
 
 benchmarks! {
 
@@ -30,7 +30,7 @@ benchmarks! {
 
 		let signature_data =
 			format!("{}{}","this_is_the_signature_data_".to_owned(),s).as_bytes().to_owned();
-			
+
 	}: _(RawOrigin::Signed(tesseract), signature_key.clone(), signature_data.clone())
 	verify {
 		assert_eq!(SignatureStore::<T>::get(signature_key), Some(signature_data));
@@ -45,5 +45,3 @@ benchmarks! {
 
 	impl_benchmark_test_suite!(TesseractSigStorage, crate::mock::new_test_ext(), crate::mock::Test);
 }
-
-

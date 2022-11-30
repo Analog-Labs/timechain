@@ -1,5 +1,5 @@
 use super::mock::*;
-use crate::{types::{SignatureData, SignatureKey, TesseractRole}};
+use crate::types::{SignatureData, SignatureKey, TesseractRole};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
@@ -7,7 +7,11 @@ use frame_system::RawOrigin;
 fn it_works_adding_tesseract_member() {
 	new_test_ext().execute_with(|| {
 		// Call the tesseract member extrinsic
-		assert_ok!(TesseractSigStorage::add_member(RawOrigin::Root.into(), 1, TesseractRole::Collector));
+		assert_ok!(TesseractSigStorage::add_member(
+			RawOrigin::Root.into(),
+			1,
+			TesseractRole::Collector
+		));
 
 		// Retreiving the signature stored via it's key and assert the result.
 		assert_eq!(TesseractSigStorage::tesseract_members(1), Some(TesseractRole::Collector));
@@ -18,7 +22,11 @@ fn it_works_adding_tesseract_member() {
 fn it_works_removing_tesseract_member() {
 	new_test_ext().execute_with(|| {
 		// Call the tesseract member extrinsic
-		assert_ok!(TesseractSigStorage::add_member(RawOrigin::Root.into(), 1, TesseractRole::Collector,));
+		assert_ok!(TesseractSigStorage::add_member(
+			RawOrigin::Root.into(),
+			1,
+			TesseractRole::Collector,
+		));
 
 		// Retreiving the signature stored via it's key and assert the result.
 		assert_eq!(TesseractSigStorage::tesseract_members(1), Some(TesseractRole::Collector));
@@ -38,7 +46,11 @@ fn it_works_storing_and_get_signature_data() {
 
 	new_test_ext().execute_with(|| {
 		// We first add the Tesseract as a member with root privilege
-		assert_ok!(TesseractSigStorage::add_member(RawOrigin::Root.into(), 1, TesseractRole::Collector));
+		assert_ok!(TesseractSigStorage::add_member(
+			RawOrigin::Root.into(),
+			1,
+			TesseractRole::Collector
+		));
 
 		// Call the store signature extrinsic
 		assert_ok!(TesseractSigStorage::store_signature(

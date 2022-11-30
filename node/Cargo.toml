@@ -1,7 +1,7 @@
 [package]
 name = "timechain-node"
 version = "0.0.1"
-description = "A blochain node using the proof of time consensus."
+description = "A blockhain node using the proof of time consensus."
 authors = ["Analog Devs <https://github.com/analog-labs>"]
 homepage = "https://analog.one/"
 edition = "2021"

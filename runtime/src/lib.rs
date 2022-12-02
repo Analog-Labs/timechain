@@ -7,20 +7,26 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use frame_system::EnsureSigned;
 
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 pub use runtime_common::constants::ANLOG;
+use sp_staking::SessionIndex;
+use pallet_session::historical as pallet_session_historical;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
+	curve::PiecewiseLinear,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentifyAccount,
-		NumberFor, One, Verify,
+		NumberFor, One, Verify, OpaqueKeys,
 	},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
@@ -50,6 +56,14 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 pub use pallet_tesseract_sig_storage;
+
+pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+use pallet_staking::UseValidatorsMap;
+pub struct StakingBenchmarkingConfig;
+impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
+	type MaxValidators = ConstU32<1000>;
+	type MaxNominators = ConstU32<1000>;
+}
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -138,6 +152,47 @@ pub fn native_version() -> NativeVersion {
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
+
+parameter_types! {
+	// pub const ProposalBond: Permill = Permill::from_percent(5);
+	// pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
+	// pub const ProposalBondMaximum: Balance = 500 * DOLLARS;
+	// pub const SpendPeriod: BlockNumber = 24 * DAYS;
+	// pub const Burn: Permill = Permill::from_percent(1);
+	// pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+
+	// pub const TipCountdown: BlockNumber = 1 * DAYS;
+	// pub const TipFindersFee: Percent = Percent::from_percent(20);
+	// pub const TipReportDepositBase: Balance = 1 * DOLLARS;
+	// pub const DataDepositPerByte: Balance = 1 * CENTS;
+	// pub const MaxApprovals: u32 = 100;
+	// pub const MaxAuthorities: u32 = 100_000;
+	pub const MaxKeys: u32 = 10_000;
+	pub const MaxPeerInHeartbeats: u32 = 10_000;
+	pub const MaxPeerDataEncodingSize: u32 = 1_000;
+}
+
+impl pallet_session::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	// TODO
+	type ValidatorIdOf = ();
+	// type ValidatorIdOf = pallet_staking::StashOf<Self>;
+
+	type ShouldEndSession = Aura;
+	type NextSessionRotation = Aura;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
+	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = opaque::SessionKeys;
+	// type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type WeightInfo = ();
+}
+
+impl pallet_session::historical::Config for Runtime {
+	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+}
+
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
@@ -203,6 +258,14 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
 impl pallet_randomness_collective_flip::Config for Runtime {}
 
 impl pallet_aura::Config for Runtime {
@@ -228,6 +291,157 @@ impl pallet_grandpa::Config for Runtime {
 
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<32>;
+}
+
+
+parameter_types! {
+	pub NposSolutionPriority: TransactionPriority =
+		Perbill::from_percent(90) * TransactionPriority::max_value();
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+}
+
+impl pallet_im_online::Config for Runtime {
+	type AuthorityId = ImOnlineId;
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorSet = Historical;
+
+	type NextSessionRotation = Aura;
+	// TODO 
+	// type ReportUnresponsiveness = Offences;
+	type ReportUnresponsiveness = ();
+	type UnsignedPriority = ImOnlineUnsignedPriority;
+	// TODO 
+	// type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
+	type WeightInfo = ();
+	type MaxKeys = MaxKeys;
+	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+	type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
+}
+
+
+parameter_types! {
+	// phase durations. 1/4 of the last session for each.
+	// in testing: 1min or half of the session for each
+	// pub SignedPhase: u32 = prod_or_fast!(
+	// 	EPOCH_DURATION_IN_SLOTS / 4,
+	// 	(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+	// 	"DOT_SIGNED_PHASE"
+	// );
+	// pub UnsignedPhase: u32 = prod_or_fast!(
+	// 	EPOCH_DURATION_IN_SLOTS / 4,
+	// 	(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+	// 	"DOT_UNSIGNED_PHASE"
+	// );
+
+	// signed config
+	// pub const SignedMaxSubmissions: u32 = 16;
+	// pub const SignedMaxRefunds: u32 = 16 / 4;
+	// 40 DOTs fixed deposit..
+	// pub const SignedDepositBase: Balance = deposit(2, 0);
+	// 0.01 DOT per KB of solution data.
+	// pub const SignedDepositByte: Balance = deposit(0, 10) / 1024;
+	// Each good submission will get 1 DOT as reward
+	// pub SignedRewardBase: Balance = 1 * UNITS;
+	// pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
+
+	// 4 hour session, 1 hour unsigned phase, 32 offchain executions.
+	// pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 32;
+
+	/// We take the top 22500 nominators as electing voters..
+	pub const MaxElectingVoters: u32 = 22_500;
+	/// ... and all of the validators as electable targets. Whilst this is the case, we cannot and
+	/// shall not increase the size of the validator intentions.
+	pub const MaxElectableTargets: u16 = u16::MAX;
+}
+
+generate_solution_type!(
+	#[compact]
+	pub struct NposCompactSolution16::<
+		VoterIndex = u32,
+		TargetIndex = u16,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = MaxElectingVoters,
+	>(16)
+);
+
+pallet_staking_reward_curve::build! {
+	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		// 3:2:1 staked : parachains : float.
+		// while there's no parachains, then this is 75% staked : 25% float.
+		ideal_stake: 0_750_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
+}
+
+parameter_types! {
+	// Six sessions in an era (24 hours).
+	pub const SessionsPerEra: SessionIndex = (6, 1);
+	// 28 eras for unbonding (28 days).
+	pub const BondingDuration: sp_staking::EraIndex = 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 27;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+	pub const MaxNominatorRewardedPerValidator: u32 = 256;
+	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
+	// 16
+	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+}
+
+impl pallet_staking::Config for Runtime {
+	type MaxNominations = MaxNominations;
+	type Currency = Balances;
+	type CurrencyBalance = Balance;
+	type UnixTime = Timestamp;
+	type CurrencyToVote = CurrencyToVote;
+	// TODO
+	// type RewardRemainder = Treasury;
+	type RewardRemainder = ();
+
+	type RuntimeEvent = RuntimeEvent;
+	// TODO
+	// type Slash = Treasury;
+	type Slash = ();
+
+	type Reward = ();
+	type SessionsPerEra = SessionsPerEra;
+	type BondingDuration = BondingDuration;
+	type SlashDeferDuration = SlashDeferDuration;
+	// A super-majority of the council can cancel the slash.
+	// TODO
+	// type SlashCancelOrigin = SlashCancelOrigin;
+	type SlashCancelOrigin = ();
+
+	type SessionInterface = Self;
+	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
+	type NextNewSession = Session;
+	// TODO
+	type ElectionProvider = ();
+	// type ElectionProvider = ElectionProviderMultiPhase;
+
+	// TODO
+	// type GenesisElectionProvider = onchain::UnboundedExecution<OnChainSeqPhragmen>;
+	type GenesisElectionProvider = ();
+
+	// type VoterList = VoterList;
+	type VoterList = ();
+
+	type TargetList = UseValidatorsMap<Self>;
+	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
+	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type BenchmarkingConfig = StakingBenchmarkingConfig;
+
+	// TODO
+	// type OnStakerSlash = NominationPools;
+	type OnStakerSlash = ();
+
+	// TODO
+	type WeightInfo = ();
+	// type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -330,6 +544,10 @@ construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Aura: pallet_aura,
 		Grandpa: pallet_grandpa,
+		ImOnline: pallet_im_online,
+		Session: pallet_session,
+		Staking: pallet_staking,
+		Historical: pallet_session_historical,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,

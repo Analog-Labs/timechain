@@ -1,12 +1,13 @@
 use hex_literal::hex;
 use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_babe::AuthorityId as BabeId;
+
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use timechain_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
 	SystemConfig, VestingConfig, WASM_BINARY,
 };
 
@@ -49,8 +50,8 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+pub fn authority_keys_from_seed(s: &str) -> (BabeId, GrandpaId) {
+	(get_from_seed::<BabeId>(s), get_from_seed::<GrandpaId>(s))
 }
 
 /// Generate a default spec for the Analog live chain (Prod).
@@ -277,7 +278,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	initial_authorities: Vec<(BabeId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
@@ -303,9 +304,6 @@ fn testnet_genesis(
 			// Configure pool accounts with its initial supply.
 			balances: endowed_accounts,
 		},
-		aura: AuraConfig {
-			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-		},
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
@@ -315,5 +313,11 @@ fn testnet_genesis(
 		},
 		transaction_payment: Default::default(),
 		vesting: VestingConfig { vesting: vesting_accounts },
+		babe: Default::default(),
+		im_online: Default::default(),
+		session: Default::default(),
+		staking: Default::default(),
+
+
 	}
 }

@@ -7976,6 +7976,7 @@ dependencies = [
 name = "timechain-runtime"
 version = "0.0.1"
 dependencies = [
+ "beefy-primitives",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",

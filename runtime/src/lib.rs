@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use frame_system::{EnsureRoot, EnsureSigned};
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use beefy_primitives::crypto::AuthorityId as BeefyId;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 
 use pallet_grandpa::{
@@ -1131,6 +1132,14 @@ impl_runtime_apis! {
 			None
 		}
 	}
+
+	impl beefy_primitives::BeefyApi<Block> for Runtime {
+		fn validator_set() -> Option<beefy_primitives::ValidatorSet<BeefyId>> {
+			// dummy implementation due to lack of BEEFY pallet.
+			None
+		}
+	}
+
 
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
 		fn account_nonce(account: AccountId) -> Index {

@@ -392,6 +392,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "beefy-gadget"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "array-bytes",
+ "async-trait",
+ "beefy-primitives",
+ "fnv",
+ "futures",
+ "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-finality-grandpa",
+ "sc-keystore",
+ "sc-network",
+ "sc-network-common",
+ "sc-network-gossip",
+ "sc-utils",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-keystore",
+ "sp-mmr-primitives",
+ "sp-runtime",
+ "substrate-prometheus-endpoint",
+ "thiserror",
+ "wasm-timer",
+]
+
+[[package]]
+name = "beefy-primitives"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "bimap"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3768,7 +3819,7 @@ dependencies = [
  "matrixmultiply",
  "nalgebra-macros",
  "num-complex",
- "num-rational",
+ "num-rational 0.4.1",
  "num-traits",
  "rand 0.8.5",
  "rand_distr",
@@ -3897,6 +3948,17 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "090c7f9998ee0ff65aa5b723e4009f7b217707f1fb5ea551329cc4d6231fb304"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93ab6289c7b344a8a9f60f88d80aa20032336fe78da341afc91c8a2341fc75f"
@@ -3937,12 +3999,24 @@ dependencies = [
 
 [[package]]
 name = "num-rational"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c000134b5dbf44adc5cb772486d335293351644b801551abe8f75c84cfa4aef"
+dependencies = [
+ "autocfg",
+ "num-bigint 0.2.6",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-rational"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0638a1c9d0a3c0914158145bc76cff373a75a627e6ecbfb71cbe6f453a5a19b0"
 dependencies = [
  "autocfg",
- "num-bigint",
+ "num-bigint 0.4.3",
  "num-integer",
  "num-traits",
 ]
@@ -5659,32 +5733,58 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-consensus-aura"
+name = "sc-consensus-babe"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "async-trait",
+ "fork-tree",
  "futures",
  "log",
+ "merlin",
+ "num-bigint 0.2.6",
+ "num-rational 0.2.4",
+ "num-traits",
  "parity-scale-codec",
- "sc-block-builder",
+ "parking_lot 0.12.1",
+ "rand 0.7.3",
  "sc-client-api",
  "sc-consensus",
+ "sc-consensus-epochs",
  "sc-consensus-slots",
+ "sc-keystore",
  "sc-telemetry",
+ "schnorrkel",
+ "serde",
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-consensus-slots",
+ "sp-consensus-vrf",
  "sp-core",
  "sp-inherents",
+ "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-version",
  "substrate-prometheus-endpoint",
  "thiserror",
+]
+
+[[package]]
+name = "sc-consensus-epochs"
+version = "0.10.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "fork-tree",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-consensus",
+ "sp-blockchain",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -6902,24 +7002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-consensus-aura"
-version = "0.10.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
-dependencies = [
- "async-trait",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-application-crypto",
- "sp-consensus",
- "sp-consensus-slots",
- "sp-inherents",
- "sp-runtime",
- "sp-std",
- "sp-timestamp",
-]
-
-[[package]]
 name = "sp-consensus-babe"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -7163,6 +7245,21 @@ source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.3
 dependencies = [
  "thiserror",
  "zstd",
+]
+
+[[package]]
+name = "sp-mmr-primitives"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-debug-derive",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7832,6 +7929,7 @@ dependencies = [
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
+ "beefy-gadget",
  "clap",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -7846,7 +7944,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-aura",
+ "sc-consensus-babe",
  "sc-executor",
  "sc-finality-grandpa",
  "sc-keystore",
@@ -7861,7 +7959,7 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
@@ -7913,7 +8011,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-block-builder",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-inherents",
  "sp-npos-elections",
@@ -8560,7 +8658,7 @@ dependencies = [
  "downcast-rs",
  "libm",
  "memory_units",
- "num-rational",
+ "num-rational 0.4.1",
  "num-traits",
 ]
 

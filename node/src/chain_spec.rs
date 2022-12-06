@@ -304,6 +304,10 @@ fn testnet_genesis(
 			// Configure pool accounts with its initial supply.
 			balances: endowed_accounts,
 		},
+		babe: timechain_runtime::BabeConfig {
+			authorities: Default::default(),
+			epoch_config: Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
+		},
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
@@ -313,7 +317,6 @@ fn testnet_genesis(
 		},
 		transaction_payment: Default::default(),
 		vesting: VestingConfig { vesting: vesting_accounts },
-		babe: Default::default(),
 		im_online: Default::default(),
 		session: Default::default(),
 		staking: Default::default(),

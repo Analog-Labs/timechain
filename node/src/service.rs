@@ -110,7 +110,7 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
-	let (beefy_block_import, beefy_voter_links, beefy_rpc_links) =
+	let (beefy_block_import, _beefy_voter_links, _beefy_rpc_links) =
 		beefy_gadget::beefy_block_import_and_links(
 			grandpa_block_import.clone(),
 			backend.clone(),
@@ -268,9 +268,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-		let client_clone = client.clone();
-		// let overseer_handle =
-		// 	overseer_handle.as_ref().ok_or(Error::AuthoritiesRequireRealOverseer)?.clone();
 		let slot_duration = babe_link.config().slot_duration();
 		let babe_config = sc_consensus_babe::BabeParams {
 			keystore: keystore_container.sync_keystore(),
@@ -280,17 +277,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			env: proposer_factory,
 			sync_oracle: network.clone(),
 			justification_sync_link: network.clone(),
-			create_inherent_data_providers: move |parent, ()| {
-				let client_clone = client_clone.clone();
-				// let overseer_handle = overseer_handle.clone();
+			create_inherent_data_providers: move |_parent, ()| {
 
 				async move {
-					// let parachain = polkadot_node_core_parachains_inherent::ParachainsInherentDataProvider::create(
-					// 	&*client_clone,
-					// 	overseer_handle,
-					// 	parent,
-					// ).await.map_err(|e| Box::new(e))?;
-
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 					let slot =
@@ -312,9 +301,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
 		let babe = sc_consensus_babe::start_babe(babe_config)?;
 
-
-		// the AURA authoring task is considered essential, i.e. if it
-		// fails we take down the service with it.
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("aura", Some("block-authoring"), babe);

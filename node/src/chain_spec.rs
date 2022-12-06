@@ -318,9 +318,9 @@ fn testnet_genesis(
 		transaction_payment: Default::default(),
 		vesting: VestingConfig { vesting: vesting_accounts },
 		im_online: Default::default(),
-		session: Default::default(),
+		session: timechain_runtime::SessionConfig {
+			keys: Default::default(),
+		},
 		staking: Default::default(),
-
-
 	}
 }

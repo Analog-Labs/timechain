@@ -110,17 +110,9 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
-	let (beefy_block_import, _beefy_voter_links, _beefy_rpc_links) =
-		beefy_gadget::beefy_block_import_and_links(
-			grandpa_block_import.clone(),
-			backend.clone(),
-			client.clone(),
-		);
-
-
 	let babe_config = sc_consensus_babe::configuration(&*client)?;
 	let (block_import, babe_link) =
-	sc_consensus_babe::block_import(babe_config.clone(), beefy_block_import, client.clone())?;
+	sc_consensus_babe::block_import(babe_config.clone(), grandpa_block_import.clone(), client.clone())?;
 
 	let slot_duration = babe_link.config().slot_duration();
 	let justification_import = grandpa_block_import.clone();

@@ -8,7 +8,7 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use std::{sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
-
+use sp_runtime::traits::Block as BlockT;
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
@@ -131,8 +131,11 @@ pub fn new_partial(
 					*timestamp,
 					slot_duration,
 				);
+			
+			let uncles =
+				sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
 
-			Ok((slot, timestamp))
+			Ok((slot, timestamp, uncles))
 		},
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),

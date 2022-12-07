@@ -7956,6 +7956,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "serde_json",
  "sp-api",
+ "sp-authorship",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",

@@ -169,6 +169,10 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 				
 				// Pre-funded accounts
 				vec![
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
 					(
 						hex!["88fd77d706e168d78713a6a927c1ddfae367b081fb2829b119bbcc6db9af401d"]
 							.into(),
@@ -302,7 +306,7 @@ fn testnet_genesis(
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
 
-	let seeds = vec!["Alice", "Bob"];
+	// let seeds = vec!["Alice", "Bob"];
 
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
@@ -330,7 +334,8 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		vesting: VestingConfig { vesting: vesting_accounts },
+		// vesting: VestingConfig { vesting: vesting_accounts },
+		vesting: VestingConfig { vesting: Default::default()},
 		im_online: Default::default(),
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities

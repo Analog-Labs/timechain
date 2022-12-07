@@ -312,7 +312,7 @@ pub mod opaque {
 
 	impl_opaque_keys! {
 		pub struct SessionKeys {
-			pub aura: Babe,
+			pub babe: Babe,
 			pub grandpa: Grandpa,
 		}
 	}

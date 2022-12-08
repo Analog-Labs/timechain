@@ -78,11 +78,10 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
+				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
-				// Sudo account
-				// get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
 					(
@@ -162,11 +161,10 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
+				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice")],
-				// Sudo account
-				
+				vec![authority_keys_from_seed("Alice")],				
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
@@ -250,11 +248,10 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
+				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
-				// Sudo account
-				// get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),

@@ -7,25 +7,26 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use frame_system::{EnsureRoot, EnsureSigned};
 
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use beefy_primitives::crypto::AuthorityId as BeefyId;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-pub use runtime_common::constants::ANLOG;
-use sp_staking::SessionIndex;
 use pallet_session::historical as pallet_session_historical;
+pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
+use sp_staking::SessionIndex;
 // use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	create_runtime_str,
 	curve::PiecewiseLinear,
+	generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentifyAccount,
-		NumberFor, One, Verify, OpaqueKeys,
+		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
@@ -387,7 +388,6 @@ pub fn native_version() -> NativeVersion {
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-
 parameter_types! {
 	// pub const ProposalBond: Permill = Permill::from_percent(5);
 	// pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
@@ -505,7 +505,7 @@ impl pallet_randomness_collective_flip::Config for Runtime {}
 
 parameter_types! {
 	pub EpochDuration: u64 = 2 * MINUTES as u64;
-		
+
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
@@ -577,18 +577,17 @@ impl pallet_im_online::Config for Runtime {
 	type ValidatorSet = Historical;
 
 	type NextSessionRotation = Babe;
-	// TODO 
+	// TODO
 	// type ReportUnresponsiveness = Offences;
 	type ReportUnresponsiveness = ();
 	type UnsignedPriority = ImOnlineUnsignedPriority;
-	// TODO 
+	// TODO
 	// type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
 	type WeightInfo = ();
 	type MaxKeys = MaxKeys;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 	type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
 }
-
 
 parameter_types! {
 	// phase durations. 1/4 of the last session for each.
@@ -921,7 +920,7 @@ construct_runtime!(
 		Authorship: pallet_authorship,
 		Session: pallet_session,
 		Staking: pallet_staking,
-		VoterList: pallet_bags_list::<Instance1>,
+		VoterList: pallet_bags_list<Instance1>,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Balances: pallet_balances,

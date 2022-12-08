@@ -6,9 +6,9 @@ use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sp_runtime::traits::Block as BlockT;
 use std::{sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
-use sp_runtime::traits::Block as BlockT;
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
@@ -49,7 +49,6 @@ pub fn new_partial(
 			sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
 			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 			sc_consensus_babe::BabeLink<Block>,
-
 			Option<Telemetry>,
 		),
 	>,
@@ -108,8 +107,11 @@ pub fn new_partial(
 	)?;
 
 	let babe_config = sc_consensus_babe::configuration(&*client)?;
-	let (block_import, babe_link) =
-	sc_consensus_babe::block_import(babe_config.clone(), grandpa_block_import.clone(), client.clone())?;
+	let (block_import, babe_link) = sc_consensus_babe::block_import(
+		babe_config.clone(),
+		grandpa_block_import.clone(),
+		client.clone(),
+	)?;
 
 	let slot_duration = babe_link.config().slot_duration();
 	let justification_import = grandpa_block_import.clone();
@@ -128,7 +130,7 @@ pub fn new_partial(
 					*timestamp,
 					slot_duration,
 				);
-			
+
 			let uncles =
 				sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
 
@@ -266,19 +268,16 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			env: proposer_factory,
 			sync_oracle: network.clone(),
 			justification_sync_link: network.clone(),
-			create_inherent_data_providers: move |_parent, ()| {
+			create_inherent_data_providers: move |_parent, ()| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				async move {
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-					let slot =
+				let slot =
 						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 							*timestamp,
 							slot_duration,
 						);
 
-					Ok((slot, timestamp))
-				}
+				Ok((slot, timestamp))
 			},
 			force_authoring,
 			backoff_authoring_blocks,

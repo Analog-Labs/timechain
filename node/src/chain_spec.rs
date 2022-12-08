@@ -7,8 +7,8 @@ use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use timechain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, VestingConfig, WASM_BINARY,
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
+	VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -54,7 +54,7 @@ pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, Grand
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
 		get_account_id_from_seed::<sr25519::Public>(&format!("{s}/slash")),
-		get_from_seed::<BabeId>(s), 
+		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 	)
 }
@@ -164,7 +164,7 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice")],				
+				vec![authority_keys_from_seed("Alice")],
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
@@ -262,7 +262,10 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), ANLOG * 1000000),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+						ANLOG * 1000000,
+					),
 					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000),
 					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000),
 					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000),
@@ -288,11 +291,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	root_key: AccountId,
-	initial_authorities: Vec<(
-		AccountId,
-		AccountId,
-		BabeId,
-		GrandpaId,)>,
+	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -322,16 +321,14 @@ fn testnet_genesis(
 			authorities: vec![],
 			epoch_config: Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: GrandpaConfig {
-			authorities: vec![],
-		},
+		grandpa: GrandpaConfig { authorities: vec![] },
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
 		// vesting: VestingConfig { vesting: vesting_accounts },
-		vesting: VestingConfig { vesting: Default::default()},
+		vesting: VestingConfig { vesting: Default::default() },
 		im_online: Default::default(),
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities
@@ -343,12 +340,12 @@ fn testnet_genesis(
 						timechain_runtime::opaque::SessionKeys {
 							babe: x.2.clone(),
 							grandpa: x.3.clone(),
-						}
+						},
 					)
 				})
 				.collect::<Vec<_>>(),
 		},
-		
+
 		staking: Default::default(),
 	}
 }

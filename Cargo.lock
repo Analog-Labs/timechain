@@ -392,43 +392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "beefy-gadget"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
-dependencies = [
- "array-bytes",
- "async-trait",
- "beefy-primitives",
- "fnv",
- "futures",
- "futures-timer",
- "log",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "sc-chain-spec",
- "sc-client-api",
- "sc-consensus",
- "sc-finality-grandpa",
- "sc-keystore",
- "sc-network",
- "sc-network-common",
- "sc-network-gossip",
- "sc-utils",
- "sp-api",
- "sp-application-crypto",
- "sp-arithmetic",
- "sp-blockchain",
- "sp-consensus",
- "sp-core",
- "sp-keystore",
- "sp-mmr-primitives",
- "sp-runtime",
- "substrate-prometheus-endpoint",
- "thiserror",
- "wasm-timer",
-]
-
-[[package]]
 name = "beefy-primitives"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -7248,21 +7211,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-mmr-primitives"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
-dependencies = [
- "log",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-core",
- "sp-debug-derive",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "sp-npos-elections"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -7929,7 +7877,6 @@ dependencies = [
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
- "beefy-gadget",
  "clap",
  "frame-benchmarking",
  "frame-benchmarking-cli",

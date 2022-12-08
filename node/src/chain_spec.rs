@@ -306,10 +306,9 @@ fn testnet_genesis(
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
 
-	// let seeds = vec!["Alice", "Bob"];
-
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
-	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
+	// configure not valid for these vesting accounts.
+	let _vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
 

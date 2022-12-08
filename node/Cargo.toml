@@ -43,7 +43,6 @@ frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/sub
 pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 sp-authorship = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 
-beefy-gadget = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 
 # node 's RPCs deps
 jsonrpsee = { version = "0.15.1", features = ["server"] }

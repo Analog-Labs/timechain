@@ -920,7 +920,7 @@ construct_runtime!(
 		Authorship: pallet_authorship,
 		Session: pallet_session,
 		Staking: pallet_staking,
-		VoterList: pallet_bags_list<Instance1>,
+		VoterList: pallet_bags_list::<Instance1>,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Balances: pallet_balances,

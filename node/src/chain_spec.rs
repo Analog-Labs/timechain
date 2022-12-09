@@ -1,13 +1,14 @@
 use hex_literal::hex;
 use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_babe::AuthorityId as BabeId;
+
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use timechain_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, VestingConfig, WASM_BINARY,
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
+	VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -49,8 +50,13 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId) {
+	(
+		get_account_id_from_seed::<sr25519::Public>(s),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{s}/slash")),
+		get_from_seed::<BabeId>(s),
+		get_from_seed::<GrandpaId>(s),
+	)
 }
 
 /// Generate a default spec for the Analog live chain (Prod).
@@ -72,10 +78,10 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
-				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice")],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Initial PoA authorities
+				vec![authority_keys_from_seed("Alice")],
 				// Pre-funded accounts
 				vec![
 					(
@@ -155,12 +161,16 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
-				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice")],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Initial PoA authorities
+				vec![authority_keys_from_seed("Alice")],
 				// Pre-funded accounts
 				vec![
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
 					(
 						hex!["88fd77d706e168d78713a6a927c1ddfae367b081fb2829b119bbcc6db9af401d"]
 							.into(),
@@ -238,24 +248,27 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
-				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Initial PoA authorities
+				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 				// Pre-funded accounts
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), 2000000),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),
+					(get_account_id_from_seed::<sr25519::Public>("Eve"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+						ANLOG * 1000000,
+					),
+					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000),
+					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000),
 				],
 				true,
 			)
@@ -277,8 +290,8 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
+	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -290,7 +303,8 @@ fn testnet_genesis(
 	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
 
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
-	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
+	// configure not valid for these vesting accounts.
+	let _vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
 
@@ -303,17 +317,35 @@ fn testnet_genesis(
 			// Configure pool accounts with its initial supply.
 			balances: endowed_accounts,
 		},
-		aura: AuraConfig {
-			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+		babe: timechain_runtime::BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: GrandpaConfig {
-			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
-		},
+		grandpa: GrandpaConfig { authorities: vec![] },
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		vesting: VestingConfig { vesting: vesting_accounts },
+		// vesting: VestingConfig { vesting: vesting_accounts },
+		vesting: VestingConfig { vesting: Default::default() },
+		im_online: Default::default(),
+		session: timechain_runtime::SessionConfig {
+			keys: initial_authorities
+				.iter()
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.1.clone(),
+						timechain_runtime::opaque::SessionKeys {
+							babe: x.2.clone(),
+							grandpa: x.3.clone(),
+						},
+					)
+				})
+				.collect::<Vec<_>>(),
+		},
+
+		staking: Default::default(),
 	}
 }

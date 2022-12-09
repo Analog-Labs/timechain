@@ -23,9 +23,12 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
-	use sp_runtime::{app_crypto::RuntimePublic, traits::IdentifyAccount};
+	use sp_runtime::{
+		app_crypto::RuntimePublic,
+		traits::{AppVerify, IdentifyAccount},
+	};
 	use sp_std::vec::Vec;
-	use time_primitives::{SignatureData, TimeKey, TimeSignature};
+	use time_primitives::{SignatureData, TimeId, TimeSignature};
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -159,7 +162,7 @@ pub mod pallet {
 		}
 
 		pub fn api_store_signature(
-			auth_id: TimeKey,
+			auth_id: T::AccountId,
 			auth_sig: TimeSignature,
 			signature_data: SignatureData,
 			network_id: Vec<u8>,
@@ -168,7 +171,7 @@ pub mod pallet {
 			if !TesseractMembers::<T>::contains_key(auth_id.clone()) ||
 				!auth_id.verify(&signature_data, &auth_sig)
 			{
-				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(auth_id.into_account()))
+				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(auth_id.into()))
 			}
 			let random_value = Self::random_hash(&auth_id);
 			let storage_data = SignatureStorage::new(

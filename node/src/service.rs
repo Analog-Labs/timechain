@@ -192,6 +192,14 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		.network
 		.extra_sets
 		.push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+
+	// registering time p2p gossip protocol
+	config.network.extra_sets.push(
+		time_worker::communication::time_protocol_name::time_peers_set_config(
+			time_worker::communication::time_protocol_name::gossip_protocol_name(),
+		),
+	);
+
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
@@ -336,6 +344,21 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}
+
+	// injecting our Worker
+	let time_params = time_worker::TimeWorkerParams {
+		runtime: client.clone(),
+		client,
+		backend,
+		gossip_network: network,
+		kv: keystore.into(),
+		_block: PhantomData::default(),
+	};
+	task_manager.spawn_essential_handle().spawn_blocking(
+		"time-worker",
+		None,
+		time_worker::start_timeworker_gadget(time_params),
+	);
 
 	network_starter.start_network();
 	Ok(task_manager)

@@ -874,7 +874,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 }
 
 parameter_types! {
-	pub MinVestedTransfer: Balance = 100 * ANLOG;
+	pub MinVestedTransfer: Balance = 1 * ANLOG;
 	pub const MaxVestingSchedules: u32 = 100;
 }
 
@@ -887,7 +887,17 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 	}
 }
 
-impl orml_vesting::Config for Runtime {
+// impl orml_vesting::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type Currency = Balances;
+// 	type MinVestedTransfer = MinVestedTransfer;
+// 	type WeightInfo = ();
+// 	type VestedTransferOrigin = EnsureSigned<AccountId>;
+// 	type MaxVestingSchedules = MaxVestingSchedules;
+// 	type BlockNumberProvider = SubstrateBlockNumberProvider;
+// }
+
+impl analog_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type MinVestedTransfer = MinVestedTransfer;
@@ -928,7 +938,8 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage,
-		Vesting: orml_vesting,
+		// Vesting: orml_vesting,
+		Vesting: analog_vesting,
 		OnchainTask: onchain_task_pallet,
 	}
 );

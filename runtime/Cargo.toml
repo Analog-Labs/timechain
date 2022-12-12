@@ -69,6 +69,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 
 # Local Dependencies
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch="polkadot-v0.9.30", default-features = false }
+analog-vesting= { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
 runtime-common = { path = "./common", default-features = false }
 onchain-task-pallet= { version = "0.0.1-dev", default-features = false, path = "../pallets/onchain-task" }
@@ -106,6 +107,7 @@ std = [
 	"pallet-staking/std",
 	"pallet-collective/std",
 	"orml-vesting/std",
+	"analog-vesting/std",
 	"pallet-utility/std",
 	"pallet-tesseract-sig-storage/std",
 	"pallet-timestamp/std",
@@ -139,6 +141,7 @@ runtime-benchmarks = [
 	"pallet-tesseract-sig-storage/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"orml-vesting/runtime-benchmarks",
+	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -157,4 +160,5 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"orml-vesting/try-runtime",
+	"analog-vesting/try-runtime"
 ]

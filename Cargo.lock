@@ -92,6 +92,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "analog-vesting"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8564,7 +8580,11 @@ dependencies = [
 name = "timechain-runtime"
 version = "0.0.1"
 dependencies = [
+<<<<<<< HEAD
  "beefy-primitives",
+=======
+ "analog-vesting",
+>>>>>>> b3b88fb (vesting working)
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",

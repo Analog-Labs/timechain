@@ -41,7 +41,7 @@ fn test_signature_storage() {
 		// We first add the Tesseract as a member with root privilege
 		assert_ok!(TesseractSigStorage::add_member(RawOrigin::Root.into(), 1, TesseractRole::Collector));
 
-		assert_ok!(TesseractSigStorage::store_signature_data(
+		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(1).into(),
 			sig_data.clone(),
 			network_id.clone().to_vec(),

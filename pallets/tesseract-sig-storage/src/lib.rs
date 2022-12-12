@@ -26,6 +26,7 @@ pub mod pallet {
 	use sp_runtime::{
 		app_crypto::RuntimePublic,
 		traits::{AppVerify, IdentifyAccount},
+		MultiSignature,
 	};
 	use sp_std::vec::Vec;
 	use time_primitives::{SignatureData, TimeId, TimeSignature};
@@ -81,8 +82,11 @@ pub mod pallet {
 		/// A tesseract Node has been removed
 		TesseractMemberRemoved(T::AccountId),
 
-		/// Unauthorized attemtp to add signed data
+		/// Unauthorized attempt to add signed data
 		UnregisteredWorkerDataSubmission(T::AccountId),
+
+		/// Default account is not allowed for this operation
+		DefaultAccountForbidden(),
 	}
 
 	#[pallet::error]
@@ -162,18 +166,28 @@ pub mod pallet {
 		}
 
 		pub fn api_store_signature(
-			auth_id: T::AccountId,
+			auth_id: TimeId,
 			auth_sig: TimeSignature,
 			signature_data: SignatureData,
 			network_id: Vec<u8>,
 			block_height: u64,
 		) {
-			if !TesseractMembers::<T>::contains_key(auth_id.clone()) ||
-				!auth_id.verify(&signature_data, &auth_sig)
-			{
-				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(auth_id.into()))
+			use sp_runtime::traits::Verify;
+			// transform AccountId32 int T::AccountId
+			let encoded_account = auth_id.encode();
+			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {
+				Self::deposit_event(Event::DefaultAccountForbidden());
+				return
 			}
-			let random_value = Self::random_hash(&auth_id);
+			// Unwrapping is safe - we've checked for len and default-ness
+			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
+			if !TesseractMembers::<T>::contains_key(account_id.clone()) ||
+				!auth_sig.verify(&*signature_data, &auth_id)
+			{
+				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
+				return
+			}
+			let random_value = Self::random_hash(&account_id);
 			let storage_data = SignatureStorage::new(
 				random_value.clone(),
 				signature_data.clone(),

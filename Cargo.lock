@@ -8774,6 +8774,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "time-primitives",
 ]
 
 [[package]]

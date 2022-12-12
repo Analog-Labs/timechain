@@ -314,7 +314,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			justification_period: 512,
 			name: Some(name),
 			observer_enabled: false,
-			keystore,
+			keystore: keystore.clone(),
 			local_role: role,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			protocol_name: grandpa_protocol_name,
@@ -343,22 +343,22 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-	}
 
-	// injecting our Worker
-	let time_params = time_worker::TimeWorkerParams {
-		runtime: client.clone(),
-		client,
-		backend,
-		gossip_network: network,
-		kv: keystore.into(),
-		_block: PhantomData::default(),
-	};
-	task_manager.spawn_essential_handle().spawn_blocking(
-		"time-worker",
-		None,
-		time_worker::start_timeworker_gadget(time_params),
-	);
+		// injecting our Worker
+		let time_params = time_worker::TimeWorkerParams {
+			runtime: client.clone(),
+			client,
+			backend,
+			gossip_network: network,
+			kv: keystore.into(),
+			_block: PhantomData::default(),
+		};
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"time-worker",
+			None,
+			time_worker::start_timeworker_gadget(time_params),
+		);
+	}
 
 	network_starter.start_network();
 	Ok(task_manager)

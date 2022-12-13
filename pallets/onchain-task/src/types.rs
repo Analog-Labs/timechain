@@ -3,33 +3,23 @@ use frame_support::PartialEqNoBound;
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
-/// type that uniquely identify a task_data
-pub type ChainData = Vec<u8>;
+pub type MethodArguments = Vec<Vec<u8>>;
+pub type Frequency = u64;
+pub type TaskId = u64;
 
-/// The type representing a method
-pub type MethodName = Vec<u8>;
-pub type MethodArguments = Vec<u8>;
-
-#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct OnchainTasks{
-    pub task: Vec<TaskData>
-}
-// Struct for holding Onchain Task information.
-#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct TaskData{
-    pub task: SupportedTasks,
-    pub task_data: ChainData,
-    pub method: Vec<TaskMethod>,
+    pub task_id: TaskId,
+    pub frequency: Frequency,
 }
 
-// Struct for holding Task Methods.
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct TaskMethod{
-    pub name: MethodName,
+pub struct OnChainTaskMetadata{
+    pub task: SupportedTasks,
     pub arguments: MethodArguments,
 }
-    
-#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+
+#[derive(Clone, Copy, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedChain {
     Cosmos,
 	Ethereum,
@@ -39,9 +29,20 @@ pub enum SupportedChain {
 
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedTasks {
+    EthereumTasks,
+    CosmosTasks,
+}
+
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum EthereumTasks {
     SwapToken,
 	FetchEvents,
     FetchBalance,
+    FetchBlocks,
+}
+
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum CosmosTasks {
     FetchBlocks,
 }
 

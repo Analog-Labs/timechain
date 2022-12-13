@@ -37,6 +37,20 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	#[pallet::getter(fn next_task_id)]
+	pub(super) type NextTaskId<T: Config> = StorageValue<_, TaskId, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn task_metadata)]
+	pub(super) type TaskMetadata<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, OnChainTaskMetadata, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn task_metadata_id)]
+	pub(super) type TaskMetadataId<T: Config> =
+		StorageMap<_, Blake2_128Concat, OnChainTaskMetadata, TaskId, OptionQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
 		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTasks>, OptionQuery>;
@@ -80,87 +94,45 @@ pub mod pallet {
 		pub fn store_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,
-			task_data: OnchainTasks,	
+			task_metadata: OnChainTaskMetadata,	
+			frequency: Frequency,
 		) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
-			// Check if the task is already stored
-			let tasks = match Self::task_store(&chain){
-				Some(tasks) => tasks,
-				None => Vec::new(),
-			};
-			ensure!(!tasks.contains(&task_data), Error::<T>::TaskAlreadyExists);
-			ensure!(task_data.task.len() > 0, Error::<T>::EmptyTask);
-			<OnchainTaskStore<T>>::append(
-				chain.clone(), task_data.clone(),
-			);
+			let caller = ensure_signed(origin)?;
 
-			Self::deposit_event(Event::OnchainTaskStored(chain.clone(), task_data.clone()));
+			let task_id = Self::task_metadata_id(&task_metadata);
 
+			match task_id {
+				// task already exists before
+				Some(id) => {
+					// just update the frequency with minimum value
+					// <TaskMetadata<T>>::insert(id, &task_metadata);
+
+				},
+				// new task
+				None => {
+					// init id is zero
+					let task_id = 0;
+					<NextTaskId<T>>::put(task_id);
+					<TaskMetadata<T>>::insert(task_id, &task_metadata);
+					let task = OnchainTasks {
+						task_id,
+						frequency,
+					};
+					<OnchainTaskStore<T>>::append(&chain, task);
+
+					let mut tasks = Self::task_store(&chain).unwrap();
+					tasks.sort();
+
+					<OnchainTaskStore<T>>::insert(&chain, tasks);
+				}
+			}
+			
 			Ok(())
-		}
-
-		/// Extrinsic for removing onchain all tasks
-		/// for a supported chain
-		/// Callable only by root for now
-		#[pallet::weight(T::WeightInfo::remove_chain_tasks())]
-		pub fn remove_chain_tasks(origin: OriginFor<T>, chain: SupportedChain) -> DispatchResult {
-			let _ = ensure_root(origin)?;
-
-			<OnchainTaskStore<T>>::remove(chain.clone());
-
-			Self::deposit_event(Event::OnchainTasksRemoved(chain.clone()));
-
-			Ok(())
-		}
-
-		#[pallet::weight(T::WeightInfo::edit_task())]
-		pub fn edit_task(
-			origin: OriginFor<T>,
-			chain: SupportedChain,
-			old_task: OnchainTasks,
-			new_task: OnchainTasks,
-		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
-			let index = Self::get_task_index(chain.clone(), old_task.clone())?;
-			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(old_task.clone() == onchain_task[index], Error::<T>::TaskNotFound);
-			onchain_task[index] = new_task.clone();
-			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
-			Self::deposit_event(Event::OnchainTaskEdited(chain.clone(), new_task.clone()));
-			Ok(())
-		}
-
-		#[pallet::weight(T::WeightInfo::remove_single_task())]
-		pub fn remove_single_task(
-			origin: OriginFor<T>,
-			chain: SupportedChain,
-			task_data: OnchainTasks,
-		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
-			let index = Self::get_task_index(chain.clone(), task_data.clone())?;
-			let mut onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
-			onchain_task.remove(index);
-			OnchainTaskStore::<T>::insert(chain.clone(), onchain_task);
-			Self::deposit_event(Event::OnchainTaskRemoved(chain.clone(), task_data.clone()));
-			Ok(())
-		}
+		}	
 
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Helper functions to get the onchain task for a supported chain
-		/// Also to get index of the task in the vector
-		fn get_task_index(
-			chain: SupportedChain,
-			task_data: OnchainTasks,
-		) -> Result<usize, DispatchError> {
-			let onchain_task = OnchainTaskStore::<T>::get(chain.clone()).ok_or(Error::<T>::UnknownTask)?;
-			let index = match onchain_task.iter().position(|r| r.clone() == task_data) {
-				Some(index) => index,
-				None => return Err(Error::<T>::TaskNotFound.into()),
-			};
-			Ok(index)
-		}
 
 	}
 

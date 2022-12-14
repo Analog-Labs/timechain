@@ -13,39 +13,43 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use crate::weights::WeightInfo;
-	use sp_std::vec::Vec;
-	use crate::types::*;
+	use crate::{types::*, weights::WeightInfo};
 	use frame_support::{
+		pallet_prelude::*,
 		sp_runtime::traits::{Hash, Scale},
-		traits::{Randomness, Time}
+		traits::{Randomness, Time},
 	};
+	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
+	use sp_runtime::{
+		app_crypto::RuntimePublic,
+		traits::{AppVerify, IdentifyAccount},
+		MultiSignature,
+	};
+	use sp_std::vec::Vec;
+	use time_primitives::{SignatureData, TimeId, TimeSignature};
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
-    
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type StoreRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 		type Moment: Parameter
-		+ Default
-		+ Scale<Self::BlockNumber, Output = Self::Moment>
-		+ Copy
-		+ MaxEncodedLen
-		+ StaticTypeInfo;
-		type Timestamp: Time<Moment=Self::Moment> ;
+			+ Default
+			+ Scale<Self::BlockNumber, Output = Self::Moment>
+			+ Copy
+			+ MaxEncodedLen
+			+ StaticTypeInfo;
+		type Timestamp: Time<Moment = Self::Moment>;
 	}
-	
+
 	#[pallet::storage]
 	#[pallet::getter(fn get_nonce)]
 	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -77,6 +81,12 @@ pub mod pallet {
 
 		/// A tesseract Node has been removed
 		TesseractMemberRemoved(T::AccountId),
+
+		/// Unauthorized attempt to add signed data
+		UnregisteredWorkerDataSubmission(T::AccountId),
+
+		/// Default account is not allowed for this operation
+		DefaultAccountForbidden(),
 	}
 
 	#[pallet::error]
@@ -84,8 +94,7 @@ pub mod pallet {
 		/// The Tesseract address in not known
 		UnknownTesseract,
 	}
-	
-	
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
@@ -97,10 +106,19 @@ pub mod pallet {
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(TesseractMembers::<T>::contains_key(caller.clone()), Error::<T>::UnknownTesseract);
-			let random_value  = Self::random_hash(&caller);
-			let storage_data = SignatureStorage::new(random_value.clone(), signature_data.clone(), network_id.to_vec().clone(), block_height, T::Timestamp::now());
-			
+			ensure!(
+				TesseractMembers::<T>::contains_key(caller.clone()),
+				Error::<T>::UnknownTesseract
+			);
+			let random_value = Self::random_hash(&caller);
+			let storage_data = SignatureStorage::new(
+				random_value.clone(),
+				signature_data.clone(),
+				network_id.to_vec().clone(),
+				block_height,
+				T::Timestamp::now(),
+			);
+
 			<SignatureStoreData<T>>::insert(random_value.clone(), storage_data);
 
 			Self::deposit_event(Event::SignatureStored(random_value, signature_data));
@@ -138,15 +156,49 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-	
-	impl<T: Config> Pallet<T>{
-		fn random_hash(sender: &T::AccountId) -> T::Hash{
+
+	impl<T: Config> Pallet<T> {
+		fn random_hash(sender: &T::AccountId) -> T::Hash {
 			let nonce = <Nonce<T>>::get();
 			let seed = T::StoreRandomness::random_seed();
-			
+
 			T::Hashing::hash_of(&(seed, sender, nonce))
 		}
 
+		pub fn api_store_signature(
+			auth_id: TimeId,
+			auth_sig: TimeSignature,
+			signature_data: SignatureData,
+			network_id: Vec<u8>,
+			block_height: u64,
+		) {
+			use sp_runtime::traits::Verify;
+			// transform AccountId32 int T::AccountId
+			let encoded_account = auth_id.encode();
+			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {
+				Self::deposit_event(Event::DefaultAccountForbidden());
+				return
+			}
+			// Unwrapping is safe - we've checked for len and default-ness
+			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
+			if !TesseractMembers::<T>::contains_key(account_id.clone()) ||
+				!auth_sig.verify(&*signature_data, &auth_id)
+			{
+				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
+				return
+			}
+			let random_value = Self::random_hash(&account_id);
+			let storage_data = SignatureStorage::new(
+				random_value.clone(),
+				signature_data.clone(),
+				network_id.to_vec().clone(),
+				block_height,
+				T::Timestamp::now(),
+			);
+
+			<SignatureStoreData<T>>::insert(random_value.clone(), storage_data);
+
+			Self::deposit_event(Event::SignatureStored(random_value, signature_data));
+		}
 	}
-	
 }

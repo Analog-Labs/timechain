@@ -4677,6 +4677,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "time-primitives",
 ]
 
 [[package]]
@@ -8633,12 +8634,14 @@ dependencies = [
  "borsh",
  "fnv",
  "frame-support",
+ "frost-dalek",
  "futures",
  "futures-timer",
  "hex",
  "log",
  "parity-scale-codec",
  "parking_lot 0.11.2",
+ "rand 0.7.3",
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
@@ -8773,6 +8776,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "time-primitives",
 ]
 
 [[package]]

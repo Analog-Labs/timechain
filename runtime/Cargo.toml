@@ -72,6 +72,7 @@ orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-l
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
 runtime-common = { path = "./common", default-features = false }
 onchain-task-pallet= { version = "0.0.1-dev", default-features = false, path = "../pallets/onchain-task" }
+time-primitives = { path = "../primitives/time-primitives", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
@@ -124,6 +125,7 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"time-primitives/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

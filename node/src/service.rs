@@ -7,7 +7,7 @@ use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_runtime::traits::Block as BlockT;
-use std::{sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -55,7 +55,7 @@ pub fn new_partial(
 	ServiceError,
 > {
 	if config.keystore_remote.is_some() {
-		return Err(ServiceError::Other("Remote Keystores are not supported.".into()))
+		return Err(ServiceError::Other("Remote Keystores are not supported.".to_string()))
 	}
 
 	let telemetry = config
@@ -251,7 +251,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		rpc_builder: rpc_extensions_builder,
-		backend,
+		backend: backend.clone(),
 		system_rpc_tx,
 		tx_handler_controller,
 		config,
@@ -314,7 +314,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			justification_period: 512,
 			name: Some(name),
 			observer_enabled: false,
-			keystore,
+			keystore: keystore.clone(),
 			local_role: role,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			protocol_name: grandpa_protocol_name,
@@ -329,7 +329,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		let grandpa_config = sc_finality_grandpa::GrandpaParams {
 			config: grandpa_config,
 			link: grandpa_link,
-			network,
+			network: network.clone(),
 			voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
 			prometheus_registry,
 			shared_voter_state: SharedVoterState::empty(),
@@ -343,22 +343,22 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-	}
 
-	// injecting our Worker
-	let time_params = time_worker::TimeWorkerParams {
-		runtime: client.clone(),
-		client,
-		backend,
-		gossip_network: network,
-		kv: keystore.into(),
-		_block: PhantomData::default(),
-	};
-	task_manager.spawn_essential_handle().spawn_blocking(
-		"time-worker",
-		None,
-		time_worker::start_timeworker_gadget(time_params),
-	);
+		// injecting our Worker
+		let time_params = time_worker::TimeWorkerParams {
+			runtime: client.clone(),
+			client,
+			backend,
+			gossip_network: network,
+			kv: keystore.into(),
+			_block: PhantomData::default(),
+		};
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"time-worker",
+			None,
+			time_worker::start_timeworker_gadget(time_params),
+		);
+	}
 
 	network_starter.start_network();
 	Ok(task_manager)

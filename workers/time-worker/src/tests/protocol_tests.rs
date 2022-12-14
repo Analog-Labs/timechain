@@ -276,13 +276,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block> for RuntimeApi {
-		fn get_ping_gossips(gossip_id: u64) -> Vec<time_primitives::crypto::Public>{todo!()}
-		/// Store new gossip
-		fn store_ping_gossip(gossip_id: u64, acknowledged_by: time_primitives::crypto::Public){todo!()}
-		fn validator_set(&self) -> Vec<time_primitives::crypto::Public> {
-			make_time_ids(&self.inner.genesys_validator_set)
-		}
-
+		fn store_signature(auth_key: time_primitives::TimeId, auth_sig: time_primitives::TimeSignature, signature_data: time_primitives::SignatureData, network_id: Vec<u8>, block_height: u64,) {}
 	}
 
 }

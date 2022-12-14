@@ -3,7 +3,7 @@ use frame_support::PartialEqNoBound;
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
-use std::cmp::Ordering;
+use sp_std::cmp::Ordering;
 
 pub type MethodArguments = Vec<Vec<u8>>;
 pub type Frequency = u64;

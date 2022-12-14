@@ -11,20 +11,17 @@ mod types;
 
 pub mod weights;
 
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
 
-	use frame_support::pallet_prelude::*;
+	use crate::{types::*, weights::WeightInfo};
+	use frame_support::{pallet_prelude::*, traits::IsType};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
-	use frame_support::traits::IsType;
-	use crate::weights::WeightInfo;
-	use crate::types::*;
-	
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -53,24 +50,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTasks>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTask>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Emitted when the onchain task is stored successfully
-		OnchainTaskStored(SupportedChain, OnchainTasks),
-
-		/// Emitted when onchain task is edited successfully
-		OnchainTaskEdited(SupportedChain, OnchainTasks),
-
-		/// Emitted when all onchain tasks 
-		/// for a supported chain are removed successfully
-		OnchainTasksRemoved(SupportedChain),
-
-		/// Emitted when the onchain task is removed successfully
-		OnchainTaskRemoved(SupportedChain, OnchainTasks),
-		
+		OnchainTaskStored(T::AccountId, SupportedChain, OnChainTaskMetadata, Frequency),
 	}
 
 	#[pallet::error]
@@ -88,13 +74,11 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing onchain task
-		#[pallet::weight(
-			T::WeightInfo::store_task()
-		)]
+		#[pallet::weight(T::WeightInfo::store_task())]
 		pub fn store_task(
 			origin: OriginFor<T>,
 			chain: SupportedChain,
-			task_metadata: OnChainTaskMetadata,	
+			task_metadata: OnChainTaskMetadata,
 			frequency: Frequency,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
@@ -104,36 +88,58 @@ pub mod pallet {
 			match task_id {
 				// task already exists before
 				Some(id) => {
-					// just update the frequency with minimum value
-					// <TaskMetadata<T>>::insert(id, &task_metadata);
-
+					Self::insert_task(chain, id, frequency);
 				},
 				// new task
 				None => {
-					// init id is zero
-					let task_id = 0;
-					<NextTaskId<T>>::put(task_id);
-					<TaskMetadata<T>>::insert(task_id, &task_metadata);
-					let task = OnchainTasks {
-						task_id,
-						frequency,
-					};
-					<OnchainTaskStore<T>>::append(&chain, task);
+					let task_id = Self::get_next_task_id();
 
-					let mut tasks = Self::task_store(&chain).unwrap();
-					tasks.sort();
-
-					<OnchainTaskStore<T>>::insert(&chain, tasks);
-				}
+					<TaskMetadata<T>>::insert(task_id, task_metadata.clone());
+					<TaskMetadataId<T>>::insert(task_metadata.clone(), task_id);
+					Self::insert_task(chain, task_id, frequency);
+				},
 			}
-			
-			Ok(())
-		}	
 
+			Self::deposit_event(Event::OnchainTaskStored(caller, chain, task_metadata, frequency));
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn get_next_task_id() -> TaskId {
+			match Self::next_task_id() {
+				Some(id) => id + 1,
+				None => 0,
+			}
+		}
 
+		pub fn insert_task(chain: SupportedChain, task_id: TaskId, frequency: Frequency) {
+			// build the object
+			let task = OnchainTask { task_id, frequency };
+
+			match Self::task_store(&chain) {
+				Some(ref mut tasks) => {
+					match tasks.binary_search(&task) {
+						Ok(index) => {
+							// update frequency if new one is smaller
+							if tasks[index].frequency > frequency {
+								tasks[index].frequency = frequency
+							}
+						},
+						Err(_) => {
+							// not found then insert the new one and sort the tasks
+							tasks.push(task);
+							tasks.sort();
+							<OnchainTaskStore<T>>::insert(&chain, tasks);
+						},
+					}
+				},
+				None => {
+					let mut tasks = vec![];
+					tasks.push(task);
+					<OnchainTaskStore<T>>::insert(&chain, tasks);
+				},
+			};
+		}
 	}
-
 }

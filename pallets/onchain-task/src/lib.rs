@@ -141,7 +141,6 @@ pub mod pallet {
 					<OnchainTaskStore<T>>::insert(&chain, tasks);
 				},
 			};
-
 		}
 	}
 }

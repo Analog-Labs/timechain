@@ -1178,6 +1178,18 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::TimeApi<Block> for Runtime {
+		fn store_signature(
+			auth_key: time_primitives::TimeId,
+			auth_sig: time_primitives::TimeSignature,
+			signature_data: time_primitives::SignatureData,
+			network_id: Vec<u8>,
+			block_height: u64,)
+		{
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, network_id, block_height);
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (

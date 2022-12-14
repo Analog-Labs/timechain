@@ -19,7 +19,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::{AppVerify, Block, Header};
 use std::{sync::Arc, time::Duration};
-use time_primitives::{crypto::Signature, PingGossip, TimeApi, KEY_TYPE};
+use time_primitives::{crypto::Signature, TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},

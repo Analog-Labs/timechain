@@ -61,14 +61,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The task is not known
-		UnknownTask,
-		/// Task not found
-		TaskNotFound,
-		/// Empty task error
-		EmptyTask,
-		/// Task already exists
-		TaskAlreadyExists,
+		/// No new task id available
+		TaskIdOverflow,
 	}
 
 	#[pallet::call]
@@ -92,7 +86,7 @@ pub mod pallet {
 				},
 				// new task
 				None => {
-					let task_id = Self::get_next_task_id();
+					let task_id = Self::get_next_task_id()?;
 
 					<TaskMetadata<T>>::insert(task_id, task_metadata.clone());
 					<TaskMetadataId<T>>::insert(task_metadata.clone(), task_id);
@@ -107,10 +101,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_next_task_id() -> TaskId {
+		pub fn get_next_task_id() -> Result<TaskId, Error::<T>> {
 			match Self::next_task_id() {
-				Some(id) => id + 1,
-				None => 0,
+				Some(TaskId::MAX) => Err(Error::<T>::TaskIdOverflow),
+				Some(id) => Ok(id + 1),
+				None => Ok(0),
 			}
 		}
 

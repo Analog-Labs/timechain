@@ -97,6 +97,7 @@ pub mod pallet {
 					<TaskMetadata<T>>::insert(task_id, task_metadata.clone());
 					<TaskMetadataId<T>>::insert(task_metadata.clone(), task_id);
 					Self::insert_task(chain, task_id, frequency);
+					<NextTaskId<T>>::put(task_id + 1);
 				},
 			}
 
@@ -140,6 +141,7 @@ pub mod pallet {
 					<OnchainTaskStore<T>>::insert(&chain, tasks);
 				},
 			};
+
 		}
 	}
 }

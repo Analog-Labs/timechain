@@ -18,7 +18,7 @@ benchmarks! {
 		let chain: SupportedChain = SupportedChain::Timechain;
 		let task_metadata = OnChainTaskMetadata {
 			task: SupportedTasks::EthereumTasks(EthereumTasks::SwapToken),
-			arguments: vec![vec![]],
+			arguments: vec![vec![s as u8]],
 		};
 
 		let frequency = 100;

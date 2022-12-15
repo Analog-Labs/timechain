@@ -91,7 +91,6 @@ pub mod pallet {
 					<TaskMetadata<T>>::insert(task_id, task_metadata.clone());
 					<TaskMetadataId<T>>::insert(task_metadata.clone(), task_id);
 					Self::insert_task(chain, task_id, frequency);
-					<NextTaskId<T>>::put(task_id + 1);
 				},
 			}
 
@@ -101,11 +100,17 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_next_task_id() -> Result<TaskId, Error::<T>> {
+		pub fn get_next_task_id() -> Result<TaskId, Error<T>> {
 			match Self::next_task_id() {
 				Some(TaskId::MAX) => Err(Error::<T>::TaskIdOverflow),
-				Some(id) => Ok(id + 1),
-				None => Ok(0),
+				Some(id) => {
+					<NextTaskId<T>>::put(id + 1);
+					Ok(id + 1)
+				},
+				None => {
+					<NextTaskId<T>>::put(0);
+					Ok(0)
+				},
 			}
 		}
 

@@ -70,6 +70,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 # Local Dependencies
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch="polkadot-v0.9.30", default-features = false }
 analog-vesting= { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
+pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
 runtime-common = { path = "./common", default-features = false }
 onchain-task-pallet= { version = "0.0.1-dev", default-features = false, path = "../pallets/onchain-task" }
@@ -114,6 +115,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"beefy-primitives/std",
+	"pallet-treasury/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
@@ -143,6 +145,7 @@ runtime-benchmarks = [
 	"orml-vesting/runtime-benchmarks",
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",
@@ -160,5 +163,6 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"orml-vesting/try-runtime",
-	"analog-vesting/try-runtime"
+	"analog-vesting/try-runtime",
+	"pallet-treasury/try-runtime",
 ]

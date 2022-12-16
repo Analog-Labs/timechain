@@ -343,7 +343,7 @@ fn testnet_genesis(
 		},
 		transaction_payment: Default::default(),
 		// vesting: VestingConfig { vesting: vesting_accounts },
-		vesting: VestingConfig { vesting: Default::default() },
+		// vesting: VestingConfig { vesting: Default::default() },
 		im_online: Default::default(),
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities
@@ -362,5 +362,7 @@ fn testnet_genesis(
 		},
 
 		staking: Default::default(),
+		vesting: VestingConfig { vesting: vesting_accounts },
+		treasury: Default::default(),
 	}
 }

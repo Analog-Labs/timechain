@@ -1,0 +1,36 @@
+[package]
+name = "tesseract-tss"
+version = "0.0.1"
+authors = ["Dev <Dev@analog.one>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://www.analog.one/"
+repository = "https://github.com/Analog-Labs/tesseract/"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.18.2", features = ["full"] }
+serde = { version = "1.0.137", features = ["derive"] }
+serde_json = "1.0.81"
+log = "0.4.0"
+rand = "0.7"
+hex = "0.4.2"
+thiserror = "1.0.32"
+futures = "0.3.25"
+tracing-subscriber = "0.3.11"
+borsh = { version ="0.9", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full", "bit-vec"] }
+frost-dalek = { version = "0.2.3", git = "https://github.com/Analog-labs/frost-dalek.git"}
+subxt = { version = "0.24.0", git = "https://github.com/analog-labs/subxt.git", branch = "enable-std-feature"}
+curve25519-dalek = { version = "3.2.0", git = "https://github.com/Analog-Labs/curve25519-dalek.git"}
+sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sp-keystore = { version = "0.12.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sp-keyring = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30"}
+sp-io = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+keystore = { version = "0.1.0", git = "https://github.com/Analog-Labs/Keystore.git"}
+accounts = {path = "../accounts", package = "tesseract-accounts"}
+events= {path="../events", package = "tesseract-events"}
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

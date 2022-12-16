@@ -25,7 +25,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(who), chain.clone(), task_metadata.clone(), frequency)
 	// verify {
-	// 	assert_eq!(OnchainTaskStore::<T>::get(chain.clone()), Some(task_data.clone()));
+	// 	assert_eq!(NextTaskId::<T>::get(), Some(100));
 	// }
 
 	impl_benchmark_test_suite!(OnChainTask, crate::mock::new_test_ext(), crate::mock::Test);

@@ -30,7 +30,7 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, MultiSignature, SaturatedConversion
 };
 use sp_runtime::print;
 use sp_std::{
@@ -859,19 +859,22 @@ where
 {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
 		if let Some(fees) = fees_then_tips.next() {
-			// for fees, 80% to treasury, 20% to author
-			// let first = 80;
-			// let second = 20;
-			// let total: u32 = first.saturating_add(second);
-			// if total == 0 {
-			// 	return (0, 0)
-			// }
-			// let fee_blanace = fees.peek();
+			// for fees, 20% to treasury, 80% to author
+			// let fee_val = fees.peek();
+			let mut split = fees.ration(80, 20);
+			// let mut split = fee_blanace.ration(80, 20);
+			if_std! {
+				// This code is only being compiled and executed when the `std` feature is enabled.
+
+				// println!("ANLOG fee_blanace total--->{:?}",fees.peek());
+				println!("ANLOG fee_blanace splited fee 80% ,20%--->{:?}",split.0.peek());
+				println!("ANLOG fee_blanace splited fee 80% ,20%--->{:?}",split.1.peek());
+			}
 			// let amount1 = fee_blanace.saturating_mul(first.into()) / total.into();
 			// let split_val = fees.split(amount1);
 
 			use pallet_treasury::Pallet as Treasury;
-			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(fees);
+			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 		}
 	}

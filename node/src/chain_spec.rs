@@ -319,7 +319,7 @@ fn testnet_genesis(
 
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
 	// configure not valid for these vesting accounts.
-	let _vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
+	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
 	print("loads vesting account");

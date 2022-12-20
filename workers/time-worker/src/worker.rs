@@ -102,6 +102,11 @@ where
 		self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
 	}
 
+    // Using this method each validator can, and should, submit shared `GroupKey` key to runtime
+    fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
+
+    }
+
 	/// On each gossip we process it, verify signature and update our tracker
 	async fn on_gossip(&mut self, tss_gossiped_data: TSSData) {
 		match tss_gossiped_data.tss_event_type {

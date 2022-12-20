@@ -59,6 +59,18 @@ pub mod pallet {
 	pub type TesseractMembers<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, TesseractRole, OptionQuery>;
 
+    /// Indicates precise members of each TSS set by it's u64 id
+    /// Required for key generation and identification
+    #[pallet::storage]
+    #[pallet::getter(fn tss_set)]
+    pub type TssSet<T: Config> =
+        StorageMap<_, Blake2_128Concat, u64, Vec<T::AccountId>, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn tss_group_key)]
+    pub type TssGroupKey =
+        StorageMap<_, Blake2_128Concat, u64, [u8; 32], OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn signature_store)]
 	pub type SignatureStore<T: Config> =

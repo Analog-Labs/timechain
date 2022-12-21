@@ -1,8 +1,9 @@
 pub mod communication;
 pub mod kv;
 pub mod traits;
-mod tss_event_handler_helper;
 pub mod worker;
+pub(crate) mod inherents;
+mod tss_event_handler_helper;
 
 #[cfg(test)]
 mod tests;

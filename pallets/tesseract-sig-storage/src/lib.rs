@@ -68,7 +68,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn tss_group_key)]
-    pub type TssGroupKey =
+    pub type TssGroupKey<T: Config> =
         StorageMap<_, Blake2_128Concat, u64, [u8; 32], OptionQuery>;
 
 	#[pallet::storage]

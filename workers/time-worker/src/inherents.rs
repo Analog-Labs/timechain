@@ -1,5 +1,5 @@
 use crate::TW_LOG;
-use log::error;
+use log::{error, info};
 use parking_lot::Mutex;
 use sp_inherents::{Error, InherentData, InherentDataProvider, InherentIdentifier};
 use std::{collections::HashMap, sync::Arc};
@@ -9,6 +9,11 @@ lazy_static::lazy_static! {
 	static ref TIME_TSS_STORAGE: Arc<Mutex<TimeInherentTssDataProvider>> = {
 		Arc::new(Mutex::new(TimeInherentTssDataProvider::default()))
 	};
+}
+
+pub fn update_shared_group_key(id: u64, key: [u8; 32]) {
+    info!(target: TW_LOG, "New group key provided: {:?} for id: {}", key, id);
+    TIME_TSS_STORAGE.lock().new_group_key(id, key);
 }
 
 /// Our inherent data provider for runtime

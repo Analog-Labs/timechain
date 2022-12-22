@@ -12,8 +12,12 @@ lazy_static::lazy_static! {
 }
 
 pub fn update_shared_group_key(id: u64, key: [u8; 32]) {
-    info!(target: TW_LOG, "New group key provided: {:?} for id: {}", key, id);
-    TIME_TSS_STORAGE.lock().new_group_key(id, key);
+	info!(target: TW_LOG, "New group key provided: {:?} for id: {}", key, id);
+	TIME_TSS_STORAGE.lock().new_group_key(id, key);
+}
+
+pub fn get_time_data_provider() -> TimeInherentTssDataProvider {
+	TIME_TSS_STORAGE.lock().clone()
 }
 
 /// Our inherent data provider for runtime

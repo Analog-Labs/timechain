@@ -39,7 +39,7 @@ benchmarks! {
 	verify {
 		assert_eq!(TesseractMembers::<T>::get(tesseract), None);
 	}
-	
+
 	submit_tss_group_key {
 		let s in 1 .. 255;
 		let key = [s as u8; 32];

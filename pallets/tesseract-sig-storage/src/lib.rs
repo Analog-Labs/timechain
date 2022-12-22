@@ -28,19 +28,18 @@ pub mod pallet {
 		traits::{AppVerify, IdentifyAccount},
 		MultiSignature,
 	};
-	use sp_std::{vec::Vec, result};
+	use sp_std::{result, vec::Vec};
 	use time_primitives::{
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		SignatureData, TimeId, TimeSignature,
 	};
-	
-pub trait WeightInfo {
-	fn add_member() -> Weight;
-    fn store_signature_data() -> Weight;
-	fn remove_member() -> Weight;
-	fn submit_tss_group_key() -> Weight;
-}
 
+	pub trait WeightInfo {
+		fn add_member() -> Weight;
+		fn store_signature_data() -> Weight;
+		fn remove_member() -> Weight;
+		fn submit_tss_group_key() -> Weight;
+	}
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -166,7 +165,7 @@ pub trait WeightInfo {
 				.expect("Inherent data must be provided");
 
 			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
-				return Err(InherentError::InvalidGroupKey(TimeTssKey{
+				return Err(InherentError::InvalidGroupKey(TimeTssKey {
 					group_key: *group_key,
 					set_id: *set_id,
 				}))

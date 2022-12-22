@@ -1,5 +1,5 @@
 pub mod communication;
-pub(crate) mod inherents;
+pub mod inherents;
 pub mod kv;
 pub mod traits;
 mod tss_event_handler_helper;

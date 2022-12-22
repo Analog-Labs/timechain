@@ -134,7 +134,9 @@ pub fn new_partial(
 			let uncles =
 				sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
 
-			Ok((slot, timestamp, uncles))
+			let time_data_provider = time_worker::inherents::get_time_data_provider();
+
+			Ok((slot, timestamp, uncles, time_data_provider))
 		},
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
@@ -285,7 +287,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 							slot_duration,
 						);
 
-				Ok((slot, timestamp))
+				let time_data_provider = time_worker::inherents::get_time_data_provider();
+				Ok((slot, timestamp, time_data_provider))
 			},
 			force_authoring,
 			backoff_authoring_blocks,

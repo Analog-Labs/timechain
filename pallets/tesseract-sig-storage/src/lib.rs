@@ -15,9 +15,9 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::{types::*, weights::WeightInfo};
+	use crate::types::*;
 	use frame_support::{
-		pallet_prelude::{ProvideInherent, *},
+		pallet_prelude::{ProvideInherent, Weight, *},
 		sp_runtime::traits::{Hash, Scale},
 		traits::{Randomness, Time},
 	};
@@ -33,6 +33,14 @@ pub mod pallet {
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		SignatureData, TimeId, TimeSignature,
 	};
+	
+pub trait WeightInfo {
+	fn add_member() -> Weight;
+    fn store_signature_data() -> Weight;
+	fn remove_member() -> Weight;
+	fn submit_tss_group_key() -> Weight;
+}
+
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -234,7 +242,7 @@ pub mod pallet {
 		}
 
 		/// Submits TSS group key to runtime
-		#[pallet::weight(1000000000000)]//T::WeightInfo::submit_tss_group_key())]
+		#[pallet::weight(T::WeightInfo::submit_tss_group_key())]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
 			set_id: u64,

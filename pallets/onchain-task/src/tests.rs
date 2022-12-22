@@ -3,7 +3,6 @@ use crate::types::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
-
 #[test]
 fn storing_and_get_chain_task() {
 	let chain: SupportedChain = SupportedChain::Timechain;
@@ -15,15 +14,13 @@ fn storing_and_get_chain_task() {
 	};
 	task_methods.push(task_method);
 	let onchain_task = TaskData {
-		task:  SupportedTasks::SwapToken,
+		task: SupportedTasks::SwapToken,
 		task_data: "this_is_the_chain_task".as_bytes().to_owned(),
 		method: task_methods.clone(),
 	};
 	task.push(onchain_task);
 	let mut task_data = Vec::new();
-	let chain_tasks = OnchainTasks{
-		task,
-	};
+	let chain_tasks = OnchainTasks { task };
 	task_data.push(chain_tasks.clone());
 
 	new_test_ext().execute_with(|| {
@@ -32,7 +29,6 @@ fn storing_and_get_chain_task() {
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
 			chain_tasks.clone(),
-
 		));
 		// Retreiving the task stored via it's key and assert the result.
 		assert_eq!(OnChainTask::task_store(chain.clone()), Some(task_data.clone()));
@@ -41,7 +37,7 @@ fn storing_and_get_chain_task() {
 
 /// test for editing a task data
 #[test]
-fn it_works_edit_task_data(){
+fn it_works_edit_task_data() {
 	let chain: SupportedChain = SupportedChain::Timechain;
 	let mut task = Vec::new();
 	let mut task2 = Vec::new();
@@ -58,12 +54,12 @@ fn it_works_edit_task_data(){
 	task_methods.push(task_method);
 	task_methods2.push(task_method2);
 	let onchain_task = TaskData {
-		task:  SupportedTasks::SwapToken,
+		task: SupportedTasks::SwapToken,
 		task_data: "this_is_the_chain_task".as_bytes().to_owned(),
 		method: task_methods.clone(),
 	};
 	let onchain_task2 = TaskData {
-		task:  SupportedTasks::SwapToken,
+		task: SupportedTasks::SwapToken,
 		task_data: "this_is_the_chain_task".as_bytes().to_owned(),
 		method: task_methods2.clone(),
 	};
@@ -71,12 +67,8 @@ fn it_works_edit_task_data(){
 	task2.push(onchain_task2);
 	let mut task_data = Vec::new();
 	let mut chain_task2 = Vec::new();
-	let chain_tasks = 	OnchainTasks{
-		task,
-	};
-	let chain_tasks2 = OnchainTasks{
-		task: task2,
-	};
+	let chain_tasks = OnchainTasks { task };
+	let chain_tasks2 = OnchainTasks { task: task2 };
 	task_data.push(chain_tasks.clone());
 	chain_task2.push(chain_tasks2.clone());
 
@@ -86,15 +78,12 @@ fn it_works_edit_task_data(){
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
 			chain_tasks.clone(),
-
 		));
 		assert_ok!(OnChainTask::edit_task(
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
 			chain_tasks.clone(),
 			chain_tasks2.clone(),
-
-
 		));
 		// Retreiving the task stored via it's key and assert the result.
 		assert_eq!(OnChainTask::task_store(chain.clone()), Some(chain_task2.clone()));
@@ -112,15 +101,13 @@ fn it_works_remove_onchain_single_task() {
 	};
 	task_methods.push(task_method);
 	let onchain_task = TaskData {
-		task:  SupportedTasks::SwapToken,
+		task: SupportedTasks::SwapToken,
 		task_data: "this_is_the_chain_task".as_bytes().to_owned(),
 		method: task_methods.clone(),
 	};
 	task.push(onchain_task);
 	let mut task_data = Vec::new();
-	let chain_tasks = 	OnchainTasks{
-		task,
-	};
+	let chain_tasks = OnchainTasks { task };
 	task_data.push(chain_tasks.clone());
 
 	new_test_ext().execute_with(|| {
@@ -129,21 +116,18 @@ fn it_works_remove_onchain_single_task() {
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
 			chain_tasks.clone(),
-
 		));
 
 		assert_ok!(OnChainTask::remove_single_task(
 			RawOrigin::Signed(1).into(),
 			chain.clone(),
 			chain_tasks.clone(),
-
 		));
 	});
 }
 
 #[test]
 fn it_works_removing_onchain_task() {
-
 	let chain: SupportedChain = SupportedChain::Timechain;
 
 	new_test_ext().execute_with(|| {

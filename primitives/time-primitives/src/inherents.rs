@@ -1,13 +1,13 @@
-use sp_inherents::{InherentIdentifier, InherentData, Error, IsFatalError};
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
+use sp_inherents::{Error, InherentData, InherentIdentifier, IsFatalError};
 
 /// ID of inherent data we submit to runtime
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tsskey01";
 /// TSS Public key output type
 #[derive(Encode, Decode, sp_runtime::RuntimeDebug)]
 pub struct TimeTssKey {
-    pub group_key: [u8; 32],
-    pub set_id: u64
+	pub group_key: [u8; 32],
+	pub set_id: u64,
 }
 
 /// Errors that can occur while checking the Time inherent.

@@ -13,6 +13,7 @@ array-bytes = "4.1"
 futures-timer = "3.0.1"
 tokio = "1.17.0"
 async-trait = "0.1.60"
+lazy_static = "1.4"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 frame-support = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

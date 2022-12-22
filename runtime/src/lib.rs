@@ -927,7 +927,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage,
+		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: orml_vesting,
 		OnchainTask: onchain_task_pallet,
 	}

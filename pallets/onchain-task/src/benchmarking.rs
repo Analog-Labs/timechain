@@ -8,8 +8,6 @@ use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 benchmarks! {
-
-
 	store_task {
 
 		let s in 0 .. 100;
@@ -24,9 +22,6 @@ benchmarks! {
 		let frequency = 100;
 
 	}: _(RawOrigin::Signed(who), chain.clone(), task_metadata.clone(), frequency)
-	// verify {
-	// 	assert_eq!(NextTaskId::<T>::get(), Some(100));
-	// }
 
 	impl_benchmark_test_suite!(OnChainTask, crate::mock::new_test_ext(), crate::mock::Test);
 }

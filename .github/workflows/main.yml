@@ -54,8 +54,14 @@ env:
   CLIPPY_OPTS: -D warnings
 
   # build configuration
-  RELEASE_OPT: --release
-
+  RELEASE: true
+  RELEASE_OPTSS: ${{ env.RELEASE && '--release' || '' }}
+  TARGET_DIR: ${{ env.RELEASE && 'release' || 'debug'}}
+  # rust setup command
+  RUN_RUST_SETUP: |
+    rustup toolchain add $RUST_VERSION --profile minimal
+    rustup default $RUST_VERSION
+    rustup target add wasm32-unknown-unknown --toolchain nightly
 
 jobs:
   # it calculates conditions to run following jobs
@@ -82,6 +88,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # a filler
+      #- id: RELEASE_OPTS
+      #  run: |
+      #    switch ( '${{env.RELEASE}}' ) {
+      #      'release' { '--release' }
+      #      default { '' }
+      #    }
+      #  shell: pwsh
       - run: true
     outputs:
       # it's push into staging/tying by bors
@@ -146,9 +159,7 @@ jobs:
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
       - name: Rust ${{env.RUST_VERSION}}
-        run: |
-          rustup toolchain add $RUST_VERSION --profile minimal
-          rustup default $RUST_VERSION
+        run: ${{env.RUN_RUST_SETUP}}
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -166,32 +177,39 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cargo fetch --locked
-          cargo test --no-run --lib --workspace --locked ${{env.RELEASE_OPT}}
-          cargo test --no-run --examples --workspace --locked ${{env.RELEASE_OPT}}
+          cargo test --no-run --lib --workspace --locked $RELEASE_OPTS
+          cargo test --no-run --examples --workspace --locked $RELEASE_OPTS
 
       - name: Check that the application builds successfully
         run: |
-          cargo build --locked ${{env.RELEASE_OPT}}
+          cargo build --locked $RELEASE_OPTS
 
       - name: Upload node binary
-        if: ${{ env.RELEASE_OPT != '' && github.ref == 'refs/heads/staging' }}
+        if: ${{ env.RELEASE == 'release' && github.ref == 'refs/heads/staging' }}
         uses: actions/upload-artifact@v3
         with:
           name: timechain-node
           path: target/release/timechain-node
 
+      - name: Upload node binary
+        if: ${{ env.RELEASE && github.ref == 'refs/heads/staging' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: node-template
+          path: target/release/node-template
+
       - name: Clean up cache
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          find ./target/debug -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-          find ./target/debug -maxdepth 1 -type f -delete
-          rm -rf ./target/debug/examples
+          find target/$TARGET_DIR -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find target/$TARGET_DIR -maxdepth 1 -type f -delete
+          rm -rf target/$TARGET_DIR/examples
           # remove some unused intermediate files
           # intermediate files of the C++ librocks build
-          rm -rf target/debug/build/librocksdb-sys-*/out/rocksdb
+          rm -rf target/$TARGET_DIR/build/librocksdb-sys-*/out/rocksdb
           # is too big and can be rebuild easy
-          rm -rf target/debug/deps/liblibrocksdb_sys-*.rlib
-          rm -rf target/debug/deps/libsc_network-*.rlib
+          rm -rf target/$TARGET_DIR/deps/liblibrocksdb_sys-*.rlib
+          rm -rf target/$TARGET_DIR/deps/libsc_network-*.rlib
           # will not rebuild it
           rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
           rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*
@@ -209,9 +227,7 @@ jobs:
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
       - name: Rust ${{env.RUST_VERSION}}
-        run: |
-          rustup toolchain add $RUST_VERSION --profile minimal
-          rustup default $RUST_VERSION
+        run: ${{env.RUN_RUST_SETUP}}
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -232,13 +248,13 @@ jobs:
       - name: Unit tests should pass successfully
         if: success()
         run: |
-          cargo test --lib --workspace --locked ${{env.RELEASE_OPT}} \
-            $(for i in ${{ env.EXCLUDE_TESTS }}; do echo "--exclude $i"; done )
+          cargo test --lib --workspace --locked $RELEASE_OPTS \
+            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
 
       - name: Examples should run successfully
         if: success()
         run: |
-          cargo test --examples --workspace --locked ${{env.RELEASE_OPT}}
+          cargo test --examples --workspace --locked $RELEASE_OPTS
 
   # it checks source code with linters
   linter:
@@ -251,10 +267,7 @@ jobs:
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
       - name: Rust ${{env.RUST_VERSION}}
-        run: |
-          rustup toolchain add $RUST_VERSION --profile minimal
-          rustup default $RUST_VERSION
-          rustup component add clippy rustfmt
+        run: ${{env.RUN_RUST_SETUP}}
 
       - name: Set up cache
         id: cache
@@ -282,7 +295,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           # `--no-deps` does not check dependencies out of workspace
-          args: --all-targets --locked --workspace ${{env.RELEASE_OPT}} -- --no-deps ${{ env.CLIPPY_OPTS }}
+          args: --all-targets --locked --workspace ${{env.RELEASE_OPTS}} -- --no-deps ${{ env.CLIPPY_OPTS }}
           name: Clippy Report
 
   # it does security audit for known issues with list of dependencies
@@ -296,9 +309,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Rust ${{env.RUST_VERSION}}
-        run: |
-          rustup toolchain add $RUST_VERSION --profile minimal
-          rustup default $RUST_VERSION
+        run: ${{env.RUN_RUST_SETUP}}
 
       # this action is used to report about possible security problems
       #  for pushes only
@@ -339,9 +350,7 @@ jobs:
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
       - name: Rust ${{env.RUST_VERSION}}
-        run: |
-          rustup toolchain add $RUST_VERSION --profile minimal
-          rustup default $RUST_VERSION
+        run: ${{env.RUN_RUST_SETUP}}
 
       - name: Set up cache
         id: cache
@@ -362,7 +371,7 @@ jobs:
       - name: Run Cargo Integration/Heavy Test
         if: success()
         run: |
-          cargo test --locked --test '*' ${{env.RELEASE_OPT}}
+          cargo test --locked --test '*' $RELEASE_OPTS
 
   # it measures code coverage and reports to codecov.io
   code-coverage:
@@ -377,9 +386,7 @@ jobs:
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
       - name: Rust ${{env.RUST_VERSION}}
-        run: |
-          rustup toolchain add $RUST_VERSION --profile minimal
-          rustup default $RUST_VERSION          
+        run: ${{env.RUN_RUST_SETUP}}
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -406,8 +413,8 @@ jobs:
         # use --test '*' to measure coverage with integration-tests
         # use --lib to measure coverage with unit-tests
         run: |
-          cargo llvm-cov test --tests --locked --workspace ${{env.RELEASE_OPT}} \
-            --lcov --output-path lcov.info \
+          cargo llvm-cov test --tests --locked --workspace \
+            --lcov --output-path lcov.info  $RELEASE_OPTS \
             $(for i in ${{ env.EXCLUDE_TESTS }}; do echo "--exclude $i"; done )
 
       - name: Upload coverage to Codecov
@@ -421,15 +428,15 @@ jobs:
       - name: Clean up cache
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          find ./target/llvm-cov-target/debug -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-          find ./target/llvm-cov-target/debug -maxdepth 1 -type f -delete
-          rm -rf ./target/llvm-cov-target/debug/examples
+          find ./target/llvm-cov-target/$TARGET_DIR -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find ./target/llvm-cov-target/$TARGET_DIR -maxdepth 1 -type f -delete
+          rm -rf ./target/llvm-cov-target/$TARGET_DIR/examples
           # remove some unused intermediate files
           # intermediate files of the C++ librocks build
-          rm -rf target/llvm-cov-target/debug/build/librocksdb-sys-*/out/rocksdb
+          rm -rf target/llvm-cov-target/$TARGET_DIR/build/librocksdb-sys-*/out/rocksdb
           # is too big and can be rebuild easy
-          rm -rf target/llvm-cov-target/debug/deps/liblibrocksdb_sys-*.rlib
-          rm -rf target/llvm-cov-target/debug/deps/libsc_network-*.rlib
+          rm -rf target/llvm-cov-target/$TARGET_DIR/deps/liblibrocksdb_sys-*.rlib
+          rm -rf target/llvm-cov-target/$TARGET_DIR/deps/libsc_network-*.rlib
           # will not rebuild it
           # rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
           # rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*

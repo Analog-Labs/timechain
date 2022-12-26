@@ -12,4 +12,7 @@ members = [
 ]
 [profile.release]
 panic = "unwind"
+#strip = true
+opt-level = "z"
+
    

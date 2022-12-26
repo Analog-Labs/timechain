@@ -38,7 +38,7 @@ permissions:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-  RUST_VERSION: 1.66.0
+  RUST_VERSION: nightly
 
   # set to true only if you need run all test
   # for the target branch
@@ -51,17 +51,18 @@ env:
   # clippy opts
   # `-D warnings` considers any warning as an error
   # `-W clippy::all` considers all messages as warning
-  CLIPPY_OPTS: -D warnings
+  CLIPPY_OPTS: -W clippy::all
 
   # build configuration
   RELEASE: true
-  RELEASE_OPTSS: ${{ env.RELEASE && '--release' || '' }}
-  TARGET_DIR: ${{ env.RELEASE && 'release' || 'debug'}}
   # rust setup command
   RUN_RUST_SETUP: |
     rustup toolchain add $RUST_VERSION --profile minimal
     rustup default $RUST_VERSION
-    rustup target add wasm32-unknown-unknown --toolchain nightly
+    rustup target add wasm32-unknown-unknown --toolchain $RUST_VERSION
+
+  RUN_FMT_CLIPPY_SETUP: |
+    rustup component add rustfmt clippy --toolchain $RUST_VERSION
 
 jobs:
   # it calculates conditions to run following jobs
@@ -87,14 +88,6 @@ jobs:
       }}
     runs-on: ubuntu-latest
     steps:
-      # a filler
-      #- id: RELEASE_OPTS
-      #  run: |
-      #    switch ( '${{env.RELEASE}}' ) {
-      #      'release' { '--release' }
-      #      default { '' }
-      #    }
-      #  shell: pwsh
       - run: true
     outputs:
       # it's push into staging/tying by bors
@@ -133,10 +126,13 @@ jobs:
         ( github.event_name == 'pull_request' &&
           contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
 
+      build_opts: ${{ env.RELEASE == 'true' && '--release' || '' }}
+      target: ${{ env.RELEASE == 'true' && 'release' || 'debug' }}
+
   # The Bors bot checks this job status
   ci-success:
     name: Bors-CI
-    if: ${{ needs.conditions.outputs.staging-ci == 'true' }}
+    if: ${{needs.conditions.outputs.staging-ci == 'true'}}
     needs: [conditions, integration-tests, tests, audit, linter]
     runs-on: ubuntu-latest
     steps:
@@ -147,8 +143,11 @@ jobs:
   build-project:
     name: Build Project
     needs: [conditions]
-    if: ${{ needs.conditions.outputs.general-ci == 'true' }}
+    if: ${{needs.conditions.outputs.general-ci == 'true'}}
     runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -158,8 +157,12 @@ jobs:
 
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
-      - name: Rust ${{env.RUST_VERSION}}
+      - name: Rust [${{env.RUST_VERSION}}]
         run: ${{env.RUN_RUST_SETUP}}
+
+      - name: Check Rustc version
+        id: rustc-version
+        run:  echo "value=$(rustc --version | cut -f 2 -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -169,7 +172,7 @@ jobs:
           path: |
             ~/.cargo
             target/
-          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "Main-${{ runner.os }}-r${{ steps.rustc-version.outputs.value }}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Warming up the cache
         # do not run if cache exists
@@ -177,22 +180,23 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cargo fetch --locked
-          cargo test --no-run --lib --workspace --locked $RELEASE_OPTS
-          cargo test --no-run --examples --workspace --locked $RELEASE_OPTS
+          cargo test --no-run --lib --workspace --locked $BUILD_OPTS \ 
+            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
+          cargo test --no-run --examples --workspace --locked $BUILD_OPTS
 
       - name: Check that the application builds successfully
         run: |
-          cargo build --locked $RELEASE_OPTS
+          cargo build --locked $BUILD_OPTS
 
-      - name: Upload node binary
-        if: ${{ env.RELEASE == 'release' && github.ref == 'refs/heads/staging' }}
+      - name: Upload timechain-node binary
+        if: ${{ needs.conditions.outputs.target == 'release' && github.ref == 'refs/heads/staging' }}
         uses: actions/upload-artifact@v3
         with:
           name: timechain-node
           path: target/release/timechain-node
 
-      - name: Upload node binary
-        if: ${{ env.RELEASE && github.ref == 'refs/heads/staging' }}
+      - name: Upload node-template binary
+        if: ${{ needs.conditions.outputs.target == 'release' && github.ref == 'refs/heads/staging' }}
         uses: actions/upload-artifact@v3
         with:
           name: node-template
@@ -201,33 +205,40 @@ jobs:
       - name: Clean up cache
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          find target/$TARGET_DIR -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-          find target/$TARGET_DIR -maxdepth 1 -type f -delete
-          rm -rf target/$TARGET_DIR/examples
+          find target/$TARGET -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find target/$TARGET -maxdepth 1 -type f -delete
+          rm -rf target/$TARGET/examples
+          rm -rf target/$TARGET/wbuild
           # remove some unused intermediate files
           # intermediate files of the C++ librocks build
-          rm -rf target/$TARGET_DIR/build/librocksdb-sys-*/out/rocksdb
+          rm -rf target/$TARGET/build/librocksdb-sys-*/out/rocksdb
           # is too big and can be rebuild easy
-          rm -rf target/$TARGET_DIR/deps/liblibrocksdb_sys-*.rlib
-          rm -rf target/$TARGET_DIR/deps/libsc_network-*.rlib
+          rm -rf target/$TARGET/deps/liblibrocksdb_sys-*.rlib
+          rm -rf target/$TARGET/deps/libsc_network-*.rlib
           # will not rebuild it
-          rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
-          rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*
+          # rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
+          # rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*
           # remove git packs
           find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
 
   # it runs tests
   tests:
     name: Unit Tests + Examples
-    needs: build-project
+    needs: [conditions,build-project]
     runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
-      - name: Rust ${{env.RUST_VERSION}}
+      - name: Rust [${{env.RUST_VERSION}}]
         run: ${{env.RUN_RUST_SETUP}}
+      - name: Check Rustc version
+        id: rustc-version
+        run:  echo "value=$(rustc --version | cut -f 2 -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -237,7 +248,7 @@ jobs:
           path: |
             ~/.cargo
             target/
-          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Check cache hit status
         if: steps.cache.outputs.cache-hit != 'true'
@@ -248,27 +259,34 @@ jobs:
       - name: Unit tests should pass successfully
         if: success()
         run: |
-          cargo test --lib --workspace --locked $RELEASE_OPTS \
+          cargo test --lib --workspace --locked $BUILD_OPTS \
             $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
 
       - name: Examples should run successfully
         if: success()
         run: |
-          cargo test --examples --workspace --locked $RELEASE_OPTS
+          cargo test --examples --workspace --locked $BUILD_OPTS
 
   # it checks source code with linters
   linter:
     name: Clippy + Rustfmt
-    needs: build-project
+    needs: [conditions,build-project]
     runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
-      - name: Rust ${{env.RUST_VERSION}}
+      - name: Rust [${{env.RUST_VERSION}}]
         run: ${{env.RUN_RUST_SETUP}}
-
+      - name: RustFmt and Clippy [${{env.RUST_VERSION}}]
+        run: ${{env.RUN_FMT_CLIPPY_SETUP}}
+      - name: Check Rustc version
+        id: rustc-version
+        run:  echo "value=$(rustc --version | cut -f 2 -d ' ')" >> $GITHUB_OUTPUT
       - name: Set up cache
         id: cache
         uses: actions/cache@v3
@@ -277,7 +295,7 @@ jobs:
           path: |
             ~/.cargo
             target/
-          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Check cache hit status
         if: steps.cache.outputs.cache-hit != 'true'
@@ -293,9 +311,9 @@ jobs:
         if: success()
         uses: actions-rs/clippy-check@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{secrets.GITHUB_TOKEN}}
           # `--no-deps` does not check dependencies out of workspace
-          args: --all-targets --locked --workspace ${{env.RELEASE_OPTS}} -- --no-deps ${{ env.CLIPPY_OPTS }}
+          args: --all-targets --locked --workspace ${{env.BUILD_OPTS}} -- --no-deps ${{env.CLIPPY_OPTS}}
           name: Clippy Report
 
   # it does security audit for known issues with list of dependencies
@@ -308,8 +326,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Rust ${{env.RUST_VERSION}}
+      - name: Rust [${{env.RUST_VERSION}}]
         run: ${{env.RUN_RUST_SETUP}}
+      - name: Check Rustc version
+        id: rustc-version
+        run:  echo "value=$(rustc --version | cut -f 2 -d ' ')" >> $GITHUB_OUTPUT
 
       # this action is used to report about possible security problems
       #  for pushes only
@@ -328,7 +349,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/cargo-audit
-          key: "Audit-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "Audit-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Warm up the cache
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -336,8 +357,12 @@ jobs:
           cargo install cargo-audit --locked 
 
       - name: Audit
-        run:
-          cargo audit -q
+        run: |
+          $r = (cargo audit -q --json | ConvertFrom-Json)
+          $e = $?
+          $r.vulnerabilities.list | Select-Object -ExpandProperty Advisory
+          if (!$e) { exit 1 }
+        shell: pwsh
 
   # it runs integration tests (if you have one)
   integration-tests:
@@ -345,12 +370,18 @@ jobs:
     needs: [conditions, build-project]
     name: Integration Tests
     runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{ needs.conditions.outputs.build_opts }}
+      TARGET: ${{ needs.conditions.outputs.target }}
     steps:
       - uses: actions/checkout@v3
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
       - name: Rust ${{env.RUST_VERSION}}
         run: ${{env.RUN_RUST_SETUP}}
+      - name: Check Rustc version
+        id: rustc-version
+        run:  echo "value=$(rustc --version | cut -f 2 -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Set up cache
         id: cache
@@ -360,7 +391,7 @@ jobs:
           path: |
             ~/.cargo
             target/
-          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Check cache hit status
         if: steps.cache.outputs.cache-hit != 'true'
@@ -371,7 +402,7 @@ jobs:
       - name: Run Cargo Integration/Heavy Test
         if: success()
         run: |
-          cargo test --locked --test '*' $RELEASE_OPTS
+          cargo test --locked --test '*' --workspace $BUILD_OPTS
 
   # it measures code coverage and reports to codecov.io
   code-coverage:
@@ -380,13 +411,19 @@ jobs:
     if: ${{ needs.conditions.outputs.codecov == 'true' }}
     needs: [conditions]
     runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{ needs.conditions.outputs.build_opts }}
+      TARGET: ${{ needs.conditions.outputs.target }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Install Protoc
         run: sudo apt-get install -y protobuf-compiler
-      - name: Rust ${{env.RUST_VERSION}}
+      - name: Rust [${{env.RUST_VERSION}}]
         run: ${{env.RUN_RUST_SETUP}}
+      - name: Check Rustc version
+        id: rustc-version
+        run:  echo "value=$(rustc --version | cut -f 2 -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -400,7 +437,7 @@ jobs:
           path: |
             ~/.cargo
             target/
-          key: "Codecov-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "Codecov-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Warm up the cache
         if: steps.cache.outputs.cache-hit != 'true'
@@ -413,9 +450,9 @@ jobs:
         # use --test '*' to measure coverage with integration-tests
         # use --lib to measure coverage with unit-tests
         run: |
-          cargo llvm-cov test --tests --locked --workspace \
-            --lcov --output-path lcov.info  $RELEASE_OPTS \
-            $(for i in ${{ env.EXCLUDE_TESTS }}; do echo "--exclude $i"; done )
+          cargo llvm-cov test --lib --locked --workspace \
+            --lcov --output-path lcov.info  $BUILD_OPTS \
+            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
 
       - name: Upload coverage to Codecov
         if: success()
@@ -428,15 +465,16 @@ jobs:
       - name: Clean up cache
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          find ./target/llvm-cov-target/$TARGET_DIR -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-          find ./target/llvm-cov-target/$TARGET_DIR -maxdepth 1 -type f -delete
-          rm -rf ./target/llvm-cov-target/$TARGET_DIR/examples
+          find target/llvm-cov-target/$TARGET -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find target/llvm-cov-target/$TARGET -maxdepth 1 -type f -delete
+          rm -rf target/llvm-cov-target/$TARGET/examples
+          rm -rf target/llvm-cov-target/$TARGET/wbuild
           # remove some unused intermediate files
           # intermediate files of the C++ librocks build
-          rm -rf target/llvm-cov-target/$TARGET_DIR/build/librocksdb-sys-*/out/rocksdb
+          rm -rf target/llvm-cov-target/$TARGET/build/librocksdb-sys-*/out/rocksdb
           # is too big and can be rebuild easy
-          rm -rf target/llvm-cov-target/$TARGET_DIR/deps/liblibrocksdb_sys-*.rlib
-          rm -rf target/llvm-cov-target/$TARGET_DIR/deps/libsc_network-*.rlib
+          rm -rf target/llvm-cov-target/$TARGET/deps/liblibrocksdb_sys-*.rlib
+          rm -rf target/llvm-cov-target/$TARGET/deps/libsc_network-*.rlib
           # will not rebuild it
           # rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
           # rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*

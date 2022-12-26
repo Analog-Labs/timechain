@@ -838,6 +838,7 @@ impl pallet_balances::Config for Runtime {
 
 parameter_types! {
 	pub FeeMultiplier: Multiplier = Multiplier::one();
+	pub const UncleGenerations: u32 = 0;
 	// static TipUnbalancedAmount: u64 = 0;
 	// static FeeUnbalancedAmount: u64 = 0;
 }
@@ -846,10 +847,33 @@ pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
+// TODO: substrate#2986 implement this properly
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+	type UncleGenerations = UncleGenerations;
+	type FilterUncle = ();
+	type EventHandler = (Staking, ImOnline);
+}
+
+/// Logic for the author to get a portion of fees.
+pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
+where
+	R: pallet_balances::Config + pallet_authorship::Config,
+	<R as frame_system::Config>::AccountId: From<AccountId>,
+	<R as frame_system::Config>::AccountId: Into<AccountId>,
+{
+	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+		if let Some(author) = <pallet_authorship::Pallet<R>>::author() {
+			<pallet_balances::Pallet<R>>::resolve_creating(&author, amount);
+		}
+	}
+}
+
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
 where
-	R: pallet_balances::Config + pallet_treasury::Config, //+ pallet_authorship::Config,
+	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
 	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
 	<R as frame_system::Config>::AccountId: From<AccountId>,
 	<R as frame_system::Config>::AccountId: Into<AccountId>,
@@ -859,8 +883,8 @@ where
 			// for fees, 20% to treasury, 80% to author
 			let mut split = fees.ration(80, 20);
 			use pallet_treasury::Pallet as Treasury;
-			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
-			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 		}
 	}
 }
@@ -879,18 +903,6 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-	pub const UncleGenerations: u32 = 0;
-}
-
-// TODO: substrate#2986 implement this properly
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type UncleGenerations = UncleGenerations;
-	type FilterUncle = ();
-	type EventHandler = (Staking, ImOnline);
 }
 
 impl pallet_sudo::Config for Runtime {

@@ -1,0 +1,437 @@
+#####
+#
+#  when PR is updated by pushing changes to the branch
+#     CI skips all jobs for Drafted PRs by default
+#     CI skips all jobs for PRs labeled with `!ci-skip`
+#
+#  Labels:
+#    !ci-draft   - runs CI for drafted PR
+#    !ci-codecov - runs Code Coverage job on every PR update
+#    !ci-audit   - runs Cargo Audit job on every PR update
+#    !ci-integration - runs Integration Tests on every PR updates
+#    !ci-skip    - skips All jobs
+#
+
+name: Main
+on:
+  push:
+    # add your default branch if is not there
+    # however you really want to run CI on that branch
+    # do not forget set env.RUNALL_ONPUSH to true
+    branches: [ trying, staging ]
+  pull_request:
+    types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
+    paths-ignore:
+      - '**/*.md' # do not run CI on pull_request update if just MD files are changed
+
+concurrency:
+  # do not run more than once for latest push/update
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: write
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: 1.66.0
+
+  # set to true only if you need run all test
+  # for the target branch
+  # It's not really necessary, since bors is used for merge
+  RUNALL_ONPUSH: false
+
+  # add package names to exclude unit tests
+  EXCLUDE_TESTS:
+
+  # clippy opts
+  # `-D warnings` considers any warning as an error
+  # `-W clippy::all` considers all messages as warning
+  CLIPPY_OPTS: -D warnings
+
+  # build configuration
+  RELEASE_OPT: --release
+
+
+jobs:
+  # it calculates conditions to run following jobs
+  conditions:
+    name: Conditions
+    if: ${{
+      ( github.event_name != 'pull_request' ||
+        ( github.event.action != 'labeled' &&
+          github.event.action != 'unlabeled' &&
+          ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+            github.event.pull_request.draft == false )) ||
+          ( github.event.action == 'labeled' &&
+            ( github.event.label.name == '!ci-draft' ||
+              contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+            github.event.pull_request.draft == false ) &&
+          ( github.event.label.name == '!ci-codecov' ||
+            github.event.label.name == '!ci-audit'||
+            github.event.label.name == '!ci-integration' ||
+            github.event.label.name == '!ci-draft' ) )  ||
+        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )) && 
+      ( !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
+        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' ))
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      # a filler
+      - run: true
+    outputs:
+      # it's push into staging/tying by bors
+      staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
+
+      # it's non-draft pull_request
+      general-ci: ${{
+        github.event_name == 'pull_request' ||
+        github.ref == 'refs/heads/trying' ||
+        github.ref == 'refs/heads/staging' ||
+        env.RUNALL_ONPUSH == 'true' }}
+
+      # it's push into development branch (by bors or conventional merge)
+      # it's non-draft pull_request with label `!ci-codecov`
+      codecov: ${{
+        ( github.event_name == 'push' && github.ref != 'refs/heads/trying' &&
+          ( github.ref == 'refs/heads/staging' || env.RUNALL_ONPUSH == 'true' ) ) ||
+        ( github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+
+      # it's push into staging/tying by bors
+      # it's non-draft pull_request with label `!ci-integration`
+      integration: ${{
+        ( github.event_name == 'push' &&
+          github.ref == 'refs/heads/trying' ||
+          github.ref == 'refs/heads/staging' ||
+          env.RUNALL_ONPUSH == 'true' ) ||
+        ( github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
+
+      audit: ${{
+        ( github.event_name == 'push' &&
+          github.ref == 'refs/heads/trying' ||
+          github.ref == 'refs/heads/staging' ||
+          env.RUNALL_ONPUSH == 'true' ) ||
+        ( github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
+
+  # The Bors bot checks this job status
+  ci-success:
+    name: Bors-CI
+    if: ${{ needs.conditions.outputs.staging-ci == 'true' }}
+    needs: [conditions, integration-tests, tests, audit, linter]
+    runs-on: ubuntu-latest
+    steps:
+      # a filler
+      - run: true
+
+  # It builds project and warm up cache if it does not exist yet
+  build-project:
+    name: Build Project
+    needs: [conditions]
+    if: ${{ needs.conditions.outputs.general-ci == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Exclude tests with (printed just for observability)
+        run: echo $(for i in ${{ env.EXCLUDE_TESTS }}; do echo "--exclude $i"; done )
+
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Warming up the cache
+        # do not run if cache exists
+        #  because of it will not affect tests/clippy, just will take a time
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cargo fetch --locked
+          cargo test --no-run --lib --workspace --locked ${{env.RELEASE_OPT}}
+          cargo test --no-run --examples --workspace --locked ${{env.RELEASE_OPT}}
+
+      - name: Check that the application builds successfully
+        run: |
+          cargo build --locked ${{env.RELEASE_OPT}}
+
+      - name: Upload node binary
+        if: ${{ env.RELEASE_OPT != '' && github.ref == 'refs/heads/staging' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: timechain-node
+          path: target/release/timechain-node
+
+      - name: Clean up cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          find ./target/debug -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find ./target/debug -maxdepth 1 -type f -delete
+          rm -rf ./target/debug/examples
+          # remove some unused intermediate files
+          # intermediate files of the C++ librocks build
+          rm -rf target/debug/build/librocksdb-sys-*/out/rocksdb
+          # is too big and can be rebuild easy
+          rm -rf target/debug/deps/liblibrocksdb_sys-*.rlib
+          rm -rf target/debug/deps/libsc_network-*.rlib
+          # will not rebuild it
+          rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
+          rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*
+          # remove git packs
+          find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
+
+  # it runs tests
+  tests:
+    name: Unit Tests + Examples
+    needs: build-project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Check cache hit status
+        if: steps.cache.outputs.cache-hit != 'true'
+        # fail build
+        run: |
+          false
+
+      - name: Unit tests should pass successfully
+        if: success()
+        run: |
+          cargo test --lib --workspace --locked ${{env.RELEASE_OPT}} \
+            $(for i in ${{ env.EXCLUDE_TESTS }}; do echo "--exclude $i"; done )
+
+      - name: Examples should run successfully
+        if: success()
+        run: |
+          cargo test --examples --workspace --locked ${{env.RELEASE_OPT}}
+
+  # it checks source code with linters
+  linter:
+    name: Clippy + Rustfmt
+    needs: build-project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+          rustup component add clippy rustfmt
+
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Check cache hit status
+        if: steps.cache.outputs.cache-hit != 'true'
+        # fail build
+        run: |
+          false
+
+      - name: Cargo fmt
+        if: success()
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        if: success()
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # `--no-deps` does not check dependencies out of workspace
+          args: --all-targets --locked --workspace ${{env.RELEASE_OPT}} -- --no-deps ${{ env.CLIPPY_OPTS }}
+          name: Clippy Report
+
+  # it does security audit for known issues with list of dependencies
+  audit:
+    name: Cargo Audit
+    if: ${{ needs.conditions.outputs.audit == 'true' }}
+    needs: [conditions,build-project]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+
+      # this action is used to report about possible security problems
+      #  for pushes only
+      # - uses: actions-rs/audit-check@v1
+      #  if: github.event_name != 'pull_request'
+      #  with:
+      #    token: ${{ secrets.GITHUB_TOKEN }}
+
+      # looks like it's better to use plane text reporter
+      #  because of an error in audit check action
+      #  when it used on pull-requests
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+          key: "Audit-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Warm up the cache
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        run: |
+          cargo install cargo-audit --locked 
+
+      - name: Audit
+        run:
+          cargo audit -q
+
+  # it runs integration tests (if you have one)
+  integration-tests:
+    if: ${{ needs.conditions.outputs.integration == 'true' }}
+    needs: [conditions, build-project]
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Check cache hit status
+        if: steps.cache.outputs.cache-hit != 'true'
+        # fail build
+        run: |
+          false
+
+      - name: Run Cargo Integration/Heavy Test
+        if: success()
+        run: |
+          cargo test --locked --test '*' ${{env.RELEASE_OPT}}
+
+  # it measures code coverage and reports to codecov.io
+  code-coverage:
+    name: Report Code Coverage
+    # we can need to update code coverage stats on the default branch
+    if: ${{ needs.conditions.outputs.codecov == 'true' }}
+    needs: [conditions]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION          
+
+      - name: Setup llvm-cov for cargo
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Set up cache
+        if: success()
+        id: cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Codecov-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Warm up the cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cargo fetch --locked
+
+      - name: Unit tests should pass successfully
+        if: success()
+        # use --tests to measure coverage with all tests
+        # use --test '*' to measure coverage with integration-tests
+        # use --lib to measure coverage with unit-tests
+        run: |
+          cargo llvm-cov test --tests --locked --workspace ${{env.RELEASE_OPT}} \
+            --lcov --output-path lcov.info \
+            $(for i in ${{ env.EXCLUDE_TESTS }}; do echo "--exclude $i"; done )
+
+      - name: Upload coverage to Codecov
+        if: success()
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
+
+      - name: Clean up cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          find ./target/llvm-cov-target/debug -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find ./target/llvm-cov-target/debug -maxdepth 1 -type f -delete
+          rm -rf ./target/llvm-cov-target/debug/examples
+          # remove some unused intermediate files
+          # intermediate files of the C++ librocks build
+          rm -rf target/llvm-cov-target/debug/build/librocksdb-sys-*/out/rocksdb
+          # is too big and can be rebuild easy
+          rm -rf target/llvm-cov-target/debug/deps/liblibrocksdb_sys-*.rlib
+          rm -rf target/llvm-cov-target/debug/deps/libsc_network-*.rlib
+          # will not rebuild it
+          # rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
+          # rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*
+          # remove git packs
+          find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;

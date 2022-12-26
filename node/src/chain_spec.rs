@@ -11,10 +11,6 @@ use timechain_runtime::{
 	VestingConfig, WASM_BINARY,
 };
 use sp_runtime::traits::Printable;
-use sp_runtime::print;
-use sp_runtime::sp_std::{
-	if_std
-};
 
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -156,12 +152,6 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
-	print("starts dev");
-	if_std! {
-		// This code is only being compiled and executed when the `std` feature is enabled.
-		println!("ANLOG--->{:?}",ANLOG);
-		println!("SEED_ROUND_SUPPLY--->{:?}",SEED_ROUND_SUPPLY);
-	}
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Development",
@@ -322,7 +312,6 @@ fn testnet_genesis(
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
-	print("loads vesting account");
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.

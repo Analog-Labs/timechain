@@ -43,8 +43,7 @@ use sp_runtime::{
 
 use sp_std::{
 	cmp::{Eq, PartialEq},
-	vec::Vec,
-	if_std
+	vec::Vec
 };
 
 mod mock;
@@ -56,7 +55,6 @@ pub use weights::WeightInfo;
 
 pub const VESTING_LOCK_ID: LockIdentifier = *b"ana-vest";
 
-use sp_runtime::print;
 /// The vesting schedule.
 ///
 /// Benefits would be granted gradually, `per_period` amount every `period`
@@ -206,10 +204,6 @@ pub mod module {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			print("vesting flg 1");
-			if_std! {
-				println!("My self.vesting is: {:#?}", self.vesting);
-			}
 			self.vesting
 				.iter()
 				.for_each(|(who, start, period, period_count, per_period)| {
@@ -232,10 +226,6 @@ pub mod module {
 						})
 						.expect("Invalid vesting schedule");
 						let has_amounnt = T::Currency::free_balance(who);
-						if_std! {
-							// This code is only being compiled and executed when the `std` feature is enabled.
-							println!("My value is: {:#?} - {:#?} - {:#?} ", who,has_amounnt, total_amount);
-						}
 					assert!(
 						has_amounnt >= total_amount,
 						"Account do not have enough balance"
@@ -252,11 +242,7 @@ pub mod module {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-		fn on_finalize(_n: T::BlockNumber) { 
-			if_std! {
-				println!("finalized block : {:#?} - ", _n);
-			}
-		}
+		fn on_finalize(_n: T::BlockNumber) {}
 	}
 
 	#[pallet::call]

@@ -1,5 +1,5 @@
 use super::mock::*;
-use crate::{types::{SignatureData, TesseractRole}};
+use crate::types::{SignatureData, TesseractRole};
 use frame_support::{assert_ok};
 use frame_system::RawOrigin;
 

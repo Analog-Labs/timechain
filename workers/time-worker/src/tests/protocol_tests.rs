@@ -451,6 +451,7 @@ fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
 	keys.iter().map(|key| key.clone().public().into()).map(|id| (id, 1)).collect()
 }
 
+#[cfg(feature = "expensive_tests")]
 #[test]
 fn time_keygen_completes() {
 	sp_tracing::try_init_simple();

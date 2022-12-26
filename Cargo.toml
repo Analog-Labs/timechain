@@ -10,9 +10,9 @@ members = [
     "tesseract/accounts",
     "tesseract/events"
 ]
+
 [profile.release]
 panic = "unwind"
 #strip = true
 opt-level = "z"
 
-   

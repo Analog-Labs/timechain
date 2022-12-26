@@ -1,13 +1,12 @@
 use super::*;
 
+use crate::types::*;
 #[allow(unused)]
 use crate::Pallet as OnChainTask;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use sp_std::borrow::ToOwned;
 use scale_info::prelude::format;
-use crate::{types::*};
-use sp_std::prelude::*;
+use sp_std::{borrow::ToOwned, prelude::*};
 
 benchmarks! {
 

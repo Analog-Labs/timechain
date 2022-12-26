@@ -11,44 +11,42 @@ pub type MethodName = Vec<u8>;
 pub type MethodArguments = Vec<u8>;
 
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct OnchainTasks{
-    pub task: Vec<TaskData>
+pub struct OnchainTasks {
+	pub task: Vec<TaskData>,
 }
 // Struct for holding Onchain Task information.
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct TaskData{
-    pub task: SupportedTasks,
-    pub task_data: ChainData,
-    pub method: Vec<TaskMethod>,
+pub struct TaskData {
+	pub task: SupportedTasks,
+	pub task_data: ChainData,
+	pub method: Vec<TaskMethod>,
 }
 
 // Struct for holding Task Methods.
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct TaskMethod{
-    pub name: MethodName,
-    pub arguments: MethodArguments,
+pub struct TaskMethod {
+	pub name: MethodName,
+	pub arguments: MethodArguments,
 }
-    
+
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedChain {
-    Cosmos,
+	Cosmos,
 	Ethereum,
-    Polkadot,
-    Timechain,
+	Polkadot,
+	Timechain,
 }
 
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedTasks {
-    SwapToken,
+	SwapToken,
 	FetchEvents,
-    FetchBalance,
-    FetchBlocks,
+	FetchBalance,
+	FetchBlocks,
 }
 
 impl Default for SupportedChain {
-    fn default() -> Self{
-        SupportedChain::Timechain
-    }
+	fn default() -> Self {
+		SupportedChain::Timechain
+	}
 }
-
-

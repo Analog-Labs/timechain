@@ -10,9 +10,9 @@ use time_primitives::TimeApi;
 use tss::rand::rngs::OsRng;
 
 use tss::{
-    frost_dalek::{
-        generate_commitment_share_lists, keygen::SecretShare, Participant, SignatureAggregator,
-    },
+	frost_dalek::{
+		generate_commitment_share_lists, keygen::SecretShare, Participant, SignatureAggregator,
+	},
 	signverify::sign_data,
 	tss_event_model::{
 		FilterAndPublishParticipant, OthersCommitmentShares, PartialMessageSign, PublishPeerIDCall,

@@ -199,15 +199,15 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           find target/$TARGET -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-          find target/$TARGET -maxdepth 1 -type f -delete
+          # find target/$TARGET -maxdepth 1 -type f -delete
           rm -rf target/$TARGET/examples
-          rm -rf target/$TARGET/wbuild
+          rm -rf target/$TARGET/wbuild/*/target
           # remove some unused intermediate files
           # intermediate files of the C++ librocks build
           rm -rf target/$TARGET/build/librocksdb-sys-*/out/rocksdb
           # is too big and can be rebuild easy
-          rm -rf target/$TARGET/deps/liblibrocksdb_sys-*.rlib
-          rm -rf target/$TARGET/deps/libsc_network-*.rlib
+          # rm -rf target/$TARGET/deps/liblibrocksdb_sys-*.rlib
+          # rm -rf target/$TARGET/deps/libsc_network-*.rlib
           # will not rebuild it
           # rm -rf ~/.cargo/registry/src/github.com-*/windows*/*
           # rm -rf ~/.cargo/registry/src/github.com-*/winapi*/*
@@ -458,10 +458,10 @@ jobs:
       - name: Clean up cache
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          find target/llvm-cov-target/$TARGET -maxdepth 2 -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          find target/llvm-cov-target/$TARGET -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
           find target/llvm-cov-target/$TARGET -maxdepth 1 -type f -delete
           rm -rf target/llvm-cov-target/$TARGET/examples
-          rm -rf target/llvm-cov-target/$TARGET/wbuild
+          rm -rf target/llvm-cov-target/$TARGET/wbuild/*/target
           # remove some unused intermediate files
           # intermediate files of the C++ librocks build
           rm -rf target/llvm-cov-target/$TARGET/build/librocksdb-sys-*/out/rocksdb

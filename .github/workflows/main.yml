@@ -195,13 +195,6 @@ jobs:
           name: timechain-node
           path: target/release/timechain-node
 
-      - name: Upload node-template binary
-        if: ${{ needs.conditions.outputs.target == 'release' && github.ref == 'refs/heads/staging' }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: node-template
-          path: target/release/node-template
-
       - name: Clean up cache
         if: steps.cache.outputs.cache-hit != 'true'
         run: |

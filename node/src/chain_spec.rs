@@ -192,11 +192,6 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 						PUBLIC_SALE,
 					),
 					(
-						hex!["12de2413614c5ba5400dda703328f7dbe3c856e96ae1277f0971f7e80a92767e"]
-							.into(),
-						PUBLIC_SALE,
-					),
-					(
 						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
 							.into(),
 						TEAM_SUPPLY,
@@ -331,8 +326,6 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		// vesting: VestingConfig { vesting: vesting_accounts },
-		// vesting: VestingConfig { vesting: Default::default() },
 		im_online: Default::default(),
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities

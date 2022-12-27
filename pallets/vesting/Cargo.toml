@@ -1,11 +1,13 @@
 [package]
 name = "analog-vesting"
-description = "Provides scheduled balance locking mechanism, in a *graded vesting* way."
-repository = "https://github.com/open-web3-stack/open-runtime-module-library/tree/master/vesting"
-license = "Apache-2.0"
 version = "4.0.0-dev"
-authors = ["Laminar Developers <hello@laminar.one>"]
+description = "A pallet for vesting."
+authors = ["Analog Devs <https://github.com/analog-labs>"]
+homepage = "https://analog.one"
 edition = "2021"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/Analog-Labs/testnet"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["max-encoded-len"] }

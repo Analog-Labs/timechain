@@ -839,8 +839,6 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	pub FeeMultiplier: Multiplier = Multiplier::one();
 	pub const UncleGenerations: u32 = 0;
-	// static TipUnbalancedAmount: u64 = 0;
-	// static FeeUnbalancedAmount: u64 = 0;
 }
 
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -872,7 +870,7 @@ where
 
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
-where
+where   
 	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
 	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
 	<R as frame_system::Config>::AccountId: From<AccountId>,
@@ -887,7 +885,7 @@ where
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 		}
 	}
-}
+}   
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -939,16 +937,6 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 	}
 }
 
-// impl orml_vesting::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// 	type Currency = Balances;
-// 	type MinVestedTransfer = MinVestedTransfer;
-// 	type WeightInfo = ();
-// 	type VestedTransferOrigin = EnsureSigned<AccountId>;
-// 	type MaxVestingSchedules = MaxVestingSchedules;
-// 	type BlockNumberProvider = SubstrateBlockNumberProvider;
-// }
-
 impl analog_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -961,7 +949,7 @@ impl analog_vesting::Config for Runtime {
 
 impl onchain_task_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = ();   
 }
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
@@ -998,7 +986,7 @@ construct_runtime!(
 		ImOnline: pallet_im_online,
 		Offences: pallet_offences,
 		Authorship: pallet_authorship,
-		Session: pallet_session,
+		Session: pallet_session,  
 		Staking: pallet_staking,
 		VoterList: pallet_bags_list::<Instance1>,
 		Historical: pallet_session_historical,
@@ -1008,7 +996,6 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage,
-		// Vesting: orml_vesting,
 		Vesting: analog_vesting,
 		OnchainTask: onchain_task_pallet,
 		Treasury: pallet_treasury
@@ -1032,7 +1019,6 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;

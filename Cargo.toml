@@ -13,6 +13,9 @@ members = [
 
 [profile.release]
 panic = "unwind"
-#strip = true
+strip = true
 opt-level = "z"
 
+[profile.release-codecov]
+inherits = "release"
+strip = false

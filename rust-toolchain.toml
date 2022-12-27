@@ -1,2 +1,6 @@
 [toolchain]
-channel = "nightly"
+# need to be pinned to build/test all with the same compiler
+channel = "nightly-2022-12-24"
+components = [ "rustfmt", "clippy" ]
+profile = "minimal"
+targets = ["wasm32-unknown-unknown"]

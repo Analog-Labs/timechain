@@ -22,7 +22,7 @@ pub fn make_gossip_tss_data(
 
 	let data = Event { event_type: EventType::TSSEvent, data: tss_event.try_to_vec().unwrap() };
 
-	data.try_to_vec().map_err(|e| "Unable to convert data to vector".to_string())
+	data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
 }
 
 pub async fn make_hashmap_for_secret_share(
@@ -59,7 +59,7 @@ pub fn get_publish_peer_id_msg(local_peer: String) -> Result<Vec<u8>, String> {
 			random: since_the_epoch.as_millis().to_string(),
 		};
 
-		data.try_to_vec().map_err(|e| "Unable to convert data to vector".to_string())
+		data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
 	} else {
 		Err("Unable to get time difference".to_string())
 	}
@@ -70,7 +70,7 @@ pub fn get_reset_tss_msg(reason: String) -> Result<Vec<u8>, String> {
 	if let Ok(since_the_epoch) = start.duration_since(UNIX_EPOCH) {
 		let data = ResetTSSCall { reason, random: since_the_epoch.as_millis().to_string() };
 
-		data.try_to_vec().map_err(|e| "Unable to convert data to vector".to_string())
+		data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
 	} else {
 		Err("Unable to get time difference".to_string())
 	}
@@ -85,7 +85,7 @@ pub fn get_receive_params_msg(local_peer: String, params: Parameters) -> Result<
 			params,
 		};
 
-		data.try_to_vec().map_err(|e| "Unable to convert data to vector".to_string())
+		data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
 	} else {
 		Err("Unable to get time difference".to_string())
 	}

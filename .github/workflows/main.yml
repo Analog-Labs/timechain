@@ -169,9 +169,9 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cargo fetch --locked
-          cargo test --no-run --lib --workspace --locked $BUILD_OPTS \ 
-            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
-          cargo test --no-run --examples --workspace --locked $BUILD_OPTS
+          # cargo test --no-run --lib --workspace --locked $BUILD_OPTS \ 
+          #  $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
+          # cargo test --no-run --examples --workspace --locked $BUILD_OPTS
 
       - name: Check that the application builds successfully
         run: |

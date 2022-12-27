@@ -126,7 +126,7 @@ jobs:
   ci-success:
     name: Bors-CI
     if: ${{needs.conditions.outputs.staging-ci == 'true'}}
-    needs: [build-and-tests, audit, code-coverage]
+    needs: [build-and-tests, audit, code-coverage, integration-tests]
     runs-on: ubuntu-latest
     steps:
       # a filler
@@ -151,11 +151,7 @@ jobs:
         run: .github/update-rust.ps1
 
       - name: Cargo fmt Check
-        if: success()
         run: cargo fmt --all -- --check
-
-      - name: Install Protoc
-        run: sudo apt-get install -y protobuf-compiler
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -166,6 +162,10 @@ jobs:
             ~/.cargo
             target/
           key: "Main-${{ runner.os }}-r${{ steps.rustc-version.outputs.value }}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Install Protoc
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y protobuf-compiler
 
       - name: Warming up the cache
         # do not run if cache exists
@@ -227,16 +227,16 @@ jobs:
         run: |
           cargo build --locked $BUILD_OPTS
 
-      - name: Unit tests
+      - name: Run Unit tests
         run: |
           cargo test --lib --workspace --locked $BUILD_OPTS \
             $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
 
-      - name: Examples
+      - name: Run Examples
         run: |
           cargo test --examples --workspace --locked $BUILD_OPTS
 
-      - name: Clippy
+      - name: Check sources with Clippy
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
@@ -244,8 +244,46 @@ jobs:
           args: --all-targets --locked --workspace ${{env.BUILD_OPTS}} -- --no-deps ${{env.CLIPPY_OPTS}}
           name: Clippy Report
 
-      - name: Integration/Heavy Test
-        if: ${{ needs.conditions.outputs.integration == 'true' }}
+      #- name: Run Integration/Heavy Tests
+      #  if: ${{ needs.conditions.outputs.integration == 'true' }}
+      #  run: |
+      #    cargo test --locked --test '*' --workspace $BUILD_OPTS
+
+  # it runs integration tests (if you have one)
+  integration-tests:
+    if: ${{ needs.conditions.outputs.integration == 'true' }}
+    needs: [conditions,cache-project]
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{ needs.conditions.outputs.build_opts }}
+      TARGET: ${{ needs.conditions.outputs.target }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Update Rust
+        id: rustc-version
+        shell: pwsh
+        run: .github/update-rust.ps1
+
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Check cache hit status
+        if: steps.cache.outputs.cache-hit != 'true'
+        # fail build
+        run: |
+          false
+
+      - name: Run Cargo Integration/Heavy Test
         run: |
           cargo test --locked --test '*' --workspace $BUILD_OPTS
 

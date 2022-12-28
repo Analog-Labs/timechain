@@ -32,6 +32,7 @@ jobs:
     name: Conditions
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - run: |
           Get-Content .github/config.txt | Out-File $env:GITHUB_OUTPUT
         id: values

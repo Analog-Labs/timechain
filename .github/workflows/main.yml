@@ -19,10 +19,11 @@ on:
 #    # however you really want to run CI on that branch
 #    # do not forget set env.RUNALL_ONPUSH to true
 #    branches: [ trying, staging ]
-  pull_request:
-    types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
-    paths-ignore:
-      - '**/*.md' # do not run CI on pull_request update if just MD files are changed
+#  pull_request:
+#    types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
+#    paths-ignore:
+#      - '**/*.md' # do not run CI on pull_request update if just MD files are changed
+
 
 concurrency:
   # do not run more than once for latest push/update

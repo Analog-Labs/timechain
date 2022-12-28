@@ -129,7 +129,9 @@ jobs:
   # The Bors bot checks this job status
   ci-success:
     name: Bors-CI
-    if: ${{needs.conditions.outputs.staging-ci == 'true'}}
+    if: ${{ needs.conditions.outputs.staging-ci == 'true' &&
+          (needs.build-app.result == 'success' || needs.build-app.result == 'skipped') &&
+          (needs.code-coverage.result == 'success' || needs.code-coverage.result == 'skipped') }}
     needs: [build-app, tests, integration, clippy, audit, code-coverage]
     runs-on: ubuntu-latest
     steps:

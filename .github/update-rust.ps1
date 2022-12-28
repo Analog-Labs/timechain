@@ -1,13 +1,13 @@
 #!/usr/bin/env pwsh
 
 if ( $env:GITHUB_OUTPUT -ne '' ) {
-    Remove-Item -Force ~/.cargo/bin/cargo-fmt
-    Remove-Item -Force ~/.cargo/bin/rustfmt
+    Remove-Item -Force ~/.cargo/bin/cargo-fmt -ea 0
+    Remove-Item -Force ~/.cargo/bin/rustfmt -ea 0
 }
 
 $defult_nightly = (
-    Get-Content .\Cargo.toml |
-    Select-String -Pattern 'WASM_BUILD_TOOLCHAIN\s*=\s*"([a-z0-9-]+)"' |
+    Get-Content .\.github\config.txt |
+    Select-String -Pattern 'toolchain\s*=\s*([a-z0-9-]+)' |
     % { $_.Matches.Groups[1].Value }) ?? 'nightly'
 $nightly = $env:WASM_BUILD_TOOLCHAIN ?? $defult_nightly
 

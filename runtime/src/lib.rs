@@ -1,5 +1,4 @@
-#![feature(custom_inner_attributes)]
-#![rustfmt::skip]
+// @generated to prevent rustfmt reformat/check
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -905,6 +904,7 @@ impl onchain_task_pallet::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
+#[rustfmt::skip]
 construct_runtime!(
 	pub struct Runtime
 	where

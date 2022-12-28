@@ -132,7 +132,7 @@ impl TssService {
 					self.tss_local_state.tss_process_state = TSSLocalStateType::ReceivedPeers;
 				} else {
 					self.tss_local_state.tss_process_state = TSSLocalStateType::NotParticipating;
-					return
+					return;
 				}
 
 				if !self.tss_local_state.others_participants.contains(&data.col_participant) {
@@ -180,14 +180,14 @@ impl TssService {
 						Some(index) => index,
 						None => {
 							log::error!("TSS::local index not found");
-							return
+							return;
 						},
 					};
 					let participant = match &self.tss_local_state.local_participant.clone() {
 						Some(participant) => participant.clone(),
 						None => {
 							log::error!("TSS::local participant not found");
-							return
+							return;
 						},
 					};
 					if let Ok(round_one_state) = round_one_state(
@@ -201,7 +201,7 @@ impl TssService {
 							Ok(secret_shares) => secret_shares,
 							Err(e) => {
 								log::error!("TSS::error getting secret shares: {:#?}", e);
-								return
+								return;
 							},
 						};
 
@@ -247,7 +247,7 @@ impl TssService {
 					Some(index) => index,
 					None => {
 						log::error!("TSS::unable to get local index");
-						return
+						return;
 					},
 				};
 				if let Some(secret_share) = distributed_hashmap.get(&local_index) {
@@ -265,7 +265,7 @@ impl TssService {
 							Some(round_one) => round_one,
 							None => {
 								log::error!("TSS::Could not get round one state from local state");
-								return
+								return;
 							},
 						};
 						match round_one.to_round_two(others_my_secret_shares) {
@@ -285,7 +285,7 @@ impl TssService {
 											log::error!(
                                         "TSS::Unable to get local participant from local state"
                                     );
-											return
+											return;
 										},
 									};
 								let my_commitment = match participant.0.public_key() {
@@ -294,7 +294,7 @@ impl TssService {
 										log::error!(
 											"TSS::Unable to get commitment from local participant"
 										);
-										return
+										return;
 									},
 								};
 								if let Ok((local_group_key, local_secret_key)) =
@@ -324,11 +324,11 @@ impl TssService {
 									Some(index) => index,
 									None => {
 										log::error!("TSS::unable to get local index");
-										return
+										return;
 									},
 								};
-								if self.tss_local_state.tss_process_state ==
-									TSSLocalStateType::StateFinished
+								if self.tss_local_state.tss_process_state
+									== TSSLocalStateType::StateFinished
 								{
 									//aggregator patch
 									self.tss_local_state.is_node_aggregator =
@@ -347,7 +347,7 @@ impl TssService {
 											log::error!(
                                             "TSS::Unable to get local public key from local state"
                                         );
-											return
+											return;
 										},
 									};
 
@@ -367,7 +367,7 @@ impl TssService {
 							},
 							Err(e) => {
 								log::error!("TSS::Error in round two state: {:#?}", e);
-								return
+								return;
 							},
 						}
 					} else {
@@ -391,8 +391,8 @@ impl TssService {
 	pub async fn handler_receive_commitment(self: &mut Self, data: &Vec<u8>) {
 		//receive commitments and update state of node
 		if self.tss_local_state.is_node_aggregator {
-			if self.tss_local_state.tss_process_state >= TSSLocalStateType::DkgGeneratedR1 &&
-				self.tss_local_state.tss_process_state <= TSSLocalStateType::StateFinished
+			if self.tss_local_state.tss_process_state >= TSSLocalStateType::DkgGeneratedR1
+				&& self.tss_local_state.tss_process_state <= TSSLocalStateType::StateFinished
 			{
 				if let Ok(commitment) = OthersCommitmentShares::try_from_slice(data) {
 					if !self.tss_local_state.others_commitment_share.contains(&commitment) {
@@ -437,7 +437,7 @@ impl TssService {
 					Some(final_state) => final_state,
 					None => {
 						log::error!("TSS::Unable to get local finished state from local state");
-						return
+						return;
 					},
 				};
 
@@ -445,7 +445,7 @@ impl TssService {
 					Some(commitment) => commitment,
 					None => {
 						log::error!("TSS::Unable to get local commitment share from local state");
-						return
+						return;
 					},
 				};
 
@@ -461,7 +461,7 @@ impl TssService {
 						Ok(partial_signature) => partial_signature,
 						Err(e) => {
 							log::error!("TSS::error occured while signing: {:?}", e);
-							return
+							return;
 						},
 					};
 
@@ -533,7 +533,7 @@ impl TssService {
 										log::error!(
                                     "TSS::Unable to get local finished state from local state"
                                 );
-										return
+										return;
 									},
 								};
 							let mut aggregator = SignatureAggregator::new(
@@ -582,7 +582,7 @@ impl TssService {
 										// signer side
 										log::error!("TSS::error occured while finalizing aggregator from index {:?} because of {:?}", key, value);
 									}
-									return
+									return;
 								},
 							};
 
@@ -599,7 +599,7 @@ impl TssService {
 											value
 										);
 									}
-									return
+									return;
 								},
 							};
 
@@ -656,7 +656,7 @@ impl TssService {
 						Some(finished_state) => finished_state,
 						None => {
 							log::error!("TSS::Unable to get local finished state from local state");
-							return
+							return;
 						},
 					};
 					match threshold_signature
@@ -706,7 +706,7 @@ impl TssService {
 			Some(commitment) => commitment,
 			None => {
 				log::error!("TSS::Unable to get local commitment share from local state");
-				return
+				return;
 			},
 		};
 
@@ -714,7 +714,7 @@ impl TssService {
 			Some(final_state) => final_state,
 			None => {
 				log::error!("TSS::Unable to get local finished state from local state");
-				return
+				return;
 			},
 		};
 
@@ -730,7 +730,7 @@ impl TssService {
 				Ok(partial_signature) => partial_signature,
 				Err(e) => {
 					log::error!("TSS::error occured while signing: {:?}", e);
-					return
+					return;
 				},
 			};
 
@@ -746,7 +746,7 @@ impl TssService {
 				Ok(msg) => msg,
 				Err(e) => {
 					log::error!("TSS::error in converting message to string, {}", e);
-					return
+					return;
 				},
 			};
 

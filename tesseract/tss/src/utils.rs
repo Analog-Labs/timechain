@@ -45,10 +45,10 @@ pub fn get_participant_index(peer_id: String, other_peer_id: &Vec<String>) -> u3
 	let list_length = other_peer_list.len();
 	for index in 0..list_length {
 		if &peer_id <= &other_peer_list[index] {
-			return (index + 1) as u32
+			return (index + 1) as u32;
 		}
 	}
-	return (list_length + 1) as u32
+	return (list_length + 1) as u32;
 }
 
 pub fn get_publish_peer_id_msg(local_peer: String) -> Result<Vec<u8>, String> {

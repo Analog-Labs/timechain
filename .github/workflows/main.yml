@@ -56,6 +56,9 @@ env:
 
   # build configuration
   RELEASE: true
+  WASM_BUILD_TOOLCHAIN: nightly-2022-12-25
+  # use the same compiler for runtime and non WASM code
+  RUSTUP_TOOLCHAIN: nightly-2022-12-25
 
 jobs:
   # it calculates conditions to run following jobs
@@ -121,21 +124,24 @@ jobs:
 
       build_opts: ${{ env.RELEASE == 'true' && '--release' || '' }} ${{env.GLOBAL_CARGO_OPTS}}
       target: ${{ env.RELEASE == 'true' && 'release' || 'debug' }}
+      use-cache: ${{ github.event_name == 'pull_request' }}
 
   # The Bors bot checks this job status
   ci-success:
     name: Bors-CI
     if: ${{needs.conditions.outputs.staging-ci == 'true'}}
-    needs: [build-and-tests, audit, code-coverage]
+    needs: [build-app, tests, integration, clippy, audit, code-coverage]
     runs-on: ubuntu-latest
     steps:
       # a filler
       - run: false
 
-  # it runs tests
-  build-and-tests:
-    name: Build + Clippy + Tests
-    needs: [conditions,cache-project]
+  # It separates cache from Clippy and tests
+  # Since the project must be compiled heere this job has that responsibility
+  # It checks code style before to build the project to not rebuild it again after fixes
+  build-cache:
+    name: Build Cache
+    needs: [conditions]
     runs-on: ubuntu-latest
     env:
       BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
@@ -144,18 +150,29 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache-flag
+        continue-on-error: false
+        with:
+          path: |
+            ./Cargo.toml
+          key: "Flag-${{ runner.os }}-r${{env.RUSTUP_TOOLCHAIN}}-${{ hashFiles('**/Cargo.lock') }}"
+
       - name: Update Rust
+        if: steps.cache-flag.outputs.cache-hit != 'true'
         id: rustc-version
         shell: pwsh
-        run: .github/update-rust.ps1
+        run: |
+          .github/update-rust.ps1
+          sudo apt-get install -y protobuf-compiler
 
       - name: Cargo fmt Check
-        run: cargo fmt --all -- --check
-
-      - name: Install Protoc
-        run: sudo apt-get install -y protobuf-compiler
+        if: steps.cache-flag.outputs.cache-hit != 'true'
+        run: cargo fmt --all --check
 
       - name: Set up cache
+        if: steps.cache-flag.outputs.cache-hit != 'true'
         uses: actions/cache@v3
         id: cache
         continue-on-error: false
@@ -168,17 +185,102 @@ jobs:
       - name: Warming up the cache
         # do not run if cache exists
         #  because of it will not affect tests/clippy, just will take a time
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: ${{ steps.cache-flag.outputs.cache-hit != 'true' && steps.cache.outputs.cache-hit != 'true' }}
         run: |
           cargo fetch --locked
           find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
           cargo fetch --locked
 
       - name: Check that the application builds successfully
+        if: ${{ steps.cache-flag.outputs.cache-hit != 'true' && steps.cache.outputs.cache-hit != 'true' }}
+        run: |
+          cargo build --all-targets --workspace --offline $BUILD_OPTS
+          cargo test --lib --workspace --offline $BUILD_OPTS \
+            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
+        env:
+          CARGO_NET_OFFLINE: true
+
+      - name: Clean up cache
+        if: ${{ steps.cache-flag.outputs.cache-hit != 'true' && steps.cache.outputs.cache-hit != 'true' }}
+        run: |
+          #find target/$TARGET -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
+          #find target/$TARGET -maxdepth 1 -type f -delete
+          #rm -rf target/$TARGET/examples
+          #rm -rf target/$TARGET/wbuild/*/target
+          rm -rf target/$TARGET/build/librocksdb-sys-*/out/rocksdb
+
+    outputs:
+      hit-flag: ${{ steps.cache-flag.outputs.cache-hit == 'true' }}
+
+  build-app:
+    name: Re-Build App
+    needs: [conditions, build-cache]
+    runs-on: ubuntu-latest
+    if: needs.build-cache.outputs.hit-flag == 'true'
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Update Rust
+        id: rustc-version
+        shell: pwsh
+        run: |
+          .github/update-rust.ps1
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Cargo fmt Check
+        run: cargo fmt --all --check
+
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Build App
         run: |
           cargo build --offline $BUILD_OPTS
+        env:
+          CARGO_NET_OFFLINE: true
+
+  # it tests the project with Clippy and Unit/Integration tests
+  tests:
+    name: Unit Tests
+    needs: [conditions, build-cache]
+    runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+      CARGO_NET_OFFLINE: true
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Update Rust
+        id: rustc-version
+        shell: pwsh
+        run: |
+          .github/update-rust.ps1
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Run Unit tests
+        id: unit-tests
         run: |
           cargo test --lib --workspace --offline $BUILD_OPTS \
             $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
@@ -187,27 +289,76 @@ jobs:
         run: |
           cargo test --examples --workspace --offline $BUILD_OPTS
 
+
+  integration:
+    name: Integration Tests
+    needs: [conditions, build-cache]
+    runs-on: ubuntu-latest
+    if: ${{ needs.conditions.outputs.integration == 'true' }}
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+      CARGO_NET_OFFLINE: true
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Update Rust
+        id: rustc-version
+        shell: pwsh
+        run: |
+          .github/update-rust.ps1
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
+
+      - name: Run Integration/Heavy Tests
+        run: |
+          cargo test --offline --test '*' --workspace $BUILD_OPTS
+
+  # it tests the project with Clippy and Unit/Integration tests
+  clippy:
+    name: Clippy
+    needs: [conditions, build-cache]
+    runs-on: ubuntu-latest
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+      CARGO_NET_OFFLINE: true
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Update Rust
+        id: rustc-version
+        shell: pwsh
+        run: | 
+          .github/update-rust.ps1
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Set up cache
+        uses: actions/cache@v3
+        id: cache
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            target/
+          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
+
       - name: Check sources with Clippy
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
           # `--no-deps` does not check dependencies out of workspace
-          args: --all-targets --locked --workspace ${{env.BUILD_OPTS}} -- --no-deps ${{env.CLIPPY_OPTS}}
+          args: --all-targets --offline --workspace ${{env.BUILD_OPTS}} -- --no-deps ${{env.CLIPPY_OPTS}}
           name: Clippy Report
-
-      - name: Run Integration/Heavy Tests
-        if: ${{ needs.conditions.outputs.integration == 'true' }}
-        run: |
-          cargo test --offline --test '*' --workspace $BUILD_OPTS
-
-      - name: Clean up cache
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          find target/$TARGET -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-          find target/$TARGET -maxdepth 1 -type f -delete
-          rm -rf target/$TARGET/examples
-          rm -rf target/$TARGET/wbuild/*/target
-          rm -rf target/$TARGET/build/librocksdb-sys-*/out/rocksdb
 
   # it does security audit for known issues with list of dependencies
   audit:
@@ -273,6 +424,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Set up cache
+        if: ${{needs.conditions.outputs.use-cache == 'true'}}
         id: cache
         uses: actions/cache@v3
         continue-on-error: false
@@ -283,12 +435,12 @@ jobs:
           key: "Codecov-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Warm up the cache
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: ${{needs.conditions.outputs.use-cache != 'true' || steps.cache.outputs.cache-hit != 'true'}}
         run: |
           cargo fetch --locked
           find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
 
-      - name: Unit tests should pass successfully
+      - name: Unit Tests
         # use --tests to measure coverage with all tests
         # use --test '*' to measure coverage with integration-tests
         # use --lib to measure coverage with unit-tests
@@ -305,7 +457,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Clean up cache
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: ${{needs.conditions.outputs.use-cache == 'true' && steps.cache.outputs.cache-hit != 'true'}}
         run: |
           find target/llvm-cov-target/$TARGET -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
           find target/llvm-cov-target/$TARGET -maxdepth 1 -type f -delete
@@ -313,103 +465,3 @@ jobs:
           rm -rf target/llvm-cov-target/$TARGET/wbuild/*/target
           rm -rf target/llvm-cov-target/$TARGET/build/librocksdb-sys-*/out/rocksdb
           find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
-
-
-
-
-#  # it runs integration tests (if you have one)
-#  integration-tests:
-#    if: ${{ needs.conditions.outputs.integration == 'true' }}
-#    needs: [conditions,cache-project]
-#    name: Integration Tests
-#    runs-on: ubuntu-latest
-#    env:
-#      BUILD_OPTS: ${{ needs.conditions.outputs.build_opts }}
-#      TARGET: ${{ needs.conditions.outputs.target }}
-#    steps:
-#      - uses: actions/checkout@v3
-#      - name: Install Protoc
-#        run: sudo apt-get install -y protobuf-compiler
-#      - name: Update Rust
-#        id: rustc-version
-#        shell: pwsh
-#        run: .github/update-rust.ps1
-#
-#      - name: Set up cache
-#        id: cache
-#        uses: actions/cache@v3
-#        continue-on-error: false
-#        with:
-#          path: |
-#            ~/.cargo
-#            target/
-#          key: "Main-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
-#
-#      - name: Check cache hit status
-#        if: steps.cache.outputs.cache-hit != 'true'
-#        # fail build
-#        run: |
-#          false
-#
-#      - name: Run Cargo Integration/Heavy Test
-#        run: |
-#          cargo test --locked --test '*' --workspace $BUILD_OPTS
-
-  # It builds project and warm up cache if it does not exist yet
-#  cache-project:
-#    name: Fmt Check + Cache Project
-#    needs: [conditions]
-#    if: ${{needs.conditions.outputs.general-ci == 'true'}}
-#    runs-on: ubuntu-latest
-#    env:
-#      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
-#      TARGET: ${{needs.conditions.outputs.target}}
-#    steps:
-#      - name: Checkout sources
-#        uses: actions/checkout@v3
-#
-#      - name: Update Rust
-#        id: rustc-version
-#        shell: pwsh
-#        run: .github/update-rust.ps1
-#
-#      - name: Cargo fmt Check
-#        run: cargo fmt --all -- --check
-#
-#      - name: Set up cache
-#        uses: actions/cache@v3
-#        id: cache
-#        continue-on-error: false
-#        with:
-#          path: |
-#            ~/.cargo
-#            target/
-#          key: "Main-${{ runner.os }}-r${{ steps.rustc-version.outputs.value }}-${{ hashFiles('**/Cargo.lock') }}"
-#
-#      - name: Install Protoc
-#        if: steps.cache.outputs.cache-hit != 'true'
-#        run: sudo apt-get install -y protobuf-compiler
-#
-#      - name: Warming up the cache
-#        # do not run if cache exists
-#        #  because of it will not affect tests/clippy, just will take a time
-#        if: steps.cache.outputs.cache-hit != 'true'
-#        run: |
-#          cargo fetch --locked
-#          find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
-#          cargo test --no-run --lib --workspace --locked $BUILD_OPTS \
-#            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
-#          cargo test --no-run --test='*' --workspace --locked $BUILD_OPTS \
-#            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
-#          cargo build --locked $BUILD_OPTS
-#
-#      - name: Clean up cache
-#        if: steps.cache.outputs.cache-hit != 'true'
-#        run: |
-#          find target/$TARGET -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
-#          find target/$TARGET -maxdepth 1 -type f -delete
-#          rm -rf target/$TARGET/examples
-#          rm -rf target/$TARGET/wbuild/*/target
-#          rm -rf target/$TARGET/build/librocksdb-sys-*/out/rocksdb
-#    outputs:
-#      cache-hit: ${{ steps.cache.outputs.cache-hit }}

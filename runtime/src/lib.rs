@@ -35,6 +35,8 @@ use sp_runtime::{
 
 use frame_system::{ EnsureRootWithSuccess };
 use sp_std::prelude::*;
+use sp_std::if_std;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -853,6 +855,14 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (Staking, ImOnline);
 }
 
+// TODO: substrate#2986 implement this properly
+// impl analog_authorship::Config for Runtime {
+// 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+// 	type UncleGenerations = UncleGenerations;
+// 	type FilterUncle = ();
+// 	type EventHandler = (Staking, ImOnline);
+// }
+
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
@@ -863,6 +873,9 @@ where
 {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
 		if let Some(author) = <pallet_authorship::Pallet<R>>::author() {
+			if_std!{
+				println!(" Author check {:?} -->",&author);
+			}
 			<pallet_balances::Pallet<R>>::resolve_creating(&author, amount);
 		}
 	}
@@ -882,6 +895,9 @@ where
 			let mut split = fees.ration(80, 20);
 			use pallet_treasury::Pallet as Treasury;
 			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			if_std!{
+				println!(" Author 1st--> ");
+			}
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 		}
 	}

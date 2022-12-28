@@ -43,7 +43,8 @@ use sp_runtime::{
 
 use sp_std::{
 	cmp::{Eq, PartialEq},
-	vec::Vec
+	vec::Vec,
+	if_std
 };
 
 mod mock;
@@ -226,13 +227,19 @@ pub mod module {
 						})
 						.expect("Invalid vesting schedule");
 						let has_amounnt = T::Currency::free_balance(who);
-					assert!(
-						has_amounnt >= total_amount,
-						"Account do not have enough balance"
-					);
-
-					T::Currency::set_lock(VESTING_LOCK_ID, who, total_amount, WithdrawReasons::all());
-					VestingSchedules::<T>::insert(who, bounded_schedules);
+					
+						if_std!{
+							println!("amount check {:?}--{:?}",has_amounnt,total_amount)
+						}
+					// 	assert!(
+					// 	has_amounnt >= total_amount,
+					// 	"Account do not have enough balance"
+					// );
+					if has_amounnt >= total_amount {
+						T::Currency::set_lock(VESTING_LOCK_ID, who, total_amount, WithdrawReasons::all());
+					    VestingSchedules::<T>::insert(who, bounded_schedules);
+					}
+					
 				});
 		}
 	}

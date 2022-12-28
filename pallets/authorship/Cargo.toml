@@ -1,0 +1,38 @@
+[package]
+name = "analog-authorship"
+version = "4.0.0-dev"
+description = "A pallet to tract auther."
+authors = ["Analog Devs <https://github.com/analog-labs>"]
+homepage = "https://analog.one"
+edition = "2021"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/Analog-Labs/testnet"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+	"derive",
+] }
+impl-trait-for-tuples = "0.2.2"
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
+
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
+sp-authorship = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-authorship/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = ["frame-support/try-runtime"]

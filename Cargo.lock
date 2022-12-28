@@ -92,20 +92,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "analog-authorship"
-version = "4.0.0-dev"
-dependencies = [
- "frame-support",
- "frame-system",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "scale-info",
- "sp-authorship",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "analog-vesting"
 version = "4.0.0-dev"
 dependencies = [
@@ -4357,6 +4343,22 @@ dependencies = [
 [[package]]
 name = "pallet-authorship"
 version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-authorship",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-authorship"
+version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "frame-support",
@@ -4378,7 +4380,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -4491,7 +4493,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -4514,7 +4516,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "parity-scale-codec",
  "scale-info",
  "sp-application-crypto",
@@ -4587,7 +4589,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -8605,7 +8607,6 @@ dependencies = [
 name = "timechain-runtime"
 version = "0.0.1"
 dependencies = [
- "analog-authorship",
  "analog-vesting",
  "beefy-primitives",
  "frame-benchmarking",
@@ -8618,7 +8619,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "onchain-task-pallet",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev",
  "pallet-babe",
  "pallet-bags-list",
  "pallet-balances",

@@ -855,14 +855,6 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (Staking, ImOnline);
 }
 
-// TODO: substrate#2986 implement this properly
-// impl analog_authorship::Config for Runtime {
-// 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-// 	type UncleGenerations = UncleGenerations;
-// 	type FilterUncle = ();
-// 	type EventHandler = (Staking, ImOnline);
-// }
-
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>

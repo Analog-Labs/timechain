@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # a filler
-      - run: false
+      - run: true
 
   # It separates cache from Clippy and tests
   # Since the project must be compiled heere this job has that responsibility

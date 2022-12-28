@@ -14,11 +14,11 @@
 
 name: Main
 on:
-  push:
-    # add your default branch if is not there
-    # however you really want to run CI on that branch
-    # do not forget set env.RUNALL_ONPUSH to true
-    branches: [ trying, staging ]
+#  push:
+#    # add your default branch if is not there
+#    # however you really want to run CI on that branch
+#    # do not forget set env.RUNALL_ONPUSH to true
+#    branches: [ trying, staging ]
   pull_request:
     types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
     paths-ignore:
@@ -38,27 +38,6 @@ permissions:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-  #CARGO_LOG: cargo::core::compiler::fingerprint=trace
-  GLOBAL_CARGO_OPTS:
-
-  # set to true only if you need run all test
-  # for the target branch
-  # It's not really necessary, since bors is used for merge
-  RUNALL_ONPUSH: false
-
-  # add package names to exclude unit tests
-  EXCLUDE_TESTS:
-
-  # clippy opts
-  # `-D warnings` considers any warning as an error
-  # `-W clippy::all` considers all messages as warning
-  CLIPPY_OPTS: -W clippy::all
-
-  # build configuration
-  RELEASE: true
-  WASM_BUILD_TOOLCHAIN: nightly-2022-12-25
-  # use the same compiler for runtime and non WASM code
-  RUSTUP_TOOLCHAIN: nightly-2022-12-25
 
 jobs:
   # it calculates conditions to run following jobs
@@ -84,58 +63,19 @@ jobs:
       }}
     runs-on: ubuntu-latest
     steps:
-      - run: true
+      - run: |
+          Get-Content .github/config.txt | Out-File $env:GITHUB_OUTPUT
+        id: values
+        shell: pwsh
     outputs:
-      # it's push into staging/tying by bors
-      staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
-
-      # it's non-draft pull_request
-      general-ci: ${{
-        github.event_name == 'pull_request' ||
-        github.ref == 'refs/heads/trying' ||
-        github.ref == 'refs/heads/staging' ||
-        env.RUNALL_ONPUSH == 'true' }}
-
-      # it's push into development branch (by bors or conventional merge)
-      # it's non-draft pull_request with label `!ci-codecov`
-      codecov: ${{
-        ( github.event_name == 'push' && github.ref != 'refs/heads/trying' &&
-          ( github.ref == 'refs/heads/staging' || env.RUNALL_ONPUSH == 'true' ) ) ||
-        ( github.event_name == 'pull_request' &&
-          contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
-
-      # it's push into staging/tying by bors
-      # it's non-draft pull_request with label `!ci-integration`
-      integration: ${{
-        ( github.event_name == 'push' &&
-          github.ref == 'refs/heads/trying' ||
-          github.ref == 'refs/heads/staging' ||
-          env.RUNALL_ONPUSH == 'true' ) ||
-        ( github.event_name == 'pull_request' &&
-          contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
-
-      audit: ${{
-        ( github.event_name == 'push' &&
-          github.ref == 'refs/heads/trying' ||
-          github.ref == 'refs/heads/staging' ||
-          env.RUNALL_ONPUSH == 'true' ) ||
-        ( github.event_name == 'pull_request' &&
-          contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
-
-      build_opts: ${{ env.RELEASE == 'true' && '--release' || '' }} ${{env.GLOBAL_CARGO_OPTS}}
-      target: ${{ env.RELEASE == 'true' && 'release' || 'debug' }}
-      use-cache: ${{ github.event_name == 'pull_request' }}
-
-  # The Bors bot checks this job status
-  ci-success:
-    name: Bors-CI
-    if: ${{ needs.conditions.outputs.staging-ci == 'true' &&
-          (needs.build-app.result == 'success' || needs.build-app.result == 'skipped') }}
-    needs: [build-app, tests, integration, clippy, audit]
-    runs-on: ubuntu-latest
-    steps:
-      # a filler
-      - run: true
+      build-opts: ${{ steps.values.outputs.build-opts }}
+      target: ${{ steps.values.outputs.target }}
+      toolchain: ${{ steps.values.outputs.toolchain }}
+      clippy-opts: ${{ steps.values.outputs.clippy-opts }}
+      exclude-tests: ${{ steps.values.outputs.exclude-tests}}
+      codecov: ${{ contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+      integration: ${{ contains(github.event.pull_request.labels.*.name,'!ci-integration') }}
+      audit: ${{ contains(github.event.pull_request.labels.*.name,'!ci-audit') }}
 
   # It separates cache from Clippy and tests
   # Since the project must be compiled heere this job has that responsibility
@@ -145,8 +85,12 @@ jobs:
     needs: [conditions]
     runs-on: ubuntu-latest
     env:
-      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
+      CLIPPY_OPTS: ${{needs.conditions.outputs.clippy-opts}}
       TARGET: ${{needs.conditions.outputs.target}}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -219,8 +163,12 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.build-cache.outputs.hit-flag == 'true'
     env:
-      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
       TARGET: ${{needs.conditions.outputs.target}}
+      CLIPPY_OPTS: ${{needs.conditions.outputs.clippy-opts}}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -257,9 +205,12 @@ jobs:
     needs: [conditions, build-cache]
     runs-on: ubuntu-latest
     env:
-      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
       TARGET: ${{needs.conditions.outputs.target}}
       CARGO_NET_OFFLINE: true
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -297,9 +248,11 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ needs.conditions.outputs.integration == 'true' }}
     env:
-      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
       TARGET: ${{needs.conditions.outputs.target}}
       CARGO_NET_OFFLINE: true
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -330,9 +283,13 @@ jobs:
     needs: [conditions, build-cache]
     runs-on: ubuntu-latest
     env:
-      BUILD_OPTS: ${{needs.conditions.outputs.build_opts}}
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
       TARGET: ${{needs.conditions.outputs.target}}
       CARGO_NET_OFFLINE: true
+      CLIPPY_OPTS: ${{needs.conditions.outputs.clippy-opts}}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -367,6 +324,9 @@ jobs:
     if: ${{ needs.conditions.outputs.audit == 'true' }}
     needs: [conditions]
     runs-on: ubuntu-latest
+    env:
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -409,23 +369,24 @@ jobs:
     needs: [conditions]
     runs-on: ubuntu-latest
     env:
-      BUILD_OPTS: ${{ needs.conditions.outputs.build_opts }}
+      BUILD_OPTS: ${{ needs.conditions.outputs.build-opts }}
       TARGET: ${{ needs.conditions.outputs.target }}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install Protoc
-        run: sudo apt-get install -y protobuf-compiler
       - name: Update Rust
         id: rustc-version
         shell: pwsh
-        run: .github/update-rust.ps1
+        run: |
+          .github/update-rust.ps1
+          sudo apt-get install -y protobuf-compiler
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Set up cache
-        if: ${{needs.conditions.outputs.use-cache == 'true'}}
         id: cache
         uses: actions/cache@v3
         continue-on-error: false
@@ -436,17 +397,20 @@ jobs:
           key: "Codecov-${{ runner.os }}-r${{steps.rustc-version.outputs.value}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Warm up the cache
-        if: ${{needs.conditions.outputs.use-cache != 'true' || steps.cache.outputs.cache-hit != 'true'}}
+        if: ${{steps.cache.outputs.cache-hit != 'true'}}
         run: |
           cargo fetch --locked
           find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;
+          cargo fetch --locked
 
       - name: Unit Tests
         # use --tests to measure coverage with all tests
         # use --test '*' to measure coverage with integration-tests
         # use --lib to measure coverage with unit-tests
+        env:
+          CARGO_NET_OFFLINE: true
         run: |
-          cargo llvm-cov test --lib --offline --workspace \
+          cargo llvm-cov test --lib --locked --workspace \
             --lcov --output-path lcov.info  $BUILD_OPTS \
             $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
 
@@ -462,7 +426,4 @@ jobs:
         run: |
           find target/llvm-cov-target/$TARGET -type f ! \( -name "*.so.*" -o -name "*.so" \) -executable -delete
           find target/llvm-cov-target/$TARGET -maxdepth 1 -type f -delete
-          rm -rf target/llvm-cov-target/$TARGET/examples
-          rm -rf target/llvm-cov-target/$TARGET/wbuild/*/target
           rm -rf target/llvm-cov-target/$TARGET/build/librocksdb-sys-*/out/rocksdb
-          find ~/.cargo -type d -name ".git" -exec rm -f '{}/objects/pack/*.pack' \;

@@ -130,9 +130,8 @@ jobs:
   ci-success:
     name: Bors-CI
     if: ${{ needs.conditions.outputs.staging-ci == 'true' &&
-          (needs.build-app.result == 'success' || needs.build-app.result == 'skipped') &&
-          (needs.code-coverage.result == 'success' || needs.code-coverage.result == 'skipped') }}
-    needs: [build-app, tests, integration, clippy, audit, code-coverage]
+          (needs.build-app.result == 'success' || needs.build-app.result == 'skipped') }}
+    needs: [build-app, tests, integration, clippy, audit]
     runs-on: ubuntu-latest
     steps:
       # a filler

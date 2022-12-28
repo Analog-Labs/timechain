@@ -73,7 +73,7 @@ jobs:
       toolchain: ${{ steps.values.outputs.toolchain }}
       clippy-opts: ${{ steps.values.outputs.clippy-opts }}
       exclude-tests: ${{ steps.values.outputs.exclude-tests}}
-      codecov: ${{ contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+      codecov: ${{ contains(github.event.pull_request.labels.*.name,'!ci-codecov') }}
       integration: ${{ contains(github.event.pull_request.labels.*.name,'!ci-integration') }}
       audit: ${{ contains(github.event.pull_request.labels.*.name,'!ci-audit') }}
 

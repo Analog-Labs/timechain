@@ -10,6 +10,7 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use beefy_primitives::crypto::AuthorityId as BeefyId;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use frame_support::traits::Imbalance;
 
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -29,9 +30,12 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, MultiSignature, SaturatedConversion
 };
+
+use frame_system::{ EnsureRootWithSuccess };
 use sp_std::prelude::*;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -40,13 +44,14 @@ pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
 		ConstU128, ConstU32, ConstU64, ConstU8, EnsureOrigin, KeyOwnerProofSystem, Randomness,
-		StorageInfo,
+		StorageInfo, OnUnbalanced, Currency
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
 	},
 	StorageValue,
+	PalletId
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -380,6 +385,10 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
+
+pub const MILLICENTS: Balance = 1_000_000_000;
+pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
+pub const DOLLARS: Balance = 100 * CENTS;
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -830,11 +839,65 @@ impl pallet_balances::Config for Runtime {
 
 parameter_types! {
 	pub FeeMultiplier: Multiplier = Multiplier::one();
+	pub const UncleGenerations: u32 = 0;
 }
+
+pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+
+// TODO: substrate#2986 implement this properly
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+	type UncleGenerations = UncleGenerations;
+	type FilterUncle = ();
+	type EventHandler = (Staking, ImOnline);
+}
+
+// impl pallet_authorship::pallet::Config for Runtime {
+// 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+// 	type UncleGenerations = UncleGenerations;
+// 	type FilterUncle = ();
+// 	type EventHandler = ();
+// }
+
+/// Logic for the author to get a portion of fees.
+pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
+where
+	R: pallet_balances::Config + pallet_authorship::Config,
+	<R as frame_system::Config>::AccountId: From<AccountId>,
+	<R as frame_system::Config>::AccountId: Into<AccountId>,
+{
+	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+		if let Some(author) = <pallet_authorship::Pallet<R>>::author() {
+			<pallet_balances::Pallet<R>>::resolve_creating(&author, amount);
+		}
+	}
+}
+
+pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+where   
+	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
+	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
+	<R as frame_system::Config>::AccountId: From<AccountId>,
+	<R as frame_system::Config>::AccountId: Into<AccountId>,
+{
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+		if let Some(fees) = fees_then_tips.next() {
+			// for fees, 20% to treasury, 80% to author
+			let mut split = fees.ration(80, 20);
+			use pallet_treasury::Pallet as Treasury;
+			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+		}
+	}
+}   
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
@@ -846,18 +909,6 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-	pub const UncleGenerations: u32 = 0;
-}
-
-// TODO: substrate#2986 implement this properly
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type UncleGenerations = UncleGenerations;
-	type FilterUncle = ();
-	type EventHandler = (Staking, ImOnline);
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -874,8 +925,15 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 }
 
 parameter_types! {
-	pub MinVestedTransfer: Balance = 100 * ANLOG;
+	pub MinVestedTransfer: Balance = 1 * ANLOG;
 	pub const MaxVestingSchedules: u32 = 100;
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub const MaxApprovals: u32 = 100;
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
+	pub const SpendPeriod: BlockNumber = 1 * DAYS;
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const MaxBalance: Balance = Balance::max_value();
 }
 
 pub struct SubstrateBlockNumberProvider;
@@ -887,7 +945,7 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 	}
 }
 
-impl orml_vesting::Config for Runtime {
+impl analog_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type MinVestedTransfer = MinVestedTransfer;
@@ -899,7 +957,25 @@ impl orml_vesting::Config for Runtime {
 
 impl onchain_task_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = ();   
+}
+impl pallet_treasury::Config for Runtime {
+	type Currency = Balances;
+	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
+	type PalletId = TreasuryPalletId;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ProposalBondMinimum;
+	type ProposalBondMaximum = ();
+	type SpendPeriod = SpendPeriod;
+	type Burn = Burn;
+	type BurnDestination = ();
+	type SpendFunds = ();
+	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+	type MaxApprovals = MaxApprovals;
+	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -918,7 +994,7 @@ construct_runtime!(
 		ImOnline: pallet_im_online,
 		Offences: pallet_offences,
 		Authorship: pallet_authorship,
-		Session: pallet_session,
+		Session: pallet_session,  
 		Staking: pallet_staking,
 		VoterList: pallet_bags_list::<Instance1>,
 		Historical: pallet_session_historical,
@@ -928,8 +1004,9 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage,
-		Vesting: orml_vesting,
+		Vesting: analog_vesting,
 		OnchainTask: onchain_task_pallet,
+		Treasury: pallet_treasury
 	}
 );
 
@@ -950,7 +1027,6 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;

@@ -8619,7 +8619,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "onchain-task-pallet",
- "pallet-authorship 4.0.0-dev",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-babe",
  "pallet-bags-list",
  "pallet-balances",

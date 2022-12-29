@@ -27,8 +27,8 @@ pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate.g
 pallet-offences = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-collective  = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 
-pallet-authorship = { version = "4.0.0-dev", default-features = false, path = "../pallets/authorship" }
-#pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+#pallet-authorship = { version = "4.0.0-dev", default-features = false, path = "../pallets/authorship" }
+pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 
 pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
@@ -94,7 +94,6 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"frame-election-provider-support/std",
-	"pallet-authorship/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-bags-list/std",
@@ -164,6 +163,5 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
-	"pallet-authorship/try-runtime",
 	"pallet-authorship/try-runtime",
 ]

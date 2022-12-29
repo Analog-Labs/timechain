@@ -30,7 +30,6 @@ use frame_support::{
 use sp_authorship::{InherentError, UnclesInherentData, INHERENT_IDENTIFIER};
 use sp_runtime::traits::{Header as HeaderT, One, Saturating, UniqueSaturatedInto};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, result};
-
 const MAX_UNCLES: usize = 10;
 
 struct MaxUncleEntryItems<T>(core::marker::PhantomData<T>);

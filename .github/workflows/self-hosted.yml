@@ -14,11 +14,8 @@
 
 name: Self-Hosted
 on:
-#  push:
-#    # add your default branch if is not there
-#    # however you really want to run CI on that branch
-#    # do not forget set env.RUNALL_ONPUSH to true
-#    branches: [ trying, staging ]
+  push:
+    branches: [ trying, staging ]
   pull_request:
     types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
     paths-ignore:
@@ -40,26 +37,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  ci-success:
+    name: Bors-CI
+    if: ${{ github.event_name == 'push' }}
+    needs: [ build-and-test, audit, code-coverage ]
+    runs-on: ubuntu-latest
+    steps:
+      # a filler
+      - run: true
+
   # it calculates conditions to run following jobs
   conditions:
     name: Conditions
     if: ${{
-      ( github.event_name != 'pull_request' ||
-        ( github.event.action != 'labeled' &&
+      github.event_name != 'pull_request' || 
+      ( 
+        ( github.event.action != 'labeled' && 
           github.event.action != 'unlabeled' &&
           ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
-            github.event.pull_request.draft == false )) ||
-          ( github.event.action == 'labeled' &&
-            ( github.event.label.name == '!ci-draft' ||
-              contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+            github.event.pull_request.draft == false )
+        )||
+        ( github.event.action == 'labeled' &&
+          ( github.event.label.name == '!ci-draft' ||
+            contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
             github.event.pull_request.draft == false ) &&
           ( github.event.label.name == '!ci-codecov' ||
             github.event.label.name == '!ci-audit'||
             github.event.label.name == '!ci-integration' ||
-            github.event.label.name == '!ci-draft' ) )  ||
-        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )) && 
+            github.event.label.name == '!ci-draft' ) 
+        )||
+        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+      ) && 
       ( !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
-        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' ))
+        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+      )
       }}
     runs-on: self-hosted
     steps:
@@ -74,9 +85,18 @@ jobs:
       toolchain: ${{ steps.values.outputs.toolchain }}
       clippy-opts: ${{ steps.values.outputs.clippy-opts }}
       exclude-tests: ${{ steps.values.outputs.exclude-tests}}
-      codecov: ${{ contains(github.event.pull_request.labels.*.name,'!ci-codecov') }}
-      integration: ${{ contains(github.event.pull_request.labels.*.name,'!ci-integration') }}
-      audit: ${{ contains(github.event.pull_request.labels.*.name,'!ci-audit') }}
+      codecov: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-codecov')
+        }}
+      integration: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-integration') 
+        }}
+      audit: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-audit') 
+        }}
 
   build-and-test:
     name: Build and Test Project

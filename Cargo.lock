@@ -4634,7 +4634,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "onchain-task-pallet",
- "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",

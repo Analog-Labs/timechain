@@ -7,7 +7,7 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 
 pub mod weights;
 

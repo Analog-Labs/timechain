@@ -238,8 +238,10 @@ impl TssService {
 		signer_for_msg: Vec<Signer>,
 	) {
 		//create req object
-		let req =
-			PartialMessageSign { msg_hash: msg_hash.clone(), signers: signer_for_msg.clone() };
+		let req = PartialMessageSign {
+			msg_hash: msg_hash.clone(),
+			signers: signer_for_msg.clone(),
+		};
 
 		if let Ok(encrypted_data) = req.try_to_vec() {
 			self.handler_partial_signature_generate_req(&encrypted_data).await;

@@ -71,7 +71,10 @@ impl TSSLocalStateData {
 			is_node_aggregator: false,
 			context: *b"ANALOG-EVENT-DATA-SIGNING",
 			tss_process_state: TSSLocalStateType::Empty,
-			tss_params: Parameters { n: DEFUALT_TSS_TOTAL_NODES, t: DEFUALT_TSS_THRESHOLD },
+			tss_params: Parameters {
+				n: DEFUALT_TSS_TOTAL_NODES,
+				t: DEFUALT_TSS_THRESHOLD,
+			},
 			key_type: None,
 			keystore: None,
 			local_peer_id: None,

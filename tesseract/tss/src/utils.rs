@@ -18,9 +18,16 @@ pub fn make_gossip_tss_data(
 	internal_data: Vec<u8>,
 	tss_type: TSSEventType,
 ) -> Result<Vec<u8>, String> {
-	let tss_event = TSSData { peer_id, tss_data: internal_data, tss_event_type: tss_type };
+	let tss_event = TSSData {
+		peer_id,
+		tss_data: internal_data,
+		tss_event_type: tss_type,
+	};
 
-	let data = Event { event_type: EventType::TSSEvent, data: tss_event.try_to_vec().unwrap() };
+	let data = Event {
+		event_type: EventType::TSSEvent,
+		data: tss_event.try_to_vec().unwrap(),
+	};
 
 	data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
 }
@@ -68,7 +75,10 @@ pub fn get_publish_peer_id_msg(local_peer: String) -> Result<Vec<u8>, String> {
 pub fn get_reset_tss_msg(reason: String) -> Result<Vec<u8>, String> {
 	let start = SystemTime::now();
 	if let Ok(since_the_epoch) = start.duration_since(UNIX_EPOCH) {
-		let data = ResetTSSCall { reason, random: since_the_epoch.as_millis().to_string() };
+		let data = ResetTSSCall {
+			reason,
+			random: since_the_epoch.as_millis().to_string(),
+		};
 
 		data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
 	} else {

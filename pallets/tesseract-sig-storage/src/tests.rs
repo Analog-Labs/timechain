@@ -53,9 +53,9 @@ fn test_signature_storage() {
 
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(1).into(),
-			sig_data.clone(),
-			network_id.clone().to_vec(),
-			block_height.clone()
+			sig_data,
+			network_id.to_vec(),
+			block_height
 		));
 
 		// Retreiving the signature stored via it's key and assert the result.

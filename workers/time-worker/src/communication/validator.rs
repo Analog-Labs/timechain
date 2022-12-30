@@ -29,7 +29,10 @@ struct KnownVotes<B: Block> {
 
 impl<B: Block> KnownVotes<B> {
 	pub fn new() -> Self {
-		Self { last_done: None, live: BTreeMap::new() }
+		Self {
+			last_done: None,
+			live: BTreeMap::new(),
+		}
 	}
 
 	/// Create new round votes set if not already present.

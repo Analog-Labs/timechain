@@ -24,7 +24,13 @@ impl<S, T> SignatureStorage<S, T> {
 		block_height: u64,
 		time_stamp: T,
 	) -> Self {
-		SignatureStorage { signature_key, signature_data, network_id, block_height, time_stamp }
+		SignatureStorage {
+			signature_key,
+			signature_data,
+			network_id,
+			block_height,
+			time_stamp,
+		}
 	}
 }
 

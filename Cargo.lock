@@ -92,6 +92,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "analog-vesting"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3825,7 +3841,7 @@ version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b20a59d985586e4a5aef64564ac77299f8586d8be6cf9106a5a40207e8908efb"
 dependencies = [
- "rustix 0.36.5",
+ "rustix 0.36.6",
 ]
 
 [[package]]
@@ -4294,21 +4310,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
-name = "orml-vesting"
-version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack/open-runtime-module-library.git?branch=polkadot-v0.9.30#ae13a54dbc1a654df0e2d5e9dc18582b62716365"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "os_str_bytes"
 version = "6.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4342,6 +4343,22 @@ dependencies = [
 [[package]]
 name = "pallet-authorship"
 version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-authorship",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-authorship"
+version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "frame-support",
@@ -4363,7 +4380,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -4476,7 +4493,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -4499,7 +4516,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "parity-scale-codec",
  "scale-info",
  "sp-application-crypto",
@@ -4572,7 +4589,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -4685,6 +4702,23 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-treasury"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5698,9 +5732,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.36.5"
+version = "0.36.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3807b5d10909833d3e9acd1eb5fb988f79376ff10fce42937de71a449c4c588"
+checksum = "4feacf7db682c6c329c4ede12649cd36ecab0f3be5b7d74e6a20304725db4549"
 dependencies = [
  "bitflags",
  "errno",
@@ -8573,6 +8607,7 @@ dependencies = [
 name = "timechain-runtime"
 version = "0.0.1"
 dependencies = [
+ "analog-vesting",
  "beefy-primitives",
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -8584,8 +8619,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "onchain-task-pallet",
- "orml-vesting",
- "pallet-authorship",
+ "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-babe",
  "pallet-bags-list",
  "pallet-balances",
@@ -8603,6 +8637,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
  "runtime-common",

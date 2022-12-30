@@ -5,7 +5,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::traits::{IdentifyAccount, Printable, Verify};
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
 	VestingConfig, WASM_BINARY,
@@ -151,7 +151,6 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
-
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Development",
@@ -301,13 +300,12 @@ fn testnet_genesis(
 	// 	3 months in terms of 6s blocks is 1,296,000 blocks, i.e. period = 1,296,000
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
-
+	println!("authorities --> {:?}", initial_authorities);
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
 	// configure not valid for these vesting accounts.
-	let _vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
+	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
-
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -327,8 +325,6 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		// vesting: VestingConfig { vesting: vesting_accounts },
-		vesting: VestingConfig { vesting: Default::default() },
 		im_online: Default::default(),
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities
@@ -347,5 +343,7 @@ fn testnet_genesis(
 		},
 
 		staking: Default::default(),
+		vesting: VestingConfig { vesting: vesting_accounts },
+		treasury: Default::default(),
 	}
 }

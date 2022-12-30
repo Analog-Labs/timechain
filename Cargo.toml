@@ -3,6 +3,7 @@ members = [
     "node",
     "pallets/tesseract-sig-storage",
     "pallets/onchain-task",
+    "pallets/authorship",
     "runtime",
     "workers/time-worker",
     "primitives/time-primitives",

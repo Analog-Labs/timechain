@@ -5,12 +5,11 @@ use sp_consensus_babe::AuthorityId as BabeId;
 
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::traits::{IdentifyAccount, Printable, Verify};
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
 	VestingConfig, WASM_BINARY,
 };
-use sp_runtime::traits::Printable;
 
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -301,7 +300,7 @@ fn testnet_genesis(
 	// 	3 months in terms of 6s blocks is 1,296,000 blocks, i.e. period = 1,296,000
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
-	println!("authorities --> {:?}",initial_authorities);
+	println!("authorities --> {:?}", initial_authorities);
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
 	// configure not valid for these vesting accounts.
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =

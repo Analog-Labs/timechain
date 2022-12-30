@@ -82,7 +82,10 @@ const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
 impl TimeTestNet {
 	pub(crate) fn new(n_authority: usize, n_full: usize, test_net: Arc<TestApi>) -> Self {
 		let capacity = n_authority + n_full;
-		let mut net = TimeTestNet { peers: Vec::with_capacity(capacity), test_net };
+		let mut net = TimeTestNet {
+			peers: Vec::with_capacity(capacity),
+			test_net,
+		};
 		for _ in 0..n_authority {
 			net.add_authority_peer();
 		}
@@ -451,6 +454,7 @@ fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
 	keys.iter().map(|key| key.clone().public().into()).map(|id| (id, 1)).collect()
 }
 
+#[cfg(feature = "expensive_tests")]
 #[test]
 fn time_keygen_completes() {
 	sp_tracing::try_init_simple();

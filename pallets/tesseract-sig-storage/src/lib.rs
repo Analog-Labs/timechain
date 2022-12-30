@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use onchain_task::types as task_types;
+
 #[cfg(test)]
 mod mock;
 
@@ -50,9 +52,9 @@ pub mod pallet {
 		type Timestamp: Time<Moment = Self::Moment>;
 	}
 
-	#[pallet::storage]
-	#[pallet::getter(fn get_nonce)]
-	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
+	// #[pallet::storage]
+	// #[pallet::getter(fn get_nonce)]
+	// pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tesseract_members)]
@@ -102,7 +104,7 @@ pub mod pallet {
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
-			network_id: Vec<u8>,
+			// network_id: Vec<u8>,
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
@@ -110,7 +112,7 @@ pub mod pallet {
 				TesseractMembers::<T>::contains_key(caller.clone()),
 				Error::<T>::UnknownTesseract
 			);
-			let random_value = Self::random_hash(&caller);
+			// let random_value = Self::random_hash(&caller);
 			let storage_data = SignatureStorage::new(
 				random_value.clone(),
 				signature_data.clone(),
@@ -158,12 +160,12 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn random_hash(sender: &T::AccountId) -> T::Hash {
-			let nonce = <Nonce<T>>::get();
-			let seed = T::StoreRandomness::random_seed();
+		// fn random_hash(sender: &T::AccountId) -> T::Hash {
+		// 	let nonce = <Nonce<T>>::get();
+		// 	let seed = T::StoreRandomness::random_seed();
 
-			T::Hashing::hash_of(&(seed, sender, nonce))
-		}
+		// 	T::Hashing::hash_of(&(seed, sender, nonce))
+		// }
 
 		pub fn api_store_signature(
 			auth_id: TimeId,

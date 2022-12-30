@@ -69,8 +69,9 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureAliceOrBob {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn successful_origin() -> RuntimeOrigin {
-		let zero_account_id = AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-			.expect("infinite length input; no invalid inputs for type; qed");
+		let zero_account_id =
+			AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+				.expect("infinite length input; no invalid inputs for type; qed");
 		RuntimeOrigin::from(RawOrigin::Signed(zero_account_id))
 	}
 }
@@ -124,9 +125,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build() -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
-			.unwrap();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
 
 		pallet_balances::GenesisConfig::<Runtime> {
 			balances: vec![(ALICE, ALICE_BALANCE), (CHARLIE, CHARLIE_BALANCE)],

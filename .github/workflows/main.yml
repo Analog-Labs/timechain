@@ -14,6 +14,8 @@
 
 name: Main
 on:
+  push:
+    branches: [ no-such-branch-disabling-workflow ]
 #  push:
 #    # add your default branch if is not there
 #    # however you really want to run CI on that branch

@@ -1,7 +1,9 @@
 name: Bors
 on:
   push:
-    branches: [ trying, staging ]
+    branches: [ no-such-branch-disabling-workflow ]
+#  push:
+#    branches: [ trying, staging ]
 
 concurrency:
   # do not run more than once for latest push/update

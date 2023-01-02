@@ -14,10 +14,7 @@ pub struct SignatureStorage<T> {
 }
 
 impl<T> SignatureStorage<T> {
-	pub fn new(
-		signature_data: SignatureData,
-		time_stamp: T,
-	) -> Self {
+	pub fn new(signature_data: SignatureData, time_stamp: T) -> Self {
 		SignatureStorage { signature_data, time_stamp }
 	}
 }

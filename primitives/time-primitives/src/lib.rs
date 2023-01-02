@@ -16,7 +16,6 @@ pub type SignatureData = Vec<u8>;
 pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {

@@ -21,11 +21,7 @@ pub mod pallet {
 
 	type BlockHeight = u64;
 
-	use frame_support::{
-		pallet_prelude::*,
-		sp_runtime::traits::Scale,
-		traits::Time,
-	};
+	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_runtime::{
@@ -66,8 +62,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, task_types::TaskId, Blake2_128Concat, BlockHeight, SignatureStorage<T::Moment>, OptionQuery>;
+	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		task_types::TaskId,
+		Blake2_128Concat,
+		BlockHeight,
+		SignatureStorage<T::Moment>,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -110,10 +113,7 @@ pub mod pallet {
 				TesseractMembers::<T>::contains_key(caller.clone()),
 				Error::<T>::UnknownTesseract
 			);
-			let storage_data = SignatureStorage::new(
-				signature_data.clone(),
-				T::Timestamp::now(),
-			);
+			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
 			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
 
@@ -154,7 +154,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-
 		pub fn api_store_signature(
 			auth_id: TimeId,
 			auth_sig: TimeSignature,
@@ -177,10 +176,7 @@ pub mod pallet {
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
 				return;
 			}
-			let storage_data = SignatureStorage::new(
-				signature_data.clone(),
-				T::Timestamp::now(),
-			);
+			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
 			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
 

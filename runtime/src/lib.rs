@@ -31,7 +31,7 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, SaturatedConversion
+	ApplyExtrinsicResult, MultiSignature
 };
 
 use frame_system::{ EnsureRootWithSuccess };
@@ -887,7 +887,7 @@ where
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 20% to treasury, 80% to author
-			let mut split = fees.ration(80, 20);
+			let split = fees.ration(80, 20);
 			use pallet_treasury::Pallet as Treasury;
 			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);

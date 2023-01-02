@@ -24,12 +24,6 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
-	use sp_runtime::{
-		app_crypto::RuntimePublic,
-		traits::{AppVerify, IdentifyAccount},
-		MultiSignature,
-	};
-	use sp_std::vec::Vec;
 	use time_primitives::{SignatureData, TimeId, TimeSignature};
 
 	#[pallet::pallet]

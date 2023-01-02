@@ -40,12 +40,18 @@ impl InherentDataProvider for TimeInherentTssDataProvider {
 		if let Some(group_key) = self.group_keys.get(&self.current_set_id) {
 			inherent_data.put_data(
 				INHERENT_IDENTIFIER,
-				&TimeTssKey { group_key: *group_key, set_id: self.current_set_id },
+				&TimeTssKey {
+					group_key: *group_key,
+					set_id: self.current_set_id,
+				},
 			)
 		} else {
 			inherent_data.put_data(
 				INHERENT_IDENTIFIER,
-				&TimeTssKey { group_key: [0u8; 32], set_id: self.current_set_id },
+				&TimeTssKey {
+					group_key: [0u8; 32],
+					set_id: self.current_set_id,
+				},
 			)
 		}
 	}
@@ -57,7 +63,7 @@ impl InherentDataProvider for TimeInherentTssDataProvider {
 	) -> Option<Result<(), Error>> {
 		// Check if this error belongs to us.
 		if *identifier != INHERENT_IDENTIFIER {
-			return None
+			return None;
 		}
 
 		match InherentError::try_from(&INHERENT_IDENTIFIER, error)? {

@@ -279,7 +279,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block> for RuntimeApi {
-		fn store_signature(auth_key: time_primitives::TimeId, auth_sig: time_primitives::TimeSignature, signature_data: time_primitives::SignatureData, network_id: Vec<u8>, block_height: u64,) {}
+		fn store_signature(auth_key: time_primitives::TimeId, auth_sig: time_primitives::TimeSignature, signature_data: time_primitives::SignatureData, task_id: u64, block_height: u64,) {}
 	}
 
 }

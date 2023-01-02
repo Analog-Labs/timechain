@@ -512,8 +512,6 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
-impl pallet_randomness_collective_flip::Config for Runtime {}
-
 parameter_types! {
 	pub EpochDuration: u64 = 2 * MINUTES as u64;
 
@@ -921,7 +919,6 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	// type StoreRandomness = RandomnessCollectiveFlip;
 	type Moment = u64;
 	type Timestamp = Timestamp;
 }
@@ -990,7 +987,6 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
 		Timestamp: pallet_timestamp,
 		Babe: pallet_babe,
 		Grandpa: pallet_grandpa,

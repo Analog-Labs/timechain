@@ -2,11 +2,11 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub enum EventType {
-    TSSEvent,
+	TSSEvent,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct Event {
-    pub event_type: EventType,
-    pub data: Vec<u8>,
+	pub event_type: EventType,
+	pub data: Vec<u8>,
 }

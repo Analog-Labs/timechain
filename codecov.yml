@@ -1,0 +1,25 @@
+coverage:
+  precision: 1
+  range: "60...85"
+  status:
+    project:
+      default:
+        informational: true
+        threshold: 30%
+        target: 0%
+    patch:
+      default:
+        informational: true
+        threshold: 30%
+        target: 0%
+    changes: true
+
+github_checks:
+  annotations: true
+
+codecov:
+  require_ci_to_pass: false
+  notify:
+    after_n_builds: 1
+    wait_for_ci: false
+  max_report_age: 24

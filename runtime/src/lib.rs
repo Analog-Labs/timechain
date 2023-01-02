@@ -1,3 +1,4 @@
+// @generated to prevent rustfmt reformat/check
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -63,6 +64,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 pub use pallet_tesseract_sig_storage;
+use onchain_task_pallet::types::TaskId;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
@@ -919,7 +921,7 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type StoreRandomness = RandomnessCollectiveFlip;
+	// type StoreRandomness = RandomnessCollectiveFlip;
 	type Moment = u64;
 	type Timestamp = Timestamp;
 }
@@ -979,6 +981,7 @@ impl pallet_treasury::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
+#[rustfmt::skip]
 construct_runtime!(
 	pub struct Runtime
 	where
@@ -1259,10 +1262,10 @@ impl_runtime_apis! {
 			auth_key: time_primitives::TimeId,
 			auth_sig: time_primitives::TimeSignature,
 			signature_data: time_primitives::SignatureData,
-			network_id: Vec<u8>,
+			task_id: TaskId,
 			block_height: u64,)
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, network_id, block_height);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
 		}
 	}
 

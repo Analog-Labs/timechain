@@ -275,15 +275,15 @@ pub mod pallet {
 			let encoded_account = auth_id.encode();
 			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {
 				Self::deposit_event(Event::DefaultAccountForbidden());
-				return
+				return;
 			}
 			// Unwrapping is safe - we've checked for len and default-ness
 			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
-			if !TesseractMembers::<T>::contains_key(account_id.clone()) ||
-				!auth_sig.verify(&*signature_data, &auth_id)
+			if !TesseractMembers::<T>::contains_key(account_id.clone())
+				|| !auth_sig.verify(&*signature_data, &auth_id)
 			{
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
-				return
+				return;
 			}
 			let random_value = Self::random_hash(&account_id);
 			let storage_data = SignatureStorage::new(

@@ -51,14 +51,14 @@ impl TimechainSubmitter {
 				Ok(d) => d,
 				Err(e) => {
 					log::error!("Error submitting transaction: {:?}", e);
-					return Err(Box::new(e))
+					return Err(Box::new(e));
 				},
 			};
 		let events = match tx_progress.wait_for_finalized_success().await {
 			Ok(ev) => ev,
 			Err(e) => {
 				log::error!("Error waiting for transaction to finalize: {:?}", e);
-				return Err(Box::new(e))
+				return Err(Box::new(e));
 			},
 		};
 		match events.has::<sudo::events::Sudid>() {
@@ -75,18 +75,18 @@ impl TimechainSubmitter {
 		match iter.next().await {
 			Ok(Some((key, value))) => {
 				log::info!("{}: {:?}", hex::encode(&key), value);
-				return Ok(value)
+				return Ok(value);
 			},
 			Ok(None) => {
 				log::error!("No members found");
 				return Err(Box::new(std::io::Error::new(
 					std::io::ErrorKind::Other,
 					"No members found",
-				)))
+				)));
 			},
 			Err(e) => {
 				log::error!("Error fetching members: {:?}", e);
-				return Err(Box::new(e))
+				return Err(Box::new(e));
 			},
 		}
 	}
@@ -100,14 +100,14 @@ impl TimechainSubmitter {
 				Ok(d) => d,
 				Err(e) => {
 					log::error!("Error submitting transaction: {:?}", e);
-					return Err(Box::new(e))
+					return Err(Box::new(e));
 				},
 			};
 		let events = match tx_progress.wait_for_finalized_success().await {
 			Ok(ev) => ev,
 			Err(e) => {
 				log::error!("Error waiting for transaction to finalize: {:?}", e);
-				return Err(Box::new(e))
+				return Err(Box::new(e));
 			},
 		};
 		match events.has::<sudo::events::Sudid>() {
@@ -133,11 +133,11 @@ impl TimechainSubmitter {
 		match api.sign_and_submit_default(&tx, &self.signer).await {
 			Ok(d) => {
 				log::info!("Data successfully submitted with hash: {:?}", d);
-				return Ok(())
+				return Ok(());
 			},
 			Err(e) => {
 				log::error!("Error submitting transaction: {:?}", e);
-				return Err(Box::new(e))
+				return Err(Box::new(e));
 			},
 		}
 	}

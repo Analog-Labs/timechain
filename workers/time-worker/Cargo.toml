@@ -53,3 +53,5 @@ scale-info = "2.1.1"
 strum = { version = "0.24.1", features = ["derive"] }
 arrayref = "0.3.6"
 
+[features]
+expensive_tests = []

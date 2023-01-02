@@ -3,33 +3,44 @@ use frame_support::PartialEqNoBound;
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
-/// type that uniquely identify a task_data
-pub type ChainData = Vec<u8>;
+use sp_std::cmp::Ordering;
 
-/// The type representing a method
-pub type MethodName = Vec<u8>;
-pub type MethodArguments = Vec<u8>;
+pub type MethodArguments = Vec<Vec<u8>>;
+pub type Frequency = u64;
+pub type TaskId = u64;
 
-#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct OnchainTasks {
-	pub task: Vec<TaskData>,
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq)]
+pub struct OnchainTask {
+	pub task_id: TaskId,
+	pub frequency: Frequency,
 }
-// Struct for holding Onchain Task information.
+
+impl PartialOrd for OnchainTask {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for OnchainTask {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.task_id.cmp(&other.task_id)
+	}
+}
+
+// the task is unique if the same task id.
+impl PartialEq for OnchainTask {
+	fn eq(&self, other: &Self) -> bool {
+		self.task_id == other.task_id
+	}
+}
+
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct TaskData {
+pub struct OnChainTaskMetadata {
 	pub task: SupportedTasks,
-	pub task_data: ChainData,
-	pub method: Vec<TaskMethod>,
-}
-
-// Struct for holding Task Methods.
-#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
-pub struct TaskMethod {
-	pub name: MethodName,
 	pub arguments: MethodArguments,
 }
 
-#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+#[derive(Clone, Copy, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedChain {
 	Cosmos,
 	Ethereum,
@@ -39,9 +50,20 @@ pub enum SupportedChain {
 
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum SupportedTasks {
+	EthereumTasks(EthereumTasks),
+	CosmosTasks,
+}
+
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum EthereumTasks {
 	SwapToken,
 	FetchEvents,
 	FetchBalance,
+	FetchBlocks,
+}
+
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+pub enum CosmosTasks {
 	FetchBlocks,
 }
 

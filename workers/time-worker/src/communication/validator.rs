@@ -29,7 +29,10 @@ struct KnownVotes<B: Block> {
 
 impl<B: Block> KnownVotes<B> {
 	pub fn new() -> Self {
-		Self { last_done: None, live: BTreeMap::new() }
+		Self {
+			last_done: None,
+			live: BTreeMap::new(),
+		}
 	}
 
 	/// Create new round votes set if not already present.
@@ -116,7 +119,7 @@ where
 				// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
 				info!(target: TW_LOG, "Message kept from {}", sender.to_string());
 				// This passes message to worker
-				return ValidationResult::ProcessAndKeep(self.topic)
+				return ValidationResult::ProcessAndKeep(self.topic);
 			} else {
 				// TODO: report peer
 				info!(target: TW_LOG, "Bad signature on message: {:?}, from: {:?}", msg, sender);
@@ -155,7 +158,7 @@ where
 		let known_votes = self.known_votes.read();
 		Box::new(move |who, intent, _topic, mut data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
-				return do_rebroadcast
+				return do_rebroadcast;
 			}
 
 			/*			let msg = match TSSData::deserialize(&mut data) {

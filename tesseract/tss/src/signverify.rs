@@ -26,7 +26,7 @@ pub async fn sign_data(
 		},
 		Err(e) => {
 			log::error!("Error signing data: {:?}", e);
-			return Err(Box::new(e))
+			return Err(Box::new(e));
 		},
 	};
 
@@ -37,7 +37,7 @@ pub async fn sign_data(
 		Ok(sig) => sig,
 		Err(e) => {
 			log::error!("Error creating signature: {:?}", e);
-			return Err(Box::new(e))
+			return Err(Box::new(e));
 		},
 	};
 
@@ -46,7 +46,7 @@ pub async fn sign_data(
 		Ok(v) => v,
 		Err(e) => {
 			log::error!("Error creating signature value: {:?}", e);
-			return Err(Box::new(e))
+			return Err(Box::new(e));
 		},
 	};
 
@@ -54,7 +54,7 @@ pub async fn sign_data(
 		Ok(v) => v,
 		Err(e) => {
 			log::error!("Error creating pubkey value: {:?}", e);
-			return Err(Box::new(e))
+			return Err(Box::new(e));
 		},
 	};
 
@@ -72,7 +72,7 @@ pub async fn sign_data(
 		Ok(s) => s,
 		Err(e) => {
 			log::error!("Error submitting to timechain: {:?}", e);
-			return Err(e.into())
+			return Err(e.into());
 		},
 	};
 
@@ -90,7 +90,7 @@ pub async fn verify_data(
 		Ok(())
 	} else {
 		log::error!("Signature invalid.");
-		return Err("Signature invalid/incorrect".into())
+		return Err("Signature invalid/incorrect".into());
 	}
 }
 

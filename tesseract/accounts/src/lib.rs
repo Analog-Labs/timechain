@@ -32,7 +32,7 @@ impl Account {
 
 	//get current account
 	pub fn get_current_account(&self) -> Public {
-		return self.accounts.clone()
+		return self.accounts.clone();
 	}
 
 	//store account to a json file

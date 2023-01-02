@@ -84,7 +84,7 @@ where
 		let keys = self.kv.public_keys();
 		if keys.len() == 0 {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
-			return
+			return;
 		}
 		let id = keys[0].clone();
 		self.tss_local_state.local_peer_id = Some(id.to_string());

@@ -3,6 +3,7 @@ members = [
     "node",
     "pallets/tesseract-sig-storage",
     "pallets/onchain-task",
+    "pallets/authorship",
     "runtime",
     "workers/time-worker",
     "primitives/time-primitives",
@@ -10,6 +11,12 @@ members = [
     "tesseract/accounts",
     "tesseract/events"
 ]
+
 [profile.release]
 panic = "unwind"
-   
+strip = true
+opt-level = "z"
+
+[profile.release-codecov]
+inherits = "release"
+strip = false

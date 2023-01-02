@@ -74,16 +74,29 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
-	let TimeWorkerParams { client, backend, runtime, gossip_network, kv, _block } =
-		timeworker_params;
+	let TimeWorkerParams {
+		client,
+		backend,
+		runtime,
+		gossip_network,
+		kv,
+		_block,
+	} = timeworker_params;
 
 	let sync_oracle = gossip_network.clone();
 	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine =
 		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
 
-	let worker_params =
-		WorkerParams { client, backend, runtime, sync_oracle, gossip_validator, gossip_engine, kv };
+	let worker_params = WorkerParams {
+		client,
+		backend,
+		runtime,
+		sync_oracle,
+		gossip_validator,
+		gossip_engine,
+		kv,
+	};
 	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
 	worker.run().await
 }

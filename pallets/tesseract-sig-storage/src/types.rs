@@ -2,7 +2,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::PartialEqNoBound;
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
-use time_primitives::SignatureData;
+pub use time_primitives::SignatureData;
 
 /// type that uniquely identify a signature data
 // pub type SignatureKey=<T>::Hash;//= T::Hash;// u64;//Vec<u8>;
@@ -24,7 +24,13 @@ impl<S, T> SignatureStorage<S, T> {
 		block_height: u64,
 		time_stamp: T,
 	) -> Self {
-		SignatureStorage { signature_key, signature_data, network_id, block_height, time_stamp }
+		SignatureStorage {
+			signature_key,
+			signature_data,
+			network_id,
+			block_height,
+			time_stamp,
+		}
 	}
 }
 

@@ -813,11 +813,10 @@ parameter_types! {
 	pub const BagThresholds: &'static [u64] = &THRESHOLDS;
 }
 
-type VoterBagsListInstance = pallet_bags_list::Instance1;
-impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
+impl pallet_bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
-	type WeightInfo = ();
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>; 
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
 }
@@ -998,14 +997,14 @@ construct_runtime!(
 		Authorship: pallet_authorship,
 		Session: pallet_session,
 		Staking: pallet_staking,
-		VoterList: pallet_bags_list<Instance1>,
+		VoterList: pallet_bags_list,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage,
+		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		OnchainTask: onchain_task_pallet,
 		Treasury: pallet_treasury,

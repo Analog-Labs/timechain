@@ -145,7 +145,7 @@ pub mod pallet {
 						}
 					},
 					_ => None,
-				}
+				};
 			}
 			None
 		}
@@ -168,7 +168,7 @@ pub mod pallet {
 				return Err(InherentError::InvalidGroupKey(TimeTssKey {
 					group_key: *group_key,
 					set_id: *set_id,
-				}))
+				}));
 			}
 
 			Ok(())

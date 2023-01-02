@@ -103,10 +103,7 @@ pub mod pallet {
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(
-				TesseractMembers::<T>::contains_key(caller),
-				Error::<T>::UnknownTesseract
-			);
+			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
 			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
 			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);

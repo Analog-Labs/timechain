@@ -924,13 +924,13 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 }
 
 parameter_types! {
-	pub MinVestedTransfer: Balance = 1 * ANLOG;
+	pub MinVestedTransfer: Balance = ANLOG;
 	pub const MaxVestingSchedules: u32 = 100;
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaxApprovals: u32 = 100;
 	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
-	pub const SpendPeriod: BlockNumber = 1 * DAYS;
+	pub const ProposalBondMinimum: Balance = DOLLARS;
+	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
 }

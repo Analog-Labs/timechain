@@ -3,6 +3,7 @@ use crate::{
 		time_protocol_name::gossip_protocol_name,
 		validator::{topic, GossipValidator},
 	},
+	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
 	Client, TimeWorkerParams, WorkerParams, TW_LOG,
 };
@@ -100,6 +101,11 @@ where
 
 	pub(crate) fn send(&self, msg: Vec<u8>) {
 		self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
+	}
+
+	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
+	fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
+		update_shared_group_key(set_id, key);
 	}
 
 	/// On each gossip we process it, verify signature and update our tracker

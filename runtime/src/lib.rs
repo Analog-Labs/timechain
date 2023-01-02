@@ -10,8 +10,8 @@ use frame_system::{EnsureRoot, EnsureSigned};
 
 use beefy_primitives::crypto::AuthorityId as BeefyId;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use frame_support::traits::Imbalance;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -31,10 +31,10 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, SaturatedConversion
+	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
 };
 
-use frame_system::{ EnsureRootWithSuccess };
+use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
@@ -44,15 +44,14 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU64, ConstU8, EnsureOrigin, KeyOwnerProofSystem, Randomness,
-		StorageInfo, OnUnbalanced, Currency
+		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
+		OnUnbalanced, Randomness, StorageInfo,
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
 	},
-	StorageValue,
-	PalletId
+	PalletId, StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -386,14 +385,16 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-
 pub const MILLICENTS: Balance = 1_000_000_000;
 pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
 pub const DOLLARS: Balance = 100 * CENTS;
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
+	NativeVersion {
+		runtime_version: VERSION,
+		can_author_with: Default::default(),
+	}
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -812,11 +813,10 @@ parameter_types! {
 	pub const BagThresholds: &'static [u64] = &THRESHOLDS;
 }
 
-type VoterBagsListInstance = pallet_bags_list::Instance1;
-impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
+impl pallet_bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
-	type WeightInfo = ();
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>; 
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
 }
@@ -879,7 +879,7 @@ where
 
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
-where   
+where
 	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
 	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
 	<R as frame_system::Config>::AccountId: From<AccountId>,
@@ -894,7 +894,7 @@ where
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 		}
 	}
-}   
+}
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -958,7 +958,7 @@ impl analog_vesting::Config for Runtime {
 
 impl onchain_task_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();   
+	type WeightInfo = ();
 }
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
@@ -980,7 +980,6 @@ impl pallet_treasury::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-#[rustfmt::skip]
 construct_runtime!(
 	pub struct Runtime
 	where
@@ -996,19 +995,19 @@ construct_runtime!(
 		ImOnline: pallet_im_online,
 		Offences: pallet_offences,
 		Authorship: pallet_authorship,
-		Session: pallet_session,  
+		Session: pallet_session,
 		Staking: pallet_staking,
-		VoterList: pallet_bags_list::<Instance1>,
+		VoterList: pallet_bags_list,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage,
+		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		OnchainTask: onchain_task_pallet,
-		Treasury: pallet_treasury
+		Treasury: pallet_treasury,
 	}
 );
 
@@ -1029,6 +1028,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;

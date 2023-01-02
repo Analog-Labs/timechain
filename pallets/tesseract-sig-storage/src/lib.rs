@@ -15,9 +15,9 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::{types::*, weights::WeightInfo};
+	use crate::types::*;
 	use frame_support::{
-		pallet_prelude::*,
+		pallet_prelude::{ProvideInherent, Weight, *},
 		sp_runtime::traits::{Hash, Scale},
 		traits::{Randomness, Time},
 	};
@@ -28,8 +28,18 @@ pub mod pallet {
 		traits::{AppVerify, IdentifyAccount},
 		MultiSignature,
 	};
-	use sp_std::vec::Vec;
-	use time_primitives::{SignatureData, TimeId, TimeSignature};
+	use sp_std::{result, vec::Vec};
+	use time_primitives::{
+		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
+		SignatureData, TimeId, TimeSignature,
+	};
+
+	pub trait WeightInfo {
+		fn add_member() -> Weight;
+		fn store_signature_data() -> Weight;
+		fn remove_member() -> Weight;
+		fn submit_tss_group_key() -> Weight;
+	}
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -59,6 +69,17 @@ pub mod pallet {
 	pub type TesseractMembers<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, TesseractRole, OptionQuery>;
 
+	/// Indicates precise members of each TSS set by it's u64 id
+	/// Required for key generation and identification
+	#[pallet::storage]
+	#[pallet::getter(fn tss_set)]
+	pub type TssSet<T: Config> =
+		StorageMap<_, Blake2_128Concat, u64, Vec<T::AccountId>, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn tss_group_key)]
+	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 32], OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn signature_store)]
 	pub type SignatureStore<T: Config> =
@@ -87,12 +108,75 @@ pub mod pallet {
 
 		/// Default account is not allowed for this operation
 		DefaultAccountForbidden(),
+
+		/// New group key submitted to runtime
+		/// .0 - set_id,
+		/// .1 - group key bytes
+		NewTssGroupKey(u64, [u8; 32]),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The Tesseract address in not known
 		UnknownTesseract,
+	}
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+		type Error = InherentError;
+		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+
+		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+			if let Ok(inherent_data) = data.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER) {
+				return match inherent_data {
+					None => None,
+					Some(inherent_data) if inherent_data.group_key != [0u8; 32] => {
+						// We don't need to set the inherent data every block, it is only needed
+						// once.
+						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
+						if pubk == None {
+							Some(Call::submit_tss_group_key {
+								set_id: inherent_data.set_id,
+								group_key: inherent_data.group_key,
+							})
+						} else {
+							None
+						}
+					},
+					_ => None,
+				};
+			}
+			None
+		}
+
+		fn check_inherent(
+			call: &Self::Call,
+			data: &InherentData,
+		) -> result::Result<(), Self::Error> {
+			let (set_id, group_key) = match call {
+				Call::submit_tss_group_key { set_id, group_key } => (set_id, group_key),
+				_ => return Err(InherentError::WrongInherentCall),
+			};
+
+			let expected_data = data
+				.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER)
+				.expect("Inherent data is not correctly encoded")
+				.expect("Inherent data must be provided");
+
+			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
+				return Err(InherentError::InvalidGroupKey(TimeTssKey {
+					group_key: *group_key,
+					set_id: *set_id,
+				}));
+			}
+
+			Ok(())
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::submit_tss_group_key { .. })
+		}
 	}
 
 	#[pallet::call]
@@ -154,6 +238,20 @@ pub mod pallet {
 			Self::deposit_event(Event::TesseractMemberRemoved(account));
 
 			Ok(())
+		}
+
+		/// Submits TSS group key to runtime
+		#[pallet::weight(T::WeightInfo::submit_tss_group_key())]
+		pub fn submit_tss_group_key(
+			origin: OriginFor<T>,
+			set_id: u64,
+			group_key: [u8; 32],
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+			<TssGroupKey<T>>::insert(set_id, &group_key);
+			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
+
+			Ok(().into())
 		}
 	}
 

@@ -136,9 +136,7 @@ pub mod pallet {
 					}
 				},
 				None => {
-					let mut tasks = vec![];
-					tasks.push(task);
-					<OnchainTaskStore<T>>::insert(chain, tasks);
+					<OnchainTaskStore<T>>::insert(chain, vec![task]);
 				},
 			};
 		}

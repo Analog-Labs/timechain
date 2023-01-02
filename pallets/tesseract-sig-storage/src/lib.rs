@@ -104,7 +104,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(
-				TesseractMembers::<T>::contains_key(caller.clone()),
+				TesseractMembers::<T>::contains_key(caller),
 				Error::<T>::UnknownTesseract
 			);
 			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());

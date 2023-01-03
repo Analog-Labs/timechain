@@ -1,7 +1,4 @@
-use crate::{
-	start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring,
-	TimeWorkerParams,
-};
+use crate::{start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams};
 use arrayref::array_ref;
 use codec::{Codec, Decode, Encode};
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
@@ -27,20 +24,11 @@ use sp_finality_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
 use sp_runtime::{traits::Header as HeaderT, BuildStorage, DigestItem};
-use std::{
-	marker::PhantomData,
-	pin::Pin,
-	sync::Arc,
-	task::Poll,
-	time::Duration,
-};
+use std::{marker::PhantomData, pin::Pin, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{
 	runtime::Header, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
 };
-use time_primitives::{
-	crypto::Public as TimeKey,
-	TimeApi, KEY_TYPE as TimeKeyType,
-};
+use time_primitives::{crypto::Public as TimeKey, TimeApi, KEY_TYPE as TimeKeyType};
 use tokio::runtime::{Handle, Runtime};
 
 // required for test networking

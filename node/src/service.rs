@@ -107,11 +107,8 @@ pub fn new_partial(
 	)?;
 
 	let babe_config = sc_consensus_babe::configuration(&*client)?;
-	let (block_import, babe_link) = sc_consensus_babe::block_import(
-		babe_config,
-		grandpa_block_import.clone(),
-		client.clone(),
-	)?;
+	let (block_import, babe_link) =
+		sc_consensus_babe::block_import(babe_config, grandpa_block_import.clone(), client.clone())?;
 
 	let slot_duration = babe_link.config().slot_duration();
 	let justification_import = grandpa_block_import;

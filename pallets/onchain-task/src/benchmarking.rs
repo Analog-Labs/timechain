@@ -5,7 +5,8 @@ use crate::types::*;
 use crate::Pallet as OnChainTask;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use sp_std::prelude::*;
+use scale_info::prelude::format;
+use sp_std::{borrow::ToOwned, prelude::*};
 
 benchmarks! {
 	store_task {

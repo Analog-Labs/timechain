@@ -8461,8 +8461,10 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-application-crypto",
+ "sp-inherents",
  "sp-runtime",
  "sp-std",
+ "thiserror",
 ]
 
 [[package]]
@@ -8471,12 +8473,14 @@ version = "0.1.0"
 dependencies = [
  "array-bytes",
  "arrayref",
+ "async-trait",
  "borsh",
  "fnv",
  "frame-support",
  "futures",
  "futures-timer",
  "hex",
+ "lazy_static",
  "log",
  "parity-scale-codec",
  "parking_lot 0.11.2",

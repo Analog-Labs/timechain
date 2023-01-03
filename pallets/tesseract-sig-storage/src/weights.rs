@@ -31,16 +31,10 @@
 
 //use frame_support::{traits::Get, weights::Weight};
 use frame_support::{traits::Get, weights::{constants::RocksDbWeight,Weight}};
-
+use crate::WeightInfo;
 use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_tesseract_sig_storage`.
-
-pub trait WeightInfo {
-	fn add_member() -> Weight;
-    fn store_signature_data() -> Weight;
-	fn remove_member() -> Weight;
-}
 
 pub struct SigWeightInfo<T>(PhantomData<T>);
 
@@ -69,6 +63,11 @@ impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
             .saturating_add(T::DbWeight::get().writes(1_u64))
     }
 
+    // Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
+	fn submit_tss_group_key() -> Weight {
+		Weight::from_ref_time(3_469_000_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 
 }
 
@@ -91,4 +90,11 @@ impl WeightInfo for () {
         Weight::from_ref_time(33_000_000_u64)
             .saturating_add(RocksDbWeight::get().writes(1_u64))
     }
+    
+    // Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
+	fn submit_tss_group_key() -> Weight {
+		Weight::from_ref_time(3_469_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+    
 }

@@ -33,7 +33,7 @@ pub fn make_gossip_tss_data(
 }
 
 pub async fn make_hashmap_for_secret_share(
-	secret_shares: &Vec<SecretShare>,
+	secret_shares: &[SecretShare],
 ) -> HashMap<u32, SecretShare> {
 	secret_shares
 		.iter()

@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
 
 		{
 			let parent_number = *uncle.number() - One::one();
-			let parent_hash = <frame_system::Pallet<T>>::block_hash(&parent_number);
+			let parent_hash = <frame_system::Pallet<T>>::block_hash(parent_number);
 			if &parent_hash != uncle.parent_hash() {
 				return Err(Error::<T>::InvalidUncleParent.into());
 			}
@@ -522,8 +522,7 @@ mod tests {
 			let pre_runtime_digests = header.digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 			let seals = header.digest.logs.iter().filter_map(|d| d.as_seal());
 
-			let author =
-				AuthorGiven::find_author(pre_runtime_digests).ok_or_else(|| "no author")?;
+			let author = AuthorGiven::find_author(pre_runtime_digests).ok_or("no author")?;
 
 			for (id, mut seal) in seals {
 				if id == TEST_ID {
@@ -643,7 +642,7 @@ mod tests {
 					author_a,
 				);
 				assert_eq!(
-					Authorship::verify_and_import_uncles(vec![uncle_a.clone(), uncle_a.clone()]),
+					Authorship::verify_and_import_uncles(vec![uncle_a.clone(), uncle_a]),
 					Err(Error::<Test>::UncleAlreadyIncluded.into()),
 				);
 			}
@@ -658,7 +657,7 @@ mod tests {
 				assert!(Authorship::verify_and_import_uncles(vec![uncle_a.clone()]).is_ok());
 
 				assert_eq!(
-					Authorship::verify_and_import_uncles(vec![uncle_a.clone()]),
+					Authorship::verify_and_import_uncles(vec![uncle_a]),
 					Err(Error::<Test>::UncleAlreadyIncluded.into()),
 				);
 			}

@@ -38,7 +38,7 @@ fn storing_and_get_chain_task() {
 
 		// check metadata
 		let stored_metadata = OnChainTask::task_metadata(0).unwrap();
-		assert_eq!(stored_metadata, task_metadata.clone());
+		assert_eq!(stored_metadata, task_metadata);
 
 		// check metadata index
 		let metadata_index = OnChainTask::task_metadata_id(task_metadata).unwrap();

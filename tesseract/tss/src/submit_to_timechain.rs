@@ -79,10 +79,7 @@ impl TimechainSubmitter {
 			},
 			Ok(None) => {
 				log::error!("No members found");
-				Err(Box::new(std::io::Error::new(
-					std::io::ErrorKind::Other,
-					"No members found",
-				)))
+				Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "No members found")))
 			},
 			Err(e) => {
 				log::error!("Error fetching members: {:?}", e);

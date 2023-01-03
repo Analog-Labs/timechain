@@ -602,9 +602,7 @@ impl TssService {
 							};
 
 							//check for validity of event
-							match threshold_signature
-								.verify(&finished_state.0, &msg_req.msg_hash)
-							{
+							match threshold_signature.verify(&finished_state.0, &msg_req.msg_hash) {
 								Ok(_) => {
 									log::info!("TSS::Signature is valid sending to network");
 
@@ -775,12 +773,8 @@ impl TssService {
 	}
 
 	//Publishing the data to the network
-	pub async fn publish_to_network<T>(
-		&self,
-		peer_id: String,
-		data: T,
-		tss_type: TSSEventType,
-	) where
+	pub async fn publish_to_network<T>(&self, peer_id: String, data: T, tss_type: TSSEventType)
+	where
 		T: BorshSerialize,
 	{
 		log::info!("TSS::sending tss event: {:?}", tss_type);

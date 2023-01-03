@@ -63,10 +63,7 @@ impl TssService {
 
 		if tss_nodes_and_threshold_nodes.0 >= DEFUALT_TSS_TOTAL_NODES {
 			//stop if total nodes for tss provided and threshold number if invalid
-			assert!(
-				tss_nodes_and_threshold_nodes.1 >= 1_u32,
-				"Invalid threshold nodes provided"
-			);
+			assert!(tss_nodes_and_threshold_nodes.1 >= 1_u32, "Invalid threshold nodes provided");
 
 			unlocked_state.tss_params = Parameters {
 				n: tss_nodes_and_threshold_nodes.0,
@@ -239,7 +236,7 @@ impl TssService {
 	) {
 		//create req object
 		let req = PartialMessageSign {
-			msg_hash: msg_hash,
+			msg_hash,
 			signers: signer_for_msg.clone(),
 		};
 

@@ -74,19 +74,19 @@ impl TimechainSubmitter {
 		let mut iter = self.api.storage().iter(members, 10, None).await?;
 		match iter.next().await {
 			Ok(Some((key, value))) => {
-				log::info!("{}: {:?}", hex::encode(&key), value);
-				return Ok(value);
+				log::info!("{}: {:?}", hex::encode(key), value);
+				Ok(value)
 			},
 			Ok(None) => {
 				log::error!("No members found");
-				return Err(Box::new(std::io::Error::new(
+				Err(Box::new(std::io::Error::new(
 					std::io::ErrorKind::Other,
 					"No members found",
-				)));
+				)))
 			},
 			Err(e) => {
 				log::error!("Error fetching members: {:?}", e);
-				return Err(Box::new(e));
+				Err(Box::new(e))
 			},
 		}
 	}
@@ -118,7 +118,7 @@ impl TimechainSubmitter {
 
 	pub async fn submit_data(
 		&self,
-		sig: Vec<u8>,
+		_sig: Vec<u8>,
 		data: Vec<u8>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let api = self.api.tx().to_owned();
@@ -133,11 +133,11 @@ impl TimechainSubmitter {
 		match api.sign_and_submit_default(&tx, &self.signer).await {
 			Ok(d) => {
 				log::info!("Data successfully submitted with hash: {:?}", d);
-				return Ok(());
+				Ok(())
 			},
 			Err(e) => {
 				log::error!("Error submitting transaction: {:?}", e);
-				return Err(Box::new(e));
+				Err(Box::new(e))
 			},
 		}
 	}

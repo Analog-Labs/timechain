@@ -45,17 +45,17 @@ pub fn make_participant(params: Parameters, index: u32) -> (Participant, Coeffic
 	Participant::new(&params, index)
 }
 
-pub fn get_participant_index(peer_id: String, other_peer_id: &Vec<String>) -> u32 {
-	let mut other_peer_list = other_peer_id.clone();
+pub fn get_participant_index(peer_id: String, other_peer_id: &[String]) -> u32 {
+	let mut other_peer_list = other_peer_id.to_owned();
 	other_peer_list.sort();
 
 	let list_length = other_peer_list.len();
 	for index in 0..list_length {
-		if &peer_id <= &other_peer_list[index] {
+		if peer_id <= other_peer_list[index] {
 			return (index + 1) as u32;
 		}
 	}
-	return (list_length + 1) as u32;
+	(list_length + 1) as u32
 }
 
 pub fn get_publish_peer_id_msg(local_peer: String) -> Result<Vec<u8>, String> {

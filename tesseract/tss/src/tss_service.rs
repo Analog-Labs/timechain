@@ -61,10 +61,10 @@ impl TssService {
 		unlocked_state.key_type = key_type;
 		unlocked_state.keystore = keystore_option;
 
-		if tss_nodes_and_threshold_nodes.0 >= DEFUALT_TSS_TOTAL_NODES as u32 {
+		if tss_nodes_and_threshold_nodes.0 >= DEFUALT_TSS_TOTAL_NODES {
 			//stop if total nodes for tss provided and threshold number if invalid
 			assert!(
-				tss_nodes_and_threshold_nodes.1 >= 1 as u32,
+				tss_nodes_and_threshold_nodes.1 >= 1_u32,
 				"Invalid threshold nodes provided"
 			);
 
@@ -83,7 +83,7 @@ impl TssService {
 			config,
 		}
 	}
-	pub async fn run(self: &mut Self) {
+	pub async fn run(&mut self) {
 		let mut timer = time::interval(time::Duration::from_secs(5));
 
 		//add aggregator and collector
@@ -128,15 +128,15 @@ impl TssService {
 					if let Some(data) = event_receiver{
 						log::info!("got event to tss {:?}", data);
 						let context = self.tss_local_state.context;
-						let msg_hash = compute_message_hash(&context, &data.as_bytes());
+						let msg_hash = compute_message_hash(&context, data.as_bytes());
 
 						//add node in msg_pool
 						if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
-							self.tss_local_state.msg_pool.insert(msg_hash.clone(), data.clone().into());
+							self.tss_local_state.msg_pool.insert(msg_hash, data.clone().into());
 
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash){
-								self.process_pending_msg_req(msg_hash.clone(), pending_msg_req.to_vec()).await;
+								self.process_pending_msg_req(msg_hash, pending_msg_req.to_vec()).await;
 								self.tss_local_state.msgs_signature_pending.remove(&msg_hash);
 							}else{
 								log::info!("msg not pending request for data {:?} and hash {:?}", data, msg_hash);
@@ -155,7 +155,7 @@ impl TssService {
 								self.tss_local_state.tss_params,
 								self.tss_local_state.local_finished_state.clone().unwrap().0,
 								&context,
-								&data.as_bytes()[..],
+								data.as_bytes(),
 							);
 
 							for com in self.tss_local_state.others_commitment_share.clone(){
@@ -168,7 +168,7 @@ impl TssService {
 
 							//including aggregator as a signer
 							aggregator.include_signer(
-								self.tss_local_state.local_index.clone().unwrap(),
+								self.tss_local_state.local_index.unwrap(),
 								self.tss_local_state.local_commitment_share.clone().unwrap().0.commitments[0],
 								self.tss_local_state.local_public_key.clone().unwrap(),
 							);
@@ -178,7 +178,7 @@ impl TssService {
 							self.tss_local_state.current_signers = signers.clone();
 
 							// //sign msg from aggregator side
-							self.aggregator_event_sign(msg_hash.clone()).await;
+							self.aggregator_event_sign(msg_hash).await;
 
 							let sign_msg_req = PartialMessageSign{
 								msg_hash,
@@ -233,13 +233,13 @@ impl TssService {
 	}
 
 	pub async fn process_pending_msg_req(
-		self: &mut Self,
+		&mut self,
 		msg_hash: [u8; 64],
 		signer_for_msg: Vec<Signer>,
 	) {
 		//create req object
 		let req = PartialMessageSign {
-			msg_hash: msg_hash.clone(),
+			msg_hash: msg_hash,
 			signers: signer_for_msg.clone(),
 		};
 

@@ -96,7 +96,7 @@ impl TSSLocalStateData {
 		}
 	}
 
-	pub fn reset(self: &mut Self) {
+	pub fn reset(&mut self) {
 		self.is_node_collector = false;
 		self.is_node_aggregator = false;
 		self.tss_process_state = TSSLocalStateType::Empty;
@@ -115,5 +115,11 @@ impl TSSLocalStateData {
 		self.msg_pool = HashMap::new();
 		self.msgs_signature_pending = HashMap::new();
 		self.current_signers = vec![];
+	}
+}
+
+impl Default for TSSLocalStateData {
+	fn default() -> Self {
+		Self::new()
 	}
 }

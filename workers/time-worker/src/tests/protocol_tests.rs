@@ -1,12 +1,11 @@
 use crate::{
-	start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring, traits::Client,
+	start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring,
 	TimeWorkerParams,
 };
 use arrayref::array_ref;
 use codec::{Codec, Decode, Encode};
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use parking_lot::{Mutex, RwLock};
-use sc_client_api::Backend;
 use sc_consensus::BoxJustificationImport;
 use sc_finality_grandpa::{
 	run_grandpa_voter, Config, GenesisAuthoritySetProvider, GrandpaParams, LinkHalf,
@@ -14,14 +13,13 @@ use sc_finality_grandpa::{
 };
 use sc_keystore::LocalKeystore;
 use sc_network::config::Role;
-use sc_network_common::request_responses::ProtocolConfig;
 use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, Hash, PassThroughVerifier, Peer, PeersClient,
 	PeersFullClient, TestNetFactory,
 };
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_api::{ApiRef, BlockId, ProvideRuntimeApi};
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::Pair as SPPair;
 use sp_consensus::BlockOrigin;
 use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
@@ -32,16 +30,15 @@ use sp_runtime::{traits::Header as HeaderT, BuildStorage, DigestItem};
 use std::{
 	marker::PhantomData,
 	pin::Pin,
-	sync::{Arc, Mutex as StdMutex},
+	sync::Arc,
 	task::Poll,
-	thread::sleep,
 	time::Duration,
 };
 use substrate_test_runtime_client::{
 	runtime::Header, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
 };
 use time_primitives::{
-	crypto::{Public as TimeKey, Signature},
+	crypto::Public as TimeKey,
 	TimeApi, KEY_TYPE as TimeKeyType,
 };
 use tokio::runtime::{Handle, Runtime};
@@ -72,7 +69,6 @@ pub(crate) struct TimeTestNet {
 }
 
 // same as runtime
-pub(crate) type BlockNumber = u32;
 pub(crate) type GrandpaBlockNumber = u64;
 
 const TIME_PROTOCOL_NAME: &str = "/time/1";
@@ -168,9 +164,9 @@ impl TestNetFactory for TimeTestNet {
 	) {
 		let (client, backend) = (client.as_client(), client.as_backend());
 		let (import, link) = sc_finality_grandpa::block_import(
-			client.clone(),
+			client,
 			&*self.test_net,
-			LongestChain::new(backend.clone()),
+			LongestChain::new(backend),
 			None,
 		)
 		.expect("Could not create block import for fresh peer.");
@@ -207,7 +203,7 @@ impl BuildStorage for Genesis {
 }
 
 fn make_time_ids(keys: &[TimeKeyring]) -> Vec<TimeKey> {
-	keys.iter().map(|key| Pair::from(key.clone()).public().into()).collect()
+	keys.iter().map(|key| Pair::from(key).public().into()).collect()
 }
 
 pub(crate) fn create_time_keystore(authority: TimeKeyring) -> SyncCryptoStorePtr {

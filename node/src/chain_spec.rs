@@ -5,7 +5,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Printable, Verify};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
 	VestingConfig, WASM_BINARY,
@@ -24,7 +24,7 @@ const PUBLIC_SALE: Balance = ANLOG * 1_449_275;
 const TEAM_SUPPLY: Balance = ANLOG * 17_210_160;
 const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
 const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
-const VALIDATOR_SUPPLY: Balance = ANLOG * 1;
+const VALIDATOR_SUPPLY: Balance = ANLOG;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -34,7 +34,7 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+	TPublic::Pair::from_string(&format!("//{seed}"), None)
 		.expect("static values are valid; qed")
 		.public()
 }

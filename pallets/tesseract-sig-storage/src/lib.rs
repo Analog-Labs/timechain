@@ -133,7 +133,7 @@ pub mod pallet {
 						// We don't need to set the inherent data every block, it is only needed
 						// once.
 						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
-						if pubk == None {
+						if pubk.is_none() {
 							Some(Call::submit_tss_group_key {
 								set_id: inherent_data.set_id,
 								group_key: inherent_data.group_key,
@@ -236,7 +236,7 @@ pub mod pallet {
 			group_key: [u8; 32],
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
-			<TssGroupKey<T>>::insert(set_id, &group_key);
+			<TssGroupKey<T>>::insert(set_id, group_key);
 			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
 
 			Ok(().into())

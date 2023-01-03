@@ -93,8 +93,8 @@ impl WeightInfo for () {
     
     // Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
 	fn submit_tss_group_key() -> Weight {
-		Weight::from_ref_time(3_469_000_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_ref_time(3_469_000_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
     
 }

@@ -191,7 +191,7 @@ impl BuildStorage for Genesis {
 }
 
 fn make_time_ids(keys: &[TimeKeyring]) -> Vec<TimeKey> {
-	keys.iter().map(|key| Pair::from(key).public().into()).collect()
+	keys.iter().map(|key| Pair::from(key.clone()).public().into()).collect()
 }
 
 pub(crate) fn create_time_keystore(authority: TimeKeyring) -> SyncCryptoStorePtr {

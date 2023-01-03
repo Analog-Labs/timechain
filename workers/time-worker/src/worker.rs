@@ -25,7 +25,7 @@ use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
 };
-use tss::utils::get_reset_tss_msg;
+use tss::utils::{get_reset_tss_msg, make_gossip_tss_data};
 
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, C, R, BE, SO> {
@@ -91,14 +91,12 @@ where
 		// starting TSS initialization if not yet done
 		if self.tss_local_state.local_peer_id.is_none() {
 			self.tss_local_state.local_peer_id = Some(id.to_string());
-			let msg = TSSData {
-				peer_id: id.to_string(),
-				tss_event_type: TSSEventType::ReceiveParams,
-				tss_data: get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
-			};
-			let mut enc_message = vec![];
-			msg.serialize(&mut enc_message).unwrap_or(());
-			self.gossip_engine.lock().gossip_message(topic::<B>(), enc_message, false);
+			let msg = make_gossip_tss_data(
+				id.to_string(),
+				get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
+			TSSEventType::ReceiveParams,
+			).unwrap();
+			self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
 			info!(target: TW_LOG, "Gossip is sent.");
 		}
 	}

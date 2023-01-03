@@ -36,7 +36,18 @@ where
 {
 	//will be run by non collector nodes
 	pub async fn handler_receive_params(self: &mut Self, data: &Vec<u8>) {
-		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+		let local_peer_id = match self.tss_local_state.local_peer_id.clone() {
+			Some(id) => id,
+			None => match self.kv.public_keys() {
+				keys if keys.len() > 0 => keys[0].to_string(),
+				_ => {
+					log::warn!(
+						"TSS: No local peer identity present for received params processing"
+					);
+					return;
+				},
+			},
+		};
 
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
 			if let Ok(peer_id_call) = ReceiveParamsWithPeerCall::try_from_slice(&data) {

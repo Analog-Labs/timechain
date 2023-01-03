@@ -24,6 +24,7 @@ use time_primitives::{crypto::Signature, TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
+	utils::get_reset_tss_msg,
 };
 
 /// Our structure, which holds refs to everything we need to operate

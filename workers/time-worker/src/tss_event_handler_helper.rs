@@ -35,7 +35,7 @@ where
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes
-	pub async fn handler_receive_params(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receive_params(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
@@ -74,7 +74,7 @@ where
 	}
 
 	//used by node collector to set peers for tss process
-	pub async fn handler_receive_peer_id_for_index(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receive_peer_id_for_index(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		//receive index and update state of node
@@ -132,7 +132,7 @@ where
 	}
 
 	//filter participants and publish participants to network
-	pub async fn handler_receiver_peers_with_col_participant(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receiver_peers_with_col_participant(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::ReceivedParams {
 			if let Ok(data) = FilterAndPublishParticipant::try_from_slice(data) {
@@ -172,7 +172,7 @@ where
 
 	//receive participant and publish to network secret share to network when all participants are
 	// received
-	pub async fn handler_receive_participant(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receive_participant(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 		//receive participants and update state of node
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::ReceivedPeers {
@@ -249,7 +249,7 @@ where
 	}
 
 	//receives secret share form all other nodes which are participating in the tss
-	pub async fn handler_receive_secret_share(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receive_secret_share(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 		//receive secret shares and update state of node
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::DkgGeneratedR1 {
@@ -378,7 +378,6 @@ where
 							},
 							Err(e) => {
 								log::error!("TSS::Error in round two state: {:#?}", e);
-								return;
 							},
 						}
 					} else {
@@ -399,7 +398,7 @@ where
 	}
 
 	//This call is received by aggregators to make list of commitment of participants
-	pub async fn handler_receive_commitment(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receive_commitment(self: &mut Self, data: &[u8]) {
 		//receive commitments and update state of node
 		if self.tss_local_state.is_node_aggregator {
 			if self.tss_local_state.tss_process_state >= TSSLocalStateType::DkgGeneratedR1
@@ -439,7 +438,7 @@ where
 	}
 
 	//This call is received by participant to generate its partial signature
-	pub async fn handler_partial_signature_generate_req(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_partial_signature_generate_req(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		if self.tss_local_state.tss_process_state >= TSSLocalStateType::StateFinished {
@@ -460,7 +459,7 @@ where
 					},
 				};
 
-				if let Some(_) = self.tss_local_state.msg_pool.get(&msg_req.msg_hash) {
+				if self.tss_local_state.msg_pool.get(&msg_req.msg_hash).is_some() {
 					//making partial signature here
 					let partial_signature = match final_state.1.sign(
 						&msg_req.msg_hash,
@@ -477,7 +476,7 @@ where
 					};
 
 					let gossip_data = ReceivePartialSignatureReq {
-						msg_hash: msg_req.msg_hash.clone(),
+						msg_hash: msg_req.msg_hash,
 						partial_sign: partial_signature,
 					};
 
@@ -506,7 +505,7 @@ where
 	}
 
 	//this call is received by aggregator to make the threshold signature
-	pub async fn handler_partial_signature_received(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_partial_signature_received(self: &mut Self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		//check if aggregator
@@ -520,8 +519,7 @@ where
 						{
 							hashmap.push(msg_req.partial_sign);
 						} else {
-							let mut participant_list = Vec::new();
-							participant_list.push(msg_req.partial_sign);
+							let participant_list = vec![msg_req.partial_sign];
 							self.tss_local_state
 								.others_partial_signature
 								.insert(msg_req.msg_hash, participant_list);
@@ -536,7 +534,7 @@ where
 							.unwrap()
 							.len() == self.tss_local_state.current_signers.len()
 						{
-							let context = self.tss_local_state.context.clone();
+							let context = self.tss_local_state.context;
 							let finished_state =
 								match self.tss_local_state.local_finished_state.clone() {
 									Some(finished_state) => finished_state,
@@ -659,10 +657,10 @@ where
 	}
 
 	//This call is received by participant to verify the threshold signature
-	pub async fn handler_verify_threshold_signature(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_verify_threshold_signature(self: &mut Self, data: &[u8]) {
 		if self.tss_local_state.tss_process_state >= TSSLocalStateType::StateFinished {
 			if let Ok(threshold_signature) = VerifyThresholdSignatureReq::try_from_slice(data) {
-				if let Some(_) = self.tss_local_state.msg_pool.get(&threshold_signature.msg_hash) {
+				if self.tss_local_state.msg_pool.get(&threshold_signature.msg_hash).is_some() {
 					let finished_state = match self.tss_local_state.local_finished_state.clone() {
 						Some(finished_state) => finished_state,
 						None => {
@@ -701,7 +699,7 @@ where
 	}
 
 	//This call resets the tss state data to empty/initial state
-	pub async fn handler_reset_tss_state(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_reset_tss_state(self: &mut Self, data: &[u8]) {
 		//reset TSS State
 		if let Ok(data) = ResetTSSCall::try_from_slice(data) {
 			log::error!("TSS::Resetting TSS due to reason {} ", data.reason);
@@ -749,8 +747,7 @@ where
 			{
 				hashmap.push(partial_signature);
 			} else {
-				let mut participant_list = Vec::new();
-				participant_list.push(partial_signature);
+				let participant_list = vec![partial_signature];
 				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
 			}
 			let message = match String::from_utf8(msg.clone()) {
@@ -762,7 +759,7 @@ where
 			};
 
 			// FIXME: what's the point of this?
-			match self.kv.sign(&self.kv.public_keys()[0], &msg) {
+			match self.kv.sign(&self.kv.public_keys()[0], msg) {
 				Some(_) => {
 					log::info!("message signed and stored successfully");
 				},

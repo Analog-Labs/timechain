@@ -12,6 +12,8 @@ use tss::tss_event_model::TSSData;
 
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 
+#[allow(dead_code)]
+
 pub type MessageHash = [u8; 8];
 
 /// Gossip engine messages topic
@@ -113,7 +115,7 @@ where
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		if let Ok(msg) = TSSData::deserialize(&mut data) {
-			let msg_hash = twox_64(data);
+			let _msg_hash = twox_64(data);
 
 			if true {
 				// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
@@ -130,8 +132,8 @@ where
 	}
 
 	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
-		let known_votes = self.known_votes.read();
-		Box::new(move |_topic, mut data| {
+		let _known_votes = self.known_votes.read();
+		Box::new(move |_topic, mut _data| {
 			/*			let msg = match TSSData::deserialize(&mut data) {
 							Ok(vote) => vote,
 							Err(_) => return true,
@@ -155,8 +157,8 @@ where
 			}
 		};
 
-		let known_votes = self.known_votes.read();
-		Box::new(move |who, intent, _topic, mut data| {
+		let _known_votes = self.known_votes.read();
+		Box::new(move |who, intent, _topic, mut _data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
 				return do_rebroadcast;
 			}

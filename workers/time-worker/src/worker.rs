@@ -83,7 +83,7 @@ where
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();
 		let keys = self.kv.public_keys();
-		if keys.len() == 0 {
+		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
 			return;
 		}

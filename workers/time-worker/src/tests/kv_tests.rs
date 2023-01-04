@@ -72,7 +72,7 @@ fn verify_should_work() {
 	let msg = keccak_256(b"I am Alice!");
 	let sig = Keyring::Alice.sign(b"I am Alice!");
 
-	assert!(sr25519::Pair::verify(&sig.clone().into(), &msg, &Keyring::Alice.public().into(),));
+	assert!(sr25519::Pair::verify(&sig.clone().into(), msg, &Keyring::Alice.public().into(),));
 
 	// different public key -> fail
 	assert!(!sr25519::Pair::verify(&sig.clone().into(), msg, &Keyring::Bob.public().into(),));

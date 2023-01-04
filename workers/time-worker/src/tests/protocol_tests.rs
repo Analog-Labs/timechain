@@ -197,6 +197,7 @@ impl BuildStorage for Genesis {
 	}
 }
 
+#[allow(dead_code)]
 fn make_time_ids(keys: &[TimeKeyring]) -> Vec<TimeKey> {
 	keys.iter().map(|key| Pair::from(*key).public().into()).collect()
 }
@@ -208,6 +209,7 @@ pub(crate) fn create_time_keystore(authority: TimeKeyring) -> SyncCryptoStorePtr
 	keystore
 }
 
+#[allow(dead_code)]
 #[derive(Default, Clone)]
 pub(crate) struct TestApi {
 	genesys_validator_set: Vec<TimeKeyring>,
@@ -270,7 +272,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block> for RuntimeApi {
-		fn store_signature(auth_key: time_primitives::TimeId, auth_sig: time_primitives::TimeSignature, signature_data: time_primitives::SignatureData, task_id: u64, block_height: u64,) {}
+		fn store_signature(_auth_key: time_primitives::TimeId, _auth_sig: time_primitives::TimeSignature, _signature_data: time_primitives::SignatureData, _task_id: u64, _block_height: u64,) {}
 	}
 
 }

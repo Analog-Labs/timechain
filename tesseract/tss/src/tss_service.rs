@@ -33,6 +33,7 @@ pub struct TssService {
 }
 
 impl TssService {
+	#[allow(clippy::too_many_arguments)]
 	pub async fn new(
 		gossip_to_tss_receiver: Receiver<TSSData>,
 		tss_to_gossip_sender: Sender<Vec<u8>>,

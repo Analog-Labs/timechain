@@ -21,7 +21,7 @@ pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::Accoun
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
-		#[warn(clippy::too_many_arguments)]
+		#[allow(clippy::too_many_arguments)]
 		fn store_signature(auth_key: TimeId, auth_sig: TimeSignature, signature_data: SignatureData, task_id: u64, block_height: u64,);
 	}
 }

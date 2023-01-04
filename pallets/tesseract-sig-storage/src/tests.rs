@@ -1,5 +1,5 @@
 use super::mock::*;
-use crate::types::{SignatureData, TesseractRole};
+use crate::types::{SignatureData, SignatureStorage, TesseractRole};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
@@ -53,12 +53,16 @@ fn test_signature_storage() {
 
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(1).into(),
-			sig_data,
+			sig_data.clone(),
 			task_id,
 			block_height
 		));
 
-		// Retreiving the signature stored via it's key and assert the result.
-		// assert_eq!(TesseractSigStorage::signature_storage(hash_key), Some(storage_data));
+		let storage_data = SignatureStorage::new(sig_data.clone(), Timestamp::now());
+
+		assert_eq!(
+			TesseractSigStorage::signature_storage(task_id, block_height),
+			Some(storage_data)
+		);
 	});
 }

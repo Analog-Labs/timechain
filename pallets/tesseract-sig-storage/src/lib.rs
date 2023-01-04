@@ -72,11 +72,6 @@ pub mod pallet {
 	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 32], OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn signature_store)]
-	pub type SignatureStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::Hash, SignatureData, OptionQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
 	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
 		_,

@@ -31,7 +31,7 @@ impl TimeKeyvault {
 		let sig = SyncCryptoStore::sign_with(&*store, KEY_TYPE, &public, &msg).ok()??;
 
 		// check that `sig` has the expected result type
-		let sig = sig.clone().try_into().ok()?;
+		let sig = sig.try_into().ok()?;
 
 		Some(sig)
 	}
@@ -41,7 +41,7 @@ impl TimeKeyvault {
 		let sig = sig.as_ref();
 		let public = public.as_ref();
 
-		sp_core::sr25519::Pair::verify(sig, &msg, public)
+		sp_core::sr25519::Pair::verify(sig, msg, public)
 	}
 
 	pub fn public_keys(&self) -> Vec<TimePublic> {

@@ -5,22 +5,21 @@ use crate::{
 	},
 	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
-	Client, TimeWorkerParams, WorkerParams, TW_LOG,
+	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::{Decode, Encode};
 use futures::{future, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use sc_client_api::{
-	Backend, BlockchainEvents, FinalityNotification, FinalityNotifications, Finalizer,
+	Backend, BlockchainEvents, FinalityNotification, FinalityNotifications,
 };
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
-use sp_runtime::traits::{AppVerify, Block, Header};
+use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
-use time_primitives::{crypto::Signature, TimeApi, KEY_TYPE};
+use time_primitives::{TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},

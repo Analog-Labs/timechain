@@ -41,7 +41,7 @@ impl Keyring {
 
 	/// Return seed string.
 	pub fn to_seed(self) -> String {
-		format!("//{}", self)
+		format!("//{self}")
 	}
 }
 
@@ -75,12 +75,12 @@ fn verify_should_work() {
 	assert!(sr25519::Pair::verify(&sig.clone().into(), &msg, &Keyring::Alice.public().into(),));
 
 	// different public key -> fail
-	assert!(!sr25519::Pair::verify(&sig.clone().into(), &msg, &Keyring::Bob.public().into(),));
+	assert!(!sr25519::Pair::verify(&sig.clone().into(), msg, &Keyring::Bob.public().into(),));
 
 	let msg = keccak_256(b"I am not Alice!");
 
 	// different msg -> fail
-	assert!(!sr25519::Pair::verify(&sig.into(), &msg, &Keyring::Alice.public().into()));
+	assert!(!sr25519::Pair::verify(&sig.into(), msg, &Keyring::Alice.public().into()));
 }
 
 #[test]

@@ -64,6 +64,7 @@ const GRANDPA_PROTOCOL_NAME: &str = "/paritytech/grandpa/1";
 const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
 
 impl TimeTestNet {
+	#[allow(dead_code)]
 	pub(crate) fn new(n_authority: usize, n_full: usize, test_net: Arc<TestApi>) -> Self {
 		let capacity = n_authority + n_full;
 		let mut net = TimeTestNet {
@@ -79,6 +80,7 @@ impl TimeTestNet {
 		net
 	}
 
+	#[allow(dead_code)]
 	pub(crate) fn add_authority_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
 			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
@@ -87,6 +89,7 @@ impl TimeTestNet {
 		})
 	}
 
+	#[allow(dead_code)]
 	pub(crate) fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
 			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
@@ -94,11 +97,13 @@ impl TimeTestNet {
 			..Default::default()
 		})
 	}
+
+	#[allow(dead_code)]
 	pub(crate) fn generate_blocks(
 		&mut self,
 		count: usize,
 		session_length: u64,
-		validator_set: &Vec<TimeKey>,
+		validator_set: &[TimeKey],
 	) {
 		self.peer(0).generate_blocks(count, BlockOrigin::File, |builder| {
 			let mut block = builder.build().unwrap().block;
@@ -110,6 +115,8 @@ impl TimeTestNet {
 			block
 		});
 	}
+
+	#[allow(dead_code)]
 	pub(crate) fn drop_last_worker(&mut self) {
 		self.peers.pop();
 	}
@@ -191,7 +198,7 @@ impl BuildStorage for Genesis {
 }
 
 fn make_time_ids(keys: &[TimeKeyring]) -> Vec<TimeKey> {
-	keys.iter().map(|key| Pair::from(key.clone()).public().into()).collect()
+	keys.iter().map(|key| Pair::from(*key).public().into()).collect()
 }
 
 pub(crate) fn create_time_keystore(authority: TimeKeyring) -> SyncCryptoStorePtr {
@@ -274,6 +281,7 @@ impl GenesisAuthoritySetProvider<Block> for TestApi {
 	}
 }
 
+#[allow(dead_code)]
 fn create_keystore(authority: Ed25519Keyring) -> (SyncCryptoStorePtr, tempfile::TempDir) {
 	let keystore_path = tempfile::tempdir().expect("Creates keystore path");
 	let keystore =
@@ -284,6 +292,7 @@ fn create_keystore(authority: Ed25519Keyring) -> (SyncCryptoStorePtr, tempfile::
 	(keystore, keystore_path)
 }
 
+#[allow(dead_code)]
 // Spawns grandpa voters. Returns a future to spawn on the runtime.
 fn initialize_grandpa(
 	net: &mut TimeTestNet,
@@ -307,7 +316,7 @@ fn initialize_grandpa(
 				gossip_duration: TEST_GOSSIP_DURATION,
 				justification_period: 32,
 				keystore: Some(keystore),
-				name: Some(format!("peer#{}", peer_id)),
+				name: Some(format!("peer#{peer_id}")),
 				local_role: Role::Authority,
 				observer_enabled: true,
 				telemetry: None,
@@ -331,6 +340,7 @@ fn initialize_grandpa(
 	voters.for_each(|_| async move {})
 }
 
+#[allow(dead_code)]
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
@@ -366,6 +376,7 @@ where
 	time_workers.for_each(|_| async move {})
 }
 
+#[allow(dead_code)]
 fn block_until_complete(
 	future: impl Future + Unpin,
 	net: &Arc<Mutex<TimeTestNet>>,
@@ -378,6 +389,7 @@ fn block_until_complete(
 	runtime.block_on(future::select(future, drive_to_completion));
 }
 
+#[allow(dead_code)]
 // run the voters to completion. provide a closure to be invoked after
 // the voters are spawned but before blocking on them.
 fn run_to_completion_with<F>(
@@ -425,6 +437,7 @@ where
 	highest_finalized
 }
 
+#[allow(dead_code)]
 fn run_to_completion(
 	runtime: &mut Runtime,
 	blocks: u64,
@@ -434,8 +447,9 @@ fn run_to_completion(
 	run_to_completion_with(runtime, blocks, net, peers, |_| None)
 }
 
+#[allow(dead_code)]
 fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
-	keys.iter().map(|key| key.clone().public().into()).map(|id| (id, 1)).collect()
+	keys.iter().map(|key| (*key).public().into()).map(|id| (id, 1)).collect()
 }
 
 #[cfg(feature = "expensive_tests")]

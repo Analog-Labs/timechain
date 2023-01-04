@@ -1,7 +1,5 @@
 use crate::{
-	communication::{
-		validator::{topic, GossipValidator},
-	},
+	communication::validator::{topic, GossipValidator},
 	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
@@ -10,9 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use futures::{future, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
-use sc_client_api::{
-	Backend, FinalityNotification, FinalityNotifications,
-};
+use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;

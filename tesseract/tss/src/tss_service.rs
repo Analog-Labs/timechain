@@ -119,7 +119,6 @@ impl TssService {
 
 				//if event is receiver from connector side then publish for signing
 				event_receiver = self.event_receiver.recv() => {
-					// let tss_local_state = self.tss_local_state;
 					let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 					if let Some(data) = event_receiver{
@@ -128,8 +127,6 @@ impl TssService {
 						let msg_hash = compute_message_hash(&context, data.as_bytes());
 
 						//add node in msg_pool
-						// if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
-							// self.tss_local_state.msg_pool.insert(msg_hash, data.clone().into());
 						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
 							e.insert(data.clone().into());
 

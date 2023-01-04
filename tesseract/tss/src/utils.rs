@@ -50,7 +50,6 @@ pub fn get_participant_index(peer_id: String, other_peer_id: &[String]) -> u32 {
 	other_peer_list.sort();
 
 	let list_length = other_peer_list.len();
-	// for index in 0..list_length {
 	for (index, _) in other_peer_list.iter().enumerate() {
 		if peer_id <= other_peer_list[index] {
 			return (index + 1) as u32;

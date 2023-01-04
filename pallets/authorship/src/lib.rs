@@ -275,14 +275,13 @@ pub mod pallet {
 
 				for uncle in uncles {
 					if Self::verify_uncle(&uncle, &existing_hashes, &mut acc).is_ok() {
-							let hash = uncle.hash();
-							new_uncles.push(uncle);
-							existing_hashes.push(hash);
+						let hash = uncle.hash();
+						new_uncles.push(uncle);
+						existing_hashes.push(hash);
 
-							if new_uncles.len() == MAX_UNCLES {
-								break;
-							}
-						
+						if new_uncles.len() == MAX_UNCLES {
+							break;
+						}
 					}
 				}
 			}

@@ -103,7 +103,7 @@ impl TimeTestNet {
 		&mut self,
 		count: usize,
 		session_length: u64,
-		validator_set: &[TimeKey],
+		validator_set: &Vec<TimeKey>,
 	) {
 		self.peer(0).generate_blocks(count, BlockOrigin::File, |builder| {
 			let mut block = builder.build().unwrap().block;

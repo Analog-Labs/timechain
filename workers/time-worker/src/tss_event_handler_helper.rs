@@ -1,5 +1,4 @@
 use crate::{traits::Client, worker::TimeWorker};
-use accounts::Account;
 use borsh::{BorshDeserialize, BorshSerialize};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
@@ -13,7 +12,6 @@ use tss::{
 	frost_dalek::{
 		generate_commitment_share_lists, keygen::SecretShare, Participant, SignatureAggregator,
 	},
-	signverify::sign_data,
 	tss_event_model::{
 		FilterAndPublishParticipant, OthersCommitmentShares, PartialMessageSign, PublishPeerIDCall,
 		ReceiveParamsWithPeerCall, ReceivePartialSignatureReq, ResetTSSCall, TSSEventType,
@@ -750,7 +748,7 @@ where
 				let participant_list = vec![partial_signature];
 				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
 			}
-			let message = match String::from_utf8(msg.clone()) {
+			let _message = match String::from_utf8(msg.clone()) {
 				Ok(msg) => msg,
 				Err(e) => {
 					log::error!("TSS::error in converting message to string, {}", e);
@@ -774,7 +772,7 @@ where
 
 	//Publishing the data to the network
 	pub async fn publish_to_network<T>(
-		self: &Self,
+		&self,
 		peer_id: String,
 		data: T,
 		tss_type: TSSEventType,

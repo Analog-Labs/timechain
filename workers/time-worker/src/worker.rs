@@ -1,6 +1,5 @@
 use crate::{
 	communication::{
-		time_protocol_name::gossip_protocol_name,
 		validator::{topic, GossipValidator},
 	},
 	inherents::update_shared_group_key,
@@ -12,7 +11,7 @@ use futures::{future, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use sc_client_api::{
-	Backend, BlockchainEvents, FinalityNotification, FinalityNotifications,
+	Backend, FinalityNotification, FinalityNotifications,
 };
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
@@ -26,6 +25,7 @@ use tss::{
 	utils::get_reset_tss_msg,
 };
 
+#[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	client: Arc<C>,
@@ -106,6 +106,7 @@ where
 		self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
 	}
 
+	#[allow(dead_code)]
 	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
 	fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
 		update_shared_group_key(set_id, key);

@@ -21,7 +21,7 @@ use std::collections::HashMap;
 
 impl TssService {
 	//will be run by non collector nodes
-	pub async fn handler_receive_params(&mut self, data: &Vec<u8>) {
+	pub async fn handler_receive_params(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
@@ -121,7 +121,7 @@ impl TssService {
 	}
 
 	//filter participants and publish participants to network
-	pub async fn handler_receiver_peers_with_col_participant(&mut self, data: &Vec<u8>) {
+	pub async fn handler_receiver_peers_with_col_participant(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::ReceivedParams {
 			if let Ok(data) = FilterAndPublishParticipant::try_from_slice(data) {
@@ -161,7 +161,7 @@ impl TssService {
 
 	//receive participant and publish to network secret share to network when all participants are
 	// received
-	pub async fn handler_receive_participant(&mut self, data: &Vec<u8>) {
+	pub async fn handler_receive_participant(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 		//receive participants and update state of node
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::ReceivedPeers {
@@ -238,7 +238,7 @@ impl TssService {
 	}
 
 	//receives secret share form all other nodes which are participating in the tss
-	pub async fn handler_receive_secret_share(&mut self, data: &Vec<u8>) {
+	pub async fn handler_receive_secret_share(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 		//receive secret shares and update state of node
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::DkgGeneratedR1 {
@@ -427,7 +427,7 @@ impl TssService {
 	}
 
 	//This call is received by participant to generate its partial signature
-	pub async fn handler_partial_signature_generate_req(&mut self, data: &Vec<u8>) {
+	pub async fn handler_partial_signature_generate_req(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		if self.tss_local_state.tss_process_state >= TSSLocalStateType::StateFinished {
@@ -494,7 +494,7 @@ impl TssService {
 	}
 
 	//this call is received by aggregator to make the threshold signature
-	pub async fn handler_partial_signature_received(&mut self, data: &Vec<u8>) {
+	pub async fn handler_partial_signature_received(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
 
 		//check if aggregator
@@ -644,7 +644,7 @@ impl TssService {
 	}
 
 	//This call is received by participant to verify the threshold signature
-	pub async fn handler_verify_threshold_signature(&mut self, data: &Vec<u8>) {
+	pub async fn handler_verify_threshold_signature(&mut self, data: &[u8]) {
 		if self.tss_local_state.tss_process_state >= TSSLocalStateType::StateFinished {
 			if let Ok(threshold_signature) = VerifyThresholdSignatureReq::try_from_slice(data) {
 				if self.tss_local_state.msg_pool.get(&threshold_signature.msg_hash).is_some() {
@@ -686,7 +686,7 @@ impl TssService {
 	}
 
 	//This call resets the tss state data to empty/initial state
-	pub async fn handler_reset_tss_state(&mut self, data: &Vec<u8>) {
+	pub async fn handler_reset_tss_state(&mut self, data: &[u8]) {
 		//reset TSS State
 		if let Ok(data) = ResetTSSCall::try_from_slice(data) {
 			log::error!("TSS::Resetting TSS due to reason {} ", data.reason);

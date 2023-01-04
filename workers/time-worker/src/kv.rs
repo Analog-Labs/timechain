@@ -1,6 +1,6 @@
 use log::warn;
 use sp_application_crypto::Public;
-use sp_core::{keccak_256, ByteArray, Pair};
+use sp_core::{keccak_256, Pair};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::convert::{From, TryInto};
 use time_primitives::{
@@ -12,7 +12,7 @@ use time_primitives::{
 pub struct TimeKeyvault(Option<SyncCryptoStorePtr>);
 
 impl TimeKeyvault {
-	pub fn authority_id(&self, keys: &[TimePublic]) -> Option<sp_core::sr25519::Public> {
+	pub fn authority_id(&self, _keys: &[TimePublic]) -> Option<sp_core::sr25519::Public> {
 		let store = self.0.clone()?;
 
 		let public = SyncCryptoStore::sr25519_public_keys(&*store, KEY_TYPE);

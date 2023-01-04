@@ -128,8 +128,10 @@ impl TssService {
 						let msg_hash = compute_message_hash(&context, data.as_bytes());
 
 						//add node in msg_pool
-						if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
-							self.tss_local_state.msg_pool.insert(msg_hash, data.clone().into());
+						// if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
+							// self.tss_local_state.msg_pool.insert(msg_hash, data.clone().into());
+						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
+							e.insert(data.clone().into());
 
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash){

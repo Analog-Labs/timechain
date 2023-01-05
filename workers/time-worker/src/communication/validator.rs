@@ -1,6 +1,6 @@
 use crate::TW_LOG;
 use borsh::BorshDeserialize;
-use log::{debug, error, info};
+use log::{debug, info};
 use parking_lot::{Mutex, RwLock};
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
@@ -11,6 +11,8 @@ use tokio::time::Instant;
 use tss::tss_event_model::TSSData;
 
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
+
+#[allow(dead_code)]
 
 pub type MessageHash = [u8; 8];
 
@@ -28,6 +30,7 @@ struct KnownVotes<B: Block> {
 }
 
 impl<B: Block> KnownVotes<B> {
+	#[allow(dead_code)]
 	pub fn new() -> Self {
 		Self {
 			last_done: None,
@@ -35,17 +38,20 @@ impl<B: Block> KnownVotes<B> {
 		}
 	}
 
+	#[allow(dead_code)]
 	/// Create new round votes set if not already present.
 	fn insert(&mut self, round: NumberFor<B>) {
 		self.live.entry(round).or_default();
 	}
 
+	#[allow(dead_code)]
 	/// Remove `round` and older from live set, update `last_done` accordingly.
 	fn conclude(&mut self, round: NumberFor<B>) {
 		self.live.retain(|&number, _| number > round);
 		self.last_done = self.last_done.max(Some(round));
 	}
 
+	#[allow(dead_code)]
 	/// Return true if `round` is newer than previously concluded rounds.
 	///
 	/// Latest concluded round is still considered alive to allow proper gossiping for it.
@@ -53,11 +59,13 @@ impl<B: Block> KnownVotes<B> {
 		Some(*round) >= self.last_done
 	}
 
+	#[allow(dead_code)]
 	/// Add new _known_ `hash` to the round's known votes.
 	fn add_known(&mut self, round: &NumberFor<B>, hash: MessageHash) {
 		self.live.get_mut(round).map(|known| known.insert(hash));
 	}
 
+	#[allow(dead_code)]
 	/// Check if `hash` is already part of round's known votes.
 	fn is_known(&self, round: &NumberFor<B>, hash: &MessageHash) -> bool {
 		self.live.get(round).map(|known| known.contains(hash)).unwrap_or(false)
@@ -77,6 +85,7 @@ impl<B> GossipValidator<B>
 where
 	B: Block,
 {
+	#[allow(dead_code)]
 	pub fn new() -> GossipValidator<B> {
 		GossipValidator {
 			topic: topic::<B>(),
@@ -85,6 +94,7 @@ where
 		}
 	}
 
+	#[allow(dead_code)]
 	/// Note a voting round.
 	///
 	/// Noting round will start a live `round`.
@@ -93,6 +103,7 @@ where
 		self.known_votes.write().insert(round);
 	}
 
+	#[allow(dead_code)]
 	/// Conclude a voting round.
 	///
 	/// This can be called once round is complete so we stop gossiping for it.
@@ -113,7 +124,7 @@ where
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		if let Ok(msg) = TSSData::deserialize(&mut data) {
-			let msg_hash = twox_64(data);
+			let _msg_hash = twox_64(data);
 
 			if true {
 				// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
@@ -130,8 +141,8 @@ where
 	}
 
 	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
-		let known_votes = self.known_votes.read();
-		Box::new(move |_topic, mut data| {
+		let _known_votes = self.known_votes.read();
+		Box::new(move |_topic, mut _data| {
 			/*			let msg = match TSSData::deserialize(&mut data) {
 							Ok(vote) => vote,
 							Err(_) => return true,
@@ -155,8 +166,8 @@ where
 			}
 		};
 
-		let known_votes = self.known_votes.read();
-		Box::new(move |who, intent, _topic, mut data| {
+		let _known_votes = self.known_votes.read();
+		Box::new(move |who, intent, _topic, mut _data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
 				return do_rebroadcast;
 			}

@@ -16,18 +16,14 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::types::*;
-	use frame_support::{
-		pallet_prelude::{ProvideInherent, Weight, *},
-		sp_runtime::traits::{Hash, Scale},
-		traits::{Randomness, Time},
-	};
+
+	use onchain_task::types as task_types;
+
+	type BlockHeight = u64;
+
+	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
-	use sp_runtime::{
-		app_crypto::RuntimePublic,
-		traits::{AppVerify, IdentifyAccount},
-		MultiSignature,
-	};
 	use sp_std::{result, vec::Vec};
 	use time_primitives::{
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
@@ -50,7 +46,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type StoreRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 		type Moment: Parameter
 			+ Default
 			+ Scale<Self::BlockNumber, Output = Self::Moment>
@@ -59,10 +54,6 @@ pub mod pallet {
 			+ StaticTypeInfo;
 		type Timestamp: Time<Moment = Self::Moment>;
 	}
-
-	#[pallet::storage]
-	#[pallet::getter(fn get_nonce)]
-	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tesseract_members)]
@@ -81,21 +72,23 @@ pub mod pallet {
 	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 32], OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn signature_store)]
-	pub type SignatureStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::Hash, SignatureData, OptionQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::Hash, SignatureStorage<T::Hash, T::Moment>, OptionQuery>;
+	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		task_types::TaskId,
+		Blake2_128Concat,
+		BlockHeight,
+		SignatureStorage<T::Moment>,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The event data for stored signature
 		/// the signature id that uniquely identify the signature
-		SignatureStored(T::Hash, SignatureData),
+		SignatureStored(SignatureData),
 
 		/// A tesseract Node has been added as a member with it's role
 		TesseractMemberAdded(T::AccountId, TesseractRole),
@@ -135,7 +128,7 @@ pub mod pallet {
 						// We don't need to set the inherent data every block, it is only needed
 						// once.
 						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
-						if pubk == None {
+						if pubk.is_none() {
 							Some(Call::submit_tss_group_key {
 								set_id: inherent_data.set_id,
 								group_key: inherent_data.group_key,
@@ -186,26 +179,16 @@ pub mod pallet {
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
-			network_id: Vec<u8>,
+			task_id: task_types::TaskId,
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(
-				TesseractMembers::<T>::contains_key(caller.clone()),
-				Error::<T>::UnknownTesseract
-			);
-			let random_value = Self::random_hash(&caller);
-			let storage_data = SignatureStorage::new(
-				random_value.clone(),
-				signature_data.clone(),
-				network_id.to_vec().clone(),
-				block_height,
-				T::Timestamp::now(),
-			);
+			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
+			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
-			<SignatureStoreData<T>>::insert(random_value.clone(), storage_data);
+			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
 
-			Self::deposit_event(Event::SignatureStored(random_value, signature_data));
+			Self::deposit_event(Event::SignatureStored(signature_data));
 
 			Ok(())
 		}
@@ -248,7 +231,7 @@ pub mod pallet {
 			group_key: [u8; 32],
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
-			<TssGroupKey<T>>::insert(set_id, &group_key);
+			<TssGroupKey<T>>::insert(set_id, group_key);
 			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
 
 			Ok(().into())
@@ -256,18 +239,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn random_hash(sender: &T::AccountId) -> T::Hash {
-			let nonce = <Nonce<T>>::get();
-			let seed = T::StoreRandomness::random_seed();
-
-			T::Hashing::hash_of(&(seed, sender, nonce))
-		}
-
 		pub fn api_store_signature(
 			auth_id: TimeId,
 			auth_sig: TimeSignature,
 			signature_data: SignatureData,
-			network_id: Vec<u8>,
+			task_id: task_types::TaskId,
 			block_height: u64,
 		) {
 			use sp_runtime::traits::Verify;
@@ -285,18 +261,11 @@ pub mod pallet {
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
 				return;
 			}
-			let random_value = Self::random_hash(&account_id);
-			let storage_data = SignatureStorage::new(
-				random_value.clone(),
-				signature_data.clone(),
-				network_id.to_vec().clone(),
-				block_height,
-				T::Timestamp::now(),
-			);
+			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
-			<SignatureStoreData<T>>::insert(random_value.clone(), storage_data);
+			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
 
-			Self::deposit_event(Event::SignatureStored(random_value, signature_data));
+			Self::deposit_event(Event::SignatureStored(signature_data));
 		}
 	}
 }

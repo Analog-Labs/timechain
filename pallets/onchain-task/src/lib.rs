@@ -7,7 +7,7 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 
 pub mod weights;
 
@@ -118,7 +118,7 @@ pub mod pallet {
 			// build the object
 			let task = OnchainTask { task_id, frequency };
 
-			match Self::task_store(&chain) {
+			match Self::task_store(chain) {
 				Some(ref mut tasks) => {
 					match tasks.binary_search(&task) {
 						Ok(index) => {
@@ -131,14 +131,12 @@ pub mod pallet {
 							// not found then insert the new one and sort the tasks
 							tasks.push(task);
 							tasks.sort();
-							<OnchainTaskStore<T>>::insert(&chain, tasks);
+							<OnchainTaskStore<T>>::insert(chain, tasks);
 						},
 					}
 				},
 				None => {
-					let mut tasks = vec![];
-					tasks.push(task);
-					<OnchainTaskStore<T>>::insert(&chain, tasks);
+					<OnchainTaskStore<T>>::insert(chain, vec![task]);
 				},
 			};
 		}

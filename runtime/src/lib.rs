@@ -31,7 +31,7 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
+	ApplyExtrinsicResult, MultiSignature
 };
 
 use frame_system::EnsureRootWithSuccess;
@@ -65,6 +65,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 pub use pallet_tesseract_sig_storage;
+use onchain_task_pallet::types::TaskId;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
@@ -514,8 +515,6 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
-impl pallet_randomness_collective_flip::Config for Runtime {}
-
 parameter_types! {
 	pub EpochDuration: u64 =  MINUTES as u64;
 
@@ -890,7 +889,7 @@ where
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 20% to treasury, 80% to author
-			let mut split = fees.ration(80, 20);
+			let split = fees.ration(80, 20);
 			use pallet_treasury::Pallet as Treasury;
 			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
@@ -922,19 +921,18 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type StoreRandomness = RandomnessCollectiveFlip;
 	type Moment = u64;
 	type Timestamp = Timestamp;
 }
 
 parameter_types! {
-	pub MinVestedTransfer: Balance = 1 * ANLOG;
+	pub MinVestedTransfer: Balance = ANLOG;
 	pub const MaxVestingSchedules: u32 = 100;
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaxApprovals: u32 = 100;
 	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
-	pub const SpendPeriod: BlockNumber = 1 * DAYS;
+	pub const ProposalBondMinimum: Balance = DOLLARS;
+	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
 }
@@ -990,7 +988,6 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
 		Timestamp: pallet_timestamp,
 		Babe: pallet_babe,
 		Grandpa: pallet_grandpa,
@@ -1263,10 +1260,10 @@ impl_runtime_apis! {
 			auth_key: time_primitives::TimeId,
 			auth_sig: time_primitives::TimeSignature,
 			signature_data: time_primitives::SignatureData,
-			network_id: Vec<u8>,
+			task_id: TaskId,
 			block_height: u64,)
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, network_id, block_height);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
 		}
 	}
 

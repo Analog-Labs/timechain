@@ -22,8 +22,8 @@ impl Account {
 			match SyncCryptoStore::sr25519_generate_new(&*keystore, key_type, Some(&key_pair.1)) {
 				Ok(keypair) => keypair,
 				Err(e) => {
-					log::error!("Error generating keypair: {:?}", e);
-					panic!("Error generating keypair: {:?}", e);
+					log::error!("Error generating keypair: {e:?}");
+					panic!("Error generating keypair: {e:?}");
 				},
 			};
 
@@ -32,13 +32,13 @@ impl Account {
 
 	//get current account
 	pub fn get_current_account(&self) -> Public {
-		return self.accounts.clone();
+		self.accounts
 	}
 
 	//store account to a json file
 	pub fn gen_key_file(&self, path: &str) -> Result<(), Box<dyn Error>> {
 		let mut file = std::fs::File::create(path)?;
-		file.write_all(&self.accounts.to_vec())?;
+		file.write_all(&self.accounts)?;
 		Ok(())
 	}
 

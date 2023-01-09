@@ -36,6 +36,7 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
 	sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 
+#[allow(clippy::type_complexity)]
 pub fn new_partial(
 	config: &Configuration,
 ) -> Result<
@@ -107,14 +108,11 @@ pub fn new_partial(
 	)?;
 
 	let babe_config = sc_consensus_babe::configuration(&*client)?;
-	let (block_import, babe_link) = sc_consensus_babe::block_import(
-		babe_config.clone(),
-		grandpa_block_import.clone(),
-		client.clone(),
-	)?;
+	let (block_import, babe_link) =
+		sc_consensus_babe::block_import(babe_config, grandpa_block_import.clone(), client.clone())?;
 
 	let slot_duration = babe_link.config().slot_duration();
-	let justification_import = grandpa_block_import.clone();
+	let justification_import = grandpa_block_import;
 
 	let import_queue = sc_consensus_babe::import_queue(
 		babe_link.clone(),
@@ -155,7 +153,7 @@ pub fn new_partial(
 	})
 }
 
-fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
+fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
 	// FIXME: here would the concrete keystore be built,
 	//        must return a concrete type (NOT `LocalKeystore`) that
 	//        implements `CryptoStore` and `SyncCryptoStore`
@@ -180,8 +178,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			Ok(k) => keystore_container.set_remote_keystore(k),
 			Err(e) =>
 				return Err(ServiceError::Other(format!(
-					"Error hooking up remote keystore for {}: {}",
-					url, e
+					"Error hooking up remote keystore for {url}: {e}"
 				))),
 		};
 	}

@@ -41,8 +41,8 @@ pub struct SigWeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
 	// Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
     fn add_member() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(T::DbWeight::get().writes(1 as u64))
+        Weight::from_ref_time(33_000_000_u64)
+            .saturating_add(T::DbWeight::get().writes(1_u64))
     }
 
     // Storage: TesseractSigStorage TesseractMembers (r:1 w:0)
@@ -50,23 +50,23 @@ impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
     /// The range of component `s` is `[0, 100]`.
 
     fn store_signature_data() -> Weight {
-        Weight::from_ref_time(39_000_000 as u64)
+        Weight::from_ref_time(39_000_000_u64)
             // Standard Error: 2_151
-            .saturating_add(Weight::from_ref_time(68_175 as u64).saturating_mul(100 as u64))
-            .saturating_add(T::DbWeight::get().reads(1 as u64))
-            .saturating_add(T::DbWeight::get().writes(1 as u64))
+            .saturating_add(Weight::from_ref_time(68_175_u64).saturating_mul(100_u64))
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
     }
 
     // Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
     fn remove_member() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(T::DbWeight::get().writes(1 as u64))
+        Weight::from_ref_time(33_000_000_u64)
+            .saturating_add(T::DbWeight::get().writes(1_u64))
     }
 
     // Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
 	fn submit_tss_group_key() -> Weight {
-		Weight::from_ref_time(3_469_000_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_ref_time(3_469_000_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 
 }
@@ -76,25 +76,25 @@ impl WeightInfo for () {
 
     // Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
     fn add_member() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+        Weight::from_ref_time(33_000_000_u64)
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
     }
 
     fn store_signature_data() -> Weight {
-		Weight::from_ref_time(33_000_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_ref_time(33_000_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
 	   // Storage: TesseractSigStorage TesseractMembers (r:0 w:1)
 	   fn remove_member() -> Weight {
-        Weight::from_ref_time(33_000_000 as u64)
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+        Weight::from_ref_time(33_000_000_u64)
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
     }
     
     // Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
 	fn submit_tss_group_key() -> Weight {
-		Weight::from_ref_time(3_469_000_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_ref_time(3_469_000_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
     
 }

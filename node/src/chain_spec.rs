@@ -5,10 +5,13 @@ use sp_consensus_babe::AuthorityId as BabeId;
 
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	Perbill,
+};
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
-	VestingConfig, WASM_BINARY,
+	VestingConfig, WASM_BINARY, StakingConfig
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -53,7 +56,7 @@ where
 pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
-		get_account_id_from_seed::<sr25519::Public>(&format!("{s}/slash")),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", s)),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 	)
@@ -341,7 +344,16 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 
-		staking: Default::default(),
+		// staking: Default::default(),
+		staking: StakingConfig {
+			validator_count: initial_authorities.len() as u32,
+			minimum_validator_count: initial_authorities.len() as u32,
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			// stakers,
+			// TODO: ForceEra::ForceNone
+			..Default::default()
+		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
 	}

@@ -423,8 +423,8 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	// TODO
-	type ValidatorIdOf = ();
-	// type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	// type ValidatorIdOf = ();
+	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
@@ -652,10 +652,10 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	// Six sessions in an era (24 hours).
 	// TODO
-	pub const SessionsPerEra: SessionIndex = 6;
+	pub const SessionsPerEra: SessionIndex = 2;//6;
 	// 28 eras for unbonding (28 days).
-	pub const BondingDuration: sp_staking::EraIndex = 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 27;
+	pub const BondingDuration: sp_staking::EraIndex = 1;//28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 1;//27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -663,12 +663,28 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
+// pub struct OnChainSeqPhragmen;
+// impl onchain::Config for OnChainSeqPhragmen {
+// 	type System = Runtime;
+// 	type Solver = SequentialPhragmen<AccountId, Perbill>;
+// 	type DataProvider = Staking;
+// 	type WeightInfo = ();
+// }
+
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, Perbill>;
-	type DataProvider = Staking;
-	type WeightInfo = ();
+	type Solver = SequentialPhragmen<
+		AccountId,
+		pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+	>;
+	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+	type WeightInfo = ();//frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+}
+
+impl onchain::BoundedConfig for OnChainSeqPhragmen {
+	type VotersBound = MaxElectingVoters;
+	type TargetsBound = ConstU32<2_000>;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -676,49 +692,38 @@ impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
+	// type CurrencyToVote = U128CurrencyToVote;
 	type CurrencyToVote = CurrencyToVote;
-	// TODO
-	// type RewardRemainder = Treasury;
-	type RewardRemainder = ();
-
+	type RewardRemainder = Treasury;
 	type RuntimeEvent = RuntimeEvent;
-	// TODO
-	// type Slash = Treasury;
-	type Slash = ();
-
-	type Reward = ();
+	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	// A super-majority of the council can cancel the slash.
-	// TODO
-	// type SlashCancelOrigin = SlashCancelOrigin;
+	/// A super-majority of the council can cancel the slash.
+	// type SlashCancelOrigin = EitherOfDiverse<
+	// 	EnsureRoot<AccountId>,
+	// 	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
+	// >;
 	type SlashCancelOrigin = EnsureRoot<AccountId>;
-
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
-	type NextNewSession = Session;
-	// TODO
-	// type ElectionProvider = ();
 	type ElectionProvider = ElectionProviderMultiPhase;
-
 	type GenesisElectionProvider = onchain::UnboundedExecution<OnChainSeqPhragmen>;
-
+	// type VoterList = BagsList;
 	type VoterList = VoterList;
-	type TargetList = UseValidatorsMap<Self>;
-	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
-	type BenchmarkingConfig = StakingBenchmarkingConfig;
-
-	// TODO
+	type MaxUnlockingChunks = ConstU32<32>;
 	// type OnStakerSlash = NominationPools;
 	type OnStakerSlash = ();
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type BenchmarkingConfig = StakingBenchmarkingConfig;
 
-	// TODO
-	type WeightInfo = ();
-	// type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type TargetList = UseValidatorsMap<Self>;
 }
 
 parameter_types! {

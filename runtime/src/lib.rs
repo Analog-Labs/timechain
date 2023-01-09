@@ -36,6 +36,8 @@ use sp_runtime::{
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
+#[cfg(any(feature = "std", test))]
+pub use pallet_staking::StakerStatus;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -422,8 +424,8 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	// TODO
-	type ValidatorIdOf = ();
-	// type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	// type ValidatorIdOf = ();
+	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
@@ -515,7 +517,7 @@ where
 impl pallet_randomness_collective_flip::Config for Runtime {}
 
 parameter_types! {
-	pub EpochDuration: u64 = 2 * MINUTES as u64;
+	pub EpochDuration: u64 =  MINUTES as u64;
 
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =
@@ -653,10 +655,10 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	// Six sessions in an era (24 hours).
 	// TODO
-	pub const SessionsPerEra: SessionIndex = 6;
+	pub const SessionsPerEra: SessionIndex = 2;//6;
 	// 28 eras for unbonding (28 days).
-	pub const BondingDuration: sp_staking::EraIndex = 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 27;
+	pub const BondingDuration: sp_staking::EraIndex = 1;//28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 2;//27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -680,12 +682,12 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyToVote = CurrencyToVote;
 	// TODO
 	// type RewardRemainder = Treasury;
-	type RewardRemainder = ();
+	type RewardRemainder = Treasury;//();
 
 	type RuntimeEvent = RuntimeEvent;
 	// TODO
 	// type Slash = Treasury;
-	type Slash = ();
+	type Slash = Treasury;
 
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;

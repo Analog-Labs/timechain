@@ -8571,6 +8571,7 @@ dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "rand 0.8.5",
  "runtime-common",
  "sc-basic-authorship",
  "sc-chain-spec",

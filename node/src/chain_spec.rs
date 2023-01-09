@@ -5,16 +5,16 @@ use sp_consensus_babe::AuthorityId as BabeId;
 
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Printable, Verify};
+use sp_runtime::{traits::{IdentifyAccount, Printable, Verify}, Perbill};
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
-	VestingConfig, WASM_BINARY,
+	VestingConfig, WASM_BINARY,StakingConfig,StakerStatus, DOLLARS, MaxNominations
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
 
-/// Total supply of token is 90_570_710.
+/// Total supply of token is 90_570_710.             
 /// Initially we are distributing the total supply to the multiple accounts which is representing
 /// its category pool which we will update in later part of development.
 const SEED_ROUND_SUPPLY: Balance = ANLOG * 24_275_364;
@@ -53,7 +53,7 @@ where
 pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
-		get_account_id_from_seed::<sr25519::Public>(&format!("{s}/slash")),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", s)),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 	)
@@ -82,6 +82,8 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
+				// initial nominators
+				vec![],
 				// Pre-funded accounts
 				vec![
 					(
@@ -164,12 +166,14 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
+				// initial nominators
+				vec![],
 				// Pre-funded accounts
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 20_000_000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 10_000_000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 10_000_000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10_000_000),
 					(
 						hex!["88fd77d706e168d78713a6a927c1ddfae367b081fb2829b119bbcc6db9af401d"]
 							.into(),
@@ -251,6 +255,8 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
+				// initial nominators
+				vec![],
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
@@ -291,6 +297,7 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	root_key: AccountId,
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
+	initial_nominators: Vec<AccountId>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -306,6 +313,30 @@ fn testnet_genesis(
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
+
+	const ENDOWMENT: Balance = 10 * ANLOG;
+	const STASH: Balance = ENDOWMENT / 100000000;
+	let mut rng = rand::thread_rng();
+	let stakers = initial_authorities
+		.iter()
+		.map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+		.chain(initial_nominators.iter().map(|x| {
+			use rand::{seq::SliceRandom, Rng};
+			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
+			let count = rng.gen::<usize>() % limit;
+			let nominations = initial_authorities
+				.as_slice()
+				.choose_multiple(&mut rng, count)
+				.into_iter()
+				.map(|choice| choice.0.clone())
+				.collect::<Vec<_>>();
+			(x.clone(), x.clone(), STASH, StakerStatus::Nominator(nominations))
+		}))
+		.collect::<Vec<_>>();
+
+		println!("----->>> {:?}",stakers);
+		// 10000000000
+		// 100000000
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -342,7 +373,14 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 
-		staking: Default::default(),
+		staking: StakingConfig {
+			validator_count: initial_authorities.len() as u32,
+			minimum_validator_count: initial_authorities.len() as u32,
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			// stakers,
+			..Default::default()
+		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
 	}

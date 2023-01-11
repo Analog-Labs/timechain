@@ -423,7 +423,6 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	// TODO
-	// type ValidatorIdOf = ();
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 
 	type ShouldEndSession = Babe;
@@ -662,14 +661,6 @@ parameter_types! {
 	// 16
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
-
-// pub struct OnChainSeqPhragmen;
-// impl onchain::Config for OnChainSeqPhragmen {
-// 	type System = Runtime;
-// 	type Solver = SequentialPhragmen<AccountId, Perbill>;
-// 	type DataProvider = Staking;
-// 	type WeightInfo = ();
-// }
 
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {

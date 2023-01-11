@@ -112,21 +112,22 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		if let Ok(msg) = TSSData::deserialize(&mut data) {
-			let msg_hash = twox_64(data);
+		info!(target: TW_LOG, "Message kept from {}", sender.to_string());
+		// This passes message to worker
+		return ValidationResult::ProcessAndKeep(self.topic);
+		/*		if let Ok(msg) = TSSData::deserialize(&mut data) {
+					let msg_hash = twox_64(data);
 
-			if true {
-				// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
-				info!(target: TW_LOG, "Message kept from {}", sender.to_string());
-				// This passes message to worker
-				return ValidationResult::ProcessAndKeep(self.topic);
-			} else {
-				// TODO: report peer
-				info!(target: TW_LOG, "Bad signature on message: {:?}, from: {:?}", msg, sender);
-			}
-		}
+					if true {
+						// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
+					} else {
+						// TODO: report peer
+						info!(target: TW_LOG, "Bad signature on message: {:?}, from: {:?}", msg, sender);
+					}
+				}
 
-		ValidationResult::Discard
+				ValidationResult::Discard
+		*/
 	}
 
 	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {

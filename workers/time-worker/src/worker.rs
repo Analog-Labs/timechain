@@ -24,8 +24,8 @@ use time_primitives::{crypto::Signature, TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
+	utils::{get_reset_tss_msg, make_gossip_tss_data},
 };
-use tss::utils::{get_reset_tss_msg, make_gossip_tss_data};
 
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, C, R, BE, SO> {
@@ -33,7 +33,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	finality_notifications: FinalityNotifications<B>,
-	gossip_engine: Arc<Mutex<GossipEngine<B>>>,
+	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
@@ -70,7 +70,7 @@ where
 			client,
 			backend,
 			runtime,
-			gossip_engine: Arc::new(Mutex::new(gossip_engine)),
+			gossip_engine,
 			gossip_validator,
 			sync_oracle,
 			kv,
@@ -94,15 +94,17 @@ where
 			let msg = make_gossip_tss_data(
 				id.to_string(),
 				get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
-			TSSEventType::ReceiveParams,
-			).unwrap();
-			self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
+				TSSEventType::ReceiveParams,
+			)
+			.unwrap();
+			self.send(msg);
 			info!(target: TW_LOG, "Gossip is sent.");
 		}
 	}
 
-	pub(crate) fn send(&self, msg: Vec<u8>) {
-		self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
+	pub(crate) fn send(&mut self, msg: Vec<u8>) {
+		info!(target: TW_LOG, "Sending new gossip message");
+		self.gossip_engine.gossip_message(topic::<B>(), msg, false);
 	}
 
 	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
@@ -112,6 +114,7 @@ where
 
 	/// On each gossip we process it, verify signature and update our tracker
 	async fn on_gossip(&mut self, tss_gossiped_data: TSSData) {
+		info!(target: TW_LOG, "Processing new gossip");
 		match tss_gossiped_data.tss_event_type {
 			//nodes will be receiving this event to make participant using params
 			TSSEventType::ReceiveParams => {
@@ -165,13 +168,16 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
-		let mut gossips =
-			Box::pin(self.gossip_engine.lock().messages_for(topic::<B>()).filter_map(
-				|notification| async move {
+		let mut gossips = Box::pin(
+			self.gossip_engine
+				.messages_for(topic::<B>())
+				.filter_map(|notification| async move {
 					debug!(target: TW_LOG, "Got new gossip message");
-					TSSData::deserialize(&mut &notification.message[..]).ok()
-				},
-			));
+					let data = TSSData::try_from_slice(&notification.message).ok();
+					data
+				})
+				.fuse(),
+		);
 		loop {
 			// making sure majority is synchronising or waiting for the sync
 			while self.sync_oracle.is_major_syncing() {
@@ -179,20 +185,16 @@ where
 				futures_timer::Delay::new(Duration::from_secs(1)).await;
 			}
 
-			let engine = self.gossip_engine.clone();
-			let gossip_engine = future::poll_fn(|cx| engine.lock().poll_unpin(cx));
+			let mut engine = &mut self.gossip_engine;
+			//let gossip_engine = future::poll_fn(|cx| engine.lock().poll_unpin(cx));
 
-			futures::select! {
-				gossip = gossips.next().fuse() => {
-					if let Some(gossip) = gossip {
-						self.on_gossip(gossip).await;
-					} else {
-						debug!(
-							target: TW_LOG,
-							"no new gossips"
-						);
-						continue;
-					}
+			futures::select_biased! {
+				_ = engine => {
+					error!(
+						target: TW_LOG,
+						"Gossip engine has terminated."
+					);
+					return;
 				},
 				notification = self.finality_notifications.next().fuse() => {
 					if let Some(notification) = notification {
@@ -202,16 +204,18 @@ where
 							target: TW_LOG,
 							"no new finality notifications"
 						);
-						continue;
 					}
 				},
-				_ = gossip_engine.fuse() => {
-					error!(
-						target: TW_LOG,
-						"Gossip engine has terminated."
-					);
-					return;
-				}
+				gossip = gossips.next() => {
+					if let Some(gossip) = gossip {
+						self.on_gossip(gossip).await;
+					} else {
+						debug!(
+							target: TW_LOG,
+							"no new gossips"
+						);
+					}
+				},
 			}
 		}
 	}

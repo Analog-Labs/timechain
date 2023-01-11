@@ -66,6 +66,7 @@ where
 						peer_id_data,
 						TSSEventType::ReceivePeerIDForIndex,
 					) {
+						log::debug!("TSS: Sending ReceivePeerIDForIndex");
 						self.send(data.into());
 					} else {
 						log::error!("TSS::Unable to encode gossip data for participant creation");
@@ -788,7 +789,7 @@ where
 
 	//Publishing the data to the network
 	pub async fn publish_to_network<T>(
-		self: &Self,
+		self: &mut Self,
 		peer_id: String,
 		data: T,
 		tss_type: TSSEventType,

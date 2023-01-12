@@ -24,7 +24,7 @@ use time_primitives::{crypto::Signature, TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
-	utils::{get_reset_tss_msg, make_gossip_tss_data},
+	utils::{get_receive_params_msg, get_reset_tss_msg, make_gossip_tss_data},
 };
 
 /// Our structure, which holds refs to everything we need to operate
@@ -91,6 +91,8 @@ where
 		// starting TSS initialization if not yet done
 		if self.tss_local_state.local_peer_id.is_none() {
 			self.tss_local_state.local_peer_id = Some(id.to_string());
+			// TODO: reset if not all comply
+			// slashing goes below too?
 			let msg = make_gossip_tss_data(
 				id.to_string(),
 				get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
@@ -98,6 +100,21 @@ where
 			)
 			.unwrap();
 			self.send(msg);
+			// initialize TSS
+			let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+			if let Ok(peer_id_data) =
+				get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
+			{
+				if let Ok(data) =
+					make_gossip_tss_data(local_peer_id, peer_id_data, TSSEventType::ReceiveParams)
+				{
+					self.send(data);
+					info!("TSS peer collection req sent");
+				}
+			} else {
+				log::error!("Unable to make publish peer id msg");
+			}
+
 			info!(target: TW_LOG, "Gossip is sent.");
 		}
 	}
@@ -173,8 +190,7 @@ where
 				.messages_for(topic::<B>())
 				.filter_map(|notification| async move {
 					debug!(target: TW_LOG, "Got new gossip message");
-					let data = TSSData::try_from_slice(&notification.message).ok();
-					data
+					TSSData::try_from_slice(&notification.message).ok()
 				})
 				.fuse(),
 		);
@@ -186,7 +202,6 @@ where
 			}
 
 			let mut engine = &mut self.gossip_engine;
-			//let gossip_engine = future::poll_fn(|cx| engine.lock().poll_unpin(cx));
 
 			futures::select_biased! {
 				_ = engine => {

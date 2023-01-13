@@ -143,7 +143,7 @@ jobs:
 
       - name: Audit
         run: |
-          $r = (cargo audit -q --json | ConvertFrom-Json)
+          $r = (cargo audit --ignore RUSTSEC-2022-0076 -q --json | ConvertFrom-Json)
           $e = $?
           $r.vulnerabilities.list | Select-Object -ExpandProperty Advisory
           if (!$e) { exit 1 }

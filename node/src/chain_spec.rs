@@ -59,6 +59,7 @@ pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, Grand
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", s)),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
+		//node online Id missing
 	)
 }
 

@@ -31,7 +31,7 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature
+	ApplyExtrinsicResult, MultiSignature,
 };
 
 use frame_system::EnsureRootWithSuccess;
@@ -62,8 +62,8 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-pub use pallet_tesseract_sig_storage;
 use onchain_task_pallet::types::TaskId;
+pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
@@ -670,7 +670,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 		pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
 	>;
 	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
-	type WeightInfo = ();//frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = (); //frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 }
 
 impl onchain::BoundedConfig for OnChainSeqPhragmen {
@@ -807,7 +807,7 @@ parameter_types! {
 impl pallet_bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
-	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>; 
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
 }

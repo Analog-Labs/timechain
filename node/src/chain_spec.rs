@@ -10,8 +10,8 @@ use sp_runtime::{
 	Perbill,
 };
 use timechain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
-	VestingConfig, WASM_BINARY, StakingConfig
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, StakingConfig, SudoConfig,
+	SystemConfig, VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";

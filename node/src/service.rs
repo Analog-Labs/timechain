@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use connector::ethereum::SwapToken;
 use sc_client_api::BlockBackend;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
@@ -36,7 +37,6 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
 	sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 
-#[allow(clippy::type_complexity)]
 pub fn new_partial(
 	config: &Configuration,
 ) -> Result<
@@ -108,11 +108,14 @@ pub fn new_partial(
 	)?;
 
 	let babe_config = sc_consensus_babe::configuration(&*client)?;
-	let (block_import, babe_link) =
-		sc_consensus_babe::block_import(babe_config, grandpa_block_import.clone(), client.clone())?;
+	let (block_import, babe_link) = sc_consensus_babe::block_import(
+		babe_config.clone(),
+		grandpa_block_import.clone(),
+		client.clone(),
+	)?;
 
 	let slot_duration = babe_link.config().slot_duration();
-	let justification_import = grandpa_block_import;
+	let justification_import = grandpa_block_import.clone();
 
 	let import_queue = sc_consensus_babe::import_queue(
 		babe_link.clone(),
@@ -132,9 +135,7 @@ pub fn new_partial(
 			let uncles =
 				sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
 
-			let time_data_provider = time_worker::inherents::get_time_data_provider();
-
-			Ok((slot, timestamp, uncles, time_data_provider))
+			Ok((slot, timestamp, uncles))
 		},
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
@@ -153,7 +154,7 @@ pub fn new_partial(
 	})
 }
 
-fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
+fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 	// FIXME: here would the concrete keystore be built,
 	//        must return a concrete type (NOT `LocalKeystore`) that
 	//        implements `CryptoStore` and `SyncCryptoStore`
@@ -176,10 +177,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
 			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) =>
+			Err(e) => {
 				return Err(ServiceError::Other(format!(
-					"Error hooking up remote keystore for {url}: {e}"
-				))),
+					"Error hooking up remote keystore for {}: {}",
+					url, e
+				)))
+			},
 		};
 	}
 	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
@@ -287,8 +290,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 							slot_duration,
 						);
 
-				let time_data_provider = time_worker::inherents::get_time_data_provider();
-				Ok((slot, timestamp, time_data_provider))
+				Ok((slot, timestamp))
 			},
 			force_authoring,
 			backoff_authoring_blocks,
@@ -346,6 +348,20 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
+
+		//Connector for swap price
+		let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
+		let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+		let swap_result = SwapToken::swap_price(
+			&web3::Web3::new(end_point.clone().unwrap()),
+			abi,
+			exchange_address,
+			"getAmountsOut",
+			std::string::String::from("1"),
+		)
+		.await
+		.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
+		log::info!("\n\n\nSwap Result : {:?}\n\n\n", swap_result);
 
 		// injecting our Worker
 		let time_params = time_worker::TimeWorkerParams {

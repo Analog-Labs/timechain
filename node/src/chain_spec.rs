@@ -3,6 +3,7 @@ use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
@@ -10,8 +11,8 @@ use sp_runtime::{
 	Perbill,
 };
 use timechain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, StakingConfig, SudoConfig,
-	SystemConfig, VestingConfig, WASM_BINARY,
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, Signature,
+	StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -53,12 +54,13 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId) {
+pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId, ImOnlineId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
-		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", s)),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{s}//stash")),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
+		get_from_seed::<ImOnlineId>(s),
 		//node online Id missing
 	)
 }
@@ -294,7 +296,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	root_key: AccountId,
-	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
+	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -328,7 +330,7 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		im_online: Default::default(),
+		im_online: ImOnlineConfig { keys: vec![] },
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities
 				.iter()

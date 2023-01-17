@@ -9,18 +9,22 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use frame_system::{EnsureRoot, EnsureSigned};
 
 use beefy_primitives::crypto::AuthorityId as BeefyId;
-use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_election_provider_support::{
+	generate_solution_type, onchain, ExtendedBalance, SequentialPhragmen,
+};
 use frame_support::traits::Imbalance;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
+use codec::Decode;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
-use sp_staking::SessionIndex;
+// use sp_staking::SessionIndex;
 // use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
@@ -42,7 +46,9 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	pallet_prelude::Get,
+	parameter_types,
 	traits::{
 		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
 		OnUnbalanced, Randomness, StorageInfo,
@@ -651,15 +657,41 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	// Six sessions in an era (24 hours).
 	// TODO
-	pub const SessionsPerEra: SessionIndex = 2;//6;
-	// 28 eras for unbonding (28 days).
-	pub const BondingDuration: sp_staking::EraIndex = 1;//28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 1;//27;
+	// // 28 eras for unbonding (28 days).
+
+	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	// 16
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+}
+
+/// Maximum number of iterations for balancing that will be executed in the embedded OCW
+/// miner of election provider multi phase.
+pub const MINER_MAX_ITERATIONS: u32 = 10;
+
+/// A source of random balance for NposSolver, which is meant to be run by the OCW election miner.
+pub struct OffchainRandomBalancing;
+impl Get<Option<(usize, ExtendedBalance)>> for OffchainRandomBalancing {
+	fn get() -> Option<(usize, ExtendedBalance)> {
+		use sp_runtime::traits::TrailingZeroInput;
+		let iters = match MINER_MAX_ITERATIONS {
+			0 => 0,
+			max => {
+				let seed = sp_io::offchain::random_seed();
+				let random = <u32>::decode(&mut TrailingZeroInput::new(&seed))
+					.expect("input is padded with zeroes; qed")
+					% max.saturating_add(1);
+				random as usize
+			},
+		};
+
+		Some((iters, 0))
+	}
 }
 
 pub struct OnChainSeqPhragmen;
@@ -670,7 +702,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 		pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
 	>;
 	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
-	type WeightInfo = (); //frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 }
 
 impl onchain::BoundedConfig for OnChainSeqPhragmen {
@@ -740,6 +772,10 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	}
 }
 
+/// The numbers configured here could always be more than the the maximum limits of staking pallet
+/// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
+/// since the staking is bounded and the weight pipeline takes hours for this single pallet.
+
 pub struct BenchmarkConfig;
 impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfig {
 	const VOTERS: [u32; 2] = [1000, 2000];
@@ -757,39 +793,29 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type EstimateCallFee = TransactionPayment;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type SignedMaxSubmissions = SignedMaxSubmissions;
-	type SignedMaxRefunds = SignedMaxRefunds;
-	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = SignedDepositBase;
-	type SignedDepositByte = SignedDepositByte;
-	type SignedDepositWeight = ();
-	type SignedMaxWeight =
-		<Self::MinerConfig as pallet_election_provider_multi_phase::MinerConfig>::MaxWeight;
-	type MinerConfig = Self;
-	type SlashHandler = (); // burn slashes
-	type RewardHandler = (); // nothing to do upon rewards
 	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = NposSolutionPriority;
+	type MinerConfig = Self;
+	type SignedMaxSubmissions = ConstU32<10>;
+	type SignedRewardBase = SignedRewardBase;
+	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositByte = SignedDepositByte;
+	type SignedMaxRefunds = ConstU32<3>;
+	type SignedDepositWeight = ();
+	type SignedMaxWeight = MinerMaxWeight;
+	type SlashHandler = (); // burn slashes
+	type RewardHandler = (); // nothing to do upon rewards
 	type DataProvider = Staking;
-	#[cfg(feature = "fast-runtime")]
-	type Fallback = onchain::UnboundedExecution<OnChainSeqPhragmen>;
-	#[cfg(not(feature = "fast-runtime"))]
-	type Fallback = pallet_election_provider_multi_phase::NoFallback<Self>;
-
-	type GovernanceFallback = onchain::UnboundedExecution<OnChainSeqPhragmen>;
-
-	type Solver = SequentialPhragmen<
-		AccountId,
-		pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
-		(),
-	>;
-	type BenchmarkingConfig = BenchmarkConfig;
+	type Fallback = onchain::BoundedExecution<OnChainSeqPhragmen>;
+	type GovernanceFallback = onchain::BoundedExecution<OnChainSeqPhragmen>;
+	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, ()>;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = ();
-	type MaxElectingVoters = MaxElectingVoters;
 	type MaxElectableTargets = MaxElectableTargets;
+	type MaxElectingVoters = MaxElectingVoters;
+	type BenchmarkingConfig = BenchmarkConfig;
+	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
 }
 
 impl pallet_timestamp::Config for Runtime {

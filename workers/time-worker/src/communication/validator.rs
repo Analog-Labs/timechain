@@ -112,7 +112,6 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		info!(target: TW_LOG, "Message kept from {}", sender.to_string());
 		// This passes message to worker
 		return ValidationResult::ProcessAndKeep(self.topic);
 		/*		if let Ok(msg) = TSSData::deserialize(&mut data) {
@@ -172,7 +171,6 @@ where
 			*/
 			// FIXME: we can put entire TSS into validator and worker will only get fully signed
 			// messages
-			info!(target: TW_LOG, "message allowed from {}", who.to_string());
 			true
 		})
 	}

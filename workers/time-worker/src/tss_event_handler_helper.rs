@@ -311,15 +311,14 @@ where
 											return;
 										},
 									};
-								let my_commitment = match participant.0.public_key() {
-									Some(commitment) => commitment,
-									None => {
-										log::error!(
-											"TSS::Unable to get commitment from local participant"
-										);
-										return;
-									},
-								};
+								let my_commitment =
+									match participant.0.public_key() {
+										Some(commitment) => commitment,
+										None => {
+											log::error!("TSS::Unable to get commitment from local participant");
+											return;
+										},
+									};
 								if let Ok((local_group_key, local_secret_key)) =
 									round_two_state.finish(my_commitment)
 								{

@@ -10,6 +10,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
+use web3::transports::Http;
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
@@ -348,8 +349,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-
+	
 		//Connector for swap price
+		let end_point = Http::new("http://127.0.0.1:8545");
 		let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
 		let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 		let swap_result = SwapToken::swap_price(

@@ -962,6 +962,9 @@ dependencies = [
 name = "connector"
 version = "0.1.0"
 dependencies = [
+ "log",
+ "reqwest",
+ "serde_json",
  "tokio",
  "web3",
 ]
@@ -8937,6 +8940,7 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "jsonrpsee",
+ "log",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "runtime-common",
@@ -8973,6 +8977,7 @@ dependencies = [
  "time-worker",
  "timechain-runtime",
  "try-runtime-cli",
+ "web3",
 ]
 
 [[package]]

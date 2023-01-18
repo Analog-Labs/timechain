@@ -30,7 +30,7 @@ None,
 ))),
 */
 /// Constant to indicate target for logging
-pub const TW_LOG: &'static str = "time-worker"; //"⌛time-worker";
+pub const TW_LOG: &str = "⌛time-worker";
 
 /// Set of properties we need to run our gadget
 pub struct TimeWorkerParams<B: Block, C, R, BE, N>

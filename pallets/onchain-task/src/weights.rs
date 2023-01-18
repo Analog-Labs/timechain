@@ -56,11 +56,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: OnchainTask OnchainTaskStore (r:1 w:1)
 	// Storage: OnchainTask TaskMetadata (r:0 w:1)
 	fn store_task() -> Weight {
-		Weight::from_ref_time(47_000_000 as u64)
+		Weight::from_ref_time(47_000_000_u64)
 			// Standard Error: 3_840
-			.saturating_add(Weight::from_ref_time(45_003 as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+			.saturating_add(Weight::from_ref_time(45_003_u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 }
 
@@ -71,10 +71,10 @@ impl WeightInfo for () {
 	// Storage: OnchainTask OnchainTaskStore (r:1 w:1)
 	// Storage: OnchainTask TaskMetadata (r:0 w:1)
 	fn store_task() -> Weight {
-		Weight::from_ref_time(47_000_000 as u64)
+		Weight::from_ref_time(47_000_000_u64)
 			// Standard Error: 3_840
-			.saturating_add(Weight::from_ref_time(45_003 as u64))
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+			.saturating_add(Weight::from_ref_time(45_003_u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 }

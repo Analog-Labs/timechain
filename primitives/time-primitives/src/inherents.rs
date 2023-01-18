@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use sp_inherents::{Error, InherentData, InherentIdentifier, IsFatalError};
+use sp_inherents::{InherentIdentifier, IsFatalError};
 
 /// ID of inherent data we submit to runtime
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tsskey01";

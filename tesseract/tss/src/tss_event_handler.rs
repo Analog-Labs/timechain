@@ -5,7 +5,7 @@ use crate::{
 
 impl TssService {
 	//distributes the msg to the appropriate handler
-	pub async fn handle_tss_events(self: &mut Self, tss_gossiped_data: TSSData) {
+	pub async fn handle_tss_events(&mut self, tss_gossiped_data: TSSData) {
 		match tss_gossiped_data.tss_event_type {
 			//nodes will be receiving this event to make participant using params
 			TSSEventType::ReceiveParams => {

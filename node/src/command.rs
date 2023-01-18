@@ -53,7 +53,6 @@ impl SubstrateCli for Cli {
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
-	println!("cli ---> {:?}", cli);
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
 		Some(Subcommand::BuildSpec(cmd)) => {

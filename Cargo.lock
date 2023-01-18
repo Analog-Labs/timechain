@@ -4545,20 +4545,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-randomness-collective-flip"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "safe-mix",
- "scale-info",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-session"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -4633,7 +4619,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-randomness-collective-flip",
+ "onchain-task-pallet",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -5700,15 +5686,6 @@ checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustc_version"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
-dependencies = [
- "semver 0.9.0",
-]
-
-[[package]]
-name = "rustc_version"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
@@ -5799,15 +5776,6 @@ name = "ryu"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b4b9743ed687d4b4bcedf9ff5eaa7398495ae14e61cba0a295704edbc7decde"
-
-[[package]]
-name = "safe-mix"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d3d055a2582e6b00ed7a31c1524040aa391092bf636328350813f3a0605215c"
-dependencies = [
- "rustc_version 0.2.3",
-]
 
 [[package]]
 name = "salsa20"
@@ -6985,15 +6953,6 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver"
 version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58bc9567378fc7690d6b2addae4e60ac2eeea07becb2c64b9f218b53865cba2a"
@@ -7212,7 +7171,7 @@ dependencies = [
  "curve25519-dalek 4.0.0-pre.5",
  "rand_core 0.6.4",
  "ring",
- "rustc_version 0.4.0",
+ "rustc_version",
  "sha2 0.10.6",
  "subtle",
 ]
@@ -8569,6 +8528,7 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "jsonrpsee",
+ "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "runtime-common",
@@ -8632,7 +8592,6 @@ dependencies = [
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-offences",
- "pallet-randomness-collective-flip",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -8651,6 +8610,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-core",
  "sp-inherents",
+ "sp-io",
  "sp-npos-elections",
  "sp-offchain",
  "sp-runtime",
@@ -8699,9 +8659,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.23.0"
+version = "1.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab6d665857cc6ca78d6e80303a02cea7a7851e85dfbd77cbdc09bd129f1ef46"
+checksum = "1d9f76183f91ecfb55e1d7d5602bd1d979e38a3a522fe900241cf195624d67ae"
 dependencies = [
  "autocfg",
  "bytes",
@@ -9325,9 +9285,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ad5af6ba38311282f2a21670d96e78266e8c8e2f38cbcd52c254df6ccbc7731"
+checksum = "8a10dc9784d8c3a33c970e3939180424955f08af2e7f20368ec02685a0e8f065"
 dependencies = [
  "anyhow",
  "bincode",
@@ -9353,18 +9313,18 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-asm-macros"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45de63ddfc8b9223d1adc8f7b2ee5f35d1f6d112833934ad7ea66e4f4339e597"
+checksum = "ee4dbdc6daf68528cad1275ac91e3f51848ce9824385facc94c759f529decdf8"
 dependencies = [
  "cfg-if",
 ]
 
 [[package]]
 name = "wasmtime-cache"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcd849399d17d2270141cfe47fa0d91ee52d5f8ea9b98cf7ddde0d53e5f79882"
+checksum = "9f507f3fa1ee1b2f9a83644e2514242b1dfe580782c0eb042f1ef70255bc4ffe"
 dependencies = [
  "anyhow",
  "base64",
@@ -9382,9 +9342,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-cranelift"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bd91339b742ff20bfed4532a27b73c86b5bcbfedd6bea2dcdf2d64471e1b5c6"
+checksum = "8f03cf79d982fc68e94ba0bea6a300a3b94621c4eb9705eece0a4f06b235a3b5"
 dependencies = [
  "anyhow",
  "cranelift-codegen",
@@ -9403,9 +9363,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-environ"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebb881c61f4f627b5d45c54e629724974f8a8890d455bcbe634330cc27309644"
+checksum = "5c587c62e91c5499df62012b87b88890d0eb470b2ffecc5964e9da967b70c77c"
 dependencies = [
  "anyhow",
  "cranelift-entity",
@@ -9422,9 +9382,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-jit"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1985c628011fe26adf5e23a5301bdc79b245e0e338f14bb58b39e4e25e4d8681"
+checksum = "047839b5dabeae5424a078c19b8cc897e5943a7fadc69e3d888b9c9a897666b3"
 dependencies = [
  "addr2line 0.17.0",
  "anyhow",
@@ -9447,9 +9407,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-jit-debug"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f671b588486f5ccec8c5a3dba6b4c07eac2e66ab8c60e6f4e53717c77f709731"
+checksum = "b299569abf6f99b7b8e020afaf84a700e8636c6a42e242069267322cd5818235"
 dependencies = [
  "object 0.29.0",
  "once_cell",
@@ -9458,9 +9418,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-runtime"
-version = "1.0.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee8f92ad4b61736339c29361da85769ebc200f184361959d1792832e592a1afd"
+checksum = "ae79e0515160bd5abee5df50a16c4eb8db9f71b530fc988ae1d9ce34dcb8dd01"
 dependencies = [
  "anyhow",
  "cc",

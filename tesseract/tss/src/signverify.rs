@@ -18,7 +18,7 @@ pub async fn sign_data(
 		&*keystore,
 		key_type,
 		&acc.accounts.to_public_crypto_pair(),
-		&msg.as_bytes(),
+		msg.as_bytes(),
 	) {
 		Ok(sig) => match sig {
 			Some(sig) => sig,
@@ -68,11 +68,11 @@ pub async fn sign_data(
 
 	let sig_bytes = serde_json::to_vec(&signature).unwrap();
 	let data_bytes = serde_json::to_vec(&data).unwrap();
-	match config.submit_data(sig_bytes.into(), data_bytes.into()).await {
+	match config.submit_data(sig_bytes, data_bytes).await {
 		Ok(s) => s,
 		Err(e) => {
 			log::error!("Error submitting to timechain: {:?}", e);
-			return Err(e.into());
+			return Err(e);
 		},
 	};
 
@@ -85,12 +85,12 @@ pub async fn verify_data(
 	pubkey: sp_core::sr25519::Public,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	//check if the signature message and public key are valid
-	if <sp_core::sr25519::Pair as Pair>::verify(&sig, &msg, &pubkey) {
+	if <sp_core::sr25519::Pair as Pair>::verify(&sig, msg, &pubkey) {
 		log::info!("Signature verifies correctly.");
 		Ok(())
 	} else {
 		log::error!("Signature invalid.");
-		return Err("Signature invalid/incorrect".into());
+		Err("Signature invalid/incorrect".into())
 	}
 }
 

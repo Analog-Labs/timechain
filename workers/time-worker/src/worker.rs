@@ -1,24 +1,18 @@
 use crate::{
-	communication::{
-		time_protocol_name::gossip_protocol_name,
-		validator::{topic, GossipValidator},
-	},
+	communication::validator::{topic, GossipValidator},
 	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
-	Client, TimeWorkerParams, WorkerParams, TW_LOG,
+	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::{Decode, Encode};
 use futures::{future, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
-use sc_client_api::{
-	Backend, BlockchainEvents, FinalityNotification, FinalityNotifications, Finalizer,
-};
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
-use sp_runtime::traits::{AppVerify, Block, Header};
+use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
 use time_primitives::{
 	crypto::{Public, Signature},
@@ -30,6 +24,7 @@ use tss::{
 	utils::{get_receive_params_msg, get_reset_tss_msg, make_gossip_tss_data},
 };
 
+#[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	client: Arc<C>,
@@ -86,7 +81,7 @@ where
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();
 		let keys = self.kv.public_keys();
-		if keys.len() == 0 {
+		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
 			return;
 		}
@@ -143,6 +138,7 @@ where
 		self.gossip_engine.gossip_message(topic::<B>(), msg, false);
 	}
 
+	#[allow(dead_code)]
 	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
 	pub(crate) fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
 		update_shared_group_key(set_id, key);

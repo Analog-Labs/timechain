@@ -42,12 +42,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 	fn claim(i: u32, ) -> Weight {
-		let val_weight  = Weight::from_ref_time(31_747_000)
+		Weight::from_ref_time(31_747_000)
 			// Standard Error: 4_000
 			.saturating_add(Weight::from_ref_time(63_000).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64));
-			val_weight
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	fn update_vesting_schedules(i: u32, ) -> Weight {
 		Weight::from_ref_time(29_457_000)

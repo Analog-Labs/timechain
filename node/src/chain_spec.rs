@@ -3,12 +3,16 @@ use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Printable, Verify};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	Perbill,
+};
 use timechain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
-	VestingConfig, WASM_BINARY,
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, Signature,
+	StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -24,7 +28,7 @@ const PUBLIC_SALE: Balance = ANLOG * 1_449_275;
 const TEAM_SUPPLY: Balance = ANLOG * 17_210_160;
 const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
 const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
-const VALIDATOR_SUPPLY: Balance = ANLOG * 1;
+const VALIDATOR_SUPPLY: Balance = ANLOG;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -34,7 +38,7 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+	TPublic::Pair::from_string(&format!("//{seed}"), None)
 		.expect("static values are valid; qed")
 		.public()
 }
@@ -50,12 +54,14 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId) {
+pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId, ImOnlineId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
-		get_account_id_from_seed::<sr25519::Public>(&format!("{s}/slash")),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{s}//stash")),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
+		get_from_seed::<ImOnlineId>(s),
+		//node online Id missing
 	)
 }
 
@@ -290,7 +296,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	root_key: AccountId,
-	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
+	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -300,7 +306,6 @@ fn testnet_genesis(
 	// 	3 months in terms of 6s blocks is 1,296,000 blocks, i.e. period = 1,296,000
 	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
 	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
-	println!("authorities --> {:?}", initial_authorities);
 	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
 	// configure not valid for these vesting accounts.
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
@@ -325,7 +330,7 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		im_online: Default::default(),
+		im_online: ImOnlineConfig { keys: vec![] },
 		session: timechain_runtime::SessionConfig {
 			keys: initial_authorities
 				.iter()
@@ -342,7 +347,16 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 
-		staking: Default::default(),
+		// staking: Default::default(),
+		staking: StakingConfig {
+			validator_count: initial_authorities.len() as u32,
+			minimum_validator_count: initial_authorities.len() as u32,
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			// stakers,
+			// TODO: ForceEra::ForceNone
+			..Default::default()
+		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
 	}

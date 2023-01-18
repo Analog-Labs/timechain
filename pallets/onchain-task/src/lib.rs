@@ -7,7 +7,7 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 
 pub mod weights;
 
@@ -56,7 +56,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Emitted when the onchain task is stored successfully
-		OnchainTaskStored(T::AccountId, SupportedChain, OnChainTaskMetadata, Frequency),
+		OnchainTaskStored(T::AccountId, SupportedChain, TaskId, OnChainTaskMetadata, Frequency),
 	}
 
 	#[pallet::error]
@@ -79,10 +79,11 @@ pub mod pallet {
 
 			let task_id = Self::task_metadata_id(&task_metadata);
 
-			match task_id {
+			let new_task_id = match task_id {
 				// task already exists before
 				Some(id) => {
 					Self::insert_task(chain, id, frequency);
+					id
 				},
 				// new task
 				None => {
@@ -91,10 +92,17 @@ pub mod pallet {
 					<TaskMetadata<T>>::insert(task_id, task_metadata.clone());
 					<TaskMetadataId<T>>::insert(task_metadata.clone(), task_id);
 					Self::insert_task(chain, task_id, frequency);
+					task_id
 				},
-			}
+			};
 
-			Self::deposit_event(Event::OnchainTaskStored(caller, chain, task_metadata, frequency));
+			Self::deposit_event(Event::OnchainTaskStored(
+				caller,
+				chain,
+				new_task_id,
+				task_metadata,
+				frequency,
+			));
 			Ok(())
 		}
 	}
@@ -118,7 +126,7 @@ pub mod pallet {
 			// build the object
 			let task = OnchainTask { task_id, frequency };
 
-			match Self::task_store(&chain) {
+			match Self::task_store(chain) {
 				Some(ref mut tasks) => {
 					match tasks.binary_search(&task) {
 						Ok(index) => {
@@ -131,14 +139,12 @@ pub mod pallet {
 							// not found then insert the new one and sort the tasks
 							tasks.push(task);
 							tasks.sort();
-							<OnchainTaskStore<T>>::insert(&chain, tasks);
+							<OnchainTaskStore<T>>::insert(chain, tasks);
 						},
 					}
 				},
 				None => {
-					let mut tasks = vec![];
-					tasks.push(task);
-					<OnchainTaskStore<T>>::insert(&chain, tasks);
+					<OnchainTaskStore<T>>::insert(chain, vec![task]);
 				},
 			};
 		}

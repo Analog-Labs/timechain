@@ -9,7 +9,6 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
-
 // Our native executor instance.
 pub struct ExecutorDispatch;
 

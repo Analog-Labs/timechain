@@ -9147,6 +9147,7 @@ dependencies = [
  "time-worker",
  "time-worker-rpc",
  "timechain-runtime",
+ "tokio",
  "try-runtime-cli",
 ]
 

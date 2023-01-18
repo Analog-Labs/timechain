@@ -331,10 +331,10 @@ where
 										TSSLocalStateType::StateFinished;
 
 									log::info!("TSS::==========================");
-									log::info!(
-										"TSS::local group key is: {:?}",
-										local_group_key.to_bytes()
-									);
+									let bytes = local_group_key.to_bytes();
+									log::info!("TSS::local group key is: {:?}", bytes);
+									// TODO: provide set ID from pre-set
+									self.submit_key_as_inherent(bytes, 1);
 									log::info!("TSS::==========================");
 								} else {
 									log::error!("TSS::error occured while finishing state");

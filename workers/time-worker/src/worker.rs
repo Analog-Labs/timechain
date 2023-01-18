@@ -20,7 +20,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::{AppVerify, Block, Header};
 use std::{sync::Arc, time::Duration};
-use time_primitives::{crypto::Signature, TimeApi, KEY_TYPE};
+use time_primitives::{
+	crypto::{Public, Signature},
+	TimeApi, KEY_TYPE,
+};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
@@ -89,30 +92,46 @@ where
 		}
 		let id = keys[0].clone();
 		// starting TSS initialization if not yet done
+
 		if self.tss_local_state.local_peer_id.is_none() {
 			self.tss_local_state.local_peer_id = Some(id.to_string());
 			// TODO: reset if not all comply
 			// slashing goes below too?
-			let msg = make_gossip_tss_data(
-				id.to_string(),
-				get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
-				TSSEventType::ReceiveParams,
-			)
-			.unwrap();
-			self.send(msg);
+			/*			let msg = make_gossip_tss_data(
+							id.to_string(),
+							get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
+							TSSEventType::ReceiveParams,
+						)
+						.unwrap();
+						self.send(msg);
+			*/
 			// initialize TSS
-			let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
-			if let Ok(peer_id_data) =
-				get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
-			{
-				if let Ok(data) =
-					make_gossip_tss_data(local_peer_id, peer_id_data, TSSEventType::ReceiveParams)
+			// TODO: assign collector role to at most one node for protocol to work
+			let collector_id_bytes =
+				hex::decode("48640c12bc1b351cf4b051ac1cf7b5740765d02e34989d0a9dd935ce054ebb21")
+					.unwrap();
+			let collector_id = sp_application_crypto::sr25519::Public::from_raw(
+				array_bytes::vec2array(collector_id_bytes).unwrap(),
+			);
+			if id == collector_id.into() {
+				self.tss_local_state.is_node_collector = true;
+				// TODO: assign aggregator role to at most one node for protocol to work
+				self.tss_local_state.is_node_aggregator = true;
+				let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+				if let Ok(peer_id_data) =
+					get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
 				{
-					self.send(data);
-					info!("TSS peer collection req sent");
+					if let Ok(data) = make_gossip_tss_data(
+						local_peer_id,
+						peer_id_data,
+						TSSEventType::ReceiveParams,
+					) {
+						self.send(data);
+						info!("TSS peer collection req sent");
+					}
+				} else {
+					log::error!("Unable to make publish peer id msg");
 				}
-			} else {
-				log::error!("Unable to make publish peer id msg");
 			}
 
 			info!(target: TW_LOG, "Gossip is sent.");
@@ -125,7 +144,7 @@ where
 	}
 
 	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
-	fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
+	pub(crate) fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
 		update_shared_group_key(set_id, key);
 	}
 

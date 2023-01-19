@@ -45,3 +45,43 @@ fn storing_and_get_chain_task() {
 		assert_eq!(0, metadata_index);
 	});
 }
+
+#[test]
+fn remove_task() {
+	let chain: SupportedChain = SupportedChain::Timechain;
+	let task_metadata = OnChainTaskMetadata {
+		task: SupportedTasks::EthereumTasks(EthereumTasks::SwapToken),
+		arguments: vec![vec![]],
+	};
+
+	let frequency = 0;
+
+	new_test_ext().execute_with(|| {
+		let task_id = OnChainTask::next_task_id();
+		assert_eq!(task_id, None);
+
+		// insert an one time task
+		assert_ok!(OnChainTask::store_task(
+			RawOrigin::Signed(1).into(),
+			chain,
+			task_metadata.clone(),
+			frequency,
+		));
+
+		// check task id updated.
+		let task_id = OnChainTask::next_task_id();
+		assert_eq!(task_id, Some(0));
+
+		let onchain_task = OnchainTask { task_id: 0, frequency };
+
+		// check added task
+		let tasks = OnChainTask::task_store(chain);
+		assert_eq!(tasks.clone().unwrap().len(), 1);
+		assert_eq!(tasks.unwrap()[0], onchain_task);
+
+		OnChainTask::remove_one_time_task(chain, task_id.unwrap());
+
+		let tasks = OnChainTask::task_store(chain);
+		assert_eq!(tasks.clone().unwrap().len(), 0);
+	});
+}

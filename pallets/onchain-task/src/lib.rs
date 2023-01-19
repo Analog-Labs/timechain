@@ -148,5 +148,27 @@ pub mod pallet {
 				},
 			};
 		}
+
+		// remove one time task from task list
+		pub fn remove_one_time_task(chain: SupportedChain, task_id: TaskId) {
+			// build the object
+			let frequency = 0;
+			let task = OnchainTask { task_id, frequency };
+
+			match Self::task_store(chain) {
+				Some(ref mut tasks) => match tasks.binary_search(&task) {
+					Ok(index) => {
+						tasks.remove(index);
+						<OnchainTaskStore<T>>::insert(chain, tasks);
+					},
+					Err(_) => {
+						log::error!("{task_id} not found in storage")
+					},
+				},
+				None => {
+					log::error!("{task_id} not found in storage")
+				},
+			};
+		}
 	}
 }

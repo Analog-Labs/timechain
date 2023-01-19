@@ -82,6 +82,6 @@ fn remove_task() {
 		OnChainTask::remove_one_time_task(chain, task_id.unwrap());
 
 		let tasks = OnChainTask::task_store(chain);
-		assert_eq!(tasks.clone().unwrap().len(), 0);
+		assert_eq!(tasks.unwrap().len(), 0);
 	});
 }

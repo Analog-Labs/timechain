@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod inherents;
+pub mod rpc;
 
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},

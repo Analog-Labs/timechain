@@ -8546,8 +8546,10 @@ dependencies = [
 name = "time-primitives"
 version = "0.1.0"
 dependencies = [
+ "arrayref",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api",
  "sp-application-crypto",
  "sp-inherents",
@@ -8623,6 +8625,7 @@ dependencies = [
  "thiserror",
  "time-primitives",
  "time-worker",
+ "tokio",
 ]
 
 [[package]]

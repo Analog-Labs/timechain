@@ -1,16 +1,14 @@
 //! RPC API for Time Worker
-#![warn(missing_docs)]
 use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
 	types::{error::CallError, ErrorObject},
 };
-use log::warn;
-use parking_lot::Mutex;
 use std::sync::Arc;
 use time_primitives::rpc::SignRpcPayload;
 use time_worker::kv::TimeKeyvault;
+use tokio::sync::Mutex;
 
 #[derive(Debug, thiserror::Error)]
 /// Top-level error type for the RPC handler
@@ -70,6 +68,7 @@ pub trait TimeRpcApi {
 	#[method(name = "time_submitForSigning")]
 	async fn submit_for_signing(&self, payload: SignRpcPayload) -> RpcResult<()>;
 }
+
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
 	signer: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
@@ -83,14 +82,14 @@ impl TimeRpcApiHandler {
 }
 
 #[async_trait]
-impl TimeRpcApi for TimeRpcApiHandler {
+impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(&self, payload: SignRpcPayload) -> RpcResult<()> {
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
-			Err(Error::TimeKeyNotFound)
+			return Err(Error::TimeKeyNotFound.into());
 		}
-		if payload.verify(keys[0].into()) {
-			self.signer.lock().send((payload.group_id, payload.message)).await?;
+		if payload.verify(keys[0].clone().into()) {
+			self.signer.lock().await.send((payload.group_id, payload.message)).await?;
 			Ok(())
 		} else {
 			Err(Error::SigVerificationFailure.into())

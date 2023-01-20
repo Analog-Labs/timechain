@@ -358,6 +358,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			gossip_network: network,
 			kv: keystore.into(),
 			_block: PhantomData::default(),
+			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
 		};
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",

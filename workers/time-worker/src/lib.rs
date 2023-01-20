@@ -43,6 +43,7 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 }
 
 pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
@@ -77,6 +78,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 		gossip_network,
 		kv,
 		_block,
+		sign_data_receiver,
 	} = timeworker_params;
 
 	let sync_oracle = gossip_network.clone();
@@ -92,6 +94,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 		gossip_validator,
 		gossip_engine,
 		kv,
+		sign_data_receiver,
 	};
 	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
 	worker.run().await

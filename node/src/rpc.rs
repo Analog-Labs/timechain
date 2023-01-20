@@ -5,14 +5,24 @@
 
 #![warn(missing_docs)]
 
-use std::sync::Arc;
-
+use futures::channel::mpsc::{channel, Receiver, Sender};
 use jsonrpsee::RpcModule;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use std::sync::Arc;
+use time_worker::kv::TimeKeyvault;
 use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
+use tokio::sync::Mutex;
+
+lazy_static::lazy_static! {
+	pub(crate) static ref TIME_RPC_CHANNEL: (Arc<Mutex<Sender<(u64, Vec<u8>)>>>, Arc<Mutex<Receiver<(u64, Vec<u8>)>>>) = {
+		// Max 400 calls in parallel
+		let (s, r) =  channel(400);
+		(Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
+	};
+}
 
 pub use sc_rpc_api::DenyUnsafe;
 
@@ -24,6 +34,8 @@ pub struct FullDeps<C, P> {
 	pub pool: Arc<P>,
 	/// Whether to deny unsafe calls
 	pub deny_unsafe: DenyUnsafe,
+	/// Time keyvault
+	pub kv: TimeKeyvault,
 }
 
 /// Instantiate all full RPC extensions.
@@ -41,12 +53,14 @@ where
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
+	use time_worker_rpc::{TimeRpcApiHandler, TimeRpcApiServer};
 
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, deny_unsafe } = deps;
+	let FullDeps { client, pool, deny_unsafe, kv } = deps;
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
+	module.merge(TimeRpcApiHandler::new(TIME_RPC_CHANNEL.0.clone(), kv).into_rpc())?;
 
 	// Extend this RPC with a custom API by using the following syntax.
 	// `YourRpcStruct` should have a reference to a client, which is needed

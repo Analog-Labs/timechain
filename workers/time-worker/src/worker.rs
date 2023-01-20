@@ -4,24 +4,21 @@ use crate::{
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::{BorshDeserialize, BorshSerialize};
-use futures::{future, FutureExt, StreamExt};
+use borsh::BorshDeserialize;
+use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use parking_lot::Mutex;
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
-use time_primitives::{
-	crypto::{Public, Signature},
-	TimeApi, KEY_TYPE,
-};
+use time_primitives::{TimeApi, KEY_TYPE};
+use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
-	utils::{get_receive_params_msg, get_reset_tss_msg, make_gossip_tss_data},
+	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
 #[allow(unused)]
@@ -33,6 +30,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
+	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
 	pub(crate) tss_local_state: TSSLocalStateData,
@@ -56,6 +54,7 @@ where
 			gossip_validator,
 			sync_oracle,
 			kv,
+			sign_data_receiver,
 		} = worker_params;
 
 		let mut tss_local_state = TSSLocalStateData::new();
@@ -73,6 +72,7 @@ where
 			sync_oracle,
 			kv,
 			tss_local_state,
+			sign_data_receiver,
 		}
 	}
 
@@ -210,6 +210,8 @@ where
 				.fuse(),
 		);
 		loop {
+			let receiver = self.sign_data_receiver.clone();
+			let mut signature_requests = receiver.lock().await;
 			// making sure majority is synchronising or waiting for the sync
 			while self.sync_oracle.is_major_syncing() {
 				debug!(target: TW_LOG, "Waiting for major sync to complete...");
@@ -236,6 +238,11 @@ where
 						);
 					}
 				},
+				new_sig = signature_requests.next().fuse() => {
+					if let Some((group_id, message)) = new_sig {
+						// do sig
+					}
+				}
 				gossip = gossips.next() => {
 					if let Some(gossip) = gossip {
 						self.on_gossip(gossip).await;

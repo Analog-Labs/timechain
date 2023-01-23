@@ -7,11 +7,11 @@ use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, thread, time, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 use tokio;
-use std::{thread, time};
 use web3::transports::Http;
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -180,12 +180,11 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
 			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) => {
+			Err(e) =>
 				return Err(ServiceError::Other(format!(
 					"Error hooking up remote keystore for {}: {}",
 					url, e
-				)))
-			},
+				))),
 		};
 	}
 	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
@@ -357,8 +356,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
 			let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 			let delay = time::Duration::from_secs(3);
-			loop{
 
+			loop {
 				let swap_result = SwapToken::swap_price(
 					&web3::Web3::new(end_point.clone().unwrap()),
 					abi,
@@ -381,6 +380,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			kv: keystore.into(),
 			_block: PhantomData::default(),
 		};
+
+		// let runtimeapit = ProvideRuntimeApi::runtime_api.; 
+		
+		// log::info!("\n\n\n=======> metadata==> {:?} \n\n\n", client.);
+
+
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",
 			None,

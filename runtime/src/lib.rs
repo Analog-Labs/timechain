@@ -1265,6 +1265,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::NextTaskid<Block> for Runtime {
+		fn get_next_task_id() {
+			OnchainTask::get_next_task_id();
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
@@ -1363,4 +1369,11 @@ mod tests {
 			whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7")
 		);
 	}
+
+	// #[test]
+	// fn getMetadeta() {
+
+	// 	let metadat_runtime = self.
+
+	// }
 }

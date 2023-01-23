@@ -24,6 +24,10 @@ sp_api::decl_runtime_apis! {
 		#[allow(clippy::too_many_arguments)]
 		fn store_signature(auth_key: TimeId, auth_sig: TimeSignature, signature_data: SignatureData, task_id: u64, block_height: u64,);
 	}
+
+	pub trait NextTaskid {
+		fn get_next_task_id() ;
+	}
 }
 
 pub mod crypto {

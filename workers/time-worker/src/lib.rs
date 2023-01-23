@@ -87,7 +87,10 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine =
 		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
-
+	
+		//  client.runtime_api();
+	
+	
 	let worker_params = WorkerParams {
 		client,
 		backend,

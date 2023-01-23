@@ -1304,6 +1304,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::NextTaskid<Block> for Runtime {
+		fn get_next_task_id() {
+			OnchainTask::get_next_task_id();
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (

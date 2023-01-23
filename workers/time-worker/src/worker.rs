@@ -239,9 +239,86 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
-					if let Some((group_id, message)) = new_sig {
+					if let Some((group_id, data)) = new_sig {
 						// do sig
+						let context = self.tss_local_state.context;
+						let msg_hash = compute_message_hash(&context, &data.as_bytes());
+
+						//add node in msg_pool
+						if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
+							self.tss_local_state.msg_pool.insert(msg_hash.clone(), data.clone().into());
+
+							//process msg if req already received
+							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash){
+								self.process_pending_msg_req(msg_hash.clone(), pending_msg_req.to_vec()).await;
+								self.tss_local_state.msgs_signature_pending.remove(&msg_hash);
+							} else {
+								log::debug!(
+									target: TW_LOG,
+									"New data for signing received: {:?} with hash {:?}",
+									data,
+									msg_hash
+								);
+							}
+						} else {
+							log::warn!(
+								target: TW_LOG,
+								"Message with hash {} is already in process of signing",
+								msg_hash
+							);
+						}
+
+						//creating signature aggregator for msg
+						if self.tss_local_state.is_node_aggregator {
+
+							//all nodes should share the same message hash
+							//to verify the threshold signature
+							let mut aggregator = SignatureAggregator::new(
+								self.tss_local_state.tss_params,
+								self.tss_local_state.local_finished_state.clone().unwrap().0,
+								&context,
+								&data.as_bytes()[..],
+							);
+
+							for com in self.tss_local_state.others_commitment_share.clone(){
+								aggregator.include_signer(
+									com.public_commitment_share_list.participant_index,
+									com.public_commitment_share_list.commitments[0],
+									com.public_key,
+								);
+							}
+
+							//including aggregator as a signer
+							aggregator.include_signer(
+								self.tss_local_state.local_index.clone().unwrap(),
+								self.tss_local_state.local_commitment_share.clone().unwrap().0.commitments[0],
+								self.tss_local_state.local_public_key.clone().unwrap(),
+							);
+
+							//this signers list will be used by other nodes to verify themselves.
+							let signers = aggregator.get_signers();
+							self.tss_local_state.current_signers = signers.clone();
+
+							// //sign msg from aggregator side
+							self.aggregator_event_sign(msg_hash.clone()).await;
+
+							let sign_msg_req = PartialMessageSign{
+								msg_hash,
+								signers: signers.clone(),
+							};
+
+					if let Ok(data) = make_gossip_tss_data(
+						local_peer_id,
+						sign_msg_req,
+								TSSEventType::PartialSignatureGenerateReq,
+					) {
+						self.send(data);
+						info!( target: TW_LOG, "TSS peer collection req sent");
+					} else {
+							error!(target: TW_LOG, "Falised to pack TSS message for signing hash: {}", msg_hash);
+							}
 					}
+						}
 				}
 				gossip = gossips.next() => {
 					if let Some(gossip) = gossip {

@@ -4,7 +4,7 @@ use crate::{
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
@@ -16,8 +16,9 @@ use std::{sync::Arc, time::Duration};
 use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
+	frost_dalek::{compute_message_hash, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
-	tss_event_model::{TSSData, TSSEventType},
+	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
@@ -242,15 +243,18 @@ where
 					if let Some((group_id, data)) = new_sig {
 						// do sig
 						let context = self.tss_local_state.context;
-						let msg_hash = compute_message_hash(&context, &data.as_bytes());
-
+						let msg_hash = compute_message_hash(&context, &data);
 						//add node in msg_pool
 						if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
-							self.tss_local_state.msg_pool.insert(msg_hash.clone(), data.clone().into());
-
+							self.tss_local_state.msg_pool.insert(msg_hash, data.clone().into());
 							//process msg if req already received
-							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash){
-								self.process_pending_msg_req(msg_hash.clone(), pending_msg_req.to_vec()).await;
+							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
+								let request = PartialMessageSign {
+									msg_hash,
+									signers: pending_msg_req.to_vec()
+								};
+								let encoded = request.try_to_vec().unwrap();
+								self.handler_partial_signature_generate_req(&encoded).await;
 								self.tss_local_state.msgs_signature_pending.remove(&msg_hash);
 							} else {
 								log::debug!(
@@ -264,20 +268,18 @@ where
 							log::warn!(
 								target: TW_LOG,
 								"Message with hash {} is already in process of signing",
-								msg_hash
+								hex::encode(&msg_hash)
 							);
 						}
-
 						//creating signature aggregator for msg
 						if self.tss_local_state.is_node_aggregator {
-
 							//all nodes should share the same message hash
 							//to verify the threshold signature
 							let mut aggregator = SignatureAggregator::new(
 								self.tss_local_state.tss_params,
 								self.tss_local_state.local_finished_state.clone().unwrap().0,
 								&context,
-								&data.as_bytes()[..],
+								&data,
 							);
 
 							for com in self.tss_local_state.others_commitment_share.clone(){
@@ -307,19 +309,19 @@ where
 								signers: signers.clone(),
 							};
 
-					if let Ok(data) = make_gossip_tss_data(
-						local_peer_id,
-						sign_msg_req,
+							if let Ok(data) = make_gossip_tss_data(
+								self.tss_local_state.local_peer_id.clone().unwrap_or_default(),
+								sign_msg_req.try_to_vec().unwrap(),
 								TSSEventType::PartialSignatureGenerateReq,
-					) {
-						self.send(data);
-						info!( target: TW_LOG, "TSS peer collection req sent");
-					} else {
-							error!(target: TW_LOG, "Falised to pack TSS message for signing hash: {}", msg_hash);
+							) {
+								self.send(data);
+								info!( target: TW_LOG, "TSS peer collection req sent");
+							} else {
+								error!(target: TW_LOG, "Failed to pack TSS message for signing hash: {}", hex::encode(&msg_hash));
 							}
-					}
 						}
-				}
+					}
+				},
 				gossip = gossips.next() => {
 					if let Some(gossip) = gossip {
 						self.on_gossip(gossip).await;

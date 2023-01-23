@@ -8886,6 +8886,7 @@ dependencies = [
  "arrayref",
  "async-trait",
  "borsh",
+ "connector",
  "fnv",
  "frame-support",
  "futures",
@@ -8927,6 +8928,7 @@ dependencies = [
  "tesseract-tss",
  "time-primitives",
  "tokio",
+ "web3",
 ]
 
 [[package]]

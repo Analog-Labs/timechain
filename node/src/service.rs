@@ -350,27 +350,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-		tokio::spawn(async move {
-			//Connector for swap price
-			let end_point = Http::new("http://127.0.0.1:8545");
-			let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-			let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-			let delay = time::Duration::from_secs(3);
-
-			loop {
-				let swap_result = SwapToken::swap_price(
-					&web3::Web3::new(end_point.clone().unwrap()),
-					abi,
-					exchange_address,
-					"getAmountsOut",
-					std::string::String::from("1"),
-				)
-				.await
-				.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
-				log::info!("Swap Result : {:?}", swap_result);
-				thread::sleep(delay);
-			}
-		});
 		// injecting our Worker
 		let time_params = time_worker::TimeWorkerParams {
 			runtime: client.clone(),
@@ -380,11 +359,31 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			kv: keystore.into(),
 			_block: PhantomData::default(),
 		};
-
+		
 		// let runtimeapit = ProvideRuntimeApi::runtime_api.; 
 		
 		// log::info!("\n\n\n=======> metadata==> {:?} \n\n\n", client.);
+		// tokio::spawn(async move {
+		// 	//Connector for swap price
+		// 	let end_point = Http::new("http://127.0.0.1:8545");
+		// 	let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
+		// 	let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+		// 	let delay = time::Duration::from_secs(3);
 
+		// 	loop {
+		// 		let swap_result = SwapToken::swap_price(
+		// 			&web3::Web3::new(end_point.clone().unwrap()),
+		// 			abi,
+		// 			exchange_address,
+		// 			"getAmountsOut",
+		// 			std::string::String::from("1"),
+		// 		)
+		// 		.await
+		// 		.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
+		// 		log::info!("Swap Result : {:?}", swap_result);
+		// 		thread::sleep(delay);
+		// 	}
+		// });
 
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",

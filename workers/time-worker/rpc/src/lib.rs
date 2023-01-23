@@ -66,7 +66,12 @@ impl From<Error> for JsonRpseeError {
 #[rpc(client, server)]
 pub trait TimeRpcApi {
 	#[method(name = "time_submitForSigning")]
-	async fn submit_for_signing(&self, payload: SignRpcPayload) -> RpcResult<()>;
+	async fn submit_for_signing(
+		&self,
+		group_id: u64,
+		message: Vec<u8>,
+		signature: Vec<u8>,
+	) -> RpcResult<()>;
 }
 
 pub struct TimeRpcApiHandler {
@@ -83,11 +88,17 @@ impl TimeRpcApiHandler {
 
 #[async_trait]
 impl TimeRpcApiServer for TimeRpcApiHandler {
-	async fn submit_for_signing(&self, payload: SignRpcPayload) -> RpcResult<()> {
+	async fn submit_for_signing(
+		&self,
+		group_id: u64,
+		message: Vec<u8>,
+		signature: Vec<u8>,
+	) -> RpcResult<()> {
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			return Err(Error::TimeKeyNotFound.into());
 		}
+		let payload = SignRpcPayload::new(group_id, message, signature);
 		if payload.verify(keys[0].clone().into()) {
 			self.signer.lock().await.send((payload.group_id, payload.message)).await?;
 			Ok(())

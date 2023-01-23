@@ -18,12 +18,16 @@ pub struct SignRpcPayload {
 }
 
 impl SignRpcPayload {
+	pub fn new(group_id: u64, message: Vec<u8>, signature: Vec<u8>) -> Self {
+		SignRpcPayload { group_id, message, signature }
+	}
+
 	pub fn verify(&self, key: Public) -> bool {
 		if let Some(sig) = sp_application_crypto::sr25519::Signature::from_slice(&self.signature) {
 			let signature: Signature = sig.into();
 			key.verify(&self.message, &signature)
 		} else {
-			// Not crypto matherial
+			// Not crypto material
 			false
 		}
 	}

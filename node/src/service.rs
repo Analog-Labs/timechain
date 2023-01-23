@@ -1,18 +1,15 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use connector::ethereum::SwapToken;
 use sc_client_api::BlockBackend;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc, thread, time, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
-use tokio;
-use web3::transports::Http;
+
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
@@ -360,31 +357,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			_block: PhantomData::default(),
 		};
 		
-		// let runtimeapit = ProvideRuntimeApi::runtime_api.; 
-		
-		// log::info!("\n\n\n=======> metadata==> {:?} \n\n\n", client.);
-		// tokio::spawn(async move {
-		// 	//Connector for swap price
-		// 	let end_point = Http::new("http://127.0.0.1:8545");
-		// 	let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-		// 	let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-		// 	let delay = time::Duration::from_secs(3);
-
-		// 	loop {
-		// 		let swap_result = SwapToken::swap_price(
-		// 			&web3::Web3::new(end_point.clone().unwrap()),
-		// 			abi,
-		// 			exchange_address,
-		// 			"getAmountsOut",
-		// 			std::string::String::from("1"),
-		// 		)
-		// 		.await
-		// 		.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
-		// 		log::info!("Swap Result : {:?}", swap_result);
-		// 		thread::sleep(delay);
-		// 	}
-		// });
-
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",
 			None,

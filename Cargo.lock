@@ -4504,6 +4504,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "itertools",
  "parity-scale-codec 3.2.1",
  "scale-info",
  "sp-core",
@@ -8403,6 +8404,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "storage-primitives"
+version = "0.1.0"
+dependencies = [
+ "sp-api",
+]
+
+[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8920,6 +8928,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-tracing",
+ "storage-primitives",
  "strum",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",

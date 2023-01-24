@@ -10,11 +10,12 @@ use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
 use time_primitives::{TimeApi, KEY_TYPE};
+use storage_primitives::runtime_decl_for_GetStoreTask::GetStoreTask;
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
@@ -42,6 +43,7 @@ where
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
+	R::Api: GetStoreTask<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
@@ -75,6 +77,9 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
+		
+		log::info!("hre is ---> {:?}",self.runtime.runtime_api().task_store());
+		
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();
 		let keys = self.kv.public_keys();

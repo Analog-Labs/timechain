@@ -356,7 +356,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			kv: keystore.into(),
 			_block: PhantomData::default(),
 		};
-		
+
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",
 			None,

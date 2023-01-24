@@ -21,6 +21,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::IsType};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
+	use itertools::Itertools;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -51,6 +52,12 @@ pub mod pallet {
 	#[pallet::getter(fn task_store)]
 	pub(super) type OnchainTaskStore<T: Config> =
 		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTask>, OptionQuery>;
+
+	impl<T: Config> Pallet<T> {
+		pub fn get_task_store() {
+			OnchainTaskStore::<T>::iter().collect_vec();
+		}
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

@@ -4628,6 +4628,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "itertools",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "sp-core",
@@ -8537,6 +8538,7 @@ dependencies = [
 name = "storage-primitives"
 version = "0.1.0"
 dependencies = [
+<<<<<<< HEAD
  "onchain-task-pallet",
  "parity-scale-codec 3.4.0",
  "scale-info",
@@ -8546,6 +8548,9 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "thiserror",
+=======
+ "sp-api",
+>>>>>>> add runtime api for task store
 ]
 
 [[package]]
@@ -9070,6 +9075,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-tracing",
+ "storage-primitives",
  "strum",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",

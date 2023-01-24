@@ -40,6 +40,7 @@ sc-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polk
 sc-network-common = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 sc-network-gossip = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 time-primitives = { path = "../../primitives/time-primitives" }
+storage-primitives = { path = "../../primitives/storage-primitives"}
 tss = { path = "../../tesseract/tss", package = "tesseract-tss" }
 accounts = { path = "../../tesseract/accounts", package = "tesseract-accounts" }
 borsh = { version ="0.9", default-features = false }

@@ -34,7 +34,18 @@ where
 {
 	//will be run by non collector nodes
 	pub async fn handler_receive_params(&mut self, data: &[u8]) {
-		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+		let local_peer_id = match self.tss_local_state.local_peer_id.clone() {
+			Some(id) => id,
+			None => match self.kv.public_keys() {
+				keys if !keys.is_empty() => keys[0].to_string(),
+				_ => {
+					log::warn!(
+						"TSS: No local peer identity present for received params processing"
+					);
+					return;
+				},
+			},
+		};
 
 		if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
 			if let Ok(peer_id_call) = ReceiveParamsWithPeerCall::try_from_slice(data) {
@@ -53,6 +64,7 @@ where
 						peer_id_data,
 						TSSEventType::ReceivePeerIDForIndex,
 					) {
+						log::debug!("TSS: Sending ReceivePeerIDForIndex");
 						self.send(data);
 					} else {
 						log::error!("TSS::Unable to encode gossip data for participant creation");
@@ -297,15 +309,14 @@ where
 											return;
 										},
 									};
-								let my_commitment = match participant.0.public_key() {
-									Some(commitment) => commitment,
-									None => {
-										log::error!(
-											"TSS::Unable to get commitment from local participant"
-										);
-										return;
-									},
-								};
+								let my_commitment =
+									match participant.0.public_key() {
+										Some(commitment) => commitment,
+										None => {
+											log::error!("TSS::Unable to get commitment from local participant");
+											return;
+										},
+									};
 								if let Ok((local_group_key, local_secret_key)) =
 									round_two_state.finish(my_commitment)
 								{
@@ -318,10 +329,10 @@ where
 										TSSLocalStateType::StateFinished;
 
 									log::info!("TSS::==========================");
-									log::info!(
-										"TSS::local group key is: {:?}",
-										local_group_key.to_bytes()
-									);
+									let bytes = local_group_key.to_bytes();
+									log::info!("TSS::local group key is: {:?}", bytes);
+									// TODO: provide set ID from pre-set
+									self.submit_key_as_inherent(bytes, 1);
 									log::info!("TSS::==========================");
 								} else {
 									log::error!("TSS::error occured while finishing state");
@@ -769,7 +780,7 @@ where
 	}
 
 	//Publishing the data to the network
-	pub async fn publish_to_network<T>(&self, peer_id: String, data: T, tss_type: TSSEventType)
+	pub async fn publish_to_network<T>(&mut self, peer_id: String, data: T, tss_type: TSSEventType)
 	where
 		T: BorshSerialize,
 	{

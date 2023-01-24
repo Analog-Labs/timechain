@@ -109,7 +109,13 @@ where
 			let collector_id = sp_application_crypto::sr25519::Public::from_raw(
 				array_bytes::vec2array(collector_id_bytes).unwrap(),
 			);
-			if id == collector_id.into() {
+			let mut for_tests = false;
+			// we allow alice to be collector and aggregator in tests
+			#[cfg(test)]
+			if id == crate::tests::kv_tests::Keyring::Alice.public() {
+				for_tests = true;
+			}
+			if id == collector_id.into() || for_tests {
 				self.tss_local_state.is_node_collector = true;
 				// TODO: assign aggregator role to at most one node for protocol to work
 				self.tss_local_state.is_node_aggregator = true;

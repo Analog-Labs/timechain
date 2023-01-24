@@ -6,7 +6,7 @@ use futures_channel::mpsc::{channel, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
 use sc_finality_grandpa::{
-	run_grandpa_voter, Config, GenesisAuthoritySetProvider, GrandpaParams, LinkHalf,
+	block_import, run_grandpa_voter, Config, GenesisAuthoritySetProvider, GrandpaParams, LinkHalf,
 	SharedVoterState,
 };
 use sc_keystore::LocalKeystore;
@@ -24,7 +24,7 @@ use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
 use sp_finality_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
-use sp_runtime::{traits::Header as HeaderT, BuildStorage, DigestItem};
+use sp_runtime::{generic::BlockId, traits::Header as HeaderT, BuildStorage, DigestItem};
 use std::{marker::PhantomData, pin::Pin, sync::Arc, task::Poll, thread::sleep, time::Duration};
 use substrate_test_runtime_client::{
 	runtime::Header, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
@@ -57,7 +57,7 @@ type GrandpaPeer = Peer<GrandpaPeerData, GrandpaBlockImport>;
 
 pub(crate) struct TimeTestNet {
 	peers: Vec<GrandpaPeer>,
-	test_net: Arc<TestApi>,
+	test_net: TestApi,
 }
 
 // same as runtime
@@ -69,7 +69,7 @@ const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
 
 impl TimeTestNet {
 	#[allow(dead_code)]
-	pub(crate) fn new(n_authority: usize, n_full: usize, test_net: Arc<TestApi>) -> Self {
+	pub(crate) fn new(n_authority: usize, n_full: usize, test_net: TestApi) -> Self {
 		let capacity = n_authority + n_full;
 		let mut net = TimeTestNet {
 			peers: Vec::with_capacity(capacity),
@@ -102,21 +102,8 @@ impl TimeTestNet {
 	}
 
 	#[allow(dead_code)]
-	pub(crate) fn generate_blocks(
-		&mut self,
-		count: usize,
-		session_length: u64,
-		validator_set: &[TimeKey],
-	) {
-		self.peer(0).generate_blocks(count, BlockOrigin::File, |builder| {
-			let mut block = builder.build().unwrap().block;
-
-			if *block.header.number() % session_length == 0 {
-				add_auth_change_digest(&mut block.header, validator_set.to_vec());
-			}
-
-			block
-		});
+	pub(crate) fn generate_blocks(&mut self, count: usize) {
+		self.peer(0).push_blocks(count, false);
 	}
 
 	#[allow(dead_code)]
@@ -136,8 +123,32 @@ impl TestNetFactory for TimeTestNet {
 	type BlockImport = GrandpaBlockImport;
 	type PeerData = GrandpaPeerData;
 
-	fn make_verifier(&self, _client: PeersClient, _: &GrandpaPeerData) -> Self::Verifier {
+	fn add_full_peer(&mut self) {
+		self.add_full_peer_with_config(FullPeerConfig {
+			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
+			is_authority: false,
+			..Default::default()
+		})
+	}
+
+	fn make_verifier(&self, _client: PeersClient, _: &Self::PeerData) -> Self::Verifier {
 		PassThroughVerifier::new(false) // use non-instant finality.
+	}
+
+	fn make_block_import(
+		&self,
+		client: PeersClient,
+	) -> (
+		BlockImportAdapter<Self::BlockImport>,
+		Option<BoxJustificationImport<Block>>,
+		Self::PeerData,
+	) {
+		let (client, backend) = (client.as_client(), client.as_backend());
+		let (import, link) =
+			block_import(client.clone(), &self.test_net, LongestChain::new(backend.clone()), None)
+				.expect("Could not create block import for fresh peer.");
+		let justification_import = Box::new(import.clone());
+		(BlockImportAdapter::new(import), Some(justification_import), Mutex::new(Some(link)))
 	}
 
 	fn peer(&mut self, i: usize) -> &mut GrandpaPeer {
@@ -150,34 +161,6 @@ impl TestNetFactory for TimeTestNet {
 
 	fn mut_peers<F: FnOnce(&mut Vec<GrandpaPeer>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
-	}
-
-	fn make_block_import(
-		&self,
-		client: PeersClient,
-	) -> (
-		BlockImportAdapter<Self::BlockImport>,
-		Option<BoxJustificationImport<Block>>,
-		GrandpaPeerData,
-	) {
-		let (client, backend) = (client.as_client(), client.as_backend());
-		let (import, link) = sc_finality_grandpa::block_import(
-			client,
-			&*self.test_net,
-			LongestChain::new(backend),
-			None,
-		)
-		.expect("Could not create block import for fresh peer.");
-		let justification_import = Box::new(import.clone());
-		(BlockImportAdapter::new(import), Some(justification_import), Mutex::new(Some(link)))
-	}
-
-	fn add_full_peer(&mut self) {
-		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
-			is_authority: false,
-			..Default::default()
-		})
 	}
 }
 
@@ -220,6 +203,20 @@ pub(crate) struct TestApi {
 	genesys_authorities: AuthorityList,
 }
 
+impl TestApi {
+	fn new(
+		genesys_validator_set: Vec<TimeKeyring>,
+		next_validator_set: Vec<TimeKeyring>,
+		genesys_authorities: AuthorityList,
+	) -> Self {
+		TestApi {
+			genesys_authorities,
+			genesys_validator_set,
+			next_validator_set,
+		}
+	}
+}
+
 // compiler gets confused and warns us about unused inner
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -236,16 +233,18 @@ impl ProvideRuntimeApi<Block> for TestApi {
 
 impl TestApi {
 	fn authority_list(&self) -> AuthorityList {
-		use sp_application_crypto::RuntimeAppPublic;
-		self.genesys_validator_set
-			.clone()
-			.into_iter()
-			.map(|k| {
-				let key_vec = k.public().to_raw_vec();
-				let key = array_ref!(key_vec, 0, 32);
-				(sp_application_crypto::ed25519::Public::from_raw(*key).into(), 1u64)
-			})
-			.collect()
+		/*		use sp_application_crypto::runtimeapppublic;
+				self.genesys_validator_set
+					.clone()
+					.into_iter()
+					.map(|k| {
+						let key_vec = k.public().to_raw_vec();
+						let key = array_ref!(key_vec, 0, 32);
+						(sp_application_crypto::ed25519::public::from_raw(*key).into(), 1u64)
+					})
+					.collect()
+		*/
+		self.genesys_authorities.clone()
 	}
 }
 
@@ -349,7 +348,7 @@ fn initialize_grandpa(
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
-	peers: Vec<(usize, &TimeKeyring, Arc<API>, Arc<TokioMutex<Receiver<(u64, Vec<u8>)>>>)>,
+	peers: Vec<(usize, &TimeKeyring, API, Arc<TokioMutex<Receiver<(u64, Vec<u8>)>>>)>,
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default,
@@ -366,7 +365,7 @@ where
 		let time_params = TimeWorkerParams {
 			client: peer.client().as_client(),
 			backend: peer.client().as_backend(),
-			runtime: api.clone(),
+			runtime: api.into(),
 			gossip_network: peer.network_service().clone(),
 			kv: Some(keystore).into(),
 			sign_data_receiver,
@@ -385,9 +384,11 @@ where
 #[allow(dead_code)]
 fn block_until_complete(
 	future: impl Future + Unpin,
-	net: &Arc<Mutex<TimeTestNet>>,
+	net: Arc<Mutex<TimeTestNet>>,
 	runtime: &mut Runtime,
 ) {
+	let test_lock = net.lock();
+	drop(test_lock);
 	let drive_to_completion = futures::future::poll_fn(|cx| {
 		net.lock().poll(cx);
 		Poll::<()>::Pending
@@ -416,9 +417,10 @@ where
 		wait_for.push(f);
 	};
 
+	let net_lock = net.lock();
 	for (peer_id, _) in peers.iter().enumerate() {
 		let highest_finalized = highest_finalized.clone();
-		let client = net.lock().peers[peer_id].client().clone();
+		let client = net_lock.peers[peer_id].client().clone();
 
 		wait_for.push(Box::pin(
 			client
@@ -434,11 +436,12 @@ where
 				.map(|_| ()),
 		));
 	}
+	drop(net_lock);
 
 	// wait for all finalized on each.
 	let wait_for = ::futures::future::join_all(wait_for);
 
-	block_until_complete(wait_for, &net, runtime);
+	block_until_complete(wait_for, net.clone(), runtime);
 	let highest_finalized = *highest_finalized.read();
 	highest_finalized
 }
@@ -456,6 +459,38 @@ fn run_to_completion(
 #[allow(dead_code)]
 fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
 	keys.iter().map(|key| (*key).public().into()).map(|id| (id, 1)).collect()
+}
+
+#[test]
+fn finalize_3_voters_no_observers() {
+	sp_tracing::try_init_simple();
+	let mut runtime = Runtime::new().unwrap();
+	let peers = &[TimeKeyring::Alice, TimeKeyring::Bob, TimeKeyring::Charlie];
+	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+	let genesys_authorities = make_gradpa_ids(grandpa_peers);
+
+	let mut net = TimeTestNet::new(3, 0, TestApi::new(vec![], vec![], genesys_authorities));
+	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
+	net.peer(0).push_blocks(20, false);
+	net.block_until_sync();
+
+	for i in 0..3 {
+		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{} failed to sync", i);
+	}
+
+	let net = Arc::new(Mutex::new(net));
+	run_to_completion(&mut runtime, 20, net.clone(), grandpa_peers);
+
+	// normally there's no justification for finalized blocks
+	assert!(
+		net.lock()
+			.peer(0)
+			.client()
+			.justifications(&BlockId::Number(20))
+			.unwrap()
+			.is_none(),
+		"Extra justification for block#1",
+	);
 }
 
 #[cfg(feature = "expensive_tests")]
@@ -476,14 +511,14 @@ fn time_keygen_completes() {
 	let genesys_authorities = make_gradpa_ids(grandpa_peers);
 
 	let validator_set = make_time_ids(peers);
-	let test_api = Arc::new(TestApi {
+	let test_api = TestApi {
 		genesys_validator_set: vec![TimeKeyring::Alice, TimeKeyring::Bob, TimeKeyring::Charlie],
 		next_validator_set: vec![TimeKeyring::Alice, TimeKeyring::Charlie, TimeKeyring::Dave],
 		genesys_authorities,
-	});
+	};
 
 	// our time network with 3 authorities and 1 full peer
-	let mut network = TimeTestNet::new(3, 1, test_api.clone());
+	let mut network = TimeTestNet::new(3, 0, test_api.clone());
 	let mut senders = vec![];
 	let mut receivers = vec![];
 	for _ in 0..peers.len() {
@@ -504,28 +539,24 @@ fn time_keygen_completes() {
 	runtime.spawn(initialize_time_worker(&mut network, time_peers));
 
 	// Pushing 20 block
-	network.generate_blocks(20, 10, &validator_set);
+	network.generate_blocks(1);
 	network.block_until_sync();
 
 	// Verify all peers synchronized
 	for i in 0..3 {
-		assert_eq!(network.peer(i).client().info().best_number, 20, "Peer #{} failed to sync", i);
+		assert_eq!(network.peer(i).client().info().best_number, 1, "Peer #{} failed to sync", i);
 	}
 
 	let net = Arc::new(Mutex::new(network));
 
-	run_to_completion(&mut runtime, 20, net.clone(), grandpa_peers);
+	run_to_completion(&mut runtime, 1, net.clone(), grandpa_peers);
 
 	for i in 0..3 {
 		assert_eq!(
 			net.lock().peer(i).client().info().finalized_number,
-			20,
+			1,
 			"Peer #{} failed to finalize",
 			i
 		);
 	}
-
-	// we need this as otherwise we'll end up checking storage before actual work is done in async
-	// tasks
-	sleep(Duration::from_secs(300));
 }

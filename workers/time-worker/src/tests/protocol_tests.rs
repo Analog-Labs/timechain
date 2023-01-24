@@ -2,6 +2,7 @@ use crate::{start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring, Ti
 use arrayref::array_ref;
 use codec::{Codec, Decode, Encode};
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
+use futures_channel::mpsc::{channel, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
 use sc_finality_grandpa::{
@@ -24,12 +25,15 @@ use sp_finality_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
 use sp_runtime::{traits::Header as HeaderT, BuildStorage, DigestItem};
-use std::{marker::PhantomData, pin::Pin, sync::Arc, task::Poll, time::Duration};
+use std::{marker::PhantomData, pin::Pin, sync::Arc, task::Poll, thread::sleep, time::Duration};
 use substrate_test_runtime_client::{
 	runtime::Header, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
 };
 use time_primitives::{crypto::Public as TimeKey, TimeApi, KEY_TYPE as TimeKeyType};
-use tokio::runtime::{Handle, Runtime};
+use tokio::{
+	runtime::{Handle, Runtime},
+	sync::Mutex as TokioMutex,
+};
 
 // required for test networking
 const TIME_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"TIME";
@@ -60,7 +64,7 @@ pub(crate) struct TimeTestNet {
 pub(crate) type GrandpaBlockNumber = u64;
 
 const TIME_PROTOCOL_NAME: &str = "/time/1";
-const GRANDPA_PROTOCOL_NAME: &str = "/paritytech/grandpa/1";
+const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
 const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
 
 impl TimeTestNet {
@@ -79,7 +83,6 @@ impl TimeTestNet {
 		}
 		net
 	}
-
 	#[allow(dead_code)]
 	pub(crate) fn add_authority_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
@@ -346,7 +349,7 @@ fn initialize_grandpa(
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
-	peers: Vec<(usize, &TimeKeyring, Arc<API>)>,
+	peers: Vec<(usize, &TimeKeyring, Arc<API>, Arc<TokioMutex<Receiver<(u64, Vec<u8>)>>>)>,
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default,
@@ -355,7 +358,7 @@ where
 	let time_workers = FuturesUnordered::new();
 
 	// initializing time gadget per peer
-	for (peer_id, key, api) in peers.into_iter() {
+	for (peer_id, key, api, sign_data_receiver) in peers.into_iter() {
 		let peer = &net.peers[peer_id];
 
 		let keystore = create_time_keystore(*key);
@@ -366,6 +369,7 @@ where
 			runtime: api.clone(),
 			gossip_network: peer.network_service().clone(),
 			kv: Some(keystore).into(),
+			sign_data_receiver,
 			_block: PhantomData::default(),
 		};
 		let gadget = start_timeworker_gadget::<_, _, _, _, _>(time_params);
@@ -480,10 +484,20 @@ fn time_keygen_completes() {
 
 	// our time network with 3 authorities and 1 full peer
 	let mut network = TimeTestNet::new(3, 1, test_api.clone());
+	let mut senders = vec![];
+	let mut receivers = vec![];
+	for _ in 0..peers.len() {
+		let (s, r) = channel(10);
+		senders.push(s);
+		receivers.push(r);
+	}
+	receivers.reverse();
 	let time_peers = peers
 		.iter()
 		.enumerate()
-		.map(|(id, p)| (id, p, test_api.clone()))
+		.map(|(id, p)| {
+			(id, p, test_api.clone(), Arc::new(TokioMutex::new(receivers.pop().unwrap())))
+		})
 		.collect::<Vec<_>>();
 
 	runtime.spawn(initialize_grandpa(&mut network, grandpa_peers));

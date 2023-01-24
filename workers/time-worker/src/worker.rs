@@ -4,7 +4,7 @@ use crate::{
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::{BorshDeserialize};
+use borsh::BorshDeserialize;
 use futures::{FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 
@@ -14,9 +14,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
-use time_primitives::{
-	TimeApi, KEY_TYPE,
-};
+use time_primitives::{TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},

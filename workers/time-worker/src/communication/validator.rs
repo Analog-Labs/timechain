@@ -1,6 +1,6 @@
 use crate::TW_LOG;
 
-use log::{debug};
+use log::debug;
 use parking_lot::{Mutex, RwLock};
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
@@ -8,7 +8,6 @@ use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorCon
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 use std::{collections::BTreeMap, time::Duration};
 use tokio::time::Instant;
-
 
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 

@@ -4,10 +4,10 @@ use crate::{
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::{BorshDeserialize, BorshSerialize};
-use futures::{future, FutureExt, StreamExt};
+use borsh::{BorshDeserialize};
+use futures::{FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use parking_lot::Mutex;
+
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
@@ -15,13 +15,12 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
 use time_primitives::{
-	crypto::{Public, Signature},
 	TimeApi, KEY_TYPE,
 };
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
-	utils::{get_receive_params_msg, get_reset_tss_msg, make_gossip_tss_data},
+	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
 #[allow(unused)]

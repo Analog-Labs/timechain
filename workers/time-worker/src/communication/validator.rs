@@ -1,14 +1,14 @@
 use crate::TW_LOG;
-use borsh::BorshDeserialize;
-use log::{debug, info};
+
+use log::{debug};
 use parking_lot::{Mutex, RwLock};
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
-use sp_core::twox_64;
+
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 use std::{collections::BTreeMap, time::Duration};
 use tokio::time::Instant;
-use tss::tss_event_model::TSSData;
+
 
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 
@@ -120,11 +120,11 @@ where
 	fn validate(
 		&self,
 		_context: &mut dyn ValidatorContext<B>,
-		sender: &PeerId,
-		mut data: &[u8],
+		_sender: &PeerId,
+		_data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		// This passes message to worker
-		return ValidationResult::ProcessAndKeep(self.topic);
+		ValidationResult::ProcessAndKeep(self.topic)
 		/*		if let Ok(msg) = TSSData::deserialize(&mut data) {
 					let msg_hash = twox_64(data);
 
@@ -167,7 +167,7 @@ where
 		};
 
 		let _known_votes = self.known_votes.read();
-		Box::new(move |who, intent, _topic, mut _data| {
+		Box::new(move |_who, intent, _topic, mut _data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
 				return do_rebroadcast;
 			}

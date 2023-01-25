@@ -1267,7 +1267,7 @@ impl_runtime_apis! {
 
 	impl storage_primitives::GetStoreTask<Block> for Runtime {
 		fn task_store(){
-			onchain_task_pallet::task_store()
+			OnchainTask::get_task_store();
 		}
 	}
 	

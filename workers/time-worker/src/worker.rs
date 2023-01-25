@@ -15,7 +15,7 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block, Header};
 use std::{sync::Arc, time::Duration};
 use time_primitives::{TimeApi, KEY_TYPE};
-use storage_primitives::runtime_decl_for_GetStoreTask::GetStoreTask;
+use storage_primitives::GetStoreTask;
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
@@ -78,7 +78,8 @@ where
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
 		
-		log::info!("hre is ---> {:?}",self.runtime.runtime_api().task_store());
+
+		self.runtime.runtime_api().task_store();
 		
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();

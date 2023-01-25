@@ -4504,7 +4504,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "itertools",
  "parity-scale-codec 3.2.1",
  "scale-info",
  "sp-core",
@@ -8407,7 +8406,14 @@ dependencies = [
 name = "storage-primitives"
 version = "0.1.0"
 dependencies = [
+ "parity-scale-codec 3.2.1",
+ "scale-info",
  "sp-api",
+ "sp-application-crypto",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
 ]
 
 [[package]]
@@ -9043,6 +9049,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "storage-primitives",
  "substrate-wasm-builder",
  "time-primitives",
 ]

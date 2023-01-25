@@ -8,7 +8,7 @@ pub mod worker;
 #[cfg(test)]
 mod tests;
 use connector::ethereum::SwapToken;
-use storage_primitives::runtime_decl_for_GetStoreTask::GetStoreTask;
+use storage_primitives::GetStoreTask;
 use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
 	kv::TimeKeyvault,

@@ -156,17 +156,17 @@ pub mod pallet {
 			let task = OnchainTask { task_id, frequency };
 
 			match Self::task_store(chain) {
-				Some(ref mut tasks) => match tasks.binary_search(&task) {
+				Some(mut tasks) => match tasks.binary_search(&task) {
 					Ok(index) => {
 						tasks.remove(index);
 						<OnchainTaskStore<T>>::insert(chain, tasks);
 					},
 					Err(_) => {
-						log::error!("{task_id} not found in storage")
+						log::warn!("task with {task_id} is empty or uninitialized")
 					},
 				},
 				None => {
-					log::error!("{task_id} not found in storage")
+					log::warn!("task with {task_id} is empty or uninitialized")
 				},
 			};
 		}

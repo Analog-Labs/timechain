@@ -21,7 +21,6 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::IsType};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
-	use itertools::Itertools;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -86,8 +85,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_task_store() {
-			OnchainTaskStore::<T>::iter().collect_vec();
+		pub fn get_task_store() -> Vec<Vec<u8>> {
+			return <OnchainTaskStore<T>>::iter_values().map(|v| v.encode()).collect::<Vec<Vec<_>>>();
 		}
 	}
 

@@ -87,7 +87,8 @@ where
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
 		
-		log::info!("hre is ---> {:?}",self.runtime.runtime_api().task_store());
+
+		self.runtime.runtime_api().task_store();
 		
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();

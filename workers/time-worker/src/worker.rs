@@ -92,6 +92,9 @@ where
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
 		let at = BlockId::hash(notification.header.hash());
+		
+log::info!("\n\n\n\n========> {:?} \n\n\n\n",self.runtime.runtime_api().task_store(&at));
+
 		assert!(self.runtime.runtime_api().task_store(&at).is_ok());
 
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());

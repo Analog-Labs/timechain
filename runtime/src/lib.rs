@@ -1305,8 +1305,8 @@ impl_runtime_apis! {
 	}
 
 	impl storage_primitives::GetStoreTask<Block> for Runtime {
-		fn task_store(){
-			OnchainTask::get_task_store();
+		fn task_store() -> Vec<Vec<u8>>{
+			OnchainTask::get_task_store()
 		}
 	}
 	

@@ -162,11 +162,11 @@ pub mod pallet {
 						<OnchainTaskStore<T>>::insert(chain, tasks);
 					},
 					Err(_) => {
-						log::warn!("task with {task_id} is empty or uninitialized")
+						log::warn!("task with {task_id} is not found in task list")
 					},
 				},
 				None => {
-					log::warn!("task with {task_id} is empty or uninitialized")
+					log::warn!("tasks for chain {chain} is empty or uninitialized")
 				},
 			};
 		}

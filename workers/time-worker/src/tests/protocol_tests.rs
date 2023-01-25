@@ -504,21 +504,10 @@ fn time_keygen_completes() {
 	);
 	// our runtime for the test chain
 	let mut runtime = Runtime::new().unwrap();
-
-	// creating 3 validators
 	let peers = &[TimeKeyring::Alice, TimeKeyring::Bob, TimeKeyring::Charlie];
 	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 	let genesys_authorities = make_gradpa_ids(grandpa_peers);
 
-	let validator_set = make_time_ids(peers);
-	let test_api = TestApi {
-		genesys_validator_set: vec![TimeKeyring::Alice, TimeKeyring::Bob, TimeKeyring::Charlie],
-		next_validator_set: vec![TimeKeyring::Alice, TimeKeyring::Charlie, TimeKeyring::Dave],
-		genesys_authorities,
-	};
-
-	// our time network with 3 authorities and 1 full peer
-	let mut network = TimeTestNet::new(3, 0, test_api.clone());
 	let mut senders = vec![];
 	let mut receivers = vec![];
 	for _ in 0..peers.len() {
@@ -527,34 +516,33 @@ fn time_keygen_completes() {
 		receivers.push(r);
 	}
 	receivers.reverse();
+	let api = TestApi::new(peers.to_vec(), vec![], genesys_authorities);
 	let time_peers = peers
 		.iter()
 		.enumerate()
-		.map(|(id, p)| {
-			(id, p, test_api.clone(), Arc::new(TokioMutex::new(receivers.pop().unwrap())))
-		})
+		.map(|(id, p)| (id, p, api.clone(), Arc::new(TokioMutex::new(receivers.pop().unwrap()))))
 		.collect::<Vec<_>>();
 
-	runtime.spawn(initialize_grandpa(&mut network, grandpa_peers));
-	runtime.spawn(initialize_time_worker(&mut network, time_peers));
-
+	let mut net = TimeTestNet::new(3, 0, api.clone());
+	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
+	runtime.spawn(initialize_time_worker(&mut net, time_peers));
 	// Pushing 20 block
-	network.generate_blocks(1);
-	network.block_until_sync();
+	net.peer(0).push_blocks(20, false);
+	net.block_until_sync();
 
 	// Verify all peers synchronized
 	for i in 0..3 {
-		assert_eq!(network.peer(i).client().info().best_number, 1, "Peer #{} failed to sync", i);
+		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{} failed to sync", i);
 	}
 
-	let net = Arc::new(Mutex::new(network));
+	let net = Arc::new(Mutex::new(net));
 
 	run_to_completion(&mut runtime, 1, net.clone(), grandpa_peers);
 
 	for i in 0..3 {
 		assert_eq!(
 			net.lock().peer(i).client().info().finalized_number,
-			1,
+			20,
 			"Peer #{} failed to finalize",
 			i
 		);

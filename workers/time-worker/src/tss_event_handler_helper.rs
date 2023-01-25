@@ -1,16 +1,19 @@
 use crate::{traits::Client, worker::TimeWorker};
 use borsh::{BorshDeserialize, BorshSerialize};
+use codec::Encode;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as BackendTrait;
 use sp_consensus::SyncOracle;
-use sp_runtime::traits::Block;
+use sp_runtime::{generic::BlockId, traits::Block};
 use std::collections::HashMap;
 use time_primitives::TimeApi;
 use tss::rand::rngs::OsRng;
 
 use tss::{
 	frost_dalek::{
-		generate_commitment_share_lists, keygen::SecretShare, Participant, SignatureAggregator,
+		generate_commitment_share_lists, keygen::SecretShare, signature::ThresholdSignature,
+		Participant, SignatureAggregator,
 	},
 	tss_event_model::{
 		FilterAndPublishParticipant, OthersCommitmentShares, PartialMessageSign, PublishPeerIDCall,
@@ -626,12 +629,17 @@ where
 								Ok(_) => {
 									log::info!("TSS::Signature is valid sending to network");
 
+									// workaround for absence of cloning
+									let th_bytes = threshold_signature.to_bytes();
+									// this can not fail
+									let th = ThresholdSignature::from_bytes(th_bytes).unwrap();
 									let gossip_data = VerifyThresholdSignatureReq {
 										// msg: msg_req.msg,
 										msg_hash: msg_req.msg_hash,
 										threshold_sign: threshold_signature,
 									};
 
+									self.store_signature(th);
 									self.publish_to_network(
 										local_peer_id,
 										gossip_data,
@@ -682,6 +690,7 @@ where
 						Ok(_) => {
 							//remove event from msg_pool
 							self.tss_local_state.msg_pool.remove(&threshold_signature.msg_hash);
+							self.store_signature(threshold_signature.threshold_sign);
 							log::info!(
 								"length of msg_pool {:?}",
 								self.tss_local_state.msg_pool.len()

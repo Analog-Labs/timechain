@@ -5,18 +5,23 @@ use crate::{
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
+use codec::Encode;
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
-use sp_runtime::traits::{Block, Header};
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block, Header},
+};
 use std::{sync::Arc, time::Duration};
 use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
-	frost_dalek::{compute_message_hash, SignatureAggregator},
+	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
@@ -25,9 +30,9 @@ use tss::{
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, C, R, BE, SO> {
-	client: Arc<C>,
-	backend: Arc<BE>,
-	runtime: Arc<R>,
+	pub(crate) client: Arc<C>,
+	pub(crate) backend: Arc<BE>,
+	pub(crate) runtime: Arc<R>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
@@ -202,6 +207,28 @@ where
 				self.handler_reset_tss_state(&tss_gossiped_data.tss_data).await;
 			},
 		}
+	}
+
+	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
+		let key_bytes = ts.to_bytes();
+		let auth_key = self.kv.public_keys()[0].clone();
+		let at = self.backend.blockchain().last_finalized().unwrap();
+		let last_finalized_number = u64::from_be_bytes(
+			array_bytes::slice2array_unchecked(
+				&&self.client.number(at.clone()).unwrap().unwrap().encode(),
+			)
+			.to_owned(),
+		);
+		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
+		// FIXME: error handle
+		drop(self.runtime.runtime_api().store_signature(
+			&BlockId::Hash(at),
+			auth_key,
+			signature,
+			key_bytes.to_vec(),
+			0,
+			last_finalized_number.into(),
+		));
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested

@@ -1273,8 +1273,8 @@ impl_runtime_apis! {
 
 	impl time_primitives::TimeApi<Block> for Runtime {
 		fn store_signature(
-			auth_key: time_primitives::TimeId,
-			auth_sig: time_primitives::TimeSignature,
+			auth_key: time_primitives::crypto::Public,
+			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
 			task_id: TaskId,
 			block_height: u64,)

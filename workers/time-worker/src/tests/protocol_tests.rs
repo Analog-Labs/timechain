@@ -1,7 +1,9 @@
-use crate::{start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams};
-use arrayref::array_ref;
+use crate::{
+	communication::time_protocol_name::gossip_protocol_name, start_timeworker_gadget,
+	tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams,
+};
 use codec::{Codec, Decode, Encode};
-use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
+use futures::{future, stream::FuturesUnordered, Future, FutureExt, SinkExt, StreamExt};
 use futures_channel::mpsc::{channel, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
@@ -29,7 +31,9 @@ use std::{marker::PhantomData, pin::Pin, sync::Arc, task::Poll, thread::sleep, t
 use substrate_test_runtime_client::{
 	runtime::Header, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
 };
-use time_primitives::{crypto::Public as TimeKey, TimeApi, KEY_TYPE as TimeKeyType};
+use time_primitives::{
+	crypto::Public as TimeKey, SignatureData, TimeApi, TimeSignature, KEY_TYPE as TimeKeyType,
+};
 use tokio::{
 	runtime::{Handle, Runtime},
 	sync::Mutex as TokioMutex,
@@ -63,7 +67,6 @@ pub(crate) struct TimeTestNet {
 // same as runtime
 pub(crate) type GrandpaBlockNumber = u64;
 
-const TIME_PROTOCOL_NAME: &str = "/time/1";
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
 const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
 
@@ -86,7 +89,10 @@ impl TimeTestNet {
 	#[allow(dead_code)]
 	pub(crate) fn add_authority_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
+			notifications_protocols: vec![
+				GRANDPA_PROTOCOL_NAME.into(),
+				gossip_protocol_name().into(),
+			],
 			is_authority: true,
 			..Default::default()
 		})
@@ -95,7 +101,10 @@ impl TimeTestNet {
 	#[allow(dead_code)]
 	pub(crate) fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
+			notifications_protocols: vec![
+				GRANDPA_PROTOCOL_NAME.into(),
+				gossip_protocol_name().into(),
+			],
 			is_authority: false,
 			..Default::default()
 		})
@@ -125,7 +134,10 @@ impl TestNetFactory for TimeTestNet {
 
 	fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![GRANDPA_PROTOCOL_NAME.into(), TIME_PROTOCOL_NAME.into()],
+			notifications_protocols: vec![
+				GRANDPA_PROTOCOL_NAME.into(),
+				gossip_protocol_name().into(),
+			],
 			is_authority: false,
 			..Default::default()
 		})
@@ -217,17 +229,22 @@ impl TestApi {
 	}
 }
 
-// compiler gets confused and warns us about unused inner
+// compiler gets confused and warns us about unused test_api
 #[allow(dead_code)]
 #[derive(Clone)]
 pub(crate) struct RuntimeApi {
-	inner: TestApi,
+	pub stored_signatures: Arc<Mutex<Vec<SignatureData>>>,
+	test_api: TestApi,
 }
 
 impl ProvideRuntimeApi<Block> for TestApi {
 	type Api = RuntimeApi;
 	fn runtime_api(&self) -> ApiRef<Self::Api> {
-		RuntimeApi { inner: self.clone() }.into()
+		RuntimeApi {
+			stored_signatures: Arc::new(Mutex::new(vec![])),
+			test_api: self.clone(),
+		}
+		.into()
 	}
 }
 
@@ -251,7 +268,7 @@ impl TestApi {
 sp_api::mock_impl_runtime_apis! {
 	impl GrandpaApi<Block> for RuntimeApi {
 		fn grandpa_authorities(&self) -> AuthorityList {
-			self.inner.genesys_authorities.clone()
+			self.test_api.genesys_authorities.clone()
 		}
 
 		fn current_set_id(&self) -> SetId {
@@ -274,7 +291,9 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block> for RuntimeApi {
-		fn store_signature(_auth_key: time_primitives::TimeId, _auth_sig: time_primitives::TimeSignature, _signature_data: time_primitives::SignatureData, _task_id: u64, _block_height: u64,) {}
+		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _task_id: u64, _block_height: u64,) {
+			self.stored_signatures.lock().push(signature_data);
+		}
 	}
 
 }
@@ -547,4 +566,9 @@ fn time_keygen_completes() {
 			i
 		);
 	}
+
+	// signing some data
+	let message = b"AbCdE_fG";
+	assert!(runtime.block_on(senders[0].send((1, message.to_vec()))).is_ok());
+	assert!(!api.runtime_api().stored_signatures.lock().is_empty());
 }

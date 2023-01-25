@@ -4,10 +4,10 @@ use crate::{
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::{BorshDeserialize, BorshSerialize};
-use futures::{future, FutureExt, StreamExt};
+use borsh::BorshDeserialize;
+use futures::{FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use parking_lot::Mutex;
+
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
@@ -18,7 +18,7 @@ use time_primitives::{TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{TSSData, TSSEventType},
-	utils::get_reset_tss_msg,
+	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
 #[allow(unused)]
@@ -28,7 +28,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	finality_notifications: FinalityNotifications<B>,
-	gossip_engine: Arc<Mutex<GossipEngine<B>>>,
+	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
@@ -65,7 +65,7 @@ where
 			client,
 			backend,
 			runtime,
-			gossip_engine: Arc::new(Mutex::new(gossip_engine)),
+			gossip_engine,
 			gossip_validator,
 			sync_oracle,
 			kv,
@@ -84,32 +84,66 @@ where
 		}
 		let id = keys[0].clone();
 		// starting TSS initialization if not yet done
+
 		if self.tss_local_state.local_peer_id.is_none() {
 			self.tss_local_state.local_peer_id = Some(id.to_string());
-			let msg = TSSData {
-				peer_id: id.to_string(),
-				tss_event_type: TSSEventType::ReceiveParams,
-				tss_data: get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
-			};
-			let mut enc_message = vec![];
-			msg.serialize(&mut enc_message).unwrap_or(());
-			self.gossip_engine.lock().gossip_message(topic::<B>(), enc_message, false);
+			// TODO: reset if not all comply
+			// slashing goes below too?
+			/*			let msg = make_gossip_tss_data(
+							id.to_string(),
+							get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
+							TSSEventType::ReceiveParams,
+						)
+						.unwrap();
+						self.send(msg);
+			*/
+			// initialize TSS
+			// TODO: assign collector role to at most one node for protocol to work
+			let collector_id_bytes =
+				hex::decode("48640c12bc1b351cf4b051ac1cf7b5740765d02e34989d0a9dd935ce054ebb21")
+					.unwrap();
+			let collector_id = sp_application_crypto::sr25519::Public::from_raw(
+				array_bytes::vec2array(collector_id_bytes).unwrap(),
+			);
+			if id == collector_id.into() {
+				self.tss_local_state.is_node_collector = true;
+				// TODO: assign aggregator role to at most one node for protocol to work
+				self.tss_local_state.is_node_aggregator = true;
+				let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+				if let Ok(peer_id_data) =
+					get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
+				{
+					if let Ok(data) = make_gossip_tss_data(
+						local_peer_id,
+						peer_id_data,
+						TSSEventType::ReceiveParams,
+					) {
+						self.send(data);
+						info!("TSS peer collection req sent");
+					}
+				} else {
+					log::error!("Unable to make publish peer id msg");
+				}
+			}
+
 			info!(target: TW_LOG, "Gossip is sent.");
 		}
 	}
 
-	pub(crate) fn send(&self, msg: Vec<u8>) {
-		self.gossip_engine.lock().gossip_message(topic::<B>(), msg, false);
+	pub(crate) fn send(&mut self, msg: Vec<u8>) {
+		info!(target: TW_LOG, "Sending new gossip message");
+		self.gossip_engine.gossip_message(topic::<B>(), msg, false);
 	}
 
 	#[allow(dead_code)]
 	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
-	fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
+	pub(crate) fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
 		update_shared_group_key(set_id, key);
 	}
 
 	/// On each gossip we process it, verify signature and update our tracker
 	async fn on_gossip(&mut self, tss_gossiped_data: TSSData) {
+		info!(target: TW_LOG, "Processing new gossip");
 		match tss_gossiped_data.tss_event_type {
 			//nodes will be receiving this event to make participant using params
 			TSSEventType::ReceiveParams => {
@@ -163,13 +197,15 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
-		let mut gossips =
-			Box::pin(self.gossip_engine.lock().messages_for(topic::<B>()).filter_map(
-				|notification| async move {
+		let mut gossips = Box::pin(
+			self.gossip_engine
+				.messages_for(topic::<B>())
+				.filter_map(|notification| async move {
 					debug!(target: TW_LOG, "Got new gossip message");
-					TSSData::deserialize(&mut &notification.message[..]).ok()
-				},
-			));
+					TSSData::try_from_slice(&notification.message).ok()
+				})
+				.fuse(),
+		);
 		loop {
 			// making sure majority is synchronising or waiting for the sync
 			while self.sync_oracle.is_major_syncing() {
@@ -177,20 +213,15 @@ where
 				futures_timer::Delay::new(Duration::from_secs(1)).await;
 			}
 
-			let engine = self.gossip_engine.clone();
-			let gossip_engine = future::poll_fn(|cx| engine.lock().poll_unpin(cx));
+			let mut engine = &mut self.gossip_engine;
 
-			futures::select! {
-				gossip = gossips.next().fuse() => {
-					if let Some(gossip) = gossip {
-						self.on_gossip(gossip).await;
-					} else {
-						debug!(
-							target: TW_LOG,
-							"no new gossips"
-						);
-						continue;
-					}
+			futures::select_biased! {
+				_ = engine => {
+					error!(
+						target: TW_LOG,
+						"Gossip engine has terminated."
+					);
+					return;
 				},
 				notification = self.finality_notifications.next().fuse() => {
 					if let Some(notification) = notification {
@@ -200,16 +231,18 @@ where
 							target: TW_LOG,
 							"no new finality notifications"
 						);
-						continue;
 					}
 				},
-				_ = gossip_engine.fuse() => {
-					error!(
-						target: TW_LOG,
-						"Gossip engine has terminated."
-					);
-					return;
-				}
+				gossip = gossips.next() => {
+					if let Some(gossip) = gossip {
+						self.on_gossip(gossip).await;
+					} else {
+						debug!(
+							target: TW_LOG,
+							"no new gossips"
+						);
+					}
+				},
 			}
 		}
 	}

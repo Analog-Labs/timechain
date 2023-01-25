@@ -40,11 +40,14 @@ pub struct OnChainTaskMetadata {
 	pub arguments: MethodArguments,
 }
 
-#[derive(Clone, Copy, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
+#[derive(
+	Clone, Copy, Encode, Default, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound,
+)]
 pub enum SupportedChain {
 	Cosmos,
 	Ethereum,
 	Polkadot,
+	#[default]
 	Timechain,
 }
 
@@ -65,10 +68,4 @@ pub enum EthereumTasks {
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound)]
 pub enum CosmosTasks {
 	FetchBlocks,
-}
-
-impl Default for SupportedChain {
-	fn default() -> Self {
-		SupportedChain::Timechain
-	}
 }

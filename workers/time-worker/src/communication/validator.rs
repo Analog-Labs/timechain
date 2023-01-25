@@ -1,14 +1,13 @@
 use crate::TW_LOG;
-use borsh::BorshDeserialize;
-use log::{debug, info};
+
+use log::debug;
 use parking_lot::{Mutex, RwLock};
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
-use sp_core::twox_64;
+
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 use std::{collections::BTreeMap, time::Duration};
 use tokio::time::Instant;
-use tss::tss_event_model::TSSData;
 
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 
@@ -120,24 +119,24 @@ where
 	fn validate(
 		&self,
 		_context: &mut dyn ValidatorContext<B>,
-		sender: &PeerId,
-		mut data: &[u8],
+		_sender: &PeerId,
+		_data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		if let Ok(msg) = TSSData::deserialize(&mut data) {
-			let _msg_hash = twox_64(data);
+		// This passes message to worker
+		ValidationResult::ProcessAndKeep(self.topic)
+		/*		if let Ok(msg) = TSSData::deserialize(&mut data) {
+					let msg_hash = twox_64(data);
 
-			if true {
-				// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
-				info!(target: TW_LOG, "Message kept from {}", sender.to_string());
-				// This passes message to worker
-				return ValidationResult::ProcessAndKeep(self.topic);
-			} else {
-				// TODO: report peer
-				info!(target: TW_LOG, "Bad signature on message: {:?}, from: {:?}", msg, sender);
-			}
-		}
+					if true {
+						// TimeKeyvault::verify(&msg.id.clone().into(), &msg.signature, &msg.encode()) {
+					} else {
+						// TODO: report peer
+						info!(target: TW_LOG, "Bad signature on message: {:?}, from: {:?}", msg, sender);
+					}
+				}
 
-		ValidationResult::Discard
+				ValidationResult::Discard
+		*/
 	}
 
 	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
@@ -167,7 +166,7 @@ where
 		};
 
 		let _known_votes = self.known_votes.read();
-		Box::new(move |who, intent, _topic, mut _data| {
+		Box::new(move |_who, intent, _topic, mut _data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
 				return do_rebroadcast;
 			}
@@ -182,7 +181,6 @@ where
 			*/
 			// FIXME: we can put entire TSS into validator and worker will only get fully signed
 			// messages
-			info!(target: TW_LOG, "message allowed from {}", who.to_string());
 			true
 		})
 	}

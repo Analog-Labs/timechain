@@ -132,7 +132,8 @@ pub mod pallet {
 						Ok(index) => {
 							// update frequency if new one is smaller
 							if tasks[index].frequency > frequency {
-								tasks[index].frequency = frequency
+								tasks[index].frequency = frequency;
+								<OnchainTaskStore<T>>::insert(chain, tasks);
 							}
 						},
 						Err(_) => {

@@ -11,13 +11,18 @@ use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
-use sp_api::{ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header},
 };
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block, Header},
+};
 use std::{sync::Arc, time::Duration};
+use storage_primitives::GetStoreTask;
 use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use storage_primitives::runtime_decl_for_GetStoreTask::GetStoreTask;
@@ -86,10 +91,9 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
-		
+		let at = BlockId::hash(notification.header.hash());
+		assert!(self.runtime.runtime_api().task_store(&at).is_ok());
 
-		self.runtime.runtime_api().task_store();
-		
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();
 		let keys = self.kv.public_keys();

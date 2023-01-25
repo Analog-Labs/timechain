@@ -166,7 +166,7 @@ pub mod pallet {
 					},
 				},
 				None => {
-					log::warn!("tasks for chain {chain} is empty or uninitialized")
+					log::warn!("tasks for chain {chain:?} is empty or uninitialized")
 				},
 			};
 		}

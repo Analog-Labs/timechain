@@ -209,6 +209,9 @@ where
 		}
 	}
 
+	/// Sends signature to runtime storage through runtime API
+	/// # Params
+	/// * ts - ThresholdSignature to be stored
 	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
 		let key_bytes = ts.to_bytes();
 		let auth_key = self.kv.public_keys()[0].clone();

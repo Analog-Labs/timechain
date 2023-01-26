@@ -49,8 +49,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
-	pub(super) type OnchainTaskStore<T: Config> =
-	StorageDoubleMap<_, Blake2_128Concat, SupportedChain, Blake2_128Concat, TaskId, Frequency, OptionQuery>;
+	pub(super) type OnchainTaskStore<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		SupportedChain,
+		Blake2_128Concat,
+		TaskId,
+		Frequency,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

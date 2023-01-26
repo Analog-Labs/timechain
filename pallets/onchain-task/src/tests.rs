@@ -42,4 +42,3 @@ fn storing_and_get_chain_task() {
 		assert_eq!(0, metadata_index);
 	});
 }
-

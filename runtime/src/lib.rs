@@ -62,7 +62,7 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-use onchain_task_pallet::types::TaskId;
+use onchain_task_pallet::types::{TaskId,SupportedChain};
 pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -1057,6 +1057,10 @@ mod benches {
 	);
 }
 
+// pub struct Obj {
+// 	chain: SupportedChain,
+// 	task: Vec<OnchainTask>
+// }
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -1264,9 +1268,9 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
 		}
 	}
-
+	 
 	impl storage_primitives::GetStoreTask<Block> for Runtime {
-		fn task_store() -> Vec<Vec<u8>>{
+		fn task_store() -> Vec<Vec<onchain_task_pallet::types::OnchainTask>> {
 			OnchainTask::get_task_store()
 		}
 	}

@@ -54,10 +54,7 @@ impl TimeKeyvault {
 
 	pub fn authority_keys(&self) -> Vec<sp_core::ed25519::Public> {
 		let store = self.0.clone().unwrap();
-		SyncCryptoStore::ed25519_public_keys(&*store, sp_finality_grandpa::KEY_TYPE)
-			.iter()
-			.map(|k| sp_core::ed25519::Public::from(*k))
-			.collect()
+		SyncCryptoStore::ed25519_public_keys(&*store, sp_finality_grandpa::KEY_TYPE).to_vec()
 	}
 
 	pub fn authority_sign(

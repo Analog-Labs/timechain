@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod communication;
 pub mod inherents;
 pub mod kv;

@@ -1,4 +1,5 @@
 //! RPC API for Time Worker
+#![allow(clippy::type_complexity)]
 use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
@@ -99,7 +100,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 			return Err(Error::TimeKeyNotFound.into());
 		}
 		let payload = SignRpcPayload::new(group_id, message, signature);
-		if payload.verify(keys[0].clone().into()) {
+		if payload.verify(keys[0].clone()) {
 			self.signer.lock().await.send((payload.group_id, payload.message)).await?;
 			Ok(())
 		} else {

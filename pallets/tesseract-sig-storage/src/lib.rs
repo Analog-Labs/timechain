@@ -24,7 +24,7 @@ pub mod pallet {
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData, TimeId,
+		SignatureData,
 	};
 
 	type BlockHeight = u64;

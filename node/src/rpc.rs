@@ -4,6 +4,7 @@
 //! capabilities that are specific to this project's runtime configuration.
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use jsonrpsee::RpcModule;

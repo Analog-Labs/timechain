@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::{
 	communication::validator::{topic, GossipValidator},
 	inherents::update_shared_group_key,
@@ -114,6 +115,7 @@ where
 			let collector_id = sp_application_crypto::sr25519::Public::from_raw(
 				array_bytes::vec2array(collector_id_bytes).unwrap(),
 			);
+			#[allow(unused_mut)]
 			let mut for_tests = false;
 			// we allow alice to be collector and aggregator in tests
 			#[cfg(test)]
@@ -134,7 +136,7 @@ where
 						TSSEventType::ReceiveParams,
 					) {
 						self.send(data);
-						let id = local_peer_id.to_string();
+						let id = local_peer_id;
 						info!(target: TW_LOG, "TSS keygen initiated by {id}");
 					} else {
 						error!(target: TW_LOG, "Failed to prepare initial TSS message");
@@ -218,10 +220,8 @@ where
 		let auth_key = self.kv.public_keys()[0].clone();
 		let at = self.backend.blockchain().last_finalized().unwrap();
 		let last_finalized_number = u64::from_be_bytes(
-			array_bytes::slice2array_unchecked(
-				&self.client.number(at.clone()).unwrap().unwrap().encode(),
-			)
-			.to_owned(),
+			array_bytes::slice2array_unchecked(&self.client.number(at).unwrap().unwrap().encode())
+				.to_owned(),
 		);
 		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
 		// FIXME: error handle
@@ -231,7 +231,7 @@ where
 			signature,
 			key_bytes.to_vec(),
 			0,
-			last_finalized_number.into(),
+			last_finalized_number,
 		));
 	}
 
@@ -277,13 +277,13 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
-					if let Some((group_id, data)) = new_sig {
+					if let Some((_group_id, data)) = new_sig {
 						// do sig
 						let context = self.tss_local_state.context;
 						let msg_hash = compute_message_hash(&context, &data);
 						//add node in msg_pool
-						if !self.tss_local_state.msg_pool.contains_key(&msg_hash){
-							self.tss_local_state.msg_pool.insert(msg_hash, data.clone().into());
+						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
+							e.insert(data.clone());
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
 								let request = PartialMessageSign {
@@ -305,7 +305,7 @@ where
 							log::warn!(
 								target: TW_LOG,
 								"Message with hash {} is already in process of signing",
-								hex::encode(&msg_hash)
+								hex::encode(msg_hash)
 							);
 						}
 						//creating signature aggregator for msg
@@ -329,7 +329,7 @@ where
 
 							//including aggregator as a signer
 							aggregator.include_signer(
-								self.tss_local_state.local_index.clone().unwrap(),
+								self.tss_local_state.local_index.unwrap(),
 								self.tss_local_state.local_commitment_share.clone().unwrap().0.commitments[0],
 								self.tss_local_state.local_public_key.clone().unwrap(),
 							);
@@ -339,7 +339,7 @@ where
 							self.tss_local_state.current_signers = signers.clone();
 
 							// //sign msg from aggregator side
-							self.aggregator_event_sign(msg_hash.clone()).await;
+							self.aggregator_event_sign(msg_hash).await;
 
 							let sign_msg_req = PartialMessageSign{
 								msg_hash,
@@ -354,7 +354,7 @@ where
 								self.send(data);
 								info!( target: TW_LOG, "TSS peer collection req sent");
 							} else {
-								error!(target: TW_LOG, "Failed to pack TSS message for signing hash: {}", hex::encode(&msg_hash));
+								error!(target: TW_LOG, "Failed to pack TSS message for signing hash: {}", hex::encode(msg_hash));
 							}
 						}
 					}

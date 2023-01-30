@@ -34,11 +34,11 @@ where
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes
-	pub async fn handler_receive_params(self: &mut Self, data: &Vec<u8>) {
+	pub async fn handler_receive_params(&mut self, data: &[u8]) {
 		let local_peer_id = match self.tss_local_state.local_peer_id.clone() {
 			Some(id) => id,
 			None => match self.kv.public_keys() {
-				keys if keys.len() > 0 => keys[0].to_string(),
+				keys if !keys.is_empty() => keys[0].to_string(),
 				_ => {
 					log::warn!(
 						"TSS: No local peer identity present for received params processing"
@@ -66,7 +66,7 @@ where
 						TSSEventType::ReceivePeerIDForIndex,
 					) {
 						log::debug!("TSS: Sending ReceivePeerIDForIndex");
-						self.send(data.into());
+						self.send(data);
 					} else {
 						log::error!("TSS::Unable to encode gossip data for participant creation");
 					}
@@ -787,12 +787,8 @@ where
 	}
 
 	//Publishing the data to the network
-	pub async fn publish_to_network<T>(
-		self: &mut Self,
-		peer_id: String,
-		data: T,
-		tss_type: TSSEventType,
-	) where
+	pub async fn publish_to_network<T>(&mut self, peer_id: String, data: T, tss_type: TSSEventType)
+	where
 		T: BorshSerialize,
 	{
 		log::info!("TSS::sending tss event: {:?}", tss_type);

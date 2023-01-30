@@ -118,10 +118,10 @@ where
 		&self,
 		_context: &mut dyn ValidatorContext<B>,
 		_sender: &PeerId,
-		mut _data: &[u8],
+		_data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		// This passes message to worker
-		return ValidationResult::ProcessAndKeep(self.topic);
+		ValidationResult::ProcessAndKeep(self.topic)
 		/*		if let Ok(msg) = TSSData::deserialize(&mut data) {
 					let msg_hash = twox_64(data);
 

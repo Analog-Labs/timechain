@@ -1,11 +1,9 @@
 use crate::{traits::Client, worker::TimeWorker};
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::Encode;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Backend as BackendTrait;
 use sp_consensus::SyncOracle;
-use sp_runtime::{generic::BlockId, traits::Block};
+use sp_runtime::traits::Block;
 use std::collections::HashMap;
 use time_primitives::TimeApi;
 use tss::rand::rngs::OsRng;

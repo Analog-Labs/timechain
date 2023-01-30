@@ -1,6 +1,6 @@
 use crate::{
-	inherents::get_time_data_provider, start_timeworker_gadget,
-	tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams,
+	communication::time_protocol_name::gossip_protocol_name, inherents::get_time_data_provider,
+	start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams,
 };
 use codec::{Codec, Decode, Encode};
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, SinkExt, StreamExt};
@@ -27,12 +27,12 @@ use sp_finality_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
-use sp_runtime::{generic::BlockId, traits::Header as HeaderT, BuildStorage, DigestItem};
+use sp_runtime::{generic::BlockId, traits::Header as HeaderT, BuildStorage};
 use std::{
 	collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc, task::Poll, time::Duration,
 };
 use substrate_test_runtime_client::{
-	runtime::Header, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
+	Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
 };
 use time_primitives::{
 	crypto::Public as TimeKey,
@@ -43,11 +43,6 @@ use tokio::{
 	runtime::{Handle, Runtime},
 	sync::Mutex as TokioMutex,
 };
-
-// required for test networking
-const TIME_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"TIME";
-
-const TIME_PROTOCOL_NAME: &str = "/time/1";
 
 #[derive(Decode, Encode, TypeInfo)]
 pub enum ConsensusLog<Public: Codec> {
@@ -96,7 +91,7 @@ impl TimeTestNet {
 	#[allow(dead_code)]
 	pub(crate) fn add_authority_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![TIME_PROTOCOL_NAME.into()],
+			notifications_protocols: vec![gossip_protocol_name(), GRANDPA_PROTOCOL_NAME.into()],
 			is_authority: true,
 			..Default::default()
 		})
@@ -105,7 +100,7 @@ impl TimeTestNet {
 	#[allow(dead_code)]
 	pub(crate) fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![TIME_PROTOCOL_NAME.into()],
+			notifications_protocols: vec![gossip_protocol_name(), GRANDPA_PROTOCOL_NAME.into()],
 			is_authority: false,
 			..Default::default()
 		})
@@ -135,7 +130,7 @@ impl TestNetFactory for TimeTestNet {
 
 	fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
-			notifications_protocols: vec![TIME_PROTOCOL_NAME.into()],
+			notifications_protocols: vec![gossip_protocol_name(), GRANDPA_PROTOCOL_NAME.into()],
 			is_authority: false,
 			..Default::default()
 		})
@@ -172,13 +167,6 @@ impl TestNetFactory for TimeTestNet {
 	fn mut_peers<F: FnOnce(&mut Vec<GrandpaPeer>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
 	}
-}
-
-fn add_auth_change_digest(header: &mut Header, new_auth_set: Vec<TimeKey>) {
-	header.digest_mut().push(DigestItem::Consensus(
-		TIME_ENGINE_ID,
-		ConsensusLog::<TimeKey>::AuthoritiesChange(new_auth_set).encode(),
-	));
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -420,7 +408,7 @@ fn initialize_grandpa(
 				local_role: Role::Authority,
 				observer_enabled: true,
 				telemetry: None,
-				protocol_name: TIME_PROTOCOL_NAME.into(), //GRANDPA_PROTOCOL_NAME.into(),
+				protocol_name: GRANDPA_PROTOCOL_NAME.into(),
 			},
 			link,
 			network: net_service,
@@ -588,7 +576,7 @@ fn finalize_3_voters_no_observers() {
 	);
 }
 
-#[cfg(feature = "expensive_tests")]
+//#[cfg(feature = "expensive_tests")]
 #[test]
 fn time_keygen_completes() {
 	sp_tracing::try_init_simple();

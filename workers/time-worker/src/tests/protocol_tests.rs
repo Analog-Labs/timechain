@@ -576,7 +576,7 @@ fn finalize_3_voters_no_observers() {
 	);
 }
 
-//#[cfg(feature = "expensive_tests")]
+#[cfg(feature = "expensive_tests")]
 #[test]
 fn time_keygen_completes() {
 	sp_tracing::init_for_tests();

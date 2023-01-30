@@ -42,6 +42,17 @@ pub mod pallet {
 	pub(super) type TaskMetadata<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, OnChainTaskMetadata, OptionQuery>;
 
+	impl<T: Config> Pallet<T> {
+		pub fn get_task_metadata() -> Vec<OnChainTaskMetadata> {
+			let it = <TaskMetadata<T>>::iter();
+			let mut vt: Vec<OnChainTaskMetadata> = [].into();
+			for (key, val) in it {
+				vt.push(val);
+			}
+			return vt;
+		}
+	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn task_metadata_id)]
 	pub(super) type TaskMetadataId<T: Config> =
@@ -52,21 +63,16 @@ pub mod pallet {
 	pub(super) type OnchainTaskStore<T: Config> =
 		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTask>, OptionQuery>;
 
-		impl<T: Config> Pallet<T> {
-			pub fn get_task_store() ->  Vec<Vec<OnchainTask>> {
-				
-				// let itr = <OnchainTaskStore<T>>::iter_values().map(|v| v.encode()).collect::<Vec<Vec<_>>>();
-	
-				let it = <OnchainTaskStore<T>>::iter();//.map(|v| v.encode()).collect::<Vec<Vec<_>>>();
-				
-				let mut vt:Vec<Vec<OnchainTask>>=[].into();
-				for (key, val) in it {
-					vt.push(val);
-				}
-				return vt;
-	
+	impl<T: Config> Pallet<T> {
+		pub fn get_task_store() -> Vec<Vec<OnchainTask>> {
+			let it = <OnchainTaskStore<T>>::iter();
+			let mut vt: Vec<Vec<OnchainTask>> = [].into();
+			for (key, val) in it {
+				vt.push(val);
 			}
+			return vt;
 		}
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

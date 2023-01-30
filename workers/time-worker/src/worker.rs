@@ -17,7 +17,7 @@ use sp_runtime::{
 	traits::{Block, Header},
 };
 use std::{sync::Arc, time::Duration};
-use storage_primitives::GetStoreTask;
+use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use time_primitives::{TimeApi, KEY_TYPE};
 use tss::{
 	local_state_struct::TSSLocalStateData,
@@ -47,6 +47,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
+	R::Api: GetTaskMetaData<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
@@ -83,8 +84,11 @@ where
 		let at = BlockId::hash(notification.header.hash());
 		
 log::info!("\n\n\n\n========> {:?} \n\n\n\n",self.runtime.runtime_api().task_store(&at));
+log::info!("\n\n\n\n========> {:?} \n\n\n\n",self.runtime.runtime_api().task_metadata(&at));
 
 		assert!(self.runtime.runtime_api().task_store(&at).is_ok());
+		assert!(self.runtime.runtime_api().task_metadata(&at).is_ok());
+
 
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();

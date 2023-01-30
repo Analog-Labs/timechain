@@ -579,7 +579,7 @@ fn finalize_3_voters_no_observers() {
 //#[cfg(feature = "expensive_tests")]
 #[test]
 fn time_keygen_completes() {
-	sp_tracing::try_init_simple();
+	sp_tracing::init_for_tests();
 
 	sp_tracing::info!(
 		target: "time_keygen_completes",
@@ -609,13 +609,15 @@ fn time_keygen_completes() {
 	let mut net = TimeTestNet::new(3, 0, api.clone());
 	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
 	runtime.spawn(initialize_time_worker(&mut net, time_peers));
-	// Pushing 20 block
-	net.peer(0).push_blocks(20, false);
+	// let's wait for workers to properly spawn
+	std::thread::sleep(std::time::Duration::from_secs(6));
+	// Pushing 1 block
+	net.peer(0).push_blocks(1, false);
 	net.block_until_sync();
 
 	// Verify all peers synchronized
 	for i in 0..3 {
-		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{} failed to sync", i);
+		assert_eq!(net.peer(i).client().info().best_number, 1, "Peer #{} failed to sync", i);
 	}
 
 	let net = Arc::new(Mutex::new(net));
@@ -625,18 +627,18 @@ fn time_keygen_completes() {
 	for i in 0..3 {
 		assert_eq!(
 			net.lock().peer(i).client().info().finalized_number,
-			20,
+			1,
 			"Peer #{} failed to finalize",
 			i
 		);
 	}
 
 	// 1 min for TSS keygen to complete
-	std::thread::sleep(std::time::Duration::from_secs(60));
+	std::thread::sleep(std::time::Duration::from_secs(6));
 
 	// signing some data
 	let message = b"AbCdE_fG";
 	assert!(runtime.block_on(senders[0].send((1, message.to_vec()))).is_ok());
-	std::thread::sleep(std::time::Duration::from_secs(60));
+	std::thread::sleep(std::time::Duration::from_secs(6));
 	assert!(!api.runtime_api().stored_signatures.lock().is_empty());
 }

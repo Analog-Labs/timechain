@@ -129,19 +129,20 @@ where
 					get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
 				{
 					if let Ok(data) = make_gossip_tss_data(
-						local_peer_id,
+						local_peer_id.clone(),
 						peer_id_data,
 						TSSEventType::ReceiveParams,
 					) {
 						self.send(data);
-						info!("TSS peer collection req sent");
+						let id = local_peer_id.to_string();
+						info!(target: TW_LOG, "TSS keygen initiated by {id}");
+					} else {
+						error!(target: TW_LOG, "Failed to prepare initial TSS message");
 					}
 				} else {
-					log::error!("Unable to make publish peer id msg");
+					error!(target: TW_LOG, "Unable to make publish peer id msg");
 				}
 			}
-
-			info!(target: TW_LOG, "Gossip is sent.");
 		}
 	}
 
@@ -218,7 +219,7 @@ where
 		let at = self.backend.blockchain().last_finalized().unwrap();
 		let last_finalized_number = u64::from_be_bytes(
 			array_bytes::slice2array_unchecked(
-				&&self.client.number(at.clone()).unwrap().unwrap().encode(),
+				&self.client.number(at.clone()).unwrap().unwrap().encode(),
 			)
 			.to_owned(),
 		);

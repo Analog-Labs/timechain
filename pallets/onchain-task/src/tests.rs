@@ -29,12 +29,9 @@ fn storing_and_get_chain_task() {
 		let task_id = OnChainTask::next_task_id();
 		assert_eq!(task_id, Some(0));
 
-		let onchain_task = OnchainTask { task_id: 0, frequency };
-
 		// check added task
-		let tasks = OnChainTask::task_store(chain);
-		assert_eq!(tasks.clone().unwrap().len(), 1);
-		assert_eq!(tasks.unwrap()[0], onchain_task);
+		let frequency_on_chain = OnChainTask::task_store(chain, task_id.unwrap());
+		assert_eq!(Some(frequency), frequency_on_chain);
 
 		// check metadata
 		let stored_metadata = OnChainTask::task_metadata(0).unwrap();

@@ -37,7 +37,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
+	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
 	pub(crate) tss_local_state: TSSLocalStateData,
@@ -277,17 +277,23 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
-					if let Some((_group_id, data)) = new_sig {
+					if let Some((_group_id, msg_hash)) = new_sig {
 						// do sig
 						let context = self.tss_local_state.context;
-						let msg_hash = compute_message_hash(&context, &data);
 						//add node in msg_pool
-						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
-							e.insert(data.clone());
+						let msg_hash = Rc::new(msg_hash);
+						if self.tss_local_state.msg_pool.contains(msg_hash) {
+							log::warn!(
+								target: TW_LOG,
+								"Message with hash {} is already in process of signing",
+								hex::encode(msg_hash)
+							);
+						} else {
+							self.tss_local_state.msg_pool.insert(msg_hash.clone());
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
 								let request = PartialMessageSign {
-									msg_hash,
+									msg_hash.as_ref(),
 									signers: pending_msg_req.to_vec()
 								};
 								let encoded = request.try_to_vec().unwrap();
@@ -301,12 +307,6 @@ where
 									msg_hash
 								);
 							}
-						} else {
-							log::warn!(
-								target: TW_LOG,
-								"Message with hash {} is already in process of signing",
-								hex::encode(msg_hash)
-							);
 						}
 						//creating signature aggregator for msg
 						if self.tss_local_state.is_node_aggregator {

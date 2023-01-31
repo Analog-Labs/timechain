@@ -17,7 +17,7 @@ use frost_dalek::{
 	SignatureAggregator,
 };
 use rand::rngs::OsRng;
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 impl TssService {
 	//will be run by non collector nodes
@@ -481,9 +481,7 @@ impl TssService {
 						"TSS::data received for signing but not in local pool: {:?}",
 						msg_req.msg_hash
 					);
-					self.tss_local_state
-						.msgs_signature_pending
-						.insert(msg_req.msg_hash, msg_req.signers);
+					self.tss_local_state.msgs_signature_pending.insert(Rc::new(msg_req.msg_hash));
 				}
 			} else {
 				log::error!("TSS::Unable to deserialize PartialMessageSign");
@@ -511,7 +509,7 @@ impl TssService {
 							let participant_list = vec![msg_req.partial_sign];
 							self.tss_local_state
 								.others_partial_signature
-								.insert(msg_req.msg_hash, participant_list);
+								.insert(Rc::new(msg_req.msg_hash), participant_list);
 						}
 
 						let params = self.tss_local_state.tss_params;
@@ -737,13 +735,6 @@ impl TssService {
 				let participant_list = vec![partial_signature];
 				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
 			}
-			let message = match String::from_utf8(msg.clone()) {
-				Ok(msg) => msg,
-				Err(e) => {
-					log::error!("TSS::error in converting message to string, {}", e);
-					return;
-				},
-			};
 
 			//sign message with account
 			let keytype = match self.tss_local_state.key_type {
@@ -753,7 +744,7 @@ impl TssService {
 
 			match sign_data(
 				self.account.clone(),
-				message,
+				msg.as_ref(),
 				keytype,
 				self.tss_local_state.keystore.clone().unwrap(),
 				self.config.clone(),

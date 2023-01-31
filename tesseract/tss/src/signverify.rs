@@ -2,14 +2,13 @@ use crate::submit_to_timechain::TimechainSubmitter;
 use accounts::Account;
 use keystore::commands::KeyTypeId;
 use sc_cli::Error;
-use serde_json::Value;
 use sp_core::{sr25519::Signature, Pair, Public};
 use sp_keystore::SyncCryptoStore;
-use std::{collections::HashMap, convert::TryFrom, sync::Arc};
+use std::{convert::TryFrom, rc::Rc, sync::Arc};
 
 pub async fn sign_data(
 	acc: Account,
-	msg: String,
+	msg: Rc<[u8; 64]>,
 	key_type: KeyTypeId,
 	keystore: Arc<dyn SyncCryptoStore>,
 	config: Arc<TimechainSubmitter>,
@@ -18,7 +17,7 @@ pub async fn sign_data(
 		&*keystore,
 		key_type,
 		&acc.accounts.to_public_crypto_pair(),
-		msg.as_bytes(),
+		msg.as_ref(),
 	) {
 		Ok(sig) => match sig {
 			Some(sig) => sig,
@@ -38,41 +37,6 @@ pub async fn sign_data(
 		Err(e) => {
 			log::error!("Error creating signature: {:?}", e);
 			return Err(Box::new(e));
-		},
-	};
-
-	// deserialize message(event_data) to Log
-	let sig_value = match serde_json::to_value(&signature) {
-		Ok(v) => v,
-		Err(e) => {
-			log::error!("Error creating signature value: {:?}", e);
-			return Err(Box::new(e));
-		},
-	};
-
-	let pubkey_value = match serde_json::to_value(acc.accounts) {
-		Ok(v) => v,
-		Err(e) => {
-			log::error!("Error creating pubkey value: {:?}", e);
-			return Err(Box::new(e));
-		},
-	};
-
-	let mut data = match serde_json::from_str::<HashMap<String, Value>>(&msg) {
-		Ok(data) => data,
-		Err(e) => return Err(e.into()),
-	};
-
-	data.insert("signature".to_string(), sig_value);
-	data.insert("signer".to_string(), pubkey_value);
-
-	let sig_bytes = serde_json::to_vec(&signature).unwrap();
-	let data_bytes = serde_json::to_vec(&data).unwrap();
-	match config.submit_data(sig_bytes, data_bytes).await {
-		Ok(s) => s,
-		Err(e) => {
-			log::error!("Error submitting to timechain: {:?}", e);
-			return Err(e);
 		},
 	};
 

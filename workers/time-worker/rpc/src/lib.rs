@@ -70,19 +70,21 @@ pub trait TimeRpcApi {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: Vec<u8>,
-		signature: Vec<u8>,
+		message: [u8; 32],
+		signature_a: [u8; 32],
+		signature_b: [u8; 32],
 	) -> RpcResult<()>;
 }
 
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
-	signer: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
 
 impl TimeRpcApiHandler {
-	pub fn new(signer: Arc<Mutex<Sender<(u64, Vec<u8>)>>>, kv: TimeKeyvault) -> Self {
+	/// Constructor takes channel of TSS set id and hash of the event to sign
+	pub fn new(signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>, kv: TimeKeyvault) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -92,14 +94,15 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: Vec<u8>,
-		signature: Vec<u8>,
+		message: [u8; 32],
+		signature_a: [u8; 32],
+		signature_b: [u8; 32],
 	) -> RpcResult<()> {
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			return Err(Error::TimeKeyNotFound.into());
 		}
-		let payload = SignRpcPayload::new(group_id, message, signature);
+		let payload = SignRpcPayload::new(group_id, message, signature_a, signature_b);
 		if payload.verify(keys[0].clone()) {
 			self.signer.lock().await.send((payload.group_id, payload.message)).await?;
 			Ok(())

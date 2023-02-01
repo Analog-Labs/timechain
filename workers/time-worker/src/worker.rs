@@ -1,35 +1,43 @@
+#![allow(clippy::type_complexity)]
 use crate::{
 	communication::validator::{topic, GossipValidator},
 	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::BorshDeserialize;
-use futures::{FutureExt, StreamExt};
+use borsh::{BorshDeserialize, BorshSerialize};
+use codec::Encode;
+use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
-use sp_runtime::traits::{Block, Header};
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block, Header},
+};
 use std::{sync::Arc, time::Duration};
 use time_primitives::{TimeApi, KEY_TYPE};
+use tokio::sync::Mutex as TokioMutex;
 use tss::{
+	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
-	tss_event_model::{TSSData, TSSEventType},
+	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, C, R, BE, SO> {
-	client: Arc<C>,
-	backend: Arc<BE>,
-	runtime: Arc<R>,
+	pub(crate) client: Arc<C>,
+	pub(crate) backend: Arc<BE>,
+	pub(crate) runtime: Arc<R>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
+	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
 	pub(crate) tss_local_state: TSSLocalStateData,
@@ -53,6 +61,7 @@ where
 			gossip_validator,
 			sync_oracle,
 			kv,
+			sign_data_receiver,
 		} = worker_params;
 
 		let mut tss_local_state = TSSLocalStateData::new();
@@ -70,6 +79,7 @@ where
 			sync_oracle,
 			kv,
 			tss_local_state,
+			sign_data_receiver,
 		}
 	}
 
@@ -105,7 +115,14 @@ where
 			let collector_id = sp_application_crypto::sr25519::Public::from_raw(
 				array_bytes::vec2array(collector_id_bytes).unwrap(),
 			);
-			if id == collector_id.into() {
+			#[allow(unused_mut)]
+			let mut for_tests = false;
+			// we allow alice to be collector and aggregator in tests
+			#[cfg(test)]
+			if id == crate::tests::kv_tests::Keyring::Alice.public() {
+				for_tests = true;
+			}
+			if id == collector_id.into() || for_tests {
 				self.tss_local_state.is_node_collector = true;
 				// TODO: assign aggregator role to at most one node for protocol to work
 				self.tss_local_state.is_node_aggregator = true;
@@ -114,19 +131,20 @@ where
 					get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
 				{
 					if let Ok(data) = make_gossip_tss_data(
-						local_peer_id,
+						local_peer_id.clone(),
 						peer_id_data,
 						TSSEventType::ReceiveParams,
 					) {
 						self.send(data);
-						info!("TSS peer collection req sent");
+						let id = local_peer_id;
+						info!(target: TW_LOG, "TSS keygen initiated by {id}");
+					} else {
+						error!(target: TW_LOG, "Failed to prepare initial TSS message");
 					}
 				} else {
-					log::error!("Unable to make publish peer id msg");
+					error!(target: TW_LOG, "Unable to make publish peer id msg");
 				}
 			}
-
-			info!(target: TW_LOG, "Gossip is sent.");
 		}
 	}
 
@@ -194,6 +212,29 @@ where
 		}
 	}
 
+	/// Sends signature to runtime storage through runtime API
+	/// # Params
+	/// * ts - ThresholdSignature to be stored
+	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
+		let key_bytes = ts.to_bytes();
+		let auth_key = self.kv.public_keys()[0].clone();
+		let at = self.backend.blockchain().last_finalized().unwrap();
+		let last_finalized_number = u64::from_be_bytes(
+			array_bytes::slice2array_unchecked(&self.client.number(at).unwrap().unwrap().encode())
+				.to_owned(),
+		);
+		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
+		// FIXME: error handle
+		drop(self.runtime.runtime_api().store_signature(
+			&BlockId::Hash(at),
+			auth_key,
+			signature,
+			key_bytes.to_vec(),
+			0,
+			last_finalized_number,
+		));
+	}
+
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
@@ -207,6 +248,8 @@ where
 				.fuse(),
 		);
 		loop {
+			let receiver = self.sign_data_receiver.clone();
+			let mut signature_requests = receiver.lock().await;
 			// making sure majority is synchronising or waiting for the sync
 			while self.sync_oracle.is_major_syncing() {
 				debug!(target: TW_LOG, "Waiting for major sync to complete...");
@@ -231,6 +274,89 @@ where
 							target: TW_LOG,
 							"no new finality notifications"
 						);
+					}
+				},
+				new_sig = signature_requests.next().fuse() => {
+					if let Some((_group_id, data)) = new_sig {
+						// do sig
+						let context = self.tss_local_state.context;
+						let msg_hash = compute_message_hash(&context, &data);
+						//add node in msg_pool
+						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
+							e.insert(data.clone());
+							//process msg if req already received
+							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
+								let request = PartialMessageSign {
+									msg_hash,
+									signers: pending_msg_req.to_vec()
+								};
+								let encoded = request.try_to_vec().unwrap();
+								self.handler_partial_signature_generate_req(&encoded).await;
+								self.tss_local_state.msgs_signature_pending.remove(&msg_hash);
+							} else {
+								log::debug!(
+									target: TW_LOG,
+									"New data for signing received: {:?} with hash {:?}",
+									data,
+									msg_hash
+								);
+							}
+						} else {
+							log::warn!(
+								target: TW_LOG,
+								"Message with hash {} is already in process of signing",
+								hex::encode(msg_hash)
+							);
+						}
+						//creating signature aggregator for msg
+						if self.tss_local_state.is_node_aggregator {
+							//all nodes should share the same message hash
+							//to verify the threshold signature
+							let mut aggregator = SignatureAggregator::new(
+								self.tss_local_state.tss_params,
+								self.tss_local_state.local_finished_state.clone().unwrap().0,
+								&context,
+								&data,
+							);
+
+							for com in self.tss_local_state.others_commitment_share.clone(){
+								aggregator.include_signer(
+									com.public_commitment_share_list.participant_index,
+									com.public_commitment_share_list.commitments[0],
+									com.public_key,
+								);
+							}
+
+							//including aggregator as a signer
+							aggregator.include_signer(
+								self.tss_local_state.local_index.unwrap(),
+								self.tss_local_state.local_commitment_share.clone().unwrap().0.commitments[0],
+								self.tss_local_state.local_public_key.clone().unwrap(),
+							);
+
+							//this signers list will be used by other nodes to verify themselves.
+							let signers = aggregator.get_signers();
+							self.tss_local_state.current_signers = signers.clone();
+
+							// //sign msg from aggregator side
+							self.aggregator_event_sign(msg_hash).await;
+
+							let sign_msg_req = PartialMessageSign{
+								msg_hash,
+								signers: signers.clone(),
+							};
+
+							if let Ok(data) = make_gossip_tss_data(
+								self.tss_local_state.local_peer_id.clone().unwrap_or_default(),
+								sign_msg_req.try_to_vec().unwrap(),
+								TSSEventType::PartialSignatureGenerateReq,
+							) {
+								self.send(data);
+								info!( target: TW_LOG, "TSS peer collection req sent");
+							} else {
+								error!(target: TW_LOG, "Failed to pack TSS message for signing hash: {}", hex::encode(msg_hash));
+							}
+						}
 					}
 				},
 				gossip = gossips.next() => {

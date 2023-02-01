@@ -16,19 +16,18 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::types::*;
-
-	use onchain_task::types as task_types;
-
-	type BlockHeight = u64;
-
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
+	use onchain_task::types as task_types;
 	use scale_info::StaticTypeInfo;
 	use sp_std::{result, vec::Vec};
 	use time_primitives::{
+		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData, TimeId, TimeSignature,
+		SignatureData,
 	};
+
+	type BlockHeight = u64;
 
 	pub trait WeightInfo {
 		fn add_member() -> Weight;
@@ -240,13 +239,13 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn api_store_signature(
-			auth_id: TimeId,
-			auth_sig: TimeSignature,
+			auth_id: Public,
+			auth_sig: Signature,
 			signature_data: SignatureData,
 			task_id: task_types::TaskId,
 			block_height: u64,
 		) {
-			use sp_runtime::traits::Verify;
+			use sp_runtime::traits::AppVerify;
 			// transform AccountId32 int T::AccountId
 			let encoded_account = auth_id.encode();
 			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {

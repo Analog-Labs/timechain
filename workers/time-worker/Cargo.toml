@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-futures = "0.3"
+futures = "0.3.25"
+futures-channel = "0.3.25"
 fnv = "1.0.6"
 hex = "0.4"
 log = "0.4"

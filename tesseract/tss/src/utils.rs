@@ -1,17 +1,15 @@
-use std::collections::HashMap;
-
+use crate::tss_event_model::{
+	PublishPeerIDCall, ReceiveParamsWithPeerCall, ResetTSSCall, TSSData, TSSEventType,
+};
 use borsh::BorshSerialize;
-
 use frost_dalek::{
 	keygen::{Coefficients, RoundOne, SecretShare},
 	DistributedKeyGeneration, Parameters, Participant,
 };
-
-use crate::tss_event_model::{
-	PublishPeerIDCall, ReceiveParamsWithPeerCall, ResetTSSCall, TSSData, TSSEventType,
+use std::{
+	collections::HashMap,
+	time::{SystemTime, UNIX_EPOCH},
 };
-
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn make_gossip_tss_data(
 	peer_id: String,

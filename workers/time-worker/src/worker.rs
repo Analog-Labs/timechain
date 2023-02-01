@@ -22,7 +22,7 @@ use std::{sync::Arc, time::Duration};
 use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
-	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
+	frost_dalek::{signature::ThresholdSignature, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
@@ -37,7 +37,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
+	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 64])>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
 	pub(crate) tss_local_state: TSSLocalStateData,
@@ -281,19 +281,18 @@ where
 						// do sig
 						let context = self.tss_local_state.context;
 						//add node in msg_pool
-						let msg_hash = Rc::new(msg_hash);
-						if self.tss_local_state.msg_pool.contains(msg_hash) {
+						if self.tss_local_state.msg_pool.contains(&msg_hash) {
 							log::warn!(
 								target: TW_LOG,
 								"Message with hash {} is already in process of signing",
 								hex::encode(msg_hash)
 							);
 						} else {
-							self.tss_local_state.msg_pool.insert(msg_hash.clone());
+							self.tss_local_state.msg_pool.insert(msg_hash);
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
 								let request = PartialMessageSign {
-									msg_hash.as_ref(),
+									msg_hash,
 									signers: pending_msg_req.to_vec()
 								};
 								let encoded = request.try_to_vec().unwrap();
@@ -302,8 +301,7 @@ where
 							} else {
 								log::debug!(
 									target: TW_LOG,
-									"New data for signing received: {:?} with hash {:?}",
-									data,
+									"New data for signing received with hash {:?}",
 									msg_hash
 								);
 							}
@@ -316,7 +314,7 @@ where
 								self.tss_local_state.tss_params,
 								self.tss_local_state.local_finished_state.clone().unwrap().0,
 								&context,
-								&data,
+								&msg_hash,
 							);
 
 							for com in self.tss_local_state.others_commitment_share.clone(){

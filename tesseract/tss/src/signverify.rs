@@ -1,17 +1,15 @@
-use crate::submit_to_timechain::TimechainSubmitter;
 use accounts::Account;
 use keystore::commands::KeyTypeId;
 use sc_cli::Error;
 use sp_core::{sr25519::Signature, Pair, Public};
 use sp_keystore::SyncCryptoStore;
-use std::{convert::TryFrom, rc::Rc, sync::Arc};
+use std::{convert::TryFrom, sync::Arc};
 
 pub async fn sign_data(
 	acc: Account,
-	msg: Rc<[u8; 64]>,
+	msg: &[u8; 64],
 	key_type: KeyTypeId,
 	keystore: Arc<dyn SyncCryptoStore>,
-	config: Arc<TimechainSubmitter>,
 ) -> Result<Signature, Box<dyn std::error::Error + Send + Sync>> {
 	let sig_data = match SyncCryptoStore::sign_with(
 		&*keystore,

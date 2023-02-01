@@ -8,7 +8,6 @@ use sp_keystore::SyncCryptoStore;
 use std::{
 	collections::{HashMap, HashSet},
 	fmt,
-	rc::Rc,
 	sync::Arc,
 };
 
@@ -38,9 +37,9 @@ pub struct TSSLocalStateData {
 	pub local_public_key: Option<IndividualPublicKey>,
 	pub local_commitment_share: Option<(PublicCommitmentShareList, SecretCommitmentShareList)>,
 	pub others_commitment_share: Vec<OthersCommitmentShares>,
-	pub others_partial_signature: HashMap<Rc<[u8; 64]>, Vec<PartialThresholdSignature>>,
-	pub msg_pool: HashSet<Rc<[u8; 64]>>,
-	pub msgs_signature_pending: HashSet<Rc<[u8; 64]>>,
+	pub others_partial_signature: HashMap<[u8; 64], Vec<PartialThresholdSignature>>,
+	pub msg_pool: HashSet<[u8; 64]>,
+	pub msgs_signature_pending: HashMap<[u8; 64], Vec<Signer>>,
 	pub current_signers: Vec<Signer>,
 }
 
@@ -96,7 +95,7 @@ impl TSSLocalStateData {
 			others_commitment_share: vec![],
 			others_partial_signature: HashMap::new(),
 			msg_pool: HashSet::new(),
-			msgs_signature_pending: HashSet::new(),
+			msgs_signature_pending: HashMap::new(),
 			current_signers: vec![],
 		}
 	}
@@ -118,7 +117,7 @@ impl TSSLocalStateData {
 		self.others_commitment_share = vec![];
 		self.others_partial_signature = HashMap::new();
 		self.msg_pool = HashSet::new();
-		self.msgs_signature_pending = HashSet::new();
+		self.msgs_signature_pending = HashMap::new();
 		self.current_signers = vec![];
 	}
 }

@@ -744,7 +744,7 @@ where
 		if let Some(msg) = self.tss_local_state.msg_pool.get(&msg_hash) {
 			//making partial signature here
 			let partial_signature = match final_state.1.sign(
-				&msg_hash,
+				msg,
 				&final_state.0,
 				&mut my_commitment.1,
 				0,
@@ -759,28 +759,19 @@ where
 
 			if let Some(hashmap) = self.tss_local_state.others_partial_signature.get_mut(&msg_hash)
 			{
-				hashmap.push(partial_signature);
+				hashmap.push(partial_signature.clone());
 			} else {
-				let participant_list = vec![partial_signature];
+				let participant_list = vec![partial_signature.clone()];
 				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
 			}
-			let _message = match String::from_utf8(msg.clone()) {
-				Ok(msg) => msg,
-				Err(e) => {
-					log::error!("TSS::error in converting message to string, {}", e);
-					return;
-				},
-			};
 
-			// FIXME: what's the point of this?
-			match self.kv.sign(&self.kv.public_keys()[0], msg) {
-				Some(_) => {
-					log::info!("message signed and stored successfully");
-				},
-				None => {
-					log::error!("error in signing message");
-				},
-			};
+			// sending new sig back to network
+			self.publish_to_network(
+				self.tss_local_state.local_peer_id.clone().unwrap(),
+				partial_signature,
+				TSSEventType::PartialSignatureGenerateReq,
+			)
+			.await;
 		} else {
 			log::error!("TSS::Message not found in pool");
 		}

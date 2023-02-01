@@ -18,7 +18,7 @@ use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
 use tokio::sync::Mutex;
 
 lazy_static::lazy_static! {
-	pub(crate) static ref TIME_RPC_CHANNEL: (Arc<Mutex<Sender<(u64, [u8; 32])>>>, Arc<Mutex<Receiver<(u64, [u8; 32])>>>) = {
+	pub(crate) static ref TIME_RPC_CHANNEL: (Arc<Mutex<Sender<(u64, [u8; 64])>>>, Arc<Mutex<Receiver<(u64, [u8; 64])>>>) = {
 		// Max 400 calls in parallel
 		let (s, r) =  channel(400);
 		(Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))

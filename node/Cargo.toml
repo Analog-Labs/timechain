@@ -18,9 +18,15 @@ name = "timechain-node"
 clap = { version = "3.1.18", features = ["derive"] }
 serde_json = "1.0.85"
 hex-literal = "0.3.1"
+<<<<<<< HEAD
 log = "0.4.0"
 web3 = {path = "../web3-0.18.0"}
 tokio = { version = "1.18.2", features = ["full", "sync"] }
+=======
+lazy_static = "1.4.0"
+tokio = "1.24.0"
+futures = "0.3.25"
+>>>>>>> development
 
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", features = ["wasmtime"] , branch = "polkadot-v0.9.30" }
 sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
@@ -45,7 +51,7 @@ sp-keyring = { version = "6.0.0", git = "https://github.com/paritytech/substrate
 frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 sp-authorship = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-
+pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 
 # node 's RPCs deps
 jsonrpsee = { version = "0.15.1", features = ["server"] }
@@ -74,6 +80,7 @@ connector = { path = "../connector"}
 
 # Runtime Workers
 time-worker = { path = "../workers/time-worker" }
+time-worker-rpc = { path = "../workers/time-worker/rpc" }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

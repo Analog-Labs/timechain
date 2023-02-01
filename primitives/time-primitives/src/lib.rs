@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod inherents;
+pub mod rpc;
 
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
@@ -22,7 +23,7 @@ sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
 		#[allow(clippy::too_many_arguments)]
-		fn store_signature(auth_key: TimeId, auth_sig: TimeSignature, signature_data: SignatureData, task_id: u64, block_height: u64,);
+		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, task_id: u64, block_height: u64,);
 	}
 
 	pub trait NextTaskid {

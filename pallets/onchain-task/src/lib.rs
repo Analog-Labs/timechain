@@ -60,8 +60,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_store)]
-	pub(super) type OnchainTaskStore<T: Config> =
-		StorageMap<_, Blake2_128Concat, SupportedChain, Vec<OnchainTask>, OptionQuery>;
+	pub(super) type OnchainTaskStore<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		SupportedChain,
+		Blake2_128Concat,
+		TaskId,
+		Frequency,
+		OptionQuery,
+	>;
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_store() -> Vec<Vec<OnchainTask>> {
@@ -145,28 +152,15 @@ pub mod pallet {
 		}
 
 		pub fn insert_task(chain: SupportedChain, task_id: TaskId, frequency: Frequency) {
-			// build the object
-			let task = OnchainTask { task_id, frequency };
-
-			match Self::task_store(chain) {
-				Some(ref mut tasks) => {
-					match tasks.binary_search(&task) {
-						Ok(index) => {
-							// update frequency if new one is smaller
-							if tasks[index].frequency > frequency {
-								tasks[index].frequency = frequency
-							}
-						},
-						Err(_) => {
-							// not found then insert the new one and sort the tasks
-							tasks.push(task);
-							tasks.sort();
-							<OnchainTaskStore<T>>::insert(chain, tasks);
-						},
+			match Self::task_store(chain, task_id) {
+				Some(old_frequency) => {
+					// update frequency if new one is less
+					if old_frequency > frequency {
+						<OnchainTaskStore<T>>::insert(chain, task_id, frequency);
 					}
 				},
 				None => {
-					<OnchainTaskStore<T>>::insert(chain, vec![task]);
+					<OnchainTaskStore<T>>::insert(chain, task_id, frequency);
 				},
 			};
 		}

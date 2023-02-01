@@ -248,23 +248,52 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				kv: Some(clonestore.clone()).into(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
+		})	};
+
+	let rpc_extensions_builder_connector = {
+		let client = client.clone();
+		let pool = transaction_pool.clone();
+		let clonestore = keystore.clone();
+
+		Box::new(move |deny_unsafe, _| {
+			let deps_for_connector = crate::rpc::FullDepsConnector {
+				client: client.clone(),
+				pool: pool.clone(),
+				deny_unsafe,
+				kv: Some(clonestore.clone()).into(),
+			};
+			crate::rpc::create_full_for_connector(deps_for_connector).map_err(Into::into)
 		})
 	};
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
 		client: client.clone(),
-		keystore,
+		keystore:keystore.clone(),
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		rpc_builder: rpc_extensions_builder,
+		backend: backend.clone(),
+		system_rpc_tx:system_rpc_tx.clone(),
+		tx_handler_controller,
+		config,
+		telemetry: telemetry.as_mut(),
+	})?;
+	
+	let _rpc_handlers_r = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+		network: network.clone(),
+		client: client.clone(),
+		keystore,
+		task_manager: &mut task_manager,
+		transaction_pool: transaction_pool.clone(),
+		rpc_builder: rpc_extensions_builder_connector,
 		backend: backend.clone(),
 		system_rpc_tx,
 		tx_handler_controller,
 		config,
 		telemetry: telemetry.as_mut(),
 	})?;
-
+	
 	if role.is_authority() {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),

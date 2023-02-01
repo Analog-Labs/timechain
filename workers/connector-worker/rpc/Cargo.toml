@@ -1,0 +1,21 @@
+[package]
+name = "connector-worker-rpc"
+version = "0.1.0"
+authors = ["Analog Dev Team"]
+edition = "2021"
+description = "RPC for Time Worker client"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
+futures = "0.3.21"
+jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+log = "0.4"
+parking_lot = "0.12.1"
+serde = { version = "1.0.136", features = ["derive"] }
+thiserror = "1.0"
+connector-worker = { path = "../." }
+time-primitives = { path = "../../../primitives/time-primitives" }
+sc-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+tokio = "1.24.0"

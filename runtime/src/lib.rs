@@ -68,11 +68,7 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-<<<<<<< HEAD
-use onchain_task_pallet::types::{TaskId,SupportedChain};
-=======
 use onchain_task_pallet::types::TaskId;
->>>>>>> development
 pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -1292,7 +1288,7 @@ impl_runtime_apis! {
 	}
 	 
 	impl storage_primitives::GetStoreTask<Block> for Runtime {
-		fn task_store() -> Vec<Vec<onchain_task_pallet::types::OnchainTask>> {
+		fn task_store() -> Vec<onchain_task_pallet::types::OnchainTask> {
 			OnchainTask::get_task_store()
 		}
 	}

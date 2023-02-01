@@ -13,7 +13,7 @@ use connector::ethereum::SwapToken;
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
-	kv::TimeKeyvault,
+	kv::ConnectorKeyvault,
 };
 use futures::channel::mpsc::Receiver as FutReceiver;
 use log::*;
@@ -54,7 +54,7 @@ where
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub gossip_network: N,
-	pub kv: TimeKeyvault,
+	pub kv: ConnectorKeyvault,
 	pub _block: PhantomData<B>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 }
@@ -66,7 +66,7 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub sync_oracle: SO,
-	pub kv: TimeKeyvault,
+	pub kv: ConnectorKeyvault,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 }
 

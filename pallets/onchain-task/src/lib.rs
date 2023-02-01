@@ -71,11 +71,11 @@ pub mod pallet {
 	>;
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_task_store() -> Vec<Vec<OnchainTask>> {
+		pub fn get_task_store() -> Vec<OnchainTask> {
 			let it = <OnchainTaskStore<T>>::iter();
-			let mut vt: Vec<Vec<OnchainTask>> = [].into();
-			for (key, val) in it {
-				vt.push(val);
+			let mut vt: Vec<OnchainTask> = [].into();
+			for (_key, task_val, frequency_val) in it {
+				vt.push(OnchainTask { task_id: task_val, frequency: frequency_val });
 			}
 			return vt;
 		}

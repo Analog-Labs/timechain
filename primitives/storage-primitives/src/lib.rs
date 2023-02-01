@@ -9,7 +9,7 @@ pub type TaskId = u64;
 sp_api::decl_runtime_apis! {
 	pub trait GetStoreTask {
 		#[allow(clippy::too_many_arguments)]
-		fn task_store() -> Vec<Vec<OnchainTask>>;
+		fn task_store() -> Vec<OnchainTask>;
 	}
 
 	pub trait GetTaskMetaData {

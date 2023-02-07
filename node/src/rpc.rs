@@ -14,7 +14,6 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;
 use time_worker::kv::TimeKeyvault;
-use connector_worker::kv::ConnectorKeyvault;
 use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
 use tokio::sync::Mutex;
 
@@ -40,18 +39,6 @@ pub struct FullDeps<C, P> {
 	pub kv: TimeKeyvault,
 }
 
-/// Full client dependencies for Connector.
-pub struct FullDepsConnector<C, P> {
-	/// The client instance to use.
-	pub client: Arc<C>,
-	/// Transaction pool instance.
-	pub pool: Arc<P>,
-	/// Whether to deny unsafe calls
-	pub deny_unsafe: DenyUnsafe,
-	/// Time keyvault
-	pub kv: ConnectorKeyvault,
-}
-
 /// Instantiate all full RPC extensions.
 pub fn create_full<C, P>(
 	deps: FullDeps<C, P>,
@@ -75,41 +62,6 @@ where
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
 	module.merge(TimeRpcApiHandler::new(TIME_RPC_CHANNEL.0.clone(), kv).into_rpc())?;
-
-	// Extend this RPC with a custom API by using the following syntax.
-	// `YourRpcStruct` should have a reference to a client, which is needed
-	// to call into the runtime.
-	// `module.merge(YourRpcTrait::into_rpc(YourRpcStruct::new(ReferenceToClient, ...)))?;`
-
-	Ok(module)
-}
-
-pub fn create_full_for_connector<C, P>(
-	deps: FullDepsConnector<C, P>,
-) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
-where
-	C: ProvideRuntimeApi<Block>,
-	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
-	C: Send + Sync + 'static,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: BlockBuilder<Block>,
-	P: TransactionPool + 'static,
-{
-	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-	use substrate_frame_rpc_system::{System, SystemApiServer};
-	// use time_worker_rpc::{TimeRpcApiHandler, TimeRpcApiServer};
-	use connector_worker_rpc::{ConnectorRpcApiHandler, ConnectorRpcApiServer};
-
-	let mut module = RpcModule::new(());
-	// let FullDeps { client, pool, deny_unsafe, kv } = deps;
-	let FullDepsConnector { client, pool, deny_unsafe, kv } = deps;
-
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-	module.merge(TransactionPayment::new(client).into_rpc())?;
-	// module.merge(TimeRpcApiHandler::new(TIME_RPC_CHANNEL.0.clone(), kv).into_rpc())?;
-
-	module.merge(ConnectorRpcApiHandler::new(TIME_RPC_CHANNEL.0.clone(), kv).into_rpc())?;
 
 	// Extend this RPC with a custom API by using the following syntax.
 	// `YourRpcStruct` should have a reference to a client, which is needed

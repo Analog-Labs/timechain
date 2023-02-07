@@ -4,9 +4,9 @@ use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use std::collections::HashMap;
-use time_primitives::{TimeApi};
+use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use time_primitives::TimeApi;
 use tss::rand::rngs::OsRng;
 
 use tss::{

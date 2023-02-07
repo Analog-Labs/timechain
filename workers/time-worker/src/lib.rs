@@ -9,12 +9,11 @@ pub mod worker;
 
 #[cfg(test)]
 mod tests;
-use connector::ethereum::SwapToken;
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
 	kv::TimeKeyvault,
 };
+use connector::ethereum::SwapToken;
 use futures::channel::mpsc::Receiver as FutReceiver;
 use log::*;
 use sc_client_api::Backend;
@@ -22,11 +21,12 @@ use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc, time, thread};
-use time_primitives::{TimeApi};
-use traits::Client;
+use std::{marker::PhantomData, sync::Arc, thread, time};
+use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use time_primitives::TimeApi;
 use tokio;
 use tokio::sync::Mutex as TokioMutex;
+use traits::Client;
 use web3::transports::Http;
 /*gossip_engine: Arc::new(Mutex::new(GossipEngine::new(
 network.clone(),
@@ -100,10 +100,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine =
 		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
-	
 
-	
-	
 	tokio::spawn(async move {
 		//Connector for swap price
 		let end_point = Http::new("http://127.0.0.1:8545");
@@ -125,7 +122,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 			thread::sleep(delay);
 		}
 	});
-	
+
 	let worker_params = WorkerParams {
 		client,
 		backend,

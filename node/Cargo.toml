@@ -78,7 +78,6 @@ time-worker = { path = "../workers/time-worker" }
 time-worker-rpc = { path = "../workers/time-worker/rpc" }
 
 connector-worker = { path = "../workers/connector-worker" }
-connector-worker-rpc = { path = "../workers/connector-worker/rpc" }
 
 
 [build-dependencies]

@@ -1286,7 +1286,7 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
 		}
 	}
-	 
+
 	impl storage_primitives::GetStoreTask<Block> for Runtime {
 		fn task_store() -> Vec<onchain_task_pallet::types::OnchainTask> {
 			OnchainTask::get_task_store()
@@ -1295,11 +1295,11 @@ impl_runtime_apis! {
 
 	impl storage_primitives::GetTaskMetaData<Block> for Runtime {
 		fn task_metadata() -> Vec<onchain_task_pallet::types::OnChainTaskMetadata> {
-			
+
 			OnchainTask::get_task_metadata()
 		}
 	}
-	
+
 	impl time_primitives::NextTaskid<Block> for Runtime {
 		fn get_next_task_id() {
 			OnchainTask::get_next_task_id();

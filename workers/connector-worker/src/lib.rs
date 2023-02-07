@@ -4,30 +4,18 @@ pub mod communication;
 pub mod inherents;
 pub mod kv;
 pub mod traits;
-mod tss_event_handler_helper;
 pub mod worker;
 
-#[cfg(test)]
-mod tests;
-use connector::ethereum::SwapToken;
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
-use crate::{
-	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
-	kv::ConnectorKeyvault,
-};
-use futures::channel::mpsc::Receiver as FutReceiver;
 use log::*;
 use sc_client_api::Backend;
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+
 use sp_api::ProvideRuntimeApi;
-use sp_consensus::SyncOracle;
+
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc, time, thread};
-use time_primitives::{TimeApi};
+use std::{marker::PhantomData, sync::Arc};
+use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use traits::Client;
-use tokio;
-use tokio::sync::Mutex as TokioMutex;
-use web3::transports::Http;
+
 /*gossip_engine: Arc::new(Mutex::new(GossipEngine::new(
 network.clone(),
 gossip_protocol_name(),
@@ -39,103 +27,64 @@ None,
 pub const TW_LOG: &str = "⌛time-worker";
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, C, R, BE, N>
+pub struct ConnectorWorkerParams<B: Block, C, R, BE>
 where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
 	R::Api: GetTaskMetaData<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
-	pub gossip_network: N,
-	pub kv: ConnectorKeyvault,
 	pub _block: PhantomData<B>,
-	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
+	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<(u64, Vec<u8>)>>>,
 }
 
-pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
+pub(crate) struct WorkerParams<B, C, R, BE> {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
-	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
-	pub sync_oracle: SO,
-	pub kv: ConnectorKeyvault,
-	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
+	_block: PhantomData<B>,
+	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<(u64, Vec<u8>)>>>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, C, R, BE, N>(
-	timeworker_params: TimeWorkerParams<B, C, R, BE, N>,
+pub async fn start_connectorworker_gadget<B, C, R, BE>(
+	connectorworker_params: ConnectorWorkerParams<B, C, R, BE>,
 ) where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
 	R::Api: GetTaskMetaData<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
-	debug!(target: TW_LOG, "Starting TimeWorker gadget");
-	let TimeWorkerParams {
+	debug!(target: TW_LOG, "Starting ConnectorWorker gadget");
+	let ConnectorWorkerParams {
 		client,
 		backend,
 		runtime,
-		gossip_network,
-		kv,
+		sign_data_sender,
 		_block,
-		sign_data_receiver,
-	} = timeworker_params;
+	} = connectorworker_params;
 
-	let sync_oracle = gossip_network.clone();
-	let gossip_validator = Arc::new(GossipValidator::new());
-	let gossip_engine =
-		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
-	
+	// let sync_oracle = gossip_network.clone();
+	// let gossip_validator = Arc::new(GossipValidator::new());
+	// let gossip_engine =
+	// 	GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
 
-	
-	
-	tokio::spawn(async move {
-		//Connector for swap price
-		let end_point = Http::new("http://127.0.0.1:8545");
-		let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-		let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-		let delay = time::Duration::from_secs(3);
-
-		loop {
-			let swap_result = SwapToken::swap_price(
-				&web3::Web3::new(end_point.clone().unwrap()),
-				abi,
-				exchange_address,
-				"getAmountsOut",
-				std::string::String::from("1"),
-			)
-			.await
-			.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
-			log::info!("Swap Result : {:?}", swap_result);
-			thread::sleep(delay);
-		}
-	});
-	
 	let worker_params = WorkerParams {
 		client,
 		backend,
 		runtime,
-		sync_oracle,
-		gossip_validator,
-		gossip_engine,
-		kv,
-		sign_data_receiver,
+		_block,
+		sign_data_sender,
 	};
-	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
+	let mut worker = worker::ConnectorWorker::<_, _, _, _>::new(worker_params);
 	worker.run().await
 }

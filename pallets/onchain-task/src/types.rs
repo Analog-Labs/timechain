@@ -15,8 +15,8 @@ pub struct OnChainTaskMetadata {
 
 #[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
 pub struct OnchainTask {
-	pub task_id:TaskId,
-	pub frequency:Frequency,
+	pub task_id: TaskId,
+	pub frequency: Frequency,
 }
 
 #[derive(

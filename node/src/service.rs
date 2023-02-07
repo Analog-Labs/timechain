@@ -177,11 +177,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
 			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) =>
+			Err(e) => {
 				return Err(ServiceError::Other(format!(
 					"Error hooking up remote keystore for {}: {}",
 					url, e
-				))),
+				)))
+			},
 		};
 	}
 	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
@@ -248,52 +249,23 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				kv: Some(clonestore.clone()).into(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
-		})	};
-
-	let rpc_extensions_builder_connector = {
-		let client = client.clone();
-		let pool = transaction_pool.clone();
-		let clonestore = keystore.clone();
-
-		Box::new(move |deny_unsafe, _| {
-			let deps_for_connector = crate::rpc::FullDepsConnector {
-				client: client.clone(),
-				pool: pool.clone(),
-				deny_unsafe,
-				kv: Some(clonestore.clone()).into(),
-			};
-			crate::rpc::create_full_for_connector(deps_for_connector).map_err(Into::into)
 		})
 	};
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
 		client: client.clone(),
-		keystore:keystore.clone(),
-		task_manager: &mut task_manager,
-		transaction_pool: transaction_pool.clone(),
-		rpc_builder: rpc_extensions_builder,
-		backend: backend.clone(),
-		system_rpc_tx:system_rpc_tx.clone(),
-		tx_handler_controller,
-		config,
-		telemetry: telemetry.as_mut(),
-	})?;
-	
-	let _rpc_handlers_r = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		network: network.clone(),
-		client: client.clone(),
 		keystore,
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
-		rpc_builder: rpc_extensions_builder_connector,
+		rpc_builder: rpc_extensions_builder,
 		backend: backend.clone(),
 		system_rpc_tx,
 		tx_handler_controller,
 		config,
 		telemetry: telemetry.as_mut(),
 	})?;
-	
+
 	if role.is_authority() {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -382,10 +354,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		// injecting our Worker
 		let time_params = time_worker::TimeWorkerParams {
 			runtime: client.clone(),
-			client,
-			backend,
-			gossip_network: network,
-			kv: keystore.into(),
+			client: client.clone(),
+			backend: backend.clone(),
+			gossip_network: network.clone(),
+			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
 		};
@@ -394,6 +366,21 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			"time-worker",
 			None,
 			time_worker::start_timeworker_gadget(time_params),
+		);
+
+		//Injecting connector worker
+		let connector_params = connector_worker::ConnectorWorkerParams {
+			runtime: client.clone(),
+			client,
+			backend,
+			_block: PhantomData::default(),
+			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+		};
+
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"connector-worker",
+			None,
+			connector_worker::start_connectorworker_gadget(connector_params),
 		);
 	}
 

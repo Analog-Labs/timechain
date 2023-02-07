@@ -1032,25 +1032,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "connector-worker-rpc"
-version = "0.1.0"
-dependencies = [
- "connector-worker",
- "futures",
- "jsonrpsee",
- "log",
- "parity-scale-codec 3.3.0",
- "parking_lot 0.12.1",
- "sc-rpc",
- "serde",
- "sp-core",
- "sp-runtime",
- "thiserror",
- "time-primitives",
- "tokio",
-]
-
-[[package]]
 name = "console_error_panic_hook"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9080,7 +9061,6 @@ dependencies = [
  "clap",
  "connector",
  "connector-worker",
- "connector-worker-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",

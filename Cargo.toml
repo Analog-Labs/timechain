@@ -7,6 +7,7 @@ members = [
     "runtime",
     "workers/time-worker",
     "workers/time-worker/rpc",
+    "workers/database",
     "primitives/time-primitives",
     "tesseract/tss",
     "tesseract/accounts",

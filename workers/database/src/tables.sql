@@ -11,13 +11,13 @@ CREATE DATABASE timechain
 CREATE TABLE chains (
 	chain_id serial PRIMARY KEY,
   	chain_name VARCHAR (20) NOT NULL,
-  	chain_description VARCHAR (100) NOT NULL );
-
+  	chain_description VARCHAR (100) NOT NULL 
+);
 
 CREATE TABLE task_metadata (
 	task_metadata_id serial PRIMARY KEY,
     task_name VARCHAR (20) NOT NULL,
-    task_description VARCHAR (100) NOT NULL,
+    task_description VARCHAR (100) NOT NULL
 );
 
 CREATE TABLE tasks (
@@ -36,6 +36,6 @@ CREATE TABLE on_chain_data (
     task_id INT NOT NULL,
     block_number INT NOT NULL,
 	time_stamp timestamp NOT NULL,
-	on_chain_data VARCHAR (100) NOT NULL,
+	data_value VARCHAR (100) NOT NULL,
 	FOREIGN KEY(task_id) REFERENCES tasks(task_id)
 );

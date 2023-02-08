@@ -2,6 +2,9 @@ use diesel::{pg::PgConnection, prelude::*};
 use dotenvy::dotenv;
 use std::env;
 
+mod models;
+mod schema;
+
 pub fn establish_connection() -> PgConnection {
 	dotenv().ok();
 

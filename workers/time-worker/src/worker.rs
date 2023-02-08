@@ -90,11 +90,6 @@ where
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
 		let at = BlockId::hash(notification.header.hash());
 
-		log::info!("\n\n\n\n========> {:?} \n\n\n\n", self.runtime.runtime_api().task_store(&at));
-		log::info!(
-			"\n\n\n\n========> {:?} \n\n\n\n",
-			self.runtime.runtime_api().task_metadata(&at)
-		);
 
 		assert!(self.runtime.runtime_api().task_store(&at).is_ok());
 		assert!(self.runtime.runtime_api().task_metadata(&at).is_ok());

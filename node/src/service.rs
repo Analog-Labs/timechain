@@ -374,7 +374,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			client,
 			backend,
 			_block: PhantomData::default(),
-			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			sign_data_sender: crate::rpc::CONNECTOR_RPC_CHANNEL.0.clone(),
 		};
 
 		task_manager.spawn_essential_handle().spawn_blocking(

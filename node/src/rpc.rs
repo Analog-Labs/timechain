@@ -23,6 +23,12 @@ lazy_static::lazy_static! {
 		let (s, r) =  channel(400);
 		(Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
 	};
+
+	pub(crate) static ref CONNECTOR_RPC_CHANNEL: (Arc<Mutex<Sender<(Vec<i32>)>>>, Arc<Mutex<Receiver<(Vec<i32>)>>>) = {
+		// Max 400 calls in parallel
+		let (s, r) =  channel(400);
+		(Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
+	};
 }
 
 pub use sc_rpc_api::DenyUnsafe;

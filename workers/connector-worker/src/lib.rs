@@ -40,7 +40,7 @@ where
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub _block: PhantomData<B>,
-	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<(u64, Vec<u8>)>>>,
+	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<Vec<i32>>>>,
 }
 
 pub(crate) struct WorkerParams<B, C, R, BE> {
@@ -48,7 +48,7 @@ pub(crate) struct WorkerParams<B, C, R, BE> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
-	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<(u64, Vec<u8>)>>>,
+	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<Vec<i32>>>>,
 }
 
 /// Start the Timeworker gadget.

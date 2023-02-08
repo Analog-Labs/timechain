@@ -30,3 +30,12 @@ CREATE TABLE tasks (
     FOREIGN KEY(chain_id) REFERENCES chains(chain_id),
     FOREIGN KEY(task_metadata_id) REFERENCES task_metadata(task_metadata_id)
 );
+
+CREATE TABLE on_chain_data (
+	data_id serial PRIMARY KEY,
+    task_id INT NOT NULL,
+    block_number INT NOT NULL,
+	time_stamp timestamp NOT NULL,
+	on_chain_data VARCHAR (100) NOT NULL,
+	FOREIGN KEY(task_id) REFERENCES tasks(task_id)
+);

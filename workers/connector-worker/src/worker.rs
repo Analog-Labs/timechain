@@ -57,7 +57,10 @@ where
 	}
 
 	pub(crate) async fn run(&mut self) {
-		let mut res;
+		// let mut res;
+
+		let a = self.sign_data_sender.clone();
+
 		//Spawn a thread and fetch swap data
 		tokio::spawn(async move {
 				//Connector for swap price
@@ -74,18 +77,20 @@ where
 						"getAmountsOut",
 						std::string::String::from("1"),
 					)
-					.await
-					.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
+					.await.unwrap();
+					// .map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
 
-					match swap_result {
-						Ok(swap_result) => {
-							match self.sign_data_sender.lock().await.try_send(swap_result) {
-								e => log::info!("Error on swap data"),
-							}
-						},
-						Err(e) => log::info!("Error On Swap data"),
-					}
-					log::info!("Swap Result : {:?}", swap_result);
+					
+
+					// match swap_result {
+					// 	Ok(swap_result) => {
+					a.lock().await.try_send(swap_result);
+					// 			e => log::info!("Error on swap data"),
+					// 		}
+					// 	},
+					// 	Err(e) => log::info!("Error On Swap data"),
+					// }
+					// log::info!("Swap Result : {:?}", swap_result);
 					thread::sleep(delay);
 				}
 		});

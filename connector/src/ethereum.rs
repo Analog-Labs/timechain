@@ -1,10 +1,10 @@
-use std::fs::File;
-use std::io::Read;
-use std::str::FromStr;
+use std::{fs::File, io::Read, str::FromStr};
 use tokio::sync::mpsc;
-use web3::contract::{Contract, Options};
-use web3::transports::Http;
-use web3::types::Address; // U256
+use web3::{
+	contract::{Contract, Options},
+	transports::Http,
+	types::Address,
+}; // U256
 
 #[derive(Clone)]
 pub struct SwapToken {

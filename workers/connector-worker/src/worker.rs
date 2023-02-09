@@ -50,22 +50,22 @@ where
 		let a = self.sign_data_sender.clone();
 
 		//Connector for swap price
-			let end_point = Http::new("http://127.0.0.1:8545");
-			let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-			let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-			let delay = time::Duration::from_secs(3);
-			loop {
-				let swap_result = SwapToken::swap_price(
-					&web3::Web3::new(end_point.clone().unwrap()),
-					abi,
-					exchange_address,
-					"getAmountsOut",
-					std::string::String::from("1"),
-				)
-				.await
-				.unwrap();
-				a.lock().await.try_send(swap_result);
-				thread::sleep(delay);
-			}
+		let end_point = Http::new("http://127.0.0.1:8545");
+		let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
+		let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+		let delay = time::Duration::from_secs(3);
+		loop {
+			let swap_result = SwapToken::swap_price(
+				&web3::Web3::new(end_point.clone().unwrap()),
+				abi,
+				exchange_address,
+				"getAmountsOut",
+				std::string::String::from("1"),
+			)
+			.await
+			.unwrap();
+			a.lock().await.try_send(swap_result);
+			thread::sleep(delay);
+		}
 	}
 }

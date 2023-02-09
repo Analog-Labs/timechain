@@ -22,8 +22,7 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
-use tokio;
-use tokio::sync::Mutex as TokioMutex;
+use tokio::{self, sync::Mutex as TokioMutex};
 use traits::Client;
 
 /// Constant to indicate target for logging
@@ -87,7 +86,6 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine =
 		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
-
 
 	let worker_params = WorkerParams {
 		client,

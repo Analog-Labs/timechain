@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-
 use sc_client_api::BlockBackend;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
@@ -178,12 +177,11 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
 			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) => {
+			Err(e) =>
 				return Err(ServiceError::Other(format!(
 					"Error hooking up remote keystore for {}: {}",
 					url, e
-				)))
-			},
+				))),
 		};
 	}
 	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(

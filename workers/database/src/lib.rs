@@ -38,5 +38,5 @@ pub fn get_on_chain_data(conn: &mut PgConnection, min_id: i32) -> Vec<OnChainDat
 fn get_data() {
 	let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
 	let mut pg_conn = establish_connection(Some(conn_url));
-	let data = get_on_chain_data(&mut pg_conn, 0);
+	let _data = get_on_chain_data(&mut pg_conn, 0);
 }

@@ -33,6 +33,7 @@ pub fn get_on_chain_data(conn: &mut PgConnection, min_id: i32) -> Vec<OnChainDat
 		.expect("Error loading data")
 }
 
+#[ignore]
 #[test]
 fn get_data() {
 	let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";

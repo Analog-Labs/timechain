@@ -39,6 +39,4 @@ fn get_data() {
 	let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
 	let mut pg_conn = establish_connection(Some(conn_url));
 	let data = get_on_chain_data(&mut pg_conn, 0);
-
-	assert_eq!(data.len() >= 0, true);
 }

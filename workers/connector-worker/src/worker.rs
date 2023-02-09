@@ -19,16 +19,6 @@ pub struct ConnectorWorker<B: Block, C, R, BE> {
 	sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<Vec<i32>>>>,
 }
 
-pub struct FileBuffer {
-	data: *mut u8,
-}
-
-unsafe impl Send for FileBuffer {}
-unsafe impl Sync for FileBuffer {}
-
-//let mut data = std::ptr::null_mut(); // ptr for the file bytes
-// let mut fileBuffer: FileBuffer = FileBuffer { data:  std::ptr::null_mut() };
-
 impl<B, C, R, BE> ConnectorWorker<B, C, R, BE>
 where
 	B: Block,
@@ -58,41 +48,39 @@ where
 
 	pub(crate) async fn run(&mut self) {
 		// let mut res;
-
 		let a = self.sign_data_sender.clone();
 
 		//Spawn a thread and fetch swap data
-		tokio::spawn(async move {
-				//Connector for swap price
-				let end_point = Http::new("http://127.0.0.1:8545");
-				let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-				let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-				let delay = time::Duration::from_secs(3);
+		// tokio::spawn(async move {
+			//Connector for swap price
+			let end_point = Http::new("http://127.0.0.1:8545");
+			let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
+			let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+			let delay = time::Duration::from_secs(3);
+			loop {
+				let swap_result = SwapToken::swap_price(
+					&web3::Web3::new(end_point.clone().unwrap()),
+					abi,
+					exchange_address,
+					"getAmountsOut",
+					std::string::String::from("1"),
+				)
+				.await
+				.unwrap();
 
-				loop {
-					let swap_result = SwapToken::swap_price(
-						&web3::Web3::new(end_point.clone().unwrap()),
-						abi,
-						exchange_address,
-						"getAmountsOut",
-						std::string::String::from("1"),
-					)
-					.await.unwrap();
-					// .map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
+				// .map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
 
-					
-
-					// match swap_result {
-					// 	Ok(swap_result) => {
-					a.lock().await.try_send(swap_result);
-					// 			e => log::info!("Error on swap data"),
-					// 		}
-					// 	},
-					// 	Err(e) => log::info!("Error On Swap data"),
-					// }
-					// log::info!("Swap Result : {:?}", swap_result);
-					thread::sleep(delay);
-				}
-		});
+				// match swap_result {
+				// 	Ok(swap_result) => {
+				a.lock().await.try_send(swap_result);
+				// 			e => log::info!("Error on swap data"),
+				// 		}
+				// 	},
+				// 	Err(e) => log::info!("Error On Swap data"),
+				// }
+				// log::info!("Swap Result : {:?}", swap_result);
+				thread::sleep(delay);
+			}
+		// });
 	}
 }

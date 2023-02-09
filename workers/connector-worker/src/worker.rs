@@ -47,7 +47,7 @@ where
 	}
 
 	pub(crate) async fn run(&mut self) {
-		let a = self.sign_data_sender.clone();
+		let sign_data_sender_clone = self.sign_data_sender.clone();
 
 		//Connector for swap price
 		let end_point = Http::new("http://127.0.0.1:8545");
@@ -64,7 +64,7 @@ where
 			)
 			.await
 			.unwrap();
-			a.lock().await.try_send(swap_result);
+			sign_data_sender_clone.lock().await.try_send(swap_result);
 			thread::sleep(delay);
 		}
 	}

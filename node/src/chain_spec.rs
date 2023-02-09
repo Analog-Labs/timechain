@@ -10,9 +10,10 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	Perbill,
 };
+
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, Signature,
-	StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
+	StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY, RewardworkerConfig, 
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -311,6 +312,11 @@ fn testnet_genesis(
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
+	// temporary set ID TO:Do
+	let validator_node = initial_authorities[0].0.clone();
+	let cronical_node = initial_authorities[1].0.clone();
+
+	let reward_accounts: Vec<(AccountId, AccountId)> = vec![(validator_node,cronical_node)];
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -346,8 +352,7 @@ fn testnet_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-
-		// staking: Default::default(),
+		// staking: Default::default(),,
 		staking: StakingConfig {
 			validator_count: initial_authorities.len() as u32,
 			minimum_validator_count: initial_authorities.len() as u32,
@@ -359,5 +364,12 @@ fn testnet_genesis(
 		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
+		rewardworker: RewardworkerConfig {
+			reward_list: reward_accounts
+		}
+		// Rewardworker
+		// reward_worker: RewardConfig{},
+
+
 	}
 }

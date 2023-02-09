@@ -14,7 +14,7 @@ use frame_election_provider_support::{
 };
 use frame_support::traits::Imbalance;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-
+use pallet_balances::PositiveImbalance;
 use codec::Decode;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -40,7 +40,7 @@ use sp_runtime::{
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
-
+use log::info;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -659,9 +659,9 @@ parameter_types! {
 	// TODO
 	// // 28 eras for unbonding (28 days).
 
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const SessionsPerEra: sp_staking::SessionIndex = 2;// 6;
+	pub const BondingDuration: sp_staking::EraIndex = 1;//24 * 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -720,7 +720,7 @@ impl pallet_staking::Config for Runtime {
 	type RewardRemainder = Treasury;
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = Treasury; // send the slashed funds to the treasury.
-	type Reward = (); // rewards are minted from the void
+	type Reward = DealWithReward<Self>;//(); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
@@ -912,6 +912,19 @@ where
 		}
 	}
 }
+pub struct DealWithReward<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<PositiveImbalance<R>> for DealWithReward<R>
+where   
+	R: pallet_balances::Config,
+	<R as frame_system::Config>::AccountId: From<AccountId>,
+	<R as frame_system::Config>::AccountId: Into<AccountId>,
+{
+	// /// Handler for some imbalance. Infallible.
+	fn on_unbalanced(amount: PositiveImbalance<R>) {
+		info!("reward happened 2 {:?}",amount.peek());
+	}
+
+}
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -951,6 +964,7 @@ parameter_types! {
 	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
+	pub const UnsignedPriority: u64 = 1 << 20;
 }
 
 pub struct SubstrateBlockNumberProvider;
@@ -994,7 +1008,21 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
-
+impl reward_worker::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// type AuthorityId = crypto::TestAuthId;
+	type Currency = Balances;
+	// type GracePeriod = ConstU64<5>;
+	// type UnsignedInterval = ConstU64<128>;
+	// type UnsignedPriority = UnsignedPriority;
+	// type MaxPrices = ConstU32<64>;
+}
+// impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+// where
+// RuntimeCall: From<LocalCall>,
+// {
+	
+// }
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1021,6 +1049,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
+		Rewardworker: reward_worker,
 		OnchainTask: onchain_task_pallet,
 		Treasury: pallet_treasury,
 	}

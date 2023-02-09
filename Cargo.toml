@@ -10,7 +10,7 @@ members = [
     "primitives/time-primitives",
     "tesseract/tss",
     "tesseract/accounts",
-    "tesseract/events"
+    "tesseract/events",
 ]
 
 [profile.release]

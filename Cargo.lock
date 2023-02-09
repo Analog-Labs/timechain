@@ -1842,7 +1842,7 @@ dependencies = [
  "linregress",
  "log",
  "parity-scale-codec",
- "paste",
+ "paste 1.0.11",
  "scale-info",
  "serde",
  "sp-api",
@@ -1975,7 +1975,7 @@ dependencies = [
  "log",
  "once_cell",
  "parity-scale-codec",
- "paste",
+ "paste 1.0.11",
  "scale-info",
  "serde",
  "smallvec",
@@ -3765,6 +3765,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
+name = "lite-json"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0460d985423a026b4d9b828a7c6eed1bcf606f476322f3f9b507529686a61715"
+dependencies = [
+ "lite-parser",
+]
+
+[[package]]
+name = "lite-parser"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c50092e40e0ccd1bf2015a10333fde0502ff95b832b0895dc1ca0d7ac6c52f6"
+dependencies = [
+ "paste 0.1.18",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4111,7 +4129,7 @@ checksum = "25af9cf0dc55498b7bd94a1508af7a78706aa0ab715a73c5169273e03c84845e"
 dependencies = [
  "anyhow",
  "byteorder",
- "paste",
+ "paste 1.0.11",
  "thiserror",
 ]
 
@@ -4905,9 +4923,28 @@ dependencies = [
 
 [[package]]
 name = "paste"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45ca20c77d80be666aef2b45486da86238fabe33e38306bd3118fe4af33fa880"
+dependencies = [
+ "paste-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "paste"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
+
+[[package]]
+name = "paste-impl"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d95a7db200b97ef370c8e6de0088252f7e0dfff7d047a28528e47456c0fc98b6"
+dependencies = [
+ "proc-macro-hack",
+]
 
 [[package]]
 name = "pbkdf2"
@@ -5168,6 +5205,12 @@ dependencies = [
  "quote",
  "version_check",
 ]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.20+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
@@ -5619,6 +5662,23 @@ checksum = "52e44394d2086d010551b14b53b1f24e31647570cd1deb0379e2c21b329aba00"
 dependencies = [
  "hostname",
  "quick-error",
+]
+
+[[package]]
+name = "reward-worker"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "lite-json",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7148,7 +7208,7 @@ dependencies = [
  "approx",
  "num-complex",
  "num-traits",
- "paste",
+ "paste 1.0.11",
 ]
 
 [[package]]
@@ -7659,7 +7719,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parity-util-mem",
- "paste",
+ "paste 1.0.11",
  "rand 0.7.3",
  "scale-info",
  "serde",
@@ -8627,6 +8687,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "log",
  "onchain-task-pallet",
  "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-babe",
@@ -8648,6 +8709,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
+ "reward-worker",
  "runtime-common",
  "scale-info",
  "sp-api",
@@ -9342,7 +9404,7 @@ dependencies = [
  "log",
  "object 0.29.0",
  "once_cell",
- "paste",
+ "paste 1.0.11",
  "psm",
  "rayon",
  "serde",
@@ -9476,7 +9538,7 @@ dependencies = [
  "mach",
  "memfd",
  "memoffset 0.6.5",
- "paste",
+ "paste 1.0.11",
  "rand 0.8.5",
  "rustix 0.35.13",
  "thiserror",

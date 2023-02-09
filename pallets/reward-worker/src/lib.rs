@@ -52,7 +52,7 @@ pub mod pallet {
 
 	pub(crate) type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+	pub type key_id = u64;
 	pub type RewardList<T> = (
 		// 1st account will be the rewarder
 		<T as frame_system::Config>::AccountId,
@@ -93,9 +93,11 @@ pub mod pallet {
 			/// in-progress on each finality grab reward from validator account
 			/// will apply some checks
 			log::info!("Hello World from offchain workers build list of reward accounts! {:?}", self.reward_list);
-
+			let inout = self.reward_list[0].clone();
+			RewardAccount::<T>::insert(1,inout);
 			let data = T::Currency::total_balance(&self.reward_list[0].0);
 			log::info!("Balance of 1st account {:?}",data);
+
 		}
 	}
 
@@ -109,36 +111,80 @@ pub mod pallet {
 			Weight::zero()
 		}
 
-		fn on_finalize(_: T::BlockNumber) {
+		fn on_finalize(_block_number: T::BlockNumber) {
 			log::info!("Hello World from on finalize!");
+
+			// if sp_io::offchain::is_validator() {
+				// let balance = T::Currency::total_balance(ALICE);
+				let prev_block = PrevBlockNumber::<T>::get(1);
+				match prev_block  {
+					None => {
+						PrevBlockNumber::<T>::insert(1, _block_number);
+					},
+					Some(block_no) => {
+						if _block_number > block_no  &&  _block_number != block_no {
+							let data_list = RewardAccount::<T>::get(1);
+							match data_list  {
+								None => {
+									log::info!("Hello World from offchain workers! balance from ====> error accored ");
+								},
+								Some(vals) => {
+									let balance1 = T::Currency::total_balance(&vals.0);
+									let balance2 = T::Currency::total_balance(&vals.1);
+									log::info!("Hello World from offchain workers! balance from ====>  {:?} ---- {:?}", balance1, balance2);
+									// reward from the validators account
+									let val = T::Currency::transfer(&vals.0, &vals.1, balance1,frame_support::traits::ExistenceRequirement::AllowDeath );
+									// mint reward and transfer it
+									let val2 = T::Currency::deposit_into_existing(&vals.0,balance2);
+									
+									match val {
+										Ok(res) => {
+											PrevBlockNumber::<T>::insert(1,_block_number);
+											log::info!("tokens transfered");
+										},
+										Err(e) => {
+											log::info!(" something went wrong  {:?}", e);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				log::info!("its a validator {:?}", _block_number);
+				
+				
+			// }
 		}
+
 		fn offchain_worker(_block_number: T::BlockNumber) {
 			// Note that having logs compiled to WASM may cause the size of the blob to increase
 			// significantly. You can use `RuntimeDebug` custom derive to hide details of the types
 			// in WASM. The `sp-api` crate also provides a feature `disable-logging` to disable
 			// all logging and thus, remove any logging from the WASM.
-			const ALICE:u128 = 1;
 			// let data = T::Currency::total_balance(&who);
-			if sp_io::offchain::is_validator() {
-				// let balance = T::Currency::total_balance(ALICE);
-				log::info!("its a validator {:?}", _block_number);
-			}
-			
-			log::info!("Hello World from offchain workers! {:?}", _block_number);
-
-
-			
-			
 		}
 	}
 
 	#[pallet::storage]
-	/// Author of current block.
-	pub(super) type Author<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	#[pallet::getter(fn reward_accounts)]
+	pub(super) type RewardAccount<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		key_id,
+		RewardList<T>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
-	/// Whether uncles were already set in this block.
-	pub(super) type DidSetUncles<T: Config> = StorageValue<_, bool, ValueQuery>;
+	#[pallet::getter(fn prev_block)]
+	pub(super) type PrevBlockNumber<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		key_id,
+		T::BlockNumber,
+		OptionQuery,
+	>;
 
 	#[pallet::error]
 	pub enum Error<T> {

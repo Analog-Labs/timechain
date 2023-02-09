@@ -5,7 +5,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::collections::HashMap;
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use time_primitives::TimeApi;
 use tss::rand::rngs::OsRng;
 
@@ -32,8 +31,6 @@ where
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
-	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes

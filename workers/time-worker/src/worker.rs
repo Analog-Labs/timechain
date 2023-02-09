@@ -19,7 +19,6 @@ use sp_runtime::{
 	traits::{Block, Header},
 };
 use std::{sync::Arc, time::Duration};
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
@@ -51,8 +50,6 @@ where
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
-	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
@@ -88,12 +85,6 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
-		let at = BlockId::hash(notification.header.hash());
-
-
-		assert!(self.runtime.runtime_api().task_store(&at).is_ok());
-		assert!(self.runtime.runtime_api().task_metadata(&at).is_ok());
-
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();
 		let keys = self.kv.public_keys();

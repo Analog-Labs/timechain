@@ -8988,7 +8988,6 @@ dependencies = [
  "arrayref",
  "async-trait",
  "borsh",
- "connector",
  "fnv",
  "frame-support",
  "futures",
@@ -9023,7 +9022,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-tracing",
- "storage-primitives",
  "strum",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
@@ -9032,7 +9030,6 @@ dependencies = [
  "tesseract-tss",
  "time-primitives",
  "tokio",
- "web3",
 ]
 
 [[package]]

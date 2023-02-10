@@ -2,11 +2,13 @@
 use crate::{Client, WorkerParams};
 use connector::ethereum::SwapToken;
 use core::time;
+use futures::channel::mpsc::Sender;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, thread};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use tokio::sync::Mutex;
 use web3::transports::Http;
 
 #[allow(unused)]
@@ -16,7 +18,7 @@ pub struct ConnectorWorker<B: Block, C, R, BE> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
-	sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<Vec<i32>>>>,
+	sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
 }
 
 impl<B, C, R, BE> ConnectorWorker<B, C, R, BE>
@@ -64,7 +66,7 @@ where
 			)
 			.await
 			.unwrap();
-			sign_data_sender_clone.lock().await.try_send(swap_result);
+			sign_data_sender_clone.lock().await.try_send((1, swap_result)).unwrap();
 			thread::sleep(delay);
 		}
 	}

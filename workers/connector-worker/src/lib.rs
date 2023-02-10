@@ -6,14 +6,14 @@ pub mod kv;
 pub mod traits;
 pub mod worker;
 
+use futures::channel::mpsc::Sender;
 use log::*;
 use sc_client_api::Backend;
-
 use sp_api::ProvideRuntimeApi;
-
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use tokio::sync::Mutex;
 use traits::Client;
 
 /*gossip_engine: Arc::new(Mutex::new(GossipEngine::new(
@@ -40,7 +40,7 @@ where
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub _block: PhantomData<B>,
-	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<Vec<i32>>>>,
+	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
 }
 
 pub(crate) struct WorkerParams<B, C, R, BE> {
@@ -48,7 +48,7 @@ pub(crate) struct WorkerParams<B, C, R, BE> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
-	pub sign_data_sender: Arc<tokio::sync::Mutex<futures_channel::mpsc::Sender<Vec<i32>>>>,
+	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
 }
 
 /// Start the Timeworker gadget.

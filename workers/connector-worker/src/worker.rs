@@ -1,15 +1,15 @@
 #![allow(clippy::type_complexity)]
 use crate::{Client, WorkerParams};
-use connector::ethereum::SwapToken;
+// use connector::ethereum::SwapToken;
 use core::time;
 use futures::channel::mpsc::Sender;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc, thread};
+use std::{marker::PhantomData, sync::Arc, thread, mem};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use tokio::sync::Mutex;
-use web3::transports::Http;
+// use web3::transports::Http;
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -48,25 +48,20 @@ where
 		}
 	}
 
+	pub fn get_swap_data_from_db()-> Vec<u8> {
+		return vec![1,2]
+	}
+
 	pub(crate) async fn run(&mut self) {
 		let sign_data_sender_clone = self.sign_data_sender.clone();
-
-		//Connector for swap price
-		let end_point = Http::new("http://127.0.0.1:8545");
-		let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-		let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+		log::info!("\n \n before send swap--> ");
 		let delay = time::Duration::from_secs(3);
 		loop {
-			let swap_result = SwapToken::swap_price(
-				&web3::Web3::new(end_point.clone().unwrap()),
-				abi,
-				exchange_address,
-				"getAmountsOut",
-				std::string::String::from("1"),
-			)
-			.await
-			.unwrap();
-			sign_data_sender_clone.lock().await.try_send((1, swap_result)).unwrap();
+			let swap_result:Vec<u8> = vec![1,3];
+
+		log::info!("\n \n send swap--> {:?}",swap_result);
+
+			sign_data_sender_clone.lock().await.try_send((1,Self::get_swap_data_from_db())).unwrap();
 			thread::sleep(delay);
 		}
 	}

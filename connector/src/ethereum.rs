@@ -24,7 +24,7 @@ impl SwapToken {
 		exchange_address: &str,
 		query_method: &str,
 		_query_parameter: P,
-	) -> Result<Vec<i32>, Box<dyn std::error::Error>> {
+	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 		let exchange = Address::from_str(exchange_address).unwrap();
 		let mut res = String::new();
 		if abi_url.contains("http") {
@@ -46,7 +46,7 @@ impl SwapToken {
 				Ok(contract) => contract,
 				Err(error) => return Err(From::from(error)),
 			};
-		let query_response: Vec<i32> = match token_contract
+		let query_response: Vec<u8> = match token_contract
 			.query(
 				query_method,
 				(exchange.clone(), exchange.clone(), 25),

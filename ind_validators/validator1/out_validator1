@@ -1,0 +1,240 @@
+2023-02-13 07:53:42 Substrate Node    
+2023-02-13 07:53:42 ✌️  version 0.0.1-1e941852bed    
+2023-02-13 07:53:42 ❤️  by Analog Devs <https://github.com/analog-labs>, 2017-2023    
+2023-02-13 07:53:42 📋 Chain specification: Local Testnet    
+2023-02-13 07:53:42 🏷  Node name: Alice    
+2023-02-13 07:53:42 👤 Role: AUTHORITY    
+2023-02-13 07:53:42 💾 Database: RocksDb at ./ind_validators/validator1/chains/local_testnet/db/full    
+2023-02-13 07:53:42 ⛓  Native runtime: timechain-node-100 (timechain-node-1.tx1.au1)    
+2023-02-13 07:53:44 [0] 💸 generated 0 npos voters, 0 from validators and 0 nominators    
+2023-02-13 07:53:44 [0] 💸 generated 0 npos targets    
+2023-02-13 07:53:48 🔨 Initializing Genesis block/state (state: 0x9667…4da2, header-hash: 0x366b…d6de)    
+2023-02-13 07:53:48 👴 Loading GRANDPA authority set from genesis on what appears to be first startup.    
+2023-02-13 07:53:53 👶 Creating empty BABE epoch changes on what appears to be first startup.    
+2023-02-13 07:53:53 Using default protocol ID "sup" because none is configured in the chain specs    
+2023-02-13 07:53:53 🏷  Local node identity is: 12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp    
+2023-02-13 07:53:53 💻 Operating system: linux    
+2023-02-13 07:53:53 💻 CPU architecture: x86_64    
+2023-02-13 07:53:53 💻 Target environment: gnu    
+2023-02-13 07:53:53 💻 CPU: Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz    
+2023-02-13 07:53:53 💻 CPU cores: 16    
+2023-02-13 07:53:53 💻 Memory: 127350MB    
+2023-02-13 07:53:53 💻 Kernel: 5.11.0-1022-aws    
+2023-02-13 07:53:53 💻 Linux distribution: Ubuntu 20.04.5 LTS    
+2023-02-13 07:53:53 💻 Virtual machine: yes    
+2023-02-13 07:53:53 📦 Highest known block at #0    
+2023-02-13 07:53:53 〽️ Prometheus exporter started at 127.0.0.1:9615    
+2023-02-13 07:53:53 Running JSON-RPC HTTP server: addr=127.0.0.1:9944, allowed origins=Some(["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*", "https://polkadot.js.org"])    
+2023-02-13 07:53:53 Running JSON-RPC WS server: addr=127.0.0.1:9943, allowed origins=Some(["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*", "https://polkadot.js.org"])    
+2023-02-13 07:53:53 👶 Starting BABE Authorship worker    
+2023-02-13 07:53:53 
+ 
+ before send swap-->     
+2023-02-13 07:53:53 
+ 
+ send swap--> [1, 3]    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/172.17.0.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/127.0.0.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/172.31.50.203/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/172.27.0.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/192.168.208.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/192.168.0.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/172.24.0.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip4/192.168.180.1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/::1/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::14e9:6dff:fe78:8853/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::42:baff:fe49:932f/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::9c83:e5ff:fe8b:c255/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::dcb5:bff:fe23:20c3/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::80ec:5ff:fe1b:f00e/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::40ea:65ff:fec7:d7bb/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::42:51ff:fe6e:e9df/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::42:b0ff:fefd:ba2f/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::42:daff:fe8b:6c12/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::42:cdff:fe4e:8008/tcp/30334    
+2023-02-13 07:53:53 discovered: 12D3KooWGJShvRVGQzHBCthdqt9Roo6DS63gRWWGH5bsiccjAKNX /ip6/fe80::42:c1ff:fe6d:318f/tcp/30334    
+2023-02-13 07:53:53 👶 New epoch 0 launching at block 0xdf67…330c (block slot 279379036 >= start slot 279379036).    
+2023-02-13 07:53:53 👶 Next epoch starts at slot 279379056    
+2023-02-13 07:53:53 ✨ Imported #1 (0xdf67…330c)    
+2023-02-13 07:53:53 ✨ Imported #2 (0xc2a0…ca5e)    
+2023-02-13 07:53:53 ✨ Imported #3 (0xfb4c…5f6a)    
+2023-02-13 07:53:54 ✨ Imported #4 (0x7249…099a)    
+2023-02-13 07:53:54 🙌 Starting consensus session on top of parent 0xfb4c75005dfbd61a97bda7e0f1e75b7e33a2c9d19d57f46bd8293f4e15345f6a    
+2023-02-13 07:53:54 🎁 Prepared block for proposing at 4 (7 ms) [hash: 0x35ed6610f48997b4c57f27f9b7cf0d7062849fe4829f05f6f4fbbed86ffbe192; parent_hash: 0xfb4c…5f6a; extrinsics (1): [0x11bd…7964]]    
+2023-02-13 07:53:54 🔖 Pre-sealed block for proposal at 4. Hash now 0x5fb50ca530feaec69c9350ba3fef89c0dd28d9c8bfc297f1393f32aa447e7771, previously 0x35ed6610f48997b4c57f27f9b7cf0d7062849fe4829f05f6f4fbbed86ffbe192.    
+2023-02-13 07:53:54 👶 New epoch 1 launching at block 0x5fb5…7771 (block slot 279379139 >= start slot 279379056).    
+2023-02-13 07:53:54 👶 Next epoch starts at slot 279379076    
+2023-02-13 07:53:54 ♻️  Reorg on #4,0x7249…099a to #4,0x5fb5…7771, common ancestor #3,0xfb4c…5f6a    
+2023-02-13 07:53:54 ✨ Imported #4 (0x5fb5…7771)    
+2023-02-13 07:53:54 Processing new gossip    
+2023-02-13 07:53:54 TSS: No local peer identity present for received params processing    
+2023-02-13 07:53:54 Processing new gossip    
+2023-02-13 07:53:56 
+ 
+ send swap--> [1, 3]    
+2023-02-13 07:53:58 💤 Idle (1 peers), best: #4 (0x5fb5…7771), finalized #0 (0x366b…d6de), ⬇ 1.4kiB/s ⬆ 1.2kiB/s    
+
+====================
+
+Version: 0.0.1-1e941852bed
+
+   0: sp_panic_handler::panic_hook
+             at /home/ubuntu/.cargo/git/checkouts/substrate-7e08433d4c370a21/a3ed011/primitives/panic-handler/src/lib.rs:166:18
+   1: sp_panic_handler::set::{{closure}}
+             at /home/ubuntu/.cargo/git/checkouts/substrate-7e08433d4c370a21/a3ed011/primitives/panic-handler/src/lib.rs:62:12
+   2: <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/alloc/src/boxed.rs:2032:9
+      std::panicking::rust_panic_with_hook
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:692:13
+   3: std::panicking::begin_panic_handler::{{closure}}
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:577:13
+   4: std::sys_common::backtrace::__rust_end_short_backtrace
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/sys_common/backtrace.rs:137:18
+   5: rust_begin_unwind
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:575:5
+   6: core::panicking::panic_fmt
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panicking.rs:64:14
+   7: core::panicking::panic
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panicking.rs:111:5
+   8: core::option::Option<T>::unwrap
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/option.rs:778:21
+   9: time_worker::tss_event_handler_helper::<impl time_worker::worker::TimeWorker<B,C,R,BE,SO>>::handler_receive_peer_id_for_index::{{closure}}
+             at workers/time-worker/src/tss_event_handler_helper.rs:89:23
+  10: time_worker::worker::TimeWorker<B,C,R,BE,SO>::on_gossip::{{closure}}
+             at workers/time-worker/src/worker.rs:172:72
+  11: time_worker::worker::TimeWorker<B,C,R,BE,SO>::run::{{closure}}
+             at workers/time-worker/src/worker.rs:364:29
+  12: time_worker::start_timeworker_gadget::{{closure}}
+             at workers/time-worker/src/lib.rs:101:14
+  13: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::future::future::Future>::poll
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panic/unwind_safe.rs:296:9
+  14: <futures_util::future::future::catch_unwind::CatchUnwind<Fut> as core::future::future::Future>::poll::{{closure}}
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/future/catch_unwind.rs:36:42
+  15: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panic/unwind_safe.rs:271:9
+  16: std::panicking::try::do_call
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:483:40
+  17: __rust_try
+  18: std::panicking::try
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:447:19
+  19: std::panic::catch_unwind
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panic.rs:137:14
+  20: <futures_util::future::future::catch_unwind::CatchUnwind<Fut> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/future/catch_unwind.rs:36:9
+  21: <futures_util::future::future::map::Map<Fut,F> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/future/map.rs:55:37
+  22: <futures_util::future::future::Map<Fut,F> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/lib.rs:91:13
+  23: <sc_service::task_manager::prometheus_future::PrometheusFuture<T> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/git/checkouts/substrate-7e08433d4c370a21/a3ed011/client/service/src/task_manager/prometheus_future.rs:61:3
+  24: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::future::future::Future>::poll
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panic/unwind_safe.rs:296:9
+  25: <futures_util::future::future::catch_unwind::CatchUnwind<Fut> as core::future::future::Future>::poll::{{closure}}
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/future/catch_unwind.rs:36:42
+  26: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panic/unwind_safe.rs:271:9
+  27: std::panicking::try::do_call
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:483:40
+  28: __rust_try
+  29: std::panicking::try
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:447:19
+  30: std::panic::catch_unwind
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panic.rs:137:14
+  31: <futures_util::future::future::catch_unwind::CatchUnwind<Fut> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/future/catch_unwind.rs:36:9
+  32: <core::pin::Pin<P> as core::future::future::Future>::poll
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/future/future.rs:124:9
+  33: futures_util::future::future::FutureExt::poll_unpin
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/future/mod.rs:562:9
+  34: <futures_util::future::select::Select<A,B> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-util-0.3.26/src/future/select.rs:108:35
+  35: sc_service::task_manager::SpawnTaskHandle::spawn_inner::{{closure}}
+             at /home/ubuntu/.cargo/git/checkouts/substrate-7e08433d4c370a21/a3ed011/client/service/src/task_manager/mod.rs:145:32
+  36: <tracing_futures::Instrumented<T> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tracing-futures-0.2.5/src/lib.rs:283:9
+  37: tokio::runtime::park::CachedParkThread::block_on::{{closure}}
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/park.rs:283:63
+  38: tokio::runtime::coop::with_budget
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/coop.rs:102:5
+      tokio::runtime::coop::budget
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/coop.rs:68:5
+      tokio::runtime::park::CachedParkThread::block_on
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/park.rs:283:31
+  39: tokio::runtime::context::BlockingRegionGuard::block_on
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/context.rs:315:13
+  40: tokio::runtime::handle::Handle::block_on
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/handle.rs:264:9
+  41: sc_service::task_manager::SpawnTaskHandle::spawn_inner::{{closure}}
+             at /home/ubuntu/.cargo/git/checkouts/substrate-7e08433d4c370a21/a3ed011/client/service/src/task_manager/mod.rs:172:6
+  42: <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/alloc/src/boxed.rs:2000:9
+  43: <tokio::runtime::blocking::task::BlockingTask<T> as core::future::future::Future>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/blocking/task.rs:42:21
+  44: tokio::runtime::task::core::Core<T,S>::poll::{{closure}}
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/core.rs:223:17
+  45: tokio::loom::std::unsafe_cell::UnsafeCell<T>::with_mut
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/loom/std/unsafe_cell.rs:14:9
+  46: tokio::runtime::task::core::Core<T,S>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/core.rs:212:13
+  47: tokio::runtime::task::harness::poll_future::{{closure}}
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/harness.rs:476:19
+  48: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panic/unwind_safe.rs:271:9
+  49: std::panicking::try::do_call
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:483:40
+  50: __rust_try
+  51: std::panicking::try
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:447:19
+  52: std::panic::catch_unwind
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panic.rs:137:14
+  53: tokio::runtime::task::harness::poll_future
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/harness.rs:464:18
+  54: tokio::runtime::task::harness::Harness<T,S>::poll_inner
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/harness.rs:198:27
+  55: tokio::runtime::task::harness::Harness<T,S>::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/harness.rs:152:15
+  56: tokio::runtime::task::raw::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/raw.rs:255:5
+  57: tokio::runtime::task::raw::RawTask::poll
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/raw.rs:200:18
+  58: tokio::runtime::task::UnownedTask<S>::run
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/task/mod.rs:431:9
+  59: tokio::runtime::blocking::pool::Task::run
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/blocking/pool.rs:159:9
+  60: tokio::runtime::blocking::pool::Inner::run
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/blocking/pool.rs:511:17
+  61: tokio::runtime::blocking::pool::Spawner::spawn_thread::{{closure}}
+             at /home/ubuntu/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.25.0/src/runtime/blocking/pool.rs:469:13
+  62: std::sys_common::backtrace::__rust_begin_short_backtrace
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/sys_common/backtrace.rs:121:18
+  63: std::thread::Builder::spawn_unchecked_::{{closure}}::{{closure}}
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/thread/mod.rs:550:17
+  64: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/panic/unwind_safe.rs:271:9
+  65: std::panicking::try::do_call
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:483:40
+  66: __rust_try
+  67: std::panicking::try
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panicking.rs:447:19
+  68: std::panic::catch_unwind
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/panic.rs:137:14
+  69: std::thread::Builder::spawn_unchecked_::{{closure}}
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/thread/mod.rs:549:30
+  70: core::ops::function::FnOnce::call_once{{vtable.shim}}
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/ops/function.rs:507:5
+  71: <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/alloc/src/boxed.rs:2000:9
+      <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/alloc/src/boxed.rs:2000:9
+      std::sys::unix::thread::Thread::new::thread_start
+             at /rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/sys/unix/thread.rs:108:17
+  72: start_thread
+  73: clone
+
+
+Thread 'tokio-runtime-worker' panicked at 'called `Option::unwrap()` on a `None` value', /home/ubuntu/manoj_workspace/testnet/workers/time-worker/src/tss_event_handler_helper.rs:89
+
+This is a bug. Please report it at:
+
+	support.anonymous.an
+

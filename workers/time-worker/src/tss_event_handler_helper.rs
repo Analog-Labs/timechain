@@ -633,25 +633,20 @@ where
 
 									// workaround for absence of cloning
 									let th_bytes = threshold_signature.to_bytes();
-									log::info!("TH converted!");
 									// this can not fail
 									let th = ThresholdSignature::from_bytes(th_bytes).unwrap();
-									log::info!("TH converted!");
 									let gossip_data = VerifyThresholdSignatureReq {
 										msg_hash: msg_req.msg_hash,
 										threshold_sign: threshold_signature,
 									};
 
-									log::info!("GD created");
 									self.store_signature(th);
-									log::info!("GD stored");
 									self.publish_to_network(
 										local_peer_id,
 										gossip_data,
 										TSSEventType::VerifyThresholdSignature,
 									)
 									.await;
-									log::info!("GD sent");
 								},
 								Err(_) => {
 									log::error!("TSS::Signature computed is invalid");

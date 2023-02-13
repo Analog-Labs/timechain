@@ -1301,8 +1301,8 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::NextTaskid<Block> for Runtime {
-		fn get_next_task_id() {
-			OnchainTask::get_next_task_id();
+		fn get_next_task_id() -> u64 {
+			OnchainTask::get_next_task_id().unwrap_or_default()
 		}
 	}
 

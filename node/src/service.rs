@@ -370,8 +370,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		//Injecting connector worker
 		let connector_params = connector_worker::ConnectorWorkerParams {
 			runtime: client.clone(),
-			client,
-			backend,
 			_block: PhantomData::default(),
 			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
 		};

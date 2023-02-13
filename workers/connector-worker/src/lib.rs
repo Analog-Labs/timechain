@@ -1,20 +1,14 @@
 #![allow(clippy::type_complexity)]
 
-pub mod communication;
-pub mod inherents;
-pub mod kv;
-pub mod traits;
 pub mod worker;
 
 use futures::channel::mpsc::Sender;
 use log::*;
-use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use tokio::sync::Mutex;
-use traits::Client;
 
 /*gossip_engine: Arc::new(Mutex::new(GossipEngine::new(
 network.clone(),
@@ -27,25 +21,19 @@ None,
 pub const TW_LOG: &str = "⌛time-worker";
 
 /// Set of properties we need to run our gadget
-pub struct ConnectorWorkerParams<B: Block, C, R, BE>
+pub struct ConnectorWorkerParams<B: Block, R>
 where
 	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: GetStoreTask<B>,
 	R::Api: GetTaskMetaData<B>,
 {
-	pub client: Arc<C>,
-	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub _block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
 }
 
-pub(crate) struct WorkerParams<B, C, R, BE> {
-	pub client: Arc<C>,
-	pub backend: Arc<BE>,
+pub(crate) struct WorkerParams<B, R> {
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
@@ -54,20 +42,15 @@ pub(crate) struct WorkerParams<B, C, R, BE> {
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_connectorworker_gadget<B, C, R, BE>(
-	connectorworker_params: ConnectorWorkerParams<B, C, R, BE>,
-) where
+pub async fn start_connectorworker_gadget<B, R>(connectorworker_params: ConnectorWorkerParams<B, R>)
+where
 	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: GetStoreTask<B>,
 	R::Api: GetTaskMetaData<B>,
 {
 	debug!(target: TW_LOG, "Starting ConnectorWorker gadget");
 	let ConnectorWorkerParams {
-		client,
-		backend,
 		runtime,
 		sign_data_sender,
 		_block,
@@ -79,12 +62,10 @@ pub async fn start_connectorworker_gadget<B, C, R, BE>(
 	// 	GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
 
 	let worker_params = WorkerParams {
-		client,
-		backend,
 		runtime,
 		_block,
 		sign_data_sender,
 	};
-	let mut worker = worker::ConnectorWorker::<_, _, _, _>::new(worker_params);
+	let mut worker = worker::ConnectorWorker::<_, _>::new(worker_params);
 	worker.run().await
 }

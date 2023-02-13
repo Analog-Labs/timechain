@@ -27,7 +27,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait NextTaskid {
-		fn get_next_task_id() ;
+		fn get_next_task_id() -> u64;
 	}
 }
 

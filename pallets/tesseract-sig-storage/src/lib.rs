@@ -22,7 +22,6 @@ pub mod pallet {
 	use scale_info::StaticTypeInfo;
 	use sp_std::{result, vec::Vec};
 	use time_primitives::{
-		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		SignatureData,
 	};
@@ -239,27 +238,10 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn api_store_signature(
-			auth_id: Public,
-			auth_sig: Signature,
 			signature_data: SignatureData,
 			task_id: task_types::TaskId,
 			block_height: u64,
 		) {
-			use sp_runtime::traits::AppVerify;
-			// transform AccountId32 int T::AccountId
-			let encoded_account = auth_id.encode();
-			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {
-				Self::deposit_event(Event::DefaultAccountForbidden());
-				return;
-			}
-			// Unwrapping is safe - we've checked for len and default-ness
-			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
-			if !TesseractMembers::<T>::contains_key(account_id.clone())
-				|| !auth_sig.verify(&*signature_data, &auth_id)
-			{
-				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
-				return;
-			}
 			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
 			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);

@@ -633,21 +633,25 @@ where
 
 									// workaround for absence of cloning
 									let th_bytes = threshold_signature.to_bytes();
+									log::info!("TH converted!");
 									// this can not fail
 									let th = ThresholdSignature::from_bytes(th_bytes).unwrap();
+									log::info!("TH converted!");
 									let gossip_data = VerifyThresholdSignatureReq {
-										// msg: msg_req.msg,
 										msg_hash: msg_req.msg_hash,
 										threshold_sign: threshold_signature,
 									};
 
+									log::info!("GD created");
 									self.store_signature(th);
+									log::info!("GD stored");
 									self.publish_to_network(
 										local_peer_id,
 										gossip_data,
 										TSSEventType::VerifyThresholdSignature,
 									)
 									.await;
+									log::info!("GD sent");
 								},
 								Err(_) => {
 									log::error!("TSS::Signature computed is invalid");
@@ -773,16 +777,6 @@ where
 				Err(e) => {
 					log::error!("TSS::error in converting message to string, {}", e);
 					return;
-				},
-			};
-
-			// FIXME: what's the point of this?
-			match self.kv.sign(&self.kv.public_keys()[0], msg) {
-				Some(_) => {
-					log::info!("message signed and stored successfully");
-				},
-				None => {
-					log::error!("error in signing message");
 				},
 			};
 		} else {

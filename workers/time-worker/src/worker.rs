@@ -6,13 +6,12 @@ use crate::{
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::Encode;
+use codec::{Decode, Encode};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::BlockId,
@@ -216,22 +215,17 @@ where
 	/// # Params
 	/// * ts - ThresholdSignature to be stored
 	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
-		let key_bytes = ts.to_bytes();
-		let auth_key = self.kv.public_keys()[0].clone();
-		let at = self.backend.blockchain().last_finalized().unwrap();
-		let last_finalized_number = u64::from_be_bytes(
-			array_bytes::slice2array_unchecked(&self.client.number(at).unwrap().unwrap().encode())
-				.to_owned(),
-		);
-		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
+		let sig_bytes = ts.to_bytes();
+		let at = self.backend.blockchain().info().finalized_number;
+		log::info!("Last finalized: {}", at);
+		let encoded = at.encode();
+		let at_u64: u64 = u32::decode(&mut &encoded[..]).unwrap() as u64;
 		// FIXME: error handle
 		drop(self.runtime.runtime_api().store_signature(
-			&BlockId::Hash(at),
-			auth_key,
-			signature,
-			key_bytes.to_vec(),
+			&BlockId::Number(at),
+			sig_bytes.to_vec(),
 			0,
-			last_finalized_number,
+			at_u64,
 		));
 	}
 

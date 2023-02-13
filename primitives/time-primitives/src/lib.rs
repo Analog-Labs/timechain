@@ -23,7 +23,7 @@ sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
 		#[allow(clippy::too_many_arguments)]
-		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, task_id: u64, block_height: u64,);
+		fn store_signature(signature_data: SignatureData, task_id: u64, block_height: u64,);
 	}
 
 	pub trait NextTaskid {

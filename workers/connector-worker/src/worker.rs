@@ -54,13 +54,8 @@ where
 
 	pub(crate) async fn run(&mut self) {
 		let sign_data_sender_clone = self.sign_data_sender.clone();
-		log::info!("\n \n before send swap--> ");
 		let delay = time::Duration::from_secs(3);
 		loop {
-			let swap_result:Vec<u8> = vec![1,3];
-
-		log::info!("\n \n send swap--> {:?}",swap_result);
-
 			sign_data_sender_clone.lock().await.try_send((1,Self::get_swap_data_from_db())).unwrap();
 			thread::sleep(delay);
 		}

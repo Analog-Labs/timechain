@@ -46,7 +46,7 @@ pub mod pallet {
 		pub fn get_task_metadata() -> Vec<OnChainTaskMetadata> {
 			let it = <TaskMetadata<T>>::iter();
 			let mut vt: Vec<OnChainTaskMetadata> = [].into();
-			for (key, val) in it {
+			for (_key, val) in it {
 				vt.push(val);
 			}
 			return vt;
@@ -71,15 +71,34 @@ pub mod pallet {
 	>;
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_task_store() -> Vec<Vec<OnchainTask>> {
+		pub fn get_task_store() -> Vec<OnchainTask> {
 			let it = <OnchainTaskStore<T>>::iter();
-			let mut vt: Vec<Vec<OnchainTask>> = [].into();
-			for (key, val) in it {
-				vt.push(val);
+			let mut vt: Vec<OnchainTask> = [].into();
+			for (_key, task_val, frequency_val) in it {
+				vt.push(OnchainTask {
+					task_id: task_val,
+					frequency: frequency_val,
+				});
 			}
 			return vt;
 		}
 	}
+
+		impl<T: Config> Pallet<T> {
+			pub fn get_task_store() ->  Vec<Vec<OnchainTask>> {
+				
+				// let itr = <OnchainTaskStore<T>>::iter_values().map(|v| v.encode()).collect::<Vec<Vec<_>>>();
+	
+				let it = <OnchainTaskStore<T>>::iter();//.map(|v| v.encode()).collect::<Vec<Vec<_>>>();
+				
+				let mut vt:Vec<Vec<OnchainTask>>=[].into();
+				for (key, val) in it {
+					vt.push(val);
+				}
+				return vt;
+	
+			}
+		}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

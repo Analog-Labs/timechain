@@ -9,8 +9,6 @@ pub mod worker;
 
 #[cfg(test)]
 mod tests;
-use connector::ethereum::SwapToken;
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
 	kv::TimeKeyvault,
@@ -28,6 +26,11 @@ use tokio::sync::Mutex as TokioMutex;
 use traits::Client;
 use tokio;
 use web3::transports::Http;
+use std::{marker::PhantomData, sync::Arc, thread, time};
+use time_primitives::TimeApi;
+use tokio::{self, sync::Mutex as TokioMutex};
+use traits::Client;
+
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "⌛time-worker";
 
@@ -40,7 +43,6 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	pub client: Arc<C>,
@@ -75,7 +77,6 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
@@ -93,10 +94,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine =
 		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
-	
 
-	
-	
 	tokio::spawn(async move {
 		//Connector for swap price
 		let end_point = Http::new("http://127.0.0.1:8545");
@@ -118,7 +116,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 			thread::sleep(delay);
 		}
 	});
-	
+
 	let worker_params = WorkerParams {
 		client,
 		backend,

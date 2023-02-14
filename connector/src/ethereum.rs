@@ -1,10 +1,10 @@
-use std::fs::File;
-use std::io::Read;
-use std::str::FromStr;
+use std::{fs::File, io::Read, str::FromStr};
 use tokio::sync::mpsc;
-use web3::contract::{Contract, Options};
-use web3::transports::Http;
-use web3::types::Address; // U256
+use web3::{
+	contract::{Contract, Options},
+	transports::Http,
+	types::Address,
+}; // U256
 
 #[derive(Clone)]
 pub struct SwapToken {
@@ -24,7 +24,7 @@ impl SwapToken {
 		exchange_address: &str,
 		query_method: &str,
 		_query_parameter: P,
-	) -> Result<Vec<i32>, Box<dyn std::error::Error>> {
+	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 		let exchange = Address::from_str(exchange_address).unwrap();
 		let mut res = String::new();
 		if abi_url.contains("http") {
@@ -46,7 +46,7 @@ impl SwapToken {
 				Ok(contract) => contract,
 				Err(error) => return Err(From::from(error)),
 			};
-		let query_response: Vec<i32> = match token_contract
+		let query_response: Vec<u8> = match token_contract
 			.query(
 				query_method,
 				(exchange.clone(), exchange.clone(), 25),

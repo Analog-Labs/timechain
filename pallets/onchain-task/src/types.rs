@@ -13,6 +13,12 @@ pub struct OnChainTaskMetadata {
 	pub arguments: MethodArguments,
 }
 
+#[derive(Clone, Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
+pub struct OnchainTask {
+	pub task_id: TaskId,
+	pub frequency: Frequency,
+}
+
 #[derive(
 	Clone, Copy, Encode, Default, Decode, TypeInfo, MaxEncodedLen, Debug, Eq, PartialEqNoBound,
 )]

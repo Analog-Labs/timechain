@@ -4,7 +4,7 @@ use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use storage_primitives::GetStoreTask;
 use std::collections::HashMap;
 use time_primitives::{TimeApi};
 use tss::rand::rngs::OsRng;
@@ -33,7 +33,6 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes
@@ -89,59 +88,63 @@ where
 
 	//used by node collector to set peers for tss process
 	pub async fn handler_receive_peer_id_for_index(&mut self, data: &[u8]) {
-		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+		if let Some(local_peer_id) = self.tss_local_state.local_peer_id.clone() {
+			//receive index and update state of node
+			if self.tss_local_state.is_node_collector {
+				if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
+					if let Ok(peer_id_call) = PublishPeerIDCall::try_from_slice(data) {
+						let peer_id = peer_id_call.peer_id;
 
-		//receive index and update state of node
-		if self.tss_local_state.is_node_collector {
-			if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
-				if let Ok(peer_id_call) = PublishPeerIDCall::try_from_slice(data) {
-					let peer_id = peer_id_call.peer_id;
+						if !self.tss_local_state.others_peer_id.contains(&peer_id) {
+							self.tss_local_state.others_peer_id.push(peer_id);
 
-					if !self.tss_local_state.others_peer_id.contains(&peer_id) {
-						self.tss_local_state.others_peer_id.push(peer_id);
+							let params = self.tss_local_state.tss_params;
 
-						let params = self.tss_local_state.tss_params;
+							//check if we have min number of nodes
+							if self.tss_local_state.others_peer_id.len() >= (params.n as usize - 1)
+							{
+								//change connector node state to received peers
+								self.tss_local_state.tss_process_state =
+									TSSLocalStateType::ReceivedPeers;
 
-						//check if we have min number of nodes
-						if self.tss_local_state.others_peer_id.len() >= (params.n as usize - 1) {
-							//change connector node state to received peers
-							self.tss_local_state.tss_process_state =
-								TSSLocalStateType::ReceivedPeers;
+								let mut other_peer_list =
+									self.tss_local_state.others_peer_id.clone();
+								let index =
+									get_participant_index(local_peer_id.clone(), &other_peer_list);
+								self.tss_local_state.local_index = Some(index);
 
-							let mut other_peer_list = self.tss_local_state.others_peer_id.clone();
-							let index =
-								get_participant_index(local_peer_id.clone(), &other_peer_list);
-							self.tss_local_state.local_index = Some(index);
+								//collector node making participant and publishing
+								let participant = make_participant(params, index);
+								self.tss_local_state.local_participant = Some(participant.clone());
 
-							//collector node making participant and publishing
-							let participant = make_participant(params, index);
-							self.tss_local_state.local_participant = Some(participant.clone());
+								log::info!("TSS::this nodes participant index {}", index);
 
-							log::info!("TSS::this nodes participant index {}", index);
+								//preparing publish data
+								other_peer_list
+									.push(self.tss_local_state.local_peer_id.clone().unwrap());
+								let data = FilterAndPublishParticipant {
+									total_peer_list: other_peer_list,
+									col_participant: participant.0,
+								};
 
-							//preparing publish data
-							other_peer_list
-								.push(self.tss_local_state.local_peer_id.clone().unwrap());
-							let data = FilterAndPublishParticipant {
-								total_peer_list: other_peer_list,
-								col_participant: participant.0,
-							};
-
-							//publish to network
-							self.publish_to_network::<FilterAndPublishParticipant>(
-								local_peer_id,
-								data,
-								TSSEventType::ReceivePeersWithColParticipant,
-							)
-							.await;
+								//publish to network
+								self.publish_to_network::<FilterAndPublishParticipant>(
+									local_peer_id,
+									data,
+									TSSEventType::ReceivePeersWithColParticipant,
+								)
+								.await;
+							}
 						}
+					} else {
+						log::error!("TSS::PeerID already exists in local state list");
 					}
 				} else {
-					log::error!("TSS::PeerID already exists in local state list");
+					log::error!("TSS::Received peer id for index but node is not in empty state");
 				}
-			} else {
-				log::error!("TSS::Received peer id for index but node is not in empty state");
 			}
+		} else {
+			log::error!("Peer id received but our key is not yet injected");
 		}
 	}
 
@@ -635,7 +638,6 @@ where
 									// this can not fail
 									let th = ThresholdSignature::from_bytes(th_bytes).unwrap();
 									let gossip_data = VerifyThresholdSignatureReq {
-										// msg: msg_req.msg,
 										msg_hash: msg_req.msg_hash,
 										threshold_sign: threshold_signature,
 									};
@@ -772,16 +774,6 @@ where
 				Err(e) => {
 					log::error!("TSS::error in converting message to string, {}", e);
 					return;
-				},
-			};
-
-			// FIXME: what's the point of this?
-			match self.kv.sign(&self.kv.public_keys()[0], msg) {
-				Some(_) => {
-					log::info!("message signed and stored successfully");
-				},
-				None => {
-					log::error!("error in signing message");
 				},
 			};
 		} else {

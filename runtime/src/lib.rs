@@ -1277,26 +1277,36 @@ impl_runtime_apis! {
 
 	impl time_primitives::TimeApi<Block> for Runtime {
 		fn store_signature(
-			auth_key: time_primitives::crypto::Public,
-			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
 			task_id: TaskId,
 			block_height: u64,)
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
+			TesseractSigStorage::api_store_signature(signature_data, task_id, block_height);
 		}
 	}
-	 
+
 	impl storage_primitives::GetStoreTask<Block> for Runtime {
-		fn task_store() -> Vec<Vec<onchain_task_pallet::types::OnchainTask>> {
+		fn task_store() -> Vec<onchain_task_pallet::types::OnchainTask> {
 			OnchainTask::get_task_store()
 		}
 	}
 
 	impl storage_primitives::GetTaskMetaData<Block> for Runtime {
 		fn task_metadata() -> Vec<onchain_task_pallet::types::OnChainTaskMetadata> {
-			
+
 			OnchainTask::get_task_metadata()
+		}
+	}
+
+	impl time_primitives::NextTaskid<Block> for Runtime {
+		fn get_next_task_id() -> u64 {
+			OnchainTask::get_next_task_id().unwrap_or_default()
+		}
+	}
+	 
+	impl storage_primitives::GetStoreTask<Block> for Runtime {
+		fn task_store() -> Vec<Vec<onchain_task_pallet::types::OnchainTask>> {
+			OnchainTask::get_task_store()
 		}
 	}
 	

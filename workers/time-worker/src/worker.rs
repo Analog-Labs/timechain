@@ -6,22 +6,26 @@ use crate::{
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::Encode;
+use codec::{Decode, Encode};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header},
 };
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block, Header},
+};
 use std::{sync::Arc, time::Duration};
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use storage_primitives::GetStoreTask;
 use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
+use storage_primitives::runtime_decl_for_GetStoreTask::GetStoreTask;
 use tss::{
 	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
@@ -52,7 +56,6 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
@@ -91,11 +94,8 @@ where
 		let at = BlockId::hash(notification.header.hash());
 		
 log::info!("\n\n\n\n========> {:?} \n\n\n\n",self.runtime.runtime_api().task_store(&at));
-log::info!("\n\n\n\n========> {:?} \n\n\n\n",self.runtime.runtime_api().task_metadata(&at));
 
 		assert!(self.runtime.runtime_api().task_store(&at).is_ok());
-		assert!(self.runtime.runtime_api().task_metadata(&at).is_ok());
-
 
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let _number = notification.header.number();
@@ -228,22 +228,17 @@ log::info!("\n\n\n\n========> {:?} \n\n\n\n",self.runtime.runtime_api().task_met
 	/// # Params
 	/// * ts - ThresholdSignature to be stored
 	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
-		let key_bytes = ts.to_bytes();
-		let auth_key = self.kv.public_keys()[0].clone();
-		let at = self.backend.blockchain().last_finalized().unwrap();
-		let last_finalized_number = u64::from_be_bytes(
-			array_bytes::slice2array_unchecked(&self.client.number(at).unwrap().unwrap().encode())
-				.to_owned(),
-		);
-		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
+		let sig_bytes = ts.to_bytes();
+		let at = self.backend.blockchain().info().finalized_number;
+		log::info!("Last finalized: {}", at);
+		let encoded = at.encode();
+		let at_u64: u64 = u32::decode(&mut &encoded[..]).unwrap() as u64;
 		// FIXME: error handle
 		drop(self.runtime.runtime_api().store_signature(
-			&BlockId::Hash(at),
-			auth_key,
-			signature,
-			key_bytes.to_vec(),
+			&BlockId::Number(at),
+			sig_bytes.to_vec(),
 			0,
-			last_finalized_number,
+			at_u64,
 		));
 	}
 

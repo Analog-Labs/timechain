@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod communication;
 pub mod inherents;
 pub mod kv;
@@ -13,6 +15,7 @@ use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
 	kv::TimeKeyvault,
 };
+use futures::channel::mpsc::Receiver as FutReceiver;
 use log::*;
 use sc_client_api::Backend;
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
@@ -21,16 +24,10 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time, thread};
 use time_primitives::{TimeApi};
+use tokio::sync::Mutex as TokioMutex;
 use traits::Client;
 use tokio;
 use web3::transports::Http;
-/*gossip_engine: Arc::new(Mutex::new(GossipEngine::new(
-network.clone(),
-gossip_protocol_name(),
-gossip_validator.clone(),
-None,
-))),
-*/
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "⌛time-worker";
 
@@ -52,6 +49,7 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 }
 
 pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
@@ -62,6 +60,7 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub sync_oracle: SO,
 	pub kv: TimeKeyvault,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 }
 
 /// Start the Timeworker gadget.
@@ -87,6 +86,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 		gossip_network,
 		kv,
 		_block,
+		sign_data_receiver,
 	} = timeworker_params;
 
 	let sync_oracle = gossip_network.clone();
@@ -127,6 +127,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 		gossip_validator,
 		gossip_engine,
 		kv,
+		sign_data_receiver,
 	};
 	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
 	worker.run().await

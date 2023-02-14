@@ -1,17 +1,15 @@
-use std::collections::HashMap;
-
+use crate::tss_event_model::{
+	PublishPeerIDCall, ReceiveParamsWithPeerCall, ResetTSSCall, TSSData, TSSEventType,
+};
 use borsh::BorshSerialize;
-use events::event_struct::{Event, EventType};
 use frost_dalek::{
 	keygen::{Coefficients, RoundOne, SecretShare},
 	DistributedKeyGeneration, Parameters, Participant,
 };
-
-use crate::tss_event_model::{
-	PublishPeerIDCall, ReceiveParamsWithPeerCall, ResetTSSCall, TSSData, TSSEventType,
+use std::{
+	collections::HashMap,
+	time::{SystemTime, UNIX_EPOCH},
 };
-
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn make_gossip_tss_data(
 	peer_id: String,
@@ -24,12 +22,9 @@ pub fn make_gossip_tss_data(
 		tss_event_type: tss_type,
 	};
 
-	let data = Event {
-		event_type: EventType::TSSEvent,
-		data: tss_event.try_to_vec().unwrap(),
-	};
-
-	data.try_to_vec().map_err(|e| format!("Unable to convert data to vector: {e}"))
+	tss_event
+		.try_to_vec()
+		.map_err(|e| format!("Unable to convert data to vector: {e}"))
 }
 
 pub async fn make_hashmap_for_secret_share(

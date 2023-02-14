@@ -6,6 +6,8 @@ members = [
     "pallets/authorship",
     "runtime",
     "workers/time-worker",
+    "workers/time-worker/rpc",
+    "workers/database",
     "primitives/time-primitives",
     "primitives/storage-primitives",
     "tesseract/tss",

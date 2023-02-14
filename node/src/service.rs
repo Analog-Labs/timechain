@@ -233,16 +233,19 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
+	let keystore = keystore_container.sync_keystore();
 
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
+		let clonestore = keystore.clone();
 
 		Box::new(move |deny_unsafe, _| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
+				kv: Some(clonestore.clone()).into(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
@@ -251,7 +254,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
 		client: client.clone(),
-		keystore: keystore_container.sync_keystore(),
+		keystore,
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		rpc_builder: rpc_extensions_builder,
@@ -355,6 +358,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			gossip_network: network,
 			kv: keystore.into(),
 			_block: PhantomData::default(),
+			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
 		};
 
 		task_manager.spawn_essential_handle().spawn_blocking(

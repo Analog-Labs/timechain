@@ -84,21 +84,6 @@ pub mod pallet {
 		}
 	}
 
-		impl<T: Config> Pallet<T> {
-			pub fn get_task_store() ->  Vec<Vec<OnchainTask>> {
-				
-				// let itr = <OnchainTaskStore<T>>::iter_values().map(|v| v.encode()).collect::<Vec<Vec<_>>>();
-	
-				let it = <OnchainTaskStore<T>>::iter();//.map(|v| v.encode()).collect::<Vec<Vec<_>>>();
-				
-				let mut vt:Vec<Vec<OnchainTask>>=[].into();
-				for (key, val) in it {
-					vt.push(val);
-				}
-				return vt;
-	
-			}
-		}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

@@ -20,16 +20,11 @@ use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc, time, thread};
+use std::{marker::PhantomData, sync::Arc};
 use time_primitives::{TimeApi};
-use tokio::sync::Mutex as TokioMutex;
 use traits::Client;
-use tokio;
-use web3::transports::Http;
-use std::{marker::PhantomData, sync::Arc, thread, time};
-use time_primitives::TimeApi;
 use tokio::{self, sync::Mutex as TokioMutex};
-use traits::Client;
+
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "⌛time-worker";
@@ -42,7 +37,6 @@ where
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
-	R::Api: GetStoreTask<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	pub client: Arc<C>,
@@ -76,7 +70,6 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
-	R::Api: GetStoreTask<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
@@ -94,28 +87,6 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine =
 		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
-
-	tokio::spawn(async move {
-		//Connector for swap price
-		let end_point = Http::new("http://127.0.0.1:8545");
-		let abi = "./contracts/artifacts/contracts/swap_price.sol/TokenSwap.json";
-		let exchange_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-		let delay = time::Duration::from_secs(3);
-
-		loop {
-			let swap_result = SwapToken::swap_price(
-				&web3::Web3::new(end_point.clone().unwrap()),
-				abi,
-				exchange_address,
-				"getAmountsOut",
-				std::string::String::from("1"),
-			)
-			.await
-			.map_err(|e| Into::<Box<dyn std::error::Error>>::into(e));
-			log::info!("Swap Result : {:?}", swap_result);
-			thread::sleep(delay);
-		}
-	});
 
 	let worker_params = WorkerParams {
 		client,

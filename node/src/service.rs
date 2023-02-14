@@ -9,9 +9,6 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
-use tokio;
-use std::{thread, time};
-use web3::transports::Http;
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
@@ -363,14 +360,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
 		};
 
-<<<<<<< HEAD
-		// let runtimeapit = ProvideRuntimeApi::runtime_api.; 
-		
-		// log::info!("\n\n\n=======> metadata==> {:?} \n\n\n", client.);
-
-
-=======
->>>>>>> add runtime api for task store
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",
 			None,

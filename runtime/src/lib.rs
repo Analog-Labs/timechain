@@ -35,7 +35,7 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,,
+	ApplyExtrinsicResult, MultiSignature,
 };
 
 use frame_system::EnsureRootWithSuccess;
@@ -68,7 +68,7 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-use onchain_task_pallet::types::{TaskId,SupportedChain};
+use onchain_task_pallet::types::{TaskId};
 pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -1293,7 +1293,6 @@ impl_runtime_apis! {
 
 	impl storage_primitives::GetTaskMetaData<Block> for Runtime {
 		fn task_metadata() -> Vec<onchain_task_pallet::types::OnChainTaskMetadata> {
-
 			OnchainTask::get_task_metadata()
 		}
 	}
@@ -1304,17 +1303,6 @@ impl_runtime_apis! {
 		}
 	}
 	 
-	impl storage_primitives::GetStoreTask<Block> for Runtime {
-		fn task_store() -> Vec<Vec<onchain_task_pallet::types::OnchainTask>> {
-			OnchainTask::get_task_store()
-		}
-	}
-	
-	impl time_primitives::NextTaskid<Block> for Runtime {
-		fn get_next_task_id() {
-			OnchainTask::get_next_task_id();
-		}
-	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {

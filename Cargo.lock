@@ -99,7 +99,6 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "parity-scale-codec 3.4.0",
- "parity-scale-codec 3.4.0",
  "scale-info",
  "serde",
  "sp-core",
@@ -4629,7 +4628,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "parity-scale-codec 3.2.1",
+ "parity-scale-codec 3.4.0",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -8538,22 +8537,10 @@ dependencies = [
 name = "storage-primitives"
 version = "0.1.0"
 dependencies = [
-<<<<<<< HEAD
- "onchain-task-pallet",
- "parity-scale-codec 3.4.0",
- "scale-info",
  "onchain-task-pallet",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "sp-api",
- "sp-application-crypto",
- "sp-inherents",
- "sp-runtime",
- "sp-std",
- "thiserror",
-=======
- "sp-api",
->>>>>>> add runtime api for task store
  "sp-application-crypto",
  "sp-inherents",
  "sp-runtime",
@@ -9092,7 +9079,6 @@ dependencies = [
  "tesseract-tss",
  "time-primitives",
  "tokio",
- "web3",
 ]
 
 [[package]]
@@ -9124,8 +9110,11 @@ dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
+ "futures",
  "hex-literal",
  "jsonrpsee",
+ "lazy_static",
+ "log",
  "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -9163,7 +9152,9 @@ dependencies = [
  "time-worker",
  "time-worker-rpc",
  "timechain-runtime",
+ "tokio",
  "try-runtime-cli",
+ "web3",
 ]
 
 [[package]]

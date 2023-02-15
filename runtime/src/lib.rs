@@ -29,16 +29,16 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentifyAccount,
-		NumberFor, One, OpaqueKeys, Verify,
+		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
+		IdentifyAccount, NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
 
 use frame_system::EnsureRootWithSuccess;
+use log::info;
 use sp_std::prelude::*;
-
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -75,6 +75,9 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxValidators = ConstU32<1000>;
 	type MaxNominators = ConstU32<1000>;
 }
+
+#[cfg(any(feature = "std", test))]
+pub use pallet_staking::StakerStatus;
 
 pub const THRESHOLDS: [u64; 200] = [
 	10_000_000_000,
@@ -324,6 +327,7 @@ pub mod opaque {
 		pub struct SessionKeys {
 			pub babe: Babe,
 			pub grandpa: Grandpa,
+			pub im_online: ImOnline,
 		}
 	}
 }
@@ -644,9 +648,9 @@ parameter_types! {
 	// TODO
 	// // 28 eras for unbonding (28 days).
 
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const SessionsPerEra: sp_staking::SessionIndex = 1;//6;
+	pub const BondingDuration: sp_staking::EraIndex = 2;//24 * 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -694,6 +698,78 @@ impl onchain::BoundedConfig for OnChainSeqPhragmen {
 	type VotersBound = MaxElectingVoters;
 	type TargetsBound = ConstU32<2_000>;
 }
+pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
+	pallet_staking::EraPayout<Balance> for ConvertCurve<T>
+{
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		info!("era_payout from runtime happens log");
+		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
+			T::get(),
+			total_staked,
+			total_issuance,
+			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
+			era_duration_millis,
+		);
+		//40% valiator
+		//20% conronical node
+		// max_payout
+		let rest = max_payout.saturating_sub(validator_payout.clone());
+		(validator_payout, rest)
+	}
+}
+
+pub struct SplitConvertCurveI<T>(sp_std::marker::PhantomData<T>);
+impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static sp_runtime::curve::PiecewiseLinear<'static>>>
+	pallet_staking::EraPayout<BalanceI> for SplitConvertCurveI<T>
+{
+	fn era_payout(
+		total_staked: BalanceI,
+		total_issuance: BalanceI,
+		era_duration_millis: u64,
+	) -> (BalanceI, BalanceI) {
+		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
+			T::get(),
+			total_staked,
+			total_issuance,
+			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
+			era_duration_millis,
+		);
+		log::info!(" --->>era payout called from here");
+		let rest = max_payout.clone().saturating_sub(validator_payout.clone());
+		let session_active_validators = Session::validators();
+		let acc = Rewardworker::get_reward_account();
+		match acc {
+			Ok(val) => {
+				session_active_validators.iter().for_each(|y| {
+					let exist = val.iter().find(|&x| x.1 == y.clone());
+					match exist {
+						Some(_va) => {
+							info!("Validator account exiist in reward worker storage ");
+						},
+						None => {
+							info!(
+								"Validator account  does not exist in reward worker storage "
+							);
+							let _ = Rewardworker::insert_account(y.clone());
+						},
+					}
+				});
+			},
+			Err(_) => info!(" validator list  -f------> error  <<<<<----"),
+		}
+		// Rewardworker::t
+		let send_reward = Rewardworker::percent_calculator(max_payout, 20);
+		let _rep = Rewardworker::send_reward(send_reward.unique_saturated_into(), session_active_validators);
+		let val_payout = Rewardworker::percent_calculator(validator_payout, 80);
+		let rest_payout = Rewardworker::percent_calculator(rest, 80);
+		(val_payout, rest_payout)
+	}
+}
 
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
@@ -712,7 +788,8 @@ impl pallet_staking::Config for Runtime {
 	/// A super-majority of the council can cancel the slash.
 	type SlashCancelOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	// type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = SplitConvertCurveI<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -728,6 +805,7 @@ impl pallet_staking::Config for Runtime {
 
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
+	// type RewardWorker = Rewardworker;
 }
 
 parameter_types! {
@@ -857,12 +935,13 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (Staking, ImOnline);
 }
 
-// impl pallet_authorship::pallet::Config for Runtime {
-// 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-// 	type UncleGenerations = UncleGenerations;
-// 	type FilterUncle = ();
-// 	type EventHandler = ();
-// }
+impl reward_worker::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ShouldEndSession = Babe;
+	type SessionInterface = Self;
+	type EraPayout = SplitConvertCurveI<RewardCurve>;//pallet_staking::ConvertCurve<RewardCurve>;
+}
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
@@ -994,6 +1073,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
+		Balances: pallet_balances,
 		Timestamp: pallet_timestamp,
 		Babe: pallet_babe,
 		Grandpa: pallet_grandpa,
@@ -1005,13 +1085,13 @@ construct_runtime!(
 		VoterList: pallet_bags_list,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
+		Rewardworker: reward_worker,
 	}
 );
 

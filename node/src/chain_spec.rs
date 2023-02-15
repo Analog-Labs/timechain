@@ -12,7 +12,7 @@ use sp_runtime::{
 };
 use timechain_runtime::{
 	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, Signature,
-	StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
+	StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY, StakerStatus, MaxNominations, RewardworkerConfig
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -54,13 +54,14 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId, ImOnlineId) {
+pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, GrandpaId, ImOnlineId, AccountId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(s),
 		get_account_id_from_seed::<sr25519::Public>(&format!("{s}//stash")),
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 		get_from_seed::<ImOnlineId>(s),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{s}//chronical")),
 		//node online Id missing
 	)
 }
@@ -296,7 +297,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	root_key: AccountId,
-	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
+	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId, AccountId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -311,6 +312,37 @@ fn testnet_genesis(
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
+
+		let stash = ANLOG * 500000;
+		let mut rng = rand::thread_rng();
+		let stakers = initial_authorities
+		.iter()
+		.map(|x| (x.1.clone(), x.0.clone(), stash, StakerStatus::<AccountId>::Validator))
+		.map(|x| {
+			use rand::{seq::SliceRandom, Rng};
+			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
+			let count = rng.gen::<usize>() % limit;
+			let nominations = initial_authorities
+				.as_slice()
+				.choose_multiple(&mut rng, count)
+				.into_iter()
+				.map(|choice| choice.0.clone())
+				.collect::<Vec<_>>();
+			(x.0.clone(), x.1.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))
+		})
+		.collect::<Vec<_>>();
+
+		// log::info!(" chain spec ========> {:?}",stakers);
+		// for &(ref stash, ref controller, balance, ref status) in &stakers {
+		// 	log::info!(
+		// 		"inserting genesis staker: {:?} => {:?} => {:?}",
+		// 		stash,
+		// 		balance,
+		// 		status
+		// 	);
+		// }
+		
+	let reward_accounts = initial_authorities.iter().map(|item| (item.0.clone(), item.1.clone())).collect::<Vec<_>>();
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -341,6 +373,7 @@ fn testnet_genesis(
 						timechain_runtime::opaque::SessionKeys {
 							babe: x.2.clone(),
 							grandpa: x.3.clone(),
+							im_online: x.4.clone()
 						},
 					)
 				})
@@ -353,11 +386,14 @@ fn testnet_genesis(
 			minimum_validator_count: initial_authorities.len() as u32,
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
-			// stakers,
+			stakers,
 			// TODO: ForceEra::ForceNone
 			..Default::default()
 		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
+		rewardworker: RewardworkerConfig {
+			reward_list: reward_accounts
+		}
 	}
 }

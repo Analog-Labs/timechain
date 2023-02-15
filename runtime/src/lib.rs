@@ -30,7 +30,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentifyAccount,
-		NumberFor, One, OpaqueKeys, Verify,
+		NumberFor, One, OpaqueKeys, Verify, AtLeast32BitUnsigned
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
@@ -38,7 +38,8 @@ use sp_runtime::{
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
-
+use pallet_balances::PositiveImbalance;
+use log::info;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -75,6 +76,9 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxValidators = ConstU32<1000>;
 	type MaxNominators = ConstU32<1000>;
 }
+
+#[cfg(any(feature = "std", test))]
+pub use pallet_staking::StakerStatus;
 
 pub const THRESHOLDS: [u64; 200] = [
 	10_000_000_000,
@@ -324,6 +328,7 @@ pub mod opaque {
 		pub struct SessionKeys {
 			pub babe: Babe,
 			pub grandpa: Grandpa,
+			pub im_online: ImOnline,
 		}
 	}
 }
@@ -656,9 +661,9 @@ parameter_types! {
 	// TODO
 	// // 28 eras for unbonding (28 days).
 
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const SessionsPerEra: sp_staking::SessionIndex = 2;//6;
+	pub const BondingDuration: sp_staking::EraIndex = 1;//24 * 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -707,6 +712,164 @@ impl onchain::BoundedConfig for OnChainSeqPhragmen {
 	type TargetsBound = ConstU32<2_000>;
 }
 
+pub struct DealWithSlash<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithSlash<R>
+where
+	R: pallet_balances::Config + pallet_treasury::Config,
+	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
+	<R as frame_system::Config>::AccountId: From<AccountId>,
+	<R as frame_system::Config>::AccountId: Into<AccountId>,
+{
+	// fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+	// 	if let Some(fees) = fees_then_tips.next() {
+	// 		// for fees, 20% to treasury, 80% to author
+	// 		if_std! {
+	// 			print!("slash occur");
+	// 		}
+	// 		// let split = fees.ration(80, 20);
+	// 		// use pallet_treasury::Pallet as Treasury;
+	// 		// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+	// 		// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+	// 	}
+	// }
+	// fn on_unbalanced<B>(mut fees_then_tips: NegativeImbalance<R>) {
+	// 	// if let Some(fees) = fees_then_tips.next() {
+	// 		// for fees, 20% to treasury, 80% to author
+	// 		if_std! {
+	// 			print!("slash on_unbalanced occur");
+	// 		}
+	// 		// let split = fees.ration(80, 20);
+	// 		// use pallet_treasury::Pallet as Treasury;
+	// 		// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+	// 		// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+	// 	// }
+	// }
+	fn on_nonzero_unbalanced(_fees_then_tips: NegativeImbalance<R>) {
+		// if let Some(fees) = fees_then_tips.next() {
+			// for fees, 20% to treasury, 80% to author
+			info!("slash on_nonzero_unbalanced occur");
+			// if_std! {
+			// 	print!("slash on_nonzero_unbalanced occur");
+			// }
+			// let split = fees.ration(80, 20);
+			// use pallet_treasury::Pallet as Treasury;
+			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+		// }
+	}
+}
+
+// type PositiveImbalanceOf<T> = <pallet_balances::Pallet<T> as Currency<
+// <T as frame_system::Config>::AccountId,
+// >>::PositiveImbalance;
+// <<pallet_balances::Pallet<T> as Config>::Currency as Currency<
+// 	<T as frame_system::Config>::AccountId,
+// >>::PositiveImbalance;
+// pub struct DealWithReward<R>(sp_std::marker::PhantomData<R>);
+// impl<R> OnUnbalanced<PositiveImbalanceOf<R>> for DealWithReward<R>
+// where
+// 	R: pallet_balances::Config ,//+ pallet_treasury::Config,
+// 	pallet_treasury::Pallet<R>: OnUnbalanced<PositiveImbalanceOf<R>>,
+// 	<R as frame_system::Config>::AccountId: From<AccountId>,
+// 	<R as frame_system::Config>::AccountId: Into<AccountId>,
+// {
+// 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = PositiveImbalanceOf<R>>) {
+// 		// if let Some(fees) = fees_then_tips.next() {
+// 			// for fees, 20% to treasury, 80% to author
+// 			if_std! {
+// 				print!("reward occur");
+// 			}
+// 			// let split = fees.ration(80, 20);
+// 			// use pallet_treasury::Pallet as Treasury;
+// 			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+// 			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+// 		// }
+// 	}
+// 	fn on_unbalanced(mut fees_then_tips: PositiveImbalanceOf<R>) {
+// 		// if let Some(fees) = fees_then_tips.next() {
+// 			// for fees, 20% to treasury, 80% to author
+// 			if_std! {
+// 				print!("reward on_unbalanced occur");
+// 			}
+// 			// let split = fees.ration(80, 20);
+// 			// use pallet_treasury::Pallet as Treasury;
+// 			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+// 			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+// 		// }
+// 	}
+// 	fn on_nonzero_unbalanced(mut fees_then_tips: PositiveImbalanceOf<R>) {
+// 		// if let Some(fees) = fees_then_tips.next() {
+// 			// for fees, 20% to treasury, 80% to author
+// 			if_std! {
+// 				print!("reward on_nonzero_unbalanced occur");
+// 			}
+// 			// let split = fees.ration(80, 20);
+// 			// use pallet_treasury::Pallet as Treasury;
+// 			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+// 			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+// 		// }
+// 	}
+// }
+
+pub struct DealWithReward<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<PositiveImbalance<R>> for DealWithReward<R>
+where   
+	R: pallet_balances::Config,
+	<R as frame_system::Config>::AccountId: From<AccountId>,
+	<R as frame_system::Config>::AccountId: Into<AccountId>,
+{
+	// fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = PositiveImbalance<R>>) {
+	// 	if let Some(fees) = fees_then_tips.next() {
+	// 		// for fees, 20% to treasury, 80% to author
+	// 		let mut split = fees.ration(80, 20);
+	// 		if_std!{
+	// 			println!("feeeesss ");
+	// 		}
+	// 		// use pallet_treasury::Pallet as Treasury;
+	// 		// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+	// 		// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+	// 	}
+	// }
+	fn on_nonzero_unbalanced(mut _fees_then_tips: PositiveImbalance<R>) {
+		// if let Some(fees) = fees_then_tips.next() {
+			// for fees, 20% to treasury, 80% to author
+			info!("reward on_nonzero_unbalanced occur");
+			// if_std! {
+			// 	print!("reward on_nonzero_unbalanced occur");
+			// }
+			// let split = fees.ration(80, 20);
+			// use pallet_treasury::Pallet as Treasury;
+			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+		// }
+	}
+} 
+
+pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
+pallet_staking::EraPayout<Balance> for ConvertCurve<T>
+{
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		info!("era_payout from runtime happens log");
+		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
+			T::get(),
+			total_staked,
+			total_issuance,
+			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
+			era_duration_millis,
+		);
+		//40% valiator
+		//20% conronical node
+		// max_payout
+		let rest = max_payout.saturating_sub(validator_payout.clone());
+		(validator_payout, rest)
+	}
+}
+
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
 	type Currency = Balances;
@@ -740,6 +903,7 @@ impl pallet_staking::Config for Runtime {
 
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
+	type RewardWorker = Rewardworker;
 }
 
 parameter_types! {
@@ -869,6 +1033,12 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (Staking, ImOnline);
 }
 
+impl reward_worker::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+}
+
+
 // impl pallet_authorship::pallet::Config for Runtime {
 // 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 // 	type UncleGenerations = UncleGenerations;
@@ -997,6 +1167,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
+		Balances: pallet_balances,
 		Timestamp: pallet_timestamp,
 		Babe: pallet_babe,
 		Grandpa: pallet_grandpa,
@@ -1008,13 +1179,13 @@ construct_runtime!(
 		VoterList: pallet_bags_list,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
+		Rewardworker: reward_worker,
 	}
 );
 

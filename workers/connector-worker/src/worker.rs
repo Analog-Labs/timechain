@@ -1,13 +1,17 @@
 #![allow(clippy::type_complexity)]
-use crate::WorkerParams;
+use crate::{WorkerParams, TW_LOG};
 // use connector::ethereum::SwapToken;
 use core::time;
 use futures::channel::mpsc::Sender;
+use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, thread};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use time_worker::kv::{self, TimeKeyvault};
+use time_worker::worker::TimeWorker;
 use tokio::sync::Mutex;
+// use time_worker::kv::{self, TimeKeyvault};
 // use web3::transports::Http;
 
 #[allow(unused)]
@@ -16,6 +20,7 @@ pub struct ConnectorWorker<B: Block, R> {
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	kv: TimeKeyvault,
 }
 
 impl<B, R> ConnectorWorker<B, R>
@@ -29,12 +34,14 @@ where
 		let WorkerParams {
 			runtime,
 			sign_data_sender,
+			kv,
 			_block,
 		} = worker_params;
 
 		ConnectorWorker {
 			runtime,
 			sign_data_sender,
+			kv,
 			_block: PhantomData,
 		}
 	}
@@ -47,12 +54,15 @@ where
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
 		loop {
-			sign_data_sender_clone
-				.lock()
-				.await
-				.try_send((1, Self::get_swap_data_from_db()))
-				.unwrap();
-			thread::sleep(delay);
+			let keys = self.kv.public_keys();
+			if !keys.is_empty() {
+				sign_data_sender_clone
+					.lock()
+					.await
+					.try_send((1, Self::get_swap_data_from_db()))
+					.unwrap();
+				thread::sleep(delay);
+			}
 		}
 	}
 }

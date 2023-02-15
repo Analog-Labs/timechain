@@ -1027,6 +1027,7 @@ dependencies = [
  "tesseract-accounts",
  "tesseract-tss",
  "time-primitives",
+ "time-worker",
  "tokio",
  "web3",
 ]

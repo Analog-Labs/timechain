@@ -6,6 +6,7 @@ use futures::channel::mpsc::Sender;
 use log::*;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
+use time_worker::kv::TimeKeyvault;
 use std::{marker::PhantomData, sync::Arc};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use tokio::sync::Mutex;
@@ -29,6 +30,7 @@ where
 	R::Api: GetTaskMetaData<B>,
 {
 	pub runtime: Arc<R>,
+	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
 }
@@ -37,6 +39,7 @@ pub(crate) struct WorkerParams<B, R> {
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	kv: TimeKeyvault,
 }
 
 /// Start the Timeworker gadget.
@@ -52,6 +55,7 @@ where
 	debug!(target: TW_LOG, "Starting ConnectorWorker gadget");
 	let ConnectorWorkerParams {
 		runtime,
+		kv,
 		sign_data_sender,
 		_block,
 	} = connectorworker_params;
@@ -63,6 +67,7 @@ where
 
 	let worker_params = WorkerParams {
 		runtime,
+		kv,
 		_block,
 		sign_data_sender,
 	};

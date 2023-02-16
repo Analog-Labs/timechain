@@ -4340,21 +4340,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 
 [[package]]
-name = "onchain-task-pallet"
-version = "0.0.1-dev"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "opaque-debug"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4682,7 +4667,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "onchain-task-pallet",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -8667,7 +8651,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "onchain-task-pallet",
  "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
  "pallet-babe",
  "pallet-bags-list",

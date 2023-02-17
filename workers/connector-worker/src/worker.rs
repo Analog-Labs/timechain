@@ -1,18 +1,14 @@
 #![allow(clippy::type_complexity)]
-use crate::{WorkerParams, TW_LOG};
-// use connector::ethereum::SwapToken;
+use crate::{WorkerParams};
 use core::time;
+use worker_aurora::{self, get_on_chain_data, establish_connection};
 use futures::channel::mpsc::Sender;
-use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, thread};
 use storage_primitives::{GetStoreTask, GetTaskMetaData};
-use time_worker::kv::{self, TimeKeyvault};
-use time_worker::worker::TimeWorker;
+use time_worker::kv::{TimeKeyvault};
 use tokio::sync::Mutex;
-// use time_worker::kv::{self, TimeKeyvault};
-// use web3::transports::Http;
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -47,6 +43,12 @@ where
 	}
 
 	pub fn get_swap_data_from_db() -> Vec<u8> {
+		let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
+		let mut pg_conn = establish_connection(Some(conn_url));
+		let data = get_on_chain_data(&mut pg_conn, 0);
+
+		log::info!("data from db = {:?}",data);
+
 		return vec![1, 2];
 	}
 

@@ -18,6 +18,7 @@ lazy_static = "1.4"
 #connector
 connector = { path = "../../connector"}
 time-worker = { path = "../time-worker"}
+worker-aurora = {path = "../database"}
 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

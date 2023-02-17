@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 
-#[derive(Queryable)]
+#[derive(Queryable, Debug)]
 pub struct OnChainData {
 	pub data_id: i32,
 	pub task_id: i32,

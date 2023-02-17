@@ -23,10 +23,9 @@ pub mod pallet {
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData,
+		SignatureData, TaskId,
 	};
 
-	type TaskId = u64;
 	type BlockHeight = u64;
 
 	pub trait WeightInfo {

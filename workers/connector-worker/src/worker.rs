@@ -1,6 +1,7 @@
 #![allow(clippy::type_complexity)]
 use crate::{WorkerParams};
 use core::time;
+use log::warn;
 use worker_aurora::{self, get_on_chain_data, establish_connection};
 use futures::channel::mpsc::Sender;
 use sp_api::ProvideRuntimeApi;

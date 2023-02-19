@@ -252,6 +252,7 @@ where
 
 			let mut engine = &mut self.gossip_engine;
 
+			warn!("++++++++++ time worker running.");
 			futures::select_biased! {
 				_ = engine => {
 					error!(
@@ -271,6 +272,7 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
+					warn!("++++++++++ time worker get data for sig.");
 					if let Some((_group_id, data)) = new_sig {
 						// do sig
 						let context = self.tss_local_state.context;

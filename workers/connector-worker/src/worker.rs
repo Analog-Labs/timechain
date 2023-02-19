@@ -58,11 +58,15 @@ where
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
-				sign_data_sender_clone
+				let result = sign_data_sender_clone
 					.lock()
 					.await
-					.try_send((1, Self::get_swap_data_from_db()))
-					.unwrap();
+					.try_send((1, Self::get_swap_data_from_db()));
+				match result {
+					Ok(_) => warn!("+++++++++++++ sign_data_sender_clone ok"),
+					Err(_) => warn!("+++++++++++++ sign_data_sender_clone err"),
+				}
+					// .unwrap();
 				thread::sleep(delay);
 			}
 		}

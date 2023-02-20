@@ -2,7 +2,6 @@
 members = [
     "node",
     "pallets/tesseract-sig-storage",
-    "pallets/authorship",
     "runtime",
     "workers/time-worker",
     "workers/time-worker/rpc",

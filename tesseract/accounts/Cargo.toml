@@ -13,8 +13,8 @@ repository = "https://github.com/Analog-Labs/tesseract/"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 log = "0.4.0"
-sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sp-keystore = { version = "0.12.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sp-core = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sp-keystore = { version = "0.13.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
 keystore = { version = "0.1.0", git = "https://github.com/Analog-Labs/Keystore.git"}

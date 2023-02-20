@@ -24,13 +24,13 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 frost-dalek = { version = "0.2.3", git = "https://github.com/Analog-labs/frost-dalek.git"}
 subxt = { version = "0.24.0", git = "https://github.com/analog-labs/subxt.git", branch = "enable-std-feature"}
 curve25519-dalek = { version = "3.2.0", git = "https://github.com/Analog-Labs/curve25519-dalek.git"}
-sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sp-keystore = { version = "0.12.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sp-keyring = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30"}
-sp-io = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sp-core = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sp-keystore = { version = "0.13.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sp-keyring = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38"}
+sp-io = { version = "7.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
 keystore = { version = "0.1.0", git = "https://github.com/Analog-Labs/Keystore.git"}
 accounts = {path = "../accounts", package = "tesseract-accounts"}
 events= {path="../events", package = "tesseract-events"}
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }

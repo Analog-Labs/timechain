@@ -15,7 +15,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 thiserror = "1.0"
 time-worker = { path = "../." }
 time-primitives = { path = "../../../primitives/time-primitives" }
-sc-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+sc-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.38" }
 tokio = "1.24.0"

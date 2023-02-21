@@ -4,6 +4,8 @@
 pub mod inherents;
 pub mod rpc;
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	MultiSignature,
@@ -24,7 +26,7 @@ sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
 		#[allow(clippy::too_many_arguments)]
-		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, task_id: u64, block_height: u64,);
+		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, event_id: ForeignEventId);
 	}
 }
 
@@ -33,7 +35,7 @@ pub mod crypto {
 	app_crypto!(sr25519, crate::KEY_TYPE);
 }
 
-#[derive(Debug, Eq, Copy, Clone, PartialEq)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct ForeignEventId(u128);
 
 impl ForeignEventId {

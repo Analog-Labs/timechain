@@ -1270,10 +1270,9 @@ impl_runtime_apis! {
 			auth_key: time_primitives::crypto::Public,
 			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
-			task_id: u64,
-			block_height: u64,)
+			event_id: time_primitives::ForeignEventId)
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
 		}
 	}
 

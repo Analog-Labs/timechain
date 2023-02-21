@@ -68,7 +68,6 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-use onchain_task_pallet::types::TaskId;
 pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -972,10 +971,6 @@ impl analog_vesting::Config for Runtime {
 	type BlockNumberProvider = SubstrateBlockNumberProvider;
 }
 
-impl onchain_task_pallet::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-}
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
 	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
@@ -1021,7 +1016,6 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
-		OnchainTask: onchain_task_pallet,
 		Treasury: pallet_treasury,
 	}
 );
@@ -1276,7 +1270,7 @@ impl_runtime_apis! {
 			auth_key: time_primitives::crypto::Public,
 			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
-			task_id: TaskId,
+			task_id: u64,
 			block_height: u64,)
 		{
 			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);

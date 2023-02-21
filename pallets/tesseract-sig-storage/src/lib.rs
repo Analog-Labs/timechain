@@ -18,13 +18,12 @@ pub mod pallet {
 	use crate::types::*;
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
-	use onchain_task::types as task_types;
 	use scale_info::StaticTypeInfo;
 	use sp_std::{result, vec::Vec};
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData,
+		SignatureData, TaskId,
 	};
 
 	type BlockHeight = u64;
@@ -75,7 +74,7 @@ pub mod pallet {
 	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		task_types::TaskId,
+		TaskId,
 		Blake2_128Concat,
 		BlockHeight,
 		SignatureStorage<T::Moment>,
@@ -178,7 +177,7 @@ pub mod pallet {
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
-			task_id: task_types::TaskId,
+			task_id: TaskId,
 			block_height: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
@@ -242,7 +241,7 @@ pub mod pallet {
 			auth_id: Public,
 			auth_sig: Signature,
 			signature_data: SignatureData,
-			task_id: task_types::TaskId,
+			task_id: TaskId,
 			block_height: u64,
 		) {
 			use sp_runtime::traits::AppVerify;

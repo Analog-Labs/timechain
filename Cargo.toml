@@ -2,11 +2,11 @@
 members = [
     "node",
     "pallets/tesseract-sig-storage",
-    "pallets/onchain-task",
     "pallets/authorship",
     "runtime",
     "workers/time-worker",
     "workers/time-worker/rpc",
+    "workers/database",
     "primitives/time-primitives",
     "tesseract/tss",
     "tesseract/accounts",

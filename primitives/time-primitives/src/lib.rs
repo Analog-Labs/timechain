@@ -78,9 +78,9 @@ impl ForeignEventId {
 	}
 }
 
-impl Into<u128> for ForeignEventId {
-	fn into(self) -> u128 {
-		self.0
+impl From<ForeignEventId> for u128 {
+	fn from(val: ForeignEventId) -> Self {
+		val.0
 	}
 }
 

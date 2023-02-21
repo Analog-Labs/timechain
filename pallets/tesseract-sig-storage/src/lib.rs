@@ -248,7 +248,7 @@ pub mod pallet {
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
 				return;
 			}
-			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
+			let storage_data = SignatureStorage::new(signature_data, T::Timestamp::now());
 
 			<SignatureStoreData<T>>::insert(event_id, storage_data);
 

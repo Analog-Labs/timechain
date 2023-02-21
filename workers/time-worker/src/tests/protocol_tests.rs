@@ -149,9 +149,8 @@ impl TestNetFactory for TimeTestNet {
 		Self::PeerData,
 	) {
 		let (client, backend) = (client.as_client(), client.as_backend());
-		let (import, link) =
-			block_import(client, &self.test_net, LongestChain::new(backend), None)
-				.expect("Could not create block import for fresh peer.");
+		let (import, link) = block_import(client, &self.test_net, LongestChain::new(backend), None)
+			.expect("Could not create block import for fresh peer.");
 		let justification_import = Box::new(import.clone());
 		(BlockImportAdapter::new(import), Some(justification_import), Mutex::new(Some(link)))
 	}

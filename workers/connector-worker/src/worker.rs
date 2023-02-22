@@ -1,14 +1,14 @@
 #![allow(clippy::type_complexity)]
-use crate::{WorkerParams};
+use crate::WorkerParams;
 use core::time;
-use log::warn;
-use worker_aurora::{self, get_on_chain_data, establish_connection};
 use futures::channel::mpsc::Sender;
+use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, thread};
+use worker_aurora::{self, establish_connection, get_on_chain_data};
 // use storage_primitives::{GetStoreTask, GetTaskMetaData};
-use time_worker::kv::{TimeKeyvault};
+use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 
 #[allow(unused)]
@@ -48,7 +48,7 @@ where
 		let mut pg_conn = establish_connection(Some(conn_url));
 		let data = get_on_chain_data(&mut pg_conn, 0);
 
-		log::info!("data from db = {:?}",data);
+		log::info!("data from db = {:?}", data);
 
 		return vec![1, 2];
 	}
@@ -67,7 +67,7 @@ where
 					Ok(_) => warn!("+++++++++++++ sign_data_sender_clone ok"),
 					Err(_) => warn!("+++++++++++++ sign_data_sender_clone err"),
 				}
-					// .unwrap();
+				// .unwrap();
 				thread::sleep(delay);
 			}
 		}

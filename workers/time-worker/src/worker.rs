@@ -6,7 +6,6 @@ use crate::{
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::Encode;
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
@@ -219,10 +218,6 @@ where
 		let key_bytes = ts.to_bytes();
 		let auth_key = self.kv.public_keys()[0].clone();
 		let at = self.backend.blockchain().last_finalized().unwrap();
-		let last_finalized_number = u64::from_be_bytes(
-			array_bytes::slice2array_unchecked(&self.client.number(at).unwrap().unwrap().encode())
-				.to_owned(),
-		);
 		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
 		// FIXME: error handle
 		drop(self.runtime.runtime_api().store_signature(
@@ -230,8 +225,8 @@ where
 			auth_key,
 			signature,
 			key_bytes.to_vec(),
-			0,
-			last_finalized_number,
+			// TODO: construct or receive proper id
+			0.into(),
 		));
 	}
 
@@ -282,8 +277,8 @@ where
 						let context = self.tss_local_state.context;
 						let msg_hash = compute_message_hash(&context, &data);
 						//add node in msg_pool
-						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
-							e.insert(data.clone());
+						if self.tss_local_state.msg_pool.get(&msg_hash).is_none() {
+							self.tss_local_state.msg_pool.insert(msg_hash, data.clone());
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
 								let request = PartialMessageSign {

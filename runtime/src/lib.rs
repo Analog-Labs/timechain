@@ -972,10 +972,6 @@ impl analog_vesting::Config for Runtime {
 	type BlockNumberProvider = SubstrateBlockNumberProvider;
 }
 
-impl onchain_task_pallet::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-}
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
 	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
@@ -1021,7 +1017,6 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
-		OnchainTask: onchain_task_pallet,
 		Treasury: pallet_treasury,
 	}
 );
@@ -1077,7 +1072,7 @@ mod benches {
 
 // pub struct Obj {
 // 	chain: SupportedChain,
-// 	task: Vec<OnchainTask>
+// 	task: Vec<OnchainTask> q
 // }
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -1277,11 +1272,12 @@ impl_runtime_apis! {
 
 	impl time_primitives::TimeApi<Block> for Runtime {
 		fn store_signature(
+			auth_key: time_primitives::crypto::Public,
+			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
-			task_id: TaskId,
-			block_height: u64,)
+			event_id: time_primitives::ForeignEventId)
 		{
-			TesseractSigStorage::api_store_signature(signature_data, task_id, block_height);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
 		}
 	}
 

@@ -18,15 +18,13 @@ pub mod pallet {
 	use crate::types::*;
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
-	use onchain_task::types as task_types;
 	use scale_info::StaticTypeInfo;
 	use sp_std::{result, vec::Vec};
 	use time_primitives::{
+		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData,
+		ForeignEventId, SignatureData,
 	};
-
-	type BlockHeight = u64;
 
 	pub trait WeightInfo {
 		fn add_member() -> Weight;
@@ -71,22 +69,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		task_types::TaskId,
-		Blake2_128Concat,
-		BlockHeight,
-		SignatureStorage<T::Moment>,
-		OptionQuery,
-	>;
+	pub type SignatureStoreData<T: Config> =
+		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureStorage<T::Moment>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The event data for stored signature
 		/// the signature id that uniquely identify the signature
-		SignatureStored(SignatureData),
+		SignatureStored(ForeignEventId),
 
 		/// A tesseract Node has been added as a member with it's role
 		TesseractMemberAdded(T::AccountId, TesseractRole),
@@ -177,16 +168,15 @@ pub mod pallet {
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
-			task_id: task_types::TaskId,
-			block_height: u64,
+			event_id: ForeignEventId,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
 			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
-			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
+			<SignatureStoreData<T>>::insert(event_id, storage_data);
 
-			Self::deposit_event(Event::SignatureStored(signature_data));
+			Self::deposit_event(Event::SignatureStored(event_id));
 
 			Ok(())
 		}
@@ -238,15 +228,31 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn api_store_signature(
+			auth_id: Public,
+			auth_sig: Signature,
 			signature_data: SignatureData,
-			task_id: task_types::TaskId,
-			block_height: u64,
+			event_id: ForeignEventId,
 		) {
-			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
+			use sp_runtime::traits::AppVerify;
+			// transform AccountId32 int T::AccountId
+			let encoded_account = auth_id.encode();
+			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {
+				Self::deposit_event(Event::DefaultAccountForbidden());
+				return;
+			}
+			// Unwrapping is safe - we've checked for len and default-ness
+			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
+			if !TesseractMembers::<T>::contains_key(account_id.clone())
+				|| !auth_sig.verify(&*signature_data, &auth_id)
+			{
+				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
+				return;
+			}
+			let storage_data = SignatureStorage::new(signature_data, T::Timestamp::now());
 
-			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
+			<SignatureStoreData<T>>::insert(event_id, storage_data);
 
-			Self::deposit_event(Event::SignatureStored(signature_data));
+			Self::deposit_event(Event::SignatureStored(event_id));
 		}
 	}
 }

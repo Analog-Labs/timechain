@@ -215,17 +215,18 @@ where
 	/// # Params
 	/// * ts - ThresholdSignature to be stored
 	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
-		let sig_bytes = ts.to_bytes();
-		let at = self.backend.blockchain().info().finalized_number;
-		log::info!("Last finalized: {}", at);
-		let encoded = at.encode();
-		let at_u64: u64 = u32::decode(&mut &encoded[..]).unwrap() as u64;
+		let key_bytes = ts.to_bytes();
+		let auth_key = self.kv.public_keys()[0].clone();
+		let at = self.backend.blockchain().last_finalized().unwrap();
+		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
 		// FIXME: error handle
 		drop(self.runtime.runtime_api().store_signature(
-			&BlockId::Number(at),
-			sig_bytes.to_vec(),
-			0,
-			at_u64,
+			&BlockId::Hash(at),
+			auth_key,
+			signature,
+			key_bytes.to_vec(),
+			// TODO: construct or receive proper id
+			0.into(),
 		));
 	}
 
@@ -278,8 +279,8 @@ where
 						let context = self.tss_local_state.context;
 						let msg_hash = compute_message_hash(&context, &data);
 						//add node in msg_pool
-						if let std::collections::hash_map::Entry::Vacant(e) = self.tss_local_state.msg_pool.entry(msg_hash) {
-							e.insert(data.clone());
+						if self.tss_local_state.msg_pool.get(&msg_hash).is_none() {
+							self.tss_local_state.msg_pool.insert(msg_hash, data.clone());
 							//process msg if req already received
 							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
 								let request = PartialMessageSign {

@@ -640,7 +640,9 @@ where
 										threshold_sign: threshold_signature,
 									};
 
-									self.store_signature(th);
+									if self.tss_local_state.is_node_aggregator {
+										self.store_signature(th);
+									}
 									self.publish_to_network(
 										local_peer_id,
 										gossip_data,
@@ -744,7 +746,7 @@ where
 			},
 		};
 
-		if let Some(msg) = self.tss_local_state.msg_pool.get(&msg_hash) {
+		if self.tss_local_state.msg_pool.contains_key(&msg_hash) {
 			//making partial signature here
 			let partial_signature = match final_state.1.sign(
 				&msg_hash,

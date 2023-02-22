@@ -769,13 +769,13 @@ where
 				let participant_list = vec![partial_signature];
 				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
 			}
-			let _message = match String::from_utf8(msg.clone()) {
-				Ok(msg) => msg,
-				Err(e) => {
-					log::error!("TSS::error in converting message to string, {}", e);
-					return;
-				},
-			};
+			// let _message = match String::from_utf8(msg.clone()) {
+			// 	Ok(msg) => msg,
+			// 	Err(e) => {
+			// 		log::error!("TSS::error in converting message to string, {}", e);
+			// 		return;
+			// 	},
+			// };
 		} else {
 			log::error!("TSS::Message not found in pool");
 		}

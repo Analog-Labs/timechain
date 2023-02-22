@@ -6,12 +6,12 @@ use crate::{
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use codec::{Decode, Encode};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
+use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::BlockId,
@@ -253,7 +253,6 @@ where
 
 			let mut engine = &mut self.gossip_engine;
 
-			warn!("++++++++++ time worker running.");
 			futures::select_biased! {
 				_ = engine => {
 					error!(
@@ -273,7 +272,6 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
-					warn!("++++++++++ time worker get data for sig.");
 					if let Some((_group_id, data)) = new_sig {
 						// do sig
 						let context = self.tss_local_state.context;

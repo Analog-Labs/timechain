@@ -7,7 +7,7 @@ use futures::channel::mpsc::Sender;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, thread};
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
+// use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use time_worker::kv::{TimeKeyvault};
 use tokio::sync::Mutex;
 
@@ -24,8 +24,8 @@ impl<B, R> ConnectorWorker<B, R>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
-	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
+	// R::Api: GetStoreTask<B>,
+	// R::Api: GetTaskMetaData<B>,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, R>) -> Self {
 		let WorkerParams {

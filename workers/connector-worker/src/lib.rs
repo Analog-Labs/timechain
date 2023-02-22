@@ -8,7 +8,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use time_worker::kv::TimeKeyvault;
 use std::{marker::PhantomData, sync::Arc};
-use storage_primitives::{GetStoreTask, GetTaskMetaData};
+// use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use tokio::sync::Mutex;
 
 /*gossip_engine: Arc::new(Mutex::new(GossipEngine::new(
@@ -26,8 +26,8 @@ pub struct ConnectorWorkerParams<B: Block, R>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
-	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
+	// R::Api: GetStoreTask<B>,
+	// R::Api: GetTaskMetaData<B>,
 {
 	pub runtime: Arc<R>,
 	pub kv: TimeKeyvault,
@@ -49,8 +49,8 @@ pub async fn start_connectorworker_gadget<B, R>(connectorworker_params: Connecto
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
-	R::Api: GetStoreTask<B>,
-	R::Api: GetTaskMetaData<B>,
+	// R::Api: GetStoreTask<B>,
+	// R::Api: GetTaskMetaData<B>,
 {
 	debug!(target: TW_LOG, "Starting ConnectorWorker gadget");
 	let ConnectorWorkerParams {

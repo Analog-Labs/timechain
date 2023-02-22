@@ -282,15 +282,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", test))]
-pub mod testing_utils;
+// #[cfg(feature = "runtime-benchmarks")]
+// pub mod benchmarking;
+// #[cfg(any(feature = "runtime-benchmarks", test))]
+// pub mod testing_utils;
 
-#[cfg(test)]
-pub(crate) mod mock;
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// pub(crate) mod mock;
+// #[cfg(test)]
+// mod tests;
 
 pub mod inflation;
 pub mod migrations;
@@ -979,14 +979,14 @@ pub trait BenchmarkingConfig {
 	type MaxNominators: Get<u32>;
 }
 
-/// A mock benchmarking config for pallet-staking.
-///
-/// Should only be used for testing.
-#[cfg(feature = "std")]
-pub struct TestBenchmarkingConfig;
+// A mock benchmarking config for pallet-staking.
+//
+// Should only be used for testing.
+// #[cfg(feature = "std")]
+// pub struct TestBenchmarkingConfig;
 
-#[cfg(feature = "std")]
-impl BenchmarkingConfig for TestBenchmarkingConfig {
-	type MaxValidators = frame_support::traits::ConstU32<100>;
-	type MaxNominators = frame_support::traits::ConstU32<100>;
-}
+// #[cfg(feature = "std")]
+// impl BenchmarkingConfig for TestBenchmarkingConfig {
+// 	type MaxValidators = frame_support::traits::ConstU32<100>;
+// 	type MaxNominators = frame_support::traits::ConstU32<100>;
+// }

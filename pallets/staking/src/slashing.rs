@@ -58,6 +58,7 @@ use frame_support::{
 	ensure,
 	traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
 };
+use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
@@ -65,7 +66,6 @@ use sp_runtime::{
 };
 use sp_staking::{offence::DisableStrategy, EraIndex};
 use sp_std::vec::Vec;
-use log::info;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -125,7 +125,7 @@ impl SlashingSpans {
 	pub(crate) fn end_span(&mut self, now: EraIndex) -> bool {
 		let next_start = now + 1;
 		if next_start <= self.last_start {
-			return false
+			return false;
 		}
 
 		let last_length = next_start - self.last_start;
@@ -139,13 +139,21 @@ impl SlashingSpans {
 	pub(crate) fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
 		let mut last_start = self.last_start;
 		let mut index = self.span_index;
-		let last = SlashingSpan { index, start: last_start, length: None };
+		let last = SlashingSpan {
+			index,
+			start: last_start,
+			length: None,
+		};
 		let prior = self.prior.iter().cloned().map(move |length| {
 			let start = last_start - length;
 			last_start = start;
 			index -= 1;
 
-			SlashingSpan { index, start, length: Some(length) }
+			SlashingSpan {
+				index,
+				start,
+				length: Some(length),
+			}
 		});
 
 		sp_std::iter::once(last).chain(prior)
@@ -238,7 +246,7 @@ pub(crate) fn compute_slash<T: Config>(
 		// kick out the validator even if they won't be slashed,
 		// as long as the misbehavior is from their most recent slashing span.
 		kick_out_if_recent::<T>(params);
-		return None
+		return None;
 	}
 
 	let (prior_slash_p, _era_slash) =
@@ -261,7 +269,7 @@ pub(crate) fn compute_slash<T: Config>(
 		// pays out some reward even if the latest report is not max-in-era.
 		// we opt to avoid the nominator lookups and edits and leave more rewards
 		// for more drastic misbehavior.
-		return None
+		return None;
 	}
 
 	// apply slash to validator.
@@ -545,7 +553,7 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 	fn drop(&mut self) {
 		// only update on disk if we slashed this account.
 		if !self.dirty {
-			return
+			return;
 		}
 
 		if let Some((start, end)) = self.spans.prune(self.window_start) {
@@ -676,7 +684,7 @@ fn pay_reporters<T: Config>(
 		// nobody to pay out to or nothing to pay;
 		// just treat the whole value as slashed.
 		T::Slash::on_unbalanced(slashed_imbalance);
-		return
+		return;
 	}
 
 	// take rewards out of the slashed imbalance.
@@ -705,7 +713,11 @@ mod tests {
 	#[test]
 	fn span_contains_era() {
 		// unbounded end
-		let span = SlashingSpan { index: 0, start: 1000, length: None };
+		let span = SlashingSpan {
+			index: 0,
+			start: 1000,
+			length: None,
+		};
 		assert!(!span.contains_era(0));
 		assert!(!span.contains_era(999));
 
@@ -714,7 +726,11 @@ mod tests {
 		assert!(span.contains_era(10000));
 
 		// bounded end - non-inclusive range.
-		let span = SlashingSpan { index: 0, start: 1000, length: Some(10) };
+		let span = SlashingSpan {
+			index: 0,
+			start: 1000,
+			length: Some(10),
+		};
 		assert!(!span.contains_era(0));
 		assert!(!span.contains_era(999));
 
@@ -736,7 +752,11 @@ mod tests {
 
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
-			vec![SlashingSpan { index: 0, start: 1000, length: None }],
+			vec![SlashingSpan {
+				index: 0,
+				start: 1000,
+				length: None
+			}],
 		);
 	}
 
@@ -752,11 +772,31 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 10, start: 1000, length: None },
-				SlashingSpan { index: 9, start: 990, length: Some(10) },
-				SlashingSpan { index: 8, start: 981, length: Some(9) },
-				SlashingSpan { index: 7, start: 973, length: Some(8) },
-				SlashingSpan { index: 6, start: 963, length: Some(10) },
+				SlashingSpan {
+					index: 10,
+					start: 1000,
+					length: None
+				},
+				SlashingSpan {
+					index: 9,
+					start: 990,
+					length: Some(10)
+				},
+				SlashingSpan {
+					index: 8,
+					start: 981,
+					length: Some(9)
+				},
+				SlashingSpan {
+					index: 7,
+					start: 973,
+					length: Some(8)
+				},
+				SlashingSpan {
+					index: 6,
+					start: 963,
+					length: Some(10)
+				},
 			],
 		)
 	}
@@ -774,9 +814,21 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 10, start: 1000, length: None },
-				SlashingSpan { index: 9, start: 990, length: Some(10) },
-				SlashingSpan { index: 8, start: 981, length: Some(9) },
+				SlashingSpan {
+					index: 10,
+					start: 1000,
+					length: None
+				},
+				SlashingSpan {
+					index: 9,
+					start: 990,
+					length: Some(10)
+				},
+				SlashingSpan {
+					index: 8,
+					start: 981,
+					length: Some(9)
+				},
 			],
 		);
 
@@ -784,9 +836,21 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 10, start: 1000, length: None },
-				SlashingSpan { index: 9, start: 990, length: Some(10) },
-				SlashingSpan { index: 8, start: 981, length: Some(9) },
+				SlashingSpan {
+					index: 10,
+					start: 1000,
+					length: None
+				},
+				SlashingSpan {
+					index: 9,
+					start: 990,
+					length: Some(10)
+				},
+				SlashingSpan {
+					index: 8,
+					start: 981,
+					length: Some(9)
+				},
 			],
 		);
 
@@ -794,22 +858,42 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 10, start: 1000, length: None },
-				SlashingSpan { index: 9, start: 990, length: Some(10) },
-				SlashingSpan { index: 8, start: 981, length: Some(9) },
+				SlashingSpan {
+					index: 10,
+					start: 1000,
+					length: None
+				},
+				SlashingSpan {
+					index: 9,
+					start: 990,
+					length: Some(10)
+				},
+				SlashingSpan {
+					index: 8,
+					start: 981,
+					length: Some(9)
+				},
 			],
 		);
 
 		assert_eq!(spans.prune(1000), Some((8, 10)));
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
-			vec![SlashingSpan { index: 10, start: 1000, length: None },],
+			vec![SlashingSpan {
+				index: 10,
+				start: 1000,
+				length: None
+			},],
 		);
 
 		assert_eq!(spans.prune(2000), None);
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
-			vec![SlashingSpan { index: 10, start: 2000, length: None },],
+			vec![SlashingSpan {
+				index: 10,
+				start: 2000,
+				length: None
+			},],
 		);
 
 		// now all in one shot.
@@ -822,7 +906,11 @@ mod tests {
 		assert_eq!(spans.prune(2000), Some((6, 10)));
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
-			vec![SlashingSpan { index: 10, start: 2000, length: None },],
+			vec![SlashingSpan {
+				index: 10,
+				start: 2000,
+				length: None
+			},],
 		);
 	}
 
@@ -840,8 +928,16 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 2, start: 11, length: None },
-				SlashingSpan { index: 1, start: 10, length: Some(1) },
+				SlashingSpan {
+					index: 2,
+					start: 11,
+					length: None
+				},
+				SlashingSpan {
+					index: 1,
+					start: 10,
+					length: Some(1)
+				},
 			],
 		);
 
@@ -849,9 +945,21 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 3, start: 16, length: None },
-				SlashingSpan { index: 2, start: 11, length: Some(5) },
-				SlashingSpan { index: 1, start: 10, length: Some(1) },
+				SlashingSpan {
+					index: 3,
+					start: 16,
+					length: None
+				},
+				SlashingSpan {
+					index: 2,
+					start: 11,
+					length: Some(5)
+				},
+				SlashingSpan {
+					index: 1,
+					start: 10,
+					length: Some(1)
+				},
 			],
 		);
 
@@ -860,9 +968,21 @@ mod tests {
 		assert_eq!(
 			spans.iter().collect::<Vec<_>>(),
 			vec![
-				SlashingSpan { index: 3, start: 16, length: None },
-				SlashingSpan { index: 2, start: 11, length: Some(5) },
-				SlashingSpan { index: 1, start: 10, length: Some(1) },
+				SlashingSpan {
+					index: 3,
+					start: 16,
+					length: None
+				},
+				SlashingSpan {
+					index: 2,
+					start: 11,
+					length: Some(5)
+				},
+				SlashingSpan {
+					index: 1,
+					start: 10,
+					length: Some(1)
+				},
 			],
 		);
 	}

@@ -8,11 +8,10 @@ pub mod sharding;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify, AtLeast32BitUnsigned},
-	MultiSignature, DispatchError,
+	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
+	DispatchError, MultiSignature,
 };
-use sp_std::vec::Vec;
-use sp_std::fmt::Debug;
+use sp_std::{fmt::Debug, vec::Vec};
 
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
@@ -119,5 +118,5 @@ impl<
 
 pub trait WorkerTrait<AccountId, Balance> {
 	fn get_reward_acc() -> Result<Vec<(AccountId, AccountId)>, DispatchError>;
-	fn send_reward_to_acc(balance: Balance) ->Result<(), DispatchError>;
+	fn send_reward_to_acc(balance: Balance) -> Result<(), DispatchError>;
 }

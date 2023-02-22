@@ -21,27 +21,22 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	traits::Currency
-};
+use frame_support::traits::Currency;
 
-use sp_runtime::{traits::{AtLeast32BitUnsigned}, DispatchError};
-use sp_std::{ prelude::* };
-use time_primitives::{WorkerTrait};
+use sp_runtime::{traits::AtLeast32BitUnsigned, DispatchError};
+use sp_std::prelude::*;
+use time_primitives::WorkerTrait;
 // pub trait WorkerTrait<AccountId, Balance> {
 // 	fn get_reward_acc() -> Result<(AccountId, AccountId), DispatchError>;
 // 	fn send_reward_to_acc(balance: Balance) ->Result<(), DispatchError>;
 // }
 
-
 // use pallet_tesseract_sig_storage;
 pub use pallet::*;
-
 
 /// A filter on uncles which verifies seals and does no additional checks.
 /// This is well-suited to consensus modes such as PoW where the cost of
 /// equivocating is high.
-/// 
 // pub type AccountId = u128;
 // T as Config>::Currency as Currency<<T as Config>::AccountId
 // pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -51,11 +46,11 @@ pub struct SealVerify<T>(sp_std::marker::PhantomData<T>);
 pub mod pallet {
 	use super::*;
 	// use crate::{types::*, weights::WeightInfo};
-	use frame_support::{pallet_prelude::*};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	pub(crate) type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
 	pub type RewardList<T> = (
 		// 1st account will be the rewarder
@@ -67,7 +62,6 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
-
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -94,10 +88,10 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
 			log::info!("build list of reward accounts! {:?}", self.reward_list);
-			let mut num:u64 = 0;
+			let mut num: u64 = 0;
 			self.reward_list.iter().for_each(|item| {
-				num = num +1;
-				RewardAccount::<T>::insert(num,item.clone());
+				num = num + 1;
+				RewardAccount::<T>::insert(num, item.clone());
 			});
 		}
 	}
@@ -113,29 +107,18 @@ pub mod pallet {
 			log::info!("its a validator {:?}", _block_number);
 		}
 
-		fn offchain_worker(_block_number: T::BlockNumber) {
-		}
+		fn offchain_worker(_block_number: T::BlockNumber) {}
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward_accounts)]
-	pub(super) type RewardAccount<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		KeyId,
-		RewardList<T>,
-		OptionQuery,
-	>;
+	pub(super) type RewardAccount<T: Config> =
+		StorageMap<_, Blake2_128Concat, KeyId, RewardList<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn prev_block)]
-	pub(super) type PrevBlockNumber<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		KeyId,
-		T::BlockNumber,
-		OptionQuery,
-	>;
+	pub(super) type PrevBlockNumber<T: Config> =
+		StorageMap<_, Blake2_128Concat, KeyId, T::BlockNumber, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -146,7 +129,6 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(fn deposit_event)]
 	pub enum Event<T: Config> {
-		
 		/// Claimed vesting.
 		BalanceAmount { who: T::AccountId, amount: BalanceOf<T> },
 	}
@@ -170,45 +152,41 @@ pub mod pallet {
 		// 	let data = T::Currency::total_balance(&who);
 		// 	Ok(data)
 		// }
-	
+
 		fn get_reward_account() -> Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			Ok(data_list)
 		}
 
-		fn div_balance<N>(value: N,  q: u32) -> N
+		fn div_balance<N>(value: N, q: u32) -> N
 		where
 			N: AtLeast32BitUnsigned + Clone,
 		{
 			let result_div = value.clone() / q.into();
-			
+
 			result_div
 		}
-		pub fn send_reward(balance:BalanceOf<T>) -> Result<(), DispatchError> {
+		pub fn send_reward(balance: BalanceOf<T>) -> Result<(), DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
-			let mut length :u32 = 0;
+			let mut length: u32 = 0;
 			data_list.iter().for_each(|_| {
 				length = length + 1;
 			});
 
 			let balance_paid = Self::div_balance(balance, length);
 			data_list.iter().for_each(|item| {
-				log::info!("Balance transfered ====> {:?} --- amount= {:?} ",item.0, balance_paid);
+				log::info!("Balance transfered ====> {:?} --- amount= {:?} ", item.0, balance_paid);
 				let _resp = T::Currency::deposit_into_existing(&item.0, balance_paid);
 			});
 			Ok(())
 		}
-		
 	}
-	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for  Pallet<T> {
-		fn get_reward_acc() ->Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
+	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for Pallet<T> {
+		fn get_reward_acc() -> Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
 			Self::get_reward_account()
 		}
-		fn send_reward_to_acc(balance: BalanceOf<T>) ->Result<(), DispatchError> {
+		fn send_reward_to_acc(balance: BalanceOf<T>) -> Result<(), DispatchError> {
 			Self::send_reward(balance.into())
 		}
 	}
-	
 }
-
-

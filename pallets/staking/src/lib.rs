@@ -305,6 +305,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -315,7 +316,6 @@ use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
 	EraIndex, SessionIndex,
 };
-use log::info;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
@@ -374,7 +374,10 @@ pub struct EraRewardPoints<AccountId: Ord> {
 
 impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 	fn default() -> Self {
-		EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
+		EraRewardPoints {
+			total: Default::default(),
+			individual: BTreeMap::new(),
+		}
 	}
 }
 
@@ -530,7 +533,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break
+				break;
 			}
 		}
 
@@ -568,7 +571,7 @@ impl<T: Config> StakingLedger<T> {
 	) -> BalanceOf<T> {
 		info!("slash happens log");
 		if slash_amount.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		use sp_runtime::PerThing as _;
@@ -662,7 +665,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break
+				break;
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -670,7 +673,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -727,7 +730,11 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 
 impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
 	fn default() -> Self {
-		Self { total: Default::default(), own: Default::default(), others: vec![] }
+		Self {
+			total: Default::default(),
+			own: Default::default(),
+			others: vec![],
+		}
 	}
 }
 
@@ -857,7 +864,6 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		let rest = max_payout.saturating_sub(validator_payout.clone());
 		(validator_payout, rest)
 	}
-
 }
 
 /// Mode of era-forcing.

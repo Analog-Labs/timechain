@@ -51,7 +51,7 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 // read and write operations.
 pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
 	if spans == 0 {
-		return
+		return;
 	}
 
 	// For the first slashing span, we initialize
@@ -80,8 +80,10 @@ pub fn create_validator_with_nominators<T: Config>(
 	let mut points_individual = Vec::new();
 
 	let (v_stash, v_controller) = create_stash_controller::<T>(0, 100, destination.clone())?;
-	let validator_prefs =
-		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+	let validator_prefs = ValidatorPrefs {
+		commission: Perbill::from_percent(50),
+		..Default::default()
+	};
 	Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
 	let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 
@@ -207,7 +209,11 @@ impl<T: Config> ListScenario<T> {
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
-		Ok(ListScenario { origin_stash1, origin_controller1, dest_weight })
+		Ok(ListScenario {
+			origin_stash1,
+			origin_controller1,
+			dest_weight,
+		})
 	}
 }
 

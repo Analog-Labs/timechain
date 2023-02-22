@@ -42,15 +42,15 @@ use sp_staking::{
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
+use super::{pallet::*, STAKING_ID};
 use crate::{
 	log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, EraPayout, Exposure, ExposureOf,
 	Forcing, IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination,
 	SessionInterface, StakingLedger, ValidatorPrefs,
 };
-use time_primitives::WorkerTrait;
-use sp_runtime::traits::AtLeast32BitUnsigned;
 use log::info;
-use super::{pallet::*, STAKING_ID};
+use sp_runtime::traits::AtLeast32BitUnsigned;
+use time_primitives::WorkerTrait;
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
 
 		// Nothing to do if they have no reward points.
 		if validator_reward_points.is_zero() {
-			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
+			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
 		}
 
 		// This is the fraction of the total reward that the validator and the
@@ -216,8 +216,10 @@ impl<T: Config> Pallet<T> {
 			if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
 				// Note: this logic does not count payouts for `RewardDestination::None`.
 				nominator_payout_count += 1;
-				let e =
-					Event::<T>::Rewarded { stash: nominator.who.clone(), amount: imbalance.peek() };
+				let e = Event::<T>::Rewarded {
+					stash: nominator.who.clone(),
+					amount: imbalance.peek(),
+				};
 				Self::deposit_event(e);
 				total_imbalance.subsume(imbalance);
 			}
@@ -290,14 +292,14 @@ impl<T: Config> Pallet<T> {
 				_ => {
 					// Either `Forcing::ForceNone`,
 					// or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
-					return None
+					return None;
 				},
 			}
 
 			// New era.
 			let maybe_new_era_validators = Self::try_trigger_new_era(session_index, is_genesis);
-			if maybe_new_era_validators.is_some() &&
-				matches!(ForceEra::<T>::get(), Forcing::ForceNew)
+			if maybe_new_era_validators.is_some()
+				&& matches!(ForceEra::<T>::get(), Forcing::ForceNew)
 			{
 				ForceEra::<T>::put(Forcing::NotForcing);
 			}
@@ -390,15 +392,15 @@ impl<T: Config> Pallet<T> {
 
 		Self::apply_unapplied_slashes(active_era);
 	}
-	fn percent_calculator<N>(value: N,  q: u32) -> N
-		where
-			N: AtLeast32BitUnsigned + Clone,
-		{
-			let divisor = 100u32;
-			let result_divisor = (value.clone() / q.into()).saturating_mul(divisor.into());
-			
-			result_divisor
-		}
+	fn percent_calculator<N>(value: N, q: u32) -> N
+	where
+		N: AtLeast32BitUnsigned + Clone,
+	{
+		let divisor = 100u32;
+		let result_divisor = (value.clone() / q.into()).saturating_mul(divisor.into());
+
+		result_divisor
+	}
 	/// Compute payout for era.
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
 		info!("end_era happens log");
@@ -410,11 +412,12 @@ impl<T: Config> Pallet<T> {
 		// 		log::info!(" Error occurs, its a chronical rewarard ");
 		// 		log::info!(" No account associatedwith chronical Node");
 		// 	},
-		// 	Ok(account) => {	
+		// 	Ok(account) => {
 		// 		log::info!("its a chronical reward account {:?} ----- ", account);
 		// 		let balance1 = T::Currency::total_balance(&account.0);
-		// 		log::info!("Hello World from offchain workers! balance from ====>  {:?} ---- ", balance1);
-				
+		// 		log::info!("Hello World from offchain workers! balance from ====>  {:?} ---- ",
+		// balance1);
+
 		// 	}
 		// 	// Ok(None) => {
 		// 	// 	log::info!(" No account associatedwith chronical Node");
@@ -430,16 +433,16 @@ impl<T: Config> Pallet<T> {
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
 
-				let percent_from_validator = Self::percent_calculator(validator_payout.clone(), 20);
-				let percent_from_remainder = Self::percent_calculator(remainder.clone(), 20);
+			let percent_from_validator = Self::percent_calculator(validator_payout.clone(), 20);
+			let percent_from_remainder = Self::percent_calculator(remainder.clone(), 20);
 
-				let validator_share = validator_payout.saturating_sub(percent_from_validator);
-				let remainder_share = remainder.saturating_sub(percent_from_remainder);
-				let cronical_share = percent_from_validator.saturating_add(percent_from_remainder);
-				let _rep = T::RewardWorker::send_reward_to_acc(cronical_share);
+			let validator_share = validator_payout.saturating_sub(percent_from_validator);
+			let remainder_share = remainder.saturating_sub(percent_from_remainder);
+			let cronical_share = percent_from_validator.saturating_add(percent_from_remainder);
+			let _rep = T::RewardWorker::send_reward_to_acc(cronical_share);
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
-				validator_payout:validator_share,
+				validator_payout: validator_share,
 				remainder: remainder_share,
 			});
 
@@ -527,7 +530,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			Self::deposit_event(Event::StakingElectionFailed);
-			return None
+			return None;
 		}
 
 		Self::deposit_event(Event::StakersElected);
@@ -739,8 +742,8 @@ impl<T: Config> Pallet<T> {
 		let mut nominators_taken = 0u32;
 
 		let mut sorted_voters = T::VoterList::iter();
-		while all_voters.len() < max_allowed_len &&
-			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * max_allowed_len as u32)
+		while all_voters.len() < max_allowed_len
+			&& voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * max_allowed_len as u32)
 		{
 			let voter = match sorted_voters.next() {
 				Some(voter) => {
@@ -750,8 +753,11 @@ impl<T: Config> Pallet<T> {
 				None => break,
 			};
 
-			if let Some(Nominations { submitted_in, mut targets, suppressed: _ }) =
-				<Nominators<T>>::get(&voter)
+			if let Some(Nominations {
+				submitted_in,
+				mut targets,
+				suppressed: _,
+			}) = <Nominators<T>>::get(&voter)
 			{
 				// if this voter is a nominator:
 				targets.retain(|stash| {
@@ -817,8 +823,8 @@ impl<T: Config> Pallet<T> {
 		let mut targets_seen = 0;
 
 		let mut targets_iter = T::TargetList::iter();
-		while all_targets.len() < max_allowed_len &&
-			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * max_allowed_len as u32)
+		while all_targets.len() < max_allowed_len
+			&& targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * max_allowed_len as u32)
 		{
 			let target = match targets_iter.next() {
 				Some(target) => {
@@ -965,7 +971,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		// We can't handle this case yet -- return an error.
 		if maybe_max_len.map_or(false, |max_len| target_count > max_len as u32) {
-			return Err("Target snapshot too big")
+			return Err("Target snapshot too big");
 		}
 
 		Ok(Self::get_npos_targets(None))
@@ -1025,7 +1031,14 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			},
 		);
 
-		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false });
+		Self::do_add_nominator(
+			&voter,
+			Nominations {
+				targets,
+				submitted_in: 0,
+				suppressed: false,
+			},
+		);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1044,7 +1057,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		);
 		Self::do_add_validator(
 			&target,
-			ValidatorPrefs { commission: Perbill::zero(), blocked: false },
+			ValidatorPrefs {
+				commission: Perbill::zero(),
+				blocked: false,
+			},
 		);
 	}
 
@@ -1085,7 +1101,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			);
 			Self::do_add_validator(
 				&v,
-				ValidatorPrefs { commission: Perbill::zero(), blocked: false },
+				ValidatorPrefs {
+					commission: Perbill::zero(),
+					blocked: false,
+				},
 			);
 		});
 
@@ -1106,7 +1125,11 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			);
 			Self::do_add_nominator(
 				&v,
-				Nominations { targets: t, submitted_in: 0, suppressed: false },
+				Nominations {
+					targets: t,
+					submitted_in: 0,
+					suppressed: false,
+				},
 			);
 		});
 	}
@@ -1243,7 +1266,7 @@ where
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
 				// This offence need not be re-submitted.
-				return consumed_weight
+				return consumed_weight;
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
@@ -1284,7 +1307,7 @@ where
 
 			// Skip if the validator is invulnerable.
 			if invulnerables.contains(stash) {
-				continue
+				continue;
 			}
 
 			let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
@@ -1604,8 +1627,8 @@ impl<T: Config> Pallet<T> {
 
 	fn check_count() -> Result<(), &'static str> {
 		ensure!(
-			<T as Config>::VoterList::count() ==
-				Nominators::<T>::count() + Validators::<T>::count(),
+			<T as Config>::VoterList::count()
+				== Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count"
 		);
 		Ok(())
@@ -1623,9 +1646,10 @@ impl<T: Config> Pallet<T> {
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
 				ensure!(
-					expo.total ==
-						expo.own +
-							expo.others
+					expo.total
+						== expo.own
+							+ expo
+								.others
 								.iter()
 								.map(|e| e.value)
 								.fold(Zero::zero(), |acc, x| acc + x),

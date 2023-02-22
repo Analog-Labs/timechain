@@ -75,7 +75,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RewardWorker:  WorkerTrait<Self::AccountId, Self::CurrencyBalance>;
+		type RewardWorker: WorkerTrait<Self::AccountId, Self::CurrencyBalance>;
 		/// The staking balance.
 		type Currency: LockableCurrency<
 			Self::AccountId,
@@ -830,18 +830,18 @@ pub mod pallet {
 			let stash = ensure_signed(origin)?;
 
 			if <Bonded<T>>::contains_key(&stash) {
-				return Err(Error::<T>::AlreadyBonded.into())
+				return Err(Error::<T>::AlreadyBonded.into());
 			}
 
 			let controller = T::Lookup::lookup(controller)?;
 
 			if <Ledger<T>>::contains_key(&controller) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < T::Currency::minimum_balance() {
-				return Err(Error::<T>::InsufficientBond.into())
+				return Err(Error::<T>::InsufficientBond.into());
 			}
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
@@ -857,7 +857,10 @@ pub mod pallet {
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
-			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
+			Self::deposit_event(Event::<T>::Bonded {
+				stash: stash.clone(),
+				amount: value,
+			});
 			let item = StakingLedger {
 				stash,
 				total: value,
@@ -1001,7 +1004,10 @@ pub mod pallet {
 						.defensive();
 				}
 
-				Self::deposit_event(Event::<T>::Unbonded { stash: ledger.stash, amount: value });
+				Self::deposit_event(Event::<T>::Unbonded {
+					stash: ledger.stash,
+					amount: value,
+				});
 			}
 			Ok(())
 		}
@@ -1033,8 +1039,8 @@ pub mod pallet {
 				ledger = ledger.consolidate_unlocked(current_era)
 			}
 
-			let post_info_weight = if ledger.unlocking.is_empty() &&
-				ledger.active < T::Currency::minimum_balance()
+			let post_info_weight = if ledger.unlocking.is_empty()
+				&& ledger.active < T::Currency::minimum_balance()
 			{
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
@@ -1240,7 +1246,7 @@ pub mod pallet {
 			let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
 			let controller = T::Lookup::lookup(controller)?;
 			if <Ledger<T>>::contains_key(&controller) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 			if controller != old_controller {
 				<Bonded<T>>::insert(&stash, &controller);
@@ -1517,8 +1523,8 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			let ed = T::Currency::minimum_balance();
-			let reapable = T::Currency::total_balance(&stash) < ed ||
-				Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
+			let reapable = T::Currency::total_balance(&stash) < ed
+				|| Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
 					.map(|l| l.total)
 					.unwrap_or_default() < ed;
 			ensure!(reapable, Error::<T>::FundedTarget);
@@ -1672,7 +1678,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(())
+				return Ok(());
 			}
 
 			if caller != controller {

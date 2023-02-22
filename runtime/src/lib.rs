@@ -29,17 +29,17 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentifyAccount,
-		NumberFor, One, OpaqueKeys, Verify, AtLeast32BitUnsigned
+		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
+		IdentifyAccount, NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
 
 use frame_system::EnsureRootWithSuccess;
-use sp_std::prelude::*;
-use pallet_balances::PositiveImbalance;
 use log::info;
+use pallet_balances::PositiveImbalance;
+use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -746,15 +746,15 @@ where
 	// }
 	fn on_nonzero_unbalanced(_fees_then_tips: NegativeImbalance<R>) {
 		// if let Some(fees) = fees_then_tips.next() {
-			// for fees, 20% to treasury, 80% to author
-			info!("slash on_nonzero_unbalanced occur");
-			// if_std! {
-			// 	print!("slash on_nonzero_unbalanced occur");
-			// }
-			// let split = fees.ration(80, 20);
-			// use pallet_treasury::Pallet as Treasury;
-			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
-			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+		// for fees, 20% to treasury, 80% to author
+		info!("slash on_nonzero_unbalanced occur");
+		// if_std! {
+		// 	print!("slash on_nonzero_unbalanced occur");
+		// }
+		// let split = fees.ration(80, 20);
+		// use pallet_treasury::Pallet as Treasury;
+		// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+		// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 		// }
 	}
 }
@@ -813,7 +813,7 @@ where
 
 pub struct DealWithReward<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<PositiveImbalance<R>> for DealWithReward<R>
-where   
+where
 	R: pallet_balances::Config,
 	<R as frame_system::Config>::AccountId: From<AccountId>,
 	<R as frame_system::Config>::AccountId: Into<AccountId>,
@@ -832,22 +832,22 @@ where
 	// }
 	fn on_nonzero_unbalanced(mut _fees_then_tips: PositiveImbalance<R>) {
 		// if let Some(fees) = fees_then_tips.next() {
-			// for fees, 20% to treasury, 80% to author
-			info!("reward on_nonzero_unbalanced occur");
-			// if_std! {
-			// 	print!("reward on_nonzero_unbalanced occur");
-			// }
-			// let split = fees.ration(80, 20);
-			// use pallet_treasury::Pallet as Treasury;
-			// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
-			// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+		// for fees, 20% to treasury, 80% to author
+		info!("reward on_nonzero_unbalanced occur");
+		// if_std! {
+		// 	print!("reward on_nonzero_unbalanced occur");
+		// }
+		// let split = fees.ration(80, 20);
+		// use pallet_treasury::Pallet as Treasury;
+		// <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+		// <ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
 		// }
 	}
-} 
+}
 
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
 impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
-pallet_staking::EraPayout<Balance> for ConvertCurve<T>
+	pallet_staking::EraPayout<Balance> for ConvertCurve<T>
 {
 	fn era_payout(
 		total_staked: Balance,
@@ -1037,7 +1037,6 @@ impl reward_worker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 }
-
 
 // impl pallet_authorship::pallet::Config for Runtime {
 // 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;

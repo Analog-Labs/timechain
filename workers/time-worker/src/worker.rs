@@ -75,7 +75,7 @@ where
 			finality_notifications: client.finality_notification_stream(),
 			// TODO: handle this unwrap
 			shard_storage_notifications: client
-				.storage_changes_notification_stream(Some(STORAGE_KEY), None)
+				.storage_changes_notification_stream(Some(&[STORAGE_KEY.clone()]), None)
 				.unwrap(),
 			client,
 			backend,

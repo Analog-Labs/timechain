@@ -1274,6 +1274,10 @@ impl_runtime_apis! {
 		{
 			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
 		}
+
+		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
+			Some(TesseractSigStorage::tss_shards(shard_id)?.members())
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

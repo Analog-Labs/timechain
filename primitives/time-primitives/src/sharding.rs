@@ -46,6 +46,15 @@ impl Shard {
 		}
 	}
 
+	/// Returns owned Vec<TimeId> of current shard members
+	pub fn members(&self) -> Vec<TimeId> {
+		match self {
+			Shard::Three(set) => set.to_vec(),
+			Shard::Five(set) => set.to_vec(),
+			Shard::Ten(set) => set.to_vec(),
+		}
+	}
+
 	// intentionaly private
 	fn inner(&mut self) -> &mut [TimeId] {
 		match self {

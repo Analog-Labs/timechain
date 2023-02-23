@@ -60,7 +60,7 @@ pub mod pallet {
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
 	#[pallet::storage]
-	#[pallet::getter(fn tss_set)]
+	#[pallet::getter(fn tss_shards)]
 	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, Shard, OptionQuery>;
 
 	#[pallet::storage]

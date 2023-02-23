@@ -8,7 +8,9 @@ use crate::{
 use borsh::{BorshDeserialize, BorshSerialize};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_client_api::{
+	Backend, FinalityNotification, FinalityNotifications, StorageEventStream, StorageNotification,
+};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
@@ -34,6 +36,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	finality_notifications: FinalityNotifications<B>,
+	shard_storage_notifications: StorageEventStream<B::Hash>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
@@ -70,6 +73,10 @@ where
 
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
+			// TODO: handle this unwrap
+			shard_storage_notifications: client
+				.storage_changes_notification_stream(None, None)
+				.unwrap(),
 			client,
 			backend,
 			runtime,
@@ -82,10 +89,16 @@ where
 		}
 	}
 
+	fn on_storage_update(&mut self, notification: StorageNotification<B::Hash>) {
+		// check if any new shards are registered
+		info!(target: TW_LOG, "New storage notification: {:?}", notification.changes);
+		// check if we're member in new shards
+		// participate in keygen for new shard
+	}
+
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
-		let _number = notification.header.number();
 		let keys = self.kv.public_keys();
 		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
@@ -260,6 +273,16 @@ where
 						"Gossip engine has terminated."
 					);
 					return;
+				},
+				storage_notification = self.shard_storage_notifications.next().fuse() => {
+					if let Some(notification) = storage_notification {
+						self.on_storage_update(notification);
+					} else {
+						debug!(
+							target: TW_LOG,
+							"no new storage notifications"
+						);
+					}
 				},
 				notification = self.finality_notifications.next().fuse() => {
 					if let Some(notification) = notification {

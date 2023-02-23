@@ -1,6 +1,7 @@
 use super::TimeId;
 use anyhow::{Error, Result};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{borrow::ToOwned, vec::Vec};
@@ -8,7 +9,7 @@ use sp_std::{borrow::ToOwned, vec::Vec};
 /// Enum representing sizes of shards available
 /// Each shard holds accounts of it's members
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
 pub enum Shard {
 	Three([TimeId; 3]),
 	Five([TimeId; 5]),

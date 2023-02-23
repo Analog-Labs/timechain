@@ -4,12 +4,10 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_application_crypto::sp_core::storage::StorageKey;
 use sp_std::{borrow::ToOwned, vec::Vec};
 
 lazy_static::lazy_static! {
-	static ref STORAGE_KEY_BYTES: Vec<u8> = b"TesseractSigStorage".to_vec();
-	pub static ref STORAGE_KEY: StorageKey = StorageKey(STORAGE_KEY_BYTES.clone());
+	pub static ref STORAGE_KEY_BYTES: Vec<u8> = b"TesseractSigStorage".to_vec();
 }
 
 /// Enum representing sizes of shards available

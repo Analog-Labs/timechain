@@ -9,18 +9,20 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use sc_client_api::{
-	Backend, FinalityNotification, FinalityNotifications, StorageEventStream, StorageNotification,
+	Backend, FinalityNotification, FinalityNotifications, StorageEventStream, StorageKey,
+	StorageNotification,
 };
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
+use sp_core::twox_128;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header},
 };
 use std::{sync::Arc, time::Duration};
-use time_primitives::{sharding::STORAGE_KEY, TimeApi, KEY_TYPE};
+use time_primitives::{sharding::STORAGE_KEY_BYTES, TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
@@ -75,7 +77,10 @@ where
 			finality_notifications: client.finality_notification_stream(),
 			// TODO: handle this unwrap
 			shard_storage_notifications: client
-				.storage_changes_notification_stream(Some(&[STORAGE_KEY.clone()]), None)
+				.storage_changes_notification_stream(
+					Some(&[StorageKey(twox_128(STORAGE_KEY_BYTES.as_ref()).to_vec())]),
+					None,
+				)
 				.unwrap(),
 			client,
 			backend,

@@ -20,7 +20,7 @@ use sp_runtime::{
 	traits::{Block, Header},
 };
 use std::{sync::Arc, time::Duration};
-use time_primitives::{TimeApi, KEY_TYPE};
+use time_primitives::{sharding::STORAGE_KEY, TimeApi, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
@@ -75,7 +75,7 @@ where
 			finality_notifications: client.finality_notification_stream(),
 			// TODO: handle this unwrap
 			shard_storage_notifications: client
-				.storage_changes_notification_stream(None, None)
+				.storage_changes_notification_stream(Some(STORAGE_KEY), None)
 				.unwrap(),
 			client,
 			backend,

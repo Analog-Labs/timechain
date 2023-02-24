@@ -14,7 +14,7 @@ pub enum TSSEventType {
 	ReceiveParticipant,
 	ReceiveSecretShare,
 	ReceiveCommitment,
-	PartialSignatureGenerateReq,
+	PartialSignatureGenerateReq(u64),
 	PartialSignatureReceived,
 	VerifyThresholdSignature,
 	ResetTSSState,

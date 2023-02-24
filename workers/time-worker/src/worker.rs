@@ -3,6 +3,7 @@ use crate::{
 	communication::validator::{topic, GossipValidator},
 	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
+	tss_event_handler_helper::{aggregator_event_sign, handler_partial_signature_generate_req},
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -200,6 +201,113 @@ where
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 	}
 
+	fn process_sign_message(&mut self, shard_id: u64, data: Vec<u8>) {
+		// do sig
+		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+			let context = state.context;
+			let msg_hash = compute_message_hash(&context, &data);
+			//add node in msg_pool
+			if state.msg_pool.get(&msg_hash).is_none() {
+				state.msg_pool.insert(msg_hash, data.clone());
+				//process msg if req already received
+				if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
+					let request = PartialMessageSign {
+						msg_hash,
+						signers: pending_msg_req.to_vec(),
+					};
+					let encoded = request.try_to_vec().unwrap();
+					if let Some((peer_id, data, message_type)) =
+						handler_partial_signature_generate_req(state, &encoded)
+					{
+						if let Ok(encoded_data) = data.try_to_vec() {
+							if let Ok(data) =
+								make_gossip_tss_data(peer_id, encoded_data, message_type)
+							{
+								self.gossip_engine.gossip_message(topic::<B>(), data, false);
+							} else {
+								log::error!(
+									"TSS::error making gossip data for encoded participant"
+								);
+							}
+						} else {
+							//log error
+							log::error!("TSS::tss error");
+						}
+					}
+					state.msgs_signature_pending.remove(&msg_hash);
+				} else {
+					log::debug!(
+						target: TW_LOG,
+						"New data for signing received: {:?} with hash {:?}",
+						data,
+						msg_hash
+					);
+				}
+			} else {
+				log::warn!(
+					target: TW_LOG,
+					"Message with hash {} is already in process of signing",
+					hex::encode(msg_hash)
+				);
+			}
+			//creating signature aggregator for msg
+			if state.is_node_aggregator {
+				//all nodes should share the same message hash
+				//to verify the threshold signature
+				let mut aggregator = SignatureAggregator::new(
+					state.tss_params,
+					state.local_finished_state.clone().unwrap().0,
+					&context,
+					&data,
+				);
+
+				for com in state.others_commitment_share.clone() {
+					aggregator.include_signer(
+						com.public_commitment_share_list.participant_index,
+						com.public_commitment_share_list.commitments[0],
+						com.public_key,
+					);
+				}
+
+				//including aggregator as a signer
+				aggregator.include_signer(
+					state.local_index.unwrap(),
+					state.local_commitment_share.clone().unwrap().0.commitments[0],
+					state.local_public_key.clone().unwrap(),
+				);
+
+				//this signers list will be used by other nodes to verify themselves.
+				let signers = aggregator.get_signers();
+				state.current_signers = signers.clone();
+
+				// //sign msg from aggregator side
+				aggregator_event_sign(state, msg_hash);
+
+				let sign_msg_req = PartialMessageSign {
+					msg_hash,
+					signers: signers.clone(),
+				};
+
+				if let Ok(data) = make_gossip_tss_data(
+					state.local_peer_id.clone().unwrap_or_default(),
+					sign_msg_req.try_to_vec().unwrap(),
+					TSSEventType::PartialSignatureGenerateReq,
+				) {
+					self.send(data);
+					info!(target: TW_LOG, "TSS peer collection req sent");
+				} else {
+					error!(
+						target: TW_LOG,
+						"Failed to pack TSS message for signing hash: {}",
+						hex::encode(msg_hash)
+					);
+				}
+			}
+		} else {
+			error!(target: TW_LOG, "Given shard ID is not found {shard_id}");
+		}
+	}
+
 	pub(crate) fn send(&mut self, msg: Vec<u8>) {
 		info!(target: TW_LOG, "Sending new gossip message");
 		self.gossip_engine.gossip_message(topic::<B>(), msg, false);
@@ -243,8 +351,10 @@ where
 			},
 
 			//event received by collector and partial sign request is received
-			TSSEventType::PartialSignatureGenerateReq => {
-				self.handler_partial_signature_generate_req(&tss_gossiped_data.tss_data).await;
+			TSSEventType::PartialSignatureGenerateReq(shard_id) => {
+				if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+					handler_partial_signature_generate_req(state, &tss_gossiped_data.tss_data);
+				}
 			},
 
 			//received partial signature. threshold signature to be made by aggregator
@@ -336,89 +446,7 @@ where
 				},
 				new_sig = signature_requests.next().fuse() => {
 					if let Some((shard_id, data)) = new_sig {
-						// do sig
-						if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
-						let context = state.context;
-						let msg_hash = compute_message_hash(&context, &data);
-						//add node in msg_pool
-						if state.msg_pool.get(&msg_hash).is_none() {
-							state.msg_pool.insert(msg_hash, data.clone());
-							//process msg if req already received
-							if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
-								let request = PartialMessageSign {
-									msg_hash,
-									signers: pending_msg_req.to_vec()
-								};
-								let encoded = request.try_to_vec().unwrap();
-								self.handler_partial_signature_generate_req(&encoded).await;
-								state.msgs_signature_pending.remove(&msg_hash);
-							} else {
-								log::debug!(
-									target: TW_LOG,
-									"New data for signing received: {:?} with hash {:?}",
-									data,
-									msg_hash
-								);
-							}
-						} else {
-							log::warn!(
-								target: TW_LOG,
-								"Message with hash {} is already in process of signing",
-								hex::encode(msg_hash)
-							);
-						}
-						//creating signature aggregator for msg
-						if state.is_node_aggregator {
-							//all nodes should share the same message hash
-							//to verify the threshold signature
-							let mut aggregator = SignatureAggregator::new(
-								state.tss_params,
-								state.local_finished_state.clone().unwrap().0,
-								&context,
-								&data,
-							);
-
-							for com in state.others_commitment_share.clone(){
-								aggregator.include_signer(
-									com.public_commitment_share_list.participant_index,
-									com.public_commitment_share_list.commitments[0],
-									com.public_key,
-								);
-							}
-
-							//including aggregator as a signer
-							aggregator.include_signer(
-								state.local_index.unwrap(),
-								state.local_commitment_share.clone().unwrap().0.commitments[0],
-								state.local_public_key.clone().unwrap(),
-							);
-
-							//this signers list will be used by other nodes to verify themselves.
-							let signers = aggregator.get_signers();
-							state.current_signers = signers.clone();
-
-							// //sign msg from aggregator side
-							self.aggregator_event_sign(msg_hash).await;
-
-							let sign_msg_req = PartialMessageSign{
-								msg_hash,
-								signers: signers.clone(),
-							};
-
-							if let Ok(data) = make_gossip_tss_data(
-								state.local_peer_id.clone().unwrap_or_default(),
-								sign_msg_req.try_to_vec().unwrap(),
-								TSSEventType::PartialSignatureGenerateReq,
-							) {
-								self.send(data);
-								info!( target: TW_LOG, "TSS peer collection req sent");
-							} else {
-								error!(target: TW_LOG, "Failed to pack TSS message for signing hash: {}", hex::encode(msg_hash));
-							}
-						}
-							} else {
-								error!(target: TW_LOG, "Given shard ID is not found {shard_id}");
-						}
+						self.process_sign_message(shard_id, data);
 					}
 				},
 				gossip = gossips.next() => {

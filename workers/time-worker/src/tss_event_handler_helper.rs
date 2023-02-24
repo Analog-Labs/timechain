@@ -6,7 +6,7 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::collections::HashMap;
 use time_primitives::TimeApi;
-use tss::rand::rngs::OsRng;
+use tss::{local_state_struct::TSSLocalStateData, rand::rngs::OsRng};
 
 use tss::{
 	frost_dalek::{
@@ -34,7 +34,7 @@ where
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes
-	pub async fn handler_receive_params(&mut self, data: &[u8]) {
+	pub async fn handler_receive_params(&mut self, shard_id: u64, data: &[u8]) {
 		let local_peer_id = match self.tss_local_state.local_peer_id.clone() {
 			Some(id) => id,
 			None => match self.kv.public_keys() {
@@ -447,73 +447,6 @@ where
 		}
 	}
 
-	//This call is received by participant to generate its partial signature
-	pub async fn handler_partial_signature_generate_req(&mut self, data: &[u8]) {
-		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
-
-		if self.tss_local_state.tss_process_state >= TSSLocalStateType::StateFinished {
-			if let Ok(msg_req) = PartialMessageSign::try_from_slice(data) {
-				let final_state = match self.tss_local_state.local_finished_state.clone() {
-					Some(final_state) => final_state,
-					None => {
-						log::error!("TSS::Unable to get local finished state from local state");
-						return;
-					},
-				};
-
-				let mut my_commitment = match self.tss_local_state.local_commitment_share.clone() {
-					Some(commitment) => commitment,
-					None => {
-						log::error!("TSS::Unable to get local commitment share from local state");
-						return;
-					},
-				};
-
-				if self.tss_local_state.msg_pool.get(&msg_req.msg_hash).is_some() {
-					//making partial signature here
-					let partial_signature = match final_state.1.sign(
-						&msg_req.msg_hash,
-						&final_state.0,
-						&mut my_commitment.1,
-						0,
-						&msg_req.signers,
-					) {
-						Ok(partial_signature) => partial_signature,
-						Err(e) => {
-							log::error!("TSS::error occured while signing: {:?}", e);
-							return;
-						},
-					};
-
-					let gossip_data = ReceivePartialSignatureReq {
-						msg_hash: msg_req.msg_hash,
-						partial_sign: partial_signature,
-					};
-
-					//publish partial signature to network
-					self.publish_to_network(
-						local_peer_id,
-						gossip_data,
-						TSSEventType::PartialSignatureReceived,
-					)
-					.await;
-				} else {
-					log::warn!(
-						"TSS::data received for signing but not in local pool: {:?}",
-						msg_req.msg_hash
-					);
-					self.tss_local_state
-						.msgs_signature_pending
-						.insert(msg_req.msg_hash, msg_req.signers);
-				}
-			} else {
-				log::error!("TSS::Unable to deserialize PartialMessageSign");
-			}
-		} else {
-			log::error!("TSS::Node not in correct state to generate partial signature");
-		}
-	}
-
 	//this call is received by aggregator to make the threshold signature
 	pub async fn handler_partial_signature_received(&mut self, data: &[u8]) {
 		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
@@ -725,54 +658,8 @@ where
 		self.tss_local_state.reset();
 	}
 
-	//Aggregator node signs the event and store it into local state
-	pub async fn aggregator_event_sign(&mut self, msg_hash: [u8; 64]) {
-		let mut my_commitment = match self.tss_local_state.local_commitment_share.clone() {
-			Some(commitment) => commitment,
-			None => {
-				log::error!("TSS::Unable to get local commitment share from local state");
-				return;
-			},
-		};
-
-		let final_state = match self.tss_local_state.local_finished_state.clone() {
-			Some(final_state) => final_state,
-			None => {
-				log::error!("TSS::Unable to get local finished state from local state");
-				return;
-			},
-		};
-
-		if self.tss_local_state.msg_pool.contains_key(&msg_hash) {
-			//making partial signature here
-			let partial_signature = match final_state.1.sign(
-				&msg_hash,
-				&final_state.0,
-				&mut my_commitment.1,
-				0,
-				&self.tss_local_state.current_signers,
-			) {
-				Ok(partial_signature) => partial_signature,
-				Err(e) => {
-					log::error!("TSS::error occured while signing: {:?}", e);
-					return;
-				},
-			};
-
-			if let Some(hashmap) = self.tss_local_state.others_partial_signature.get_mut(&msg_hash)
-			{
-				hashmap.push(partial_signature);
-			} else {
-				let participant_list = vec![partial_signature];
-				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
-			}
-		} else {
-			log::error!("TSS::Message not found in pool");
-		}
-	}
-
 	//Publishing the data to the network
-	pub async fn publish_to_network<T>(&mut self, peer_id: String, data: T, tss_type: TSSEventType)
+	pub async fn publish_to_network<T>(&self, peer_id: String, data: T, tss_type: TSSEventType)
 	where
 		T: BorshSerialize,
 	{
@@ -788,4 +675,113 @@ where
 			log::error!("TSS::tss error");
 		}
 	}
+}
+
+//Aggregator node signs the event and store it into local state
+pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) {
+	let mut my_commitment = match state.local_commitment_share.clone() {
+		Some(commitment) => commitment,
+		None => {
+			log::error!("TSS::Unable to get local commitment share from local state");
+			return;
+		},
+	};
+
+	let final_state = match state.local_finished_state.clone() {
+		Some(final_state) => final_state,
+		None => {
+			log::error!("TSS::Unable to get local finished state from local state");
+			return;
+		},
+	};
+
+	if state.msg_pool.contains_key(&msg_hash) {
+		//making partial signature here
+		let partial_signature = match final_state.1.sign(
+			&msg_hash,
+			&final_state.0,
+			&mut my_commitment.1,
+			0,
+			&state.current_signers,
+		) {
+			Ok(partial_signature) => partial_signature,
+			Err(e) => {
+				log::error!("TSS::error occured while signing: {:?}", e);
+				return;
+			},
+		};
+
+		if let Some(hashmap) = state.others_partial_signature.get_mut(&msg_hash) {
+			hashmap.push(partial_signature);
+		} else {
+			let participant_list = vec![partial_signature];
+			state.others_partial_signature.insert(msg_hash, participant_list);
+		}
+	} else {
+		log::error!("TSS::Message not found in pool");
+	}
+}
+
+//This call is received by participant to generate its partial signature
+pub fn handler_partial_signature_generate_req(
+	state: &mut TSSLocalStateData,
+	data: &[u8],
+) -> Option<(String, ReceivePartialSignatureReq, TSSEventType)> {
+	let local_peer_id = state.local_peer_id.clone().unwrap();
+
+	if state.tss_process_state >= TSSLocalStateType::StateFinished {
+		if let Ok(msg_req) = PartialMessageSign::try_from_slice(data) {
+			let final_state = match state.local_finished_state.clone() {
+				Some(final_state) => final_state,
+				None => {
+					log::error!("TSS::Unable to get local finished state from local state");
+					return None;
+				},
+			};
+
+			let mut my_commitment = match state.local_commitment_share.clone() {
+				Some(commitment) => commitment,
+				None => {
+					log::error!("TSS::Unable to get local commitment share from local state");
+					return None;
+				},
+			};
+
+			if state.msg_pool.get(&msg_req.msg_hash).is_some() {
+				//making partial signature here
+				let partial_signature = match final_state.1.sign(
+					&msg_req.msg_hash,
+					&final_state.0,
+					&mut my_commitment.1,
+					0,
+					&msg_req.signers,
+				) {
+					Ok(partial_signature) => partial_signature,
+					Err(e) => {
+						log::error!("TSS::error occured while signing: {:?}", e);
+						return None;
+					},
+				};
+
+				let gossip_data = ReceivePartialSignatureReq {
+					msg_hash: msg_req.msg_hash,
+					partial_sign: partial_signature,
+				};
+
+				//publish partial signature to network
+				return Some((local_peer_id, gossip_data, TSSEventType::PartialSignatureReceived));
+			} else {
+				log::warn!(
+					"TSS::data received for signing but not in local pool: {:?}",
+					msg_req.msg_hash
+				);
+				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers);
+			}
+		} else {
+			log::error!("TSS::Unable to deserialize PartialMessageSign");
+		}
+	} else {
+		log::error!("TSS::Node not in correct state to generate partial signature");
+	}
+	None
 }

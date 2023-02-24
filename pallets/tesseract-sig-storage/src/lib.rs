@@ -290,5 +290,10 @@ pub mod pallet {
 
 			Self::deposit_event(Event::SignatureStored(event_id));
 		}
+
+		// Getter method for runtime api storage access
+		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter().collect()
+		}
 	}
 }

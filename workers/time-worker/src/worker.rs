@@ -6,6 +6,7 @@ use crate::{
 	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
+use codec::{Decode, Encode};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use sc_client_api::{
@@ -20,9 +21,14 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header},
 };
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::Duration,
+};
 use time_primitives::{
-	sharding::{FILTER_PALLET_KEY_BYTES, FILTER_STORAGE_KEY_BYTES},
+	crypto::Public,
+	sharding::{Shard, FILTER_PALLET_KEY_BYTES},
 	TimeApi, KEY_TYPE,
 };
 use tokio::sync::Mutex as TokioMutex;
@@ -46,7 +52,8 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
-	pub(crate) tss_local_state: TSSLocalStateData,
+	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
+	known_sets: HashSet<u64>,
 }
 
 impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
@@ -70,25 +77,13 @@ where
 			sign_data_receiver,
 		} = worker_params;
 
-		let mut tss_local_state = TSSLocalStateData::new();
-		tss_local_state.key_type = Some(KEY_TYPE);
-		tss_local_state.keystore = kv.get_store();
 		// TODO: threshold calc if required
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
 			// TODO: handle this unwrap
 			shard_storage_notifications: client
 				.storage_changes_notification_stream(
-					//Some(&[StorageKey(FILTER_PALLET_KEY_BYTES.to_vec())]),
-					Some(&[StorageKey(
-						[
-							194, 38, 18, 118, 204, 157, 31, 133, 152, 234, 75, 106, 116, 177, 92,
-							47, 87, 200, 117, 228, 207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76,
-							128,
-						]
-						.to_vec(),
-					)]),
-					//Some(&[(StorageKey(FILTER_STORAGE_KEY_BYTES.to_vec()), None)]),
+					Some(&[StorageKey(FILTER_PALLET_KEY_BYTES.to_vec())]),
 					None,
 				)
 				.unwrap(),
@@ -99,30 +94,48 @@ where
 			gossip_validator,
 			sync_oracle,
 			kv,
-			tss_local_state,
+			tss_local_states: HashMap::new(),
 			sign_data_receiver,
+			known_sets: HashSet::new(),
 		}
+	}
+
+	// helper to create new state for new id
+	fn create_tss_state(&self) -> TSSLocalStateData {
+		let mut tss_local_state = TSSLocalStateData::new();
+		tss_local_state.key_type = Some(KEY_TYPE);
+		tss_local_state.keystore = self.kv.get_store();
+		tss_local_state
 	}
 
 	fn on_storage_update(&mut self, notification: StorageNotification<B::Hash>) {
 		// check if any new shards are registered
-		for key in notification
-			.changes
-			.iter()
-			.filter(|c| c.2.is_some())
-			.map(|c| c.2.unwrap())
-			.collect::<Vec<_>>()
-		{
-			info!(target: TW_LOG, "{:?}", key);
+		debug!(target: TW_LOG, "Pallet storage udate received.");
+		let keys = self.kv.public_keys();
+		if keys.len() != 1 {
+			error!(target: TW_LOG, "Expected exactly one Time key - can not participate.");
+			return;
 		}
-
+		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
+		let in_block = BlockId::Hash(notification.block);
+		// TODO: stabilize unwrap
+		let shards = self.runtime.runtime_api().get_shards(&in_block).unwrap();
 		// check if we're member in new shards
-		// participate in keygen for new shard
+		let new_shards: Vec<_> =
+			shards.into_iter().filter(|(id, _)| self.known_sets.contains(id)).collect();
+		for (id, new_shard) in new_shards {
+			if new_shard.members().contains(&our_key) {
+				// participate in keygen for new shard
+				info!(target: TW_LOG, "Participating in new keygen for id {}", id);
+			} else {
+				debug!(target: TW_LOG, "Not a member of shard {}", id);
+			}
+			self.known_sets.insert(id);
+		}
 	}
 
-	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
-	fn on_finality(&mut self, notification: FinalityNotification<B>) {
-		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
+	fn new_keygen_for_new_id(&mut self, shard_id: u64, new_shard: Shard) {
+		let mut state = self.create_tss_state();
 		let keys = self.kv.public_keys();
 		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
@@ -131,8 +144,8 @@ where
 		let id = keys[0].clone();
 		// starting TSS initialization if not yet done
 
-		if self.tss_local_state.local_peer_id.is_none() {
-			self.tss_local_state.local_peer_id = Some(id.to_string());
+		if state.local_peer_id.is_none() {
+			state.local_peer_id = Some(id.to_string());
 			// TODO: reset if not all comply
 			// slashing goes below too?
 			/*			let msg = make_gossip_tss_data(
@@ -145,34 +158,31 @@ where
 			*/
 			// initialize TSS
 			// TODO: assign collector role to at most one node for protocol to work
-			let collector_id_bytes =
-				hex::decode("48640c12bc1b351cf4b051ac1cf7b5740765d02e34989d0a9dd935ce054ebb21")
-					.unwrap();
-			let collector_id = sp_application_crypto::sr25519::Public::from_raw(
-				array_bytes::vec2array(collector_id_bytes).unwrap(),
-			);
-			#[allow(unused_mut)]
-			let mut for_tests = false;
-			// we allow alice to be collector and aggregator in tests
-			#[cfg(test)]
-			if id == crate::tests::kv_tests::Keyring::Alice.public() {
-				for_tests = true;
-			}
-			if id == collector_id.into() || for_tests {
-				self.tss_local_state.is_node_collector = true;
+			//let collector_id_bytes =
+			//	hex::decode("48640c12bc1b351cf4b051ac1cf7b5740765d02e34989d0a9dd935ce054ebb21")
+			//		.unwrap();
+			//let collector_id = sp_application_crypto::sr25519::Public::from_raw(
+			//	array_bytes::vec2array(collector_id_bytes).unwrap(),
+			//);
+			//#[allow(unused_mut)]
+			//let mut for_tests = false;
+			//// we allow alice to be collector and aggregator in tests
+			//#[cfg(test)]
+			//if id == crate::tests::kv_tests::Keyring::Alice.public() {
+			//	for_tests = true;
+			//}
+			let collector_id = new_shard.collector();
+			if id == Public::decode(&mut &collector_id.encode()[..]).unwrap() {
+				state.is_node_collector = true;
 				// TODO: assign aggregator role to at most one node for protocol to work
-				self.tss_local_state.is_node_aggregator = true;
-				let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
-				if let Ok(peer_id_data) =
-					get_receive_params_msg(local_peer_id.clone(), self.tss_local_state.tss_params)
-				{
+				state.is_node_aggregator = true;
+				if let Ok(peer_id_data) = get_receive_params_msg(id.to_string(), state.tss_params) {
 					if let Ok(data) = make_gossip_tss_data(
-						local_peer_id.clone(),
+						id.to_string(),
 						peer_id_data,
 						TSSEventType::ReceiveParams,
 					) {
 						self.send(data);
-						let id = local_peer_id;
 						info!(target: TW_LOG, "TSS keygen initiated by {id}");
 					} else {
 						error!(target: TW_LOG, "Failed to prepare initial TSS message");
@@ -181,7 +191,13 @@ where
 					error!(target: TW_LOG, "Unable to make publish peer id msg");
 				}
 			}
+			self.tss_local_states.insert(shard_id, state);
 		}
+	}
+
+	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
+	fn on_finality(&mut self, notification: FinalityNotification<B>) {
+		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 	}
 
 	pub(crate) fn send(&mut self, msg: Vec<u8>) {
@@ -319,22 +335,23 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
-					if let Some((_group_id, data)) = new_sig {
+					if let Some((shard_id, data)) = new_sig {
 						// do sig
-						let context = self.tss_local_state.context;
+						if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+						let context = state.context;
 						let msg_hash = compute_message_hash(&context, &data);
 						//add node in msg_pool
-						if self.tss_local_state.msg_pool.get(&msg_hash).is_none() {
-							self.tss_local_state.msg_pool.insert(msg_hash, data.clone());
+						if state.msg_pool.get(&msg_hash).is_none() {
+							state.msg_pool.insert(msg_hash, data.clone());
 							//process msg if req already received
-							if let Some(pending_msg_req) = self.tss_local_state.msgs_signature_pending.get(&msg_hash) {
+							if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
 								let request = PartialMessageSign {
 									msg_hash,
 									signers: pending_msg_req.to_vec()
 								};
 								let encoded = request.try_to_vec().unwrap();
 								self.handler_partial_signature_generate_req(&encoded).await;
-								self.tss_local_state.msgs_signature_pending.remove(&msg_hash);
+								state.msgs_signature_pending.remove(&msg_hash);
 							} else {
 								log::debug!(
 									target: TW_LOG,
@@ -351,17 +368,17 @@ where
 							);
 						}
 						//creating signature aggregator for msg
-						if self.tss_local_state.is_node_aggregator {
+						if state.is_node_aggregator {
 							//all nodes should share the same message hash
 							//to verify the threshold signature
 							let mut aggregator = SignatureAggregator::new(
-								self.tss_local_state.tss_params,
-								self.tss_local_state.local_finished_state.clone().unwrap().0,
+								state.tss_params,
+								state.local_finished_state.clone().unwrap().0,
 								&context,
 								&data,
 							);
 
-							for com in self.tss_local_state.others_commitment_share.clone(){
+							for com in state.others_commitment_share.clone(){
 								aggregator.include_signer(
 									com.public_commitment_share_list.participant_index,
 									com.public_commitment_share_list.commitments[0],
@@ -371,14 +388,14 @@ where
 
 							//including aggregator as a signer
 							aggregator.include_signer(
-								self.tss_local_state.local_index.unwrap(),
-								self.tss_local_state.local_commitment_share.clone().unwrap().0.commitments[0],
-								self.tss_local_state.local_public_key.clone().unwrap(),
+								state.local_index.unwrap(),
+								state.local_commitment_share.clone().unwrap().0.commitments[0],
+								state.local_public_key.clone().unwrap(),
 							);
 
 							//this signers list will be used by other nodes to verify themselves.
 							let signers = aggregator.get_signers();
-							self.tss_local_state.current_signers = signers.clone();
+							state.current_signers = signers.clone();
 
 							// //sign msg from aggregator side
 							self.aggregator_event_sign(msg_hash).await;
@@ -389,7 +406,7 @@ where
 							};
 
 							if let Ok(data) = make_gossip_tss_data(
-								self.tss_local_state.local_peer_id.clone().unwrap_or_default(),
+								state.local_peer_id.clone().unwrap_or_default(),
 								sign_msg_req.try_to_vec().unwrap(),
 								TSSEventType::PartialSignatureGenerateReq,
 							) {
@@ -398,6 +415,9 @@ where
 							} else {
 								error!(target: TW_LOG, "Failed to pack TSS message for signing hash: {}", hex::encode(msg_hash));
 							}
+						}
+							} else {
+								error!(target: TW_LOG, "Given shard ID is not found {shard_id}");
 						}
 					}
 				},

@@ -6,9 +6,21 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{borrow::ToOwned, vec::Vec};
 
-lazy_static::lazy_static! {
-	pub static ref STORAGE_KEY_BYTES: Vec<u8> = b"TesseractSigStorage".to_vec();
-}
+pub const FILTER_KEY_BYTES: [u8; 64] = [
+	36, 30, 30, 34, 34, 31, 65, 35, 34, 39, 39, 36, 61, 66, 63, 36, 32, 32, 38, 32, 35, 65, 63, 31,
+	31, 36, 65, 64, 62, 64, 31, 34, 35, 61, 36, 36, 32, 61, 61, 31, 38, 62, 66, 39, 36, 38, 64, 61,
+	38, 62, 36, 34, 30, 34, 66, 35, 61, 36, 64, 39, 36, 36, 35, 30,
+];
+
+pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
+	66, 30, 63, 33, 36, 35, 63, 33, 63, 66, 35, 39, 64, 36, 37, 31, 65, 62, 37, 32, 64, 61, 30, 65,
+	37, 61, 34, 31, 31, 33, 63, 34,
+];
+
+pub const FILTER_STORAGE_KEY_BYTES: [u8; 32] = [
+	39, 66, 31, 66, 30, 35, 31, 35, 66, 34, 36, 32, 63, 64, 63, 66, 38, 34, 65, 30, 66, 31, 64, 36,
+	30, 34, 35, 64, 66, 63, 62, 62,
+];
 
 /// Enum representing sizes of shards available
 /// Each shard holds accounts of it's members

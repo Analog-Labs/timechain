@@ -16,13 +16,15 @@ use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
-use sp_core::twox_128;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header},
 };
-use std::{sync::Arc, time::Duration};
-use time_primitives::{sharding::STORAGE_KEY_BYTES, TimeApi, KEY_TYPE};
+use std::{collections::HashSet, sync::Arc, time::Duration};
+use time_primitives::{
+	sharding::{FILTER_PALLET_KEY_BYTES, FILTER_STORAGE_KEY_BYTES},
+	TimeApi, KEY_TYPE,
+};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
@@ -72,13 +74,21 @@ where
 		tss_local_state.key_type = Some(KEY_TYPE);
 		tss_local_state.keystore = kv.get_store();
 		// TODO: threshold calc if required
-
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
 			// TODO: handle this unwrap
 			shard_storage_notifications: client
 				.storage_changes_notification_stream(
-					Some(&[StorageKey(twox_128(STORAGE_KEY_BYTES.as_ref()).to_vec())]),
+					//Some(&[StorageKey(FILTER_PALLET_KEY_BYTES.to_vec())]),
+					Some(&[StorageKey(
+						[
+							194, 38, 18, 118, 204, 157, 31, 133, 152, 234, 75, 106, 116, 177, 92,
+							47, 87, 200, 117, 228, 207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76,
+							128,
+						]
+						.to_vec(),
+					)]),
+					//Some(&[(StorageKey(FILTER_STORAGE_KEY_BYTES.to_vec()), None)]),
 					None,
 				)
 				.unwrap(),
@@ -96,7 +106,16 @@ where
 
 	fn on_storage_update(&mut self, notification: StorageNotification<B::Hash>) {
 		// check if any new shards are registered
-		info!(target: TW_LOG, "New storage notification: {:?}", notification.changes);
+		for key in notification
+			.changes
+			.iter()
+			.filter(|c| c.2.is_some())
+			.map(|c| c.2.unwrap())
+			.collect::<Vec<_>>()
+		{
+			info!(target: TW_LOG, "{:?}", key);
+		}
+
 		// check if we're member in new shards
 		// participate in keygen for new shard
 	}

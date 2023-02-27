@@ -13,6 +13,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-macros"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "465a6172cf69b960917811022d8f29bc0b7fa1398bc4f78b3c466673db1213b6"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "actix-rt"
+version = "2.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15265b6b8e2347670eb363c47fc8c75208b4a4994b27192f345fcbe707804f3e"
+dependencies = [
+ "actix-macros",
+ "futures-core",
+ "tokio",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -969,6 +990,8 @@ dependencies = [
 name = "connector"
 version = "0.1.0"
 dependencies = [
+ "actix-rt",
+ "bincode",
  "log",
  "reqwest",
  "serde_json",
@@ -980,9 +1003,11 @@ dependencies = [
 name = "connector-worker"
 version = "0.1.0"
 dependencies = [
+ "actix-rt",
  "array-bytes",
  "arrayref",
  "async-trait",
+ "bincode",
  "borsh",
  "connector",
  "fnv",
@@ -4976,7 +5001,7 @@ dependencies = [
  "frame-system",
  "pallet-timestamp",
  "parity-scale-codec 3.4.0",
- "rand 0.7.3",
+ "rand 0.8.5",
  "scale-info",
  "sp-core",
  "sp-io",

@@ -372,7 +372,8 @@ where
 			},
 			// nodes will receive peer id of other nodes and will add it to their list
 			TSSEventType::ReceivePeerIDForIndex(shard_id) => {
-				self.handler_receive_peer_id_for_index(&tss_gossiped_data.tss_data).await;
+				self.handler_receive_peer_id_for_index(shard_id, &tss_gossiped_data.tss_data)
+					.await;
 			}, //nodes receives peers with collector participants
 			TSSEventType::ReceivePeersWithColParticipant(shard_id) => {
 				self.handler_receiver_peers_with_col_participant(&tss_gossiped_data.tss_data)

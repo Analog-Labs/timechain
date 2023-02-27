@@ -84,60 +84,62 @@ where
 	}
 
 	//used by node collector to set peers for tss process
-	pub async fn handler_receive_peer_id_for_index(&mut self, data: &[u8]) {
-		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+	pub async fn handler_receive_peer_id_for_index(&mut self, shard_id: u64, data: &[u8]) {
+		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+			let local_peer_id = state.local_peer_id.clone().unwrap();
 
-		//receive index and update state of node
-		if self.tss_local_state.is_node_collector {
-			if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
-				if let Ok(peer_id_call) = PublishPeerIDCall::try_from_slice(data) {
-					let peer_id = peer_id_call.peer_id;
+			//receive index and update state of node
+			if state.is_node_collector {
+				if state.tss_process_state == TSSLocalStateType::Empty {
+					if let Ok(peer_id_call) = PublishPeerIDCall::try_from_slice(data) {
+						let peer_id = peer_id_call.peer_id;
 
-					if !self.tss_local_state.others_peer_id.contains(&peer_id) {
-						self.tss_local_state.others_peer_id.push(peer_id);
+						if !state.others_peer_id.contains(&peer_id) {
+							state.others_peer_id.push(peer_id);
 
-						let params = self.tss_local_state.tss_params;
+							let params = state.tss_params;
 
-						//check if we have min number of nodes
-						if self.tss_local_state.others_peer_id.len() >= (params.n as usize - 1) {
-							//change connector node state to received peers
-							self.tss_local_state.tss_process_state =
-								TSSLocalStateType::ReceivedPeers;
+							//check if we have min number of nodes
+							if state.others_peer_id.len() >= (params.n as usize - 1) {
+								//change connector node state to received peers
+								state.tss_process_state = TSSLocalStateType::ReceivedPeers;
 
-							let mut other_peer_list = self.tss_local_state.others_peer_id.clone();
-							let index =
-								get_participant_index(local_peer_id.clone(), &other_peer_list);
-							self.tss_local_state.local_index = Some(index);
+								let mut other_peer_list = state.others_peer_id.clone();
+								let index =
+									get_participant_index(local_peer_id.clone(), &other_peer_list);
+								state.local_index = Some(index);
 
-							//collector node making participant and publishing
-							let participant = make_participant(params, index);
-							self.tss_local_state.local_participant = Some(participant.clone());
+								//collector node making participant and publishing
+								let participant = make_participant(params, index);
+								state.local_participant = Some(participant.clone());
 
-							log::info!("TSS::this nodes participant index {}", index);
+								log::info!("TSS::this nodes participant index {}", index);
 
-							//preparing publish data
-							other_peer_list
-								.push(self.tss_local_state.local_peer_id.clone().unwrap());
-							let data = FilterAndPublishParticipant {
-								total_peer_list: other_peer_list,
-								col_participant: participant.0,
-							};
+								//preparing publish data
+								other_peer_list.push(state.local_peer_id.clone().unwrap());
+								let data = FilterAndPublishParticipant {
+									total_peer_list: other_peer_list,
+									col_participant: participant.0,
+								};
 
-							//publish to network
-							self.publish_to_network::<FilterAndPublishParticipant>(
-								local_peer_id,
-								data,
-								TSSEventType::ReceivePeersWithColParticipant,
-							)
-							.await;
+								//publish to network
+								self.publish_to_network::<FilterAndPublishParticipant>(
+									local_peer_id,
+									data,
+									TSSEventType::ReceivePeersWithColParticipant(shard_id),
+								)
+								.await;
+							}
 						}
+					} else {
+						log::error!("TSS::PeerID already exists in local state list");
 					}
 				} else {
-					log::error!("TSS::PeerID already exists in local state list");
+					log::error!("TSS::Received peer id for index but node is not in empty state");
 				}
-			} else {
-				log::error!("TSS::Received peer id for index but node is not in empty state");
 			}
+		} else {
+			log::debug!(target: TW_LOG, "TSS not started or not a member of shard: {}", shard_id);
 		}
 	}
 

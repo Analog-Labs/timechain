@@ -112,7 +112,7 @@ impl<T: Config> Pallet<T> {
 
 		// Note: if era has no reward to be claimed, era may be future. better not to update
 		// `ledger.claimed_rewards` in this case.
-		let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
+		let era_payout = <ErasValidatorReward<T>>::get(era).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 				.defensive_map_err(|_| Error::<T>::BoundNotMet)?,
 		}
 
-		let exposure = <ErasStakersClipped<T>>::get(&era, &ledger.stash);
+		let exposure = <ErasStakersClipped<T>>::get(era, &ledger.stash);
 
 		// Input data seems good, no errors allowed after this point
 
@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
 		// Then look at the validator, figure out the proportion of their reward
 		// which goes to them and each of their nominators.
 
-		let era_reward_points = <ErasRewardPoints<T>>::get(&era);
+		let era_reward_points = <ErasRewardPoints<T>>::get(era);
 		let total_reward_points = era_reward_points.total;
 		let validator_reward_points = era_reward_points
 			.individual
@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
 		// This is how much validator + nominators are entitled to.
 		let validator_total_payout = validator_total_reward_part * era_payout;
 
-		let validator_prefs = Self::eras_validator_prefs(&era, &validator_stash);
+		let validator_prefs = Self::eras_validator_prefs(era, &validator_stash);
 		// Validator first gets a cut off the top.
 		let validator_commission = validator_prefs.commission;
 		let validator_commission_payout = validator_commission * validator_total_payout;
@@ -397,9 +397,8 @@ impl<T: Config> Pallet<T> {
 		N: AtLeast32BitUnsigned + Clone,
 	{
 		let divisor = 100u32;
-		let result_divisor = (value.clone() / q.into()).saturating_mul(divisor.into());
 
-		result_divisor
+		(value / q.into()).saturating_mul(divisor.into())
 	}
 	/// Compute payout for era.
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
@@ -428,13 +427,13 @@ impl<T: Config> Pallet<T> {
 			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 
 			let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
-			let staked = Self::eras_total_stake(&active_era.index);
+			let staked = Self::eras_total_stake(active_era.index);
 			let issuance = T::Currency::total_issuance();
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
 
-			let percent_from_validator = Self::percent_calculator(validator_payout.clone(), 20);
-			let percent_from_remainder = Self::percent_calculator(remainder.clone(), 20);
+			let percent_from_validator = Self::percent_calculator(validator_payout, 20);
+			let percent_from_remainder = Self::percent_calculator(remainder, 20);
 
 			let validator_share = validator_payout.saturating_sub(percent_from_validator);
 			let remainder_share = remainder.saturating_sub(percent_from_remainder);
@@ -445,34 +444,28 @@ impl<T: Config> Pallet<T> {
 			let mut current_active_validators: Vec<T::AccountId> = vec![];
 			match acc {
 				Ok(val) => {
-					val.iter().for_each(|x| {
-						session_vallet.iter().for_each(|y| {
-							if &x.1 == y {
-								current_active_validators.push(x.1.clone());
+					session_vallet.iter().for_each(|y| {
+						let exist = val.iter().find(|&x| x.1 == y.clone());
+						match exist {
+							Some(va) => {
 								info!("Validator account exiist in reward worker storage ");
-							} else {
+								current_active_validators.push(y.clone());
+							},
+							None => {
 								info!(
 									"Validator account  does not exist in reward worker storage "
 								);
-								// TODO: add user account in reward worker then push to current
-								// active
 								let _ = T::RewardWorker::insert_validator(y.clone());
 								current_active_validators.push(y.clone());
-							}
-						});
-
-						// info!(" contains list  -------> {:?}   <<<<<---- {:?}", resp, resp_i);
-						// info!(" contains list balance -------> {:?}   <<<<<---- {:?}", resp_a,
-						// resp_b); info!(" validator list  -------> {:?}   <<<<<----", x);
+							},
+						}
 					});
 				},
 				Err(_) => info!(" validator list  -------> error  <<<<<----"),
 			}
 
-			let _rep = T::RewardWorker::send_reward_to_acc(
-				cronical_share,
-				current_active_validators.clone(),
-			);
+			let _rep =
+				T::RewardWorker::send_reward_to_acc(cronical_share, current_active_validators);
 
 			session_vallet.iter().for_each(|x| {
 				let balance = T::Currency::total_balance(x);
@@ -486,7 +479,7 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Set ending era reward.
-			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
+			<ErasValidatorReward<T>>::insert(active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
 			// Clear offending validators.
@@ -511,7 +504,7 @@ impl<T: Config> Pallet<T> {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
 			s.unwrap()
 		});
-		ErasStartSessionIndex::<T>::insert(&new_planned_era, &start_session_index);
+		ErasStartSessionIndex::<T>::insert(new_planned_era, start_session_index);
 
 		// Clean old era information.
 		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
@@ -563,7 +556,7 @@ impl<T: Config> Pallet<T> {
 					// set.
 					// TODO: this should be simplified #8911
 					CurrentEra::<T>::put(0);
-					ErasStartSessionIndex::<T>::insert(&0, &start_session_index);
+					ErasStartSessionIndex::<T>::insert(0, start_session_index);
 				},
 				_ => (),
 			}
@@ -597,16 +590,16 @@ impl<T: Config> Pallet<T> {
 				exposure_clipped.others.sort_by(|a, b| a.value.cmp(&b.value).reverse());
 				exposure_clipped.others.truncate(clipped_max_len);
 			}
-			<ErasStakersClipped<T>>::insert(&new_planned_era, &stash, exposure_clipped);
+			<ErasStakersClipped<T>>::insert(new_planned_era, &stash, exposure_clipped);
 		});
 
 		// Insert current era staking information
-		<ErasTotalStake<T>>::insert(&new_planned_era, total_stake);
+		<ErasTotalStake<T>>::insert(new_planned_era, total_stake);
 
 		// Collect the pref of all winners.
 		for stash in &elected_stashes {
 			let pref = Self::validators(stash);
-			<ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
+			<ErasValidatorPrefs<T>>::insert(new_planned_era, stash, pref);
 		}
 
 		if new_planned_era > 0 {
@@ -697,7 +690,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
 	fn apply_unapplied_slashes(active_era: EraIndex) {
-		let era_slashes = <Self as Store>::UnappliedSlashes::take(&active_era);
+		let era_slashes = <Self as Store>::UnappliedSlashes::take(active_era);
 		log!(
 			debug,
 			"found {} slashes scheduled to be executed in era {:?}",
@@ -895,7 +888,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
 		if !Nominators::<T>::contains_key(who) {
 			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
+			T::VoterList::on_insert(who.clone(), Self::weight_of(who))
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
@@ -941,7 +934,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
 			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
+			T::VoterList::on_insert(who.clone(), Self::weight_of(who))
 				.defensive_unwrap_or_default();
 		}
 		Validators::<T>::insert(who, prefs);
@@ -1593,7 +1586,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn current_era() -> EraIndex {
-		Self::current_era().unwrap_or(Zero::zero())
+		Self::current_era().unwrap_or_else(Zero::zero)
 	}
 
 	fn active_stake(controller: &Self::AccountId) -> Option<Self::Balance> {

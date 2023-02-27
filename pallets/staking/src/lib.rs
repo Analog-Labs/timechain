@@ -169,10 +169,10 @@
 //! 	pub struct Pallet<T>(_);
 //!
 //! 	#[pallet::config]
-//! 	pub trait Config: frame_system::Config + staking::Config {}
+//! 		pub trait Config: frame_system::Config + staking::Config {}
 //!
-//! 	#[pallet::call]
-//! 	impl<T: Config> Pallet<T> {
+//! 		#[pallet::call]
+//! 		impl<T: Config> Pallet<T> {
 //!         /// Reward a validator.
 //!         #[pallet::weight(0)]
 //!         pub fn reward_myself(origin: OriginFor<T>) -> DispatchResult {
@@ -646,7 +646,7 @@ impl<T: Config> StakingLedger<T> {
 			.min(*slash_remaining);
 
 			// slash out from *target exactly `slash_from_target`.
-			*target = *target - slash_from_target;
+			*target -= slash_from_target;
 			if *target < minimum_balance {
 				// Slash the rest of the target if it's dust. This might cause the last chunk to be
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
@@ -814,9 +814,7 @@ impl<AccountId> SessionInterface<AccountId> for () {
 	fn validators() -> Vec<AccountId> {
 		Vec::new()
 	}
-	fn prune_historical_up_to(_: SessionIndex) {
-		()
-	}
+	fn prune_historical_up_to(_: SessionIndex) {}
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.

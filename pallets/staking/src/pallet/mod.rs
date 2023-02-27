@@ -1415,7 +1415,7 @@ pub mod pallet {
 			ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
 			ensure!(is_sorted_and_unique(&slash_indices), Error::<T>::NotSortedAndUnique);
 
-			let mut unapplied = <Self as Store>::UnappliedSlashes::get(&era);
+			let mut unapplied = <Self as Store>::UnappliedSlashes::get(era);
 			let last_item = slash_indices[slash_indices.len() - 1];
 			ensure!((last_item as usize) < unapplied.len(), Error::<T>::InvalidSlashIndex);
 
@@ -1424,7 +1424,7 @@ pub mod pallet {
 				unapplied.remove(index);
 			}
 
-			<Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
+			<Self as Store>::UnappliedSlashes::insert(era, &unapplied);
 			Ok(())
 		}
 
@@ -1470,7 +1470,7 @@ pub mod pallet {
 		/// - Bounded by `MaxUnlockingChunks`.
 		/// - Storage changes: Can't increase storage, only decrease it.
 		/// # </weight>
-		#[pallet::weight(T::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
+		#[pallet::weight(T::WeightInfo::rebond(T::MaxUnlockingChunks::get()))]
 		pub fn rebond(
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T>,

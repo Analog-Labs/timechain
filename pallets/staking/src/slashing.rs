@@ -250,16 +250,16 @@ pub(crate) fn compute_slash<T: Config>(
 	}
 
 	let (prior_slash_p, _era_slash) =
-		<Pallet<T> as Store>::ValidatorSlashInEra::get(&params.slash_era, params.stash)
+		<Pallet<T> as Store>::ValidatorSlashInEra::get(params.slash_era, params.stash)
 			.unwrap_or((Perbill::zero(), Zero::zero()));
 
 	// compare slash proportions rather than slash values to avoid issues due to rounding
 	// error.
 	if params.slash.deconstruct() > prior_slash_p.deconstruct() {
 		<Pallet<T> as Store>::ValidatorSlashInEra::insert(
-			&params.slash_era,
+			params.slash_era,
 			params.stash,
-			&(params.slash, own_slash),
+			(params.slash, own_slash),
 		);
 	} else {
 		// we slash based on the max in era - this new event is not the max,
@@ -399,12 +399,12 @@ fn slash_nominators<T: Config>(
 			let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
 			let mut era_slash =
-				<Pallet<T> as Store>::NominatorSlashInEra::get(&params.slash_era, stash)
+				<Pallet<T> as Store>::NominatorSlashInEra::get(params.slash_era, stash)
 					.unwrap_or_else(Zero::zero);
 
 			era_slash += own_slash_difference;
 
-			<Pallet<T> as Store>::NominatorSlashInEra::insert(&params.slash_era, stash, &era_slash);
+			<Pallet<T> as Store>::NominatorSlashInEra::insert(params.slash_era, stash, era_slash);
 
 			era_slash
 		};
@@ -569,9 +569,9 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 /// Clear slashing metadata for an obsolete era.
 pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
 	#[allow(deprecated)]
-	<Pallet<T> as Store>::ValidatorSlashInEra::remove_prefix(&obsolete_era, None);
+	<Pallet<T> as Store>::ValidatorSlashInEra::remove_prefix(obsolete_era, None);
 	#[allow(deprecated)]
-	<Pallet<T> as Store>::NominatorSlashInEra::remove_prefix(&obsolete_era, None);
+	<Pallet<T> as Store>::NominatorSlashInEra::remove_prefix(obsolete_era, None);
 }
 
 /// Clear slashing metadata for a dead account.

@@ -335,16 +335,6 @@ fn testnet_genesis(
 		})
 		.collect::<Vec<_>>();
 
-	// log::info!(" chain spec ========> {:?}",stakers);
-	// for &(ref stash, ref controller, balance, ref status) in &stakers {
-	// 	log::info!(
-	// 		"inserting genesis staker: {:?} => {:?} => {:?}",
-	// 		stash,
-	// 		balance,
-	// 		status
-	// 	);
-	// }
-
 	let reward_accounts = initial_authorities
 		.iter()
 		.map(|item| (item.0.clone(), item.1.clone()))

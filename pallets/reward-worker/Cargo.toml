@@ -27,8 +27,6 @@ sp-std = { version = "4.0.0", default-features = false, git = "https://github.co
 
 time-primitives = { path = "../../primitives/time-primitives", default-features = false }
 
-#pallet-tesseract-sig-storage = { path = "../tesseract-sig-storage", package = "pallet-tesseract-sig-storage", default-features = false }
-
 [features]
 default = ["std"]
 std = [

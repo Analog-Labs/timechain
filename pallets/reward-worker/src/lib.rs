@@ -26,12 +26,7 @@ use frame_support::traits::Currency;
 use sp_runtime::{traits::AtLeast32BitUnsigned, DispatchError};
 use sp_std::prelude::*;
 use time_primitives::WorkerTrait;
-// pub trait WorkerTrait<AccountId, Balance> {
-// 	fn get_reward_acc() -> Result<(AccountId, AccountId), DispatchError>;
-// 	fn send_reward_to_acc(balance: Balance) ->Result<(), DispatchError>;
-// }
 
-// use pallet_tesseract_sig_storage;
 pub use pallet::*;
 
 /// A filter on uncles which verifies seals and does no additional checks.
@@ -96,20 +91,6 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: T::BlockNumber) -> Weight {
-			Weight::zero()
-		}
-
-		fn on_finalize(_block_number: T::BlockNumber) {
-			log::info!("on finalize!");
-			log::info!("its a validator {:?}", _block_number);
-		}
-
-		fn offchain_worker(_block_number: T::BlockNumber) {}
-	}
-
 	#[pallet::storage]
 	#[pallet::getter(fn reward_accounts)]
 	pub(super) type RewardAccount<T: Config> =
@@ -162,12 +143,14 @@ pub mod pallet {
 		where
 			N: AtLeast32BitUnsigned + Clone,
 		{
-			
 			let result_div = value.clone() / q.into();
 
 			result_div
 		}
-		pub fn send_reward(balance: BalanceOf<T>, curr: Vec<T::AccountId>) -> Result<(), DispatchError> {
+		pub fn send_reward(
+			balance: BalanceOf<T>,
+			curr: Vec<T::AccountId>,
+		) -> Result<(), DispatchError> {
 			// let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u32 = 0;
 			curr.iter().for_each(|_| {
@@ -182,16 +165,17 @@ pub mod pallet {
 
 			Ok(())
 		}
-		fn insert_account(validator: T::AccountId) -> Result<(T::AccountId, T::AccountId), DispatchError> {
+		fn insert_account(
+			validator: T::AccountId,
+		) -> Result<(T::AccountId, T::AccountId), DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u64 = 0;
 			data_list.iter().for_each(|_| {
 				length = length + 1;
 			});
 
-			
 			RewardAccount::<T>::insert(length + 1, (validator.clone(), validator.clone()));
-			
+
 			Ok((validator.clone(), validator.clone()))
 		}
 	}
@@ -199,16 +183,20 @@ pub mod pallet {
 		fn get_reward_acc() -> Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
 			Self::get_reward_account()
 		}
-		
-		fn send_reward_to_acc(balance: BalanceOf<T>, curr: Vec<T::AccountId>) -> Result<(), DispatchError> {
+
+		fn send_reward_to_acc(
+			balance: BalanceOf<T>,
+			curr: Vec<T::AccountId>,
+		) -> Result<(), DispatchError> {
 			Self::send_reward(balance.into(), curr)
 		}
 
-		fn insert_validator(validator: T::AccountId) -> Result<(T::AccountId, T::AccountId), DispatchError> {
+		fn insert_validator(
+			validator: T::AccountId,
+		) -> Result<(T::AccountId, T::AccountId), DispatchError> {
 			let result = Self::insert_account(validator);
 
 			result
 		}
 	}
 }
-   

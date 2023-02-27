@@ -45,6 +45,18 @@ cargo build --release
 ./target/release/timechain-node --staging
 ```
 
+## Run Using Script
+
+Use the following command to build, start ethereum local node, start multiple validator and set-key
+
+```sh
+cargo build
+cd eth_node
+npx hardhat node
+./start_chain.sh
+./set-keys.sh
+```
+
 ## Run public testnet
 
 * Start your bootnodes, node key can be generate with command `./target/release/timechain-node key generate-node-key`.

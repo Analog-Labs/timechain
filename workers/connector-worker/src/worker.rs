@@ -6,13 +6,13 @@ use futures::channel::mpsc::Sender;
 use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc, thread};
+use std::{env, marker::PhantomData, sync::Arc, thread};
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 // use storage_primitives::{GetStoreTask, GetTaskMetaData};
+use bincode::serialize;
+use std::str::FromStr;
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
-use bincode::{deserialize, serialize};
-use std::str::FromStr;
 use web3::{
 	futures::{future, StreamExt},
 	types::{Address, BlockId, BlockNumber, FilterBuilder, U64},
@@ -51,18 +51,18 @@ where
 	}
 
 	pub fn get_swap_data_from_db() -> Vec<u8> {
-		// let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-		// let mut pg_conn = establish_connection(Some(conn_url));
-		// let data = get_on_chain_data(&mut pg_conn, 0);
+		let conn_url = &env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+		let mut pg_conn = establish_connection(Some(conn_url));
+		let data = get_on_chain_data(&mut pg_conn, 0);
 
-		// log::info!("data from db = {:?}", data);
+		log::info!("data from db = {:?}", data);
 
 		return vec![1, 2];
 	}
 
-	pub async fn get_latest_block() -> Vec<u8> {
+	pub async fn get_latest_block() -> Vec<Vec<u8>> {
 		let websocket = web3::transports::WebSocket::new(
-			"wss://goerli.infura.io/ws/v3/0e188b05227b4af7a7a4a93a6282b0c8",
+			&env::var("INFURA_URL").expect("INFURA_URL must be set"),
 		)
 		.await
 		.unwrap();
@@ -85,22 +85,23 @@ where
 
 		let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
 
-		let mut a = vec![];
+		let mut log_vec = vec![vec![]];
+		let result = log_vec.clone();
 
-		// sub.for_each(|log| {
-		// 	match log {
-		// 		Ok(log) => {
-		// 			let my_struct_bytes = serialize(&log).unwrap();
-		// 			println!("==>{:?}", my_struct_bytes);
-		// 			a = my_struct_bytes;
-		// 		},
-		// 		Err(e) => log::info!("getting error {:?}", e),
-		// 	}
-		// 	future::ready(())
-		// })
-		// .await;
-	println!("\n\n\nhre===> {:?}\n\n\n\n",sub);
-		return a;
+		thread::spawn(move || {
+			sub.for_each(move |log| {
+				match log {
+					Ok(log) => {
+						let my_struct_bytes = serialize(&log).unwrap();
+						println!("==>{:?}", my_struct_bytes);
+						log_vec.push(my_struct_bytes);
+					},
+					Err(e) => log::info!("getting error {:?}", e),
+				}
+				future::ready(())
+			})
+		});
+		return result;
 	}
 
 	pub(crate) async fn run(&mut self) {
@@ -118,13 +119,13 @@ where
 					Err(_) => warn!("+++++++++++++ sign_data_sender_clone err"),
 				}
 
-				let result = sign_data_sender_clone
-					.lock()
-					.await
-					.try_send((1, Self::get_latest_block().await));
-				match result {
-					Ok(_) => warn!("+++++++++++++ sign_data_sender_clone ok"),
-					Err(_) => warn!("+++++++++++++ sign_data_sender_clone err"),
+				let x = Self::get_latest_block().await;
+				if x.len() > 0 {
+					let result = sign_data_sender_clone.lock().await.try_send((1, x[0].clone()));
+					match result {
+						Ok(_) => warn!("=> sign_data_sender_clone ok"),
+						Err(_) => warn!("=> sign_data_sender_clone err"),
+					}
 				}
 				thread::sleep(delay);
 			}
@@ -133,7 +134,9 @@ where
 }
 
 // #[ignore]
-// #[actix_rt::test]
-// async fn get_latest_block_test() {
-// 	println!("{:?}", ConnectorWorker::get_latest_block().await);
+// #[test]
+// fn get_latest_block_test() {
+// 	let x =  ConnectorWorker::get_latest_block();
+
+// 	println!("{:?}",x);
 // }

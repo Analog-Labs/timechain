@@ -300,11 +300,11 @@ where
 	//receives secret share form all other nodes which are participating in the tss
 	pub async fn handler_receive_secret_share(&mut self, shard_id: u64, data: &[u8]) {
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
-			let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+			let local_peer_id = state.local_peer_id.clone().unwrap();
 			//receive secret shares and update state of node
-			if self.tss_local_state.tss_process_state == TSSLocalStateType::DkgGeneratedR1 {
+			if state.tss_process_state == TSSLocalStateType::DkgGeneratedR1 {
 				if let Ok(distributed_hashmap) = HashMap::<u32, SecretShare>::try_from_slice(data) {
-					let local_index = match self.tss_local_state.local_index {
+					let local_index = match state.local_index {
 						Some(index) => index,
 						None => {
 							log::error!(target: TW_LOG, "unable to get local index");
@@ -312,17 +312,16 @@ where
 						},
 					};
 					if let Some(secret_share) = distributed_hashmap.get(&local_index) {
-						if !self.tss_local_state.others_my_secret_share.contains(secret_share) {
-							self.tss_local_state.others_my_secret_share.push(secret_share.clone());
+						if !state.others_my_secret_share.contains(secret_share) {
+							state.others_my_secret_share.push(secret_share.clone());
 						}
 
-						let others_my_secret_shares =
-							self.tss_local_state.others_my_secret_share.clone();
-						let params = self.tss_local_state.tss_params;
+						let others_my_secret_shares = state.others_my_secret_share.clone();
+						let params = state.tss_params;
 						let total_nodes = params.n;
-						let other_nodes = self.tss_local_state.others_my_secret_share.len() as u32;
+						let other_nodes = state.others_my_secret_share.len() as u32;
 						if total_nodes == other_nodes + 1 {
-							let round_one = match self.tss_local_state.local_dkg_r1_state.clone() {
+							let round_one = match state.local_dkg_r1_state.clone() {
 								Some(round_one) => round_one,
 								None => {
 									log::error!(
@@ -334,25 +333,22 @@ where
 							};
 							match round_one.to_round_two(others_my_secret_shares) {
 								Ok(round_two_state) => {
-									self.tss_local_state.local_dkg_r2_state =
-										Some(round_two_state.clone());
+									state.local_dkg_r2_state = Some(round_two_state.clone());
 
-									self.tss_local_state.tss_process_state =
-										TSSLocalStateType::DkgGeneratedR2;
+									state.tss_process_state = TSSLocalStateType::DkgGeneratedR2;
 									log::info!(target: TW_LOG, "Keygen phase 2 done");
 
 									//finish local state progress
-									let participant =
-										match self.tss_local_state.local_participant.clone() {
-											Some(participant) => participant,
-											None => {
-												log::error!(
+									let participant = match state.local_participant.clone() {
+										Some(participant) => participant,
+										None => {
+											log::error!(
 												target: TW_LOG,
 												"Unable to get local participant from local state"
 											);
-												return;
-											},
-										};
+											return;
+										},
+									};
 									let my_commitment =
 										match participant.0.public_key() {
 											Some(commitment) => commitment,
@@ -365,12 +361,10 @@ where
 										round_two_state.finish(my_commitment)
 									{
 										//update local state
-										self.tss_local_state.local_finished_state =
+										state.local_finished_state =
 											Some((local_group_key, local_secret_key.clone()));
-										self.tss_local_state.local_public_key =
-											Some(local_secret_key.to_public());
-										self.tss_local_state.tss_process_state =
-											TSSLocalStateType::StateFinished;
+										state.local_public_key = Some(local_secret_key.to_public());
+										state.tss_process_state = TSSLocalStateType::StateFinished;
 
 										log::info!(target: TW_LOG, "==========================");
 										let bytes = local_group_key.to_bytes();
@@ -379,8 +373,7 @@ where
 											"local group key is: {:?}",
 											bytes
 										);
-										// TODO: provide set ID from pre-set
-										self.submit_key_as_inherent(bytes, 1);
+										self.submit_key_as_inherent(bytes, shard_id);
 										log::info!(target: TW_LOG, "==========================");
 									} else {
 										log::error!(
@@ -391,7 +384,7 @@ where
 
 									//generating and publishing commitment to include node in tss
 									// process
-									let index = match self.tss_local_state.local_index {
+									let index = match state.local_index {
 										Some(index) => index,
 										None => {
 											log::error!(
@@ -401,24 +394,17 @@ where
 											return;
 										},
 									};
-									if self.tss_local_state.tss_process_state
-										== TSSLocalStateType::StateFinished
-									{
+									if state.tss_process_state == TSSLocalStateType::StateFinished {
 										//aggregator patch
-										self.tss_local_state.is_node_aggregator =
-											self.tss_local_state.is_node_collector;
+										state.is_node_aggregator = state.is_node_collector;
 
 										let local_commitment =
 											generate_commitment_share_lists(&mut OsRng, index, 1);
 
-										self.tss_local_state.local_commitment_share =
+										state.local_commitment_share =
 											Some(local_commitment.clone());
 
-										let pubkey = match self
-											.tss_local_state
-											.local_public_key
-											.clone()
-										{
+										let pubkey = match state.local_public_key.clone() {
 											Some(pubkey) => pubkey,
 											None => {
 												log::error!(
@@ -439,7 +425,7 @@ where
 										self.publish_to_network(
 											local_peer_id,
 											share_commitment,
-											TSSEventType::ReceiveCommitment,
+											TSSEventType::ReceiveCommitment(shard_id),
 										)
 										.await;
 									}
@@ -465,7 +451,7 @@ where
 				log::error!(
 					target: TW_LOG,
 					"Received secret share but node not in correct state {:?}",
-					self.tss_local_state.tss_process_state
+					state.tss_process_state
 				);
 			}
 		} else {

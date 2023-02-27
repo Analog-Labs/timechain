@@ -64,7 +64,7 @@ pub fn authority_keys_from_seed(
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 		get_from_seed::<ImOnlineId>(s),
-		get_account_id_from_seed::<sr25519::Public>(&format!("{s}//chronical")),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{s}//chronicle")),
 		//node online Id missing
 	)
 }

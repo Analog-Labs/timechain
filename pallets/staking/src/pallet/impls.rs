@@ -439,7 +439,41 @@ impl<T: Config> Pallet<T> {
 			let validator_share = validator_payout.saturating_sub(percent_from_validator);
 			let remainder_share = remainder.saturating_sub(percent_from_remainder);
 			let cronical_share = percent_from_validator.saturating_add(percent_from_remainder);
-			let _rep = T::RewardWorker::send_reward_to_acc(cronical_share);
+			
+			let acc = T::RewardWorker::get_reward_acc();
+			let session_vallet = T::SessionInterface::validators();
+			let mut current_active_validators: Vec<T::AccountId> = vec![];
+			match acc {
+				Ok(val) => {
+					val.iter().for_each(|x| {
+						session_vallet.iter().for_each(|y| {
+							if &x.1 == y {
+								current_active_validators.push(x.1.clone());
+								info!("Validator account exiist in reward worker storage ");
+							} else {
+								info!("Validator account  does not exist in reward worker storage ");
+								// TODO: add user account in reward worker then push to current active
+								let _ = T::RewardWorker::insert_validator(y.clone());
+								current_active_validators.push(y.clone());
+							}
+						});
+
+						// info!(" contains list  -------> {:?}   <<<<<---- {:?}", resp, resp_i);
+						// info!(" contains list balance -------> {:?}   <<<<<---- {:?}", resp_a, resp_b);
+						// info!(" validator list  -------> {:?}   <<<<<----", x);
+
+					});
+				}
+				Err(_) => info!(" validator list  -------> error  <<<<<----")
+			}
+			
+			let _rep = T::RewardWorker::send_reward_to_acc(cronical_share, current_active_validators.clone());
+
+			session_vallet.iter().for_each(|x| {
+				let balance = T::Currency::total_balance(x);
+				info!(" validator list  -------> {:?}   <<<<<---- {:?}",x, balance );
+			});
+			
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
 				validator_payout: validator_share,

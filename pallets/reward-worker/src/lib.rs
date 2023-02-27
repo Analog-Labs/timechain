@@ -162,31 +162,53 @@ pub mod pallet {
 		where
 			N: AtLeast32BitUnsigned + Clone,
 		{
+			
 			let result_div = value.clone() / q.into();
 
 			result_div
 		}
-		pub fn send_reward(balance: BalanceOf<T>) -> Result<(), DispatchError> {
-			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
+		pub fn send_reward(balance: BalanceOf<T>, curr: Vec<T::AccountId>) -> Result<(), DispatchError> {
+			// let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u32 = 0;
-			data_list.iter().for_each(|_| {
+			curr.iter().for_each(|_| {
 				length = length + 1;
 			});
 
 			let balance_paid = Self::div_balance(balance, length);
-			data_list.iter().for_each(|item| {
-				log::info!("Balance transfered ====> {:?} --- amount= {:?} ", item.0, balance_paid);
-				let _resp = T::Currency::deposit_into_existing(&item.0, balance_paid);
+			curr.iter().for_each(|item| {
+				log::info!("Balance transfered ====> {:?} --- amount= {:?} ", item, balance_paid);
+				let _resp = T::Currency::deposit_into_existing(&item, balance_paid);
 			});
+
 			Ok(())
+		}
+		fn insert_account(validator: T::AccountId) -> Result<(T::AccountId, T::AccountId), DispatchError> {
+			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
+			let mut length: u64 = 0;
+			data_list.iter().for_each(|_| {
+				length = length + 1;
+			});
+
+			
+			RewardAccount::<T>::insert(length + 1, (validator.clone(), validator.clone()));
+			
+			Ok((validator.clone(), validator.clone()))
 		}
 	}
 	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		fn get_reward_acc() -> Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
 			Self::get_reward_account()
 		}
-		fn send_reward_to_acc(balance: BalanceOf<T>) -> Result<(), DispatchError> {
-			Self::send_reward(balance.into())
+		
+		fn send_reward_to_acc(balance: BalanceOf<T>, curr: Vec<T::AccountId>) -> Result<(), DispatchError> {
+			Self::send_reward(balance.into(), curr)
+		}
+
+		fn insert_validator(validator: T::AccountId) -> Result<(T::AccountId, T::AccountId), DispatchError> {
+			let result = Self::insert_account(validator);
+
+			result
 		}
 	}
 }
+   

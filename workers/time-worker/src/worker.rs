@@ -376,17 +376,20 @@ where
 					.await;
 			}, //nodes receives peers with collector participants
 			TSSEventType::ReceivePeersWithColParticipant(shard_id) => {
-				self.handler_receiver_peers_with_col_participant(&tss_gossiped_data.tss_data)
-					.await;
+				self.handler_receiver_peers_with_col_participant(
+					shard_id,
+					&tss_gossiped_data.tss_data,
+				)
+				.await;
 			},
 			//nodes will receive participant and will add will go to round one state
 			TSSEventType::ReceiveParticipant(shard_id) => {
-				self.handler_receive_participant(&tss_gossiped_data.tss_data).await;
+				self.handler_receive_participant(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 			//nodes will receive their secret share and take state to round two
 			TSSEventType::ReceiveSecretShare(shard_id) => {
 				info!(target: TW_LOG, "Received ReceiveSecretShare");
-				self.handler_receive_secret_share(&tss_gossiped_data.tss_data).await;
+				self.handler_receive_secret_share(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 
 			//received commitments of other nodes who are participating in TSS process

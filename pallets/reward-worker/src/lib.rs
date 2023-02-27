@@ -85,7 +85,7 @@ pub mod pallet {
 			log::info!("build list of reward accounts! {:?}", self.reward_list);
 			let mut num: u64 = 0;
 			self.reward_list.iter().for_each(|item| {
-				num = num + 1;
+				num += 1;
 				RewardAccount::<T>::insert(num, item.clone());
 			});
 		}
@@ -143,9 +143,7 @@ pub mod pallet {
 		where
 			N: AtLeast32BitUnsigned + Clone,
 		{
-			let result_div = value.clone() / q.into();
-
-			result_div
+			value / q.into()
 		}
 		pub fn send_reward(
 			balance: BalanceOf<T>,
@@ -154,13 +152,13 @@ pub mod pallet {
 			// let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u32 = 0;
 			curr.iter().for_each(|_| {
-				length = length + 1;
+				length += 1;
 			});
 
 			let balance_paid = Self::div_balance(balance, length);
 			curr.iter().for_each(|item| {
 				log::info!("Balance transfered ====> {:?} --- amount= {:?} ", item, balance_paid);
-				let _resp = T::Currency::deposit_into_existing(&item, balance_paid);
+				let _resp = T::Currency::deposit_into_existing(item, balance_paid);
 			});
 
 			Ok(())
@@ -171,12 +169,12 @@ pub mod pallet {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u64 = 0;
 			data_list.iter().for_each(|_| {
-				length = length + 1;
+				length += 1;
 			});
 
 			RewardAccount::<T>::insert(length + 1, (validator.clone(), validator.clone()));
 
-			Ok((validator.clone(), validator.clone()))
+			Ok((validator.clone(), validator))
 		}
 	}
 	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for Pallet<T> {
@@ -188,15 +186,13 @@ pub mod pallet {
 			balance: BalanceOf<T>,
 			curr: Vec<T::AccountId>,
 		) -> Result<(), DispatchError> {
-			Self::send_reward(balance.into(), curr)
+			Self::send_reward(balance, curr)
 		}
 
 		fn insert_validator(
 			validator: T::AccountId,
 		) -> Result<(T::AccountId, T::AccountId), DispatchError> {
-			let result = Self::insert_account(validator);
-
-			result
+			Self::insert_account(validator)
 		}
 	}
 }

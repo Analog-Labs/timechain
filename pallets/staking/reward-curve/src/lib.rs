@@ -221,9 +221,9 @@ impl Parse for INposInput {
 		let ideal_stake = parse_field::<keyword::ideal_stake>(
 			&args_input,
 			Bounds {
-				min: 0_100_000,
+				min: 100_000,
 				min_strict: false,
-				max: 0_900_000,
+				max: 900_000,
 				max_strict: false,
 			},
 		)?;
@@ -231,7 +231,7 @@ impl Parse for INposInput {
 		let falloff = parse_field::<keyword::falloff>(
 			&args_input,
 			Bounds {
-				min: 0_010_000,
+				min: 10_000,
 				min_strict: false,
 				max: 1_000_000,
 				max_strict: false,

@@ -331,7 +331,7 @@ fn testnet_genesis(
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			(x.0.clone(), x.1.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))
+			(x.0.clone(), x.1, stash, StakerStatus::<AccountId>::Nominator(nominations))
 		})
 		.collect::<Vec<_>>();
 

@@ -447,7 +447,7 @@ impl<T: Config> Pallet<T> {
 					session_vallet.iter().for_each(|y| {
 						let exist = val.iter().find(|&x| x.1 == y.clone());
 						match exist {
-							Some(va) => {
+							Some(_va) => {
 								info!("Validator account exiist in reward worker storage ");
 								current_active_validators.push(y.clone());
 							},

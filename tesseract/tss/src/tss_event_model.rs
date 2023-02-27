@@ -8,16 +8,16 @@ use frost_dalek::{
 //tss network request types
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub enum TSSEventType {
-	ReceivePeerIDForIndex,
-	ReceiveParams,
-	ReceivePeersWithColParticipant,
-	ReceiveParticipant,
-	ReceiveSecretShare,
-	ReceiveCommitment,
+	ReceivePeerIDForIndex(u64),
+	ReceiveParams(u64),
+	ReceivePeersWithColParticipant(u64),
+	ReceiveParticipant(u64),
+	ReceiveSecretShare(u64),
+	ReceiveCommitment(u64),
 	PartialSignatureGenerateReq(u64),
-	PartialSignatureReceived,
-	VerifyThresholdSignature,
-	ResetTSSState,
+	PartialSignatureReceived(u64),
+	VerifyThresholdSignature(u64),
+	ResetTSSState(u64),
 }
 
 //genetic call for tss events

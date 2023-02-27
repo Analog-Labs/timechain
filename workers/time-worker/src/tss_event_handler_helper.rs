@@ -1,4 +1,4 @@
-use crate::{traits::Client, worker::TimeWorker};
+use crate::{traits::Client, worker::TimeWorker, TW_LOG};
 use borsh::{BorshDeserialize, BorshSerialize};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
@@ -34,53 +34,52 @@ where
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes
+	/// Initializes keygen and new state for given shard ID
 	pub async fn handler_receive_params(&mut self, shard_id: u64, data: &[u8]) {
-		let local_peer_id = match self.tss_local_state.local_peer_id.clone() {
-			Some(id) => id,
-			None => match self.kv.public_keys() {
-				keys if !keys.is_empty() => keys[0].to_string(),
-				_ => {
-					log::warn!(
-						"TSS: No local peer identity present for received params processing"
-					);
-					return;
-				},
-			},
-		};
-
-		if self.tss_local_state.tss_process_state == TSSLocalStateType::Empty {
-			if let Ok(peer_id_call) = ReceiveParamsWithPeerCall::try_from_slice(data) {
-				self.tss_local_state.tss_params = peer_id_call.params;
-				self.tss_local_state.tss_process_state = TSSLocalStateType::ReceivedParams;
-
-				let peer_id = peer_id_call.peer_id;
-				if !self.tss_local_state.others_peer_id.contains(&peer_id) {
-					self.tss_local_state.others_peer_id.push(peer_id);
-				}
-
-				if let Ok(peer_id_data) = get_publish_peer_id_msg(local_peer_id.clone()) {
-					//nodes replies to this event with their peer id
-					if let Ok(data) = make_gossip_tss_data(
-						local_peer_id,
-						peer_id_data,
-						TSSEventType::ReceivePeerIDForIndex,
-					) {
-						log::debug!("TSS: Sending ReceivePeerIDForIndex");
-						self.send(data);
-					} else {
-						log::error!("TSS::Unable to encode gossip data for participant creation");
-					}
-				} else {
-					log::error!("TSS::Unable to get publish peer id msg");
-				}
-			} else {
-				log::error!("TSS::Could not deserialize params");
-			}
-		} else {
+		if let Some(existing_state) = self.tss_local_states.get(&shard_id) {
 			log::error!(
 				"TSS::Received params but node is not in empty state {:?}",
-				self.tss_local_state.tss_process_state
+				existing_state.tss_process_state
 			);
+		} else {
+			if let Some(local_peer_id) = self.id() {
+				let mut state = self.create_tss_state();
+
+				if let Ok(peer_id_call) = ReceiveParamsWithPeerCall::try_from_slice(data) {
+					state.tss_params = peer_id_call.params;
+					state.tss_process_state = TSSLocalStateType::ReceivedParams;
+
+					let peer_id = peer_id_call.peer_id;
+					if !state.others_peer_id.contains(&peer_id) {
+						state.others_peer_id.push(peer_id);
+					}
+
+					if let Ok(peer_id_data) = get_publish_peer_id_msg(local_peer_id.clone()) {
+						//nodes replies to this event with their peer id
+						if let Ok(data) = make_gossip_tss_data(
+							local_peer_id,
+							peer_id_data,
+							TSSEventType::ReceivePeerIDForIndex(shard_id),
+						) {
+							log::debug!("TSS: Sending ReceivePeerIDForIndex");
+							self.send(data);
+						} else {
+							log::error!(
+								"TSS::Unable to encode gossip data for participant creation"
+							);
+						}
+					} else {
+						log::error!("TSS::Unable to get publish peer id msg");
+					}
+				} else {
+					log::error!("TSS::Could not deserialize params");
+				}
+			} else {
+				log::error!(
+					target: TW_LOG,
+					"No ID set for current node. Cant participate in TSS keygen"
+				);
+			}
 		}
 	}
 

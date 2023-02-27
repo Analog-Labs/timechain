@@ -11,8 +11,6 @@ use worker_aurora::{self, establish_connection, get_on_chain_data};
 // use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
-use worker_aurora::{self, establish_connection, get_on_chain_data};
-
 use bincode::{deserialize, serialize};
 use std::str::FromStr;
 use web3::{
@@ -57,7 +55,7 @@ where
 		// let mut pg_conn = establish_connection(Some(conn_url));
 		// let data = get_on_chain_data(&mut pg_conn, 0);
 
-		log::info!("data from db = {:?}", data);
+		// log::info!("data from db = {:?}", data);
 
 		return vec![1, 2];
 	}

@@ -59,7 +59,8 @@ use time_primitives::WorkerTrait;
 /// invalid (for any reason) the iteration continues. With this constant, we iterate at most 2 * n
 /// times and then give up.
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
-
+pub type ExposureReturn<AccountId, Balance> = Vec<(AccountId, Exposure<AccountId, Balance>)>;
+pub type WeightReturn<AccountId> = Box<dyn Fn(&AccountId) -> VoteWeight>;
 impl<T: Config> Pallet<T> {
 	/// The total balance that can be slashed from a stash account as of right now.
 	pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
@@ -79,7 +80,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This prevents call sites from repeatedly requesting `total_issuance` from backend. But it is
 	/// important to be only used while the total issuance is not changing.
-	pub fn weight_of_fn() -> Box<dyn Fn(&T::AccountId) -> VoteWeight> {
+	pub fn weight_of_fn() -> WeightReturn<T::AccountId> {
 		// NOTE: changing this to unboxed `impl Fn(..)` return type and the pallet will still
 		// compile, while some types in mock fail to resolve.
 		let issuance = T::Currency::total_issuance();
@@ -321,13 +322,23 @@ impl<T: Config> Pallet<T> {
 		if let Some(next_active_era_start_session_index) =
 			Self::eras_start_session_index(next_active_era)
 		{
-			if next_active_era_start_session_index == start_session {
-				Self::start_era(start_session);
-			} else if next_active_era_start_session_index < start_session {
-				// This arm should never happen, but better handle it than to stall the staking
-				// pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
-				Self::start_era(start_session);
+			match next_active_era_start_session_index == start_session {
+				true => {
+					Self::start_era(start_session);
+				},
+				false => {
+					match next_active_era_start_session_index < start_session {
+						true => {
+							// This arm should never happen, but better handle it than to stall the
+							// staking pallet.
+							frame_support::print(
+								"Warning: A session appears to have been skipped.",
+							);
+							Self::start_era(start_session);
+						},
+						false => {},
+					}
+				},
 			}
 		}
 
@@ -497,7 +508,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the new validator set.
 	pub fn trigger_new_era(
 		start_session_index: SessionIndex,
-		exposures: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
+		exposures: ExposureReturn<T::AccountId, BalanceOf<T>>,
 	) -> Vec<T::AccountId> {
 		// Increment or set current era.
 		let new_planned_era = CurrentEra::<T>::mutate(|s| {
@@ -573,7 +584,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Store staking information for the new planned era
 	pub fn store_stakers_info(
-		exposures: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
+		exposures: ExposureReturn<T::AccountId, BalanceOf<T>>,
 		new_planned_era: EraIndex,
 	) -> Vec<T::AccountId> {
 		let elected_stashes = exposures.iter().cloned().map(|(x, _)| x).collect::<Vec<_>>();
@@ -616,9 +627,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Consume a set of [`Supports`] from [`sp_npos_elections`] and collect them into a
 	/// [`Exposure`].
+
 	fn collect_exposures(
 		supports: Supports<T::AccountId>,
-	) -> Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)> {
+	) -> ExposureReturn<T::AccountId, BalanceOf<T>> {
 		let total_issuance = T::Currency::total_issuance();
 		let to_currency = |e: frame_election_provider_support::ExtendedBalance| {
 			T::CurrencyToVote::to_currency(e, total_issuance)
@@ -1320,8 +1332,8 @@ where
 			add_db_reads_writes(1, 0);
 
 			// Reverse because it's more likely to find reports from recent eras.
-			match eras.iter().rev().find(|&&(_, ref sesh)| sesh <= &slash_session) {
-				Some(&(ref slash_era, _)) => *slash_era,
+			match eras.iter().rev().find(|&(_, sesh)| sesh <= &slash_session) {
+				Some((slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
 				None => return consumed_weight,
 			}

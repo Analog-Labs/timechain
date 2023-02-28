@@ -563,6 +563,8 @@ pub mod pallet {
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+	pub type StakerType<AccountId, Balance> =
+		Vec<(AccountId, AccountId, Balance, crate::StakerStatus<AccountId>)>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -572,8 +574,7 @@ pub mod pallet {
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
-		pub stakers:
-			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
+		pub stakers: StakerType<T::AccountId, BalanceOf<T>>,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,

@@ -74,11 +74,11 @@ fn test_log() {
 	let div = 1_000;
 	for p in 0..=div {
 		for q in 1..=p {
-			let p: u32 = (1_000_000 as u64 * p as u64 / div as u64).try_into().unwrap();
-			let q: u32 = (1_000_000 as u64 * q as u64 / div as u64).try_into().unwrap();
+			let p: u32 = (1_000_000_u64 * p as u64 / div as u64).try_into().unwrap();
+			let q: u32 = (1_000_000_u64 * q as u64 / div as u64).try_into().unwrap();
 
 			let res = -(log2(p, q) as i64);
-			let expected = ((q as f64 / p as f64).log(2.0) * 1_000_000 as f64).round() as i64;
+			let expected = ((q as f64 / p as f64).log(2.0) * 1_000_000_f64).round() as i64;
 			assert!((res - expected).abs() <= 6);
 		}
 	}
@@ -121,5 +121,5 @@ fn test_log_of_largest_input() {
 	let q: u32 = 1;
 	let expected = 19_931_568;
 	let tolerance = 100;
-	assert!((log2(p, q) as i32 - expected as i32).abs() < tolerance);
+	assert!((log2(p, q) as i32 - expected).abs() < tolerance);
 }

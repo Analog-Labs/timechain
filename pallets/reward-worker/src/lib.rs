@@ -47,6 +47,7 @@ pub mod pallet {
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
+	pub type WorkerReturn<AccountId> = Vec<(AccountId, AccountId)>;
 	pub type RewardList<T> = (
 		// 1st account will be the rewarder
 		<T as frame_system::Config>::AccountId,
@@ -134,7 +135,7 @@ pub mod pallet {
 		// 	Ok(data)
 		// }
 
-		fn get_reward_account() -> Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
+		fn get_reward_account() -> Result<WorkerReturn<T::AccountId>, DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			Ok(data_list)
 		}
@@ -178,7 +179,7 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for Pallet<T> {
-		fn get_reward_acc() -> Result<Vec<(T::AccountId, T::AccountId)>, DispatchError> {
+		fn get_reward_acc() -> Result<WorkerReturn<T::AccountId>, DispatchError> {
 			Self::get_reward_account()
 		}
 

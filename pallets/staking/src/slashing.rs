@@ -514,24 +514,27 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
 		let mut span_record = <Pallet<T> as Store>::SpanSlash::get(&span_slash_key);
 		let mut changed = false;
 
-		let reward = if span_record.slashed < slash {
-			// new maximum span slash. apply the difference.
-			let difference = slash - span_record.slashed;
-			span_record.slashed = slash;
+		let reward = match span_record.slashed < slash {
+			true => {
+				// new maximum span slash. apply the difference.
+				let difference = slash - span_record.slashed;
+				span_record.slashed = slash;
 
-			// compute reward.
-			let reward =
-				REWARD_F1 * (self.reward_proportion * slash).saturating_sub(span_record.paid_out);
+				// compute reward.
+				let reward = REWARD_F1
+					* (self.reward_proportion * slash).saturating_sub(span_record.paid_out);
 
-			self.add_slash(difference, slash_era);
-			changed = true;
+				self.add_slash(difference, slash_era);
+				changed = true;
 
-			reward
-		} else if span_record.slashed == slash {
-			// compute reward. no slash difference to apply.
-			REWARD_F1 * (self.reward_proportion * slash).saturating_sub(span_record.paid_out)
-		} else {
-			Zero::zero()
+				reward
+			},
+			false => match span_record.slashed == slash {
+				true =>
+					REWARD_F1
+						* (self.reward_proportion * slash).saturating_sub(span_record.paid_out),
+				false => Zero::zero(),
+			},
 		};
 
 		if !reward.is_zero() {

@@ -51,11 +51,11 @@ where
 	}
 
 	pub fn get_swap_data_from_db() -> Vec<u8> {
-		let conn_url = &env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-		let mut pg_conn = establish_connection(Some(conn_url));
-		let data = get_on_chain_data(&mut pg_conn, 0);
+		// let conn_url =  "postgresql://localhost/timechain?user=postgres&password=postgres";
+		// let mut pg_conn = establish_connection(Some(conn_url));
+		// let data = get_on_chain_data(&mut pg_conn, 0);
 
-		log::info!("data from db = {:?}", data);
+		// log::info!("data from db = {:?}", data);
 
 		return vec![1, 2];
 	}

@@ -515,38 +515,34 @@ where
 	}
 
 	//this call is received by aggregator to make the threshold signature
-	pub async fn handler_partial_signature_received(&mut self, data: &[u8]) {
-		let local_peer_id = self.tss_local_state.local_peer_id.clone().unwrap();
+	pub async fn handler_partial_signature_received(&mut self, shard_id: u64, data: &[u8]) {
+		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+			let local_peer_id = state.local_peer_id.clone().unwrap();
 
-		//check if aggregator
-		if self.tss_local_state.is_node_aggregator {
-			if self.tss_local_state.tss_process_state == TSSLocalStateType::CommitmentsReceived {
-				if let Ok(msg_req) = ReceivePartialSignatureReq::try_from_slice(data) {
-					if let Some(msg) = self.tss_local_state.msg_pool.get(&msg_req.msg_hash) {
-						//add in list
-						if let Some(hashmap) =
-							self.tss_local_state.others_partial_signature.get_mut(&msg_req.msg_hash)
-						{
-							hashmap.push(msg_req.partial_sign);
-						} else {
-							let participant_list = vec![msg_req.partial_sign];
-							self.tss_local_state
-								.others_partial_signature
-								.insert(msg_req.msg_hash, participant_list);
-						}
+			//check if aggregator
+			if state.is_node_aggregator {
+				if state.tss_process_state == TSSLocalStateType::CommitmentsReceived {
+					if let Ok(msg_req) = ReceivePartialSignatureReq::try_from_slice(data) {
+						if let Some(msg) = state.msg_pool.get(&msg_req.msg_hash) {
+							//add in list
+							if let Some(hashmap) =
+								state.others_partial_signature.get_mut(&msg_req.msg_hash)
+							{
+								hashmap.push(msg_req.partial_sign);
+							} else {
+								let participant_list = vec![msg_req.partial_sign];
+								state
+									.others_partial_signature
+									.insert(msg_req.msg_hash, participant_list);
+							}
 
-						let params = self.tss_local_state.tss_params;
-						//the unwrap wont fail since we are already adding item above
-						if self
-							.tss_local_state
-							.others_partial_signature
-							.get(&msg_req.msg_hash)
-							.unwrap()
-							.len() == self.tss_local_state.current_signers.len()
-						{
-							let context = self.tss_local_state.context;
-							let finished_state =
-								match self.tss_local_state.local_finished_state.clone() {
+							let params = state.tss_params;
+							//the unwrap wont fail since we are already adding item above
+							if state.others_partial_signature.get(&msg_req.msg_hash).unwrap().len()
+								== state.current_signers.len()
+							{
+								let context = state.context;
+								let finished_state = match state.local_finished_state.clone() {
 									Some(finished_state) => finished_state,
 									None => {
 										log::error!(
@@ -556,127 +552,133 @@ where
 										return;
 									},
 								};
-							let mut aggregator = SignatureAggregator::new(
-								params,
-								finished_state.0,
-								&context,
-								&msg[..],
-							);
-
-							for com in self.tss_local_state.others_commitment_share.clone() {
-								aggregator.include_signer(
-									com.public_commitment_share_list.participant_index,
-									com.public_commitment_share_list.commitments[0],
-									com.public_key,
+								let mut aggregator = SignatureAggregator::new(
+									params,
+									finished_state.0,
+									&context,
+									&msg[..],
 								);
-							}
 
-							aggregator.include_signer(
-								self.tss_local_state.local_index.unwrap(),
-								self.tss_local_state
-									.local_commitment_share
-									.clone()
+								for com in state.others_commitment_share.clone() {
+									aggregator.include_signer(
+										com.public_commitment_share_list.participant_index,
+										com.public_commitment_share_list.commitments[0],
+										com.public_key,
+									);
+								}
+
+								aggregator.include_signer(
+									state.local_index.unwrap(),
+									state.local_commitment_share.clone().unwrap().0.commitments[0],
+									state.local_public_key.clone().unwrap(),
+								);
+
+								//include partial signature
+								for item in state
+									.others_partial_signature
+									.get(&msg_req.msg_hash)
 									.unwrap()
-									.0
-									.commitments[0],
-								self.tss_local_state.local_public_key.clone().unwrap(),
-							);
+									.clone()
+								{
+									aggregator.include_partial_signature(item.clone());
+								}
 
-							//include partial signature
-							for item in self
-								.tss_local_state
-								.others_partial_signature
-								.get(&msg_req.msg_hash)
-								.unwrap()
-								.clone()
-							{
-								aggregator.include_partial_signature(item.clone());
-							}
+								//finalize aggregator
+								let aggregator_finalized = match aggregator.finalize() {
+									Ok(aggregator_finalized) => aggregator_finalized,
+									Err(e) => {
+										for (key, value) in e.into_iter() {
+											//These issues are from the aggregator side and not the
+											// signer side
+											log::error!(target: TW_LOG, "error occured while finalizing aggregator from index {:?} because of {:?}", key, value);
+										}
+										return;
+									},
+								};
 
-							//finalize aggregator
-							let aggregator_finalized = match aggregator.finalize() {
-								Ok(aggregator_finalized) => aggregator_finalized,
-								Err(e) => {
-									for (key, value) in e.into_iter() {
-										//These issues are from the aggregator side and not the
-										// signer side
-										log::error!(target: TW_LOG, "error occured while finalizing aggregator from index {:?} because of {:?}", key, value);
-									}
-									return;
-								},
-							};
+								//aggregate aggregator
+								let threshold_signature = match aggregator_finalized.aggregate() {
+									Ok(threshold_signature) => threshold_signature,
+									Err(e) => {
+										for (key, value) in e.into_iter() {
+											//can also send the indices of participants to
+											// timechain to keep track of that
+											log::error!(
+												target: TW_LOG,
+												"Participant {} misbehaved because {}",
+												key,
+												value
+											);
+										}
+										return;
+									},
+								};
 
-							//aggregate aggregator
-							let threshold_signature = match aggregator_finalized.aggregate() {
-								Ok(threshold_signature) => threshold_signature,
-								Err(e) => {
-									for (key, value) in e.into_iter() {
-										//can also send the indices of participants to timechain to
-										// keep track of that
+								//check for validity of event
+								match threshold_signature
+									.verify(&finished_state.0, &msg_req.msg_hash)
+								{
+									Ok(_) => {
+										log::info!(
+											target: TW_LOG,
+											"Signature is valid sending to network"
+										);
+
+										// workaround for absence of cloning
+										let th_bytes = threshold_signature.to_bytes();
+										// this can not fail
+										let th = ThresholdSignature::from_bytes(th_bytes).unwrap();
+										let gossip_data = VerifyThresholdSignatureReq {
+											// msg: msg_req.msg,
+											msg_hash: msg_req.msg_hash,
+											threshold_sign: threshold_signature,
+										};
+
+										if state.is_node_aggregator {
+											self.store_signature(th);
+										}
+										self.publish_to_network(
+											local_peer_id,
+											gossip_data,
+											TSSEventType::VerifyThresholdSignature(shard_id),
+										)
+										.await;
+									},
+									Err(_) => {
 										log::error!(
 											target: TW_LOG,
-											"Participant {} misbehaved because {}",
-											key,
-											value
+											"Signature computed is invalid"
 										);
-									}
-									return;
-								},
-							};
+									},
+								}
 
-							//check for validity of event
-							match threshold_signature.verify(&finished_state.0, &msg_req.msg_hash) {
-								Ok(_) => {
-									log::info!(
-										target: TW_LOG,
-										"Signature is valid sending to network"
-									);
+								//reset partial signature
+								state.others_partial_signature.remove(&msg_req.msg_hash);
 
-									// workaround for absence of cloning
-									let th_bytes = threshold_signature.to_bytes();
-									// this can not fail
-									let th = ThresholdSignature::from_bytes(th_bytes).unwrap();
-									let gossip_data = VerifyThresholdSignatureReq {
-										// msg: msg_req.msg,
-										msg_hash: msg_req.msg_hash,
-										threshold_sign: threshold_signature,
-									};
-
-									if self.tss_local_state.is_node_aggregator {
-										self.store_signature(th);
-									}
-									self.publish_to_network(
-										local_peer_id,
-										gossip_data,
-										TSSEventType::VerifyThresholdSignature,
-									)
-									.await;
-								},
-								Err(_) => {
-									log::error!(target: TW_LOG, "Signature computed is invalid");
-								},
+								//remove event from msg_pool
+								state.msg_pool.remove(&msg_req.msg_hash);
 							}
-
-							//reset partial signature
-							self.tss_local_state.others_partial_signature.remove(&msg_req.msg_hash);
-
-							//remove event from msg_pool
-							self.tss_local_state.msg_pool.remove(&msg_req.msg_hash);
+						} else {
+							log::error!(
+								target: TW_LOG,
+								"data received for signature but msg not in local pool {:?}",
+								state.msg_pool.len()
+							);
 						}
-					} else {
-						log::error!(
-							target: TW_LOG,
-							"data received for signature but msg not in local pool {:?}",
-							self.tss_local_state.msg_pool.len()
-						);
 					}
+				} else {
+					log::error!(
+						target: TW_LOG,
+						"Node not in correct state to receive partial signature"
+					);
 				}
-			} else {
-				log::error!(
-					target: TW_LOG,
-					"Node not in correct state to receive partial signature"
-				);
 			}
+		} else {
+			log::debug!(
+				target: TW_LOG,
+				"Keygen not started or not a member of shard: {}",
+				shard_id
+			);
 		}
 	}
 

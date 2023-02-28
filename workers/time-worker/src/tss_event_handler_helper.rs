@@ -464,43 +464,52 @@ where
 	}
 
 	//This call is received by aggregators to make list of commitment of participants
-	pub async fn handler_receive_commitment(&mut self, data: &[u8]) {
-		//receive commitments and update state of node
-		if self.tss_local_state.is_node_aggregator {
-			if self.tss_local_state.tss_process_state >= TSSLocalStateType::DkgGeneratedR1
-				&& self.tss_local_state.tss_process_state <= TSSLocalStateType::StateFinished
-			{
-				if let Ok(commitment) = OthersCommitmentShares::try_from_slice(data) {
-					if !self.tss_local_state.others_commitment_share.contains(&commitment) {
-						self.tss_local_state.others_commitment_share.push(commitment);
-					}
+	pub async fn handler_receive_commitment(&mut self, shard_id: u64, data: &[u8]) {
+		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+			//receive commitments and update state of node
+			if state.is_node_aggregator {
+				if state.tss_process_state >= TSSLocalStateType::DkgGeneratedR1
+					&& state.tss_process_state <= TSSLocalStateType::StateFinished
+				{
+					if let Ok(commitment) = OthersCommitmentShares::try_from_slice(data) {
+						if !state.others_commitment_share.contains(&commitment) {
+							state.others_commitment_share.push(commitment);
+						}
 
-					let params = self.tss_local_state.tss_params;
-					if self.tss_local_state.others_commitment_share.len() == (params.n - 1) as usize
-					{
-						log::info!(target: TW_LOG, "Received all commitments");
-						self.tss_local_state.tss_process_state =
-							TSSLocalStateType::CommitmentsReceived;
+						let params = state.tss_params;
+						if state.others_commitment_share.len() == (params.n - 1) as usize {
+							log::info!(target: TW_LOG, "Received all commitments");
+							state.tss_process_state = TSSLocalStateType::CommitmentsReceived;
+						} else {
+							log::info!(
+								target: TW_LOG,
+								"Not enough commitments, Got {}, Needed {}",
+								state.others_commitment_share.len(),
+								params.n - 1
+							);
+						}
 					} else {
-						log::info!(
-							target: TW_LOG,
-							"Not enough commitments, Got {}, Needed {}",
-							self.tss_local_state.others_commitment_share.len(),
-							params.n - 1
-						);
+						log::error!(target: TW_LOG, "Unable to deserialize commitment");
 					}
 				} else {
-					log::error!(target: TW_LOG, "Unable to deserialize commitment");
+					log::error!(
+						target: TW_LOG,
+						"Received commitment but node not in correct state"
+					);
 				}
 			} else {
-				log::error!(target: TW_LOG, "Received commitment but node not in correct state");
+				log::info!(
+					target: TW_LOG,
+					"current tss state for receiving commitment is: {:?} with peer id: {:?}",
+					state.tss_process_state,
+					state.local_peer_id
+				);
 			}
 		} else {
-			log::info!(
+			log::debug!(
 				target: TW_LOG,
-				"current tss state for receiving commitment is: {:?} with peer id: {:?}",
-				self.tss_local_state.tss_process_state,
-				self.tss_local_state.local_peer_id
+				"Keygen not started or not a member of shard: {}",
+				shard_id
 			);
 		}
 	}

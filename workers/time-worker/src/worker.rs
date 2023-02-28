@@ -394,7 +394,7 @@ where
 
 			//received commitments of other nodes who are participating in TSS process
 			TSSEventType::ReceiveCommitment(shard_id) => {
-				self.handler_receive_commitment(&tss_gossiped_data.tss_data).await;
+				self.handler_receive_commitment(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 
 			//event received by collector and partial sign request is received

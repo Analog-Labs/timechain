@@ -683,64 +683,75 @@ where
 	}
 
 	//This call is received by participant to verify the threshold signature
-	pub async fn handler_verify_threshold_signature(&mut self, data: &[u8]) {
-		if self.tss_local_state.tss_process_state >= TSSLocalStateType::StateFinished {
-			if let Ok(threshold_signature) = VerifyThresholdSignatureReq::try_from_slice(data) {
-				if self.tss_local_state.msg_pool.get(&threshold_signature.msg_hash).is_some() {
-					let finished_state = match self.tss_local_state.local_finished_state.clone() {
-						Some(finished_state) => finished_state,
-						None => {
-							log::error!(
-								target: TW_LOG,
-								"Unable to get local finished state from local state"
-							);
-							return;
-						},
-					};
-					match threshold_signature
-						.threshold_sign
-						.verify(&finished_state.0, &threshold_signature.msg_hash)
-					{
-						Ok(_) => {
-							//remove event from msg_pool
-							self.tss_local_state.msg_pool.remove(&threshold_signature.msg_hash);
-							self.store_signature(threshold_signature.threshold_sign);
-							log::info!(
-								"length of msg_pool {:?}",
-								self.tss_local_state.msg_pool.len()
-							);
-						},
-						Err(e) => {
-							log::error!(target: TW_LOG, "Could not verify signature: {:?}", e);
-						},
+	pub async fn handler_verify_threshold_signature(&mut self, shard_id: u64, data: &[u8]) {
+		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+			if state.tss_process_state >= TSSLocalStateType::StateFinished {
+				if let Ok(threshold_signature) = VerifyThresholdSignatureReq::try_from_slice(data) {
+					if state.msg_pool.get(&threshold_signature.msg_hash).is_some() {
+						let finished_state = match state.local_finished_state.clone() {
+							Some(finished_state) => finished_state,
+							None => {
+								log::error!(
+									target: TW_LOG,
+									"Unable to get local finished state from local state"
+								);
+								return;
+							},
+						};
+						match threshold_signature
+							.threshold_sign
+							.verify(&finished_state.0, &threshold_signature.msg_hash)
+						{
+							Ok(_) => {
+								//remove event from msg_pool
+								state.msg_pool.remove(&threshold_signature.msg_hash);
+								self.store_signature(threshold_signature.threshold_sign);
+								log::info!("length of msg_pool {:?}", state.msg_pool.len());
+							},
+							Err(e) => {
+								log::error!(target: TW_LOG, "Could not verify signature: {:?}", e);
+							},
+						}
+					} else {
+						log::error!(
+							target: TW_LOG,
+							"Could not find message in local pool for verification"
+						);
 					}
 				} else {
 					log::error!(
 						target: TW_LOG,
-						"Could not find message in local pool for verification"
+						"Could not deserialize VerifiyThresholdSignatureReq"
 					);
 				}
 			} else {
-				log::error!(target: TW_LOG, "Could not deserialize VerifiyThresholdSignatureReq");
+				log::error!(
+					target: TW_LOG,
+					"Node not in correct state to verify threshold signature, {:?}",
+					state.tss_process_state
+				);
 			}
 		} else {
-			log::error!(
+			log::debug!(
 				target: TW_LOG,
-				"Node not in correct state to verify threshold signature, {:?}",
-				self.tss_local_state.tss_process_state
+				"Keygen not started or not a member of shard: {}",
+				shard_id
 			);
 		}
 	}
 
 	//This call resets the tss state data to empty/initial state
-	pub async fn handler_reset_tss_state(&mut self, data: &[u8]) {
+	pub async fn handler_reset_tss_state(&mut self, shard_id: u64, data: &[u8]) {
 		//reset TSS State
 		if let Ok(data) = ResetTSSCall::try_from_slice(data) {
 			log::error!(target: TW_LOG, "Resetting TSS due to reason {} ", data.reason);
 		} else {
 			log::error!(target: TW_LOG, "unable to get reset reason");
 		}
-		self.tss_local_state.reset();
+		// resetting only if state was created
+		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+			state.reset();
+		}
 	}
 
 	//Publishing the data to the network

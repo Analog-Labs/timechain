@@ -95,6 +95,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 		message: Vec<u8>,
 		signature: Vec<u8>,
 	) -> RpcResult<()> {
+		log::info!("===================> data comes  ------");
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			return Err(Error::TimeKeyNotFound.into());

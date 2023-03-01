@@ -414,26 +414,6 @@ impl<T: Config> Pallet<T> {
 	/// Compute payout for era.
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
 		info!("end_era happens log");
-		// reward_worker::pallet::Pallet::
-		// let data = T::RewardWorker::get_reward_acc();
-		// // info!("RewardWorker happens log {:?}", data);
-		// match data  {
-		// 	Err(_) => {
-		// 		log::info!(" Error occurs, its a chronical rewarard ");
-		// 		log::info!(" No account associatedwith chronical Node");
-		// 	},
-		// 	Ok(account) => {
-		// 		log::info!("its a chronical reward account {:?} ----- ", account);
-		// 		let balance1 = T::Currency::total_balance(&account.0);
-		// 		log::info!("Hello World from offchain workers! balance from ====>  {:?} ---- ",
-		// balance1);
-
-		// 	}
-		// 	// Ok(None) => {
-		// 	// 	log::info!(" No account associatedwith chronical Node");
-		// 	// }
-		// }
-		// Note: active_era_start can be None if end era is called during genesis config.
 		if let Some(active_era_start) = active_era.start {
 			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 
@@ -451,23 +431,20 @@ impl<T: Config> Pallet<T> {
 			let cronical_share = percent_from_validator.saturating_add(percent_from_remainder);
 
 			let acc = T::RewardWorker::get_reward_acc();
-			let session_vallet = T::SessionInterface::validators();
-			let mut current_active_validators: Vec<T::AccountId> = vec![];
+			let session_active_validators = T::SessionInterface::validators();
 			match acc {
 				Ok(val) => {
-					session_vallet.iter().for_each(|y| {
+					session_active_validators.iter().for_each(|y| {
 						let exist = val.iter().find(|&x| x.1 == y.clone());
 						match exist {
 							Some(_va) => {
 								info!("Validator account exiist in reward worker storage ");
-								current_active_validators.push(y.clone());
 							},
 							None => {
 								info!(
 									"Validator account  does not exist in reward worker storage "
 								);
 								let _ = T::RewardWorker::insert_validator(y.clone());
-								current_active_validators.push(y.clone());
 							},
 						}
 					});
@@ -476,12 +453,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			let _rep =
-				T::RewardWorker::send_reward_to_acc(cronical_share, current_active_validators);
-
-			session_vallet.iter().for_each(|x| {
-				let balance = T::Currency::total_balance(x);
-				info!(" validator list  -------> {:?}   <<<<<---- {:?}", x, balance);
-			});
+				T::RewardWorker::send_reward_to_acc(cronical_share, session_active_validators);
 
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,

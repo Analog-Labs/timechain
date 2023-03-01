@@ -42,7 +42,6 @@ pub mod pallet {
 	use super::*;
 	// use crate::{types::*, weights::WeightInfo};
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -102,39 +101,13 @@ pub mod pallet {
 	pub(super) type PrevBlockNumber<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyId, T::BlockNumber, OptionQuery>;
 
-	#[pallet::error]
-	pub enum Error<T> {
-		/// not in the chain.
-		Invalid,
-	}
-
 	#[pallet::event]
-	#[pallet::generate_deposit(fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Claimed vesting.
 		BalanceAmount { who: T::AccountId, amount: BalanceOf<T> },
 	}
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		// in progress
-		#[pallet::weight(0)]
-		pub fn submit_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			// Retrieve sender of the transaction.
-			let who = ensure_signed(origin)?;
-			// Add the reward to the on-chain list.
-			let data = T::Currency::total_balance(&who);
-			// data
-			Self::deposit_event(Event::BalanceAmount { who, amount: data });
-			Ok(().into())
-		}
-	}
 
 	impl<T: Config> Pallet<T> {
-		// fn get_balance(who: &T::AccountId) -> Result<BalanceOf<T>, DispatchError> {
-		// 	let data = T::Currency::total_balance(&who);
-		// 	Ok(data)
-		// }
-
 		fn get_reward_account() -> Result<WorkerReturn<T::AccountId>, DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			Ok(data_list)
@@ -150,7 +123,6 @@ pub mod pallet {
 			balance: BalanceOf<T>,
 			curr: Vec<T::AccountId>,
 		) -> Result<(), DispatchError> {
-			// let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u32 = 0;
 			curr.iter().for_each(|_| {
 				length += 1;
@@ -158,7 +130,7 @@ pub mod pallet {
 
 			let balance_paid = Self::div_balance(balance, length);
 			curr.iter().for_each(|item| {
-				log::info!("Balance transfered ====> {:?} --- amount= {:?} ", item, balance_paid);
+				log::info!("Balance transferred. ====> {:?} --- amount= {:?} ", item, balance_paid);
 				let _resp = T::Currency::deposit_into_existing(item, balance_paid);
 			});
 

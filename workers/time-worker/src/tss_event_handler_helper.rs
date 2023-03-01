@@ -1,5 +1,6 @@
 use crate::{inherents::update_shared_group_key, traits::Client, worker::TimeWorker, TW_LOG};
 use borsh::{BorshDeserialize, BorshSerialize};
+use log::{debug, error, info, warn};
 use sc_client_api::Backend;
 use sp_api::{BlockId, ProvideRuntimeApi};
 use sp_blockchain::Backend as BCTrait;
@@ -38,23 +39,30 @@ where
 	/// Initializes keygen and new state for given shard ID
 	pub async fn handler_receive_params(&mut self, shard_id: u64, data: &[u8]) {
 		if let Some(existing_state) = self.tss_local_states.get(&shard_id) {
-			log::error!(
+			error!(
 				target: TW_LOG,
 				"Received params but node is not in empty state {:?}",
 				existing_state.tss_process_state
 			);
 		} else {
+			debug!(target: TW_LOG, "getting peer id");
 			if let Some(local_peer_id) = self.id() {
+				debug!(target: TW_LOG, "got peer id");
 				let mut state = self.create_tss_state();
 
 				if let Ok(peer_id_call) = ReceiveParamsWithPeerCall::try_from_slice(data) {
+					debug!(target: TW_LOG, "parsed peer_id_call");
 					state.tss_params = peer_id_call.params;
 					state.tss_process_state = TSSLocalStateType::ReceivedParams;
+					state.local_peer_id = self.id();
 
 					let peer_id = peer_id_call.peer_id;
 					if !state.others_peer_id.contains(&peer_id) {
 						state.others_peer_id.push(peer_id);
 					}
+
+					self.tss_local_states.insert(shard_id, state);
+					debug!(target: TW_LOG, "Stored state in local");
 
 					if let Ok(peer_id_data) = get_publish_peer_id_msg(local_peer_id.clone()) {
 						//nodes replies to this event with their peer id
@@ -63,22 +71,22 @@ where
 							peer_id_data,
 							TSSEventType::ReceivePeerIDForIndex(shard_id),
 						) {
-							log::debug!("TSS: Sending ReceivePeerIDForIndex");
+							debug!("TSS: Sending ReceivePeerIDForIndex");
 							self.send(data);
 						} else {
-							log::error!(
+							error!(
 								target: TW_LOG,
 								"Unable to encode gossip data for participant creation"
 							);
 						}
 					} else {
-						log::error!(target: TW_LOG, "Unable to get publish peer id msg");
+						error!(target: TW_LOG, "Unable to get publish peer id msg");
 					}
 				} else {
-					log::error!(target: TW_LOG, "Could not deserialize params");
+					error!(target: TW_LOG, "Could not deserialize params");
 				}
 			} else {
-				log::error!(
+				error!(
 					target: TW_LOG,
 					"No ID set for current node. Cant participate in TSS keygen"
 				);
@@ -116,11 +124,7 @@ where
 								let participant = make_participant(params, index);
 								state.local_participant = Some(participant.clone());
 
-								log::info!(
-									target: TW_LOG,
-									"this nodes participant index {}",
-									index
-								);
+								info!(target: TW_LOG, "this nodes participant index {}", index);
 
 								//preparing publish data
 								other_peer_list.push(state.local_peer_id.clone().unwrap());
@@ -139,17 +143,17 @@ where
 							}
 						}
 					} else {
-						log::error!(target: TW_LOG, "PeerID already exists in local state list");
+						error!(target: TW_LOG, "PeerID already exists in local state list");
 					}
 				} else {
-					log::error!(
+					error!(
 						target: TW_LOG,
 						"Received peer id for index but node is not in empty state"
 					);
 				}
 			}
 		} else {
-			log::debug!(target: TW_LOG, "TSS not started or not a member of shard: {}", shard_id);
+			debug!(target: TW_LOG, "TSS not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -193,17 +197,13 @@ where
 					.await;
 				}
 			} else {
-				log::error!(
+				error!(
 					target: TW_LOG,
 					"Received peers with col participant but node is not in empty state"
 				);
 			}
 		} else {
-			log::debug!(
-				target: TW_LOG,
-				"Keygen not started or not a member of shard: {}",
-				shard_id
-			);
+			debug!(target: TW_LOG, "Keygen not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -228,14 +228,14 @@ where
 						let local_index = match state.local_index {
 							Some(index) => index,
 							None => {
-								log::error!(target: TW_LOG, "local index not found");
+								error!(target: TW_LOG, "local index not found");
 								return;
 							},
 						};
 						let participant = match &state.local_participant.clone() {
 							Some(participant) => participant.clone(),
 							None => {
-								log::error!(target: TW_LOG, "local participant not found");
+								error!(target: TW_LOG, "local participant not found");
 								return;
 							},
 						};
@@ -249,11 +249,7 @@ where
 							let secret_shares = match round_one_state.their_secret_shares() {
 								Ok(secret_shares) => secret_shares,
 								Err(e) => {
-									log::error!(
-										target: TW_LOG,
-										"error getting secret shares: {:#?}",
-										e
-									);
+									error!(target: TW_LOG, "error getting secret shares: {:#?}", e);
 									return;
 								},
 							};
@@ -265,7 +261,7 @@ where
 							state.local_dkg_r1_state = Some(round_one_state.clone());
 
 							state.tss_process_state = TSSLocalStateType::DkgGeneratedR1;
-							log::info!(target: TW_LOG, "Keygen phase 1 done");
+							info!(target: TW_LOG, "Keygen phase 1 done");
 
 							//publish everyone's secret share to network
 							self.publish_to_network::<HashMap<u32, SecretShare>>(
@@ -275,26 +271,22 @@ where
 							)
 							.await;
 						} else {
-							log::error!(target: TW_LOG, "error in generating round one state");
+							error!(target: TW_LOG, "error in generating round one state");
 						}
 					}
 				} else {
 					//log error
-					log::error!(target: TW_LOG, "Error deserializing participant");
+					error!(target: TW_LOG, "Error deserializing participant");
 				}
 			} else {
-				log::error!(
+				error!(
 					target: TW_LOG,
 					"Received participant but node is not in correct state: {:?}",
 					state.tss_process_state
 				);
 			}
 		} else {
-			log::debug!(
-				target: TW_LOG,
-				"Keygen not started or not a member of shard: {}",
-				shard_id
-			);
+			debug!(target: TW_LOG, "Keygen not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -308,7 +300,7 @@ where
 					let local_index = match state.local_index {
 						Some(index) => index,
 						None => {
-							log::error!(target: TW_LOG, "unable to get local index");
+							error!(target: TW_LOG, "unable to get local index");
 							return;
 						},
 					};
@@ -325,7 +317,7 @@ where
 							let round_one = match state.local_dkg_r1_state.clone() {
 								Some(round_one) => round_one,
 								None => {
-									log::error!(
+									error!(
 										target: TW_LOG,
 										"Could not get round one state from local state"
 									);
@@ -337,13 +329,13 @@ where
 									state.local_dkg_r2_state = Some(round_two_state.clone());
 
 									state.tss_process_state = TSSLocalStateType::DkgGeneratedR2;
-									log::info!(target: TW_LOG, "Keygen phase 2 done");
+									info!(target: TW_LOG, "Keygen phase 2 done");
 
 									//finish local state progress
 									let participant = match state.local_participant.clone() {
 										Some(participant) => participant,
 										None => {
-											log::error!(
+											error!(
 												target: TW_LOG,
 												"Unable to get local participant from local state"
 											);
@@ -354,7 +346,7 @@ where
 										match participant.0.public_key() {
 											Some(commitment) => commitment,
 											None => {
-												log::error!(target: TW_LOG, "Unable to get commitment from local participant");
+												error!(target: TW_LOG, "Unable to get commitment from local participant");
 												return;
 											},
 										};
@@ -367,17 +359,13 @@ where
 										state.local_public_key = Some(local_secret_key.to_public());
 										state.tss_process_state = TSSLocalStateType::StateFinished;
 
-										log::info!(target: TW_LOG, "==========================");
+										info!(target: TW_LOG, "==========================");
 										let bytes = local_group_key.to_bytes();
-										log::info!(
-											target: TW_LOG,
-											"local group key is: {:?}",
-											bytes
-										);
+										info!(target: TW_LOG, "local group key is: {:?}", bytes);
 										update_shared_group_key(shard_id, bytes);
-										log::info!(target: TW_LOG, "==========================");
+										info!(target: TW_LOG, "==========================");
 									} else {
-										log::error!(
+										error!(
 											target: TW_LOG,
 											"error occured while finishing state"
 										);
@@ -388,10 +376,7 @@ where
 									let index = match state.local_index {
 										Some(index) => index,
 										None => {
-											log::error!(
-												target: TW_LOG,
-												"unable to get local index"
-											);
+											error!(target: TW_LOG, "unable to get local index");
 											return;
 										},
 									};
@@ -408,7 +393,7 @@ where
 										let pubkey = match state.local_public_key.clone() {
 											Some(pubkey) => pubkey,
 											None => {
-												log::error!(
+												error!(
                                             target: TW_LOG, "Unable to get local public key from local state"
                                         );
 												return;
@@ -432,35 +417,27 @@ where
 									}
 								},
 								Err(e) => {
-									log::error!(
-										target: TW_LOG,
-										"Error in round two state: {:#?}",
-										e
-									);
+									error!(target: TW_LOG, "Error in round two state: {:#?}", e);
 								},
 							}
 						} else {
-							log::info!(target: TW_LOG, "Waiting for other nodes secret share");
+							info!(target: TW_LOG, "Waiting for other nodes secret share");
 						}
 					} else {
-						log::error!(target: TW_LOG, "Could not get secret share hash table");
+						error!(target: TW_LOG, "Could not get secret share hash table");
 					}
 				} else {
-					log::error!(target: TW_LOG, "Unable to deserialize secret share TSS Params");
+					error!(target: TW_LOG, "Unable to deserialize secret share TSS Params");
 				}
 			} else {
-				log::error!(
+				error!(
 					target: TW_LOG,
 					"Received secret share but node not in correct state {:?}",
 					state.tss_process_state
 				);
 			}
 		} else {
-			log::debug!(
-				target: TW_LOG,
-				"Keygen not started or not a member of shard: {}",
-				shard_id
-			);
+			debug!(target: TW_LOG, "Keygen not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -479,10 +456,10 @@ where
 
 						let params = state.tss_params;
 						if state.others_commitment_share.len() == (params.n - 1) as usize {
-							log::info!(target: TW_LOG, "Received all commitments");
+							info!(target: TW_LOG, "Received all commitments");
 							state.tss_process_state = TSSLocalStateType::CommitmentsReceived;
 						} else {
-							log::info!(
+							info!(
 								target: TW_LOG,
 								"Not enough commitments, Got {}, Needed {}",
 								state.others_commitment_share.len(),
@@ -490,16 +467,13 @@ where
 							);
 						}
 					} else {
-						log::error!(target: TW_LOG, "Unable to deserialize commitment");
+						error!(target: TW_LOG, "Unable to deserialize commitment");
 					}
 				} else {
-					log::error!(
-						target: TW_LOG,
-						"Received commitment but node not in correct state"
-					);
+					error!(target: TW_LOG, "Received commitment but node not in correct state");
 				}
 			} else {
-				log::info!(
+				info!(
 					target: TW_LOG,
 					"current tss state for receiving commitment is: {:?} with peer id: {:?}",
 					state.tss_process_state,
@@ -507,11 +481,7 @@ where
 				);
 			}
 		} else {
-			log::debug!(
-				target: TW_LOG,
-				"Keygen not started or not a member of shard: {}",
-				shard_id
-			);
+			debug!(target: TW_LOG, "Keygen not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -546,7 +516,7 @@ where
 								let finished_state = match state.local_finished_state.clone() {
 									Some(finished_state) => finished_state,
 									None => {
-										log::error!(
+										error!(
 											target: TW_LOG,
 											"Unable to get local finished state from local state"
 										);
@@ -591,7 +561,7 @@ where
 										for (key, value) in e.into_iter() {
 											//These issues are from the aggregator side and not the
 											// signer side
-											log::error!(target: TW_LOG, "error occured while finalizing aggregator from index {:?} because of {:?}", key, value);
+											error!(target: TW_LOG, "error occured while finalizing aggregator from index {:?} because of {:?}", key, value);
 										}
 										return;
 									},
@@ -604,11 +574,9 @@ where
 										for (key, value) in e.into_iter() {
 											//can also send the indices of participants to
 											// timechain to keep track of that
-											log::error!(
+											error!(
 												target: TW_LOG,
-												"Participant {} misbehaved because {}",
-												key,
-												value
+												"Participant {} misbehaved because {}", key, value
 											);
 										}
 										return;
@@ -620,7 +588,7 @@ where
 									.verify(&finished_state.0, &msg_req.msg_hash)
 								{
 									Ok(_) => {
-										log::info!(
+										info!(
 											target: TW_LOG,
 											"Signature is valid sending to network"
 										);
@@ -655,10 +623,7 @@ where
 										Some(gossip_data)
 									},
 									Err(_) => {
-										log::error!(
-											target: TW_LOG,
-											"Signature computed is invalid"
-										);
+										error!(target: TW_LOG, "Signature computed is invalid");
 										None
 									},
 								};
@@ -680,7 +645,7 @@ where
 								}
 							}
 						} else {
-							log::error!(
+							error!(
 								target: TW_LOG,
 								"data received for signature but msg not in local pool {:?}",
 								state.msg_pool.len()
@@ -688,18 +653,14 @@ where
 						}
 					}
 				} else {
-					log::error!(
+					error!(
 						target: TW_LOG,
 						"Node not in correct state to receive partial signature"
 					);
 				}
 			}
 		} else {
-			log::debug!(
-				target: TW_LOG,
-				"Keygen not started or not a member of shard: {}",
-				shard_id
-			);
+			debug!(target: TW_LOG, "Keygen not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -712,7 +673,7 @@ where
 						let finished_state = match state.local_finished_state.clone() {
 							Some(finished_state) => finished_state,
 							None => {
-								log::error!(
+								error!(
 									target: TW_LOG,
 									"Unable to get local finished state from local state"
 								);
@@ -728,37 +689,30 @@ where
 								state.msg_pool.remove(&threshold_signature.msg_hash);
 								// signature should be stored by aggregator only
 								// self.store_signature(threshold_signature.threshold_sign);
-								log::info!("length of msg_pool {:?}", state.msg_pool.len());
+								info!("length of msg_pool {:?}", state.msg_pool.len());
 							},
 							Err(e) => {
-								log::error!(target: TW_LOG, "Could not verify signature: {:?}", e);
+								error!(target: TW_LOG, "Could not verify signature: {:?}", e);
 							},
 						}
 					} else {
-						log::error!(
+						error!(
 							target: TW_LOG,
 							"Could not find message in local pool for verification"
 						);
 					}
 				} else {
-					log::error!(
-						target: TW_LOG,
-						"Could not deserialize VerifiyThresholdSignatureReq"
-					);
+					error!(target: TW_LOG, "Could not deserialize VerifiyThresholdSignatureReq");
 				}
 			} else {
-				log::error!(
+				error!(
 					target: TW_LOG,
 					"Node not in correct state to verify threshold signature, {:?}",
 					state.tss_process_state
 				);
 			}
 		} else {
-			log::debug!(
-				target: TW_LOG,
-				"Keygen not started or not a member of shard: {}",
-				shard_id
-			);
+			debug!(target: TW_LOG, "Keygen not started or not a member of shard: {}", shard_id);
 		}
 	}
 
@@ -766,9 +720,9 @@ where
 	pub async fn handler_reset_tss_state(&mut self, shard_id: u64, data: &[u8]) {
 		//reset TSS State
 		if let Ok(data) = ResetTSSCall::try_from_slice(data) {
-			log::error!(target: TW_LOG, "Resetting TSS due to reason {} ", data.reason);
+			error!(target: TW_LOG, "Resetting TSS due to reason {} ", data.reason);
 		} else {
-			log::error!(target: TW_LOG, "unable to get reset reason");
+			error!(target: TW_LOG, "unable to get reset reason");
 		}
 		// resetting only if state was created
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
@@ -781,16 +735,16 @@ where
 	where
 		T: BorshSerialize,
 	{
-		log::info!(target: TW_LOG, "sending tss event: {:?}", tss_type);
+		info!(target: TW_LOG, "sending tss event: {:?}", tss_type);
 		if let Ok(encoded_data) = data.try_to_vec() {
 			if let Ok(data) = make_gossip_tss_data(peer_id, encoded_data, tss_type) {
 				self.send(data);
 			} else {
-				log::error!(target: TW_LOG, "error making gossip data for encoded participant");
+				error!(target: TW_LOG, "error making gossip data for encoded participant");
 			}
 		} else {
 			//log error
-			log::error!(target: TW_LOG, "tss error");
+			error!(target: TW_LOG, "tss error");
 		}
 	}
 }
@@ -800,7 +754,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 	let mut my_commitment = match state.local_commitment_share.clone() {
 		Some(commitment) => commitment,
 		None => {
-			log::error!(target: TW_LOG, "Unable to get local commitment share from local state");
+			error!(target: TW_LOG, "Unable to get local commitment share from local state");
 			return;
 		},
 	};
@@ -808,7 +762,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 	let final_state = match state.local_finished_state.clone() {
 		Some(final_state) => final_state,
 		None => {
-			log::error!(target: TW_LOG, "Unable to get local finished state from local state");
+			error!(target: TW_LOG, "Unable to get local finished state from local state");
 			return;
 		},
 	};
@@ -824,7 +778,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 		) {
 			Ok(partial_signature) => partial_signature,
 			Err(e) => {
-				log::error!(target: TW_LOG, "error occured while signing: {:?}", e);
+				error!(target: TW_LOG, "error occured while signing: {:?}", e);
 				return;
 			},
 		};
@@ -836,7 +790,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 			state.others_partial_signature.insert(msg_hash, participant_list);
 		}
 	} else {
-		log::error!(target: TW_LOG, "Message not found in pool");
+		error!(target: TW_LOG, "Message not found in pool");
 	}
 }
 
@@ -853,10 +807,7 @@ pub fn handler_partial_signature_generate_req(
 			let final_state = match state.local_finished_state.clone() {
 				Some(final_state) => final_state,
 				None => {
-					log::error!(
-						target: TW_LOG,
-						"Unable to get local finished state from local state"
-					);
+					error!(target: TW_LOG, "Unable to get local finished state from local state");
 					return None;
 				},
 			};
@@ -864,10 +815,7 @@ pub fn handler_partial_signature_generate_req(
 			let mut my_commitment = match state.local_commitment_share.clone() {
 				Some(commitment) => commitment,
 				None => {
-					log::error!(
-						target: TW_LOG,
-						"Unable to get local commitment share from local state"
-					);
+					error!(target: TW_LOG, "Unable to get local commitment share from local state");
 					return None;
 				},
 			};
@@ -883,7 +831,7 @@ pub fn handler_partial_signature_generate_req(
 				) {
 					Ok(partial_signature) => partial_signature,
 					Err(e) => {
-						log::error!(target: TW_LOG, "error occured while signing: {:?}", e);
+						error!(target: TW_LOG, "error occured while signing: {:?}", e);
 						return None;
 					},
 				};
@@ -900,18 +848,17 @@ pub fn handler_partial_signature_generate_req(
 					TSSEventType::PartialSignatureReceived(shard_id),
 				));
 			} else {
-				log::warn!(
+				warn!(
 					target: TW_LOG,
-					"data received for signing but not in local pool: {:?}",
-					msg_req.msg_hash
+					"data received for signing but not in local pool: {:?}", msg_req.msg_hash
 				);
 				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers);
 			}
 		} else {
-			log::error!(target: TW_LOG, "Unable to deserialize PartialMessageSign");
+			error!(target: TW_LOG, "Unable to deserialize PartialMessageSign");
 		}
 	} else {
-		log::error!(target: TW_LOG, "Node not in correct state to generate partial signature");
+		error!(target: TW_LOG, "Node not in correct state to generate partial signature");
 	}
 	None
 }

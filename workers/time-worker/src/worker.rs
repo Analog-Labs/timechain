@@ -9,10 +9,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use codec::{Decode, Encode};
 use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
-use sc_client_api::{
-	Backend, FinalityNotification, FinalityNotifications, StorageEventStream, StorageKey,
-	StorageNotification,
-};
+use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
@@ -26,11 +23,7 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
-use time_primitives::{
-	crypto::Public,
-	sharding::{Shard, FILTER_PALLET_KEY_BYTES},
-	TimeApi, TimeId, KEY_TYPE,
-};
+use time_primitives::{crypto::Public, sharding::Shard, TimeApi, TimeId, KEY_TYPE};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, SignatureAggregator},
@@ -46,7 +39,6 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	finality_notifications: FinalityNotifications<B>,
-	shard_storage_notifications: StorageEventStream<B::Hash>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
@@ -80,13 +72,6 @@ where
 		// TODO: threshold calc if required
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
-			// TODO: handle this unwrap
-			shard_storage_notifications: client
-				.storage_changes_notification_stream(
-					Some(&[StorageKey(FILTER_PALLET_KEY_BYTES.to_vec())]),
-					None,
-				)
-				.unwrap(),
 			client,
 			backend,
 			runtime,
@@ -108,50 +93,29 @@ where
 		tss_local_state
 	}
 
-	fn on_storage_update(&mut self, notification: StorageNotification<B::Hash>) {
-		// check if any new shards are registered
-		debug!(target: TW_LOG, "Pallet storage udate received.");
-		let keys = self.kv.public_keys();
-		if keys.len() != 1 {
-			error!(target: TW_LOG, "Expected exactly one Time key - can not participate.");
-			return;
-		}
-		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
-		let in_block = BlockId::Hash(notification.block);
-		// TODO: stabilize unwrap
-		let shards = self.runtime.runtime_api().get_shards(&in_block).unwrap();
-		// check if we're member in new shards
-		let new_shards: Vec<_> =
-			shards.into_iter().filter(|(id, _)| self.known_sets.contains(id)).collect();
-		for (id, new_shard) in new_shards {
-			if new_shard.members().contains(&our_key) {
-				// participate in keygen for new shard
-				info!(target: TW_LOG, "Participating in new keygen for id {}", id);
-			} else {
-				debug!(target: TW_LOG, "Not a member of shard {}", id);
-			}
-			self.known_sets.insert(id);
-		}
-	}
-
 	// checks if we're present in specific shard
 	// at latste finalized block
-	fn is_member_of_shard(&self, shart_id: u64) -> bool {
+	fn is_member_of_shard(&self, shard_id: u64) -> bool {
 		let at = self.backend.blockchain().last_finalized().unwrap();
 		if let Some(id) = self.account_id() {
-			if let Ok(Some(members)) =
-				self.runtime.runtime_api().get_shard_members(&BlockId::Hash(at), shart_id)
-			{
-				members.iter().any(|s| s == &id)
+			let at = BlockId::Hash(at);
+			if let Ok(Some(members)) = self.runtime.runtime_api().get_shard_members(&at, shard_id) {
+				let am_member = members.iter().any(|s| s == &id);
+				debug!(target: TW_LOG, "Am a memmber of shard {}?: {}", shard_id, am_member);
+				am_member
 			} else {
+				error!(
+					target: TW_LOG,
+					"Failed to fetch members for shard {} from runtime in block {}", shard_id, at
+				);
 				false
 			}
 		} else {
+			error!(target: TW_LOG, "Failed to construct account");
 			false
 		}
 	}
 
-	#[allow(dead_code)]
 	fn new_keygen_for_new_id(&mut self, shard_id: u64, new_shard: Shard) {
 		let mut state = self.create_tss_state();
 		let keys = self.kv.public_keys();
@@ -216,6 +180,39 @@ where
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
 		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
+		let keys = self.kv.public_keys();
+		if keys.len() != 1 {
+			error!(target: TW_LOG, "Expected exactly one Time key - can not participate.");
+			return;
+		}
+		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
+		info!(target: TW_LOG, "our key: {}", our_key.to_string());
+		let in_block = BlockId::Hash(notification.header.hash());
+		// TODO: stabilize unwrap
+		let shards = self.runtime.runtime_api().get_shards(&in_block).unwrap();
+		info!(target: TW_LOG, "Read shards from runtime {:?}", shards);
+		// check if we're member in new shards
+		let new_shards: Vec<_> =
+			shards.into_iter().filter(|(id, _)| !self.known_sets.contains(id)).collect();
+		for (id, new_shard) in new_shards {
+			info!(
+				target: TW_LOG,
+				"Checking if a member of shard {} with ID: {}",
+				id,
+				our_key.to_string()
+			);
+			if new_shard.members().contains(&our_key) {
+				// participate in keygen for new shard
+				info!(target: TW_LOG, "Participating in new keygen for id {}", id);
+				// collector starts keygen
+				if new_shard.collector() == &our_key {
+					self.new_keygen_for_new_id(id, new_shard);
+				}
+			} else {
+				info!(target: TW_LOG, "Not a member of shard {}", id);
+			}
+			self.known_sets.insert(id);
+		}
 	}
 
 	fn process_sign_message(&mut self, shard_id: u64, data: Vec<u8>) {
@@ -360,16 +357,20 @@ where
 			//nodes will be receiving this event to make participant using params
 			TSSEventType::ReceiveParams(shard_id) => {
 				// check if we're part of given shard
+				debug!(target: TW_LOG, "ReceiveParams for shard: {}", shard_id);
 				if self.is_member_of_shard(shard_id) {
+					debug!(target: TW_LOG, "Am member of {}", shard_id);
 					self.handler_receive_params(shard_id, &tss_gossiped_data.tss_data).await;
 				}
 			},
 			// nodes will receive peer id of other nodes and will add it to their list
 			TSSEventType::ReceivePeerIDForIndex(shard_id) => {
+				debug!(target: TW_LOG, "ReceivePeerIDForIndex for shard: {}", shard_id);
 				self.handler_receive_peer_id_for_index(shard_id, &tss_gossiped_data.tss_data)
 					.await;
 			}, //nodes receives peers with collector participants
 			TSSEventType::ReceivePeersWithColParticipant(shard_id) => {
+				debug!(target: TW_LOG, "receivePeersWithColParticipant for shard: {}", shard_id);
 				self.handler_receiver_peers_with_col_participant(
 					shard_id,
 					&tss_gossiped_data.tss_data,
@@ -378,22 +379,26 @@ where
 			},
 			//nodes will receive participant and will add will go to round one state
 			TSSEventType::ReceiveParticipant(shard_id) => {
+				debug!(target: TW_LOG, "ReceiveParticipant for shard: {}", shard_id);
 				self.handler_receive_participant(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 			//nodes will receive their secret share and take state to round two
 			TSSEventType::ReceiveSecretShare(shard_id) => {
-				info!(target: TW_LOG, "Received ReceiveSecretShare");
+				debug!(target: TW_LOG, "Received ReceiveSecretShare");
 				self.handler_receive_secret_share(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 
 			//received commitments of other nodes who are participating in TSS process
 			TSSEventType::ReceiveCommitment(shard_id) => {
+				debug!(target: TW_LOG, "ReceiveCommitment for shard: {}", shard_id);
 				self.handler_receive_commitment(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 
 			//event received by collector and partial sign request is received
 			TSSEventType::PartialSignatureGenerateReq(shard_id) => {
+				debug!(target: TW_LOG, "PartialSignatureGeneratedReq for shard: {}", shard_id);
 				if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
+					debug!(target: TW_LOG, "Have state for shard: {}", shard_id);
 					handler_partial_signature_generate_req(
 						state,
 						shard_id,
@@ -404,18 +409,21 @@ where
 
 			//received partial signature. threshold signature to be made by aggregator
 			TSSEventType::PartialSignatureReceived(shard_id) => {
+				debug!(target: TW_LOG, "PartialSignatureReceived for shard: {}", shard_id);
 				self.handler_partial_signature_received(shard_id, &tss_gossiped_data.tss_data)
 					.await;
 			},
 
 			//verify threshold signature generated by aggregator
 			TSSEventType::VerifyThresholdSignature(shard_id) => {
+				debug!(target: TW_LOG, "VerifyTHresholdSignature for shard: {}", shard_id);
 				self.handler_verify_threshold_signature(shard_id, &tss_gossiped_data.tss_data)
 					.await;
 			},
 
 			//received resetting tss state request
 			TSSEventType::ResetTSSState(shard_id) => {
+				debug!(target: TW_LOG, "ResetTSSSTate for shard: {}", shard_id);
 				self.handler_reset_tss_state(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 		}
@@ -451,16 +459,6 @@ where
 						"Gossip engine has terminated."
 					);
 					return;
-				},
-				storage_notification = self.shard_storage_notifications.next().fuse() => {
-					if let Some(notification) = storage_notification {
-						self.on_storage_update(notification);
-					} else {
-						debug!(
-							target: TW_LOG,
-							"no new storage notifications"
-						);
-					}
 				},
 				notification = self.finality_notifications.next().fuse() => {
 					if let Some(notification) = notification {

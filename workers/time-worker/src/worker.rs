@@ -1,7 +1,6 @@
 #![allow(clippy::type_complexity)]
 use crate::{
 	communication::validator::{topic, GossipValidator},
-	inherents::update_shared_group_key,
 	kv::TimeKeyvault,
 	tss_event_handler_helper::{aggregator_event_sign, handler_partial_signature_generate_req},
 	Client, WorkerParams, TW_LOG,
@@ -34,7 +33,7 @@ use time_primitives::{
 };
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
-	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
+	frost_dalek::{compute_message_hash, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
 	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
@@ -152,6 +151,7 @@ where
 		}
 	}
 
+	#[allow(dead_code)]
 	fn new_keygen_for_new_id(&mut self, shard_id: u64, new_shard: Shard) {
 		let mut state = self.create_tss_state();
 		let keys = self.kv.public_keys();
@@ -234,7 +234,7 @@ where
 					};
 					let encoded = request.try_to_vec().unwrap();
 					if let Some((peer_id, data, message_type)) =
-						handler_partial_signature_generate_req(state, &encoded)
+						handler_partial_signature_generate_req(state, shard_id, &encoded)
 					{
 						if let Ok(encoded_data) = data.try_to_vec() {
 							if let Ok(data) =
@@ -348,15 +348,9 @@ where
 			warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
 		} else {
-			let id = keys[0];
+			let id = &keys[0];
 			Some(TimeId::decode(&mut id.as_ref()).unwrap())
 		}
-	}
-
-	#[allow(dead_code)]
-	// Using this method each validator can, and should, submit shared `GroupKey` key to runtime
-	pub(crate) fn submit_key_as_inherent(&self, key: [u8; 32], set_id: u64) {
-		update_shared_group_key(set_id, key);
 	}
 
 	/// On each gossip we process it, verify signature and update our tracker
@@ -400,7 +394,11 @@ where
 			//event received by collector and partial sign request is received
 			TSSEventType::PartialSignatureGenerateReq(shard_id) => {
 				if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
-					handler_partial_signature_generate_req(state, &tss_gossiped_data.tss_data);
+					handler_partial_signature_generate_req(
+						state,
+						shard_id,
+						&tss_gossiped_data.tss_data,
+					);
 				}
 			},
 
@@ -421,25 +419,6 @@ where
 				self.handler_reset_tss_state(shard_id, &tss_gossiped_data.tss_data).await;
 			},
 		}
-	}
-
-	/// Sends signature to runtime storage through runtime API
-	/// # Params
-	/// * ts - ThresholdSignature to be stored
-	pub(crate) fn store_signature(&mut self, ts: ThresholdSignature) {
-		let key_bytes = ts.to_bytes();
-		let auth_key = self.kv.public_keys()[0].clone();
-		let at = self.backend.blockchain().last_finalized().unwrap();
-		let signature = self.kv.sign(&auth_key, &key_bytes).unwrap();
-		// FIXME: error handle
-		drop(self.runtime.runtime_api().store_signature(
-			&BlockId::Hash(at),
-			auth_key,
-			signature,
-			key_bytes.to_vec(),
-			// TODO: construct or receive proper id
-			0.into(),
-		));
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested

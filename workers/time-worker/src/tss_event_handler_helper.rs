@@ -1,7 +1,8 @@
-use crate::{traits::Client, worker::TimeWorker, TW_LOG};
+use crate::{inherents::update_shared_group_key, traits::Client, worker::TimeWorker, TW_LOG};
 use borsh::{BorshDeserialize, BorshSerialize};
 use sc_client_api::Backend;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_blockchain::Backend as BCTrait;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::collections::HashMap;
@@ -373,7 +374,7 @@ where
 											"local group key is: {:?}",
 											bytes
 										);
-										self.submit_key_as_inherent(bytes, shard_id);
+										update_shared_group_key(shard_id, bytes);
 										log::info!(target: TW_LOG, "==========================");
 									} else {
 										log::error!(
@@ -615,7 +616,7 @@ where
 								};
 
 								//check for validity of event
-								match threshold_signature
+								let data = match threshold_signature
 									.verify(&finished_state.0, &msg_req.msg_hash)
 								{
 									Ok(_) => {
@@ -635,28 +636,48 @@ where
 										};
 
 										if state.is_node_aggregator {
-											self.store_signature(th);
+											let key_bytes = th.to_bytes();
+											let auth_key = self.kv.public_keys()[0].clone();
+											let at =
+												self.backend.blockchain().last_finalized().unwrap();
+											let signature =
+												self.kv.sign(&auth_key, &key_bytes).unwrap();
+											// FIXME: error handle
+											drop(self.runtime.runtime_api().store_signature(
+												&BlockId::Hash(at),
+												auth_key,
+												signature,
+												key_bytes.to_vec(),
+												// TODO: construct or receive proper id
+												0.into(),
+											));
 										}
-										self.publish_to_network(
-											local_peer_id,
-											gossip_data,
-											TSSEventType::VerifyThresholdSignature(shard_id),
-										)
-										.await;
+										Some(gossip_data)
 									},
 									Err(_) => {
 										log::error!(
 											target: TW_LOG,
 											"Signature computed is invalid"
 										);
+										None
 									},
-								}
+								};
 
 								//reset partial signature
 								state.others_partial_signature.remove(&msg_req.msg_hash);
 
 								//remove event from msg_pool
 								state.msg_pool.remove(&msg_req.msg_hash);
+
+								// publish back to network
+								if let Some(data) = data {
+									self.publish_to_network(
+										local_peer_id,
+										data,
+										TSSEventType::VerifyThresholdSignature(shard_id),
+									)
+									.await;
+								}
 							}
 						} else {
 							log::error!(
@@ -705,7 +726,8 @@ where
 							Ok(_) => {
 								//remove event from msg_pool
 								state.msg_pool.remove(&threshold_signature.msg_hash);
-								self.store_signature(threshold_signature.threshold_sign);
+								// signature should be stored by aggregator only
+								// self.store_signature(threshold_signature.threshold_sign);
 								log::info!("length of msg_pool {:?}", state.msg_pool.len());
 							},
 							Err(e) => {
@@ -755,7 +777,7 @@ where
 	}
 
 	//Publishing the data to the network
-	pub async fn publish_to_network<T>(&self, peer_id: String, data: T, tss_type: TSSEventType)
+	pub async fn publish_to_network<T>(&mut self, peer_id: String, data: T, tss_type: TSSEventType)
 	where
 		T: BorshSerialize,
 	{
@@ -821,6 +843,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 //This call is received by participant to generate its partial signature
 pub fn handler_partial_signature_generate_req(
 	state: &mut TSSLocalStateData,
+	shard_id: u64,
 	data: &[u8],
 ) -> Option<(String, ReceivePartialSignatureReq, TSSEventType)> {
 	let local_peer_id = state.local_peer_id.clone().unwrap();
@@ -871,7 +894,11 @@ pub fn handler_partial_signature_generate_req(
 				};
 
 				//publish partial signature to network
-				return Some((local_peer_id, gossip_data, TSSEventType::PartialSignatureReceived));
+				return Some((
+					local_peer_id,
+					gossip_data,
+					TSSEventType::PartialSignatureReceived(shard_id),
+				));
 			} else {
 				log::warn!(
 					target: TW_LOG,

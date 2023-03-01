@@ -2,6 +2,8 @@
 use crate::WorkerParams;
 // use connector::get_latest_block;
 use core::time;
+use diesel::prelude::*;
+use diesel::sql_query;
 use futures::channel::mpsc::Sender;
 use log::warn;
 use sp_api::ProvideRuntimeApi;
@@ -49,20 +51,48 @@ where
 			_block: PhantomData,
 		}
 	}
+	fn establish() -> PgConnection {
+		let database_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
+		PgConnection::establish(&database_url)
+			.expect(&format!("Error connecting to {}", database_url))
+	}
+	async fn listen_for_table_updates() {
+		// let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
+		// let pg_conn = PgConnection::establish(conn_url);
+		let conn = Self::establish();
+		// Listen for updates to the `users` table
+		let stmt = sql_query("LISTEN table_update");
+		diesel::sql_query("LISTEN table_update").execute(&mut conn).unwrap();
 
+		// Wait for notifications
+		loop {
+			let notification = diesel::sql_query("SELECT * FROM pg_notification")
+				.get_result::<(String, String)>(&mut conn);
+
+			match notification {
+				Ok(n) => {
+					if n.0 == "table_update" {
+						// Handle the update here
+						println!("Table update received: {}", n.1);
+					}
+				},
+				Err(_) => continue,
+			}
+		}
+	}
 	pub fn get_swap_data_from_db() -> Vec<u8> {
-		// let conn_url =  "postgresql://localhost/timechain?user=postgres&password=postgres";
-		// let mut pg_conn = establish_connection(Some(conn_url));
-		// let data = get_on_chain_data(&mut pg_conn, 0);
+		let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
+		let mut pg_conn = establish_connection(Some(conn_url));
+		let data = get_on_chain_data(&mut pg_conn, 10);
 
-		// log::info!("data from db = {:?}", data);
+		log::info!("data from db = {:?}", data);
 
 		return vec![1, 2];
 	}
 
 	pub async fn get_latest_block() -> Vec<Vec<u8>> {
 		let websocket = web3::transports::WebSocket::new(
-			&env::var("INFURA_URL").expect("INFURA_URL must be set"),
+			"wss://goerli.infura.io/ws/v3/0e188b05227b4af7a7a4a93a6282b0c8",
 		)
 		.await
 		.unwrap();
@@ -88,19 +118,19 @@ where
 		let mut log_vec = vec![vec![]];
 		let result = log_vec.clone();
 
-		thread::spawn(move || {
-			sub.for_each(move |log| {
-				match log {
-					Ok(log) => {
-						let my_struct_bytes = serialize(&log).unwrap();
-						println!("==>{:?}", my_struct_bytes);
-						log_vec.push(my_struct_bytes);
-					},
-					Err(e) => log::info!("getting error {:?}", e),
-				}
-				future::ready(())
-			})
-		});
+		// thread::spawn(move || {
+		// 	sub.for_each(move |log| {
+		// 		match log {
+		// 			Ok(log) => {
+		// 				let my_struct_bytes = serialize(&log).unwrap();
+		// 				println!("==>{:?}", my_struct_bytes);
+		// 				log_vec.push(my_struct_bytes);
+		// 			},
+		// 			Err(e) => log::info!("getting error {:?}", e),
+		// 		}
+		// 		future::ready(())
+		// 	})
+		// });
 		return result;
 	}
 
@@ -110,23 +140,24 @@ where
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
-				let result = sign_data_sender_clone
-					.lock()
-					.await
-					.try_send((1, Self::get_swap_data_from_db()));
-				match result {
-					Ok(_) => warn!("+++++++++++++ sign_data_sender_clone ok"),
-					Err(_) => warn!("+++++++++++++ sign_data_sender_clone err"),
-				}
+				Self::get_swap_data_from_db();
+				// let result = sign_data_sender_clone
+				// 	.lock()
+				// 	.await
+				// 	.try_send((1, Self::get_swap_data_from_db()));
+				// match result {
+				// 	Ok(_) => warn!("+++++++++++++ sign_data_sender_clone ok"),
+				// 	Err(_) => warn!("+++++++++++++ sign_data_sender_clone err"),
+				// }
 
-				let x = Self::get_latest_block().await;
-				if x.len() > 0 {
-					let result = sign_data_sender_clone.lock().await.try_send((1, x[0].clone()));
-					match result {
-						Ok(_) => warn!("=> sign_data_sender_clone ok"),
-						Err(_) => warn!("=> sign_data_sender_clone err"),
-					}
-				}
+				// let x = Self::get_latest_block().await;
+				// if x.len() > 0 {
+				// 	let result = sign_data_sender_clone.lock().await.try_send((1, x[0].clone()));
+				// 	match result {
+				// 		Ok(_) => warn!("=> sign_data_sender_clone ok"),
+				// 		Err(_) => warn!("=> sign_data_sender_clone err"),
+				// 	}
+				// }
 				thread::sleep(delay);
 			}
 		}

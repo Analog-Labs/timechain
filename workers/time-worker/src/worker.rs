@@ -23,7 +23,7 @@ use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, signature::ThresholdSignature, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
-	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
+	tss_event_model::{PartialMessageSign, TSSData, TSSEventType, TSSLocalStateType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
@@ -272,6 +272,9 @@ where
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {
+				if self.tss_local_state.tss_process_state != TSSLocalStateType::StateFinished {
+					return
+				}
 					if let Some((_group_id, data)) = new_sig {
 						// do sig
 						let context = self.tss_local_state.context;

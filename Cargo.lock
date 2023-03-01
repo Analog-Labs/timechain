@@ -1010,6 +1010,7 @@ dependencies = [
  "bincode",
  "borsh",
  "connector",
+ "diesel",
  "fnv",
  "frame-support",
  "futures",

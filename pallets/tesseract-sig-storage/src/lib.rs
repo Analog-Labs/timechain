@@ -23,7 +23,8 @@ pub mod pallet {
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		ForeignEventId, SignatureData,
+		sharding::Shard,
+		ForeignEventId, SignatureData, TimeId,
 	};
 
 	pub trait WeightInfo {
@@ -59,9 +60,8 @@ pub mod pallet {
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
 	#[pallet::storage]
-	#[pallet::getter(fn tss_set)]
-	pub type TssSet<T: Config> =
-		StorageMap<_, Blake2_128Concat, u64, Vec<T::AccountId>, OptionQuery>;
+	#[pallet::getter(fn tss_shards)]
+	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, Shard, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
@@ -95,12 +95,18 @@ pub mod pallet {
 		/// .0 - set_id,
 		/// .1 - group key bytes
 		NewTssGroupKey(u64, [u8; 32]),
+
+		/// Shard has ben registered with new Id
+		ShardRegistered(u64),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The Tesseract address in not known
 		UnknownTesseract,
+
+		/// Shard registartion failed
+		ShardRegistrationFailed,
 	}
 
 	#[pallet::inherent]
@@ -224,6 +230,36 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		/// Root can register new shard via providing not used set_id and
+		/// set of IDs matching one of supported size of shard
+		/// # Param
+		/// * set_id - not yet used ID of new shard
+		/// * members - supported sized set of shard members Id
+		#[pallet::weight(1_000_000)]
+		pub fn register_shard(
+			origin: OriginFor<T>,
+			set_id: u64,
+			members: Vec<TimeId>,
+			collector: Option<TimeId>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(!<TssShards<T>>::contains_key(set_id), "Shard already registered.");
+			if let Ok(mut shard) = Shard::try_from(members) {
+				// we set specified collector if required
+				if let Some(collector) = collector {
+					ensure!(
+						shard.set_collector(&collector).is_ok(),
+						"Collector is not member of given set."
+					);
+				}
+				<TssShards<T>>::insert(set_id, shard);
+				Self::deposit_event(Event::ShardRegistered(set_id));
+				Ok(().into())
+			} else {
+				Err(Error::<T>::ShardRegistrationFailed.into())
+			}
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -253,6 +289,11 @@ pub mod pallet {
 			<SignatureStoreData<T>>::insert(event_id, storage_data);
 
 			Self::deposit_event(Event::SignatureStored(event_id));
+		}
+
+		// Getter method for runtime api storage access
+		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter().collect()
 		}
 	}
 }

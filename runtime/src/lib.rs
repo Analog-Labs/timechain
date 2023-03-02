@@ -16,15 +16,13 @@ use frame_support::traits::Imbalance;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::Decode;
+use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
-// use sp_staking::SessionIndex;
-// use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
@@ -1273,6 +1271,14 @@ impl_runtime_apis! {
 			event_id: time_primitives::ForeignEventId)
 		{
 			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
+		}
+
+		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
+			Some(TesseractSigStorage::tss_shards(shard_id)?.members())
+		}
+
+		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
+			TesseractSigStorage::api_tss_shards()
 		}
 	}
 

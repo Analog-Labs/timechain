@@ -23,10 +23,8 @@ pub mod pallet {
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData, TaskId,
+		ForeignEventId, SignatureData,
 	};
-
-	type BlockHeight = u64;
 
 	pub trait WeightInfo {
 		fn add_member() -> Weight;
@@ -71,22 +69,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		TaskId,
-		Blake2_128Concat,
-		BlockHeight,
-		SignatureStorage<T::Moment>,
-		OptionQuery,
-	>;
+	pub type SignatureStoreData<T: Config> =
+		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureStorage<T::Moment>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The event data for stored signature
 		/// the signature id that uniquely identify the signature
-		SignatureStored(SignatureData),
+		SignatureStored(ForeignEventId),
 
 		/// A tesseract Node has been added as a member with it's role
 		TesseractMemberAdded(T::AccountId, TesseractRole),
@@ -177,16 +168,15 @@ pub mod pallet {
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
-			task_id: TaskId,
-			block_height: u64,
+			event_id: ForeignEventId,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
 			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
 
-			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
+			<SignatureStoreData<T>>::insert(event_id, storage_data);
 
-			Self::deposit_event(Event::SignatureStored(signature_data));
+			Self::deposit_event(Event::SignatureStored(event_id));
 
 			Ok(())
 		}
@@ -241,8 +231,7 @@ pub mod pallet {
 			auth_id: Public,
 			auth_sig: Signature,
 			signature_data: SignatureData,
-			task_id: TaskId,
-			block_height: u64,
+			event_id: ForeignEventId,
 		) {
 			use sp_runtime::traits::AppVerify;
 			// transform AccountId32 int T::AccountId
@@ -259,11 +248,11 @@ pub mod pallet {
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
 				return;
 			}
-			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
+			let storage_data = SignatureStorage::new(signature_data, T::Timestamp::now());
 
-			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
+			<SignatureStoreData<T>>::insert(event_id, storage_data);
 
-			Self::deposit_event(Event::SignatureStored(signature_data));
+			Self::deposit_event(Event::SignatureStored(event_id));
 		}
 	}
 }

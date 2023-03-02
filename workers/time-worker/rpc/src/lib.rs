@@ -4,6 +4,7 @@ use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
+	tracing::info,
 	types::{error::CallError, ErrorObject},
 };
 use std::sync::Arc;
@@ -70,10 +71,8 @@ pub trait TimeRpcApi {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message_a: [u8; 32],
-		message_b: [u8; 32],
-		signature_a: [u8; 32],
-		signature_b: [u8; 32],
+		message: String,
+		signature: String,
 	) -> RpcResult<()>;
 }
 
@@ -95,11 +94,12 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message_a: [u8; 32],
-		message_b: [u8; 32],
-		signature_a: [u8; 32],
-		signature_b: [u8; 32],
+		message_data: String,
+		signature_str: String,
 	) -> RpcResult<()> {
+		info!("data received ===> message == {}  |  signature == {}", message_data, signature_str);
+		let message = message_data.into_bytes();
+		let signature = signature_str.into_bytes();
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			return Err(Error::TimeKeyNotFound.into());

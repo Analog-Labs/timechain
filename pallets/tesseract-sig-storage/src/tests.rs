@@ -2,6 +2,7 @@ use super::mock::*;
 use crate::types::{SignatureData, SignatureStorage, TesseractRole};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use time_primitives::ForeignEventId;
 
 #[test]
 fn it_works_adding_tesseract_member() {
@@ -41,8 +42,6 @@ fn it_works_removing_tesseract_member() {
 #[test]
 fn test_signature_storage() {
 	let sig_data: SignatureData = "this_is_the_signature_data_1".as_bytes().to_owned();
-	let task_id = 1;
-	let block_height = 1;
 	new_test_ext().execute_with(|| {
 		// We first add the Tesseract as a member with root privilege
 		assert_ok!(TesseractSigStorage::add_member(
@@ -51,18 +50,16 @@ fn test_signature_storage() {
 			TesseractRole::Collector
 		));
 
+		let event_id: ForeignEventId = rand::random::<u128>().into();
+
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(1).into(),
 			sig_data.clone(),
-			task_id,
-			block_height
+			event_id
 		));
 
 		let storage_data = SignatureStorage::new(sig_data.clone(), Timestamp::now());
 
-		assert_eq!(
-			TesseractSigStorage::signature_storage(task_id, block_height),
-			Some(storage_data)
-		);
+		assert_eq!(TesseractSigStorage::signature_storage(event_id), Some(storage_data));
 	});
 }

@@ -637,7 +637,9 @@ where
 										threshold_sign: threshold_signature,
 									};
 
-									self.store_signature(th);
+									if self.tss_local_state.is_node_aggregator {
+										self.store_signature(th);
+									}
 									self.publish_to_network(
 										local_peer_id,
 										gossip_data,
@@ -741,10 +743,10 @@ where
 			},
 		};
 
-		if let Some(msg) = self.tss_local_state.msg_pool.get(&msg_hash) {
+		if self.tss_local_state.msg_pool.contains_key(&msg_hash) {
 			//making partial signature here
 			let partial_signature = match final_state.1.sign(
-				msg,
+				&msg_hash,
 				&final_state.0,
 				&mut my_commitment.1,
 				0,
@@ -764,14 +766,6 @@ where
 				let participant_list = vec![partial_signature.clone()];
 				self.tss_local_state.others_partial_signature.insert(msg_hash, participant_list);
 			}
-
-			// sending new sig back to network
-			self.publish_to_network(
-				self.tss_local_state.local_peer_id.clone().unwrap(),
-				partial_signature,
-				TSSEventType::PartialSignatureGenerateReq,
-			)
-			.await;
 		} else {
 			log::error!("TSS::Message not found in pool");
 		}

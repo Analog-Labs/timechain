@@ -4,9 +4,9 @@ use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
-	tracing::info,
 	types::{error::CallError, ErrorObject},
 };
+use log::info;
 use std::sync::Arc;
 use time_primitives::rpc::SignRpcPayload;
 use time_worker::kv::TimeKeyvault;
@@ -98,15 +98,19 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 		signature_str: String,
 	) -> RpcResult<()> {
 		info!("data received ===> message == {}  |  signature == {}", message_data, signature_str);
-		let message = message_data.into_bytes();
-		let signature = signature_str.into_bytes();
+		let message = hex::decode(message_data).map_err(|_| Error::SigVerificationFailure)?;
+		let signature = hex::decode(signature_str).map_err(|_| Error::SigVerificationFailure)?;
+		if message.len() != 64 || signature.len() != 64 {
+			info!("sig or message length is not 64");
+			return Err(Error::SigVerificationFailure.into());
+		}
+		let message = arrayref::array_ref!(message, 0, 64).to_owned();
+		let signature = arrayref::array_ref!(signature, 0, 64).to_owned();
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			return Err(Error::TimeKeyNotFound.into());
 		}
-		let mut message = message_a.to_vec();
-		message.extend(message_b);
-		let payload = SignRpcPayload::new(group_id, message_a, message_b, signature_a, signature_b);
+		let payload = SignRpcPayload::new(group_id, message, signature);
 		if payload.verify(keys[0].clone()) {
 			self.signer
 				.lock()

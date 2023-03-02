@@ -139,20 +139,6 @@ where
 						self.send(msg);
 			*/
 			// initialize TSS
-			// TODO: assign collector role to at most one node for protocol to work
-			//let collector_id_bytes =
-			//	hex::decode("48640c12bc1b351cf4b051ac1cf7b5740765d02e34989d0a9dd935ce054ebb21")
-			//		.unwrap();
-			//let collector_id = sp_application_crypto::sr25519::Public::from_raw(
-			//	array_bytes::vec2array(collector_id_bytes).unwrap(),
-			//);
-			//#[allow(unused_mut)]
-			//let mut for_tests = false;
-			//// we allow alice to be collector and aggregator in tests
-			//#[cfg(test)]
-			//if id == crate::tests::kv_tests::Keyring::Alice.public() {
-			//	for_tests = true;
-			//}
 			let collector_id = new_shard.collector();
 			if id == Public::decode(&mut &collector_id.encode()[..]).unwrap() {
 				state.is_node_collector = true;
@@ -179,23 +165,23 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>) {
-		info!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
+		debug!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			error!(target: TW_LOG, "Expected exactly one Time key - can not participate.");
 			return;
 		}
 		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
-		info!(target: TW_LOG, "our key: {}", our_key.to_string());
+		debug!(target: TW_LOG, "our key: {}", our_key.to_string());
 		let in_block = BlockId::Hash(notification.header.hash());
 		// TODO: stabilize unwrap
 		let shards = self.runtime.runtime_api().get_shards(&in_block).unwrap();
-		info!(target: TW_LOG, "Read shards from runtime {:?}", shards);
+		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		// check if we're member in new shards
 		let new_shards: Vec<_> =
 			shards.into_iter().filter(|(id, _)| !self.known_sets.contains(id)).collect();
 		for (id, new_shard) in new_shards {
-			info!(
+			debug!(
 				target: TW_LOG,
 				"Checking if a member of shard {} with ID: {}",
 				id,
@@ -203,13 +189,13 @@ where
 			);
 			if new_shard.members().contains(&our_key) {
 				// participate in keygen for new shard
-				info!(target: TW_LOG, "Participating in new keygen for id {}", id);
+				debug!(target: TW_LOG, "Participating in new keygen for id {}", id);
 				// collector starts keygen
 				if new_shard.collector() == &our_key {
 					self.new_keygen_for_new_id(id, new_shard);
 				}
 			} else {
-				info!(target: TW_LOG, "Not a member of shard {}", id);
+				debug!(target: TW_LOG, "Not a member of shard {}", id);
 			}
 			self.known_sets.insert(id);
 		}
@@ -239,26 +225,22 @@ where
 							{
 								self.gossip_engine.gossip_message(topic::<B>(), data, false);
 							} else {
-								log::error!(
-									"TSS::error making gossip data for encoded participant"
-								);
+								error!("TSS::error making gossip data for encoded participant");
 							}
 						} else {
 							//log error
-							log::error!("TSS::tss error");
+							error!("TSS::tss error");
 						}
 					}
 					state.msgs_signature_pending.remove(&msg_hash);
 				} else {
-					log::debug!(
+					debug!(
 						target: TW_LOG,
-						"New data for signing received: {:?} with hash {:?}",
-						data,
-						msg_hash
+						"New data for signing received: {:?} with hash {:?}", data, msg_hash
 					);
 				}
 			} else {
-				log::warn!(
+				warn!(
 					target: TW_LOG,
 					"Message with hash {} is already in process of signing",
 					hex::encode(msg_hash)
@@ -308,7 +290,7 @@ where
 					TSSEventType::PartialSignatureGenerateReq(shard_id),
 				) {
 					self.send(data);
-					info!(target: TW_LOG, "TSS peer collection req sent");
+					debug!(target: TW_LOG, "TSS peer collection req sent");
 				} else {
 					error!(
 						target: TW_LOG,
@@ -323,7 +305,7 @@ where
 	}
 
 	pub(crate) fn send(&mut self, msg: Vec<u8>) {
-		info!(target: TW_LOG, "Sending new gossip message");
+		debug!(target: TW_LOG, "Sending new gossip message");
 		self.gossip_engine.gossip_message(topic::<B>(), msg, false);
 	}
 
@@ -332,7 +314,7 @@ where
 		match self.kv.public_keys() {
 			keys if !keys.is_empty() => Some(keys[0].to_string()),
 			_ => {
-				log::warn!("TSS: No local peer identity ");
+				warn!("TSS: No local peer identity ");
 				None
 			},
 		}
@@ -352,7 +334,7 @@ where
 
 	/// On each gossip we process it, verify signature and update our tracker
 	async fn on_gossip(&mut self, tss_gossiped_data: TSSData) {
-		info!(target: TW_LOG, "Processing new gossip");
+		debug!(target: TW_LOG, "Processing new gossip");
 		match tss_gossiped_data.tss_event_type {
 			//nodes will be receiving this event to make participant using params
 			TSSEventType::ReceiveParams(shard_id) => {

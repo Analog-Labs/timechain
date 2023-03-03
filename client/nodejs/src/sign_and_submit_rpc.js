@@ -1,6 +1,6 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { sha512AsU8a, keccak256AsU8a } from '@polkadot/util-crypto';
-import { stringToU8a, u8aToHex } from '@polkadot/util';
+import * as $ from 'scale-codec';
 
 const wsProvider = new WsProvider('ws://127.0.0.1:9943');
 const api = await ApiPromise.create({
@@ -16,11 +16,11 @@ const api = await ApiPromise.create({
                     },
                     {
                         name: 'message',
-                        type: 'String'
+                        type: 'Vec<u8>'
                     },
                     {
                         name: 'signature',
-                        type: 'String'
+                        type: 'Vec<u8>'
                     }
                 ],
                 type: 'RpcResult<((), u32)>'
@@ -33,14 +33,14 @@ const kv = new Keyring({type: 'sr25519'});
 const pair = kv.addFromUri(phrase);
 
 let input_data = '{"key": "value"}';
-const message = stringToU8a(input_data);
-const message_hash = keccak256AsU8a(message);
+const message = keccak256AsU8a(input_data);
+const message_hash = message.encode();
 console.log('hash length is ', message_hash.length);
-const message_data = u8aToHex(message_hash);
-const signature = u8aToHex(pair.sign(message_hash))
-console.log('Message: ', message_data);
+const signature = pair.sign(message_hash).encode();
+console.log('sig_vec: ', sig_vec);
+console.log('Message: ', message_hash);
 console.log('Signature:', signature);
-const resp = await api.rpc.time.submitForSigning(0, message_data, signature);
+//const resp = await api.rpc.time.submitForSigning(123, message_hash, signature);
 
 console.log('Submitted data for signing: ', resp);
 

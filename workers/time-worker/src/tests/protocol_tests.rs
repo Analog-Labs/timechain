@@ -557,7 +557,7 @@ fn finalize_3_voters_no_observers() {
 	net.block_until_sync();
 
 	for i in 0..3 {
-		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{} failed to sync", i);
+		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{i} failed to sync");
 	}
 
 	let net = Arc::new(Mutex::new(net));

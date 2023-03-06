@@ -8994,6 +8994,7 @@ dependencies = [
 name = "time-primitives"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arrayref",
  "parity-scale-codec 3.4.0",
  "scale-info",

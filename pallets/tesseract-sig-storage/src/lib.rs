@@ -255,7 +255,7 @@ pub mod pallet {
 				}
 				<TssShards<T>>::insert(set_id, shard);
 				Self::deposit_event(Event::ShardRegistered(set_id));
-				Ok(().into())
+				Ok(())
 			} else {
 				Err(Error::<T>::ShardRegistrationFailed.into())
 			}

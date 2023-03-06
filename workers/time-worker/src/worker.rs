@@ -28,7 +28,7 @@ use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, SignatureAggregator},
 	local_state_struct::TSSLocalStateData,
-	tss_event_model::{PartialMessageSign, TSSData, TSSEventType, TSSLocalStateType},
+	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
 	utils::{get_receive_params_msg, make_gossip_tss_data},
 };
 
@@ -248,59 +248,62 @@ where
 			}
 			//creating signature aggregator for msg
 			if state.is_node_aggregator {
-				//all nodes should share the same message hash
-				//to verify the threshold signature
-				let mut aggregator = SignatureAggregator::new(
-					state.tss_params,
-					state.local_finished_state.clone().unwrap().0,
-					&context,
-					&data,
-				);
+				if let Some(local_state) = state.local_finished_state.clone() {
+					//all nodes should share the same message hash
+					//to verify the threshold signature
+					let mut aggregator =
+						SignatureAggregator::new(state.tss_params, local_state.0, &context, &data);
 
-				for com in state.others_commitment_share.clone() {
+					for com in state.others_commitment_share.clone() {
+						aggregator.include_signer(
+							com.public_commitment_share_list.participant_index,
+							com.public_commitment_share_list.commitments[0],
+							com.public_key,
+						);
+					}
+
+					//including aggregator as a signer
 					aggregator.include_signer(
-						com.public_commitment_share_list.participant_index,
-						com.public_commitment_share_list.commitments[0],
-						com.public_key,
+						state.local_index.unwrap(),
+						state.local_commitment_share.clone().unwrap().0.commitments[0],
+						state.local_public_key.clone().unwrap(),
 					);
+
+					//this signers list will be used by other nodes to verify themselves.
+					let signers = aggregator.get_signers();
+					state.current_signers = signers.clone();
+
+					// //sign msg from aggregator side
+					aggregator_event_sign(state, msg_hash);
+
+					let sign_msg_req = PartialMessageSign {
+						msg_hash,
+						signers: signers.clone(),
+					};
+
+					if let Ok(data) = make_gossip_tss_data(
+						state.local_peer_id.clone().unwrap_or_default(),
+						sign_msg_req.try_to_vec().unwrap(),
+						TSSEventType::PartialSignatureGenerateReq(shard_id),
+					) {
+						self.send(data);
+						debug!(target: TW_LOG, "TSS peer collection req sent");
+					} else {
+						error!(
+							target: TW_LOG,
+							"Failed to pack TSS message for signing hash: {}",
+							hex::encode(msg_hash)
+						);
+					}
 				}
-
-				//including aggregator as a signer
-				aggregator.include_signer(
-					state.local_index.unwrap(),
-					state.local_commitment_share.clone().unwrap().0.commitments[0],
-					state.local_public_key.clone().unwrap(),
-				);
-
-				//this signers list will be used by other nodes to verify themselves.
-				let signers = aggregator.get_signers();
-				state.current_signers = signers.clone();
-
-				// //sign msg from aggregator side
-				aggregator_event_sign(state, msg_hash);
-
-				let sign_msg_req = PartialMessageSign {
-					msg_hash,
-					signers: signers.clone(),
-				};
-
-				if let Ok(data) = make_gossip_tss_data(
-					state.local_peer_id.clone().unwrap_or_default(),
-					sign_msg_req.try_to_vec().unwrap(),
-					TSSEventType::PartialSignatureGenerateReq(shard_id),
-				) {
-					self.send(data);
-					debug!(target: TW_LOG, "TSS peer collection req sent");
-				} else {
-					error!(
-						target: TW_LOG,
-						"Failed to pack TSS message for signing hash: {}",
-						hex::encode(msg_hash)
-					);
-				}
+			} else {
+				error!(target: TW_LOG, "Given shard ID is not found {shard_id}");
 			}
 		} else {
-			error!(target: TW_LOG, "Given shard ID is not found {shard_id}");
+			warn!(
+				target: TW_LOG,
+				"Local finished state for given shard ID {} not found!", shard_id
+			);
 		}
 	}
 

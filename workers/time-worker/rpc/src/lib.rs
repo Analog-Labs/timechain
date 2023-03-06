@@ -71,8 +71,8 @@ pub trait TimeRpcApi {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: String,
-		signature: String,
+		message: Vec<u8>,
+		signature: Vec<u8>,
 	) -> RpcResult<()>;
 }
 
@@ -94,12 +94,10 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message_data: String,
-		signature_str: String,
+		message: Vec<u8>,
+		signature: Vec<u8>,
 	) -> RpcResult<()> {
-		info!("data received ===> message == {}  |  signature == {}", message_data, signature_str);
-		let message = hex::decode(message_data).map_err(|_| Error::SigVerificationFailure)?;
-		let signature = hex::decode(signature_str).map_err(|_| Error::SigVerificationFailure)?;
+		info!("data received ===> message == {:?}  |  signature == {:?}", message, signature);
 		if message.len() != 64 || signature.len() != 64 {
 			info!("sig or message length is not 64");
 			return Err(Error::SigVerificationFailure.into());

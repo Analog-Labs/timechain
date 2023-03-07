@@ -9,34 +9,36 @@ use models::*;
 
 const DEFAULT_LIMIT: i64 = 1000;
 
-pub fn establish_connection(conn_url: Option<&str>) -> PgConnection {
+pub fn establish_connection(conn_url: Option<&str>) -> Result<PgConnection, String> {
 	dotenv().ok();
 
 	match conn_url {
 		Some(url) =>
-			PgConnection::establish(url).unwrap_or_else(|_| panic!("Error connecting to {url}")),
+			PgConnection::establish(url).map_err(|_| format!("Error connecting to {url}.")),
 		None => {
-			let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-			PgConnection::establish(&database_url)
-				.unwrap_or_else(|_| panic!("Error connecting to {database_url}"))
+			let url = env::var("DATABASE_URL").map_err(|_| "Error the DATABASE_URL not set.")?;
+			PgConnection::establish(&url).map_err(|_| format!("Error connecting to {url}"))
 		},
 	}
 }
 
-pub fn get_on_chain_data(conn: &mut PgConnection, min_id: i32) -> Vec<OnChainData> {
+pub fn get_on_chain_data(
+	conn: &mut PgConnection,
+	min_id: i32,
+) -> Result<Vec<OnChainData>, &'static str> {
 	use self::schema::on_chain_data::dsl::*;
 
 	on_chain_data
 		.filter(data_id.lt(min_id))
 		.limit(DEFAULT_LIMIT)
 		.load::<OnChainData>(conn)
-		.expect("Error loading data")
+		.map_err(|_| "Can't load data from on_chain_data table.")
 }
 
 #[ignore]
 #[test]
 fn get_data() {
 	let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-	let mut pg_conn = establish_connection(Some(conn_url));
-	let _data = get_on_chain_data(&mut pg_conn, 0);
+	let mut pg_conn = establish_connection(Some(conn_url)).unwrap();
+	let _data = get_on_chain_data(&mut pg_conn, 0).unwrap();
 }

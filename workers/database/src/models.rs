@@ -1,7 +1,8 @@
 use diesel::prelude::*;
+use serde::Serialize;
 use std::time::SystemTime;
 
-#[derive(Queryable, PartialEq, Debug)]
+#[derive(Queryable, PartialEq, Debug, Serialize)]
 pub struct OnChainData {
 	pub data_id: i32,
 	pub task_id: i32,

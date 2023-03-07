@@ -1304,7 +1304,7 @@ impl_runtime_apis! {
 	// 		OnchainTask::get_next_task_id().unwrap_or_default()
 	// 	}
 	// }
-	 
+
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {

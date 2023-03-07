@@ -21,10 +21,9 @@ use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::{TimeApi};
-use traits::Client;
+use time_primitives::TimeApi;
 use tokio::{self, sync::Mutex as TokioMutex};
-
+use traits::Client;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "⌛time-worker";

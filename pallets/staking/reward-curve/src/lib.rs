@@ -305,9 +305,11 @@ impl INPoS {
 			return u32::MAX;
 		}
 		// Note: the log term calculated here represents a per_million value
-		let log = log2(self.i_ideal_times_x_ideal - self.i_0, y - self.i_0);
+		let log =
+			log2(self.i_ideal_times_x_ideal.saturating_sub(self.i_0), y.saturating_sub(self.i_0));
 
-		let term: u32 = ((self.d as u64 * log as u64) / 1_000_000).try_into().unwrap();
+		let term: u32 =
+			((self.d as u64 * log as u64).saturating_div(1_000_000)).try_into().unwrap();
 
 		self.x_ideal + term
 	}

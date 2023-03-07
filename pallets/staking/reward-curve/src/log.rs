@@ -10,11 +10,16 @@ fn taylor_term(k: u32, y_num: u128, y_den: u128) -> u32 {
 	let _2_div_ln_2: u128 = 2_885_390u128;
 
 	if k == 0 {
-		(_2_div_ln_2 * (y_num).pow(1) / (y_den).pow(1)).try_into().unwrap()
+		let y_den_val = (y_den).pow(1);
+		let y_num_val = (y_num).pow(1);
+		(_2_div_ln_2.saturating_mul(y_num_val.saturating_div(y_den_val)))
+			.try_into()
+			.unwrap()
 	} else {
-		let mut res = _2_div_ln_2 * (y_num).pow(3) / (y_den).pow(3);
+		let mut res = _2_div_ln_2.saturating_mul((y_num).pow(3).saturating_div((y_den).pow(3))); // _2_div_ln_2 * (y_num).pow(3) / (y_den).pow(3);
 		for _ in 1..k {
-			res = res * (y_num).pow(2) / (y_den).pow(2);
+			res = res.saturating_mul((y_num).pow(2).saturating_div((y_den).pow(2))); //res * (y_num).pow(2) /
+			                                                             // (y_den).pow(2);
 		}
 		res /= 2 * k as u128 + 1;
 
@@ -44,17 +49,17 @@ pub fn log2(p: u32, q: u32) -> u32 {
 
 	// find the power of 2 where q * 2^n <= p < q * 2^(n+1)
 	let mut n = 0u32;
-	while (p < pow2!(n) * q) || (p >= pow2!(n + 1) * q) {
+	while (p < pow2!(n).saturating_mul(q)) || (p >= pow2!(n + 1).saturating_mul(q)) {
 		n += 1;
 		assert!(n < 32); // cannot represent 2^32 in u32
 	}
-	assert!(p < pow2!(n + 1) * q);
+	assert!(p < pow2!(n + 1).saturating_mul(q));
 
-	let y_num: u32 = p - pow2!(n) * q;
-	let y_den: u32 = p + pow2!(n) * q;
+	let y_num: u32 = p.saturating_sub(pow2!(n).saturating_mul(q)); // p - pow2!(n) * q;
+	let y_den: u32 = p.saturating_add(pow2!(n).saturating_mul(q)); // p + pow2!(n) * q;
 
 	// Loop through each Taylor series coefficient until it reaches 10^-6
-	let mut res = n * 1_000_000u32;
+	let mut res = n.saturating_mul(1_000_000u32);
 	let mut k = 0;
 	loop {
 		let term = taylor_term(k, y_num.into(), y_den.into());
@@ -74,11 +79,13 @@ fn test_log() {
 	let div = 1_000;
 	for p in 0..=div {
 		for q in 1..=p {
-			let p: u32 = (1_000_000_u64 * p as u64 / div as u64).try_into().unwrap();
-			let q: u32 = (1_000_000_u64 * q as u64 / div as u64).try_into().unwrap();
+			let p: u32 = (1_000_000_u64 * p / div).try_into().unwrap();
+			// let p: u32 = (1_000_000_u64 * p as u64 / div as u64).try_into().unwrap();
+			let q: u32 = (1_000_000_u64 * q / div).try_into().unwrap();
 
 			let res = -(log2(p, q) as i64);
-			let expected = ((q as f64 / p as f64).log(2.0) * 1_000_000_f64).round() as i64;
+			let val_result: f64 = (q / p).try_into().unwrap();
+			let expected = (val_result.log(2.0) * 1_000_000_f64).round() as i64;
 			assert!((res - expected).abs() <= 6);
 		}
 	}

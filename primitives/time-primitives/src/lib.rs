@@ -122,26 +122,4 @@ fn foreign_event_id_construction_test() {
 		ForeignEventId::from(1208925819614629174771713),
 		ForeignEventId::from_bits(1, 1, 1, 0, 0)
 	);
-<<<<<<< HEAD
-pub trait Balance:
-	AtLeast32BitUnsigned + FullCodec + Copy + Default + Debug + scale_info::TypeInfo + MaxEncodedLen
-{
-}
-impl<
-		T: AtLeast32BitUnsigned
-			+ FullCodec
-			+ Copy
-			+ Default
-			+ Debug
-			+ scale_info::TypeInfo
-			+ MaxEncodedLen,
-	> Balance for T
-{
-}
-
-pub trait WorkerTrait<AccountId, Balance> {
-	fn get_reward_acc() -> Result<Vec<(AccountId, AccountId)>, DispatchError>;
-	fn send_reward_to_acc(balance: Balance) -> Result<(), DispatchError>;
-=======
->>>>>>> 12fd3ba (fmt check)
 }

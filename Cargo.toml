@@ -10,7 +10,9 @@ members = [
     "primitives/time-primitives",
     "tesseract/tss",
     "tesseract/accounts",
-    "tesseract/events"
+    "tesseract/events",
+    "pallets/task-metadata",
+    "pallets/task-schedule"
 ]
 
 [profile.release]

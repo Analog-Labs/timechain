@@ -38,7 +38,6 @@ use sp_runtime::{
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
-
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -987,6 +986,9 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
+impl task_metadata::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1015,6 +1017,7 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
+		TaskMeta: task_metadata,
 	}
 );
 

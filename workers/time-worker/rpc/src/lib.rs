@@ -107,14 +107,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 				}
 				let payload = SignRpcPayload::new(group_id, message, signature);
 				if payload.verify(keys[0].clone()) {
-					self.signer
-						.lock()
-						.await
-						.send((
-							payload.group_id,
-							message.try_into().map_err(|_| Error::SigVerificationFailure)?,
-						))
-						.await?;
+					self.signer.lock().await.send((payload.group_id, message)).await?;
 					Ok(())
 				} else {
 					Err(Error::SigVerificationFailure.into())

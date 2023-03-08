@@ -431,7 +431,7 @@ fn initialize_grandpa(
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
-	peers: Vec<(usize, &TimeKeyring, API, Arc<TokioMutex<Receiver<(u64, Vec<u8>)>>>)>,
+	peers: Vec<(usize, &TimeKeyring, API, Arc<TokioMutex<Receiver<(u64, [u8; 32])>>>)>,
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default,

@@ -1,6 +1,5 @@
 //! RPC API for Time Worker
 #![allow(clippy::type_complexity)]
-use codec::Decode;
 use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
@@ -99,31 +98,32 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 		signature: String,
 	) -> RpcResult<()> {
 		info!("data received ===> message == {:?}  |  signature == {:?}", message, signature);
-		let message: [u8; 32] =
-			Decode::decode(&mut hex::decode(&message[2..]).unwrap().as_ref()).unwrap();
-		//if message.len() != 64 || signature.len() != 64 {
-		//	info!("sig or message length is not 64");
-		//	return Err(Error::SigVerificationFailure.into());
-		//}
-		let signature: [u8; 64] =
-			Decode::decode(&mut hex::decode(&signature[2..]).unwrap().as_ref()).unwrap();
-		let keys = self.kv.public_keys();
-		if keys.len() != 1 {
-			return Err(Error::TimeKeyNotFound.into());
-		}
-		let payload = SignRpcPayload::new(group_id, message, signature);
-		if payload.verify(keys[0].clone()) {
-			self.signer
-				.lock()
-				.await
-				.send((
-					payload.group_id,
-					message.try_into().map_err(|_| Error::SigVerificationFailure)?,
-				))
-				.await?;
-			Ok(())
+		if let Ok(message) = serde_json::from_str::<[u8; 32]>(&message) {
+			if let Ok(signature) = serde_json::from_str::<Vec<u8>>(&signature) {
+				let signature: [u8; 64] = arrayref::array_ref!(signature, 0, 64).to_owned();
+				let keys = self.kv.public_keys();
+				if keys.len() != 1 {
+					return Err(Error::TimeKeyNotFound.into());
+				}
+				let payload = SignRpcPayload::new(group_id, message, signature);
+				if payload.verify(keys[0].clone()) {
+					self.signer
+						.lock()
+						.await
+						.send((
+							payload.group_id,
+							message.try_into().map_err(|_| Error::SigVerificationFailure)?,
+						))
+						.await?;
+					Ok(())
+				} else {
+					Err(Error::SigVerificationFailure.into())
+				}
+			} else {
+				return Err(Error::SigVerificationFailure.into());
+			}
 		} else {
-			Err(Error::SigVerificationFailure.into())
+			return Err(Error::SigVerificationFailure.into());
 		}
 	}
 }

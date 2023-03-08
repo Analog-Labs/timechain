@@ -8579,6 +8579,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "sc-rpc",
  "serde",
+ "serde_json",
  "sp-core",
  "sp-runtime",
  "thiserror",

@@ -111,12 +111,15 @@ where
 					}
 				}
 
-				let x = Self::get_latest_block().await;
-				if x.len() > 0 {
-					let result = sign_data_sender_clone.lock().await.try_send((1, x[0].clone()));
-					match result {
-						Ok(_) => warn!("=> sign_data_sender_clone ok"),
-						Err(_) => warn!("=> sign_data_sender_clone err"),
+				let events_from_eth = Self::get_latest_block().await;
+				if events_from_eth.len() > 0 {
+					for event in events_from_eth.iter() {
+						let result =
+							sign_data_sender_clone.lock().await.try_send((1, event.clone()));
+						match result {
+							Ok(_) => warn!("sign_data_sender_clone ok"),
+							Err(_) => warn!("sign_data_sender_clone err"),
+						}
 					}
 				}
 				thread::sleep(delay);

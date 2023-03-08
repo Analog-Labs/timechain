@@ -1,6 +1,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod abstraction;
 pub mod inherents;
 pub mod rpc;
 pub mod sharding;
@@ -13,7 +14,6 @@ use sp_runtime::{
 	MultiSignature,
 };
 use sp_std::{borrow::ToOwned, fmt::Debug, vec::Vec};
-
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
 

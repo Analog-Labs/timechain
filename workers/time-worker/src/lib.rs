@@ -45,7 +45,7 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
-	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 64])>>>,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
 pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
@@ -56,7 +56,7 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub sync_oracle: SO,
 	pub kv: TimeKeyvault,
-	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 64])>>>,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
 /// Start the Timeworker gadget.

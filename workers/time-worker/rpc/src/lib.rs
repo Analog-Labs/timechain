@@ -1,5 +1,6 @@
 //! RPC API for Time Worker
 #![allow(clippy::type_complexity)]
+use codec::Decode;
 use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
@@ -71,20 +72,20 @@ pub trait TimeRpcApi {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: Vec<u8>,
-		signature: Vec<u8>,
+		message: String,
+		signature: String,
 	) -> RpcResult<()>;
 }
 
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
-	signer: Arc<Mutex<Sender<(u64, [u8; 64])>>>,
+	signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
 
 impl TimeRpcApiHandler {
 	/// Constructor takes channel of TSS set id and hash of the event to sign
-	pub fn new(signer: Arc<Mutex<Sender<(u64, [u8; 64])>>>, kv: TimeKeyvault) -> Self {
+	pub fn new(signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>, kv: TimeKeyvault) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -94,16 +95,18 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: Vec<u8>,
-		signature: Vec<u8>,
+		message: String,
+		signature: String,
 	) -> RpcResult<()> {
 		info!("data received ===> message == {:?}  |  signature == {:?}", message, signature);
-		if message.len() != 64 || signature.len() != 64 {
-			info!("sig or message length is not 64");
-			return Err(Error::SigVerificationFailure.into());
-		}
-		let message = arrayref::array_ref!(message, 0, 64).to_owned();
-		let signature = arrayref::array_ref!(signature, 0, 64).to_owned();
+		let message: [u8; 32] =
+			Decode::decode(&mut hex::decode(&message[2..]).unwrap().as_ref()).unwrap();
+		//if message.len() != 64 || signature.len() != 64 {
+		//	info!("sig or message length is not 64");
+		//	return Err(Error::SigVerificationFailure.into());
+		//}
+		let signature: [u8; 64] =
+			Decode::decode(&mut hex::decode(&signature[2..]).unwrap().as_ref()).unwrap();
 		let keys = self.kv.public_keys();
 		if keys.len() != 1 {
 			return Err(Error::TimeKeyNotFound.into());

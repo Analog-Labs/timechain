@@ -41,7 +41,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 64])>>>,
+	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
 	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
@@ -201,7 +201,7 @@ where
 		}
 	}
 
-	fn process_sign_message(&mut self, shard_id: u64, data: [u8; 64]) {
+	fn process_sign_message(&mut self, shard_id: u64, data: [u8; 32]) {
 		// do sig
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let context = state.context;

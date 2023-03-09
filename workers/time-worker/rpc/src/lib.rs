@@ -6,6 +6,7 @@ use jsonrpsee::{
 	proc_macros::rpc,
 	types::{error::CallError, ErrorObject},
 };
+use log::info;
 use std::sync::Arc;
 use time_primitives::rpc::SignRpcPayload;
 use time_worker::kv::TimeKeyvault;
@@ -70,19 +71,20 @@ pub trait TimeRpcApi {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: Vec<u8>,
-		signature: Vec<u8>,
+		message: String,
+		signature: String,
 	) -> RpcResult<()>;
 }
 
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
-	signer: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
 
 impl TimeRpcApiHandler {
-	pub fn new(signer: Arc<Mutex<Sender<(u64, Vec<u8>)>>>, kv: TimeKeyvault) -> Self {
+	/// Constructor takes channel of TSS set id and hash of the event to sign
+	pub fn new(signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>, kv: TimeKeyvault) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -92,20 +94,29 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(
 		&self,
 		group_id: u64,
-		message: Vec<u8>,
-		signature: Vec<u8>,
+		message: String,
+		signature: String,
 	) -> RpcResult<()> {
-		log::info!("===================> data comes  ------");
-		let keys = self.kv.public_keys();
-		if keys.len() != 1 {
-			return Err(Error::TimeKeyNotFound.into());
-		}
-		let payload = SignRpcPayload::new(group_id, message, signature);
-		if payload.verify(keys[0].clone()) {
-			self.signer.lock().await.send((payload.group_id, payload.message)).await?;
-			Ok(())
+		info!("data received ===> message == {:?}  |  signature == {:?}", message, signature);
+		if let Ok(message) = serde_json::from_str::<[u8; 32]>(&message) {
+			if let Ok(signature) = serde_json::from_str::<Vec<u8>>(&signature) {
+				let signature: [u8; 64] = arrayref::array_ref!(signature, 0, 64).to_owned();
+				let keys = self.kv.public_keys();
+				if keys.len() != 1 {
+					return Err(Error::TimeKeyNotFound.into());
+				}
+				let payload = SignRpcPayload::new(group_id, message, signature);
+				if payload.verify(keys[0].clone()) {
+					self.signer.lock().await.send((payload.group_id, message)).await?;
+					Ok(())
+				} else {
+					Err(Error::SigVerificationFailure.into())
+				}
+			} else {
+				return Err(Error::SigVerificationFailure.into());
+			}
 		} else {
-			Err(Error::SigVerificationFailure.into())
+			return Err(Error::SigVerificationFailure.into());
 		}
 	}
 }

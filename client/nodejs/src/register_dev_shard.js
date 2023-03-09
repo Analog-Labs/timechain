@@ -1,5 +1,6 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { sha512AsU8a, keccak256AsU8a } from '@polkadot/util-crypto';
+import { stringToU8a, u8aToHex } from '@polkadot/util';
 
 const wsProvider = new WsProvider('ws://127.0.0.1:9943');
 const api = await ApiPromise.create({
@@ -22,28 +23,25 @@ const api = await ApiPromise.create({
                         type: 'String'
                     }
                 ],
-                type: 'Result<(), u32>'
+                type: 'RpcResult<((), u32)>'
             }
         }
     }
 });
-const phrase = "owner word vocal dose decline sunset battle example forget excite gentle waste//1//time";
+
+const time1 = "0x78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d";
+const time2 = "0xcee262950a61e921ac72217fd5578c122bfc91ba5c0580dbfbe42148cf35be2b";
+const time3 = "0xa01b6ceec7fb1d32bace8ffcac21ffe6839d3a2ebe26d86923be9dd94c0c9a02";
+const phrase = "//Alice";
 const kv = new Keyring({type: 'sr25519'});
 const pair = kv.addFromUri(phrase);
 
-// this should be exact message from source chain
-let input_data = '{"key": "value"}';
-// hash it with keccak256
-const message = keccak256AsU8a(input_data);
-// format into json array of bytes
-const message_hash = '[' + message.toString('hex') + ']';
-// sign using sr25519 pair
-const raw_sig = pair.sign(message);
-// format into json array of bytes
-const signature = '[' + raw_sig.toString('hex') + ']';
-// submit :)
-const resp = await api.rpc.time.submitForSigning(123, message_hash, signature);
-// confirm it worked
-console.log('Submitted data for signing: ', resp);
+const unsub = await api.tx.sudo
+  .sudo(
+    api.tx.tesseractSigStorage.registerShard(123, [time1, time2, time3], null)
+  )
+  .signAndSend(pair, (result) => { 
+  console.log('Result of shard creation: ', resul)  
+});
 
 process.exit(0)

@@ -123,3 +123,4 @@ fn test_log_of_largest_input() {
 	let tolerance = 100;
 	assert!((log2(p, q) as i32 - expected as i32).abs() < tolerance);
 }
+

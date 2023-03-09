@@ -1280,6 +1280,10 @@ impl_runtime_apis! {
 		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::api_tss_shards()
 		}
+
+		fn report_misbehavior(ofender: time_primitives::TimeId, reporter: TimeId, proof: time_primitives::crypto::Signature) {
+			TesseractSigStorage::api_report_misbehavior(ofender, reporter, proof);
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

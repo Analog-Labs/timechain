@@ -19,7 +19,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
-	use sp_std::{result, vec::Vec};
+	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
@@ -71,6 +71,11 @@ pub mod pallet {
 	#[pallet::getter(fn signature_storage)]
 	pub type SignatureStoreData<T: Config> =
 		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureStorage<T::Moment>, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn reported_ofences)]
+	pub type ReportedOfences<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -294,6 +299,24 @@ pub mod pallet {
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().collect()
+		}
+
+		/// Method to provide misbehavior report to runtime
+		/// Is protected with proven ownership of private key to prevent spam
+		pub fn api_report_misbehavior(
+			ofender: time_primitives::TimeId,
+			reporter: TimeId,
+			proof: time_primitives::crypto::Signature,
+		) {
+			// verify signature
+			<ReportedOfences<T>>::mutate(ofender, |o| {
+				// check riched threshold
+				// add if not
+				let mut hs = BTreeSet::new();
+				hs.insert(reporter);
+				drop(o.insert((1, hs)));
+				// move to commitment if reached
+			});
 		}
 	}
 }

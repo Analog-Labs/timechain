@@ -3,6 +3,7 @@ use crate::WorkerParams;
 use bincode::serialize;
 use core::time;
 use futures::channel::mpsc::Sender;
+use ink::env::hash;
 use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -20,7 +21,7 @@ use worker_aurora::{self, establish_connection, get_on_chain_data};
 pub struct ConnectorWorker<B: Block, R> {
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
-	sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
 
@@ -47,20 +48,26 @@ where
 		}
 	}
 
-	pub fn get_swap_data_from_db() -> Vec<Vec<u8>> {
+	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
+		let mut output = <hash::Keccak256 as hash::HashOutput>::Type::default();
+		ink::env::hash_bytes::<hash::Keccak256>(input, &mut output);
+		output
+	}
+
+	pub fn get_swap_data_from_db() -> Vec<[u8; 32]> {
 		let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
 		let mut pg_conn = establish_connection(Some(conn_url));
 		let tasks_from_db = get_on_chain_data(&mut pg_conn, 10);
 
-		let mut tasks_from_db_bytes = vec![vec![]];
+		let mut tasks_from_db_bytes: Vec<[u8; 32]> = Vec::new();
 		for task in tasks_from_db.iter() {
-			let task_in_bytes = serialize(task).unwrap();
-			tasks_from_db_bytes.push(task_in_bytes);
+			let task_in_bytes: &[u8] = &serialize(task).unwrap();
+			tasks_from_db_bytes.push(Self::hash_keccak_256(task_in_bytes));
 		}
 		return tasks_from_db_bytes;
 	}
 
-	pub async fn get_latest_block() -> Vec<Vec<u8>> {
+	pub async fn get_latest_block() -> Vec<[u8; 32]> {
 		let websocket = web3::transports::WebSocket::new(
 			"wss://goerli.infura.io/ws/v3/0e188b05227b4af7a7a4a93a6282b0c8",
 		)
@@ -77,15 +84,15 @@ where
 
 		let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
 
-		let mut log_vec = vec![vec![]];
+		let mut log_vec: Vec<[u8; 32]> = Vec::new();
 		let result = log_vec.clone();
 
 		thread::spawn(move || {
 			sub.for_each(move |log| {
 				match log {
 					Ok(log) => {
-						let log_in_bytes = serialize(&log).unwrap();
-						log_vec.push(log_in_bytes);
+						let log_in_bytes: &[u8] = &serialize(&log).unwrap();
+						log_vec.push(Self::hash_keccak_256(log_in_bytes));
 					},
 					Err(e) => log::info!("getting error {:?}", e),
 				}
@@ -103,19 +110,19 @@ where
 			if !keys.is_empty() {
 				let tasks_in_byte = Self::get_swap_data_from_db();
 				if tasks_in_byte.len() > 0 {
-					let result =
-						sign_data_sender_clone.lock().await.try_send((1, tasks_in_byte[0].clone()));
-					match result {
-						Ok(_) => warn!("sign_data_sender_clone ok"),
-						Err(_) => warn!("sign_data_sender_clone err"),
+					for task in tasks_in_byte.iter() {
+						let result = sign_data_sender_clone.lock().await.try_send((1, *task));
+						match result {
+							Ok(_) => warn!("sign_data_sender_clone ok"),
+							Err(_) => warn!("sign_data_sender_clone err"),
+						}
 					}
 				}
 
 				let events_from_eth = Self::get_latest_block().await;
 				if events_from_eth.len() > 0 {
 					for event in events_from_eth.iter() {
-						let result =
-							sign_data_sender_clone.lock().await.try_send((1, event.clone()));
+						let result = sign_data_sender_clone.lock().await.try_send((1, *event));
 						match result {
 							Ok(_) => warn!("sign_data_sender_clone ok"),
 							Err(_) => warn!("sign_data_sender_clone err"),

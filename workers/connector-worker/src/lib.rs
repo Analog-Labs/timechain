@@ -32,13 +32,13 @@ where
 	pub runtime: Arc<R>,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
-	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 }
 
 pub(crate) struct WorkerParams<B, R> {
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
-	pub sign_data_sender: Arc<Mutex<Sender<(u64, Vec<u8>)>>>,
+	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
 

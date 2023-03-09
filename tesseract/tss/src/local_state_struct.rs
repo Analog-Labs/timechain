@@ -5,7 +5,11 @@ use frost_dalek::{
 	DistributedKeyGeneration, GroupKey, IndividualPublicKey, Parameters, Participant,
 };
 use sp_keystore::SyncCryptoStore;
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	fmt,
+	sync::Arc,
+};
 
 use crate::{
 	tss_event_model::{OthersCommitmentShares, TSSLocalStateType},
@@ -34,7 +38,7 @@ pub struct TSSLocalStateData {
 	pub local_commitment_share: Option<(PublicCommitmentShareList, SecretCommitmentShareList)>,
 	pub others_commitment_share: Vec<OthersCommitmentShares>,
 	pub others_partial_signature: HashMap<[u8; 64], Vec<PartialThresholdSignature>>,
-	pub msg_pool: HashMap<[u8; 64], Vec<u8>>,
+	pub msg_pool: HashSet<[u8; 64]>,
 	pub msgs_signature_pending: HashMap<[u8; 64], Vec<Signer>>,
 	pub current_signers: Vec<Signer>,
 }
@@ -90,7 +94,7 @@ impl TSSLocalStateData {
 			local_commitment_share: None,
 			others_commitment_share: vec![],
 			others_partial_signature: HashMap::new(),
-			msg_pool: HashMap::new(),
+			msg_pool: HashSet::new(),
 			msgs_signature_pending: HashMap::new(),
 			current_signers: vec![],
 		}
@@ -112,7 +116,7 @@ impl TSSLocalStateData {
 		self.local_commitment_share = None;
 		self.others_commitment_share = vec![];
 		self.others_partial_signature = HashMap::new();
-		self.msg_pool = HashMap::new();
+		self.msg_pool = HashSet::new();
 		self.msgs_signature_pending = HashMap::new();
 		self.current_signers = vec![];
 	}

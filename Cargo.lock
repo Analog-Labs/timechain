@@ -9053,13 +9053,16 @@ dependencies = [
 name = "time-worker-rpc"
 version = "0.1.0"
 dependencies = [
+ "arrayref",
  "futures",
+ "hex",
  "jsonrpsee",
  "log",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "sc-rpc",
  "serde",
+ "serde_json",
  "sp-core",
  "sp-runtime",
  "thiserror",

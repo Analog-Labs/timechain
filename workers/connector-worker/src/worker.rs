@@ -69,7 +69,7 @@ where
 
 	pub async fn get_latest_block() -> Vec<[u8; 32]> {
 		let websocket = web3::transports::WebSocket::new(
-			"wss://goerli.infura.io/ws/v3/0e188b05227b4af7a7a4a93a6282b0c8",
+			"wss://goerli.infura.io/ws/v3/<ADD-your-infura-id>",
 		)
 		.await
 		.unwrap();

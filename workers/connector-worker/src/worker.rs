@@ -68,11 +68,10 @@ where
 	}
 
 	pub async fn get_latest_block() -> Vec<[u8; 32]> {
-		let websocket = web3::transports::WebSocket::new(
-			"wss://goerli.infura.io/ws/v3/<ADD-your-infura-id>",
-		)
-		.await
-		.unwrap();
+		let websocket =
+			web3::transports::WebSocket::new("wss://goerli.infura.io/ws/v3/<ADD-your-infura-id>")
+				.await
+				.unwrap();
 		let web3 = web3::Web3::new(websocket);
 		let latest_block =
 			web3.eth().block(BlockId::Number(BlockNumber::Latest)).await.unwrap().unwrap();

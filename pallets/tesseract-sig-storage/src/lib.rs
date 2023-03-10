@@ -16,9 +16,11 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::types::*;
-	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
+	use frame_support::{pallet_prelude::*, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
+	use sp_application_crypto::ByteArray;
+	use sp_runtime::traits::{AppVerify, Scale};
 	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
 	use time_primitives::{
 		crypto::{Public, Signature},
@@ -308,15 +310,20 @@ pub mod pallet {
 			reporter: TimeId,
 			proof: time_primitives::crypto::Signature,
 		) {
-			// verify signature
-			<ReportedOfences<T>>::mutate(ofender, |o| {
-				// check riched threshold
-				// add if not
-				let mut hs = BTreeSet::new();
-				hs.insert(reporter);
-				drop(o.insert((1, hs)));
-				// move to commitment if reached
-			});
+			if let Ok(reporter_pub) = Public::from_slice(reporter.as_ref()) {
+				// verify signature
+				if !proof.verify(ofender.as_ref(), &reporter_pub) {
+					return;
+				}
+				<ReportedOfences<T>>::mutate(ofender, |o| {
+					// check riched threshold
+					// add if not
+					let mut hs = BTreeSet::new();
+					hs.insert(reporter);
+					drop(o.insert((1, hs)));
+					// move to commitment if reached
+				});
+			}
 		}
 	}
 }

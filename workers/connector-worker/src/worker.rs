@@ -2,12 +2,14 @@
 use crate::WorkerParams;
 use bincode::serialize;
 use core::time;
+use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
+// use std::env;
 use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, str::FromStr, sync::Arc, thread};
+use std::{env, marker::PhantomData, str::FromStr, sync::Arc, thread};
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use web3::{
@@ -56,7 +58,7 @@ where
 
 	pub fn get_swap_data_from_db() -> Vec<[u8; 32]> {
 		let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-		let mut pg_conn = establish_connection(Some(conn_url));
+		let mut pg_conn = establish_connection(Some(&conn_url));
 		let tasks_from_db = get_on_chain_data(&mut pg_conn, 10);
 
 		let mut tasks_from_db_bytes: Vec<[u8; 32]> = Vec::new();
@@ -68,10 +70,11 @@ where
 	}
 
 	pub async fn get_latest_block() -> Vec<[u8; 32]> {
-		let websocket =
-			web3::transports::WebSocket::new("wss://goerli.infura.io/ws/v3/<ADD-your-infura-id>")
-				.await
-				.unwrap();
+		dotenv().ok();
+
+		let infura_url = env::var("INFURA_URL").expect("INFURA_URL must be set");
+
+		let websocket = web3::transports::WebSocket::new(&infura_url).await.unwrap();
 		let web3 = web3::Web3::new(websocket);
 		let latest_block =
 			web3.eth().block(BlockId::Number(BlockNumber::Latest)).await.unwrap().unwrap();

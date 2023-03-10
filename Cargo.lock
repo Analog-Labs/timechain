@@ -1016,6 +1016,7 @@ dependencies = [
  "borsh",
  "connector",
  "diesel",
+ "dotenvy",
  "fnv",
  "frame-support",
  "futures",

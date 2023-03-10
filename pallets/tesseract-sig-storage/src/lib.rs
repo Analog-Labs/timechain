@@ -20,7 +20,10 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
-	use sp_runtime::traits::{AppVerify, Scale};
+	use sp_runtime::{
+		traits::{AppVerify, Scale},
+		Percent, SaturatedConversion,
+	};
 	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
 	use time_primitives::{
 		crypto::{Public, Signature},
@@ -75,8 +78,13 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureStorage<T::Moment>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn reported_ofences)]
-	pub type ReportedOfences<T: Config> =
+	#[pallet::getter(fn reported_offences)]
+	pub type ReportedOffences<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn commited_offences)]
+	pub type CommitedOffences<T: Config> =
 		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
 
 	#[pallet::event]
@@ -105,6 +113,10 @@ pub mod pallet {
 
 		/// Shard has ben registered with new Id
 		ShardRegistered(u64),
+
+		/// Offence report verification failed
+		/// Identifies sender of faulty offence report
+		OffenceReportFailure(TimeId),
 	}
 
 	#[pallet::error]
@@ -306,23 +318,43 @@ pub mod pallet {
 		/// Method to provide misbehavior report to runtime
 		/// Is protected with proven ownership of private key to prevent spam
 		pub fn api_report_misbehavior(
-			ofender: time_primitives::TimeId,
+			shard_id: u64,
+			offender: time_primitives::TimeId,
 			reporter: TimeId,
 			proof: time_primitives::crypto::Signature,
 		) {
 			if let Ok(reporter_pub) = Public::from_slice(reporter.as_ref()) {
-				// verify signature
-				if !proof.verify(ofender.as_ref(), &reporter_pub) {
-					return;
+				if let Some(shard) = <TssShards<T>>::get(&shard_id) {
+					let members = shard.members();
+					// if reporter or offender are not from reported shard
+					if !members.contains(&offender) || !members.contains(&reporter) {
+						Self::deposit_event(Event::OffenceReportFailure(reporter));
+						return;
+					}
+					// verify signature
+					if !proof.verify(offender.as_ref(), &reporter_pub) {
+						return;
+					}
+					<ReportedOffences<T>>::mutate(&offender, |o| {
+						if let Some(known_offender) = o {
+							// check reached threshold
+							let shard_th = Percent::from_percent(51) * members.len();
+							// move to commitment if reached
+							if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
+								<CommitedOffences<T>>::insert(offender.clone(), known_offender);
+							}
+						// add if not
+						} else {
+							let mut hs = BTreeSet::new();
+							hs.insert(reporter);
+							drop(o.insert((1, hs)));
+						}
+					});
+				} else {
+					Self::deposit_event(Event::OffenceReportFailure(reporter));
 				}
-				<ReportedOfences<T>>::mutate(ofender, |o| {
-					// check riched threshold
-					// add if not
-					let mut hs = BTreeSet::new();
-					hs.insert(reporter);
-					drop(o.insert((1, hs)));
-					// move to commitment if reached
-				});
+			} else {
+				Self::deposit_event(Event::OffenceReportFailure(reporter));
 			}
 		}
 	}

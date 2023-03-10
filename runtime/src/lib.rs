@@ -1281,8 +1281,8 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
-		fn report_misbehavior(ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
-			TesseractSigStorage::api_report_misbehavior(ofender, reporter, proof);
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
 		}
 	}
 

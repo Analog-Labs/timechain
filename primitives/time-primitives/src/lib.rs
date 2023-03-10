@@ -30,7 +30,7 @@ sp_api::decl_runtime_apis! {
 		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, event_id: ForeignEventId);
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
-		fn report_misbehavior(offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
+		fn report_misbehavior(shard_id: u64, offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
 	}
 }
 

@@ -41,7 +41,7 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
+	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	pub(crate) kv: TimeKeyvault,
 	sync_oracle: SO,
 	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
@@ -201,14 +201,14 @@ where
 		}
 	}
 
-	fn process_sign_message(&mut self, shard_id: u64, data: Vec<u8>) {
+	fn process_sign_message(&mut self, shard_id: u64, data: [u8; 32]) {
 		// do sig
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let context = state.context;
 			let msg_hash = compute_message_hash(&context, &data);
 			//add node in msg_pool
 			if state.msg_pool.get(&msg_hash).is_none() {
-				state.msg_pool.insert(msg_hash, data.clone());
+				state.msg_pool.insert(msg_hash);
 				//process msg if req already received
 				if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
 					let request = PartialMessageSign {

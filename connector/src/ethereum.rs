@@ -47,13 +47,7 @@ impl SwapToken {
 				Err(error) => return Err(From::from(error)),
 			};
 		let query_response: Vec<u8> = match token_contract
-			.query(
-				query_method,
-				(exchange, exchange, 25),
-				None,
-				Options::default(),
-				None,
-			)
+			.query(query_method, (exchange, exchange, 25), None, Options::default(), None)
 			.await
 		{
 			Ok(query_response) => query_response,

@@ -57,15 +57,17 @@ where
 
 	pub fn get_swap_data_from_db() -> Vec<[u8; 32]> {
 		let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-		let mut pg_conn = establish_connection(Some(conn_url));
-		let tasks_from_db = get_on_chain_data(&mut pg_conn, 10);
 
 		let mut tasks_from_db_bytes: Vec<[u8; 32]> = Vec::new();
-		for task in tasks_from_db.iter() {
-			if let Ok(task_in_bytes) = serialize(task) {
-				tasks_from_db_bytes.push(Self::hash_keccak_256(&task_in_bytes));
-			} else {
-				log::info!("Failed to serialize task: {:?}", task);
+		if let Ok(mut pg_conn) = establish_connection(Some(conn_url)) {
+			if let Ok(tasks_from_db) = get_on_chain_data(&mut pg_conn, 10) {
+				for task in tasks_from_db.iter() {
+					if let Ok(task_in_bytes) = serialize(task) {
+						tasks_from_db_bytes.push(Self::hash_keccak_256(&task_in_bytes));
+					} else {
+						log::info!("Failed to serialize task: {:?}", task);
+					}
+				}
 			}
 		}
 		tasks_from_db_bytes

@@ -57,7 +57,7 @@ impl<
 pub trait WorkerTrait<AccountId, Balance> {
 	fn get_reward_acc() -> Result<Vec<(AccountId, AccountId)>, DispatchError>;
 	fn send_reward_to_acc(balance: Balance, acc: Vec<AccountId>) -> Result<(), DispatchError>;
-	fn insert_validator(validator: AccountId) -> Result<(AccountId, AccountId), DispatchError>;
+	fn insert_validator(validator: AccountId) -> Result<AccountId, DispatchError>;
 }
 
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Encode, Decode, TypeInfo)]

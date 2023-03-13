@@ -12,7 +12,6 @@
 // mod tests;
 
 pub mod inflation;
-pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
@@ -21,7 +20,6 @@ mod pallet;
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	traits::{Currency, Defensive, Get},
-	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use log::info;

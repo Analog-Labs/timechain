@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2019-2022 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Authorship tracking for FRAME runtimes.
 //!
 //! This tracks the current author of the block and recent uncles.
@@ -29,18 +12,9 @@ use time_primitives::WorkerTrait;
 
 pub use pallet::*;
 
-/// A filter on uncles which verifies seals and does no additional checks.
-/// This is well-suited to consensus modes such as PoW where the cost of
-/// equivocating is high.
-// pub type AccountId = u128;
-// T as Config>::Currency as Currency<<T as Config>::AccountId
-// pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-pub struct SealVerify<T>(sp_std::marker::PhantomData<T>);
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	// use crate::{types::*, weights::WeightInfo};
 	use frame_support::pallet_prelude::*;
 
 	pub(crate) type BalanceOf<T> =
@@ -50,7 +24,7 @@ pub mod pallet {
 	pub type RewardList<T> = (
 		// 1st account will be the rewarder
 		<T as frame_system::Config>::AccountId,
-		// 2nd account will be the cronical node address which gets reward
+		// 2nd account will be the chronicle node address which gets reward
 		<T as frame_system::Config>::AccountId,
 	);
 
@@ -79,6 +53,7 @@ pub mod pallet {
 			GenesisConfig { reward_list: vec![] }
 		}
 	}
+
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
@@ -113,12 +88,17 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		fn div_balance<N>(value: N, q: u32) -> N
+		fn div_balance<N>(value: N, q: u32) -> Option<N>
 		where
 			N: AtLeast32BitUnsigned + Clone,
 		{
-			value / q.into()
+			if q > 0 {
+				Some(value / q.into())
+			} else {
+				None
+			}
 		}
+
 		pub fn send_reward(
 			balance: BalanceOf<T>,
 			curr: Vec<T::AccountId>,
@@ -128,17 +108,26 @@ pub mod pallet {
 				length += 1;
 			});
 
-			let balance_paid = Self::div_balance(balance, length);
-			curr.iter().for_each(|item| {
-				log::info!("Balance transferred. ====> {:?} --- amount= {:?} ", item, balance_paid);
-				let _resp = T::Currency::deposit_into_existing(item, balance_paid);
-			});
+			let balance_paid_opt = Self::div_balance(balance, length);
+			match balance_paid_opt {
+				Some(balance_paid) => {
+					curr.iter().for_each(|item| {
+						log::info!(
+							"Balance transferred. ====> {:?} --- amount= {:?} ",
+							item,
+							balance_paid
+						);
+						let _resp = T::Currency::deposit_into_existing(item, balance_paid);
+					});
+				},
+				None => {
+					log::info!("invalid Balance value");
+				},
+			}
 
 			Ok(())
 		}
-		fn insert_account(
-			validator: T::AccountId,
-		) -> Result<(T::AccountId, T::AccountId), DispatchError> {
+		fn insert_account(validator: T::AccountId) -> Result<T::AccountId, DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
 			let mut length: u64 = 0;
 			data_list.iter().for_each(|_| {
@@ -147,7 +136,7 @@ pub mod pallet {
 
 			RewardAccount::<T>::insert(length + 1, (validator.clone(), validator.clone()));
 
-			Ok((validator.clone(), validator))
+			Ok(validator)
 		}
 	}
 	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for Pallet<T> {
@@ -162,9 +151,7 @@ pub mod pallet {
 			Self::send_reward(balance, curr)
 		}
 
-		fn insert_validator(
-			validator: T::AccountId,
-		) -> Result<(T::AccountId, T::AccountId), DispatchError> {
+		fn insert_validator(validator: T::AccountId) -> Result<T::AccountId, DispatchError> {
 			Self::insert_account(validator)
 		}
 	}

@@ -7,7 +7,9 @@ use crate::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use codec::{Decode, Encode};
-use futures::{channel::mpsc::Receiver as FutReceiver, FutureExt, StreamExt};
+use futures::{
+	channel::mpsc::Receiver as FutReceiver, stream::FuturesUnordered, FutureExt, StreamExt,
+};
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
@@ -46,6 +48,8 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	sync_oracle: SO,
 	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
 	known_sets: HashSet<u64>,
+	// for each keygen each shard member have it's own timer to comply
+	timeouts: HashMap<u64, (TimeId, FuturesUnordered<()>)>,
 }
 
 impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
@@ -82,6 +86,7 @@ where
 			tss_local_states: HashMap::new(),
 			sign_data_receiver,
 			known_sets: HashSet::new(),
+			timeouts: HashMap::new(),
 		}
 	}
 
@@ -116,8 +121,11 @@ where
 		}
 	}
 
+	async fn new_timer(duration: Duration) {
+		tokio::time::sleep(duration).await
+	}
+
 	fn new_keygen_for_new_id(&mut self, shard_id: u64, new_shard: Shard) {
-		let mut state = self.create_tss_state();
 		let keys = self.kv.public_keys();
 		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
@@ -125,7 +133,7 @@ where
 		}
 		let id = keys[0].clone();
 		// starting TSS initialization if not yet done
-
+		let mut state = self.create_tss_state();
 		if state.local_peer_id.is_none() {
 			state.local_peer_id = Some(id.to_string());
 			// TODO: reset if not all comply
@@ -159,6 +167,17 @@ where
 					error!(target: TW_LOG, "Unable to make publish peer id msg");
 				}
 			}
+			// initialize timeouts for responses to Keygen
+			let mut fu = FuturesUnordered::new();
+			for member in new_shard
+				.members()
+				.into_iter()
+				.filter(|member_id| id.encode() != member_id.encode())
+			{
+				fu.push(Self::new_timer(Duration::from_secs(15)));
+			}
+			self.timeouts.insert(shard_id, (member, fu));
+			// store new shard
 			self.tss_local_states.insert(shard_id, state);
 		}
 	}

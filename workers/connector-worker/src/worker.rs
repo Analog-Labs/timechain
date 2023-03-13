@@ -5,7 +5,6 @@ use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
-// use std::env;
 use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -14,7 +13,7 @@ use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use web3::{
 	futures::{future, StreamExt},
-	types::{Address, BlockId, BlockNumber, FilterBuilder, U64},
+	types::{Address, BlockId, BlockNumber, FilterBuilder},
 };
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 
@@ -58,15 +57,18 @@ where
 
 	pub fn get_swap_data_from_db() -> Vec<[u8; 32]> {
 		let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-		let mut pg_conn = establish_connection(Some(&conn_url));
+		let mut pg_conn = establish_connection(Some(conn_url));
 		let tasks_from_db = get_on_chain_data(&mut pg_conn, 10);
 
 		let mut tasks_from_db_bytes: Vec<[u8; 32]> = Vec::new();
 		for task in tasks_from_db.iter() {
-			let task_in_bytes: &[u8] = &serialize(task).unwrap();
-			tasks_from_db_bytes.push(Self::hash_keccak_256(task_in_bytes));
+			if let Ok(task_in_bytes) = serialize(task) {
+				tasks_from_db_bytes.push(Self::hash_keccak_256(&task_in_bytes));
+			} else {
+				log::info!("Failed to serialize task: {:?}", task);
+			}
 		}
-		return tasks_from_db_bytes;
+		tasks_from_db_bytes
 	}
 
 	pub async fn get_latest_block() -> Vec<[u8; 32]> {
@@ -74,34 +76,57 @@ where
 
 		let infura_url = env::var("INFURA_URL").expect("INFURA_URL must be set");
 
-		let websocket = web3::transports::WebSocket::new(&infura_url).await.unwrap();
+		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
+		let websocket = match websocket_result {
+			Ok(websocket) => websocket,
+			Err(_) => web3::transports::WebSocket::new(&infura_url)
+				.await
+				.expect("Failed to create default websocket"),
+		};
+
 		let web3 = web3::Web3::new(websocket);
-		let latest_block =
-			web3.eth().block(BlockId::Number(BlockNumber::Latest)).await.unwrap().unwrap();
-
-		let filter = FilterBuilder::default()
-			.from_block(BlockNumber::Number(U64::from(latest_block.number.unwrap())))
-			.address(vec![Address::from_str("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984").unwrap()])
-			.build();
-
-		let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
-
 		let mut log_vec: Vec<[u8; 32]> = Vec::new();
 		let result = log_vec.clone();
-
-		thread::spawn(move || {
-			sub.for_each(move |log| {
-				match log {
-					Ok(log) => {
-						let log_in_bytes: &[u8] = &serialize(&log).unwrap();
-						log_vec.push(Self::hash_keccak_256(log_in_bytes));
+		if let Ok(Some(latest_block)) = web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
+		{
+			let filter = FilterBuilder::default()
+				.from_block(match latest_block.number {
+					Some(n) => BlockNumber::Number(n),
+					None => {
+						log::warn!("latest_block.number is None, setting from_block to earliest");
+						BlockNumber::Earliest
 					},
-					Err(e) => log::info!("getting error {:?}", e),
-				}
-				future::ready(())
-			})
-		});
-		return result;
+				})
+				.address(vec![if let Ok(address) =
+					Address::from_str("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984")
+				{
+					address
+				} else {
+					panic!("Failed to parse address");
+				}])
+				.build();
+
+			let sub = web3.eth_subscribe().subscribe_logs(filter).await;
+			if let Ok(sub) = sub {
+				thread::spawn(move || {
+					sub.for_each(move |log| {
+						match log {
+							Ok(log) =>
+								if let Ok(log_in_bytes) = serialize(&log) {
+									log_vec.push(Self::hash_keccak_256(&log_in_bytes));
+								} else {
+									log::info!("Failed to serialize log: {:?}", log);
+								},
+							Err(e) => log::info!("Error deserializing log: {:?}", e),
+						}
+						future::ready(())
+					})
+				});
+			} else {
+				log::info!("Failed to subscribe to logs: {:?}", sub);
+			}
+		}
+		result
 	}
 
 	pub(crate) async fn run(&mut self) {
@@ -111,7 +136,7 @@ where
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
 				let tasks_in_byte = Self::get_swap_data_from_db();
-				if tasks_in_byte.len() > 0 {
+				if !tasks_in_byte.is_empty() {
 					for task in tasks_in_byte.iter() {
 						let result = sign_data_sender_clone.lock().await.try_send((1, *task));
 						match result {
@@ -122,7 +147,7 @@ where
 				}
 
 				let events_from_eth = Self::get_latest_block().await;
-				if events_from_eth.len() > 0 {
+				if !events_from_eth.is_empty() {
 					for event in events_from_eth.iter() {
 						let result = sign_data_sender_clone.lock().await.try_send((1, *event));
 						match result {

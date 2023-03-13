@@ -49,7 +49,7 @@ impl SwapToken {
 		let query_response: Vec<u8> = match token_contract
 			.query(
 				query_method,
-				(exchange.clone(), exchange.clone(), 25),
+				(exchange, exchange, 25),
 				None,
 				Options::default(),
 				None,

@@ -4,6 +4,7 @@ members = [
     "pallets/tesseract-sig-storage",
     "pallets/authorship",
     "runtime",
+    "workers/task-executor",
     "workers/time-worker",
     "workers/time-worker/rpc",
     "workers/database",

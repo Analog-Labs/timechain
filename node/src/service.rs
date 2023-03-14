@@ -365,6 +365,20 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			time_worker::start_timeworker_gadget(time_params),
 		);
+
+		//Injecting connector worker
+		let task_executor_params = task_executor::TaskExecutorParams {
+			runtime: client.clone(),
+			kv: keystore.clone().into(),
+			_block: PhantomData::default(),
+			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+		};
+
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"task-executor",
+			None,
+			task_executor::start_taskexecutor_gadget(task_executor_params),
+		);
 	}
 
 	network_starter.start_network();

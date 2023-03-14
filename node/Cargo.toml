@@ -77,6 +77,9 @@ try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://gith
 time-worker = { path = "../workers/time-worker" }
 time-worker-rpc = { path = "../workers/time-worker/rpc" }
 
+#Task-Executor
+task-executor = { path = "../workers/task-executor" }
+
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 

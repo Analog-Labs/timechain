@@ -115,3 +115,11 @@ pub enum Data {
 	Ready(Vec<Vec<(String, Value)>>),
 	Scheduled(QueryId),
 }
+
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct Collection {
+	pub hash: String,
+	pub task: Vec<u8>,
+	pub validity: i64,
+}

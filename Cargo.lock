@@ -10149,6 +10149,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-runtime",
+ "sp-std",
  "time-primitives",
 ]
 

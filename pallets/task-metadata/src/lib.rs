@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+pub mod weights;
 
 pub use pallet::*;
 
@@ -7,8 +8,14 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
-	use time_primitives::abstraction::Task;
+	use scale_info::prelude::string::String;
+	use time_primitives::abstraction::{Task, Collection};
 	pub type KeyId = u64;
+
+	pub trait WeightInfo {
+		fn store_task() -> Weight;
+		fn store_collection() -> Weight;
+	}
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -18,11 +25,17 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_metadata)]
 	pub(super) type TaskMeta<T: Config> = StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_collection_metadata)]
+	pub(super) type CollectionMeta<T: Config> = StorageMap<_, Blake2_128Concat, String, Collection, OptionQuery>;
+
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -33,11 +46,18 @@ pub mod pallet {
 
 		///Already exist case
 		AlreadyExist(KeyId),
+
+		/// Collections
+		ColMetaStored(String),
+
+		///Already exist case
+		ColAlreadyExist(String),
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(100_000)]
+		/// Extrinsic for storing a signature
+		#[pallet::weight(T::WeightInfo::store_task())]
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 			let data_list =
@@ -54,8 +74,31 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::weight(T::WeightInfo::store_collection())]
+		pub fn insert_collection(origin: OriginFor<T>, hash: String, task: Vec<u8>, validity: i64) -> DispatchResult {
+			let _who = ensure_signed(origin)?;
+			let data_list =
+				self::CollectionMeta::<T>::iter_values().find(|x| x.hash == hash);
+			match data_list {
+				Some(val) => {
+					Self::deposit_event(Event::ColAlreadyExist(val.hash));
+				},
+				None => {
+					self::CollectionMeta::<T>::insert(hash.clone(), Collection {
+						hash: hash.clone(),
+						task,
+						validity
+					});
+					Self::deposit_event(Event::ColMetaStored(hash));
+				},
+			}
+
+			Ok(())
+		}
 	}
 	impl<T: Config> Pallet<T> {
+		
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
 			let data_list = self::TaskMeta::<T>::iter_values().find(|x| x.collection_id.0 == key);
 			match data_list {

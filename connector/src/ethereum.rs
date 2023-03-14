@@ -25,13 +25,30 @@ impl SwapToken {
 		query_method: &str,
 		_query_parameter: P,
 	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-		let exchange = Address::from_str(exchange_address).unwrap();
+		let exchange = match Address::from_str(exchange_address) {
+			Ok(exchange) => exchange,
+			Err(error) => return Err(From::from(error)),
+		};
 		let mut res = String::new();
 		if abi_url.contains("http") {
-			res = reqwest::blocking::get(abi_url).unwrap().text().unwrap();
+			if let Ok(response) = reqwest::blocking::get(abi_url) {
+				if let Ok(text) = response.text() {
+					res = text;
+				} else {
+					return Err("Failed to get response text".into());
+				}
+			} else {
+				return Err("Failed to make GET request".into());
+			}
 		} else {
-			let mut abi_file = File::open(abi_url).unwrap();
-			abi_file.read_to_string(&mut res).unwrap();
+			let mut abi_file = match File::open(abi_url) {
+				Ok(file) => file,
+				Err(error) => return Err(From::from(error)),
+			};
+			match abi_file.read_to_string(&mut res) {
+				Ok(_) => (),
+				Err(error) => return Err(From::from(error)),
+			};
 		}
 
 		let json: serde_json::Value =
@@ -66,9 +83,15 @@ impl SwapToken {
 			Ok(address) => address,
 			Err(error) => return Err(From::from(error)),
 		};
-		let mut abi_file = File::open(token_abi_url).unwrap();
+		let mut abi_file = match File::open(token_abi_url) {
+			Ok(file) => file,
+			Err(error) => return Err(From::from(error)),
+		};
 		let mut res = String::new();
-		abi_file.read_to_string(&mut res).unwrap();
+		match abi_file.read_to_string(&mut res) {
+			Ok(_) => (),
+			Err(error) => return Err(From::from(error)),
+		};
 		let json: serde_json::Value =
 			serde_json::from_str(&res.to_owned()).expect("JSON was not well-formatted");
 

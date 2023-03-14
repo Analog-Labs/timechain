@@ -16,6 +16,7 @@ use frame_support::traits::Imbalance;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::Decode;
+use sp_runtime::DispatchError;
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -988,6 +989,7 @@ impl pallet_treasury::Config for Runtime {
 }
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1283,6 +1285,7 @@ impl_runtime_apis! {
 		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::api_tss_shards()
 		}
+
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

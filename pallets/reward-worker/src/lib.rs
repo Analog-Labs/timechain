@@ -6,7 +6,7 @@
 
 use frame_support::traits::Currency;
 
-use sp_runtime::{traits::AtLeast32BitUnsigned, DispatchError};
+use sp_runtime::{DispatchError, SaturatedConversion};
 use sp_std::prelude::*;
 use time_primitives::WorkerTrait;
 
@@ -88,51 +88,30 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		fn div_balance<N>(value: N, q: u32) -> Option<N>
-		where
-			N: AtLeast32BitUnsigned + Clone,
-		{
-			if q > 0 {
-				Some(value / q.into())
-			} else {
-				None
-			}
-		}
-
 		pub fn send_reward(
 			balance: BalanceOf<T>,
 			curr: Vec<T::AccountId>,
 		) -> Result<(), DispatchError> {
-			let mut length: u32 = 0;
-			curr.iter().for_each(|_| {
-				length += 1;
-			});
+			let length = curr.len().saturated_into::<u32>();
+			if length != 0 {
+				let balance_paid = balance / length.into();
 
-			let balance_paid_opt = Self::div_balance(balance, length);
-			match balance_paid_opt {
-				Some(balance_paid) => {
-					curr.iter().for_each(|item| {
-						log::info!(
-							"Balance transferred. ====> {:?} --- amount= {:?} ",
-							item,
-							balance_paid
-						);
-						let _resp = T::Currency::deposit_into_existing(item, balance_paid);
-					});
-				},
-				None => {
-					log::info!("invalid Balance value");
-				},
+				curr.iter().for_each(|item| {
+					log::info!(
+						"Balance transferred. ====> {:?} --- amount= {:?} ",
+						item,
+						balance_paid
+					);
+					let _resp = T::Currency::deposit_into_existing(item, balance_paid);
+				});
 			}
 
 			Ok(())
 		}
+
 		fn insert_account(validator: T::AccountId) -> Result<T::AccountId, DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
-			let mut length: u64 = 0;
-			data_list.iter().for_each(|_| {
-				length += 1;
-			});
+			let length = data_list.len().saturated_into::<u64>();
 
 			RewardAccount::<T>::insert(length + 1, (validator.clone(), validator.clone()));
 

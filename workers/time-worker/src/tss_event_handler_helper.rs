@@ -767,7 +767,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 		},
 	};
 
-	if state.msg_pool.contains_key(&msg_hash) {
+	if state.msg_pool.contains(&msg_hash) {
 		//making partial signature here
 		let partial_signature = match final_state.1.sign(
 			&msg_hash,

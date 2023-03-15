@@ -4,6 +4,7 @@
 pub mod inherents;
 pub mod rpc;
 pub mod sharding;
+pub mod slashing;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;

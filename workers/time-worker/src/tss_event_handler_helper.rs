@@ -28,10 +28,10 @@ use tss::{
 
 impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
 where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	R: ProvideRuntimeApi<B>,
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	C: Client<B, BE> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {

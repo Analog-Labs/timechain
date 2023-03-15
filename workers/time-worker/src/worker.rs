@@ -8,7 +8,7 @@ use crate::{
 use borsh::{BorshDeserialize, BorshSerialize};
 use codec::{Decode, Encode};
 use futures::{
-	channel::mpsc::Receiver as FutReceiver, stream::FuturesUnordered, FutureExt, StreamExt,
+	channel::mpsc::Receiver as FutReceiver, stream::FuturesUnordered, Future, FutureExt, StreamExt,
 };
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
@@ -22,10 +22,16 @@ use sp_runtime::{
 };
 use std::{
 	collections::{HashMap, HashSet},
+	pin::Pin,
 	sync::Arc,
 	time::Duration,
 };
-use time_primitives::{crypto::Public, sharding::Shard, TimeApi, TimeId, KEY_TYPE};
+use time_primitives::{
+	crypto::Public,
+	sharding::Shard,
+	slashing::{Protocol, TimeoutData},
+	TimeApi, TimeId, KEY_TYPE,
+};
 use tokio::sync::Mutex as TokioMutex;
 use tss::{
 	frost_dalek::{compute_message_hash, SignatureAggregator},
@@ -45,19 +51,20 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	pub(crate) kv: TimeKeyvault,
+	node_id: Option<TimeId>,
 	sync_oracle: SO,
 	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
 	known_sets: HashSet<u64>,
 	// for each keygen each shard member have it's own timer to comply
-	timeouts: HashMap<u64, (TimeId, FuturesUnordered<()>)>,
+	timeouts: FuturesUnordered<Pin<Box<dyn Future<Output = TimeoutData> + Send + Sync + 'static>>>,
 }
 
 impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
 where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	R: ProvideRuntimeApi<B>,
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	C: Client<B, BE> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
@@ -83,10 +90,11 @@ where
 			gossip_validator,
 			sync_oracle,
 			kv,
+			node_id: None,
 			tss_local_states: HashMap::new(),
 			sign_data_receiver,
 			known_sets: HashSet::new(),
-			timeouts: HashMap::new(),
+			timeouts: FuturesUnordered::new(),
 		}
 	}
 
@@ -121,8 +129,9 @@ where
 		}
 	}
 
-	async fn new_timer(duration: Duration) {
-		tokio::time::sleep(duration).await
+	async fn new_timer(duration: Duration, data: TimeoutData) -> TimeoutData {
+		tokio::time::sleep(duration).await;
+		data
 	}
 
 	fn new_keygen_for_new_id(&mut self, shard_id: u64, new_shard: Shard) {
@@ -132,6 +141,8 @@ where
 			return;
 		}
 		let id = keys[0].clone();
+		// safe unwrap - we know they match always
+		self.node_id = Some(TimeId::decode(&mut id.as_ref()).unwrap());
 		// starting TSS initialization if not yet done
 		let mut state = self.create_tss_state();
 		if state.local_peer_id.is_none() {
@@ -168,15 +179,16 @@ where
 				}
 			}
 			// initialize timeouts for responses to Keygen
-			let mut fu = FuturesUnordered::new();
+			// skip self
 			for member in new_shard
 				.members()
 				.into_iter()
 				.filter(|member_id| id.encode() != member_id.encode())
 			{
-				fu.push(Self::new_timer(Duration::from_secs(15)));
+				let data = TimeoutData::new(Protocol::KgStageOne, member, shard_id);
+				self.timeouts.push(Box::pin(Self::new_timer(Duration::from_secs(30), data)));
 			}
-			self.timeouts.insert(shard_id, (member, fu));
+
 			// store new shard
 			self.tss_local_states.insert(shard_id, state);
 		}
@@ -430,6 +442,31 @@ where
 		}
 	}
 
+	fn report_offence(&self, data: TimeoutData) {
+		let TimeoutData { offender, shard_id, .. } = data;
+		if let Some(reporter) = self.node_id.clone() {
+			if let Some(proof) = self.kv.sign(&self.kv.public_keys()[0], offender.as_ref()) {
+				let at = self.backend.blockchain().last_finalized().unwrap();
+				let at = BlockId::Hash(at);
+				if let Err(e) = self
+					.runtime
+					.runtime_api()
+					.report_misbehavior(&at, shard_id, offender, reporter, proof)
+				{
+					error!(
+						target: TW_LOG,
+						"Offence report runtime API submission failed with reason: {}",
+						e.to_string()
+					);
+				}
+			} else {
+				error!(target: TW_LOG, "Failed to create proof for offence report submission");
+			}
+		} else {
+			error!(target: TW_LOG, "Failed to create proof for offence report submission");
+		}
+	}
+
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
@@ -443,6 +480,7 @@ where
 				.fuse(),
 		);
 		loop {
+			// timeouts for messages
 			let receiver = self.sign_data_receiver.clone();
 			let mut signature_requests = receiver.lock().await;
 			// making sure majority is synchronising or waiting for the sync
@@ -469,6 +507,11 @@ where
 							target: TW_LOG,
 							"no new finality notifications"
 						);
+					}
+				},
+				offence = self.timeouts.next() => {
+					if let Some(offender_data) = offence {
+						self.report_offence(offender_data);
 					}
 				},
 				new_sig = signature_requests.next().fuse() => {

@@ -1,5 +1,5 @@
 #![allow(clippy::type_complexity)]
-
+#![feature(type_alias_impl_trait)]
 pub mod communication;
 pub mod inherents;
 pub mod kv;
@@ -32,10 +32,10 @@ pub const TW_LOG: &str = "⌛time-worker";
 /// Set of properties we need to run our gadget
 pub struct TimeWorkerParams<B: Block, C, R, BE, N>
 where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	R: ProvideRuntimeApi<B>,
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	C: Client<B, BE> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
@@ -65,10 +65,10 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	timeworker_params: TimeWorkerParams<B, C, R, BE, N>,
 ) where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	R: ProvideRuntimeApi<B>,
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	C: Client<B, BE> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {

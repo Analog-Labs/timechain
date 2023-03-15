@@ -46,14 +46,16 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	pub(crate) client: Arc<C>,
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
+	pub(crate) kv: TimeKeyvault,
+	// cancelling struct for timeouts
+	pub(crate) fulfilled: Vec<TimeoutData>,
+	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
-	pub(crate) kv: TimeKeyvault,
 	node_id: Option<TimeId>,
 	sync_oracle: SO,
-	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
 	known_sets: HashSet<u64>,
 	// for each keygen each shard member have it's own timer to comply
 	timeouts: FuturesUnordered<Pin<Box<dyn Future<Output = TimeoutData> + Send + Sync + 'static>>>,
@@ -90,11 +92,12 @@ where
 			gossip_validator,
 			sync_oracle,
 			kv,
-			node_id: None,
-			tss_local_states: HashMap::new(),
 			sign_data_receiver,
-			known_sets: HashSet::new(),
-			timeouts: FuturesUnordered::new(),
+			node_id: None,
+			tss_local_states: HashMap::default(),
+			known_sets: HashSet::default(),
+			timeouts: FuturesUnordered::default(),
+			fulfilled: Vec::default(),
 		}
 	}
 
@@ -442,7 +445,13 @@ where
 		}
 	}
 
-	fn report_offence(&self, data: TimeoutData) {
+	fn report_offence(&mut self, data: TimeoutData) {
+		// we clean up if already fulfilled
+		if let Some(index) = self.fulfilled.iter().position(|ff_data| ff_data == &data) {
+			self.fulfilled.remove(index);
+			return;
+		}
+		// if not fulfilled - we report
 		let TimeoutData { offender, shard_id, .. } = data;
 		if let Some(reporter) = self.node_id.clone() {
 			if let Some(proof) = self.kv.sign(&self.kv.public_keys()[0], offender.as_ref()) {

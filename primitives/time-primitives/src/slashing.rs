@@ -1,6 +1,7 @@
 use crate::TimeId;
 
 /// Identifier of current protocol and stage
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Protocol {
 	KgStageOne,
 	KgStageTwo,
@@ -8,6 +9,7 @@ pub enum Protocol {
 }
 
 /// Structure to identify offender of any protocol in given shard
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TimeoutData {
 	pub protocol: Protocol,
 	pub offender: TimeId,

@@ -5,9 +5,13 @@ use sc_client_api::Backend;
 use sp_api::{BlockId, ProvideRuntimeApi};
 use sp_blockchain::Backend as BCTrait;
 use sp_consensus::SyncOracle;
+use sp_core::sr25519::Public;
 use sp_runtime::traits::Block;
-use std::collections::HashMap;
-use time_primitives::TimeApi;
+use std::{collections::HashMap, str::FromStr};
+use time_primitives::{
+	slashing::{Protocol, TimeoutData},
+	TimeApi,
+};
 use tss::{local_state_struct::TSSLocalStateData, rand::rngs::OsRng};
 
 use tss::{
@@ -37,6 +41,7 @@ where
 {
 	//will be run by non collector nodes
 	/// Initializes keygen and new state for given shard ID
+	// This method is not a response parser - no timer attended
 	pub async fn handler_receive_params(&mut self, shard_id: u64, data: &[u8]) {
 		if let Some(existing_state) = self.tss_local_states.get(&shard_id) {
 			error!(
@@ -94,7 +99,7 @@ where
 		}
 	}
 
-	//used by node collector to set peers for tss process
+	// used by node collector to set peers for tss process
 	pub async fn handler_receive_peer_id_for_index(&mut self, shard_id: u64, data: &[u8]) {
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let local_peer_id = state.local_peer_id.clone().unwrap();
@@ -103,6 +108,13 @@ where
 			if state.is_node_collector {
 				if state.tss_process_state == TSSLocalStateType::Empty {
 					if let Ok(peer_id_call) = PublishPeerIDCall::try_from_slice(data) {
+						// register protocol attendance
+						register_fulfillment(
+							&mut self.fulfilled,
+							local_peer_id.clone(),
+							shard_id,
+							Protocol::KgStageOne,
+						);
 						let peer_id = peer_id_call.peer_id;
 
 						if !state.others_peer_id.contains(&peer_id) {
@@ -861,4 +873,18 @@ pub fn handler_partial_signature_generate_req(
 		error!(target: TW_LOG, "Node not in correct state to generate partial signature");
 	}
 	None
+}
+
+// TODO: change TSS peer IDs to TimeId instead of String
+fn register_fulfillment(
+	fulfilled: &mut Vec<TimeoutData>,
+	peer_id: String,
+	shard_id: u64,
+	protocol: Protocol,
+) {
+	if let Ok(peer_public) = Public::from_str(&peer_id) {
+		fulfilled.push(TimeoutData::new(protocol, peer_public.into(), shard_id));
+	} else {
+		error!(target: TW_LOG, "Failed to parse Public key from ID {}", peer_id);
+	}
 }

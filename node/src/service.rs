@@ -353,10 +353,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		// injecting our Worker
 		let time_params = time_worker::TimeWorkerParams {
 			runtime: client.clone(),
-			client,
-			backend,
-			gossip_network: network,
-			kv: keystore.into(),
+			client: client.clone(),
+			backend: backend.clone(),
+			gossip_network: network.clone(),
+			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
 		};
@@ -369,6 +369,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		//Injecting connector worker
 		let task_executor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
+			backend: backend.clone(),
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),

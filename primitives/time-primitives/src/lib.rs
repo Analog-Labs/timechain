@@ -6,11 +6,12 @@ pub mod inherents;
 pub mod rpc;
 pub mod sharding;
 
+use abstraction::Task;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	MultiSignature,
+	MultiSignature, DispatchError,
 };
 use sp_std::vec::Vec;
 /// Time key type
@@ -30,6 +31,7 @@ sp_api::decl_runtime_apis! {
 		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, event_id: ForeignEventId);
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 	}
 }
 

@@ -444,9 +444,7 @@ where
 					self.runtime.runtime_api().get_shard_members(&at, shard_id)
 				{
 					if let Some(participant_id) = members
-						.iter()
-						.filter(|member| member.to_string() == tss_gossiped_data.peer_id)
-						.next()
+						.iter().find(|member| member.to_string() == tss_gossiped_data.peer_id)
 					{
 						self.timeouts.push(Box::pin(Self::new_timer(
 							Duration::from_secs(30),

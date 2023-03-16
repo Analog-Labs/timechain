@@ -186,9 +186,7 @@ where
 					{
 						for participant in data.total_peer_list.iter() {
 							if let Some(participant_id) = members
-								.iter()
-								.filter(|member| member.to_string() == *participant)
-								.next()
+								.iter().find(|member| member.to_string() == *participant)
 							{
 								self.timeouts.push(Box::pin(Self::new_timer(
 									Duration::from_secs(30),
@@ -260,7 +258,7 @@ where
 						self.runtime.runtime_api().get_shard_members(&at, shard_id)
 					{
 						if let Some(participant_id) =
-							members.iter().filter(|member| member.to_string() == peer_id).next()
+							members.iter().find(|member| member.to_string() == peer_id)
 						{
 							self.timeouts.push(Box::pin(Self::new_timer(
 								Duration::from_secs(30),

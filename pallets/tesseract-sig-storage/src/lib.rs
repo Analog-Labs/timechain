@@ -324,7 +324,7 @@ pub mod pallet {
 			proof: time_primitives::crypto::Signature,
 		) {
 			if let Ok(reporter_pub) = Public::from_slice(reporter.as_ref()) {
-				if let Some(shard) = <TssShards<T>>::get(&shard_id) {
+				if let Some(shard) = <TssShards<T>>::get(shard_id) {
 					let members = shard.members();
 					// if reporter or offender are not from reported shard
 					if !members.contains(&offender) || !members.contains(&reporter) {
@@ -347,7 +347,7 @@ pub mod pallet {
 						} else {
 							let mut hs = BTreeSet::new();
 							hs.insert(reporter);
-							drop(o.insert((1, hs)));
+							let _ = o.insert((1, hs));
 						}
 					});
 				} else {

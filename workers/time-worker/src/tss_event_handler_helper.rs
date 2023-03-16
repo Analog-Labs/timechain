@@ -7,7 +7,7 @@ use sp_blockchain::Backend as BCTrait;
 use sp_consensus::SyncOracle;
 use sp_core::sr25519::Public;
 use sp_runtime::traits::Block;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 use time_primitives::{
 	slashing::{Protocol, TimeoutData},
 	TimeApi,
@@ -179,6 +179,28 @@ where
 			let local_peer_id = state.local_peer_id.clone().unwrap();
 			if state.tss_process_state == TSSLocalStateType::ReceivedParams {
 				if let Ok(data) = FilterAndPublishParticipant::try_from_slice(data) {
+					let at = self.backend.blockchain().last_finalized().unwrap();
+					let at = BlockId::Hash(at);
+					if let Ok(Some(members)) =
+						self.runtime.runtime_api().get_shard_members(&at, shard_id)
+					{
+						for participant in data.total_peer_list.iter() {
+							if let Some(participant_id) = members
+								.iter()
+								.filter(|member| member.to_string() == *participant)
+								.next()
+							{
+								self.timeouts.push(Box::pin(Self::new_timer(
+									Duration::from_secs(30),
+									TimeoutData::new(
+										Protocol::KgStageOne,
+										participant_id.clone(),
+										shard_id,
+									),
+								)));
+							}
+						}
+					}
 					let mut other_peer_list = data.total_peer_list;
 
 					if let Some(index) = other_peer_list.iter().position(|x| x.eq(&local_peer_id)) {
@@ -221,12 +243,35 @@ where
 
 	//receive participant and publish to network secret share to network when all participants are
 	// received
-	pub async fn handler_receive_participant(&mut self, shard_id: u64, data: &[u8]) {
+	pub async fn handler_receive_participant(
+		&mut self,
+		shard_id: u64,
+		data: &[u8],
+		peer_id: String,
+	) {
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let local_peer_id = state.local_peer_id.clone().unwrap();
 			//receive participants and update state of node
 			if state.tss_process_state == TSSLocalStateType::ReceivedPeers {
 				if let Ok(participant) = Participant::try_from_slice(data) {
+					let at = self.backend.blockchain().last_finalized().unwrap();
+					let at = BlockId::Hash(at);
+					if let Ok(Some(members)) =
+						self.runtime.runtime_api().get_shard_members(&at, shard_id)
+					{
+						if let Some(participant_id) =
+							members.iter().filter(|member| member.to_string() == peer_id).next()
+						{
+							self.timeouts.push(Box::pin(Self::new_timer(
+								Duration::from_secs(30),
+								TimeoutData::new(
+									Protocol::KgStageTwo,
+									participant_id.clone(),
+									shard_id,
+								),
+							)));
+						}
+					}
 					if !state.others_participants.contains(&participant) {
 						state.others_participants.push(participant);
 					}
@@ -303,7 +348,12 @@ where
 	}
 
 	//receives secret share form all other nodes which are participating in the tss
-	pub async fn handler_receive_secret_share(&mut self, shard_id: u64, data: &[u8]) {
+	pub async fn handler_receive_secret_share(
+		&mut self,
+		shard_id: u64,
+		data: &[u8],
+		peer_id: String,
+	) {
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let local_peer_id = state.local_peer_id.clone().unwrap();
 			//receive secret shares and update state of node
@@ -324,7 +374,14 @@ where
 						let others_my_secret_shares = state.others_my_secret_share.clone();
 						let params = state.tss_params;
 						let total_nodes = params.n;
-						let other_nodes = state.others_my_secret_share.len() as u32;
+						let other_nodes = others_my_secret_shares.len() as u32;
+						// register protocol attendance
+						register_fulfillment(
+							&mut self.fulfilled,
+							peer_id,
+							shard_id,
+							Protocol::KgStageTwo,
+						);
 						if total_nodes == other_nodes + 1 {
 							let round_one = match state.local_dkg_r1_state.clone() {
 								Some(round_one) => round_one,
@@ -498,9 +555,16 @@ where
 	}
 
 	//this call is received by aggregator to make the threshold signature
-	pub async fn handler_partial_signature_received(&mut self, shard_id: u64, data: &[u8]) {
+	pub async fn handler_partial_signature_received(
+		&mut self,
+		shard_id: u64,
+		data: &[u8],
+		peer_id: String,
+	) {
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let local_peer_id = state.local_peer_id.clone().unwrap();
+			// register protocol attendance
+			register_fulfillment(&mut self.fulfilled, peer_id, shard_id, Protocol::Signing);
 
 			//check if aggregator
 			if state.is_node_aggregator {

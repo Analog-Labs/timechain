@@ -24,17 +24,17 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         collection_id: 11,
-        schema:['1234'],
-        function:{
+        schema:[1],
+        function:{ethereumcontract:{
             address: 'String',
             abi: 'String',
             function: 'String',
             input: 2,
             output: 2,
-        },
+        }},
         with:['123','123'],
         cycle:12,
-        validity:12,
+        validity:{Seconds:12},
         hash:'asdasd'
     }
     await api.isReady;

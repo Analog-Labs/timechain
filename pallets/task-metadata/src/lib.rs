@@ -10,6 +10,7 @@ pub mod pallet {
 	use scale_info::prelude::vec::Vec;
 	use scale_info::prelude::string::String;
 	use time_primitives::abstraction::{Task, Collection};
+	use log::info;
 	pub type KeyId = u64;
 
 	pub trait WeightInfo {
@@ -59,6 +60,7 @@ pub mod pallet {
 		/// Extrinsic for storing a signature
 		#[pallet::weight(T::WeightInfo::store_task())]
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
+			info!("======>>> input comes ======>>> ");
 			let _who = ensure_signed(origin)?;
 			let data_list =
 				self::TaskMeta::<T>::iter_values().find(|x| x.collection_id == task.collection_id);
@@ -67,6 +69,7 @@ pub mod pallet {
 					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
 				},
 				None => {
+					info!("======>>> input comes ======>>> {:?}",task);
 					self::TaskMeta::<T>::insert(task.collection_id.0, task.clone());
 					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
 				},

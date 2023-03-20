@@ -7,10 +7,9 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::vec::Vec;
-	use scale_info::prelude::string::String;
-	use time_primitives::abstraction::{Task, Collection};
 	use log::info;
+	use scale_info::prelude::{string::String, vec::Vec};
+	use time_primitives::abstraction::{Collection, Task};
 	pub type KeyId = u64;
 
 	pub trait WeightInfo {
@@ -35,8 +34,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_collection_metadata)]
-	pub(super) type CollectionMeta<T: Config> = StorageMap<_, Blake2_128Concat, String, Collection, OptionQuery>;
-
+	pub(super) type CollectionMeta<T: Config> =
+		StorageMap<_, Blake2_128Concat, String, Collection, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -69,7 +68,7 @@ pub mod pallet {
 					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
 				},
 				None => {
-					info!("======>>> input comes ======>>> {:?}",task);
+					info!("======>>> input comes ======>>> {:?}", task);
 					self::TaskMeta::<T>::insert(task.collection_id.0, task.clone());
 					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
 				},
@@ -79,20 +78,27 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(T::WeightInfo::store_collection())]
-		pub fn insert_collection(origin: OriginFor<T>, hash: String, task: Vec<u8>, validity: i64) -> DispatchResult {
+		pub fn insert_collection(
+			origin: OriginFor<T>,
+			hash: String,
+			task: Vec<u8>,
+			validity: i64,
+		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
-			let data_list =
-				self::CollectionMeta::<T>::iter_values().find(|x| x.hash == hash);
+			let data_list = self::CollectionMeta::<T>::iter_values().find(|x| x.hash == hash);
 			match data_list {
 				Some(val) => {
 					Self::deposit_event(Event::ColAlreadyExist(val.hash));
 				},
 				None => {
-					self::CollectionMeta::<T>::insert(hash.clone(), Collection {
-						hash: hash.clone(),
-						task,
-						validity
-					});
+					self::CollectionMeta::<T>::insert(
+						hash.clone(),
+						Collection {
+							hash: hash.clone(),
+							task,
+							validity,
+						},
+					);
 					Self::deposit_event(Event::ColMetaStored(hash));
 				},
 			}
@@ -101,7 +107,6 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
 			let data_list = self::TaskMeta::<T>::iter_values().find(|x| x.collection_id.0 == key);
 			match data_list {

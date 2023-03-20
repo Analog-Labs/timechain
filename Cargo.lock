@@ -8954,10 +8954,13 @@ version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "serde",
  "sp-runtime",
+ "sp-std",
+ "time-primitives",
 ]
 
 [[package]]
@@ -9306,6 +9309,7 @@ dependencies = [
  "storage-primitives",
  "substrate-wasm-builder",
  "task-metadata",
+ "task-schedule",
  "time-primitives",
 ]
 

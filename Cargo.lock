@@ -8733,6 +8733,7 @@ dependencies = [
  "async-trait",
  "borsh",
  "diesel",
+ "dotenvy",
  "fnv",
  "frame-support",
  "futures",

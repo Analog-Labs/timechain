@@ -78,6 +78,14 @@ pub struct Task {
 	pub hash: String,
 }
 
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct TaskSchedule {
+	pub task_id: ObjectId,
+	pub cycle: u64,
+	pub validity: Validity,
+	pub hash: String,
+}
+
 // Collection value
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -115,7 +123,6 @@ pub enum Data {
 	Ready(Vec<Vec<(String, Value)>>),
 	Scheduled(QueryId),
 }
-
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Collection {

@@ -989,6 +989,11 @@ impl task_metadata::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl task_schedule::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1017,6 +1022,7 @@ construct_runtime!(
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		TaskMeta: task_metadata,
+		TaskSchedule: task_schedule,
 	}
 );
 

@@ -707,6 +707,30 @@ impl onchain::BoundedConfig for OnChainSeqPhragmen {
 	type TargetsBound = ConstU32<2_000>;
 }
 
+// define a struct to split reward to 80/20 according to tokenomics.
+// re-write the era_payout and just return 80% for staking reward.
+// then 20% left could be distributed to TSS node.
+pub struct SplitConvertCurve<T>(sp_std::marker::PhantomData<T>);
+impl<Balance: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static sp_runtime::curve::PiecewiseLinear<'static>>>
+	pallet_staking::EraPayout<Balance> for SplitConvertCurve<T>
+{
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
+			T::get(),
+			total_staked,
+			total_issuance,
+			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
+			era_duration_millis,
+		);
+		let rest = max_payout.saturating_sub(validator_payout.clone());
+		(validator_payout * 80_u32.into(), rest * 80_u32.into())
+	}
+}
+
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
 	type Currency = Balances;
@@ -724,7 +748,7 @@ impl pallet_staking::Config for Runtime {
 	/// A super-majority of the council can cancel the slash.
 	type SlashCancelOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = SplitConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

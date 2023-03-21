@@ -1,7 +1,9 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
+use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use sc_client_api::Backend;
+use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_runtime::{generic::BlockId, traits::Block};
@@ -11,8 +13,7 @@ use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time};
 use web3::contract::{Contract, Options};
-use web3::types::{Address, U256};
-use dotenvy::dotenv;
+use web3::types::{Address, U256, H160};
 
 // use worker_aurora::{self, establish_connection, get_on_chain_data};
 
@@ -51,7 +52,11 @@ where
 		}
 	}
 
-	async fn call_contract_function(address:String, abi:String, method:String) -> Result<(), Box<dyn Error>> {
+	async fn call_contract_function(
+		address: String,
+		abi: String,
+		method: String,
+	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 
 		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
@@ -66,8 +71,8 @@ where
 		let web3 = web3::Web3::new(websocket);
 
 		// Load the contract ABI and address
-		let contract_abi = abi.parse().unwrap();
-		let contract_address = Address::from(address.parse().unwrap());
+		let contract_abi = from_str(r#"[{"inputs":[],"name":"sayHelloWorld","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"}]"#).unwrap();
+		let contract_address = Address::from(address.parse::<H160>().unwrap());
 
 		// Create a new contract instance using the ABI and address
 		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
@@ -89,12 +94,10 @@ where
 			if !keys.is_empty() {
 				let at = self.backend.blockchain().last_finalized().unwrap();
 				let at = BlockId::Hash(at);
-// MAP(id, t);
 				if let Ok(metadata) = self.runtime.runtime_api().get_task_metadata(&at) {
 					log::info!("New task metadata: {:?}", metadata.unwrap());
 
-
-					// call_contract_function()
+				let x = Self::call_contract_function("0x82E75Add4823372C5448A71E76cef5C78ba5259E".to_string(),"".to_string(),"sayHelloWorld".to_string()).await;
 				} else {
 					log::error!("Failed to get task metadata for block {:?}", at);
 				}

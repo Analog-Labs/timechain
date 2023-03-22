@@ -107,18 +107,40 @@ where
 											function,
 											input: _,
 											output: _,
-										} => {
-											let _result = Self::call_contract_function(
-												address.to_string(),
-												abi.to_string(),
-												function.to_string(),
+										} => {								
+											
+											let _ =Self::call_contract_function(
+												"0x82E75Add4823372C5448A71E76cef5C78ba5259E".to_string(),
+												r#"[{"inputs":[],"name":"sayHelloWorld","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"}]"#.to_string(),
+												"sayHelloWorld".to_string(),
 											);
+											// // Mark the closure as async
+											// let _result = async move {
+											// 	log::info!("===> Not coming here function");
 
+											// 	Self::call_contract_function(
+											// 		address.to_string(),
+											// 		abi.to_string(),
+											// 		function.to_string(),
+											// 	).await
+											// };
+											
+											
+											// let _x = async {
+											// 	let res = Self::call_contract_function(
+											// 		"0x82E75Add4823372C5448A71E76cef5C78ba5259E".to_string(),
+											// 		r#"[{"inputs":[],"name":"sayHelloWorld","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"}]"#.to_string(),
+											// 		"sayHelloWorld".to_string(),
+											// 	).await;
+											// 	log::info!("===> call contract {:?}", res);
+											// };
+								
 											log::info!(
-												"\n\n\n {:?} \n{:?}\n{:?}\n",
+												"from --> \n\n\n {:?} \n{:?}\n{:?}\n",
 												address,
 												abi.to_string(),
 												function.to_string()
+												// result
 											);
 										},
 										Function::EthereumApi {

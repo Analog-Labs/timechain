@@ -1,5 +1,8 @@
 use crate as pallet_tesseract_sig_storage;
-use frame_support::traits::{ConstU16, ConstU64, OnTimestampSet};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU16, ConstU64, OnTimestampSet},
+};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
@@ -73,11 +76,20 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	// Must be > 0 and <= 100
+	pub const SlashingPercentage: u8 = 5;
+	// Must be > 0 and <= 100
+	pub const SlashingPercentageThreshold: u8 = 51;
+}
+
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Moment = Moment;
 	type Timestamp = Timestamp;
+	type SlashingPercentage = SlashingPercentage;
+	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 }
 
 // Build genesis storage according to the mock runtime.

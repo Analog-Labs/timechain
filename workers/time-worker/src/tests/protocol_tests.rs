@@ -434,7 +434,7 @@ fn initialize_time_worker<API>(
 	peers: Vec<(usize, &TimeKeyring, API, Arc<TokioMutex<Receiver<(u64, [u8; 32])>>>)>,
 ) -> impl Future<Output = ()>
 where
-	API: ProvideRuntimeApi<Block> + Send + Sync + Default,
+	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
 	API::Api: TimeApi<Block>,
 {
 	let time_workers = FuturesUnordered::new();

@@ -42,7 +42,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use time_primitives::abstraction::Task;
+use task_metadata::KeyId;
+use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1297,6 +1298,15 @@ impl_runtime_apis! {
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
 			TaskMeta::get_tasks()
 		}
+
+		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
+			TaskMeta::get_task_by_key(key)
+		}
+
+		fn get_task_schedule() -> Result<Vec<abs_TaskSchedule>, DispatchError> {
+			TaskSchedule::get_schedules()
+		}
+
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

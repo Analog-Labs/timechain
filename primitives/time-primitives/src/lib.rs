@@ -6,7 +6,7 @@ pub mod inherents;
 pub mod rpc;
 pub mod sharding;
 
-use abstraction::Task;
+use abstraction::{Task, TaskSchedule};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -23,6 +23,7 @@ pub type SignatureData = Vec<u8>;
 pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type TaskId = u64;
+pub type KeyId = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
@@ -32,6 +33,8 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
+		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
+		fn get_task_schedule() -> Result<Vec<TaskSchedule>, DispatchError>;
 	}
 }
 

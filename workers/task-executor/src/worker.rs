@@ -95,8 +95,18 @@ where
 			if !keys.is_empty() {
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					let at = BlockId::Hash(at);
+					
+					log::info!("\n\nschedule _result --> {:?}\n\n", self.runtime.runtime_api().get_task_schedule(&at).unwrap());
+					if let Ok()
+					
+					
+					
+					
+					
 					if let Ok(metadata_result) = self.runtime.runtime_api().get_task_metadata(&at) {
 						log::info!("\n\nmetadata_result --> {:?}\n\n", metadata_result);
+						
+
 						match metadata_result {
 							Ok(metadata) => {
 								metadata.iter().for_each(|task| {

@@ -12,7 +12,7 @@ use std::{env, marker::PhantomData, str::FromStr, sync::Arc, thread};
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use web3::{
-	futures::{future, StreamExt},
+	futures::StreamExt,
 	types::{Address, BlockId, BlockNumber, FilterBuilder},
 };
 use worker_aurora::{self, establish_connection, get_on_chain_data};
@@ -30,8 +30,6 @@ impl<B, R> ConnectorWorker<B, R>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
-	// R::Api: GetStoreTask<B>,
-	// R::Api: GetTaskMetaData<B>,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, R>) -> Self {
 		let WorkerParams {
@@ -73,11 +71,10 @@ where
 		tasks_from_db_bytes
 	}
 
-	pub async fn get_latest_block() -> Vec<[u8; 32]> {
+	pub async fn get_latest_block_event(&self) {
 		dotenv().ok();
 
 		let infura_url = env::var("INFURA_URL").expect("INFURA_URL must be set");
-
 		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
 		let websocket = match websocket_result {
 			Ok(websocket) => websocket,
@@ -85,10 +82,7 @@ where
 				.await
 				.expect("Failed to create default websocket"),
 		};
-
 		let web3 = web3::Web3::new(websocket);
-		let mut log_vec: Vec<[u8; 32]> = Vec::new();
-		let result = log_vec.clone();
 		if let Ok(Some(latest_block)) = web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
 		{
 			let filter = FilterBuilder::default()
@@ -109,26 +103,31 @@ where
 				.build();
 
 			let sub = web3.eth_subscribe().subscribe_logs(filter).await;
-			if let Ok(sub) = sub {
-				thread::spawn(move || {
-					sub.for_each(move |log| {
-						match log {
-							Ok(log) =>
-								if let Ok(log_in_bytes) = serialize(&log) {
-									log_vec.push(Self::hash_keccak_256(&log_in_bytes));
-								} else {
-									log::info!("Failed to serialize log: {:?}", log);
-								},
-							Err(e) => log::info!("Error deserializing log: {:?}", e),
-						}
-						future::ready(())
-					})
-				});
+
+			if let Ok(mut sub) = sub {
+				while let Some(log) = sub.next().await {
+					match log {
+						Ok(log) =>
+							if let Ok(log_in_bytes) = serialize(&log) {
+								let hash = Self::hash_keccak_256(&log_in_bytes);
+								match self.sign_data_sender.lock().await.try_send((1, hash)) {
+									Ok(()) => {
+										log::info!("Connector successfully send event to channel")
+									},
+									Err(_) => {
+										log::info!("Connector failed to send event to channel")
+									},
+								}
+							} else {
+								log::info!("Failed to serialize log: {:?}", log);
+							},
+						Err(e) => log::warn!("Error on log {:?}", e),
+					}
+				}
 			} else {
 				log::info!("Failed to subscribe to logs: {:?}", sub);
 			}
 		}
-		result
 	}
 
 	pub(crate) async fn run(&mut self) {
@@ -137,6 +136,7 @@ where
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
+				// Get swap data from db and send it to time-worker
 				let tasks_in_byte = Self::get_swap_data_from_db();
 				if !tasks_in_byte.is_empty() {
 					for task in tasks_in_byte.iter() {
@@ -148,16 +148,8 @@ where
 					}
 				}
 
-				let events_from_eth = Self::get_latest_block().await;
-				if !events_from_eth.is_empty() {
-					for event in events_from_eth.iter() {
-						let result = sign_data_sender_clone.lock().await.try_send((1, *event));
-						match result {
-							Ok(_) => warn!("sign_data_sender_clone ok"),
-							Err(_) => warn!("sign_data_sender_clone err"),
-						}
-					}
-				}
+				// Get latest block event from Uniswap v2 and send it to time-worker
+				Self::get_latest_block_event(self).await;
 				thread::sleep(delay);
 			}
 		}

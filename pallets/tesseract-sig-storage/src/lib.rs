@@ -55,6 +55,12 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ StaticTypeInfo;
 		type Timestamp: Time<Moment = Self::Moment>;
+		/// Slashing percentage for commiting misbehavior
+		#[pallet::constant]
+		type SlashingPercentage: Get<u8>;
+		/// Slashing threshold percentage for commiting misbehavior consensus
+		#[pallet::constant]
+		type SlashingPercentageThreshold: Get<u8>;
 	}
 
 	#[pallet::storage]
@@ -116,7 +122,10 @@ pub mod pallet {
 
 		/// Offence report verification failed
 		/// Identifies sender of faulty offence report
-		OffenceReportFailure(TimeId),
+		ShardIsNotRegistered(TimeId),
+
+		/// Reporter TimeId can not be converted to Public key
+		WrongIdOfReporter(TimeId),
 	}
 
 	#[pallet::error]
@@ -328,7 +337,7 @@ pub mod pallet {
 					let members = shard.members();
 					// if reporter or offender are not from reported shard
 					if !members.contains(&offender) || !members.contains(&reporter) {
-						Self::deposit_event(Event::OffenceReportFailure(reporter));
+						Self::deposit_event(Event::WrongIdOfReporter(reporter));
 						return;
 					}
 					// verify signature
@@ -338,7 +347,9 @@ pub mod pallet {
 					<ReportedOffences<T>>::mutate(&offender, |o| {
 						if let Some(known_offender) = o {
 							// check reached threshold
-							let shard_th = Percent::from_percent(51) * members.len();
+							let shard_th =
+								Percent::from_percent(T::SlashingPercentageThreshold::get())
+									* members.len();
 							// move to commitment if reached
 							if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
 								<CommitedOffences<T>>::insert(offender.clone(), known_offender);
@@ -347,14 +358,16 @@ pub mod pallet {
 						} else {
 							let mut hs = BTreeSet::new();
 							hs.insert(reporter);
+							// 1 here is count of reports received for this offence
+							// incremented in above If section
 							let _ = o.insert((1, hs));
 						}
 					});
 				} else {
-					Self::deposit_event(Event::OffenceReportFailure(reporter));
+					Self::deposit_event(Event::ShardIsNotRegistered(reporter));
 				}
 			} else {
-				Self::deposit_event(Event::OffenceReportFailure(reporter));
+				Self::deposit_event(Event::WrongIdOfReporter(reporter));
 			}
 		}
 	}

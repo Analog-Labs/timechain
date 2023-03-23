@@ -508,7 +508,7 @@ where
 }
 
 parameter_types! {
-	pub EpochDuration: u64 = 2 * MINUTES as u64;
+	pub EpochDuration: u64 = 8 * HOURS as u64;
 
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =

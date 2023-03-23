@@ -52,6 +52,7 @@ tss = { path = "../../tesseract/tss", package = "tesseract-tss" }
 accounts = { path = "../../tesseract/accounts", package = "tesseract-accounts" }
 borsh = { version ="0.9", default-features = false }
 web3 = "0.18.0"
+rosetta-client = {path = "../../../chain-connectors/rosetta-client"}
 [dev-dependencies]
 sc-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

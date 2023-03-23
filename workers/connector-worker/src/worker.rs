@@ -6,15 +6,12 @@ use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
 use log::warn;
+use rosetta_client::{create_wallet, types::PartialBlockIdentifier};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{env, marker::PhantomData, str::FromStr, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, thread};
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time::sleep};
-use web3::{
-	futures::StreamExt,
-	types::{Address, BlockId, BlockNumber, FilterBuilder},
-};
+use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
@@ -74,60 +71,53 @@ where
 	pub async fn get_latest_block_event(&self) {
 		dotenv().ok();
 
-		let infura_url = env::var("INFURA_URL").expect("INFURA_URL must be set");
-		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
-		let websocket = match websocket_result {
-			Ok(websocket) => websocket,
-			Err(_) => web3::transports::WebSocket::new(&infura_url)
-				.await
-				.expect("Failed to create default websocket"),
-		};
-		let web3 = web3::Web3::new(websocket);
-		if let Ok(Some(latest_block)) = web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
-		{
-			let filter = FilterBuilder::default()
-				.from_block(match latest_block.number {
-					Some(n) => BlockNumber::Number(n),
-					None => {
-						log::warn!("latest_block.number is None, setting from_block to earliest");
-						BlockNumber::Earliest
-					},
-				})
-				.address(vec![if let Ok(address) =
-					Address::from_str("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984")
-				{
-					address
-				} else {
-					panic!("Failed to parse address");
-				}])
-				.build();
+		let client_url = "http://127.0.0.1:8081";
+		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 
-			let sub = web3.eth_subscribe().subscribe_logs(filter).await;
+		let wallet = create_wallet(
+			Some("ethereum".to_owned()),
+			Some("dev".to_owned()),
+			Some(client_url.to_owned()),
+			None,
+		)
+		.await
+		.unwrap();
 
-			if let Ok(mut sub) = sub {
-				while let Some(log) = sub.next().await {
-					match log {
-						Ok(log) =>
-							if let Ok(log_in_bytes) = serialize(&log) {
-								let hash = Self::hash_keccak_256(&log_in_bytes);
-								match self.sign_data_sender.lock().await.try_send((1, hash)) {
-									Ok(()) => {
-										log::info!("Connector successfully send event to channel")
-									},
-									Err(_) => {
-										log::info!("Connector failed to send event to channel")
-									},
+		let block_data =
+			wallet.block(PartialBlockIdentifier { index: None, hash: None }).await.unwrap();
+
+		println!("==================");
+		println!("iterating block data");
+		println!("==================");
+		if let Some(data) = block_data.block {
+			for tx in data.transactions {
+				if let Some(metadata) = tx.metadata {
+					if let Some(receipts) = metadata["receipt"]["logs"].as_array() {
+						for log in receipts {
+							let address = log["address"].as_str().unwrap();
+							if address == contract_address {
+								if let Ok(log_in_bytes) = serialize(&log) {
+									log::info!("Connector received event: {:?}", log);
+									let hash = Self::hash_keccak_256(&log_in_bytes);
+									match self.sign_data_sender.lock().await.try_send((1, hash)) {
+										Ok(()) => {
+											log::info!(
+												"Connector successfully send event to channel"
+											)
+										},
+										Err(_) => {
+											log::info!("Connector failed to send event to channel")
+										},
+									}
+								} else {
+									log::info!("Failed to serialize log: {:?}", log);
 								}
-							} else {
-								log::info!("Failed to serialize log: {:?}", log);
-							},
-						Err(e) => log::warn!("Error on log {:?}", e),
+							}
+						}
 					}
 				}
-			} else {
-				log::info!("Failed to subscribe to logs: {:?}", sub);
 			}
-		}
+		};
 	}
 
 	pub(crate) async fn run(&mut self) {

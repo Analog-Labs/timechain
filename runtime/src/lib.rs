@@ -66,7 +66,6 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-// use onchain_task_pallet::types::TaskId;
 pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -405,18 +404,6 @@ pub fn native_version() -> NativeVersion {
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 parameter_types! {
-	// pub const ProposalBond: Permill = Permill::from_percent(5);
-	// pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
-	// pub const ProposalBondMaximum: Balance = 500 * DOLLARS;
-	// pub const SpendPeriod: BlockNumber = 24 * DAYS;
-	// pub const Burn: Permill = Permill::from_percent(1);
-	// pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-
-	// pub const TipCountdown: BlockNumber = 1 * DAYS;
-	// pub const TipFindersFee: Percent = Percent::from_percent(20);
-	// pub const TipReportDepositBase: Balance = 1 * DOLLARS;
-	// pub const DataDepositPerByte: Balance = 1 * CENTS;
-	// pub const MaxApprovals: u32 = 100;
 	pub const MaxAuthorities: u32 = 100_000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -1068,10 +1055,6 @@ mod benches {
 	);
 }
 
-// pub struct Obj {
-// 	chain: SupportedChain,
-// 	task: Vec<OnchainTask> q
-// }
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -1287,25 +1270,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	// impl storage_primitives::GetStoreTask<Block> for Runtime {
-	// 	fn task_store() -> Vec<onchain_task_pallet::types::OnchainTask> {
-	// 		OnchainTask::get_task_store()
-	// 	}
-	// }
-
-	// impl storage_primitives::GetTaskMetaData<Block> for Runtime {
-	// 	fn task_metadata() -> Vec<onchain_task_pallet::types::OnChainTaskMetadata> {
-	// 		OnchainTask::get_task_metadata()
-	// 	}
-	// }
-
-	// impl time_primitives::NextTaskid<Block> for Runtime {
-	// 	fn get_next_task_id() -> u64 {
-	// 		OnchainTask::get_next_task_id().unwrap_or_default()
-	// 	}
-	// }
-
-
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
@@ -1404,11 +1368,4 @@ mod tests {
 			whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7")
 		);
 	}
-
-	// #[test]
-	// fn getMetadeta() {
-
-	// 	let metadat_runtime = self.
-
-	// }
 }

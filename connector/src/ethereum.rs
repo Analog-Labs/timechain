@@ -4,7 +4,7 @@ use web3::{
 	contract::{Contract, Options},
 	transports::Http,
 	types::Address,
-}; 
+};
 
 #[derive(Clone)]
 pub struct SwapToken {

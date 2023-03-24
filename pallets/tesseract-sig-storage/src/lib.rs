@@ -5,7 +5,6 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-mod types;
 
 pub mod weights;
 pub use pallet::*;
@@ -15,7 +14,6 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::types::*;
 	use frame_support::{pallet_prelude::*, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
@@ -33,9 +31,7 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn add_member() -> Weight;
 		fn store_signature_data() -> Weight;
-		fn remove_member() -> Weight;
 		fn submit_tss_group_key() -> Weight;
 	}
 
@@ -63,11 +59,6 @@ pub mod pallet {
 		type SlashingPercentageThreshold: Get<u8>;
 	}
 
-	#[pallet::storage]
-	#[pallet::getter(fn tesseract_members)]
-	pub type TesseractMembers<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, TesseractRole, OptionQuery>;
-
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
 	#[pallet::storage]
@@ -81,7 +72,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
 	pub type SignatureStoreData<T: Config> =
-		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureStorage<T::Moment>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureData, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reported_offences)]
@@ -99,12 +90,6 @@ pub mod pallet {
 		/// The event data for stored signature
 		/// the signature id that uniquely identify the signature
 		SignatureStored(ForeignEventId),
-
-		/// A tesseract Node has been added as a member with it's role
-		TesseractMemberAdded(T::AccountId, TesseractRole),
-
-		/// A tesseract Node has been removed
-		TesseractMemberRemoved(T::AccountId),
 
 		/// Unauthorized attempt to add signed data
 		UnregisteredWorkerDataSubmission(T::AccountId),
@@ -204,44 +189,14 @@ pub mod pallet {
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
-			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
-			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
+			let _caller = ensure_signed(origin)?;
 
-			<SignatureStoreData<T>>::insert(event_id, storage_data);
+			// TODO: based on 'event_id.task_id()' find task, get ShardId from it and check if
+			// origin is a collector node of that shard this should be implemented after some task
+			// management pallet is present and coupled with this one
 
+			<SignatureStoreData<T>>::insert(event_id, signature_data);
 			Self::deposit_event(Event::SignatureStored(event_id));
-
-			Ok(())
-		}
-
-		/// Extrinsic for adding a node and it's member role
-		/// Callable only by root for now
-		#[pallet::weight(T::WeightInfo::add_member())]
-		pub fn add_member(
-			origin: OriginFor<T>,
-			account: T::AccountId,
-			role: TesseractRole,
-		) -> DispatchResult {
-			let _ = ensure_signed_or_root(origin)?;
-
-			<TesseractMembers<T>>::insert(account.clone(), role.clone());
-
-			Self::deposit_event(Event::TesseractMemberAdded(account, role));
-
-			Ok(())
-		}
-
-		/// Extrinsic for adding a node and it's member role
-		/// Callable only by root for now
-		#[pallet::weight(T::WeightInfo::remove_member())]
-		pub fn remove_member(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			let _ = ensure_signed_or_root(origin)?;
-
-			<TesseractMembers<T>>::remove(account.clone());
-
-			Self::deposit_event(Event::TesseractMemberRemoved(account));
-
 			Ok(())
 		}
 
@@ -306,16 +261,12 @@ pub mod pallet {
 			}
 			// Unwrapping is safe - we've checked for len and default-ness
 			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
-			if !TesseractMembers::<T>::contains_key(account_id.clone())
-				|| !auth_sig.verify(&*signature_data, &auth_id)
-			{
+			// TODO: same check as for extrinsic after task management is implemented
+			if !auth_sig.verify(signature_data.as_ref(), &auth_id) {
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
 				return;
 			}
-			let storage_data = SignatureStorage::new(signature_data, T::Timestamp::now());
-
-			<SignatureStoreData<T>>::insert(event_id, storage_data);
-
+			<SignatureStoreData<T>>::insert(event_id, signature_data);
 			Self::deposit_event(Event::SignatureStored(event_id));
 		}
 

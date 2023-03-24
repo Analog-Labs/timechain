@@ -919,11 +919,20 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+parameter_types! {
+	// Must be > 0 and <= 100
+	pub const SlashingPercentage: u8 = 5;
+	// Must be > 0 and <= 100
+	pub const SlashingPercentageThreshold: u8 = 51;
+}
+
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Moment = u64;
 	type Timestamp = Timestamp;
+	type SlashingPercentage = SlashingPercentage;
+	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 }
 
 parameter_types! {
@@ -1267,6 +1276,10 @@ impl_runtime_apis! {
 
 		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::api_tss_shards()
+		}
+
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
 		}
 	}
 

@@ -38,7 +38,7 @@ const pallet_task_add = async (_keyspair, who) => {
         schema:[1],
         function:{ethereumcontract:{
             address: stringToHex('0x82E75Add4823372C5448A71E76cef5C78ba5259E'),
-            abi: "[{'inputs':[],'name':'sayHelloWorld','outputs':[{'internalType':'string','name':'','type':'string'}],'stateMutability':'pure','type':'function'}]",
+            abi: r#"[{'inputs':[],'name':'sayHelloWorld','outputs':[{'internalType':'string','name':'','type':'string'}],'stateMutability':'pure','type':'function'}]"#,
             function: "sayHelloWorld",
             input: 2,
             output: 2,

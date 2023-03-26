@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	MultiSignature, DispatchError,
+	DispatchError, MultiSignature,
 };
 use sp_std::vec::Vec;
 /// Time key type

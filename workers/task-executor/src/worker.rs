@@ -6,15 +6,19 @@ use sc_client_api::Backend;
 use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
+
 use sp_runtime::{generic::BlockId, traits::Block};
-use std::error::Error;
-use std::{marker::PhantomData, sync::Arc, thread};
-use time_primitives::abstraction::{Function, Task};
-use time_primitives::TimeApi;
+use std::{error::Error, marker::PhantomData, sync::Arc, thread};
+use time_primitives::{
+	abstraction::{Function, Task},
+	TimeApi,
+};
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time};
-use web3::contract::{Contract, Options};
-use web3::types::{Address, H160, U256};
+use web3::{
+	contract::{Contract, Options},
+	types::{Address, H160, U256},
+};
 
 // use worker_aurora::{self, establish_connection, get_on_chain_data};
 
@@ -59,7 +63,7 @@ where
 		method: String,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-		log::info!("-------- inside call contract function");
+		
 		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
 
 		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
@@ -70,6 +74,8 @@ where
 				.expect("Failed to create default websocket"),
 		};
 		let web3 = web3::Web3::new(websocket);
+
+log::info!("abi ---------> {:?}",abi);
 
 		// Load the contract ABI and address
 		let contract_abi = from_str(&abi).unwrap();
@@ -95,80 +101,75 @@ where
 			if !keys.is_empty() {
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					let at = BlockId::Hash(at);
-					
-					log::info!("\n\nschedule _result --> {:?}\n\n", self.runtime.runtime_api().get_task_schedule(&at).unwrap());
-					if let Ok()
-					
-					
-					
-					
-					
-					if let Ok(metadata_result) = self.runtime.runtime_api().get_task_metadata(&at) {
-						log::info!("\n\nmetadata_result --> {:?}\n\n", metadata_result);
-						
 
-						match metadata_result {
-							Ok(metadata) => {
-								metadata.iter().for_each(|task| {
-									match &task.function {
-										Function::EthereumContract {
-											address,
-											abi,
-											function,
-											input: _,
-											output: _,
-										} => {								
-											
-											let _ =Self::call_contract_function(
-												"0x82E75Add4823372C5448A71E76cef5C78ba5259E".to_string(),
-												r#"[{"inputs":[],"name":"sayHelloWorld","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"}]"#.to_string(),
-												"sayHelloWorld".to_string(),
-											);
-											// // Mark the closure as async
-											// let _result = async move {
-											// 	log::info!("===> Not coming here function");
+					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
+						log::info!("\n\nschedule _result --> {:?}\n\n", tasks_schedule);
+						match tasks_schedule {
+							Ok(task_schedule) => {
+								// task_schedule.iter().for_each(|schedule_task|{
+								for schedule_task in task_schedule.iter() {
+									let task_id = schedule_task.task_id.0;
+									if let Ok(metadata_result) = self
+										.runtime
+										.runtime_api()
+										.get_task_metadat_by_key(&at, task_id)
+									{
+										log::info!(
+											"\n\nget_task_metadat_by_key --> {:?}\n\n",
+											metadata_result
+										);
 
-											// 	Self::call_contract_function(
-											// 		address.to_string(),
-											// 		abi.to_string(),
-											// 		function.to_string(),
-											// 	).await
-											// };
-											
-											
-											// let _x = async {
-											// 	let res = Self::call_contract_function(
-											// 		"0x82E75Add4823372C5448A71E76cef5C78ba5259E".to_string(),
-											// 		r#"[{"inputs":[],"name":"sayHelloWorld","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"}]"#.to_string(),
-											// 		"sayHelloWorld".to_string(),
-											// 	).await;
-											// 	log::info!("===> call contract {:?}", res);
-											// };
-								
-											log::info!(
-												"from --> \n\n\n {:?} \n{:?}\n{:?}\n",
-												address,
-												abi.to_string(),
-												function.to_string()
-												// result
-											);
-										},
-										Function::EthereumApi {
-											function: _,
-											input: _,
-											output: _,
-										} => {
-											todo!()
-										},
-									};
-								});
+										match metadata_result {
+											Ok(metadata) => {
+												// metadata.iter().for_each(|task| {
+												for task in metadata.iter() {
+													match &task.function {
+														Function::EthereumContract {
+															address,
+															abi,
+															function,
+															input: _,
+															output: _,
+														} => {
+															let _x = Self::call_contract_function(
+																address.to_string(),
+																abi.to_string(),
+																function.to_string(),
+															)
+															.await;
+														},
+														Function::EthereumApi {
+															function: _,
+															input: _,
+															output: _,
+														} => {
+															todo!()
+														},
+													};
+												}
+											},
+											Err(e) => {
+												log::info!(
+													"No metadata found for block {:?}: {:?}",
+													at,
+													e
+												);
+											},
+										}
+									} else {
+										log::error!(
+											"Failed to get task metadata for block {:?}",
+											at
+										);
+									}
+								}
 							},
 							Err(e) => {
 								log::info!("No metadata found for block {:?}: {:?}", at, e);
 							},
 						}
 					} else {
-						log::error!("Failed to get task metadata for block {:?}", at);
+						log::error!("Failed to get task schedule for block {:?}", at);
 					}
 				} else {
 					log::error!("Blockchain is empty");

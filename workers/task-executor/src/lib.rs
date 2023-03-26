@@ -7,12 +7,11 @@ use log::*;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use time_primitives::TimeApi;
 use std::{marker::PhantomData, sync::Arc};
+use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 // use storage_primitives::{GetStoreTask, GetTaskMetaData};
 use tokio::sync::Mutex;
-
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
@@ -59,7 +58,6 @@ where
 		_block,
 	} = taskexecutor_params;
 
-	
 	let worker_params = WorkerParams {
 		backend,
 		runtime,

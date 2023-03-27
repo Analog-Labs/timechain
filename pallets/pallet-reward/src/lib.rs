@@ -11,19 +11,15 @@ use sp_std::prelude::*;
 use time_primitives::WorkerTrait;
 
 pub use pallet::*;
-use pallet_session::{self as sessions};
-use pallet_staking::{self as staking, EraPayout, SessionInterface};
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use pallet_session::ShouldEndSession;
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
-	pub type BalanceCur<T> = <T as staking::Config>::CurrencyBalance;
 	pub type WorkerReturn<AccountId> = Vec<(AccountId, AccountId)>;
 	pub type RewardList<T> = (
 		// 1st account will be the rewarder
@@ -37,15 +33,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + staking::Config + sessions::Config {
+	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// Find the author of a block.
 		type Currency: Currency<Self::AccountId>;
-		// type Worker: WorkerTrait<Self::AccountId>;
-		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
-		type SessionInterface: SessionInterface<Self::AccountId>;
-
-		type EraPayout: EraPayout<BalanceCur<Self>>;
 	}
 
 	#[pallet::genesis_config]
@@ -65,7 +55,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			log::info!("build list of reward accounts! {:?}", self.reward_list);
 			let mut num: u64 = 0;
 			self.reward_list.iter().for_each(|item| {
 				num += 1;
@@ -86,7 +75,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	pub enum Event<T: Config> {
-		/// Claimed vesting.
 		BalanceAmount { who: T::AccountId, amount: BalanceOf<T> },
 	}
 
@@ -105,11 +93,6 @@ pub mod pallet {
 				let balance_paid = balance / length.into();
 
 				curr.iter().for_each(|item| {
-					log::info!(
-						"Balance transferred. ====> {:?} --- amount= {:?} ",
-						item,
-						balance_paid
-					);
 					let _resp =
 						<T as pallet::Config>::Currency::deposit_into_existing(item, balance_paid);
 				});

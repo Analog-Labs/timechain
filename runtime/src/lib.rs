@@ -753,7 +753,7 @@ impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static
 					}
 				});
 			},
-			Err(_) => info!("Something went wrong reward_worker"),
+			Err(_) => info!("Something went wrong pallet_reward"),
 		}
 
 		let divisor = 100u32;
@@ -933,12 +933,9 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (Staking, ImOnline);
 }
 
-impl reward_worker::Config for Runtime {
+impl pallet_reward::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type ShouldEndSession = Babe;
-	type SessionInterface = Self;
-	type EraPayout = SplitConvertCurveI<RewardCurve>;//pallet_staking::ConvertCurve<RewardCurve>;
 }
 
 /// Logic for the author to get a portion of fees.
@@ -1089,7 +1086,7 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
-		Rewardworker: reward_worker,
+		Rewardworker: pallet_reward,
 	}
 );
 

@@ -1,12 +1,13 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
 use bincode::serialize;
+use serde_json::Value;
 use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
 use log::warn;
-use rosetta_client::{create_wallet, types::PartialBlockIdentifier};
+use rosetta_client::{create_wallet, types::PartialBlockIdentifier, Wallet};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, thread};
@@ -68,51 +69,36 @@ where
 		tasks_from_db_bytes
 	}
 
-	pub async fn get_latest_block_event(&self) {
+	pub async fn get_latest_block_event(&self, wallet: &Wallet) {
 		dotenv().ok();
 
-		let client_url = "http://127.0.0.1:8081";
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
-
-		let wallet = create_wallet(
-			Some("ethereum".to_owned()),
-			Some("dev".to_owned()),
-			Some(client_url.to_owned()),
-			None,
-		)
-		.await
-		.unwrap();
 
 		let block_data =
 			wallet.block(PartialBlockIdentifier { index: None, hash: None }).await.unwrap();
 
-		println!("==================");
-		println!("iterating block data");
-		println!("==================");
+		let empty_vec: Vec<Value> = vec![];
 		if let Some(data) = block_data.block {
 			for tx in data.transactions {
 				if let Some(metadata) = tx.metadata {
-					if let Some(receipts) = metadata["receipt"]["logs"].as_array() {
-						for log in receipts {
-							let address = log["address"].as_str().unwrap();
-							if address == contract_address {
-								if let Ok(log_in_bytes) = serialize(&log) {
-									log::info!("Connector received event: {:?}", log);
-									let hash = Self::hash_keccak_256(&log_in_bytes);
-									match self.sign_data_sender.lock().await.try_send((1, hash)) {
-										Ok(()) => {
-											log::info!(
-												"Connector successfully send event to channel"
-											)
-										},
-										Err(_) => {
-											log::info!("Connector failed to send event to channel")
-										},
-									}
-								} else {
-									log::info!("Failed to serialize log: {:?}", log);
-								}
+					let receipts = metadata["receipt"]["logs"].as_array().unwrap_or(&empty_vec);
+					let filtered_receipt = receipts.iter().filter(|log| {
+						let address = log["address"].as_str().unwrap_or("");
+						address == contract_address
+					});
+					for log in filtered_receipt {
+						if let Ok(log_in_bytes) = serialize(&log) {
+							let hash = Self::hash_keccak_256(&log_in_bytes);
+							match self.sign_data_sender.lock().await.try_send((1, hash)) {
+								Ok(()) => {
+									log::info!("Connector successfully send event to channel")
+								},
+								Err(_) => {
+									log::info!("Connector failed to send event to channel")
+								},
 							}
+						} else {
+							log::info!("Failed to serialize log: {:?}", log);
 						}
 					}
 				}
@@ -123,6 +109,17 @@ where
 	pub(crate) async fn run(&mut self) {
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
+
+		let client_url = "http://127.0.0.1:8081";
+		let wallet = create_wallet(
+			Some("ethereum".to_owned()),
+			Some("dev".to_owned()),
+			Some(client_url.to_owned()),
+			None,
+		)
+		.await
+		.unwrap();
+
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -139,8 +136,8 @@ where
 				}
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
-				Self::get_latest_block_event(self).await;
-				sleep(delay).await;
+				Self::get_latest_block_event(self, &wallet).await;
+				thread::sleep(delay);
 			}
 		}
 	}

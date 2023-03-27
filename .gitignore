@@ -18,4 +18,4 @@
 # CLion / InteliJ ide settings
 .idea
 
-Cargo.lcok
+Cargo.lock

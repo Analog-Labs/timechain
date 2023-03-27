@@ -9153,7 +9153,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-tracing",
- "storage-primitives",
  "strum",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",

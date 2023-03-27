@@ -9119,7 +9119,6 @@ dependencies = [
  "arrayref",
  "async-trait",
  "borsh",
- "connector",
  "fnv",
  "frame-support",
  "futures",

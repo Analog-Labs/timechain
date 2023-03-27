@@ -8,9 +8,9 @@ use ink::env::hash;
 use log::warn;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{env, marker::PhantomData, str::FromStr, sync::Arc, thread};
+use std::{env, marker::PhantomData, str::FromStr, sync::Arc};
 use time_worker::kv::TimeKeyvault;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::sleep};
 use web3::{
 	futures::StreamExt,
 	types::{Address, BlockId, BlockNumber, FilterBuilder},
@@ -150,7 +150,7 @@ where
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
 				Self::get_latest_block_event(self).await;
-				thread::sleep(delay);
+				let _ = sleep(delay);
 			}
 		}
 	}

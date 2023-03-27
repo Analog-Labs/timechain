@@ -1059,7 +1059,6 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
-		[onchain_task_pallet, OnchainTask]
 
 	);
 }

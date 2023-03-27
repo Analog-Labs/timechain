@@ -689,9 +689,10 @@ where
 												&BlockId::Hash(at),
 												auth_key,
 												signature,
-												key_bytes.to_vec(),
-												// TODO: construct or receive proper id
-												0.into(),
+												th_bytes,
+												// TODO: implement passing this along after task
+												// management is present
+												0u128.into(),
 											));
 										}
 										Some(gossip_data)

@@ -707,7 +707,6 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
-		info!("era_payout from runtime happens log");
 		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
 			T::get(),
 			total_staked,
@@ -739,7 +738,6 @@ impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		log::info!(" --->>era payout called from here");
 		let rest = max_payout.clone().saturating_sub(validator_payout.clone());
 		let session_active_validators = Session::validators();
 		let acc = Rewardworker::get_reward_account();
@@ -748,19 +746,14 @@ impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static
 				session_active_validators.iter().for_each(|y| {
 					let exist = val.iter().find(|&x| x.1 == y.clone());
 					match exist {
-						Some(_va) => {
-							info!("Validator account exiist in reward worker storage ");
-						},
+						Some(_va) => {},
 						None => {
-							info!(
-								"Validator account  does not exist in reward worker storage "
-							);
 							let _ = Rewardworker::insert_account(y.clone());
 						},
 					}
 				});
 			},
-			Err(_) => info!(" validator list  -f------> error  <<<<<----"),
+			Err(_) => info!("Something went wrong reward_worker"),
 		}
 		// Rewardworker::t
 		let send_reward = Rewardworker::percent_calculator(max_payout, 20);

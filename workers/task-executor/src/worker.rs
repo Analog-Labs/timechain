@@ -10,7 +10,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 
 use sp_runtime::{generic::BlockId, traits::Block};
-use std::{error::Error, marker::PhantomData, sync::Arc, thread};
+use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc, thread};
 use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time};
@@ -90,28 +90,25 @@ where
 		// Call the "getGreeting" function on the contract instance
 		let greeting: String =
 			contract.query(method.as_str(), (), None, Options::default(), None).await?;
-
-		// if let Ok(task_in_bytes) = serialize(&greeting) {
-		// 	let hash = Self::hash_keccak_256(&task_in_bytes);
-		// 	match self.sign_data_sender.lock().await.try_send((1, hash)) {
-		// 		Ok(()) => {
-		// 			log::info!("Connector successfully send event to channel")
-		// 		},
-		// 		Err(_) => {
-		// 			log::info!("Connector failed to send event to channel")
-		// 		},
-		// 	}
-		// } else {
-		// 	log::info!("Failed to serialize task: {:?}", greeting);
-		// }
-
-		println!("The greeting is: {}", greeting);
-
+		if let Ok(task_in_bytes) = serialize(&greeting) {
+			let hash = Self::hash_keccak_256(&task_in_bytes);
+			match self.sign_data_sender.lock().await.try_send((1, hash)) {
+				Ok(()) => {
+					log::info!("Connector successfully send event to channel")
+				},
+				Err(_) => {
+					log::info!("Connector failed to send event to channel")
+				},
+			}
+		} else {
+			log::info!("Failed to serialize task: {:?}", greeting);
+		}
 		Ok(())
 	}
 
 	pub(crate) async fn run(&mut self) {
 		let delay = time::Duration::from_secs(10);
+		let mut map: HashMap<u64, String> = HashMap::new();
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -120,18 +117,28 @@ where
 
 					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
 						match tasks_schedule {
-							Ok(task_schedule) => {
-								// task_schedule.iter().for_each(|schedule_task|{
+							Ok(task_schedule) =>
 								for schedule_task in task_schedule.iter() {
 									let task_id = schedule_task.task_id.0;
+
+									match map.insert(task_id, "hash".to_string()) {
+										Some(old_value) => println!(
+											"The key already existed with the value {}",
+											old_value
+										),
+										None => println!(
+											"The key didn't exist and was inserted key {}.",
+											task_id
+										),
+									}
+
 									if let Ok(metadata_result) = self
 										.runtime
 										.runtime_api()
 										.get_task_metadat_by_key(&at, task_id)
 									{
 										match metadata_result {
-											Ok(metadata) => {
-												// metadata.iter().for_each(|task| {
+											Ok(metadata) =>
 												for task in metadata.iter() {
 													match &task.function {
 														Function::EthereumContract {
@@ -157,8 +164,7 @@ where
 															todo!()
 														},
 													};
-												}
-											},
+												},
 											Err(e) => {
 												log::info!(
 													"No metadata found for block {:?}: {:?}",
@@ -173,8 +179,7 @@ where
 											at
 										);
 									}
-								}
-							},
+								},
 							Err(e) => {
 								log::info!("No metadata found for block {:?}: {:?}", at, e);
 							},

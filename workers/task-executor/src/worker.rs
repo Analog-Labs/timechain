@@ -1,7 +1,9 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
+use bincode::serialize;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
+use ink::env::hash;
 use sc_client_api::Backend;
 use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
@@ -9,15 +11,12 @@ use sp_blockchain::Backend as SpBackend;
 
 use sp_runtime::{generic::BlockId, traits::Block};
 use std::{error::Error, marker::PhantomData, sync::Arc, thread};
-use time_primitives::{
-	abstraction::{Function, Task},
-	TimeApi,
-};
+use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time};
 use web3::{
 	contract::{Contract, Options},
-	types::{Address, H160, U256},
+	types::{Address, H160},
 };
 
 // use worker_aurora::{self, establish_connection, get_on_chain_data};
@@ -57,13 +56,19 @@ where
 		}
 	}
 
+	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
+		let mut output = <hash::Keccak256 as hash::HashOutput>::Type::default();
+		ink::env::hash_bytes::<hash::Keccak256>(input, &mut output);
+		output
+	}
+
 	async fn call_contract_function(
+		&self,
 		address: String,
 		abi: String,
 		method: String,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-		
 		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
 
 		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
@@ -74,8 +79,6 @@ where
 				.expect("Failed to create default websocket"),
 		};
 		let web3 = web3::Web3::new(websocket);
-
-log::info!("abi ---------> {:?}",abi);
 
 		// Load the contract ABI and address
 		let contract_abi = from_str(&abi).unwrap();
@@ -88,13 +91,26 @@ log::info!("abi ---------> {:?}",abi);
 		let greeting: String =
 			contract.query(method.as_str(), (), None, Options::default(), None).await?;
 
+		// if let Ok(task_in_bytes) = serialize(&greeting) {
+		// 	let hash = Self::hash_keccak_256(&task_in_bytes);
+		// 	match self.sign_data_sender.lock().await.try_send((1, hash)) {
+		// 		Ok(()) => {
+		// 			log::info!("Connector successfully send event to channel")
+		// 		},
+		// 		Err(_) => {
+		// 			log::info!("Connector failed to send event to channel")
+		// 		},
+		// 	}
+		// } else {
+		// 	log::info!("Failed to serialize task: {:?}", greeting);
+		// }
+
 		println!("The greeting is: {}", greeting);
 
 		Ok(())
 	}
 
 	pub(crate) async fn run(&mut self) {
-		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(10);
 		loop {
 			let keys = self.kv.public_keys();
@@ -103,7 +119,6 @@ log::info!("abi ---------> {:?}",abi);
 					let at = BlockId::Hash(at);
 
 					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
-						log::info!("\n\nschedule _result --> {:?}\n\n", tasks_schedule);
 						match tasks_schedule {
 							Ok(task_schedule) => {
 								// task_schedule.iter().for_each(|schedule_task|{
@@ -114,11 +129,6 @@ log::info!("abi ---------> {:?}",abi);
 										.runtime_api()
 										.get_task_metadat_by_key(&at, task_id)
 									{
-										log::info!(
-											"\n\nget_task_metadat_by_key --> {:?}\n\n",
-											metadata_result
-										);
-
 										match metadata_result {
 											Ok(metadata) => {
 												// metadata.iter().for_each(|task| {
@@ -132,6 +142,7 @@ log::info!("abi ---------> {:?}",abi);
 															output: _,
 														} => {
 															let _x = Self::call_contract_function(
+																self,
 																address.to_string(),
 																abi.to_string(),
 																function.to_string(),

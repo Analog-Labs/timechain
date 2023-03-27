@@ -18,10 +18,8 @@ use pallet_staking::{self as staking, EraPayout, SessionInterface};
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_session::ShouldEndSession;
 
-	use log::info;
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
@@ -92,53 +90,6 @@ pub mod pallet {
 		BalanceAmount { who: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Called when a block is initialized. Will rotate session if it is the last
-		/// block of the current session.
-		fn on_initialize(n: T::BlockNumber) -> Weight {
-			// check if session is about to end
-			if <T as pallet::Config>::ShouldEndSession::should_end_session(n) {
-				info!(" ---->>>>>new session happened");
-
-				// let da = <T as pallet::Config>::SessionInterface::validators();
-				// let active = <staking::Pallet<T>>::active_era();
-				// let sess = <sessions::Pallet<T>>::current_index();
-				// match active {
-				// 	Some(val) => {
-				// 		let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
-				// 		let era_duration = (now_as_millis_u64).saturated_into::<u64>();
-
-				// 		let staked = <staking::Pallet<T>>::eras_total_stake(val.index);
-				// 		let issuance = <T as staking::Config>::Currency::total_issuance();
-				// 		info!(" ---->>>>>staked amount {:?}", staked);
-				// 		// era_duration
-				// 		// let balance_staked:BalanceOf = Self::into_fun(staked);
-				// 		let (validator_payout, remainder) = <T as
-				// pallet::Config>::EraPayout::era_payout(staked, issuance, era_duration);
-
-				// 		// let percent_from_validator = Self::percent_calculator(validator_payout, 20);
-				// 		// let percent_from_remainder = Self::percent_calculator(remainder, 20);
-
-				// 		// let validator_share = validator_payout.saturating_sub(percent_from_validator);
-				// 		// let remainder_share = remainder.saturating_sub(percent_from_remainder);
-				// 		// let cronical_share =
-				// percent_from_validator.saturating_add(percent_from_remainder);
-
-				// 	}
-				// 	None => {}
-				// }
-
-				Weight::zero()
-			} else {
-				// 	// NOTE: the non-database part of the weight for `should_end_session(n)` is
-				// 	// included as weight for empty block, the database part is expected to be in
-				// 	// cache.
-				Weight::zero()
-			}
-		}
-	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_reward_account() -> Result<WorkerReturn<T::AccountId>, DispatchError> {
 			let data_list = RewardAccount::<T>::iter_values().collect::<Vec<_>>();
@@ -174,18 +125,6 @@ pub mod pallet {
 			RewardAccount::<T>::insert(length + 1, (validator.clone(), validator.clone()));
 
 			Ok(validator)
-		}
-
-		pub fn percent_calculator<N>(value: N, q: u32) -> N
-		where
-			N: sp_runtime::traits::AtLeast32BitUnsigned + Clone,
-		{
-			let divisor = 100u32;
-			if q == 0 {
-				return value;
-			}
-
-			(value / q.into()).saturating_mul(divisor.into())
 		}
 	}
 	impl<T: Config> WorkerTrait<T::AccountId, BalanceOf<T>> for Pallet<T> {

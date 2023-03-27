@@ -755,11 +755,16 @@ impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static
 			},
 			Err(_) => info!("Something went wrong reward_worker"),
 		}
-		// Rewardworker::t
-		let send_reward = Rewardworker::percent_calculator(max_payout, 20);
+
+		let divisor = 100u32;
+		// 20 percent of total reward.
+		let send_reward = (max_payout/ 20u32.into()).saturating_mul(divisor.into());
+		// reward distribution for validators/chronicle accounts.
 		let _rep = Rewardworker::send_reward(send_reward.unique_saturated_into(), session_active_validators);
-		let val_payout = Rewardworker::percent_calculator(validator_payout, 80);
-		let rest_payout = Rewardworker::percent_calculator(rest, 80);
+		// 80 percent of total yield.
+		let val_payout = (validator_payout/ 80u32.into()).saturating_mul(divisor.into());
+		let rest_payout = (rest / 80u32.into()).saturating_mul(divisor.into());
+		// send rest for payout.
 		(val_payout, rest_payout)
 	}
 }

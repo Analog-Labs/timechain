@@ -310,13 +310,13 @@ fn testnet_genesis(
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
-
+	let initial_nominators: Vec<AccountId> = vec![];
 	let stash = ANLOG * 500000;
 	let mut rng = rand::thread_rng();
 	let stakers = initial_authorities
 		.iter()
 		.map(|x| (x.1.clone(), x.0.clone(), stash, StakerStatus::<AccountId>::Validator))
-		.map(|x| {
+		.chain(initial_nominators.iter().map(|x| {
 			use rand::seq::SliceRandom;
 			let limit = initial_authorities.len();
 			let count = initial_authorities.len() / limit;
@@ -327,8 +327,8 @@ fn testnet_genesis(
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
 			log::info!("nomination issues -->> {:?}", nominations);
-			(x.0.clone(), x.1, stash, StakerStatus::<AccountId>::Nominator(nominations))
-		})
+			(x.clone(), x.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))
+		}))
 		.collect::<Vec<_>>();
 
 	let reward_accounts = initial_authorities

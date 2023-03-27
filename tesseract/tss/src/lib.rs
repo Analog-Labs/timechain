@@ -1,6 +1,5 @@
 pub mod local_state_struct;
 pub mod signverify;
-pub mod submit_to_timechain;
 pub mod tss_event_model;
 pub mod utils;
 

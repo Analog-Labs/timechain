@@ -5,6 +5,7 @@ pub mod abstraction;
 pub mod inherents;
 pub mod rpc;
 pub mod sharding;
+pub mod slashing;
 
 use abstraction::{Task, TaskSchedule};
 use codec::{Decode, Encode};
@@ -35,6 +36,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<TaskSchedule>, DispatchError>;
+		fn report_misbehavior(shard_id: u64, offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
 	}
 }
 

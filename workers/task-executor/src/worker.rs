@@ -4,8 +4,10 @@ use bincode::serialize;
 use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
+use ink::env::hash;
+use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
 use sc_client_api::Backend;
-use serde_json::from_str;
+use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
@@ -13,11 +15,7 @@ use sp_runtime::traits::Block;
 use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time::sleep};
-use web3::{
-	contract::{Contract, Options},
-	types::H160,
-};
+use tokio::{sync::Mutex, time};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -65,28 +63,14 @@ where
 	async fn call_contract_and_send_for_sign(
 		&self,
 		address: String,
-		abi: String,
-		method: String,
-		shard_id: u64,
+		function_signature: String,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
-		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
-		let websocket = match websocket_result {
-			Ok(websocket) => websocket,
-			Err(_) => web3::transports::WebSocket::new(&infura_url)
-				.await
-				.expect("Failed to create default websocket"),
-		};
-		let web3 = web3::Web3::new(websocket);
 
-		// Load the contract ABI and address
-		let contract_abi = match from_str(&abi) {
-			Ok(abi) => abi,
-			Err(e) => {
-				log::warn!("Error parsing contract ABI:  {}", e);
-				return Err("Failed to parse contract ABI".into());
-			},
+		let (config, client) = if let Ok(client_config) = create_connector_client().await {
+			(client_config.0, client_config.1)
+		} else {
+			return Err("Failed to create connector client".into());
 		};
 		let contract_address = match address.parse::<H160>() {
 			Ok(parsed_address) => parsed_address,
@@ -96,12 +80,11 @@ where
 				H160::default()
 			},
 		};
-		// Create a new contract instance using the ABI and address
-		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
 
-		let greeting: String =
-			contract.query(method.as_str(), (), None, Options::default(), None).await?;
-		if let Ok(task_in_bytes) = serialize(&greeting) {
+		let data = client.call(&request).await?;
+
+		if let Ok(task_in_bytes) = serialize(&data.result) {
+			println!("received data: {:?}", data.result);
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 			match self.sign_data_sender.lock().await.try_send((shard_id, hash)) {
 				Ok(()) => {
@@ -112,7 +95,7 @@ where
 				},
 			}
 		} else {
-			log::info!("Failed to serialize task: {:?}", greeting);
+			log::info!("Failed to serialize task: {:?}", data);
 		}
 		Ok(())
 	}
@@ -222,4 +205,18 @@ where
 			}
 		}
 	}
+}
+
+async fn create_connector_client() -> Result<(BlockchainConfig, Client), Box<dyn Error>> {
+	let connector_url = std::env::var("CONNECTOR_URL").expect("CONNECTOR_URL must be set");
+	let connector_blockchain =
+		std::env::var("CONNECTOR_BLOCKCHAIN").expect("CONNECTOR_BLOCKCHAIN must be set");
+	let connector_network =
+		std::env::var("CONNECTOR_NETWORK").expect("CONNECTOR_NETWORK must be set");
+
+	let (config, client) =
+		create_client(Some(connector_blockchain), Some(connector_network), Some(connector_url))
+			.await?;
+
+	Ok((config, client))
 }

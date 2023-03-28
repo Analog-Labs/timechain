@@ -26,7 +26,6 @@ frame-election-provider-support = { version = "4.0.0-dev", default-features = fa
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-offences = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-collective  = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-pallet-reward = { version = "0.0.1", default-features = false, path = "../pallets/pallet-reward" }
 
 pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
@@ -128,7 +127,6 @@ std = [
 	"sp-version/std",
 	"time-primitives/std",
 	"storage-primitives/std",
-	"pallet-reward/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -160,5 +158,4 @@ try-runtime = [
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-reward/try-runtime",
 ]

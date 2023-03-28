@@ -25,6 +25,7 @@ pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
+	SaturatedConversion,
 	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
@@ -37,7 +38,6 @@ use sp_runtime::{
 };
 
 use frame_system::EnsureRootWithSuccess;
-use log::info;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -740,28 +740,19 @@ impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static
 		);
 		let rest = max_payout.clone().saturating_sub(validator_payout.clone());
 		let session_active_validators = Session::validators();
-		let acc = Rewardworker::get_reward_account();
-		match acc {
-			Ok(val) => {
-				session_active_validators.iter().for_each(|y| {
-					let exist = val.iter().find(|&x| x.1 == y.clone());
-					match exist {
-						Some(_va) => {},
-						None => {
-							let _ = Rewardworker::insert_account(y.clone());
-						},
-					}
-				});
-			},
-			Err(_) => info!("Something went wrong pallet_reward"),
-		}
-
 		let divisor = 100u32;
 		// 20 percent of total reward.
 		let send_reward = (max_payout/ 20u32.into()).saturating_mul(divisor.into());
 		// reward distribution for validators/chronicle accounts.
-		let _rep = Rewardworker::send_reward(send_reward.unique_saturated_into(), session_active_validators);
 		// 80 percent of total yield.
+		let length = session_active_validators.len().saturated_into::<u32>();
+			if length != 0 {
+				let balance_paid = send_reward / length.into();
+
+				session_active_validators.iter().for_each(|item| {
+					let _resp = Balances::deposit_into_existing(item, balance_paid.clone().unique_saturated_into());
+				});
+			}
 		let val_payout = (validator_payout/ 80u32.into()).saturating_mul(divisor.into());
 		let rest_payout = (rest / 80u32.into()).saturating_mul(divisor.into());
 		// send rest for payout.
@@ -933,11 +924,6 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (Staking, ImOnline);
 }
 
-impl pallet_reward::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-}
-
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
@@ -1086,7 +1072,6 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
-		Rewardworker: pallet_reward,
 	}
 );
 

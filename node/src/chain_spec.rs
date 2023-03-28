@@ -11,7 +11,7 @@ use sp_runtime::{
 	Perbill,
 };
 use timechain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, RewardworkerConfig,
+	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig,
 	Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
 };
 
@@ -331,10 +331,6 @@ fn testnet_genesis(
 		}))
 		.collect::<Vec<_>>();
 
-	let reward_accounts = initial_authorities
-		.iter()
-		.map(|item| (item.0.clone(), item.1.clone()))
-		.collect::<Vec<_>>();
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -384,6 +380,5 @@ fn testnet_genesis(
 		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
-		rewardworker: RewardworkerConfig { reward_list: reward_accounts },
 	}
 }

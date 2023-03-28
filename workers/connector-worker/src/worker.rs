@@ -150,7 +150,7 @@ where
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
 				Self::get_latest_block_event(self).await;
-				let _ = sleep(delay);
+				sleep(delay).await;
 			}
 		}
 	}

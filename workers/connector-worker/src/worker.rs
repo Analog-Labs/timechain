@@ -1,16 +1,20 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
 use bincode::serialize;
-use serde_json::Value;
 use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
 use log::warn;
-use rosetta_client::{create_wallet, types::PartialBlockIdentifier, Wallet};
+use rosetta_client::{
+	create_client,
+	types::{BlockRequest, PartialBlockIdentifier},
+	BlockchainConfig, Client,
+};
+use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc, thread};
+use std::{error::Error, marker::PhantomData, sync::Arc, thread};
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};
@@ -69,13 +73,23 @@ where
 		tasks_from_db_bytes
 	}
 
-	pub async fn get_latest_block_event(&self, wallet: &Wallet) {
+	pub async fn get_latest_block_event(&self) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
+
+		let (config, client) = if let Ok(client_config) = create_connector_client().await {
+			(client_config.0, client_config.1)
+		} else {
+			return Err("Failed to create connector client".into());
+		};
 
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 
-		let block_data =
-			wallet.block(PartialBlockIdentifier { index: None, hash: None }).await.unwrap();
+		let block_req = BlockRequest {
+			network_identifier: config.network(),
+			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+		};
+
+		let block_data = client.block(&block_req).await?;
 
 		let empty_vec: Vec<Value> = vec![];
 		if let Some(data) = block_data.block {
@@ -86,6 +100,8 @@ where
 						let address = log["address"].as_str().unwrap_or("");
 						address == contract_address
 					});
+					println!("matched events received {:?}", filtered_receipt);
+
 					for log in filtered_receipt {
 						if let Ok(log_in_bytes) = serialize(&log) {
 							let hash = Self::hash_keccak_256(&log_in_bytes);
@@ -104,21 +120,12 @@ where
 				}
 			}
 		};
+		Ok(())
 	}
 
 	pub(crate) async fn run(&mut self) {
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
-
-		let client_url = "http://127.0.0.1:8081";
-		let wallet = create_wallet(
-			Some("ethereum".to_owned()),
-			Some("dev".to_owned()),
-			Some(client_url.to_owned()),
-			None,
-		)
-		.await
-		.unwrap();
 
 		loop {
 			let keys = self.kv.public_keys();
@@ -136,9 +143,25 @@ where
 				}
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
-				Self::get_latest_block_event(self, &wallet).await;
+				if let Err(e) = Self::get_latest_block_event(self).await {
+					log::error!("Error occured while fetching block data {:?}", e);
+				}
 				thread::sleep(delay);
 			}
 		}
 	}
+}
+
+async fn create_connector_client() -> Result<(BlockchainConfig, Client), Box<dyn Error>> {
+	let connector_url = std::env::var("CONNECTOR_URL").expect("CONNECTOR_URL must be set");
+	let connector_blockchain =
+		std::env::var("CONNECTOR_BLOCKCHAIN").expect("CONNECTOR_BLOCKCHAIN must be set");
+	let connector_network =
+		std::env::var("CONNECTOR_NETWORK").expect("CONNECTOR_NETWORK must be set");
+
+	let (config, client) =
+		create_client(Some(connector_blockchain), Some(connector_network), Some(connector_url))
+			.await?;
+
+	Ok((config, client))
 }

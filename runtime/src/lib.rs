@@ -16,7 +16,6 @@ use frame_support::traits::Imbalance;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::Decode;
-use sp_runtime::DispatchError;
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -25,6 +24,7 @@ use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_runtime::DispatchError;
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,

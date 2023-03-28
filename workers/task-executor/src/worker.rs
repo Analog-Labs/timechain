@@ -4,8 +4,9 @@ use bincode::serialize;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
+use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
 use sc_client_api::Backend;
-use serde_json::from_str;
+use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 
@@ -14,10 +15,6 @@ use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc, th
 use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time};
-use web3::{
-	contract::{Contract, Options},
-	types::{Address, H160},
-};
 
 // use worker_aurora::{self, establish_connection, get_on_chain_data};
 
@@ -65,32 +62,28 @@ where
 	async fn call_contract_function(
 		&self,
 		address: String,
-		abi: String,
-		method: String,
+		function_signature: String,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
 
-		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
-		let websocket = match websocket_result {
-			Ok(websocket) => websocket,
-			Err(_) => web3::transports::WebSocket::new(&infura_url)
-				.await
-				.expect("Failed to create default websocket"),
+		let (config, client) = if let Ok(client_config) = create_connector_client().await {
+			(client_config.0, client_config.1)
+		} else {
+			return Err("Failed to create connector client".into());
 		};
-		let web3 = web3::Web3::new(websocket);
 
-		// Load the contract ABI and address
-		let contract_abi = from_str(&abi).unwrap();
-		let contract_address = Address::from(address.parse::<H160>().unwrap());
+		let method = format!("{}-{}-call", address, function_signature);
 
-		// Create a new contract instance using the ABI and address
-		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
+		let request = CallRequest {
+			network_identifier: config.network(),
+			method,
+			parameters: json!({}),
+		};
 
-		// Call the "getGreeting" function on the contract instance
-		let greeting: String =
-			contract.query(method.as_str(), (), None, Options::default(), None).await?;
-		if let Ok(task_in_bytes) = serialize(&greeting) {
+		let data = client.call(&request).await?;
+
+		if let Ok(task_in_bytes) = serialize(&data.result) {
+			println!("received data: {:?}", data.result);
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 			match self.sign_data_sender.lock().await.try_send((1, hash)) {
 				Ok(()) => {
@@ -101,7 +94,7 @@ where
 				},
 			}
 		} else {
-			log::info!("Failed to serialize task: {:?}", greeting);
+			log::info!("Failed to serialize task: {:?}", data);
 		}
 		Ok(())
 	}
@@ -109,6 +102,8 @@ where
 	pub(crate) async fn run(&mut self) {
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
+
+
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -117,7 +112,7 @@ where
 
 					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
 						match tasks_schedule {
-							Ok(task_schedule) =>
+							Ok(task_schedule) => {
 								for schedule_task in task_schedule.iter() {
 									let task_id = schedule_task.task_id.0;
 
@@ -138,33 +133,31 @@ where
 										.get_task_metadat_by_key(&at, task_id)
 									{
 										match metadata_result {
-											Ok(metadata) =>
+											Ok(metadata) => {
 												for task in metadata.iter() {
 													match &task.function {
-														Function::EthereumContract {
+														Function::EthereumContractWithoutAbi {
 															address,
-															abi,
-															function,
+															function_signature,
 															input: _,
 															output: _,
 														} => {
-															let _x = Self::call_contract_function(
-																self,
-																address.to_string(),
-																abi.to_string(),
-																function.to_string(),
-															)
-															.await;
+															if let Err(e) = self
+																.call_contract_function(
+																	address.to_string(),
+																	function_signature.to_string(),
+																)
+																.await
+															{
+																log::error!("Failed to call contract function: {:?}", e);
+															}
 														},
-														Function::EthereumApi {
-															function: _,
-															input: _,
-															output: _,
-														} => {
-															todo!()
+														_ => {
+															log::warn!("Unsupported function type: {:?}", task.function)
 														},
 													};
-												},
+												}
+											},
 											Err(e) => {
 												log::info!(
 													"No metadata found for block {:?}: {:?}",
@@ -179,7 +172,8 @@ where
 											at
 										);
 									}
-								},
+								}
+							},
 							Err(e) => {
 								log::info!("No metadata found for block {:?}: {:?}", at, e);
 							},
@@ -194,4 +188,18 @@ where
 			}
 		}
 	}
+}
+
+async fn create_connector_client() -> Result<(BlockchainConfig, Client), Box<dyn Error>> {
+	let connector_url = std::env::var("CONNECTOR_URL").expect("CONNECTOR_URL must be set");
+	let connector_blockchain =
+		std::env::var("CONNECTOR_BLOCKCHAIN").expect("CONNECTOR_BLOCKCHAIN must be set");
+	let connector_network =
+		std::env::var("CONNECTOR_NETWORK").expect("CONNECTOR_NETWORK must be set");
+
+	let (config, client) =
+		create_client(Some(connector_blockchain), Some(connector_network), Some(connector_url))
+			.await?;
+
+	Ok((config, client))
 }

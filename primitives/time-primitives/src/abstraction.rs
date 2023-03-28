@@ -12,6 +12,12 @@ pub enum Function {
 		input: Vec<Input>,
 		output: Vec<Output>,
 	},
+	EthereumContractWithoutAbi {
+		address: String,
+		function_signature: String,
+		input: Vec<Input>,
+		output: Vec<Output>,
+	},
 	EthereumApi {
 		function: String,
 		input: Vec<Input>,

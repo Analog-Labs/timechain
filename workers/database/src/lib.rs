@@ -13,8 +13,9 @@ pub fn establish_connection(conn_url: Option<&str>) -> Result<PgConnection, Stri
 	dotenv().ok();
 
 	match conn_url {
-		Some(url) =>
-			PgConnection::establish(url).map_err(|_| format!("Error connecting to {url}.")),
+		Some(url) => {
+			PgConnection::establish(url).map_err(|_| format!("Error connecting to {url}."))
+		},
 		None => {
 			let url = env::var("DATABASE_URL").map_err(|_| "Error the DATABASE_URL not set.")?;
 			PgConnection::establish(&url).map_err(|_| format!("Error connecting to {url}"))

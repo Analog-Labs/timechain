@@ -4,7 +4,7 @@ use bincode::serialize;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
-use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
+use rosetta_client::{Client, BlockchainConfig, create_client, types::CallRequest};
 use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;

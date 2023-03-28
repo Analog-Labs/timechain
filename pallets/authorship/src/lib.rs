@@ -298,8 +298,9 @@ pub mod pallet {
 			_data: &InherentData,
 		) -> result::Result<(), Self::Error> {
 			match call {
-				Call::set_uncles { ref new_uncles } if new_uncles.len() > MAX_UNCLES =>
-					Err(InherentError::Uncles(Error::<T>::TooManyUncles.as_str().into())),
+				Call::set_uncles { ref new_uncles } if new_uncles.len() > MAX_UNCLES => {
+					Err(InherentError::Uncles(Error::<T>::TooManyUncles.as_str().into()))
+				},
 				_ => Ok(()),
 			}
 		}

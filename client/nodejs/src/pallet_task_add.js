@@ -24,6 +24,7 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         collection_id: 11,
+        shard_id: 1,
         schema:[1],
         function:{ethereumcontract:{
             address: 'String',

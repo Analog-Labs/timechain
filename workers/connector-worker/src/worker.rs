@@ -26,6 +26,9 @@ pub struct ConnectorWorker<B: Block, R> {
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	connector_url: String,
+	connector_blockchain: String,
+	connector_network: String,
 }
 
 impl<B, R> ConnectorWorker<B, R>
@@ -39,6 +42,9 @@ where
 			sign_data_sender,
 			kv,
 			_block,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		} = worker_params;
 
 		ConnectorWorker {
@@ -46,6 +52,9 @@ where
 			sign_data_sender,
 			kv,
 			_block: PhantomData,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		}
 	}
 
@@ -73,19 +82,18 @@ where
 		tasks_from_db_bytes
 	}
 
-	pub async fn get_latest_block_event(&self) -> Result<(), Box<dyn Error>> {
+	pub async fn get_latest_block_event(
+		&self,
+		client: &Client,
+		config: &BlockchainConfig,
+	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-
-		let (config, client) = if let Ok(client_config) = create_connector_client().await {
-			(client_config.0, client_config.1)
-		} else {
-			return Err("Failed to create connector client".into());
-		};
 
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 
 		let block_req = BlockRequest {
 			network_identifier: config.network(),
+			//passing both none returns latest block
 			block_identifier: PartialBlockIdentifier { index: None, hash: None },
 		};
 
@@ -127,6 +135,14 @@ where
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
 
+		let (config, client) = create_client(
+			Some(self.connector_blockchain.clone()),
+			Some(self.connector_network.clone()),
+			Some(self.connector_url.clone()),
+		)
+		.await
+		.unwrap_or_else(|e| panic!("Failed to create client with error: {:?}", e));
+
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -143,25 +159,11 @@ where
 				}
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
-				if let Err(e) = Self::get_latest_block_event(self).await {
+				if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
 					log::error!("Error occured while fetching block data {:?}", e);
 				}
 				thread::sleep(delay);
 			}
 		}
 	}
-}
-
-async fn create_connector_client() -> Result<(BlockchainConfig, Client), Box<dyn Error>> {
-	let connector_url = std::env::var("CONNECTOR_URL").expect("CONNECTOR_URL must be set");
-	let connector_blockchain =
-		std::env::var("CONNECTOR_BLOCKCHAIN").expect("CONNECTOR_BLOCKCHAIN must be set");
-	let connector_network =
-		std::env::var("CONNECTOR_NETWORK").expect("CONNECTOR_NETWORK must be set");
-
-	let (config, client) =
-		create_client(Some(connector_blockchain), Some(connector_network), Some(connector_url))
-			.await?;
-
-	Ok((config, client))
 }

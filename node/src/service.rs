@@ -9,6 +9,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
+
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
@@ -159,7 +160,12 @@ fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(
+	mut config: Configuration,
+	connector_url: String,
+	connector_blockchain: String,
+	connector_network: String,
+) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -370,6 +376,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		};
 
 		task_manager.spawn_essential_handle().spawn_blocking(

@@ -318,7 +318,7 @@ fn testnet_genesis(
 		.chain(initial_nominators.iter().map(|x| {
 			let nominations = initial_authorities
 				.as_slice()
-				.into_iter()
+				.iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
 			(x.clone(), x.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))

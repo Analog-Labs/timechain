@@ -108,7 +108,6 @@ where
 						let address = log["address"].as_str().unwrap_or("");
 						address == contract_address
 					});
-					println!("matched events received {:?}", filtered_receipt);
 
 					for log in filtered_receipt {
 						if let Ok(log_in_bytes) = serialize(&log) {

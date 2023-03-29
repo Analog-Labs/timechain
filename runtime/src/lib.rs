@@ -714,30 +714,6 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		//40% valiator
-		//20% conronical node
-		// max_payout
-		let rest = max_payout.saturating_sub(validator_payout.clone());
-		(validator_payout, rest)
-	}
-}
-
-pub struct SplitConvertCurveI<T>(sp_std::marker::PhantomData<T>);
-impl<BalanceI: sp_runtime::traits::AtLeast32BitUnsigned + Clone, T: Get<&'static sp_runtime::curve::PiecewiseLinear<'static>>>
-	pallet_staking::EraPayout<BalanceI> for SplitConvertCurveI<T>
-{
-	fn era_payout(
-		total_staked: BalanceI,
-		total_issuance: BalanceI,
-		era_duration_millis: u64,
-	) -> (BalanceI, BalanceI) {
-		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
-			T::get(),
-			total_staked,
-			total_issuance,
-			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-			era_duration_millis,
-		);
 		let rest = max_payout.clone().saturating_sub(validator_payout.clone());
 		let session_active_validators = Session::validators();
 		let divisor = 100u32;
@@ -777,8 +753,7 @@ impl pallet_staking::Config for Runtime {
 	/// A super-majority of the council can cancel the slash.
 	type SlashCancelOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	// type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type EraPayout = SplitConvertCurveI<RewardCurve>;
+	type EraPayout = SplitConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -794,7 +769,6 @@ impl pallet_staking::Config for Runtime {
 
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
-	// type RewardWorker = Rewardworker;
 }
 
 parameter_types! {

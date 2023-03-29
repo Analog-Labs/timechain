@@ -312,21 +312,15 @@ fn testnet_genesis(
 			.expect("The file vesting_test.json is not exist or not having valid data.");
 	let initial_nominators: Vec<AccountId> = vec![];
 	let stash = ANLOG * 500000;
-	let mut rng = rand::thread_rng();
 	let stakers = initial_authorities
 		.iter()
 		.map(|x| (x.1.clone(), x.0.clone(), stash, StakerStatus::<AccountId>::Validator))
 		.chain(initial_nominators.iter().map(|x| {
-			use rand::seq::SliceRandom;
-			let limit = initial_authorities.len();
-			let count = initial_authorities.len() / limit;
 			let nominations = initial_authorities
 				.as_slice()
-				.choose_multiple(&mut rng, count)
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			log::info!("nomination issues -->> {:?}", nominations);
 			(x.clone(), x.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();

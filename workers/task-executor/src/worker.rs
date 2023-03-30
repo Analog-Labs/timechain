@@ -4,7 +4,7 @@ use bincode::serialize;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
-use rosetta_client::{Client, BlockchainConfig, create_client, types::CallRequest};
+use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
 use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
@@ -103,7 +103,6 @@ where
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
 
-
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -112,7 +111,7 @@ where
 
 					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
 						match tasks_schedule {
-							Ok(task_schedule) => {
+							Ok(task_schedule) =>
 								for schedule_task in task_schedule.iter() {
 									let task_id = schedule_task.task_id.0;
 
@@ -133,7 +132,7 @@ where
 										.get_task_metadat_by_key(&at, task_id)
 									{
 										match metadata_result {
-											Ok(metadata) => {
+											Ok(metadata) =>
 												for task in metadata.iter() {
 													match &task.function {
 														Function::EthereumContractWithoutAbi {
@@ -153,11 +152,13 @@ where
 															}
 														},
 														_ => {
-															log::warn!("Unsupported function type: {:?}", task.function)
+															log::warn!(
+																"Unsupported function type: {:?}",
+																task.function
+															)
 														},
 													};
-												}
-											},
+												},
 											Err(e) => {
 												log::info!(
 													"No metadata found for block {:?}: {:?}",
@@ -172,8 +173,7 @@ where
 											at
 										);
 									}
-								}
-							},
+								},
 							Err(e) => {
 								log::info!("No metadata found for block {:?}: {:?}", at, e);
 							},

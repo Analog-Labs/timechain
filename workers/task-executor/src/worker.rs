@@ -110,7 +110,7 @@ where
 
 					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
 						match tasks_schedule {
-							Ok(task_schedule) => {
+							Ok(task_schedule) =>
 								for schedule_task in task_schedule.iter() {
 									let task_id = schedule_task.task_id.0;
 
@@ -131,7 +131,7 @@ where
 										.get_task_metadat_by_key(&at, task_id)
 									{
 										match metadata_result {
-											Ok(metadata) => {
+											Ok(metadata) =>
 												for task in metadata.iter() {
 													match &task.function {
 														Function::EthereumContractWithoutAbi {
@@ -157,8 +157,7 @@ where
 															)
 														},
 													};
-												}
-											},
+												},
 											Err(e) => {
 												log::info!(
 													"No metadata found for block {:?}: {:?}",
@@ -173,8 +172,7 @@ where
 											at
 										);
 									}
-								}
-							},
+								},
 							Err(e) => {
 								log::info!("No metadata found for block {:?}: {:?}", at, e);
 							},

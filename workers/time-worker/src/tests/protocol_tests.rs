@@ -279,7 +279,7 @@ impl InherentDataProvider for RuntimeApi {
 		}
 
 		match InherentError::try_from(&INHERENT_IDENTIFIER, error)? {
-			InherentError::InvalidGroupKey(wrong_key) => {
+			InherentError::InvalidGroupKey(wrong_key) =>
 				if wrong_key.group_key == [0u8; 32] {
 					error!(
 						target: "protocol-tests",
@@ -293,8 +293,7 @@ impl InherentDataProvider for RuntimeApi {
 					Some(Err(sp_inherents::Error::Application(Box::from(
 						InherentError::InvalidGroupKey(wrong_key),
 					))))
-				}
-			},
+				},
 			InherentError::WrongInherentCall => {
 				error!(target: "protocol-tests", "Invalid Call inserted in block");
 				Some(Err(sp_inherents::Error::Application(Box::from(

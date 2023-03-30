@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+install_diesel_cli() {
+  cargo install diesel_cli 2>/dev/null || true
+}
+
+create_database() {
+  export PGPASSWORD=postgres
+  psql -h localhost -p 5432 -U postgres -w -c "CREATE DATABASE timechain;" 2>/dev/null || true
+}
+
+run_migrations() {
+  diesel migration run
+}
+
 set -e
 
 start_boot_node() {
@@ -35,6 +48,10 @@ SLEEP=10
 
 start_chain() {
   ./purge-chain.sh
+
+  install_diesel_cli
+  create_database
+  run_migrations
 
   start_boot_node
   sleep $SLEEP

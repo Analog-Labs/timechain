@@ -9,7 +9,6 @@ pub mod worker;
 
 #[cfg(test)]
 mod tests;
-
 use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
 	kv::TimeKeyvault,
@@ -23,7 +22,7 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
-use tokio::sync::Mutex as TokioMutex;
+use tokio::{self, sync::Mutex as TokioMutex};
 use traits::Client;
 
 /// Constant to indicate target for logging

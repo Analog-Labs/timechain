@@ -13,6 +13,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-macros"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "465a6172cf69b960917811022d8f29bc0b7fa1398bc4f78b3c466673db1213b6"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "actix-rt"
+version = "2.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15265b6b8e2347670eb363c47fc8c75208b4a4994b27192f345fcbe707804f3e"
+dependencies = [
+ "actix-macros",
+ "futures-core",
+ "tokio",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1295,6 +1316,81 @@ dependencies = [
  "lazy_static",
  "nom 5.1.2",
  "serde",
+]
+
+[[package]]
+name = "connector"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "bincode",
+ "log",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "web3",
+]
+
+[[package]]
+name = "connector-worker"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "array-bytes",
+ "arrayref",
+ "async-trait",
+ "bincode",
+ "borsh",
+ "connector",
+ "diesel",
+ "dotenvy",
+ "fnv",
+ "frame-support",
+ "futures",
+ "futures-channel",
+ "futures-timer",
+ "hex",
+ "ink",
+ "lazy_static",
+ "log",
+ "parity-scale-codec 3.4.0",
+ "parking_lot 0.11.2",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-finality-grandpa",
+ "sc-keystore",
+ "sc-network",
+ "sc-network-common",
+ "sc-network-gossip",
+ "sc-network-test",
+ "sc-utils",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-tracing",
+ "storage-primitives",
+ "strum",
+ "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "tempfile",
+ "tesseract-accounts",
+ "tesseract-tss",
+ "time-primitives",
+ "time-worker",
+ "tokio",
+ "web3",
+ "worker-aurora",
 ]
 
 [[package]]
@@ -10500,6 +10596,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
+name = "storage-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec 3.4.0",
+ "scale-info",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
+]
+
+[[package]]
 name = "string_cache"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11239,6 +11349,8 @@ name = "timechain-node"
 version = "0.0.1"
 dependencies = [
  "clap 3.2.23",
+ "connector",
+ "connector-worker",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -11246,6 +11358,7 @@ dependencies = [
  "hex-literal",
  "jsonrpsee",
  "lazy_static",
+ "log",
  "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -11286,6 +11399,7 @@ dependencies = [
  "timechain-runtime",
  "tokio",
  "try-runtime-cli",
+ "web3",
 ]
 
 [[package]]
@@ -11339,6 +11453,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "storage-primitives",
  "substrate-wasm-builder",
  "task-metadata",
  "task-schedule",
@@ -12645,6 +12760,7 @@ version = "0.1.0"
 dependencies = [
  "diesel",
  "dotenvy",
+ "serde",
 ]
 
 [[package]]

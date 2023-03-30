@@ -4,7 +4,7 @@ use bincode::serialize;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
-use rosetta_client::{Client, BlockchainConfig, create_client, types::CallRequest};
+use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
 use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
@@ -102,8 +102,6 @@ where
 	pub(crate) async fn run(&mut self) {
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
-
-
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -153,7 +151,10 @@ where
 															}
 														},
 														_ => {
-															log::warn!("Unsupported function type: {:?}", task.function)
+															log::warn!(
+																"Unsupported function type: {:?}",
+																task.function
+															)
 														},
 													};
 												}

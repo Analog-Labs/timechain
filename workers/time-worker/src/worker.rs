@@ -267,7 +267,7 @@ where
 							error!("TSS::tss error");
 						}
 					}
-					state.msgs_signature_pending.remove(&msg_hash);
+				//state.msgs_signature_pending.remove(&msg_hash);
 				} else {
 					debug!(
 						target: TW_LOG,
@@ -429,11 +429,14 @@ where
 				debug!(target: TW_LOG, "PartialSignatureGeneratedReq for shard: {}", shard_id);
 				if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 					debug!(target: TW_LOG, "Have state for shard: {}", shard_id);
-					handler_partial_signature_generate_req(
+					if let Some((peer_id, data, msg_type)) = handler_partial_signature_generate_req(
 						state,
 						shard_id,
 						&tss_gossiped_data.tss_data,
-					);
+					) {
+						debug!(target: TW_LOG, "Sending partial signature as {}", peer_id);
+						self.publish_to_network(peer_id, data, msg_type).await;
+					}
 				}
 			},
 
@@ -507,10 +510,16 @@ where
 					);
 				}
 			} else {
-				error!(target: TW_LOG, "Failed to create proof for offence report submission");
+				error!(
+					target: TW_LOG,
+					"Failed to create proof for offence report submission - signature"
+				);
 			}
 		} else {
-			error!(target: TW_LOG, "Failed to create proof for offence report submission");
+			error!(
+				target: TW_LOG,
+				"Failed to create proof for offence report submission - reporter"
+			);
 		}
 	}
 
@@ -563,6 +572,7 @@ where
 				},
 				new_sig = signature_requests.next().fuse() => {
 					if let Some((shard_id, data)) = new_sig {
+						info!(target: TW_LOG, "New sig message in TSS for shard {}", shard_id);
 						self.process_sign_message(shard_id, data);
 					}
 				},

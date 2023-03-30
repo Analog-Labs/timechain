@@ -102,7 +102,6 @@ where
 	pub(crate) async fn run(&mut self) {
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
-
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {

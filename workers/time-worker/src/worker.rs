@@ -262,7 +262,7 @@ where
 							error!("TSS::tss error");
 						}
 					}
-					//state.msgs_signature_pending.remove(&msg_hash);
+				//state.msgs_signature_pending.remove(&msg_hash);
 				} else {
 					debug!(
 						target: TW_LOG,
@@ -429,9 +429,9 @@ where
 						shard_id,
 						&tss_gossiped_data.tss_data,
 					) {
-                        debug!(target: TW_LOG, "Sending partial signature as {}", peer_id);
-                        self.publish_to_network(peer_id, data, msg_type).await;
-                    }
+						debug!(target: TW_LOG, "Sending partial signature as {}", peer_id);
+						self.publish_to_network(peer_id, data, msg_type).await;
+					}
 				}
 			},
 
@@ -503,10 +503,16 @@ where
 					);
 				}
 			} else {
-				error!(target: TW_LOG, "Failed to create proof for offence report submission - signature");
+				error!(
+					target: TW_LOG,
+					"Failed to create proof for offence report submission - signature"
+				);
 			}
 		} else {
-			error!(target: TW_LOG, "Failed to create proof for offence report submission - reporter");
+			error!(
+				target: TW_LOG,
+				"Failed to create proof for offence report submission - reporter"
+			);
 		}
 	}
 

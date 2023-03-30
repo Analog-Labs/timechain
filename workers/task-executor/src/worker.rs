@@ -81,8 +81,21 @@ where
 		let web3 = web3::Web3::new(websocket);
 
 		// Load the contract ABI and address
-		let contract_abi = from_str(&abi).unwrap();
-		let contract_address = Address::from(address.parse::<H160>().unwrap());
+		let contract_abi = match from_str(&abi) {
+			Ok(abi) => abi,
+			Err(e) => {
+				log::warn!("Error parsing contract ABI:  {}", e);
+				return Err("Failed to parse contract ABI".into());
+			},
+		};
+		let contract_address = match address.parse::<H160>() {
+			Ok(parsed_address) => Address::from(parsed_address),
+			Err(parse_error) => {
+				// handle the error here, for example by printing a message and exiting the program
+				log::warn!("Error parsing contract address: {}", parse_error);
+				std::process::exit(1);
+			},
+		};
 
 		// Create a new contract instance using the ABI and address
 		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
@@ -94,7 +107,7 @@ where
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 			match self.sign_data_sender.lock().await.try_send((1, hash)) {
 				Ok(()) => {
-					log::info!("Connector successfully send event to channel")
+					log::info!("Connector successfully send event to -- channel")
 				},
 				Err(_) => {
 					log::info!("Connector failed to send event to channel")
@@ -126,58 +139,60 @@ where
 											"The key already existed with the value {}",
 											old_value
 										),
-										None => println!(
-											"The key didn't exist and was inserted key {}.",
-											task_id
-										),
-									}
+										None => {
+											println!(
+												"The key didn't exist and was inserted key {}.",
+												task_id
+											);
 
-									if let Ok(metadata_result) = self
-										.runtime
-										.runtime_api()
-										.get_task_metadat_by_key(&at, task_id)
-									{
-										match metadata_result {
-											Ok(metadata) =>
-												for task in metadata.iter() {
-													match &task.function {
-														Function::EthereumContract {
-															address,
-															abi,
-															function,
-															input: _,
-															output: _,
-														} => {
-															let _x = Self::call_contract_function(
-																self,
-																address.to_string(),
-																abi.to_string(),
-																function.to_string(),
-															)
-															.await;
+											if let Ok(metadata_result) = self
+												.runtime
+												.runtime_api()
+												.get_task_metadat_by_key(&at, task_id)
+											{
+												match metadata_result {
+													Ok(metadata) =>
+														for task in metadata.iter() {
+															match &task.function {
+																Function::EthereumContract {
+																	address,
+																	abi,
+																	function,
+																	input: _,
+																	output: _,
+																} => {
+																	let _x = Self::call_contract_function(
+																		self,
+																		address.to_string(),
+																		abi.to_string(),
+																		function.to_string(),
+																	)
+																	.await;
+																},
+																Function::EthereumApi {
+																	function: _,
+																	input: _,
+																	output: _,
+																} => {
+																	todo!()
+																},
+															};
 														},
-														Function::EthereumApi {
-															function: _,
-															input: _,
-															output: _,
-														} => {
-															todo!()
-														},
-													};
-												},
-											Err(e) => {
-												log::info!(
-													"No metadata found for block {:?}: {:?}",
-													at,
-													e
+													Err(e) => {
+														log::info!(
+															"No metadata found for block {:?}: {:?}",
+															at,
+															e
+														);
+													},
+												}
+											} else {
+												log::error!(
+													"Failed to get task metadata for block {:?}",
+													at
 												);
-											},
-										}
-									} else {
-										log::error!(
-											"Failed to get task metadata for block {:?}",
-											at
-										);
+											}
+										},
 									}
 								},
 							Err(e) => {

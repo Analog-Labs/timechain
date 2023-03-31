@@ -1,9 +1,8 @@
 __Setting up ethereum node and deploying voting contract__
 
 1. Clone this repo: https://github.com/Analog-Labs/chain-connectors
-2. checkout `eth-contract-update` branch
-3. Go to rosetta-client/Readme.md and follow the instructions for section `Setting up nodes`
-4. Follow first 3 steps of `Running voting_contract example` section in the same readme file.
+2. Go to rosetta-client/Readme.md and follow the instructions for section `Setting up nodes`
+3. Follow first 3 steps of `Running voting_contract example` section in the same readme file.
 Now we have local node running with voting contract deployed.
 
 __Running testnet__

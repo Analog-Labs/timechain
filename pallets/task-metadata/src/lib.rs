@@ -61,8 +61,7 @@ pub mod pallet {
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
 			info!("======>>> input comes ======>>> ");
 			let _who = ensure_signed(origin)?;
-			let data_list =
-				self::TaskMeta::<T>::iter_values().find(|x| x.collection_id == task.collection_id);
+			let data_list = self::TaskMeta::<T>::get(task.collection_id.0);
 			match data_list {
 				Some(val) => {
 					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
@@ -85,7 +84,7 @@ pub mod pallet {
 			validity: i64,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
-			let data_list = self::CollectionMeta::<T>::iter_values().find(|x| x.hash == hash);
+			let data_list = self::CollectionMeta::<T>::get(&hash);
 			match data_list {
 				Some(val) => {
 					Self::deposit_event(Event::ColAlreadyExist(val.hash));
@@ -108,7 +107,7 @@ pub mod pallet {
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
-			let data_list = self::TaskMeta::<T>::iter_values().find(|x| x.collection_id.0 == key);
+			let data_list = self::TaskMeta::<T>::get(key);
 			match data_list {
 				Some(val) => Ok(Some(val)),
 				None => Ok(None),

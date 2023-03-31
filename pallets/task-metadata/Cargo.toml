@@ -1,7 +1,7 @@
 [package]
 name = "task-metadata"
-version = "4.0.0-dev"
-description = "A pallet for storing Tesseract onchain data signatures."
+version = "0.0.1"
+description = "A pallet for storing task(s) metadata."
 authors = ["Analog Devs <https://github.com/analog-labs>"]
 homepage = "https://analog.one"
 edition = "2021"

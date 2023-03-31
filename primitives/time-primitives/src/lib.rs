@@ -16,7 +16,6 @@ use sp_runtime::{
 	DispatchError, MultiSignature,
 };
 use sp_std::{borrow::ToOwned, vec::Vec};
-
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
 

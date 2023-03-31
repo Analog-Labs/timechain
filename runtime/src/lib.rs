@@ -506,7 +506,7 @@ where
 }
 
 parameter_types! {
-	pub EpochDuration: u64 = 2 * MINUTES as u64;
+	pub EpochDuration: u64 = 8 * HOURS as u64;
 
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =
@@ -646,7 +646,7 @@ parameter_types! {
 	// TODO
 	// // 28 eras for unbonding (28 days).
 
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = 3;
 	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 

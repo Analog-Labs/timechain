@@ -15,7 +15,6 @@ use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
-use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::{HashMap, HashSet},
@@ -39,7 +38,7 @@ use tss::{
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, C, R, BE, SO> {
+pub struct TimeWorker<B: Block, C, R, BE> {
 	pub(crate) client: Arc<C>,
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
@@ -55,27 +54,24 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	node_id: Option<TimeId>,
-	sync_oracle: SO,
 	known_sets: HashSet<u64>,
 }
 
-impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
+impl<B, C, R, BE> TimeWorker<B, C, R, BE>
 where
 	B: Block + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
-	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
 			runtime,
 			gossip_engine,
 			gossip_validator,
-			sync_oracle,
 			kv,
 			sign_data_receiver,
 		} = worker_params;
@@ -88,7 +84,6 @@ where
 			runtime,
 			gossip_engine,
 			gossip_validator,
-			sync_oracle,
 			kv,
 			sign_data_receiver,
 			node_id: None,
@@ -523,12 +518,6 @@ where
 			// timeouts for messages
 			let receiver = self.sign_data_receiver.clone();
 			let mut signature_requests = receiver.lock().await;
-			// making sure majority is synchronising or waiting for the sync
-			while self.sync_oracle.is_major_syncing() {
-				debug!(target: TW_LOG, "Waiting for major sync to complete...");
-				futures_timer::Delay::new(Duration::from_secs(1)).await;
-			}
-
 			let mut engine = &mut self.gossip_engine;
 
 			futures::select_biased! {

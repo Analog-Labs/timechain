@@ -3,7 +3,7 @@ diesel::table! {
 		data_id -> Int4,
 		task_id -> Int4,
 		block_number -> Int4,
-		time_stamp -> Varchar,
+		time_stamp -> Timestamp,
 		data_value -> Varchar,
 	}
 }

@@ -35,7 +35,7 @@ CREATE TABLE on_chain_data (
 	data_id serial PRIMARY KEY,
     task_id INT NOT NULL,
     block_number INT NOT NULL,
-	time_stamp timestamp NOT NULL,
+	time_stamp VARCHAR (200) NOT NULL,
 	data_value VARCHAR (100) NOT NULL,
 	FOREIGN KEY(task_id) REFERENCES tasks(task_id)
 );

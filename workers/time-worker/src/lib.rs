@@ -1,5 +1,5 @@
 #![allow(clippy::type_complexity)]
-
+#![feature(type_alias_impl_trait)]
 pub mod communication;
 pub mod inherents;
 pub mod kv;
@@ -9,7 +9,6 @@ pub mod worker;
 
 #[cfg(test)]
 mod tests;
-
 use crate::{
 	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
 	kv::TimeKeyvault,
@@ -23,7 +22,7 @@ use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
-use tokio::sync::Mutex as TokioMutex;
+use tokio::{self, sync::Mutex as TokioMutex};
 use traits::Client;
 
 /// Constant to indicate target for logging
@@ -32,10 +31,10 @@ pub const TW_LOG: &str = "⌛time-worker";
 /// Set of properties we need to run our gadget
 pub struct TimeWorkerParams<B: Block, C, R, BE, N>
 where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	R: ProvideRuntimeApi<B>,
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	C: Client<B, BE> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
@@ -45,7 +44,7 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
-	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
 pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
@@ -56,7 +55,7 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub sync_oracle: SO,
 	pub kv: TimeKeyvault,
-	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, Vec<u8>)>>>,
+	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
 /// Start the Timeworker gadget.
@@ -65,10 +64,10 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	timeworker_params: TimeWorkerParams<B, C, R, BE, N>,
 ) where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	R: ProvideRuntimeApi<B>,
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	C: Client<B, BE> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {

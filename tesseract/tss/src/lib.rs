@@ -1,10 +1,6 @@
 pub mod local_state_struct;
 pub mod signverify;
-pub mod submit_to_timechain;
-pub mod tss_event_handler;
-pub mod tss_event_handler_helper;
 pub mod tss_event_model;
-pub mod tss_service;
 pub mod utils;
 
 pub use frost_dalek;

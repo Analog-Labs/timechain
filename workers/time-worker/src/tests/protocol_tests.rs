@@ -3,8 +3,8 @@ use crate::{
 	start_timeworker_gadget, tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams,
 };
 use codec::{Codec, Decode, Encode};
-use futures::{future, stream::FuturesUnordered, Future, FutureExt, SinkExt, StreamExt};
-use futures_channel::mpsc::{channel, Receiver};
+use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
+use futures_channel::mpsc::Receiver;
 use log::error;
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
@@ -37,7 +37,7 @@ use substrate_test_runtime_client::{
 use time_primitives::{
 	crypto::Public as TimeKey,
 	inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-	SignatureData, TimeApi, KEY_TYPE as TimeKeyType,
+	ForeignEventId, SignatureData, TimeApi, KEY_TYPE as TimeKeyType,
 };
 use tokio::{
 	runtime::{Handle, Runtime},
@@ -149,9 +149,8 @@ impl TestNetFactory for TimeTestNet {
 		Self::PeerData,
 	) {
 		let (client, backend) = (client.as_client(), client.as_backend());
-		let (import, link) =
-			block_import(client.clone(), &self.test_net, LongestChain::new(backend.clone()), None)
-				.expect("Could not create block import for fresh peer.");
+		let (import, link) = block_import(client, &self.test_net, LongestChain::new(backend), None)
+			.expect("Could not create block import for fresh peer.");
 		let justification_import = Box::new(import.clone());
 		(BlockImportAdapter::new(import), Some(justification_import), Mutex::new(Some(link)))
 	}
@@ -348,7 +347,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block> for RuntimeApi {
-		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _task_id: u64, _block_height: u64,) {
+		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) {
 			self.stored_signatures.lock().push(signature_data);
 		}
 	}
@@ -432,10 +431,10 @@ fn initialize_grandpa(
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
-	peers: Vec<(usize, &TimeKeyring, API, Arc<TokioMutex<Receiver<(u64, Vec<u8>)>>>)>,
+	peers: Vec<(usize, &TimeKeyring, API, Arc<TokioMutex<Receiver<(u64, [u8; 32])>>>)>,
 ) -> impl Future<Output = ()>
 where
-	API: ProvideRuntimeApi<Block> + Send + Sync + Default,
+	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
 	API::Api: TimeApi<Block>,
 {
 	let time_workers = FuturesUnordered::new();
@@ -558,7 +557,7 @@ fn finalize_3_voters_no_observers() {
 	net.block_until_sync();
 
 	for i in 0..3 {
-		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{} failed to sync", i);
+		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{i} failed to sync");
 	}
 
 	let net = Arc::new(Mutex::new(net));

@@ -16,15 +16,13 @@ use frame_support::traits::Imbalance;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::Decode;
+use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
-// use sp_staking::SessionIndex;
-// use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
@@ -406,18 +404,6 @@ pub fn native_version() -> NativeVersion {
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 parameter_types! {
-	// pub const ProposalBond: Permill = Permill::from_percent(5);
-	// pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
-	// pub const ProposalBondMaximum: Balance = 500 * DOLLARS;
-	// pub const SpendPeriod: BlockNumber = 24 * DAYS;
-	// pub const Burn: Permill = Permill::from_percent(1);
-	// pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-
-	// pub const TipCountdown: BlockNumber = 1 * DAYS;
-	// pub const TipFindersFee: Percent = Percent::from_percent(20);
-	// pub const TipReportDepositBase: Balance = 1 * DOLLARS;
-	// pub const DataDepositPerByte: Balance = 1 * CENTS;
-	// pub const MaxApprovals: u32 = 100;
 	pub const MaxAuthorities: u32 = 100_000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -933,11 +919,20 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+parameter_types! {
+	// Must be > 0 and <= 100
+	pub const SlashingPercentage: u8 = 5;
+	// Must be > 0 and <= 100
+	pub const SlashingPercentageThreshold: u8 = 51;
+}
+
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Moment = u64;
 	type Timestamp = Timestamp;
+	type SlashingPercentage = SlashingPercentage;
+	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 }
 
 parameter_types! {
@@ -1064,7 +1059,6 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
-		[onchain_task_pallet, OnchainTask]
 
 	);
 }
@@ -1270,10 +1264,21 @@ impl_runtime_apis! {
 			auth_key: time_primitives::crypto::Public,
 			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
-			task_id: u64,
-			block_height: u64,)
+			event_id: time_primitives::ForeignEventId)
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, task_id, block_height);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
+		}
+
+		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
+			Some(TesseractSigStorage::tss_shards(shard_id)?.members())
+		}
+
+		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
+			TesseractSigStorage::api_tss_shards()
+		}
+
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
 		}
 	}
 

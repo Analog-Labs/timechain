@@ -132,9 +132,7 @@ pub fn new_partial(
 			let uncles =
 				sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
 
-			let time_data_provider = time_worker::inherents::get_time_data_provider();
-
-			Ok((slot, timestamp, uncles, time_data_provider))
+			Ok((slot, timestamp, uncles))
 		},
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
@@ -290,8 +288,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 							slot_duration,
 						);
 
-				let time_data_provider = time_worker::inherents::get_time_data_provider();
-				Ok((slot, timestamp, time_data_provider))
+				Ok((slot, timestamp))
 			},
 			force_authoring,
 			backoff_authoring_blocks,
@@ -349,21 +346,35 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-
 		// injecting our Worker
 		let time_params = time_worker::TimeWorkerParams {
 			runtime: client.clone(),
-			client,
+			client: client.clone(),
 			backend,
 			gossip_network: network,
-			kv: keystore.into(),
+			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
 		};
+
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",
 			None,
 			time_worker::start_timeworker_gadget(time_params),
+		);
+
+		//Injecting connector worker
+		let connector_params = connector_worker::ConnectorWorkerParams {
+			runtime: client,
+			kv: keystore.clone().into(),
+			_block: PhantomData::default(),
+			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+		};
+
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"connector-worker",
+			None,
+			connector_worker::start_connectorworker_gadget(connector_params),
 		);
 	}
 

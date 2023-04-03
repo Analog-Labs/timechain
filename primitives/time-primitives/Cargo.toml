@@ -14,6 +14,7 @@ sp-inherents = { version = "4.0.0-dev", default-features = false, git = "https:/
 thiserror = { version = "1", optional = true }
 serde = { version = "1.0.136", optional = true }
 arrayref = "0.3.6"
+anyhow = { version = "~1.0", default-features = false }
 
 [features]
 default = ["std"]

@@ -5,7 +5,6 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-mod types;
 
 pub mod weights;
 pub use pallet::*;
@@ -15,23 +14,24 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::types::*;
-	use frame_support::{pallet_prelude::*, sp_runtime::traits::Scale, traits::Time};
+	use frame_support::{pallet_prelude::*, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
-	use sp_std::{result, vec::Vec};
+	use sp_application_crypto::ByteArray;
+	use sp_runtime::{
+		traits::{AppVerify, Scale},
+		Percent, SaturatedConversion,
+	};
+	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		SignatureData, TaskId,
+		sharding::Shard,
+		ForeignEventId, SignatureData, TimeId,
 	};
 
-	type BlockHeight = u64;
-
 	pub trait WeightInfo {
-		fn add_member() -> Weight;
 		fn store_signature_data() -> Weight;
-		fn remove_member() -> Weight;
 		fn submit_tss_group_key() -> Weight;
 	}
 
@@ -51,19 +51,19 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ StaticTypeInfo;
 		type Timestamp: Time<Moment = Self::Moment>;
+		/// Slashing percentage for commiting misbehavior
+		#[pallet::constant]
+		type SlashingPercentage: Get<u8>;
+		/// Slashing threshold percentage for commiting misbehavior consensus
+		#[pallet::constant]
+		type SlashingPercentageThreshold: Get<u8>;
 	}
-
-	#[pallet::storage]
-	#[pallet::getter(fn tesseract_members)]
-	pub type TesseractMembers<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, TesseractRole, OptionQuery>;
 
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
 	#[pallet::storage]
-	#[pallet::getter(fn tss_set)]
-	pub type TssSet<T: Config> =
-		StorageMap<_, Blake2_128Concat, u64, Vec<T::AccountId>, OptionQuery>;
+	#[pallet::getter(fn tss_shards)]
+	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, Shard, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
@@ -71,28 +71,25 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		TaskId,
-		Blake2_128Concat,
-		BlockHeight,
-		SignatureStorage<T::Moment>,
-		OptionQuery,
-	>;
+	pub type SignatureStoreData<T: Config> =
+		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureData, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn reported_offences)]
+	pub type ReportedOffences<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn commited_offences)]
+	pub type CommitedOffences<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The event data for stored signature
 		/// the signature id that uniquely identify the signature
-		SignatureStored(SignatureData),
-
-		/// A tesseract Node has been added as a member with it's role
-		TesseractMemberAdded(T::AccountId, TesseractRole),
-
-		/// A tesseract Node has been removed
-		TesseractMemberRemoved(T::AccountId),
+		SignatureStored(ForeignEventId),
 
 		/// Unauthorized attempt to add signed data
 		UnregisteredWorkerDataSubmission(T::AccountId),
@@ -104,12 +101,25 @@ pub mod pallet {
 		/// .0 - set_id,
 		/// .1 - group key bytes
 		NewTssGroupKey(u64, [u8; 32]),
+
+		/// Shard has ben registered with new Id
+		ShardRegistered(u64),
+
+		/// Offence report verification failed
+		/// Identifies sender of faulty offence report
+		ShardIsNotRegistered(TimeId),
+
+		/// Reporter TimeId can not be converted to Public key
+		WrongIdOfReporter(TimeId),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The Tesseract address in not known
 		UnknownTesseract,
+
+		/// Shard registartion failed
+		ShardRegistrationFailed,
 	}
 
 	#[pallet::inherent]
@@ -177,47 +187,16 @@ pub mod pallet {
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
-			task_id: TaskId,
-			block_height: u64,
+			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
-			ensure!(TesseractMembers::<T>::contains_key(caller), Error::<T>::UnknownTesseract);
-			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
+			let _caller = ensure_signed(origin)?;
 
-			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
+			// TODO: based on 'event_id.task_id()' find task, get ShardId from it and check if
+			// origin is a collector node of that shard this should be implemented after some task
+			// management pallet is present and coupled with this one
 
-			Self::deposit_event(Event::SignatureStored(signature_data));
-
-			Ok(())
-		}
-
-		/// Extrinsic for adding a node and it's member role
-		/// Callable only by root for now
-		#[pallet::weight(T::WeightInfo::add_member())]
-		pub fn add_member(
-			origin: OriginFor<T>,
-			account: T::AccountId,
-			role: TesseractRole,
-		) -> DispatchResult {
-			let _ = ensure_signed_or_root(origin)?;
-
-			<TesseractMembers<T>>::insert(account.clone(), role.clone());
-
-			Self::deposit_event(Event::TesseractMemberAdded(account, role));
-
-			Ok(())
-		}
-
-		/// Extrinsic for adding a node and it's member role
-		/// Callable only by root for now
-		#[pallet::weight(T::WeightInfo::remove_member())]
-		pub fn remove_member(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			let _ = ensure_signed_or_root(origin)?;
-
-			<TesseractMembers<T>>::remove(account.clone());
-
-			Self::deposit_event(Event::TesseractMemberRemoved(account));
-
+			<SignatureStoreData<T>>::insert(event_id, signature_data);
+			Self::deposit_event(Event::SignatureStored(event_id));
 			Ok(())
 		}
 
@@ -234,6 +213,36 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		/// Root can register new shard via providing not used set_id and
+		/// set of IDs matching one of supported size of shard
+		/// # Param
+		/// * set_id - not yet used ID of new shard
+		/// * members - supported sized set of shard members Id
+		#[pallet::weight(1_000_000)]
+		pub fn register_shard(
+			origin: OriginFor<T>,
+			set_id: u64,
+			members: Vec<TimeId>,
+			collector: Option<TimeId>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(!<TssShards<T>>::contains_key(set_id), "Shard already registered.");
+			if let Ok(mut shard) = Shard::try_from(members) {
+				// we set specified collector if required
+				if let Some(collector) = collector {
+					ensure!(
+						shard.set_collector(&collector).is_ok(),
+						"Collector is not member of given set."
+					);
+				}
+				<TssShards<T>>::insert(set_id, shard);
+				Self::deposit_event(Event::ShardRegistered(set_id));
+				Ok(())
+			} else {
+				Err(Error::<T>::ShardRegistrationFailed.into())
+			}
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -241,8 +250,7 @@ pub mod pallet {
 			auth_id: Public,
 			auth_sig: Signature,
 			signature_data: SignatureData,
-			task_id: TaskId,
-			block_height: u64,
+			event_id: ForeignEventId,
 		) {
 			use sp_runtime::traits::AppVerify;
 			// transform AccountId32 int T::AccountId
@@ -253,17 +261,65 @@ pub mod pallet {
 			}
 			// Unwrapping is safe - we've checked for len and default-ness
 			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
-			if !TesseractMembers::<T>::contains_key(account_id.clone())
-				|| !auth_sig.verify(&*signature_data, &auth_id)
-			{
+			// TODO: same check as for extrinsic after task management is implemented
+			if !auth_sig.verify(signature_data.as_ref(), &auth_id) {
 				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
 				return;
 			}
-			let storage_data = SignatureStorage::new(signature_data.clone(), T::Timestamp::now());
+			<SignatureStoreData<T>>::insert(event_id, signature_data);
+			Self::deposit_event(Event::SignatureStored(event_id));
+		}
 
-			<SignatureStoreData<T>>::insert(task_id, block_height, storage_data);
+		// Getter method for runtime api storage access
+		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter().collect()
+		}
 
-			Self::deposit_event(Event::SignatureStored(signature_data));
+		/// Method to provide misbehavior report to runtime
+		/// Is protected with proven ownership of private key to prevent spam
+		pub fn api_report_misbehavior(
+			shard_id: u64,
+			offender: time_primitives::TimeId,
+			reporter: TimeId,
+			proof: time_primitives::crypto::Signature,
+		) {
+			if let Ok(reporter_pub) = Public::from_slice(reporter.as_ref()) {
+				if let Some(shard) = <TssShards<T>>::get(shard_id) {
+					let members = shard.members();
+					// if reporter or offender are not from reported shard
+					if !members.contains(&offender) || !members.contains(&reporter) {
+						Self::deposit_event(Event::WrongIdOfReporter(reporter));
+						return;
+					}
+					// verify signature
+					if !proof.verify(offender.as_ref(), &reporter_pub) {
+						return;
+					}
+					<ReportedOffences<T>>::mutate(&offender, |o| {
+						if let Some(known_offender) = o {
+							// check reached threshold
+							let shard_th =
+								Percent::from_percent(T::SlashingPercentageThreshold::get())
+									* members.len();
+							// move to commitment if reached
+							if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
+								<CommitedOffences<T>>::insert(offender.clone(), known_offender);
+							}
+						// add if not
+						} else {
+							let mut hs = BTreeSet::new();
+							hs.insert(reporter);
+							// 1 here is count of reports received for this offence
+							// incremented in above If section
+							let _ = o.insert((1, hs));
+						}
+					});
+				} else {
+					Self::deposit_event(Event::ShardIsNotRegistered(reporter));
+				}
+			} else {
+				Self::deposit_event(Event::WrongIdOfReporter(reporter));
+			}
 		}
 	}
 }

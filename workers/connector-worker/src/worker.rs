@@ -14,7 +14,7 @@ use rosetta_client::{
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{error::Error, marker::PhantomData, sync::Arc, thread};
+use std::{error::Error, marker::PhantomData, sync::Arc};
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};

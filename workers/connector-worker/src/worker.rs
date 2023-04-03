@@ -140,7 +140,7 @@ where
 			Some(self.connector_url.clone()),
 		)
 		.await
-		.unwrap_or_else(|e| panic!("Failed to create client with error: {:?}", e));
+		.unwrap_or_else(|e| panic!("Failed to create client with error: {e:?}"));
 
 		loop {
 			let keys = self.kv.public_keys();
@@ -159,7 +159,7 @@ where
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
 				if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
-					log::error!("Error occured while fetching block data {:?}", e);
+					log::error!("Error occured while fetching block data {e:?}");
 				}
 				thread::sleep(delay);
 			}

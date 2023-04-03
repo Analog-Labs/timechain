@@ -34,7 +34,7 @@ use sp_runtime::{
 		IdentifyAccount, NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, MultiSignature, Percent,
 };
 
 use frame_system::EnsureRootWithSuccess;
@@ -723,10 +723,11 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		// 80 percent of total yield.
 		let length = session_active_validators.len().saturated_into::<u32>();
 			if length != 0 {
-				let balance_paid = send_reward / length.into();
+				let fraction = Percent::from_rational(send_reward.clone(), length.into());
+				let share = fraction * send_reward;
 
 				session_active_validators.iter().for_each(|item| {
-					let _resp = Balances::deposit_into_existing(item, balance_paid.clone().unique_saturated_into());
+					let _resp = Balances::deposit_into_existing(item, share.clone().unique_saturated_into());
 				});
 			}
 		let val_payout = (validator_payout).saturating_mul((80 / divisor).into());

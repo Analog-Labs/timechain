@@ -719,10 +719,12 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		// 20 percent of total reward.
 		let send_reward = Percent::from_percent(20) * max_payout;
 		// reward distribution for validators/chronicle accounts.
-		// 80 percent of total yield.
-		let length = session_active_validators.len().saturated_into::<u32>();
+		let length = session_active_validators.len().saturated_into::<u8>();
 			if length != 0 {
-				let fraction = Percent::from_rational(send_reward.clone(), length.into());
+				// get division percentage for each validator
+				let total_percentage = 100u8;
+				let fraction = Percent::from_percent(total_percentage.saturating_div(length));
+				// reward share of each validator.
 				let share = fraction * send_reward;
 
 				session_active_validators.iter().for_each(|item| {
@@ -1413,5 +1415,17 @@ mod tests {
 		assert!(
 			whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7")
 		);
+	}
+
+	#[test]
+	fn check_arithmetic() {
+		let max_payout = 100u32;
+		let session_active_validators = 4u8;
+		let send_reward = Percent::from_percent(20) * max_payout;
+		assert_eq!(send_reward, 20); // 20 percent of total reward
+		let perc_div = 100u8.saturating_div(session_active_validators); // get division percentage for each validator
+		let fraction = Percent::from_percent(perc_div);
+		let share = fraction * send_reward;
+		assert_eq!(share, 5); // 20 percent of total reward share of each validator.
 	}
 }

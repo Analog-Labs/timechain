@@ -27,7 +27,6 @@ sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = 
 sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-core = { features = ["full_crypto", "std"], git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
@@ -44,11 +43,9 @@ borsh = { version ="0.9", default-features = false }
 arrayref = "0.3.6"
 
 [dev-dependencies]
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-tracing = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 tempfile = "3.4"
 serde = { version = "1.0", features = ["derive"] }

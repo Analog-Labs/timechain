@@ -5648,22 +5648,6 @@ dependencies = [
 [[package]]
 name = "pallet-authorship"
 version = "4.0.0-dev"
-dependencies = [
- "frame-support",
- "frame-system",
- "impl-trait-for-tuples",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "sp-authorship",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-authorship"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "frame-support",
@@ -5685,7 +5669,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
+ "pallet-authorship",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 3.4.0",
@@ -5798,7 +5782,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
+ "pallet-authorship",
  "pallet-session",
  "parity-scale-codec 3.4.0",
  "scale-info",
@@ -5821,7 +5805,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
+ "pallet-authorship",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "sp-application-crypto",
@@ -5880,7 +5864,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
+ "pallet-authorship",
  "pallet-session",
  "parity-scale-codec 3.4.0",
  "scale-info",
@@ -10442,7 +10426,6 @@ dependencies = [
  "hex-literal",
  "jsonrpsee",
  "lazy_static",
- "log",
  "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -10500,7 +10483,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "pallet-authorship 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30)",
+ "pallet-authorship",
  "pallet-babe",
  "pallet-bags-list",
  "pallet-balances",

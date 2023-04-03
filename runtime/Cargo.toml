@@ -70,7 +70,8 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 # Local Dependencies
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
-pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
+pallet-tesseract-sig-storage = { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
+pallet-delegate = { version = "0.1.0", default-features = false, path = "../pallets/pallet-delegate" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
 storage-primitives = { path = "../primitives/storage-primitives", default-features = false }

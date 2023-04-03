@@ -110,6 +110,23 @@ impl From<u128> for ForeignEventId {
 		Self(source)
 	}
 }
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Encode, Decode, TypeInfo)]
+pub enum DelegateStatus {
+	Valid,
+	Suspended,
+	Invalid
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct DelegationStatus<AccountId, Balance> {
+	pub owner: AccountId,
+	pub max_token_usage: Option<Balance>,
+	pub token_usage: Balance,
+	pub max_task_execution: Option<u32>,
+	pub task_executed: u32,
+	pub status: DelegateStatus
+}
+
 
 #[test]
 fn foreign_event_id_construction_test() {

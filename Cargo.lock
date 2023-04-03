@@ -10133,6 +10133,7 @@ dependencies = [
  "sp-arithmetic 6.0.0",
  "sp-blockchain",
  "sp-consensus",
+ "sp-consensus-grandpa",
  "sp-core 7.0.0",
  "sp-inherents 4.0.0-dev",
  "sp-io 7.0.0",

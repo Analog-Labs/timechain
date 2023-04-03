@@ -25,6 +25,7 @@ sp-application-crypto = { git = "https://github.com/paritytech/substrate.git", b
 sp-arithmetic = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-core = { features = ["full_crypto", "std"], git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }

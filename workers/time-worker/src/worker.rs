@@ -16,10 +16,7 @@ use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_consensus::SyncOracle;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block, Header},
-};
+use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
@@ -115,8 +112,7 @@ where
 	fn is_member_of_shard(&self, shard_id: u64) -> bool {
 		let at = self.backend.blockchain().last_finalized().unwrap();
 		if let Some(id) = self.account_id() {
-			let at = BlockId::Hash(at);
-			if let Ok(Some(members)) = self.runtime.runtime_api().get_shard_members(&at, shard_id) {
+			if let Ok(Some(members)) = self.runtime.runtime_api().get_shard_members(at, shard_id) {
 				let am_member = members.iter().any(|s| s == &id);
 				debug!(target: TW_LOG, "Am a memmber of shard {}?: {}", shard_id, am_member);
 				am_member
@@ -208,9 +204,8 @@ where
 		}
 		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
 		debug!(target: TW_LOG, "our key: {}", our_key.to_string());
-		let in_block = BlockId::Hash(notification.header.hash());
 		// TODO: stabilize unwrap
-		let shards = self.runtime.runtime_api().get_shards(&in_block).unwrap();
+		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		// check if we're member in new shards
 		let new_shards: Vec<_> =
@@ -442,9 +437,8 @@ where
 				debug!(target: TW_LOG, "PartialSignatureReceived for shard: {}", shard_id);
 				// create slash timer
 				let at = self.backend.blockchain().last_finalized().unwrap();
-				let at = BlockId::Hash(at);
 				if let Ok(Some(members)) =
-					self.runtime.runtime_api().get_shard_members(&at, shard_id)
+					self.runtime.runtime_api().get_shard_members(at, shard_id)
 				{
 					if let Some(participant_id) = members
 						.iter()
@@ -494,11 +488,10 @@ where
 		if let Some(reporter) = self.node_id.clone() {
 			if let Some(proof) = self.kv.sign(&self.kv.public_keys()[0], offender.as_ref()) {
 				let at = self.backend.blockchain().last_finalized().unwrap();
-				let at = BlockId::Hash(at);
 				if let Err(e) = self
 					.runtime
 					.runtime_api()
-					.report_misbehavior(&at, shard_id, offender, reporter, proof)
+					.report_misbehavior(at, shard_id, offender, reporter, proof)
 				{
 					error!(
 						target: TW_LOG,

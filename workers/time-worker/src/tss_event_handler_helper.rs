@@ -180,9 +180,8 @@ where
 			if state.tss_process_state == TSSLocalStateType::ReceivedParams {
 				if let Ok(data) = FilterAndPublishParticipant::try_from_slice(data) {
 					let at = self.backend.blockchain().last_finalized().unwrap();
-					let at = BlockId::Hash(at);
 					if let Ok(Some(members)) =
-						self.runtime.runtime_api().get_shard_members(&at, shard_id)
+						self.runtime.runtime_api().get_shard_members(at, shard_id)
 					{
 						for participant in data.total_peer_list.iter() {
 							if let Some(participant_id) =
@@ -253,9 +252,8 @@ where
 			if state.tss_process_state == TSSLocalStateType::ReceivedPeers {
 				if let Ok(participant) = Participant::try_from_slice(data) {
 					let at = self.backend.blockchain().last_finalized().unwrap();
-					let at = BlockId::Hash(at);
 					if let Ok(Some(members)) =
-						self.runtime.runtime_api().get_shard_members(&at, shard_id)
+						self.runtime.runtime_api().get_shard_members(at, shard_id)
 					{
 						if let Some(participant_id) =
 							members.iter().find(|member| member.to_string() == peer_id)
@@ -686,7 +684,7 @@ where
 												self.kv.sign(&auth_key, &key_bytes).unwrap();
 											// FIXME: error handle
 											drop(self.runtime.runtime_api().store_signature(
-												&BlockId::Hash(at),
+												at,
 												auth_key,
 												signature,
 												th_bytes,

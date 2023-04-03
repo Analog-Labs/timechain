@@ -16,7 +16,7 @@ use crate::{
 use futures::channel::mpsc::Receiver as FutReceiver;
 use log::*;
 use sc_client_api::Backend;
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::Block;
@@ -36,7 +36,7 @@ where
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
+	N: GossipNetwork<B> + GossipSyncing<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
@@ -69,7 +69,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
+	N: GossipNetwork<B> + GossipSyncing<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
 	let TimeWorkerParams {
@@ -84,8 +84,13 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 
 	let sync_oracle = gossip_network.clone();
 	let gossip_validator = Arc::new(GossipValidator::new());
-	let gossip_engine =
-		GossipEngine::new(gossip_network, gossip_protocol_name(), gossip_validator.clone(), None);
+	let gossip_engine = GossipEngine::new(
+		gossip_network.clone(),
+		gossip_network,
+		gossip_protocol_name(),
+		gossip_validator.clone(),
+		None,
+	);
 
 	let worker_params = WorkerParams {
 		client,

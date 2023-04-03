@@ -36,7 +36,7 @@ impl TimeInherentTssDataProvider {
 
 #[async_trait::async_trait]
 impl InherentDataProvider for TimeInherentTssDataProvider {
-	fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
+	async fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
 		if let Some(group_key) = self.group_keys.get(&self.current_set_id) {
 			inherent_data.put_data(
 				INHERENT_IDENTIFIER,

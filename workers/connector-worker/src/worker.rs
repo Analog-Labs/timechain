@@ -161,7 +161,7 @@ where
 				if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
 					log::error!("Error occured while fetching block data {e:?}");
 				}
-				tokio::time::sleep(duration).await;
+				tokio::time::sleep(delay).await;
 			}
 		}
 	}

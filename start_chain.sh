@@ -39,15 +39,6 @@ start_validator_2() {
     >./ind_validators/validator3/out_validator3 2>&1 &
 }
 
-start_validator_3() {
-  echo "Starting validator 2..."
-  install -d ./ind_validators/validator4
-  ./target/debug/timechain-node --validator --port 30336 --base-path ./ind_validators/validator4 -lthea=trace  \
-    --ws-port=9957 --rpc-port=9958 --chain local --eve \
-    --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp \
-    >./ind_validators/validator3/out_validator4 2>&1 &
-}
-
 kill_nodes() {
   echo "Killing all nodes."
   killall -2 timechain-node
@@ -68,8 +59,6 @@ start_chain() {
   start_validator_1
   sleep $SLEEP
   start_validator_2
-  sleep $SLEEP
-   start_validator_3
   #sleep $SLEEP
   
   #./set-keys.sh

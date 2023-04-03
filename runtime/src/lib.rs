@@ -718,7 +718,7 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		let session_active_validators = Session::validators();
 		let divisor = 100u32;
 		// 20 percent of total reward.
-		let send_reward = (max_payout/ 20u32.into()).saturating_mul(divisor.into());
+		let send_reward = (max_payout).saturating_mul((20 / divisor).into());
 		// reward distribution for validators/chronicle accounts.
 		// 80 percent of total yield.
 		let length = session_active_validators.len().saturated_into::<u32>();
@@ -729,8 +729,8 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 					let _resp = Balances::deposit_into_existing(item, balance_paid.clone().unique_saturated_into());
 				});
 			}
-		let val_payout = (validator_payout/ 80u32.into()).saturating_mul(divisor.into());
-		let rest_payout = (rest / 80u32.into()).saturating_mul(divisor.into());
+		let val_payout = (validator_payout).saturating_mul((80 / divisor).into());
+		let rest_payout = (rest).saturating_mul((80 / divisor).into());
 		// send rest for payout.
 		(val_payout, rest_payout)
 	}

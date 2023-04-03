@@ -1,22 +1,22 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
 use bincode::serialize;
+use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
-use ink::env::hash;
 use sc_client_api::Backend;
 use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
-
+use sp_io::hashing::keccak_256;
 use sp_runtime::{generic::BlockId, traits::Block};
-use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc, thread};
+use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time};
+use tokio::{sync::Mutex, time::sleep};
 use web3::{
 	contract::{Contract, Options},
-	types::{Address, H160},
+	types::H160,
 };
 
 // use worker_aurora::{self, establish_connection, get_on_chain_data};
@@ -57,16 +57,15 @@ where
 	}
 
 	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
-		let mut output = <hash::Keccak256 as hash::HashOutput>::Type::default();
-		ink::env::hash_bytes::<hash::Keccak256>(input, &mut output);
-		output
+		keccak_256(input)
 	}
 
-	async fn call_contract_function(
+	async fn call_contract_and_send_for_sign(
 		&self,
 		address: String,
 		abi: String,
 		method: String,
+		shard_id: u64,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
@@ -89,7 +88,7 @@ where
 			},
 		};
 		let contract_address = match address.parse::<H160>() {
-			Ok(parsed_address) => Address::from(parsed_address),
+			Ok(parsed_address) => parsed_address,
 			Err(parse_error) => {
 				// handle the error here, for example by printing a message and exiting the program
 				log::warn!("Error parsing contract address: {}", parse_error);
@@ -100,12 +99,11 @@ where
 		// Create a new contract instance using the ABI and address
 		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
 
-		// Call the "getGreeting" function on the contract instance
 		let greeting: String =
 			contract.query(method.as_str(), (), None, Options::default(), None).await?;
 		if let Ok(task_in_bytes) = serialize(&greeting) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
-			match self.sign_data_sender.lock().await.try_send((1, hash)) {
+			match self.sign_data_sender.lock().await.try_send((shard_id, hash)) {
 				Ok(()) => {
 					log::info!("Connector successfully send event to -- channel")
 				},
@@ -120,92 +118,104 @@ where
 	}
 
 	pub(crate) async fn run(&mut self) {
+		// Set the delay for the loop
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
 		loop {
+			// Get the public keys from the Key-Value store to check key is set
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
+				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					let at = BlockId::Hash(at);
 
-					if let Ok(tasks_schedule) = self.runtime.runtime_api().get_task_schedule(&at) {
-						match tasks_schedule {
-							Ok(task_schedule) =>
-								for schedule_task in task_schedule.iter() {
-									let task_id = schedule_task.task_id.0;
+					// Get the task schedule for the current block
+					let tasks_schedule = match self.runtime.runtime_api().get_task_schedule(&at) {
+						Ok(task_schedule) => task_schedule,
+						Err(_e) => Ok({
+							log::error!("Failed to get task schedule for block {:?}", at);
+							Vec::new() // Return an empty vector as the default value
+						}),
+					};
+					match tasks_schedule {
+						Ok(task_schedule) =>
+							for schedule_task in task_schedule.iter() {
+								let task_id = schedule_task.task_id.0;
+								let shard_id = schedule_task.shard_id;
 
-									match map.insert(task_id, "hash".to_string()) {
-										Some(old_value) => println!(
-											"The key already existed with the value {}",
-											old_value
-										),
-										None => {
-											println!(
-												"The key didn't exist and was inserted key {}.",
-												task_id
-											);
-
-											if let Ok(metadata_result) = self
-												.runtime
-												.runtime_api()
-												.get_task_metadat_by_key(&at, task_id)
-											{
-												match metadata_result {
-													Ok(metadata) =>
-														for task in metadata.iter() {
-															match &task.function {
-																Function::EthereumContract {
-																	address,
-																	abi,
-																	function,
-																	input: _,
-																	output: _,
-																} => {
-																	let _x = Self::call_contract_function(
+								match map.insert(task_id, "hash".to_string()) {
+									Some(old_value) => println!(
+										"The key already existed with the value {}",
+										old_value
+									),
+									None => {
+										println!(
+											"The key didn't exist and was inserted key {}.",
+											task_id
+										);
+										if let Ok(metadata_result) = self
+											.runtime
+											.runtime_api()
+											.get_task_metadat_by_key(&at, task_id)
+										{
+											match metadata_result {
+												Ok(metadata) =>
+													for task in metadata.iter() {
+														match &task.function {
+															// If the task function is an Ethereum
+															// contract call, call it and send for
+															// signing
+															Function::EthereumContract {
+																address,
+																abi,
+																function,
+																input: _,
+																output: _,
+															} => {
+																let _result =
+																	Self::call_contract_and_send_for_sign(
 																		self,
 																		address.to_string(),
 																		abi.to_string(),
 																		function.to_string(),
+																		shard_id,
 																	)
 																	.await;
-																},
-																Function::EthereumApi {
-																	function: _,
-																	input: _,
-																	output: _,
-																} => {
-																	todo!()
-																},
-															};
-														},
-													Err(e) => {
-														log::info!(
-															"No metadata found for block {:?}: {:?}",
-															at,
-															e
-														);
+															},
+															Function::EthereumApi {
+																function: _,
+																input: _,
+																output: _,
+															} => {
+																todo!()
+															},
+														};
 													},
-												}
-											} else {
-												log::error!(
-													"Failed to get task metadata for block {:?}",
-													at
-												);
+												Err(e) => {
+													log::info!(
+														"No metadata found for block {:?}: {:?}",
+														at,
+														e
+													);
+												},
 											}
-										},
-									}
-								},
-							Err(e) => {
-								log::info!("No metadata found for block {:?}: {:?}", at, e);
+										} else {
+											log::error!(
+												"Failed to get task metadata for block {:?}",
+												at
+											);
+										}
+									},
+								}
 							},
-						}
-					} else {
-						log::error!("Failed to get task schedule for block {:?}", at);
+						Err(e) => {
+							log::info!("No metadata found for block {:?}: {:?}", at, e);
+						},
 					}
 				} else {
 					log::error!("Blockchain is empty");
 				}
-				thread::sleep(delay);
+				sleep(delay).await;
 			}
 		}
 	}

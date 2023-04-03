@@ -7,8 +7,8 @@ pub mod rpc;
 pub mod sharding;
 pub mod slashing;
 
-use arrayref::array_ref;
 use abstraction::{Task, TaskSchedule};
+use arrayref::array_ref;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{

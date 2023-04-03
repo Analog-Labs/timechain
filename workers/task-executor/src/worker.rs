@@ -61,16 +61,12 @@ where
 
 	async fn call_contract_function(
 		&self,
+		config: &BlockchainConfig,
+		client: &Client,
 		address: String,
 		function_signature: String,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-
-		let (config, client) = if let Ok(client_config) = create_connector_client().await {
-			(client_config.0, client_config.1)
-		} else {
-			return Err("Failed to create connector client".into());
-		};
 
 		let method = format!("{}-{}-call", address, function_signature);
 
@@ -102,6 +98,15 @@ where
 	pub(crate) async fn run(&mut self) {
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
+
+		let (config, client) = create_client(
+			Some("ethereum".into()),
+			Some("dev".into()),
+			Some("http://127.0.0.1:8081".into()),
+		)
+		.await
+		.unwrap_or_else(|e| panic!("Failed to create client with error: {e:?}"));
+
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -142,6 +147,8 @@ where
 														} => {
 															if let Err(e) = self
 																.call_contract_function(
+																	&config,
+																	&client,
 																	address.to_string(),
 																	function_signature.to_string(),
 																)
@@ -187,18 +194,4 @@ where
 			}
 		}
 	}
-}
-
-async fn create_connector_client() -> Result<(BlockchainConfig, Client), Box<dyn Error>> {
-	let connector_url = std::env::var("CONNECTOR_URL").expect("CONNECTOR_URL must be set");
-	let connector_blockchain =
-		std::env::var("CONNECTOR_BLOCKCHAIN").expect("CONNECTOR_BLOCKCHAIN must be set");
-	let connector_network =
-		std::env::var("CONNECTOR_NETWORK").expect("CONNECTOR_NETWORK must be set");
-
-	let (config, client) =
-		create_client(Some(connector_blockchain), Some(connector_network), Some(connector_url))
-			.await?;
-
-	Ok((config, client))
 }

@@ -316,6 +316,10 @@ where
 						sign_msg_req.try_to_vec().unwrap(),
 						TSSEventType::PartialSignatureGenerateReq(shard_id),
 					) {
+						log::info!("=================");
+						log::info!("Sending partial signature request from {} about {:?}", state.local_peer_id.clone().unwrap_or_default(), msg_hash);
+						log::info!("shard id {}", shard_id);
+						log::info!("=================\n\n\n");
 						self.send(data);
 						debug!(target: TW_LOG, "TSS peer collection req sent");
 					} else {

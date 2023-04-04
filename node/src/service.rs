@@ -4,9 +4,9 @@ use sc_client_api::BlockBackend;
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_keystore::LocalKeystore;
+use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 // Our native executor instance.
@@ -129,10 +129,7 @@ pub fn new_partial(
 					slot_duration,
 				);
 
-			let uncles =
-				sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
-
-			Ok((slot, timestamp, uncles))
+			Ok((slot, timestamp))
 		},
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
@@ -236,14 +233,15 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		let pool = transaction_pool.clone();
 		let clonestore = keystore.clone();
 
-		Box::new(move |deny_unsafe, _| {
+		Box::new(move |deny_unsafe, _: SubscriptionTaskExecutor| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
 				kv: Some(clonestore.clone()).into(),
 			};
-			crate::rpc::create_full(deps).map_err(Into::into)
+			crate::rpc::create_full(deps)
+				.map_err(Into::<Box<dyn std::error::Error + Send + Sync>>::into)
 		})
 	};
 
@@ -263,8 +261,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			select_chain,
 			block_import,
 			env: proposer_factory,
-			sync_oracle: network.clone(),
-			justification_sync_link: network.clone(),
+			sync_oracle: sync_service.clone(),
+			justification_sync_link: sync_service.clone(),
 			create_inherent_data_providers: move |_parent, ()| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
@@ -323,6 +321,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			prometheus_registry,
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			sync: sync_service.clone(),
 		};
 
 		// the GRANDPA voter task is considered infallible, i.e.

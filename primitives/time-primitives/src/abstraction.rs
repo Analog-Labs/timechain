@@ -70,7 +70,6 @@ impl Schema {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Task {
 	pub collection_id: ObjectId,
-	pub shard_id: u64,
 	pub schema: Vec<Schema>,
 	pub function: Function,
 	pub with: Vec<String>,

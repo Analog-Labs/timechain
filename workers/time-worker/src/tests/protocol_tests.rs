@@ -8,7 +8,7 @@ use futures_channel::mpsc::Receiver;
 use log::error;
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
-use sc_finality_grandpa::{
+use sc_consensus_grandpa::{
 	block_import, run_grandpa_voter, Config, GenesisAuthoritySetProvider, GrandpaParams, LinkHalf,
 	SharedVoterState,
 };
@@ -22,10 +22,10 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::Pair as SPPair;
-use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
-use sp_finality_grandpa::{
+use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
+use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::{generic::BlockId, traits::Header as HeaderT, BuildStorage};
 use std::{

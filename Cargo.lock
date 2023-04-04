@@ -10053,6 +10053,7 @@ dependencies = [
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
+ "sc-consensus-grandpa",
  "sc-keystore",
  "sc-network",
  "sc-network-common",

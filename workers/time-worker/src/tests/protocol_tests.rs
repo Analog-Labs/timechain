@@ -53,7 +53,7 @@ pub enum ConsensusLog<Public: Codec> {
 type TestLinkHalf =
 	LinkHalf<Block, PeersFullClient, LongestChain<substrate_test_runtime_client::Backend, Block>>;
 type GrandpaPeerData = Mutex<Option<TestLinkHalf>>;
-type GrandpaBlockImport = sc_finality_grandpa::GrandpaBlockImport<
+type GrandpaBlockImport = sc_consensus_grandpa::GrandpaBlockImport<
 	substrate_test_runtime_client::Backend,
 	Block,
 	PeersFullClient,
@@ -127,6 +127,10 @@ impl TestNetFactory for TimeTestNet {
 	type Verifier = PassThroughVerifier;
 	type BlockImport = GrandpaBlockImport;
 	type PeerData = GrandpaPeerData;
+
+	fn peers_mut(&mut self) -> &mut Vec<GrandpaPeer> {
+		&mut self.peers
+	}
 
 	fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
@@ -243,7 +247,7 @@ impl ProvideRuntimeApi<Block> for TestApi {
 
 #[async_trait::async_trait]
 impl InherentDataProvider for RuntimeApi {
-	fn provide_inherent_data(
+	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut InherentData,
 	) -> Result<(), sp_inherents::Error> {
@@ -340,7 +344,7 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn generate_key_ownership_proof(
 			_set_id: SetId,
-			_authority_id: sp_finality_grandpa::AuthorityId,
+			_authority_id: sp_consensus_grandpa::AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof> {
 			None
 		}
@@ -415,6 +419,7 @@ fn initialize_grandpa(
 			prometheus_registry: None,
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: None,
+			sync: net.peers[peer_id].sync_service().clone(),
 		};
 		let voter =
 			run_grandpa_voter(grandpa_params).expect("all in order with client and network");
@@ -452,9 +457,10 @@ where
 			gossip_network: peer.network_service().clone(),
 			kv: Some(keystore).into(),
 			sign_data_receiver,
+			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),
 		};
-		let gadget = start_timeworker_gadget::<_, _, _, _, _>(time_params);
+		let gadget = start_timeworker_gadget::<_, _, _, _, _, _>(time_params);
 
 		fn assert_send<T: Send>(_: &T) {}
 		assert_send(&gadget);

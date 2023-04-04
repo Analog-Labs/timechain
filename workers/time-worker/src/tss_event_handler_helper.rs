@@ -625,6 +625,7 @@ where
 									.unwrap()
 									.clone()
 								{
+									println!("list of partial signatures - {:?}", item);
 									aggregator.include_partial_signature(item.clone());
 								}
 
@@ -659,6 +660,7 @@ where
 										threshold_signature
 									},
 									Err(e) => {
+										println!("error hashmap {:?}", e);
 										for (key, value) in e.into_iter() {
 											//can also send the indices of participants to
 											// timechain to keep track of that

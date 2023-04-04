@@ -364,18 +364,18 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		);
 
 		//Injecting connector worker
-		let connector_params = connector_worker::ConnectorWorkerParams {
-			runtime: client.clone(),
-			kv: keystore.clone().into(),
-			_block: PhantomData::default(),
-			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
-		};
+		// let connector_params = connector_worker::ConnectorWorkerParams {
+		// 	runtime: client.clone(),
+		// 	kv: keystore.clone().into(),
+		// 	_block: PhantomData::default(),
+		// 	sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+		// };
 
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"connector-worker",
-			None,
-			connector_worker::start_connectorworker_gadget(connector_params),
-		);
+		// task_manager.spawn_essential_handle().spawn_blocking(
+		// 	"connector-worker",
+		// 	None,
+		// 	connector_worker::start_connectorworker_gadget(connector_params),
+		// );
 
 		let taskexecutor_params = task_executor::TaskExecutorParams {
 			runtime: client,

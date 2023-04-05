@@ -11,7 +11,7 @@ use sp_runtime::{
 };
 use timechain_runtime::{
 	AccountId, BalancesConfig, CouncilConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig,
-	Signature, StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
+	Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";

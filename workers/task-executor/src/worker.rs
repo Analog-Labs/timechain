@@ -14,7 +14,7 @@ use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
-use sp_io::hashing::keccak_256;
+use sp_io::hashing::{keccak_256, keccak_512};
 
 use sp_runtime::{generic::BlockId, traits::Block};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
@@ -32,18 +32,23 @@ pub enum Error {
 	/// Provided signature verification failed
 	#[error("Provided signature verification failed")]
 	SigVerificationFailure,
+	/// Time key is not yet injected into node
+	#[error("No time key found")]
+	TimeKeyNotFound,
 }
 
 // The error codes returned by jsonrpc.
 pub enum ErrorCode {
 	/// Returned when signature in given SignRpcPayload failed to verify
 	SigFailure = 1,
+	NoTimeKey = 2,
 }
 
 impl From<Error> for ErrorCode {
 	fn from(error: Error) -> Self {
 		match error {
 			Error::SigVerificationFailure => ErrorCode::SigFailure,
+			Error::TimeKeyNotFound => ErrorCode::NoTimeKey,
 		}
 	}
 }
@@ -99,6 +104,10 @@ where
 		keccak_256(input)
 	}
 
+	pub fn hash_keccak_512(input: &[u8]) -> [u8; 64] {
+		keccak_512(input)
+	}
+
 	async fn call_contract_and_send_for_sign(
 		&self,
 		address: String,
@@ -108,25 +117,23 @@ where
 	) -> Result<(), Box<dyn std::error::Error>> {
 		dotenv().ok();
 		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
-	
+
 		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
 		let websocket = match websocket_result {
 			Ok(websocket) => websocket,
-			Err(_) => {
-				web3::transports::WebSocket::new(&infura_url)
-					.await
-					.expect("Failed to create default websocket")
-			}
+			Err(_) => web3::transports::WebSocket::new(&infura_url)
+				.await
+				.expect("Failed to create default websocket"),
 		};
 		let web3 = web3::Web3::new(websocket);
-	
+
 		// Load the contract ABI and address
 		let contract_abi = match from_str(&abi) {
 			Ok(abi) => abi,
 			Err(e) => {
 				log::warn!("Error parsing contract ABI:  {}", e);
 				return Err("Failed to parse contract ABI".into());
-			}
+			},
 		};
 		let contract_address = match address.parse::<H160>() {
 			Ok(parsed_address) => parsed_address,
@@ -134,21 +141,21 @@ where
 				// handle the error here, for example by printing a message and exiting the program
 				log::warn!("Error parsing contract address: {}", parse_error);
 				std::process::exit(1);
-			}
+			},
 		};
-	
+
 		// Create a new contract instance using the ABI and address
 		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
-	
-		let message: String = contract.query(method.as_str(), (), None, Options::default(), None).await?;
-	
+
+		let message: String =
+			contract.query(method.as_str(), (), None, Options::default(), None).await?;
+
 		if let Ok(task_in_bytes) = serialize(&message) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 			let phrase = "owner word vocal dose decline sunset battle example forget excite gentle waste//1//time";
 			let keypair = sr25519::Pair::from_string(&phrase, None).unwrap();
 			let raw_signature = keypair.sign(&hash);
-			// let keys = self.kv.public_keys();
-	
+
 			let signature = format!(
 				"[{}]",
 				raw_signature
@@ -158,22 +165,27 @@ where
 					.collect::<Vec<String>>()
 					.join(",")
 			);
-	
-			if let Ok(message) = serde_json::from_str::<[u8; 32]>(&message) {
-				if let Ok(signature) = serde_json::from_str::<Vec<u8>>(&signature) {
-					let signature: [u8; 64] = arrayref::array_ref!(signature, 0, 64).to_owned();
-					let keys = self.kv.public_keys();
-	
-					let payload = SignRpcPayload::new(shard_id, message, signature);
-					if payload.verify(keys[0].clone()) {
-						let _ = self.sign_data_sender.lock().await.try_send((payload.group_id, message));
-						Ok(())
-					} else {
-						Err(Error::SigVerificationFailure.into())
-					}
-				} else {
-					Err(Error::SigVerificationFailure.into())
+
+			let ser = serialize(&signature).unwrap();
+			let signaturee = Self::hash_keccak_512(&ser);
+			let keys = self.kv.public_keys();
+
+			if keys.len() != 1 {
+				return Err(Error::TimeKeyNotFound.into());
+			}
+
+			let payload = SignRpcPayload::new(shard_id, hash, signaturee);
+			log::info!("\n\n\n--> payload verify {:?}\n", payload.verify(keys[0].clone()));
+			if payload.verify(keys[0].clone()) {
+				match self.sign_data_sender.lock().await.try_send((payload.group_id, hash)) {
+					Ok(()) => {
+						log::info!("Connector successfully send event to -- channel")
+					},
+					Err(_) => {
+						log::info!("Connector failed to send event to channel")
+					},
 				}
+				Ok(())
 			} else {
 				Err(Error::SigVerificationFailure.into())
 			}
@@ -202,7 +214,7 @@ where
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
 					let task_id = schedule_task.task_id.0;
-					let shard_id = schedule_task.shard_id;
+					let shard_id = 123; //schedule_task.shard_id;
 
 					match map.insert(task_id, "hash".to_string()) {
 						Some(old_value) =>

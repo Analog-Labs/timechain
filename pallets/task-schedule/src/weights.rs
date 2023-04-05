@@ -10,7 +10,7 @@ pub struct SigWeightInfo<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
 	
-    fn store_schedule() -> Weight {
+    fn insert_schedule() -> Weight {
         Weight::from_ref_time(39_000_000_u64)
             // Standard Error: 2_151
             .saturating_add(Weight::from_ref_time(68_175_u64).saturating_mul(100_u64))
@@ -22,7 +22,7 @@ impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
 
 impl WeightInfo for () {
 
-    fn store_schedule() -> Weight {
+    fn insert_schedule() -> Weight {
 		Weight::from_ref_time(33_000_000_u64)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

@@ -1,7 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 pub mod weights;
 
 pub use pallet::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -64,19 +72,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<Vec<TaskSchedule>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter_values().collect::<Vec<_>>();
-			// will add scheduling logic
 
 			Ok(data_list)
 		}
 		pub fn get_schedules_keys() -> Result<Vec<u64>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
-			// will add scheduling logic
 
 			Ok(data_list)
 		}
 		pub fn get_schedule_by_key(key: u64) -> Result<Option<TaskSchedule>, DispatchError> {
 			let data = self::ScheduleStorage::<T>::get(key);
-			// will add scheduling logic
 
 			Ok(data)
 		}

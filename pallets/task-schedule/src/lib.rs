@@ -12,7 +12,7 @@ pub mod pallet {
 	pub type KeyId = u64;
 
 	pub trait WeightInfo {
-		fn store_schedule() -> Weight;
+		fn insert_schedule() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -31,6 +31,9 @@ pub mod pallet {
 	pub(super) type ScheduleStorage<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule, OptionQuery>;
 
+	#[pallet::storage]
+	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -43,14 +46,15 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(T::WeightInfo::store_schedule())]
+		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: TaskSchedule) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
-			let last_key = self::ScheduleStorage::<T>::iter_keys().last();
+			let last_key = self::LastKey::<T>::get();
 			let schedule_id = match last_key {
 				Some(val) => val + 1,
 				None => 1,
 			};
+			self::LastKey::<T>::put(schedule_id);
 			self::ScheduleStorage::<T>::insert(schedule_id, schedule.clone());
 			Self::deposit_event(Event::ScheduleStored(schedule_id));
 

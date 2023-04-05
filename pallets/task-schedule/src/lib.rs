@@ -7,13 +7,12 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use log::info;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::abstraction::TaskSchedule;
 	pub type KeyId = u64;
 
 	pub trait WeightInfo {
-		fn store_schedule() -> Weight;
+		fn insert_schedule() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -32,10 +31,12 @@ pub mod pallet {
 	pub(super) type ScheduleStorage<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule, OptionQuery>;
 
+	#[pallet::storage]
+	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The event data for stored signature
 		/// the record id that uniquely identify
 		ScheduleStored(KeyId),
 
@@ -45,23 +46,17 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing a signature
-		#[pallet::weight(T::WeightInfo::store_schedule())]
+		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: TaskSchedule) -> DispatchResult {
-			info!("======>>> schedule info comes ======>>> ");
 			let _who = ensure_signed(origin)?;
-			let data_list =
-				self::ScheduleStorage::<T>::iter_values().find(|x| x.task_id == schedule.task_id);
-			match data_list {
-				Some(val) => {
-					Self::deposit_event(Event::AlreadyExist(val.task_id.0));
-				},
-				None => {
-					info!("======>>> input comes ======>>> {:?}", schedule);
-					self::ScheduleStorage::<T>::insert(schedule.task_id.0, schedule.clone());
-					Self::deposit_event(Event::ScheduleStored(schedule.task_id.0));
-				},
-			}
+			let last_key = self::LastKey::<T>::get();
+			let schedule_id = match last_key {
+				Some(val) => val + 1,
+				None => 1,
+			};
+			self::LastKey::<T>::put(schedule_id);
+			self::ScheduleStorage::<T>::insert(schedule_id, schedule.clone());
+			Self::deposit_event(Event::ScheduleStored(schedule_id));
 
 			Ok(())
 		}
@@ -72,6 +67,18 @@ pub mod pallet {
 			// will add scheduling logic
 
 			Ok(data_list)
+		}
+		pub fn get_schedules_keys() -> Result<Vec<u64>, DispatchError> {
+			let data_list = self::ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
+			// will add scheduling logic
+
+			Ok(data_list)
+		}
+		pub fn get_schedule_by_key(key: u64) -> Result<Option<TaskSchedule>, DispatchError> {
+			let data = self::ScheduleStorage::<T>::get(key);
+			// will add scheduling logic
+
+			Ok(data)
 		}
 	}
 }

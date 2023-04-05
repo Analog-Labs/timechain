@@ -9,13 +9,13 @@ pub mod slashing;
 
 use abstraction::{Task, TaskSchedule};
 use arrayref::array_ref;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
+	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
 	DispatchError, MultiSignature,
 };
-use sp_std::{borrow::ToOwned, vec::Vec};
+use sp_std::{borrow::ToOwned, fmt::Debug, vec::Vec};
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
 
@@ -45,6 +45,22 @@ sp_api::decl_runtime_apis! {
 pub mod crypto {
 	use sp_application_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, crate::KEY_TYPE);
+}
+
+pub trait Balance:
+	AtLeast32BitUnsigned + FullCodec + Copy + Default + Debug + scale_info::TypeInfo + MaxEncodedLen
+{
+}
+impl<
+		T: AtLeast32BitUnsigned
+			+ FullCodec
+			+ Copy
+			+ Default
+			+ Debug
+			+ scale_info::TypeInfo
+			+ MaxEncodedLen,
+	> Balance for T
+{
 }
 
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Encode, Decode, TypeInfo)]

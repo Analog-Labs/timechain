@@ -470,6 +470,14 @@ where
 	time_workers.for_each(|_| async move {})
 }
 
+async fn run_until_complete(future: impl Future + Unpin, net: &Arc<Mutex<TimeTestNet>>) {
+	let drive_to_completion = futures::future::poll_fn(|cx| {
+		net.lock().poll(cx);
+		Poll::<()>::Pending
+	});
+	future::select(future, drive_to_completion).await;
+}
+
 #[allow(dead_code)]
 fn block_until_complete(
 	future: impl Future + Unpin,
@@ -488,8 +496,7 @@ fn block_until_complete(
 #[allow(dead_code)]
 // run the voters to completion. provide a closure to be invoked after
 // the voters are spawned but before blocking on them.
-fn run_to_completion_with<F>(
-	runtime: &mut Runtime,
+async fn run_to_completion_with<F>(
 	blocks: u64,
 	net: Arc<Mutex<TimeTestNet>>,
 	peers: &[Ed25519Keyring],
@@ -502,7 +509,7 @@ where
 
 	let highest_finalized = Arc::new(RwLock::new(0));
 
-	if let Some(f) = (with)(runtime.handle().clone()) {
+	if let Some(f) = (with)(Handle::current()) {
 		wait_for.push(f);
 	};
 
@@ -530,19 +537,18 @@ where
 	// wait for all finalized on each.
 	let wait_for = ::futures::future::join_all(wait_for);
 
-	block_until_complete(wait_for, net.clone(), runtime);
+	run_until_complete(wait_for, &net).await;
 	let highest_finalized = *highest_finalized.read();
 	highest_finalized
 }
 
 #[allow(dead_code)]
-fn run_to_completion(
-	runtime: &mut Runtime,
+async fn run_to_completion(
 	blocks: u64,
 	net: Arc<Mutex<TimeTestNet>>,
 	peers: &[Ed25519Keyring],
 ) -> u64 {
-	run_to_completion_with(runtime, blocks, net, peers, |_| None)
+	run_to_completion_with(blocks, net, peers, |_| None).await
 }
 
 #[allow(dead_code)]
@@ -553,12 +559,11 @@ fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
 #[tokio::test]
 async fn finalize_3_voters_no_observers() {
 	sp_tracing::try_init_simple();
-	let mut runtime = Runtime::new().unwrap();
 	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 	let genesys_authorities = make_gradpa_ids(grandpa_peers);
 
 	let mut net = TimeTestNet::new(3, 0, TestApi::new(vec![], vec![], genesys_authorities));
-	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
+	tokio::spawn(initialize_grandpa(&mut net, grandpa_peers));
 	net.peer(0).push_blocks(20, false);
 	net.run_until_sync().await;
 	for i in 0..3 {
@@ -566,7 +571,7 @@ async fn finalize_3_voters_no_observers() {
 	}
 	let hashof32 = net.peer(0).client().info().best_hash;
 	let net = Arc::new(Mutex::new(net));
-	run_to_completion(&mut runtime, 20, net.clone(), grandpa_peers);
+	run_to_completion(20, net.clone(), grandpa_peers).await;
 	// normally there's no justification for finalized blocks
 	assert!(
 		net.lock().peer(0).client().justifications(hashof32).unwrap().is_none(),
@@ -584,7 +589,6 @@ async fn time_keygen_completes() {
 		"Starting test..."
 	);
 	// our runtime for the test chain
-	let mut runtime = Runtime::new().unwrap();
 	let peers = &[TimeKeyring::Alice, TimeKeyring::Bob, TimeKeyring::Charlie];
 	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 	let genesys_authorities = make_gradpa_ids(grandpa_peers);
@@ -605,8 +609,8 @@ async fn time_keygen_completes() {
 		.collect::<Vec<_>>();
 
 	let mut net = TimeTestNet::new(3, 0, api.clone());
-	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
-	runtime.spawn(initialize_time_worker(&mut net, time_peers));
+	tokio::spawn(initialize_grandpa(&mut net, grandpa_peers));
+	tokio::spawn(initialize_time_worker(&mut net, time_peers));
 	// let's wait for workers to properly spawn
 	std::thread::sleep(std::time::Duration::from_secs(6));
 	// Pushing 1 block
@@ -620,7 +624,7 @@ async fn time_keygen_completes() {
 
 	let net = Arc::new(Mutex::new(net));
 
-	run_to_completion(&mut runtime, 1, net.clone(), grandpa_peers);
+	run_to_completion(1, net.clone(), grandpa_peers).await;
 
 	for i in 0..3 {
 		assert_eq!(

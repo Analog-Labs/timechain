@@ -4,9 +4,7 @@ use crate::Pallet as TaskMeta;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::{string::String, vec};
-use time_primitives::{
-	abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity}
-};
+use time_primitives::abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity};
 
 benchmarks! {
 	insert_task {

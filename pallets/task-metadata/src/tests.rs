@@ -1,9 +1,7 @@
 use super::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{
-	abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity}
-};
+use time_primitives::abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity};
 
 #[test]
 fn test_task() {
@@ -11,10 +9,10 @@ fn test_task() {
 		let input: Task = Task {
 			collection_id: ObjectId(1),
 			schema: vec![Schema::String(String::from("schema"))],
-			 function: Function::EthereumApi {
+			function: Function::EthereumApi {
 				function: String::from("function name"),
 				input: vec![Input::HexAddress],
-				output:vec![Output::Skip],
+				output: vec![Output::Skip],
 			},
 			cycle: 12,
 			with: vec![String::from("address")],

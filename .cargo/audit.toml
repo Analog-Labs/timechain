@@ -3,4 +3,6 @@ ignore = [
     "RUSTSEC-2022-0040", # `owning_ref`
     "RUSTSEC-2022-0046", # `rocksdb`
     "RUSTSEC-2022-0071", # `time` localtime_r segfault
+    "RUSTSEC-2022-0075", # wasmtime
+    "RUSTSEC-2022-0076", # wasmtime
 ]

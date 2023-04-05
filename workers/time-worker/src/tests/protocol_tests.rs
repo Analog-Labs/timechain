@@ -27,7 +27,7 @@ use sp_consensus_grandpa::{
 };
 use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
-use sp_runtime::{generic::BlockId, traits::Header as HeaderT, BuildStorage};
+use sp_runtime::{traits::Header as HeaderT, BuildStorage};
 use std::{
 	collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc, task::Poll, time::Duration,
 };
@@ -550,8 +550,8 @@ fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
 	keys.iter().map(|key| (*key).public().into()).map(|id| (id, 1)).collect()
 }
 
-#[test]
-fn finalize_3_voters_no_observers() {
+#[tokio::test]
+async fn finalize_3_voters_no_observers() {
 	sp_tracing::try_init_simple();
 	let mut runtime = Runtime::new().unwrap();
 	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
@@ -560,30 +560,23 @@ fn finalize_3_voters_no_observers() {
 	let mut net = TimeTestNet::new(3, 0, TestApi::new(vec![], vec![], genesys_authorities));
 	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
 	net.peer(0).push_blocks(20, false);
-	net.block_until_sync();
-
+	net.run_until_sync().await;
 	for i in 0..3 {
 		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{i} failed to sync");
 	}
-
+	let hashof32 = net.peer(0).client().info().best_hash;
 	let net = Arc::new(Mutex::new(net));
 	run_to_completion(&mut runtime, 20, net.clone(), grandpa_peers);
-
 	// normally there's no justification for finalized blocks
 	assert!(
-		net.lock()
-			.peer(0)
-			.client()
-			.justifications(&BlockId::Number(20))
-			.unwrap()
-			.is_none(),
+		net.lock().peer(0).client().justifications(hashof32).unwrap().is_none(),
 		"Extra justification for block#1",
 	);
 }
 
 #[cfg(feature = "expensive_tests")]
-#[test]
-fn time_keygen_completes() {
+#[tokio::test]
+async fn time_keygen_completes() {
 	sp_tracing::init_for_tests();
 
 	sp_tracing::info!(
@@ -599,7 +592,7 @@ fn time_keygen_completes() {
 	let mut senders = vec![];
 	let mut receivers = vec![];
 	for _ in 0..peers.len() {
-		let (s, r) = channel(10);
+		let (s, r) = futures_channel::mpsc::channel(10);
 		senders.push(s);
 		receivers.push(r);
 	}
@@ -618,7 +611,7 @@ fn time_keygen_completes() {
 	std::thread::sleep(std::time::Duration::from_secs(6));
 	// Pushing 1 block
 	net.peer(0).push_blocks(1, false);
-	net.block_until_sync();
+	net.run_until_sync().await;
 
 	// Verify all peers synchronized
 	for i in 0..3 {
@@ -642,8 +635,8 @@ fn time_keygen_completes() {
 	std::thread::sleep(std::time::Duration::from_secs(6));
 
 	// signing some data
-	let message = b"AbCdE_fG";
-	assert!(runtime.block_on(senders[0].send((1, message.to_vec()))).is_ok());
+	let message = [1u8; 32];
+	assert!(senders[0].try_send((1, message)).is_ok());
 	std::thread::sleep(std::time::Duration::from_secs(6));
 	assert!(!api.runtime_api().stored_signatures.lock().is_empty());
 }

@@ -60,7 +60,6 @@ pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, Grand
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<GrandpaId>(s),
 		get_from_seed::<ImOnlineId>(s),
-		//node online Id missing
 	)
 }
 
@@ -310,6 +309,21 @@ fn testnet_genesis(
 	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
+	let initial_nominators: Vec<AccountId> = vec![];
+	let stash = ANLOG * 500000;
+	let stakers = initial_authorities
+		.iter()
+		.map(|x| (x.1.clone(), x.0.clone(), stash, StakerStatus::<AccountId>::Validator))
+		.chain(initial_nominators.iter().map(|x| {
+			let nominations = initial_authorities
+				.as_slice()
+				.iter()
+				.map(|choice| choice.0.clone())
+				.collect::<Vec<_>>();
+			(x.clone(), x.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))
+		}))
+		.collect::<Vec<_>>();
+
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -340,6 +354,7 @@ fn testnet_genesis(
 						timechain_runtime::opaque::SessionKeys {
 							babe: x.2.clone(),
 							grandpa: x.3.clone(),
+							im_online: x.4.clone(),
 						},
 					)
 				})
@@ -352,7 +367,7 @@ fn testnet_genesis(
 			minimum_validator_count: initial_authorities.len() as u32,
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
-			// stakers,
+			stakers,
 			// TODO: ForceEra::ForceNone
 			..Default::default()
 		},

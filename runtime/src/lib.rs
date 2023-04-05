@@ -28,20 +28,20 @@ pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
+	SaturatedConversion,
 	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentifyAccount,
-		NumberFor, One, OpaqueKeys, Verify,
+		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
+		IdentifyAccount, NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, MultiSignature, Percent,
 };
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
-
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -74,6 +74,9 @@ pub use pallet_tesseract_sig_storage;
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
 pub struct StakingBenchmarkingConfig;
+
+#[cfg(any(feature = "std", test))]
+pub use pallet_staking::StakerStatus;
 
 pub const THRESHOLDS: [u64; 200] = [
 	10_000_000_000,
@@ -333,6 +336,7 @@ pub mod opaque {
 		pub struct SessionKeys {
 			pub babe: Babe,
 			pub grandpa: Grandpa,
+			pub im_online: ImOnline,
 		}
 	}
 }
@@ -658,9 +662,9 @@ parameter_types! {
 	// TODO
 	// // 28 eras for unbonding (28 days).
 
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+	pub const SessionsPerEra: sp_staking::SessionIndex = 1;//6;
+	pub const BondingDuration: sp_staking::EraIndex = 2;//24 * 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -725,6 +729,45 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
+pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
+	pallet_staking::EraPayout<Balance> for ConvertCurve<T>
+{
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		let (validator_payout, max_payout) = pallet_staking::inflation::compute_total_payout(
+			T::get(),
+			total_staked,
+			total_issuance,
+			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
+			era_duration_millis,
+		);
+		let rest = max_payout.clone().saturating_sub(validator_payout.clone());
+		let session_active_validators = Session::validators();
+		// 20 percent of total reward.
+		let send_reward = Percent::from_percent(20) * max_payout;
+		// reward distribution for validators/chronicle accounts.
+		let length = session_active_validators.len().saturated_into::<u8>();
+			if length != 0 {
+				// get division percentage for each validator
+				let total_percentage = 100u8;
+				let fraction = Percent::from_percent(total_percentage.saturating_div(length));
+				// reward share of each validator.
+				let share = fraction * send_reward;
+
+				session_active_validators.iter().for_each(|item| {
+					let _resp = Balances::deposit_into_existing(item, share.clone().unique_saturated_into());
+				});
+			}
+		let val_payout = Percent::from_percent(80) * validator_payout;
+		let rest_payout = Percent::from_percent(80) * rest;
+		// send rest for payout.
+		(val_payout, rest_payout)
+	}
+}
 
 impl pallet_staking::Config for Runtime {
 	/// A super-majority of the council can cancel the slash.
@@ -746,7 +789,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -1019,6 +1062,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
+		Balances: pallet_balances,
 		Timestamp: pallet_timestamp,
 		Babe: pallet_babe,
 		Grandpa: pallet_grandpa,
@@ -1031,7 +1075,6 @@ construct_runtime!(
 		VoterList: pallet_bags_list,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
@@ -1415,5 +1458,17 @@ mod tests {
 		assert!(
 			whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7")
 		);
+	}
+
+	#[test]
+	fn check_arithmetic() {
+		let max_payout = 100u32;
+		let session_active_validators = 4u8;
+		let send_reward = Percent::from_percent(20) * max_payout;
+		assert_eq!(send_reward, 20); // 20 percent of total reward
+		let perc_div = 100u8.saturating_div(session_active_validators); // get division percentage for each validator
+		let fraction = Percent::from_percent(perc_div);
+		let share = fraction * send_reward;
+		assert_eq!(share, 5); // 20 percent of total reward share of each validator.
 	}
 }

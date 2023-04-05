@@ -16,7 +16,6 @@ scale-info = { version = "2.1.1", default-features = false, features = ["derive"
 hex-literal = "0.3.1"
 
 pallet-bags-list = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-
 pallet-babe = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-im-online = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
@@ -122,7 +121,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"time-primitives/std",
-	"storage-primitives/std"
+	"storage-primitives/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -1109,6 +1109,8 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
+		[task_schedule, TaskSchedule]
+		[task_metadata, TaskMeta]
 
 	);
 }

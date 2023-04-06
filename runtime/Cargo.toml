@@ -128,6 +128,8 @@ std = [
 	"sp-version/std",
 	"time-primitives/std",
 	"storage-primitives/std",
+	"task-schedule/std",
+	"task-metadata/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -142,6 +144,8 @@ runtime-benchmarks = [
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
+	"task-schedule/runtime-benchmarks",
+	"task-metadata/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",
@@ -159,4 +163,6 @@ try-runtime = [
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
+	"task-schedule/try-runtime",
+	"task-metadata/try-runtime",
 ]

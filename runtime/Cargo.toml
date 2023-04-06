@@ -137,7 +137,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
-	"analog-vesting/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",

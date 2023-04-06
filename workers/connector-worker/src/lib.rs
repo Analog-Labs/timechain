@@ -23,6 +23,9 @@ where
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
+	pub connector_url: String,
+	pub connector_blockchain: String,
+	pub connector_network: String,
 }
 
 pub(crate) struct WorkerParams<B, R> {
@@ -30,6 +33,9 @@ pub(crate) struct WorkerParams<B, R> {
 	_block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	pub connector_url: String,
+	pub connector_blockchain: String,
+	pub connector_network: String,
 }
 
 pub async fn start_connectorworker_gadget<B, R>(connectorworker_params: ConnectorWorkerParams<B, R>)
@@ -43,6 +49,9 @@ where
 		kv,
 		sign_data_sender,
 		_block,
+		connector_url,
+		connector_blockchain,
+		connector_network,
 	} = connectorworker_params;
 
 	let worker_params = WorkerParams {
@@ -50,6 +59,9 @@ where
 		kv,
 		_block,
 		sign_data_sender,
+		connector_url,
+		connector_blockchain,
+		connector_network,
 	};
 	let mut worker = worker::ConnectorWorker::<_, _>::new(worker_params);
 	worker.run().await

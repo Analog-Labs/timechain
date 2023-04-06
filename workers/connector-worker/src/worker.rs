@@ -6,15 +6,17 @@ use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
 use log::warn;
+use rosetta_client::{
+	create_client,
+	types::{BlockRequest, PartialBlockIdentifier},
+	BlockchainConfig, Client,
+};
+use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::{env, marker::PhantomData, str::FromStr, sync::Arc};
+use std::{error::Error, marker::PhantomData, sync::Arc};
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time::sleep};
-use web3::{
-	futures::StreamExt,
-	types::{Address, BlockId, BlockNumber, FilterBuilder},
-};
+use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
@@ -24,6 +26,9 @@ pub struct ConnectorWorker<B: Block, R> {
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	connector_url: String,
+	connector_blockchain: String,
+	connector_network: String,
 }
 
 impl<B, R> ConnectorWorker<B, R>
@@ -37,6 +42,9 @@ where
 			sign_data_sender,
 			kv,
 			_block,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		} = worker_params;
 
 		ConnectorWorker {
@@ -44,6 +52,9 @@ where
 			sign_data_sender,
 			kv,
 			_block: PhantomData,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		}
 	}
 
@@ -71,68 +82,66 @@ where
 		tasks_from_db_bytes
 	}
 
-	pub async fn get_latest_block_event(&self) {
+	pub async fn get_latest_block_event(
+		&self,
+		client: &Client,
+		config: &BlockchainConfig,
+	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 
-		let infura_url = env::var("INFURA_URL").expect("INFURA_URL must be set");
-		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
-		let websocket = match websocket_result {
-			Ok(websocket) => websocket,
-			Err(_) => web3::transports::WebSocket::new(&infura_url)
-				.await
-				.expect("Failed to create default websocket"),
+		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
+
+		let block_req = BlockRequest {
+			network_identifier: config.network(),
+			//passing both none returns latest block
+			block_identifier: PartialBlockIdentifier { index: None, hash: None },
 		};
-		let web3 = web3::Web3::new(websocket);
-		if let Ok(Some(latest_block)) = web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
-		{
-			let filter = FilterBuilder::default()
-				.from_block(match latest_block.number {
-					Some(n) => BlockNumber::Number(n),
-					None => {
-						log::warn!("latest_block.number is None, setting from_block to earliest");
-						BlockNumber::Earliest
-					},
-				})
-				.address(vec![if let Ok(address) =
-					Address::from_str("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984")
-				{
-					address
-				} else {
-					panic!("Failed to parse address");
-				}])
-				.build();
 
-			let sub = web3.eth_subscribe().subscribe_logs(filter).await;
+		let block_data = client.block(&block_req).await?;
 
-			if let Ok(mut sub) = sub {
-				while let Some(log) = sub.next().await {
-					match log {
-						Ok(log) =>
-							if let Ok(log_in_bytes) = serialize(&log) {
-								let hash = Self::hash_keccak_256(&log_in_bytes);
-								match self.sign_data_sender.lock().await.try_send((1, hash)) {
-									Ok(()) => {
-										log::info!("Connector successfully send event to channel")
-									},
-									Err(_) => {
-										log::info!("Connector failed to send event to channel")
-									},
-								}
-							} else {
-								log::info!("Failed to serialize log: {:?}", log);
-							},
-						Err(e) => log::warn!("Error on log {:?}", e),
+		let empty_vec: Vec<Value> = vec![];
+		if let Some(data) = block_data.block {
+			for tx in data.transactions {
+				if let Some(metadata) = tx.metadata {
+					let receipts = metadata["receipt"]["logs"].as_array().unwrap_or(&empty_vec);
+					let filtered_receipt = receipts.iter().filter(|log| {
+						let address = log["address"].as_str().unwrap_or("");
+						address == contract_address
+					});
+
+					for log in filtered_receipt {
+						if let Ok(log_in_bytes) = serialize(&log) {
+							let hash = Self::hash_keccak_256(&log_in_bytes);
+							match self.sign_data_sender.lock().await.try_send((1, hash)) {
+								Ok(()) => {
+									log::info!("Connector successfully send event to channel")
+								},
+								Err(_) => {
+									log::info!("Connector failed to send event to channel")
+								},
+							}
+						} else {
+							log::info!("Failed to serialize log: {:?}", log);
+						}
 					}
 				}
-			} else {
-				log::info!("Failed to subscribe to logs: {:?}", sub);
 			}
-		}
+		};
+		Ok(())
 	}
 
 	pub(crate) async fn run(&mut self) {
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
+
+		let (config, client) = create_client(
+			Some(self.connector_blockchain.clone()),
+			Some(self.connector_network.clone()),
+			Some(self.connector_url.clone()),
+		)
+		.await
+		.unwrap_or_else(|e| panic!("Failed to create client with error: {e:?}"));
+
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {
@@ -149,8 +158,10 @@ where
 				}
 
 				// Get latest block event from Uniswap v2 and send it to time-worker
-				Self::get_latest_block_event(self).await;
-				sleep(delay).await;
+				if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
+					log::error!("Error occured while fetching block data {e:?}");
+				}
+				tokio::time::sleep(delay).await;
 			}
 		}
 	}

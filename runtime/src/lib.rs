@@ -996,7 +996,7 @@ parameter_types! {
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = pallet_tesseract_sig_storage::weights::WeightInfo<Runtime>;
 	type Moment = u64;
 	type Timestamp = Timestamp;
 	type SlashingPercentage = SlashingPercentage;

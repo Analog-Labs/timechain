@@ -30,7 +30,6 @@ pub fn make_gossip_tss_data(
 pub async fn make_hashmap_for_secret_share(
 	secret_shares: &[SecretShare],
 ) -> HashMap<u32, SecretShare> {
-	log::info!("⚠️issuehashmap_secret_share index {:?}", secret_shares[0].index);
 	secret_shares
 		.iter()
 		.map(|x| (x.index, x.clone()))
@@ -103,11 +102,6 @@ pub fn round_one_state(
 	coefficients: &Coefficients,
 	participants: &mut Vec<Participant>,
 ) -> Result<DistributedKeyGeneration<RoundOne>, Box<Vec<u32>>> {
-	log::info!("⚠️issue-round_one_state dkg generation, index: {}", index);
-	log::info!(
-		"⚠️issue-round_one_state dkg generation, participants: {:?}",
-		participants.iter().map(|x| x.index).collect::<Vec<u32>>()
-	);
 	match DistributedKeyGeneration::<_>::new(params, index, coefficients, participants) {
 		Ok(dkg) => Ok(dkg),
 		Err(e) => Err(Box::new(e)),

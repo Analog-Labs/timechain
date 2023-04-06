@@ -1,6 +1,4 @@
-use crate::{
-	inherents::update_shared_group_key, traits::Client, worker::TimeWorker, ISSUE_LOG, TW_LOG,
-};
+use crate::{inherents::update_shared_group_key, traits::Client, worker::TimeWorker, TW_LOG};
 use borsh::{BorshDeserialize, BorshSerialize};
 use log::{debug, error, info, warn};
 use sc_client_api::Backend;
@@ -44,7 +42,6 @@ where
 	/// Initializes keygen and new state for given shard ID
 	// This method is not a response parser - no timer attended
 	pub async fn handler_receive_params(&mut self, shard_id: u64, data: &[u8]) {
-		log::info!("{ISSUE_LOG} handler_receive_params start");
 		if let Some(existing_state) = self.tss_local_states.get(&shard_id) {
 			error!(
 				target: TW_LOG,
@@ -62,19 +59,6 @@ where
 					state.tss_params = peer_id_call.params;
 					state.tss_process_state = TSSLocalStateType::ReceivedParams;
 					state.local_peer_id = self.id();
-
-					log::info!(
-						"{ISSUE_LOG} handler_receive_params params {:?}",
-						peer_id_call.params
-					);
-					log::info!(
-						"{ISSUE_LOG} handler_receive_params peer_id {:?}",
-						peer_id_call.peer_id
-					);
-					log::info!(
-						"{ISSUE_LOG} handler_receive_params local_peer_id {:?}",
-						state.local_peer_id
-					);
 
 					let peer_id = peer_id_call.peer_id;
 					if !state.others_peer_id.contains(&peer_id) {
@@ -112,18 +96,15 @@ where
 				);
 			}
 		}
-		log::info!("{ISSUE_LOG} handler_receive_params end");
 	}
 
 	// used by node collector to set peers for tss process
 	pub async fn handler_receive_peer_id_for_index(&mut self, shard_id: u64, data: &[u8]) {
-		log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index start");
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let local_peer_id = state.local_peer_id.clone().unwrap();
 
 			//receive index and update state of node
 			if state.is_node_collector {
-				log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index aggregator");
 				if state.tss_process_state == TSSLocalStateType::Empty {
 					if let Ok(peer_id_call) = PublishPeerIDCall::try_from_slice(data) {
 						// register protocol attendance
@@ -136,13 +117,10 @@ where
 						let peer_id = peer_id_call.peer_id;
 
 						if !state.others_peer_id.contains(&peer_id) {
-							log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index pushed peer_id {}", peer_id);
 							state.others_peer_id.push(peer_id);
 
-							
 							let params = state.tss_params;
 
-							log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index params {:?}", params);
 							//check if we have min number of nodes
 							if state.others_peer_id.len() >= (params.n as usize - 1) {
 								//change connector node state to received peers
@@ -152,12 +130,10 @@ where
 								let index =
 									get_participant_index(local_peer_id.clone(), &other_peer_list);
 
-								log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index index {}", index);
 								state.local_index = Some(index);
 
 								//collector node making participant and publishing
 								let participant = make_participant(params, index);
-								log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index index {}", index);
 								state.local_participant = Some(participant.clone());
 
 								info!(target: TW_LOG, "this nodes participant index {}", index);
@@ -191,7 +167,6 @@ where
 		} else {
 			debug!(target: TW_LOG, "TSS not started or not a member of shard: {}", shard_id);
 		}
-		log::info!("{ISSUE_LOG} handler_receive_peer_id_for_index start");
 	}
 
 	//filter participants and publish participants to network
@@ -855,7 +830,6 @@ where
 
 //Aggregator node signs the event and store it into local state
 pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) {
-	log::info!("{ISSUE_LOG}aggregator_event_sign:msg_hash: {:?}", msg_hash);
 	let mut my_commitment = match state.local_commitment_share.clone() {
 		Some(commitment) => commitment,
 		None => {
@@ -872,16 +846,8 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 		},
 	};
 
-	log::info!("{ISSUE_LOG}aggregator_event_sign:check msg hash in msg_pool");
 	if state.msg_pool.contains(&msg_hash) {
 		//making partial signature here
-		log::info!("{ISSUE_LOG}aggregator_event_sign:aggregator signing");
-		log::info!("{ISSUE_LOG}aggregator_event_sign:msg: {:?}", msg_hash);
-		log::info!(
-			"{ISSUE_LOG}aggregator_event_sign:participant_index: {:?}",
-			my_commitment.0.participant_index
-		);
-		log::info!("{ISSUE_LOG}aggregator_event_sign:final_state: {:?}", final_state.0.to_bytes());
 		let partial_signature = match final_state.1.sign(
 			&msg_hash,
 			&final_state.0,
@@ -895,19 +861,10 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 				return;
 			},
 		};
-		log::info!("{ISSUE_LOG}aggregator_event_sign:aggregator signing start");
 
 		if let Some(hashmap) = state.others_partial_signature.get_mut(&msg_hash) {
-			log::info!(
-				"{ISSUE_LOG}aggregator_event_sign:found_hashmap inserting for msg_hash: {:?}",
-				msg_hash
-			);
 			hashmap.push(partial_signature);
 		} else {
-			log::info!(
-				"{ISSUE_LOG}aggregator_event_sign:creating_hashmap inserting for msg_hash: {:?}",
-				msg_hash
-			);
 			let participant_list = vec![partial_signature];
 			state.others_partial_signature.insert(msg_hash, participant_list);
 		}
@@ -922,7 +879,6 @@ pub fn handler_partial_signature_generate_req(
 	shard_id: u64,
 	data: &[u8],
 ) -> Option<(String, ReceivePartialSignatureReq, TSSEventType)> {
-	log::info!("{ISSUE_LOG}handler_partial_signature_generate_req::checkin");
 	let local_peer_id = state.local_peer_id.clone().unwrap();
 
 	if state.tss_process_state >= TSSLocalStateType::StateFinished {
@@ -942,30 +898,10 @@ pub fn handler_partial_signature_generate_req(
 					return None;
 				},
 			};
-
-			log::info!("{ISSUE_LOG}handler_partial_signature_generate_req::checking received msg hash in pool");
 			if state.msg_pool.get(&msg_req.msg_hash).is_none() {
-				log::info!("{ISSUE_LOG}handler_partial_signature_generate_req::inserting received msg hash in pool");
 				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers.clone());
 			}
 			//making partial signature here
-			log::info!("{ISSUE_LOG}handler_partial_signature_generate_req::signing data start");
-			log::info!(
-				"{ISSUE_LOG}handler_partial_signature_generate_req::msg_hahs{:?}",
-				msg_req.msg_hash
-			);
-			log::info!(
-				"{ISSUE_LOG}handler_partial_signature_generate_req::participant_index{:?}",
-				my_commitment.0.participant_index
-			);
-			log::info!(
-				"{ISSUE_LOG}handler_partial_signature_generate_req::final_state_raw {:?}",
-				&final_state.0
-			);
-			log::info!(
-				"{ISSUE_LOG}handler_partial_signature_generate_req::final_state {:?}",
-				&final_state.0.to_bytes()
-			);
 			let partial_signature = match final_state.1.sign(
 				&msg_req.msg_hash,
 				&final_state.0,
@@ -979,7 +915,6 @@ pub fn handler_partial_signature_generate_req(
 					return None;
 				},
 			};
-			log::info!("{ISSUE_LOG}handler_partial_signature_generate_req::signing data end");
 			let gossip_data = ReceivePartialSignatureReq {
 				msg_hash: msg_req.msg_hash,
 				partial_sign: partial_signature,

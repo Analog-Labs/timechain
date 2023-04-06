@@ -27,7 +27,6 @@ use traits::Client;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "⌛time-worker";
-pub const ISSUE_LOG: &str = "⚠️issue-";
 
 /// Set of properties we need to run our gadget
 pub struct TimeWorkerParams<B: Block, A, C, R, BE, N, S>

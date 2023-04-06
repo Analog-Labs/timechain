@@ -3,7 +3,7 @@ use crate::{
 	communication::validator::{topic, GossipValidator},
 	kv::TimeKeyvault,
 	tss_event_handler_helper::{aggregator_event_sign, handler_partial_signature_generate_req},
-	Client, WorkerParams, ISSUE_LOG, TW_LOG,
+	Client, WorkerParams, TW_LOG,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use codec::{Decode, Encode};
@@ -232,43 +232,23 @@ where
 	}
 
 	fn process_sign_message(&mut self, shard_id: u64, data: [u8; 32]) {
-		log::info!("{ISSUE_LOG}process_sign_message:just received msg");
-		log::info!("{ISSUE_LOG}process_sign_message:data received: {:?}", data);
-
 		// do sig
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let context = state.context;
 			let msg_hash = compute_message_hash(&context, &data);
-			log::info!("{ISSUE_LOG}process_sign_message:computed hash of msg is {:?}", msg_hash);
 			//add node in msg_pool
-			log::info!("{ISSUE_LOG}process_sign_message:checking msg_hash in msg_pool");
 			if state.msg_pool.get(&msg_hash).is_none() {
 				state.msg_pool.insert(msg_hash);
-				log::info!("{ISSUE_LOG}process_sign_message:inserted msg_hash into msg_pool");
 				//process msg if req already received
-				log::info!(
-					"{ISSUE_LOG}process_sign_message:checking msg_hash in msgs_signature_pending"
-				);
 				if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
-					log::info!(
-						"{ISSUE_LOG}process_sign_message:msg_hash found in msgs_signature_pending"
-					);
 					let request = PartialMessageSign {
 						msg_hash,
 						signers: pending_msg_req.to_vec(),
 					};
-					log::info!(
-						"{ISSUE_LOG}process_sign_message:request with message hash: {:?}",
-						msg_hash
-					);
 					let encoded = request.try_to_vec().unwrap();
 					if let Some((peer_id, data, message_type)) =
 						handler_partial_signature_generate_req(state, shard_id, &encoded)
 					{
-						log::info!(
-							"{ISSUE_LOG}process_sign_message:msg_signed_by:sending to network {:?}",
-							peer_id
-						);
 						if let Ok(encoded_data) = data.try_to_vec() {
 							if let Ok(data) =
 								make_gossip_tss_data(peer_id, encoded_data, message_type)
@@ -284,7 +264,6 @@ where
 					}
 				// state.msgs_signature_pending.remove(&msg_hash);
 				} else {
-					log::info!("{ISSUE_LOG}process_sign_message:msg pool doesnt have msg hash");
 					debug!(
 						target: TW_LOG,
 						"New data for signing received: {:?} with hash {:?}", data, msg_hash
@@ -303,18 +282,10 @@ where
 				if let Some(local_state) = state.local_finished_state.clone() {
 					//all nodes should share the same message hash
 					//to verify the threshold signature
-					log::info!(
-						"{ISSUE_LOG}process_sign_message:creating aggregator with data {:?}",
-						data
-					);
 					let mut aggregator =
 						SignatureAggregator::new(state.tss_params, local_state.0, &context, &data);
 
 					for com in state.others_commitment_share.clone() {
-						log::info!(
-							"{ISSUE_LOG}process_sign_message:including signer {:?}",
-							com.public_commitment_share_list.participant_index
-						);
 						aggregator.include_signer(
 							com.public_commitment_share_list.participant_index,
 							com.public_commitment_share_list.commitments[0],
@@ -323,10 +294,6 @@ where
 					}
 
 					//including aggregator as a signer
-					log::info!(
-						"{ISSUE_LOG}process_sign_message:including signer {:?}",
-						state.local_index.unwrap()
-					);
 					aggregator.include_signer(
 						state.local_index.unwrap(),
 						state.local_commitment_share.clone().unwrap().0.commitments[0],

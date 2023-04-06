@@ -160,12 +160,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let sc_service::PartialComponents {
 		client,
 		backend,
-		mut task_manager,
+		task_manager,
 		import_queue,
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (block_import, grandpa_link, babe_link, mut telemetry),
+		other: (block_import, grandpa_link, babe_link, telemetry),
 	} = new_partial(&config)?;
 
 	if let Some(url) = &config.keystore_remote {
@@ -200,7 +200,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, _system_rpc_tx, _tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			client: client.clone(),
@@ -228,7 +228,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.sync_keystore();
 
-	let rpc_extensions_builder = {
+	let _rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
 		let clonestore = keystore.clone();

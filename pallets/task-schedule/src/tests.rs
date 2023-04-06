@@ -8,14 +8,14 @@ fn test_schedule() {
 	new_test_ext().execute_with(|| {
 		let input: Schedule = Schedule {
 			task_id: ObjectId(1),
-			owner: String::from("address"),
+			owner: 1,
 			shard_id: 1,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 		};
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(1).into(), input.clone(),));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(1).into(), input.clone()));
 
 		assert_eq!(TaskSchedule::get_task_schedule(1), Some(input));
 	});

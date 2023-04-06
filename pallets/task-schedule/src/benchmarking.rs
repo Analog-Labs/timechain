@@ -9,16 +9,17 @@ use time_primitives::abstraction::{ObjectId, ScheduleStatus, TaskSchedule as Sch
 benchmarks! {
 
 	insert_schedule {
+		let origin: T::AccountId = whitelisted_caller();
 		let input: Schedule = Schedule {
 			task_id: ObjectId(1),
-			owner:String::from("address"),
+			owner: origin,
 			shard_id: 1,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash:String::from("address"),
 			status: ScheduleStatus::Initiated
 		};
-		let origin: T::AccountId = whitelisted_caller();
+
 		let schedule = input.clone();
 	}: _(RawOrigin::Signed(origin), schedule)
 	verify {

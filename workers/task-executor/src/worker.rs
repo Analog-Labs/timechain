@@ -9,13 +9,11 @@ use jsonrpsee::{
 	types::{error::CallError, ErrorObject},
 };
 use sc_client_api::Backend;
-
 use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
 use sp_io::hashing::{keccak_256, keccak_512};
-
 use sp_runtime::{generic::BlockId, traits::Block};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use time_primitives::{abstraction::Function, rpc::SignRpcPayload, TimeApi};
@@ -154,27 +152,12 @@ where
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 			let phrase = "owner word vocal dose decline sunset battle example forget excite gentle waste//1//time";
 			let keypair = sr25519::Pair::from_string(&phrase, None).unwrap();
-			let raw_signature = keypair.sign(&hash);
-
-			let signature = format!(
-				"[{}]",
-				raw_signature
-					.0
-					.iter()
-					.map(|b| format!("{:02x}", b))
-					.collect::<Vec<String>>()
-					.join(",")
-			);
-
-			let ser = serialize(&signature).unwrap();
-			let signaturee = Self::hash_keccak_512(&ser);
+			let raw_signature = keypair.sign(&hash).0;
 			let keys = self.kv.public_keys();
-
 			if keys.len() != 1 {
 				return Err(Error::TimeKeyNotFound.into());
 			}
-
-			let payload = SignRpcPayload::new(shard_id, hash, signaturee);
+			let payload = SignRpcPayload::new(shard_id, hash, raw_signature);
 			log::info!("\n\n\n--> payload verify {:?}\n", payload.verify(keys[0].clone()));
 			if payload.verify(keys[0].clone()) {
 				match self.sign_data_sender.lock().await.try_send((payload.group_id, hash)) {

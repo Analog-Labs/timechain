@@ -116,9 +116,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter_values()
-				.filter(|item| {
-					return item.status == ScheduleStatus::Initiated;
-				})
+				.filter(|item| item.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
 
 			Ok(data_list)
@@ -127,9 +125,7 @@ pub mod pallet {
 			key: ObjectId,
 		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
 			let data = self::ScheduleStorage::<T>::iter_values()
-				.filter(|item| {
-					return item.task_id == key;
-				})
+				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
 
 			Ok(data)
@@ -147,7 +143,10 @@ pub mod pallet {
 			Ok(data)
 		}
 
-		fn update_schedule_by_key(status: ScheduleStatus, key: KeyId) -> Result<(), DispatchError> {
+		fn _update_schedule_by_key(
+			status: ScheduleStatus,
+			key: KeyId,
+		) -> Result<(), DispatchError> {
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::Unknown)?;
 				details.status = status;

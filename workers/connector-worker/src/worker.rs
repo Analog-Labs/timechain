@@ -12,17 +12,21 @@ use rosetta_client::{
 	BlockchainConfig, Client,
 };
 use serde_json::Value;
+use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
 use sp_runtime::traits::Block;
-use std::{error::Error, marker::PhantomData, sync::Arc};
+use std::{env, marker::PhantomData, str::FromStr, sync::Arc};
+use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct ConnectorWorker<B: Block, R> {
+pub struct ConnectorWorker<B: Block, R, BE> {
 	pub(crate) runtime: Arc<R>,
+	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
@@ -31,16 +35,19 @@ pub struct ConnectorWorker<B: Block, R> {
 	connector_network: Option<String>,
 }
 
-impl<B, R> ConnectorWorker<B, R>
+impl<B, R, BE> ConnectorWorker<B, R, BE>
 where
 	B: Block,
+	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
+	R::Api: TimeApi<B>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, R>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, R, BE>) -> Self {
 		let WorkerParams {
 			runtime,
 			sign_data_sender,
 			kv,
+			backend,
 			_block,
 			connector_url,
 			connector_blockchain,
@@ -51,6 +58,7 @@ where
 			runtime,
 			sign_data_sender,
 			kv,
+			backend,
 			_block: PhantomData,
 			connector_url,
 			connector_blockchain,

@@ -151,7 +151,13 @@ where
 		if let Ok(task_in_bytes) = serialize(&message) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 			let phrase = "owner word vocal dose decline sunset battle example forget excite gentle waste//1//time";
-			let keypair = sr25519::Pair::from_string(&phrase, None).unwrap();
+			let keypair = match sr25519::Pair::from_string(phrase, None) {
+				Ok(pair) => pair,
+				Err(error) => {
+					// handle the error here
+					panic!("Error creating keypair: {:?}", error);
+				}
+			};
 			let raw_signature = keypair.sign(&hash).0;
 			let keys = self.kv.public_keys();
 			if keys.len() != 1 {

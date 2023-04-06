@@ -237,23 +237,33 @@ where
 	}
 
 	fn process_sign_message(&mut self, shard_id: u64, data: [u8; 32]) {
+		log::info!("log::process_sign_message:just received msg");
+		log::info!("log::process_sign_message:data received: {:?}", data);
+
 		// do sig
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			let context = state.context;
 			let msg_hash = compute_message_hash(&context, &data);
+			log::info!("log::process_sign_message:computed hash of msg is {:?}", msg_hash);
 			//add node in msg_pool
+			log::info!("log::process_sign_message:checking msg_hash in msg_pool");
 			if state.msg_pool.get(&msg_hash).is_none() {
 				state.msg_pool.insert(msg_hash);
+				log::info!("log::process_sign_message:inserted msg_hash into msg_pool");
 				//process msg if req already received
+				log::info!("log::process_sign_message:checking msg_hash in msgs_signature_pending");
 				if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
+					log::info!("log::process_sign_message:msg_hash found in msgs_signature_pending");
 					let request = PartialMessageSign {
 						msg_hash,
 						signers: pending_msg_req.to_vec(),
 					};
+					log::info!("log::process_sign_message:request with message hash: {:?}", msg_hash);
 					let encoded = request.try_to_vec().unwrap();
 					if let Some((peer_id, data, message_type)) =
 						handler_partial_signature_generate_req(state, shard_id, &encoded)
 					{
+						log::info!("log::process_sign_message:msg_signed_by:sending to network {:?}", peer_id);
 						if let Ok(encoded_data) = data.try_to_vec() {
 							if let Ok(data) =
 								make_gossip_tss_data(peer_id, encoded_data, message_type)
@@ -267,8 +277,9 @@ where
 							error!("TSS::tss error");
 						}
 					}
-				//state.msgs_signature_pending.remove(&msg_hash);
+					// state.msgs_signature_pending.remove(&msg_hash);
 				} else {
+					log::info!("log::process_sign_message:msg pool doesnt have msg hash");
 					debug!(
 						target: TW_LOG,
 						"New data for signing received: {:?} with hash {:?}", data, msg_hash
@@ -281,15 +292,18 @@ where
 					hex::encode(msg_hash)
 				);
 			}
+
 			//creating signature aggregator for msg
 			if state.is_node_aggregator {
 				if let Some(local_state) = state.local_finished_state.clone() {
 					//all nodes should share the same message hash
 					//to verify the threshold signature
+					log::info!("log::process_sign_message:creating aggregator with data {:?}", data);
 					let mut aggregator =
 						SignatureAggregator::new(state.tss_params, local_state.0, &context, &data);
 
 					for com in state.others_commitment_share.clone() {
+						log::info!("log::process_sign_message:including signer {:?}", com.public_commitment_share_list.participant_index);
 						aggregator.include_signer(
 							com.public_commitment_share_list.participant_index,
 							com.public_commitment_share_list.commitments[0],
@@ -298,6 +312,7 @@ where
 					}
 
 					//including aggregator as a signer
+					log::info!("log::process_sign_message:including signer {:?}", state.local_index.unwrap());
 					aggregator.include_signer(
 						state.local_index.unwrap(),
 						state.local_commitment_share.clone().unwrap().0.commitments[0],
@@ -321,10 +336,6 @@ where
 						sign_msg_req.try_to_vec().unwrap(),
 						TSSEventType::PartialSignatureGenerateReq(shard_id),
 					) {
-						log::info!("=================");
-						log::info!("Sending partial signature request from {} about {:?}", state.local_peer_id.clone().unwrap_or_default(), msg_hash);
-						log::info!("shard id {}", shard_id);
-						log::info!("=================\n\n\n");
 						self.send(data);
 						debug!(target: TW_LOG, "TSS peer collection req sent");
 					} else {
@@ -335,8 +346,6 @@ where
 						);
 					}
 				}
-			} else {
-				error!(target: TW_LOG, "Given shard ID is not found {shard_id}");
 			}
 		} else {
 			warn!(
@@ -387,7 +396,7 @@ where
 					self.handler_receive_params(shard_id, &tss_gossiped_data.tss_data).await;
 				}
 			},
-			// nodes will receive peer id of other nodes and will add it to their list
+			// no of other nodes will receive peer iddes and will add it to their list
 			TSSEventType::ReceivePeerIDForIndex(shard_id) => {
 				debug!(target: TW_LOG, "ReceivePeerIDForIndex for shard: {}", shard_id);
 				self.handler_receive_peer_id_for_index(shard_id, &tss_gossiped_data.tss_data)

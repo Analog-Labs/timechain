@@ -59,7 +59,7 @@ start_chain() {
   start_validator_1
   sleep $SLEEP
   start_validator_2
-  #sleep $SLEEP
+  # sleep $SLEEP
   
   #./set-keys.sh
   

@@ -201,9 +201,9 @@ where
 
 					match map.insert(task_id, "hash".to_string()) {
 						Some(old_value) =>
-							println!("The key already existed with the value {}", old_value),
+							log::info!("The key already existed with the value {:?}", old_value),
 						None => {
-							println!("The key didn't exist and was inserted key {}.", task_id);
+							log::info!("The key didn't exist and was inserted key {:?}.", task_id);
 							let metadata_result = self
 								.runtime
 								.runtime_api()

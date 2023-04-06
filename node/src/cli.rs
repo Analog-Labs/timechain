@@ -1,5 +1,3 @@
-use sc_cli::RunCmd;
-
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
 	#[clap(subcommand)]
@@ -7,6 +5,21 @@ pub struct Cli {
 
 	#[clap(flatten)]
 	pub run: RunCmd,
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct RunCmd {
+	#[clap(flatten)]
+	pub base: sc_cli::RunCmd,
+	/// The address of Analog Connector.
+	#[clap(long)]
+	pub connector_url: String,
+	/// The chain used by Analog Connector.
+	#[clap(long)]
+	pub connector_blockchain: String,
+	/// The network to be used from Analog Connector.
+	#[clap(long)]
+	pub connector_network: String,
 }
 
 #[derive(Debug, clap::Subcommand)]

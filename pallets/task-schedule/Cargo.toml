@@ -15,8 +15,7 @@ repository = "https://github.com/Analog-Labs/testnet"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["max-encoded-len"] }
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 serde = { version = "1.0.136", optional = true }
-log = "0.4.0"
-
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
@@ -27,8 +26,12 @@ sp-std = { version = "4.0.0-dev", default-features = false, git = "https://githu
 default = ["std"]
 std = [
   "frame-support/std",
+  "frame-benchmarking?/std",
   "frame-system/std",
   "codec/std",
   "sp-runtime/std",
   "scale-info/std",
 ]
+
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
+try-runtime = ["frame-support/try-runtime"]

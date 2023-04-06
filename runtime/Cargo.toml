@@ -14,7 +14,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 hex-literal = "0.3.1"
-
 pallet-bags-list = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 
 pallet-babe = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
@@ -128,7 +127,9 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"time-primitives/std",
-	"storage-primitives/std"
+	"storage-primitives/std",
+	"task-schedule/std",
+	"task-metadata/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -143,6 +144,8 @@ runtime-benchmarks = [
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
+	"task-schedule/runtime-benchmarks",
+	"task-metadata/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",
@@ -160,4 +163,6 @@ try-runtime = [
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
+	"task-schedule/try-runtime",
+	"task-metadata/try-runtime",
 ]

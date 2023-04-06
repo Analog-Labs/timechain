@@ -2,6 +2,7 @@
 use crate::WorkerParams;
 use bincode::serialize;
 use core::time;
+use codec::Decode;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
@@ -82,13 +83,32 @@ where
 		if let Ok(task_in_bytes) = serialize(&data.result) {
 			println!("received data: {:?}", data.result);
 			let hash = Self::hash_keccak_256(&task_in_bytes);
-			match self.sign_data_sender.lock().await.try_send((shard_id, hash)) {
-				Ok(()) => {
-					log::info!("Connector successfully send event to -- channel")
-				},
-				Err(_) => {
-					log::info!("Connector failed to send event to channel")
-				},
+
+			let at = self.backend.blockchain().last_finalized().unwrap();
+			let at = BlockId::Hash(at);
+			let my_key =
+				time_primitives::TimeId::decode(&mut self.kv.public_keys()[0].as_ref()).unwrap();
+			if self
+				.runtime
+				.runtime_api()
+				.get_shards(&at)
+				.unwrap()
+				.into_iter()
+				.find(|(s, _)| *s == 1)
+				.unwrap()
+				.1
+				.collector() == &my_key
+			{
+				match self.sign_data_sender.lock().await.try_send((1, hash)) {
+					Ok(()) => {
+						log::info!("Connector successfully send event to channel")
+					},
+					Err(_) => {
+						log::info!("Connector failed to send event to channel")
+					},
+				}
+			} else {
+				log::info!("shard not same");
 			}
 		} else {
 			log::info!("Failed to serialize task: {:?}", data);

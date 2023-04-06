@@ -18,7 +18,9 @@ set -e
 start_boot_node() {
   echo "Starting boot node..."
   install -d ./ind_validators/validator1
-  ./target/debug/timechain-node --validator --base-path ./ind_validators/validator1 --port 30333 --ws-port=9943 --rpc-port=9944 --chain local --alice --node-key 0000000000000000000000000000000000000000000000000000000000000001 --connector-url http://127.0.0.1:8081 --connector-blockchain ethereum --connector-network dev >./ind_validators/validator1/out_validator1 2>&1 &
+  ./target/debug/timechain-node --validator --base-path ./ind_validators/validator1 --port 30333 --ws-port=9943 --rpc-port=9944 --chain local --alice --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
+  --connector-url http://127.0.0.1:8081 --connector-blockchain ethereum --connector-network dev \
+  >./ind_validators/validator1/out_validator1 2>&1 &
 }
 
 start_validator_1() {

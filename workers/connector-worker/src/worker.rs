@@ -26,9 +26,9 @@ pub struct ConnectorWorker<B: Block, R> {
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
-	connector_url: String,
-	connector_blockchain: String,
-	connector_network: String,
+	connector_url: Option<String>,
+	connector_blockchain: Option<String>,
+	connector_network: Option<String>,
 }
 
 impl<B, R> ConnectorWorker<B, R>
@@ -74,7 +74,7 @@ where
 					if let Ok(task_in_bytes) = serialize(task) {
 						tasks_from_db_bytes.push(Self::hash_keccak_256(&task_in_bytes));
 					} else {
-						log::info!("Failed to serialize task: {:?}", task);
+						log::error!("Failed to serialize task: {:?}", task);
 					}
 				}
 			}
@@ -89,6 +89,7 @@ where
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 
+		//TODO: get this from runtime of get from task_executor tbd
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 
 		let block_req = BlockRequest {
@@ -134,35 +135,39 @@ where
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
 
-		let (config, client) = create_client(
-			Some(self.connector_blockchain.clone()),
-			Some(self.connector_network.clone()),
-			Some(self.connector_url.clone()),
+		if let Ok((config, client)) = create_client(
+			self.connector_blockchain.clone(),
+			self.connector_network.clone(),
+			self.connector_url.clone(),
 		)
 		.await
-		.unwrap_or_else(|e| panic!("Failed to create client with error: {e:?}"));
-
-		loop {
-			let keys = self.kv.public_keys();
-			if !keys.is_empty() {
-				// Get swap data from db and send it to time-worker
-				let tasks_in_byte = Self::get_swap_data_from_db();
-				if !tasks_in_byte.is_empty() {
-					for task in tasks_in_byte.iter() {
-						let result = sign_data_sender_clone.lock().await.try_send((1, *task));
-						match result {
-							Ok(_) => warn!("sign_data_sender_clone ok"),
-							Err(_) => warn!("sign_data_sender_clone err"),
+		{
+			loop {
+				let keys = self.kv.public_keys();
+				if !keys.is_empty() {
+					// Get swap data from db and send it to time-worker
+					let tasks_in_byte = Self::get_swap_data_from_db();
+					if !tasks_in_byte.is_empty() {
+						for task in tasks_in_byte.iter() {
+							let result = sign_data_sender_clone.lock().await.try_send((1, *task));
+							match result {
+								Ok(_) => warn!("sign_data_sender_clone ok"),
+								Err(_) => warn!("sign_data_sender_clone err"),
+							}
 						}
 					}
-				}
 
-				// Get latest block event from Uniswap v2 and send it to time-worker
-				if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
-					log::error!("Error occured while fetching block data {e:?}");
+					// Get latest block event from Uniswap v2 and send it to time-worker
+					if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
+						log::error!("Error occured while fetching block data {e:?}");
+					}
+					tokio::time::sleep(delay).await;
 				}
-				tokio::time::sleep(delay).await;
 			}
+		} else {
+			log::error!(
+				"XXXXXXX-Connector-worker not running since client creation failed-XXXXXXX"
+			);
 		}
 	}
 }

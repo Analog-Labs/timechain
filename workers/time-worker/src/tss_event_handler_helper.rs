@@ -622,7 +622,6 @@ where
 									.unwrap()
 									.clone()
 								{
-									println!("list of partial signatures - {:?}", item);
 									aggregator.include_partial_signature(item.clone());
 								}
 
@@ -649,10 +648,7 @@ where
                                         threshold_signature
                                     },
 									Err(e) => {
-										println!("error hashmap {:?}", e);
 										for (key, value) in e.into_iter() {
-											//can also send the indices of participants to
-											// timechain to keep track of that
 											error!(
 												target: TW_LOG,
 												"Participant {} misbehaved because {}", key, value
@@ -831,6 +827,7 @@ where
 
 //Aggregator node signs the event and store it into local state
 pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) {
+	log::info!("log::aggregator_event_sign:msg_hash: {:?}", msg_hash);
 	let mut my_commitment = match state.local_commitment_share.clone() {
 		Some(commitment) => commitment,
 		None => {
@@ -847,8 +844,13 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 		},
 	};
 
+	log::info!("log::aggregator_event_sign:check msg hash in msg_pool");
 	if state.msg_pool.contains(&msg_hash) {
 		//making partial signature here
+		log::info!("log::aggregator_event_sign:aggregator signing start");
+		log::info!("log::aggregator_event_sign:msg_hash: {:?}", msg_hash);
+		log::info!("log::aggregator_event_sign:participant_index: {:?}", my_commitment.0.participant_index);
+		log::info!("log::aggregator_event_sign:final_state: {:?}", final_state.0.to_bytes());
 		let partial_signature = match final_state.1.sign(
 			&msg_hash,
 			&final_state.0,
@@ -862,10 +864,14 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 				return;
 			},
 		};
+		log::info!("log::aggregator_event_sign:aggregator signing start");
+
 
 		if let Some(hashmap) = state.others_partial_signature.get_mut(&msg_hash) {
+			log::info!("log::aggregator_event_sign:found_hashmap inserting for msg_hash: {:?}", msg_hash);
 			hashmap.push(partial_signature);
 		} else {
+			log::info!("log::aggregator_event_sign:creating_hashmap inserting for msg_hash: {:?}", msg_hash);
 			let participant_list = vec![partial_signature];
 			state.others_partial_signature.insert(msg_hash, participant_list);
 		}
@@ -880,6 +886,7 @@ pub fn handler_partial_signature_generate_req(
 	shard_id: u64,
 	data: &[u8],
 ) -> Option<(String, ReceivePartialSignatureReq, TSSEventType)> {
+	log::info!("log::handler_partial_signature_generate_req::checkin");
 	let local_peer_id = state.local_peer_id.clone().unwrap();
 
 	if state.tss_process_state >= TSSLocalStateType::StateFinished {
@@ -900,35 +907,42 @@ pub fn handler_partial_signature_generate_req(
 				},
 			};
 
+			log::info!("log::handler_partial_signature_generate_req::checking received msg hash in pool");
 			if state.msg_pool.get(&msg_req.msg_hash).is_none() {
-                state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers.clone());
-            }
-				//making partial signature here
-				let partial_signature = match final_state.1.sign(
-					&msg_req.msg_hash,
-					&final_state.0,
-					&mut my_commitment.1,
-					0,
-					&msg_req.signers,
-				) {
-					Ok(partial_signature) => partial_signature,
-					Err(e) => {
-						error!(target: TW_LOG, "error occured while signing: {:?}", e);
-						return None;
-					},
-				};
+				log::info!("log::handler_partial_signature_generate_req::inserting received msg hash in pool");
+				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers.clone());
+			}
+			//making partial signature here
+			log::info!("log::handler_partial_signature_generate_req::signing data start");
+			log::info!("log::handler_partial_signature_generate_req::msg_hahs{:?}", msg_req.msg_hash);
+			log::info!("log::handler_partial_signature_generate_req::participant_index{:?}", my_commitment.0.participant_index);
+			log::info!("log::handler_partial_signature_generate_req::final_state_raw {:?}", &final_state.0);
+			log::info!("log::handler_partial_signature_generate_req::final_state {:?}", &final_state.0.to_bytes());
+			let partial_signature = match final_state.1.sign(
+				&msg_req.msg_hash,
+				&final_state.0,
+				&mut my_commitment.1,
+				0,
+				&msg_req.signers,
+			) {
+				Ok(partial_signature) => partial_signature,
+				Err(e) => {
+					error!(target: TW_LOG, "error occured while signing: {:?}", e);
+					return None;
+				},
+			};
+			log::info!("log::handler_partial_signature_generate_req::signing data end");
+			let gossip_data = ReceivePartialSignatureReq {
+				msg_hash: msg_req.msg_hash,
+				partial_sign: partial_signature,
+			};
 
-				let gossip_data = ReceivePartialSignatureReq {
-					msg_hash: msg_req.msg_hash,
-					partial_sign: partial_signature,
-				};
-
-				//publish partial signature to network
-				return Some((
-					local_peer_id,
-					gossip_data,
-					TSSEventType::PartialSignatureReceived(shard_id),
-				));
+			//publish partial signature to network
+			return Some((
+				local_peer_id,
+				gossip_data,
+				TSSEventType::PartialSignatureReceived(shard_id),
+			));
 		} else {
 			error!(target: TW_LOG, "Unable to deserialize PartialMessageSign");
 		}

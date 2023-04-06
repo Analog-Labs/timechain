@@ -6,9 +6,12 @@ use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
 use log::warn;
+use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
 use sp_runtime::traits::Block;
 use std::{env, marker::PhantomData, str::FromStr, sync::Arc};
+use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time::sleep};
 use web3::{
@@ -19,23 +22,27 @@ use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct ConnectorWorker<B: Block, R> {
+pub struct ConnectorWorker<B: Block, R, BE> {
 	pub(crate) runtime: Arc<R>,
+	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
 
-impl<B, R> ConnectorWorker<B, R>
+impl<B, R, BE> ConnectorWorker<B, R, BE>
 where
 	B: Block,
+	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
+	R::Api: TimeApi<B>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, R>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, R, BE>) -> Self {
 		let WorkerParams {
 			runtime,
 			sign_data_sender,
 			kv,
+			backend,
 			_block,
 		} = worker_params;
 
@@ -43,6 +50,7 @@ where
 			runtime,
 			sign_data_sender,
 			kv,
+			backend,
 			_block: PhantomData,
 		}
 	}
@@ -107,20 +115,42 @@ where
 			if let Ok(mut sub) = sub {
 				while let Some(log) = sub.next().await {
 					match log {
-						Ok(log) =>
+						Ok(log) => {
 							if let Ok(log_in_bytes) = serialize(&log) {
 								let hash = Self::hash_keccak_256(&log_in_bytes);
-								match self.sign_data_sender.lock().await.try_send((1, hash)) {
-									Ok(()) => {
-										log::info!("Connector successfully send event to channel")
-									},
-									Err(_) => {
-										log::info!("Connector failed to send event to channel")
-									},
+								// if this node is collector for given shard - we submit for siging
+								// TODO: change hardcoded 1 to actual shard id
+								// TODO: stabilize no unwraps and blind indexing!
+								let at = self.backend.blockchain().last_finalized().unwrap();
+								let at = BlockId::Hash(at);
+								if self
+									.runtime
+									.runtime_api()
+									.get_shards(&at)
+									.unwrap()
+									.into_iter()
+									.find(|(s, _)| *s == 1)
+									.unwrap()
+									.1
+									.collector() == self.kv.public_keys()[0].into()
+								{
+									match self.sign_data_sender.lock().await.try_send((1, hash)) {
+										Ok(()) => {
+											log::info!(
+												"Connector successfully send event to channel"
+											)
+										},
+										Err(_) => {
+											log::info!("Connector failed to send event to channel")
+										},
+									}
+								} else {
+									log::info!("Failed to serialize log: {:?}", log);
 								}
 							} else {
-								log::info!("Failed to serialize log: {:?}", log);
-							},
+								// TODO: store that hash for use with EventId signing
+							}
+						},
 						Err(e) => log::warn!("Error on log {:?}", e),
 					}
 				}

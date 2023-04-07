@@ -102,9 +102,6 @@ pub mod pallet {
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				ensure!(details.owner == who, Error::<T>::NoPermission);
-				if details.owner != who {
-					return Ok(());
-				}
 
 				details.status = status;
 				Ok(())

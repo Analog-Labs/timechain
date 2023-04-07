@@ -27,5 +27,22 @@ fn test_schedule() {
 			status: ScheduleStatus::Initiated,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(1), Some(output));
+		// update schedule
+		assert_ok!(TaskSchedule::update_schedule(
+			RawOrigin::Signed(1).into(),
+			ScheduleStatus::Completed,
+			1
+		));
+
+		let output_update = ScheduleOut {
+			task_id: ObjectId(1),
+			owner: 1,
+			shard_id: 1,
+			cycle: 12,
+			validity: Validity::Seconds(10),
+			hash: String::from("address"),
+			status: ScheduleStatus::Completed,
+		};
+		assert_eq!(TaskSchedule::get_task_schedule(1), Some(output_update));
 	});
 }

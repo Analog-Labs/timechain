@@ -60,8 +60,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The signing account has no permission to do the operation.
 		NoPermission,
-		/// The given asset ID is unknown.
-		Unknown,
+		/// Error getting schedule ref.
+		ErrorRef,
 	}
 
 	#[pallet::call]
@@ -100,7 +100,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::Unknown)?;
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				ensure!(details.owner == who, Error::<T>::NoPermission);
 				if details.owner != who {
 					return Ok(());
 				}
@@ -148,7 +149,7 @@ pub mod pallet {
 			key: KeyId,
 		) -> Result<(), DispatchError> {
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::Unknown)?;
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				details.status = status;
 				Ok(())
 			});

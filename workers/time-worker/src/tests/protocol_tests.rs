@@ -513,10 +513,9 @@ where
 		wait_for.push(f);
 	};
 
-	let net_lock = net.lock();
 	for (peer_id, _) in peers.iter().enumerate() {
 		let highest_finalized = highest_finalized.clone();
-		let client = net_lock.peers[peer_id].client().clone();
+		let client = net.lock().peers[peer_id].client().clone();
 
 		wait_for.push(Box::pin(
 			client
@@ -532,7 +531,6 @@ where
 				.map(|_| ()),
 		));
 	}
-	drop(net_lock);
 
 	// wait for all finalized on each.
 	let wait_for = ::futures::future::join_all(wait_for);

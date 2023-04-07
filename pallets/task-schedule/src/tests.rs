@@ -15,7 +15,7 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 		};
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(1).into(), input.clone()));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(1).into(), input));
 
 		let output = ScheduleOut {
 			task_id: ObjectId(1),

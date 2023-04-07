@@ -626,8 +626,6 @@ where
 									aggregator.include_partial_signature(item.clone());
 								}
 
-								println!("aggregator {:?}", aggregator);
-
 								//finalize aggregator
 								let aggregator_finalized = match aggregator.finalize() {
 									Ok(aggregator_finalized) => {
@@ -748,7 +746,7 @@ where
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			if state.tss_process_state >= TSSLocalStateType::StateFinished {
 				if let Ok(threshold_signature) = VerifyThresholdSignatureReq::try_from_slice(data) {
-					if state.msg_pool.get(&threshold_signature.msg_hash).is_some() {
+					if state.msg_pool.contains_key(&threshold_signature.msg_hash) {
 						let finished_state = match state.local_finished_state.clone() {
 							Some(finished_state) => finished_state,
 							None => {
@@ -846,7 +844,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 		},
 	};
 
-	if state.msg_pool.contains(&msg_hash) {
+	if state.msg_pool.contains_key(&msg_hash) {
 		//making partial signature here
 		let partial_signature = match final_state.1.sign(
 			&msg_hash,
@@ -898,7 +896,7 @@ pub fn handler_partial_signature_generate_req(
 					return None;
 				},
 			};
-			if state.msg_pool.get(&msg_req.msg_hash).is_none() {
+			if !state.msg_pool.contains_key(&msg_req.msg_hash){
 				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers.clone());
 			}
 			//making partial signature here

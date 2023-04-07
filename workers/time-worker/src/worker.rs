@@ -237,8 +237,8 @@ where
 			let context = state.context;
 			let msg_hash = compute_message_hash(&context, &data);
 			//add node in msg_pool
-			if state.msg_pool.get(&msg_hash).is_none() {
-				state.msg_pool.insert(msg_hash);
+			if !state.msg_pool.contains_key(&msg_hash) {
+				state.msg_pool.insert(msg_hash, data);
 				//process msg if req already received
 				if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
 					let request = PartialMessageSign {

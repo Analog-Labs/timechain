@@ -81,7 +81,6 @@ where
 		let data = client.call(&request).await?;
 
 		if let Ok(task_in_bytes) = serialize(&data.result) {
-			println!("received data: {:?}", data.result);
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 
 			let at = self.backend.blockchain().last_finalized().unwrap();

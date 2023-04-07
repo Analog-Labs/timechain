@@ -1,8 +1,8 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
 use bincode::serialize;
-use core::time;
 use codec::Decode;
+use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use ink::env::hash;
@@ -75,6 +75,7 @@ where
 		client: &Client,
 		address: String,
 		function_signature: String,
+		shard_id: u64,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 
@@ -101,7 +102,7 @@ where
 				.get_shards(&at)
 				.unwrap()
 				.into_iter()
-				.find(|(s, _)| *s == 1)
+				.find(|(s, _)| *s == shard_id)
 				.unwrap()
 				.1
 				.collector() == &my_key
@@ -126,7 +127,9 @@ where
 	async fn process_tasks_for_block(
 		&self,
 		block_id: <B as Block>::Hash,
-		map: &mut HashMap<u64, ()>,
+		map: &mut HashMap<u64, String>,
+		config: &BlockchainConfig,
+		client: &Client,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the task schedule for the current block
 		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
@@ -149,41 +152,31 @@ where
 								.get_task_metadat_by_key(block_id, schedule_task.1.task_id.0);
 							match metadata_result {
 								Ok(metadata) => {
-									match metadata {
-										Ok(Some(task)) => {
-											match task.function {
-												// If the task function is an Ethereum contract
-												// call, call it and send for signing
-												Function::EthereumContract {
-													address,
-													abi,
-													function,
-													input: _,
-													output: _,
-												} => {
-													let _result =
-														Self::call_contract_and_send_for_sign(
-															self,
-															address.to_string(),
-															abi.to_string(),
-															function.to_string(),
-															shard_id,
-														)
-														.await;
-												},
-												Function::EthereumApi {
-													function: _,
-													input: _,
-													output: _,
-												} => {
-													todo!()
-												},
-											};
-										},
-										Ok(None) => {
-											log::info!("No task function found");
-										},
-										Err(_) => log::info!("No task metadata found"),
+									for task in metadata.iter() {
+										match &task.function {
+											// If the task function is an Ethereum contract call,
+											// call it and send for signing
+											Function::EthereumContractWithoutAbi {
+												address,
+												function_signature,
+												input: _,
+												output: _,
+											} => {
+												let _result =
+													Self::call_contract_and_send_for_sign(
+														self,
+														config, 
+														client,
+														address.to_string(),
+														function_signature.to_string(),
+														shard_id,
+													)
+													.await;
+											},
+											_ => {
+												todo!()
+											},
+										};
 									}
 								},
 								Err(e) => {
@@ -224,7 +217,7 @@ where
 				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					// let at = BlockId::Hash(at);
-					match self.process_tasks_for_block(at, &mut map).await {
+					match self.process_tasks_for_block(at, &mut map, &config, &client).await {
 						Ok(_) => (),
 						Err(e) => {
 							log::error!("Failed to process tasks for block {:?}: {:?}", at, e);

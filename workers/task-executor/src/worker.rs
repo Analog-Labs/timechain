@@ -27,6 +27,9 @@ pub struct TaskExecutor<B: Block, A, R, BE> {
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 	pub accountid: PhantomData<A>,
+	pub connector_url: Option<String>,
+	pub connector_blockchain: Option<String>,
+	pub connector_network: Option<String>,
 }
 
 impl<B, A, R, BE> TaskExecutor<B, A, R, BE>
@@ -44,7 +47,9 @@ where
 			sign_data_sender,
 			kv,
 			_block,
-			accountid: _,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		} = worker_params;
 
 		TaskExecutor {
@@ -54,6 +59,9 @@ where
 			kv,
 			_block: PhantomData,
 			accountid: PhantomData,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		}
 	}
 
@@ -202,9 +210,9 @@ where
 		let mut map: HashMap<u64, String> = HashMap::new();
 
 		let (config, client) = create_client(
-			Some("ethereum".into()),
-			Some("dev".into()),
-			Some("http://127.0.0.1:8081".into()),
+			self.connector_blockchain.clone(),
+			self.connector_network.clone(),
+			self.connector_url.clone(),
 		)
 		.await
 		.unwrap_or_else(|e| panic!("Failed to create client with error: {e:?}"));

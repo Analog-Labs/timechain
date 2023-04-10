@@ -21,28 +21,31 @@ use web3::{
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct TaskExecutor<B: Block, R, BE> {
+pub struct TaskExecutor<B: Block, A, R, BE> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	pub accountid: PhantomData<A>,
 }
 
-impl<B, R, BE> TaskExecutor<B, R, BE>
+impl<B, A, R, BE> TaskExecutor<B, A, R, BE>
 where
 	B: Block,
+	A: codec::Codec,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
 		let WorkerParams {
 			backend,
 			runtime,
 			sign_data_sender,
 			kv,
 			_block,
+			accountid: _,
 		} = worker_params;
 
 		TaskExecutor {
@@ -51,6 +54,7 @@ where
 			sign_data_sender,
 			kv,
 			_block: PhantomData,
+			accountid: PhantomData,
 		}
 	}
 

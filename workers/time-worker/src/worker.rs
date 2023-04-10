@@ -22,6 +22,7 @@ use sp_runtime::{
 };
 use std::{
 	collections::{HashMap, HashSet},
+	marker::PhantomData,
 	pin::Pin,
 	sync::Arc,
 	time::Duration,
@@ -42,7 +43,7 @@ use tss::{
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, C, R, BE, SO> {
+pub struct TimeWorker<B: Block, A, C, R, BE, SO> {
 	pub(crate) client: Arc<C>,
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
@@ -60,18 +61,20 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	node_id: Option<TimeId>,
 	sync_oracle: SO,
 	known_sets: HashSet<u64>,
+	accountid: PhantomData<A>,
 }
 
-impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
+impl<B, A, C, R, BE, SO> TimeWorker<B, A, C, R, BE, SO>
 where
 	B: Block + 'static,
+	A: codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, C, R, BE, SO>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
@@ -81,6 +84,7 @@ where
 			sync_oracle,
 			kv,
 			sign_data_receiver,
+			accountid,
 		} = worker_params;
 
 		// TODO: threshold calc if required
@@ -99,6 +103,7 @@ where
 			known_sets: HashSet::default(),
 			timeouts: FuturesUnordered::default(),
 			fulfilled: Vec::default(),
+			accountid,
 		}
 	}
 

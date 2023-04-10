@@ -30,13 +30,14 @@ use tss::{
 	},
 };
 
-impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
+impl<B, A, C, R, BE, SO> TimeWorker<B, A, C, R, BE, SO>
 where
 	B: Block + 'static,
+	A: codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	//will be run by non collector nodes

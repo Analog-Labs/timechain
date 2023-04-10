@@ -32,7 +32,7 @@ use std::{
 	collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc, task::Poll, time::Duration,
 };
 use substrate_test_runtime_client::{
-	Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
+	runtime::AccountId, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
 };
 use time_primitives::{
 	crypto::Public as TimeKey,
@@ -346,7 +346,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
-	impl TimeApi<Block> for RuntimeApi {
+	impl TimeApi<Block, AccountId> for RuntimeApi {
 		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) {
 			self.stored_signatures.lock().push(signature_data);
 		}
@@ -435,7 +435,7 @@ fn initialize_time_worker<API>(
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
-	API::Api: TimeApi<Block>,
+	API::Api: TimeApi<Block, AccountId>,
 {
 	let time_workers = FuturesUnordered::new();
 
@@ -453,8 +453,9 @@ where
 			kv: Some(keystore).into(),
 			sign_data_receiver,
 			_block: PhantomData::default(),
+			accountid: PhantomData::default(),
 		};
-		let gadget = start_timeworker_gadget::<_, _, _, _, _>(time_params);
+		let gadget = start_timeworker_gadget::<_, _, _, _, _, _>(time_params);
 
 		fn assert_send<T: Send>(_: &T) {}
 		assert_send(&gadget);

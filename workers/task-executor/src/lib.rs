@@ -16,24 +16,27 @@ use tokio::sync::Mutex;
 pub const TW_LOG: &str = "task-executor";
 
 /// Set of properties we need to run our gadget
-pub struct TaskExecutorParams<B: Block, R, BE>
+pub struct TaskExecutorParams<B: Block, A, R, BE>
 where
 	B: Block,
+	A: codec::Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
+	pub accountid: PhantomData<A>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 }
 
-pub(crate) struct WorkerParams<B, R, BE> {
+pub(crate) struct WorkerParams<B, A, R, BE> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
+	accountid: PhantomData<A>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
 }
@@ -41,12 +44,14 @@ pub(crate) struct WorkerParams<B, R, BE> {
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_taskexecutor_gadget<B, R, BE>(taskexecutor_params: TaskExecutorParams<B, R, BE>)
-where
+pub async fn start_taskexecutor_gadget<B, A, R, BE>(
+	taskexecutor_params: TaskExecutorParams<B, A, R, BE>,
+) where
 	B: Block,
+	A: codec::Codec + 'static,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 {
 	debug!(target: TW_LOG, "Starting task-executor gadget");
 	let TaskExecutorParams {
@@ -55,6 +60,7 @@ where
 		kv,
 		sign_data_sender,
 		_block,
+		accountid: _,
 	} = taskexecutor_params;
 
 	let worker_params = WorkerParams {
@@ -63,7 +69,8 @@ where
 		kv,
 		_block,
 		sign_data_sender,
+		accountid: PhantomData,
 	};
-	let mut worker = worker::TaskExecutor::<_, _, _>::new(worker_params);
+	let mut worker = worker::TaskExecutor::<_, _, _, _>::new(worker_params);
 	worker.run().await
 }

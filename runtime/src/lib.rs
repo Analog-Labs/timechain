@@ -1311,7 +1311,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block> for Runtime {
+	impl time_primitives::TimeApi<Block, AccountId>  for Runtime {
 		fn store_signature(
 			auth_key: time_primitives::crypto::Public,
 			auth_sig: time_primitives::crypto::Signature,
@@ -1338,7 +1338,7 @@ impl_runtime_apis! {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_task_schedule() -> Result<Vec<abs_TaskSchedule>, DispatchError> {
+		fn get_task_schedule() -> Result<Vec<abs_TaskSchedule<AccountId>>, DispatchError> {
 			TaskSchedule::get_schedules()
 		}
 

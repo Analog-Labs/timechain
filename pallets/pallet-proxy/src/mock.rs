@@ -57,7 +57,7 @@ impl system::Config for Test {
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 1;
 	pub const MaxLocks: u32 = 10;
-};
+}
 
 impl pallet_balances::Config for Test {
 	type Balance = u64;

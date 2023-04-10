@@ -29,13 +29,14 @@ use traits::Client;
 pub const TW_LOG: &str = "⌛time-worker";
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, C, R, BE, N>
+pub struct TimeWorkerParams<B: Block, A, C, R, BE, N>
 where
 	B: Block + 'static,
+	A: codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	pub client: Arc<C>,
@@ -44,10 +45,11 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
+	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
-pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
+pub(crate) struct WorkerParams<B: Block, A, C, R, BE, SO> {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
@@ -55,20 +57,22 @@ pub(crate) struct WorkerParams<B: Block, C, R, BE, SO> {
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub sync_oracle: SO,
 	pub kv: TimeKeyvault,
+	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, C, R, BE, N>(
-	timeworker_params: TimeWorkerParams<B, C, R, BE, N>,
+pub async fn start_timeworker_gadget<B, A, C, R, BE, N>(
+	timeworker_params: TimeWorkerParams<B, A, C, R, BE, N>,
 ) where
 	B: Block + 'static,
+	A: codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + Sync + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
@@ -80,6 +84,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 		kv,
 		_block,
 		sign_data_receiver,
+		accountid: _,
 	} = timeworker_params;
 
 	let sync_oracle = gossip_network.clone();
@@ -96,7 +101,8 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N>(
 		gossip_engine,
 		kv,
 		sign_data_receiver,
+		accountid: PhantomData,
 	};
-	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
+	let mut worker = worker::TimeWorker::<_, _, _, _, _, _>::new(worker_params);
 	worker.run().await
 }

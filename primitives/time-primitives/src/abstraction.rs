@@ -86,14 +86,23 @@ pub enum ScheduleStatus {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskSchedule {
+pub struct TaskSchedule<AccountId> {
 	pub task_id: ObjectId,
-	pub owner: String,
+	pub owner: AccountId,
 	pub shard_id: u64,
 	pub cycle: u64,
 	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct ScheduleInput {
+	pub task_id: ObjectId,
+	pub shard_id: u64,
+	pub cycle: u64,
+	pub validity: Validity,
+	pub hash: String,
 }
 
 // Collection value

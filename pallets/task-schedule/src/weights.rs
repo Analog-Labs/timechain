@@ -18,11 +18,25 @@ impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
             .saturating_add(T::DbWeight::get().writes(1_u64))
     }
 
+    fn update_schedule() -> Weight {
+        Weight::from_ref_time(39_000_000_u64)
+            // Standard Error: 2_151
+            .saturating_add(Weight::from_ref_time(68_175_u64).saturating_mul(100_u64))
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    
+
 }
 
 impl WeightInfo for () {
 
     fn insert_schedule() -> Weight {
+		Weight::from_ref_time(33_000_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+    fn update_schedule() -> Weight {
 		Weight::from_ref_time(33_000_000_u64)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

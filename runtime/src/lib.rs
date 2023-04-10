@@ -1021,6 +1021,12 @@ impl pallet_treasury::Config for Runtime {
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
 
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1048,6 +1054,7 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
+		PalletProxy: pallet_proxy,
 	}
 );
 
@@ -1094,6 +1101,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_proxy: PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 
 	);

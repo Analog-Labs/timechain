@@ -71,7 +71,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 pallet-tesseract-sig-storage = { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
-pallet-delegate = { version = "0.1.0", default-features = false, path = "../pallets/pallet-delegate" }
+pallet-proxy = { version = "0.1.0", default-features = false, path = "../pallets/pallet-proxy" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
 storage-primitives = { path = "../primitives/storage-primitives", default-features = false }
@@ -127,6 +127,7 @@ std = [
 	"sp-version/std",
 	"time-primitives/std",
 	"storage-primitives/std",
+	"pallet-proxy/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -141,6 +142,7 @@ runtime-benchmarks = [
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",
@@ -158,4 +160,5 @@ try-runtime = [
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
+	"pallet-proxy/try-runtime",
 ]

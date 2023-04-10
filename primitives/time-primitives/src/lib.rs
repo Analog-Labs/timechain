@@ -111,22 +111,29 @@ impl From<u128> for ForeignEventId {
 	}
 }
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub enum DelegateStatus {
+pub enum ProxyStatus {
 	Valid,
 	Suspended,
-	Invalid
+	Invalid,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct DelegationStatus<AccountId, Balance> {
+pub struct ProxyAccStatus<AccountId, Balance> {
 	pub owner: AccountId,
 	pub max_token_usage: Option<Balance>,
 	pub token_usage: Balance,
 	pub max_task_execution: Option<u32>,
 	pub task_executed: u32,
-	pub status: DelegateStatus
+	pub status: ProxyStatus,
 }
 
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct ProxyAccInput<Balance> {
+	pub max_token_usage: Option<Balance>,
+	pub token_usage: Balance,
+	pub max_task_execution: Option<u32>,
+	pub task_executed: u32,
+}
 
 #[test]
 fn foreign_event_id_construction_test() {

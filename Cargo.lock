@@ -5745,21 +5745,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-delegate"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sp-runtime",
- "sp-std",
- "time-primitives",
-]
-
-[[package]]
 name = "pallet-election-provider-multi-phase"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -5854,6 +5839,22 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-proxy"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec 3.4.0",
+ "scale-info",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+ "time-primitives",
 ]
 
 [[package]]
@@ -10516,11 +10517,11 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-collective",
- "pallet-delegate",
  "pallet-election-provider-multi-phase",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-offences",
+ "pallet-proxy",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",

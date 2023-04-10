@@ -18,7 +18,7 @@ pub mod pallet {
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::abstraction::{ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule};
 	pub type KeyId = u64;
-
+	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
@@ -112,9 +112,9 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		pub fn get_schedules() -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
-			let data_list = self::ScheduleStorage::<T>::iter_values()
-				.filter(|item| item.status == ScheduleStatus::Initiated)
+		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+			let data_list = self::ScheduleStorage::<T>::iter()
+				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
 
 			Ok(data_list)

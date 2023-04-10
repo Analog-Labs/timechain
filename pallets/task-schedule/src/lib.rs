@@ -18,7 +18,7 @@ pub mod pallet {
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::abstraction::{ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule};
 	pub type KeyId = u64;
-
+	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
@@ -60,8 +60,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The signing account has no permission to do the operation.
 		NoPermission,
-		/// The given asset ID is unknown.
-		Unknown,
+		/// Error getting schedule ref.
+		ErrorRef,
 	}
 
 	#[pallet::call]
@@ -100,10 +100,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::Unknown)?;
-				if details.owner != who {
-					return Ok(());
-				}
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				ensure!(details.owner == who, Error::<T>::NoPermission);
 
 				details.status = status;
 				Ok(())
@@ -114,9 +112,9 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		pub fn get_schedules() -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
-			let data_list = self::ScheduleStorage::<T>::iter_values()
-				.filter(|item| item.status == ScheduleStatus::Initiated)
+		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+			let data_list = self::ScheduleStorage::<T>::iter()
+				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
 
 			Ok(data_list)
@@ -148,7 +146,7 @@ pub mod pallet {
 			key: KeyId,
 		) -> Result<(), DispatchError> {
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::Unknown)?;
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				details.status = status;
 				Ok(())
 			});

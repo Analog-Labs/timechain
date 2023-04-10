@@ -38,7 +38,7 @@ sp_api::decl_runtime_apis! {
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
-		fn get_task_schedule() -> Result<Vec<TaskSchedule<AccountId>>, DispatchError>;
+		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
 		fn report_misbehavior(shard_id: u64, offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
 	}
 }

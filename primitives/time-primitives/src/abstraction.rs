@@ -40,15 +40,14 @@ pub enum Output {
 // Unique database identifier (it also is used as a primary key)
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
+
 // Numeric value affinity. Where a digital point is.
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Affinity(pub u64);
-// pub struct Affinity(pub usize);
 
 // Required value precision
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Rounding(pub u64);
-// pub struct Rounding(pub usize);
 
 // Defines how to store collected data into collection
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

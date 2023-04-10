@@ -15,11 +15,7 @@ use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
-use sp_consensus::SyncOracle;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block, Header},
-};
+use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
@@ -42,7 +38,7 @@ use tss::{
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, C, R, BE, SO> {
+pub struct TimeWorker<B: Block, C, R, BE> {
 	pub(crate) client: Arc<C>,
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
@@ -58,27 +54,24 @@ pub struct TimeWorker<B: Block, C, R, BE, SO> {
 	gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	node_id: Option<TimeId>,
-	sync_oracle: SO,
 	known_sets: HashSet<u64>,
 }
 
-impl<B, C, R, BE, SO> TimeWorker<B, C, R, BE, SO>
+impl<B, C, R, BE> TimeWorker<B, C, R, BE>
 where
 	B: Block + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
-	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE, SO>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, C, R, BE>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
 			runtime,
 			gossip_engine,
 			gossip_validator,
-			sync_oracle,
 			kv,
 			sign_data_receiver,
 		} = worker_params;
@@ -91,7 +84,6 @@ where
 			runtime,
 			gossip_engine,
 			gossip_validator,
-			sync_oracle,
 			kv,
 			sign_data_receiver,
 			node_id: None,
@@ -115,8 +107,7 @@ where
 	fn is_member_of_shard(&self, shard_id: u64) -> bool {
 		let at = self.backend.blockchain().last_finalized().unwrap();
 		if let Some(id) = self.account_id() {
-			let at = BlockId::Hash(at);
-			if let Ok(Some(members)) = self.runtime.runtime_api().get_shard_members(&at, shard_id) {
+			if let Ok(Some(members)) = self.runtime.runtime_api().get_shard_members(at, shard_id) {
 				let am_member = members.iter().any(|s| s == &id);
 				debug!(target: TW_LOG, "Am a memmber of shard {}?: {}", shard_id, am_member);
 				am_member
@@ -208,9 +199,8 @@ where
 		}
 		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
 		debug!(target: TW_LOG, "our key: {}", our_key.to_string());
-		let in_block = BlockId::Hash(notification.header.hash());
 		// TODO: stabilize unwrap
-		let shards = self.runtime.runtime_api().get_shards(&in_block).unwrap();
+		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		// check if we're member in new shards
 		let new_shards: Vec<_> =
@@ -442,9 +432,8 @@ where
 				debug!(target: TW_LOG, "PartialSignatureReceived for shard: {}", shard_id);
 				// create slash timer
 				let at = self.backend.blockchain().last_finalized().unwrap();
-				let at = BlockId::Hash(at);
 				if let Ok(Some(members)) =
-					self.runtime.runtime_api().get_shard_members(&at, shard_id)
+					self.runtime.runtime_api().get_shard_members(at, shard_id)
 				{
 					if let Some(participant_id) = members
 						.iter()
@@ -494,11 +483,10 @@ where
 		if let Some(reporter) = self.node_id.clone() {
 			if let Some(proof) = self.kv.sign(&self.kv.public_keys()[0], offender.as_ref()) {
 				let at = self.backend.blockchain().last_finalized().unwrap();
-				let at = BlockId::Hash(at);
 				if let Err(e) = self
 					.runtime
 					.runtime_api()
-					.report_misbehavior(&at, shard_id, offender, reporter, proof)
+					.report_misbehavior(at, shard_id, offender, reporter, proof)
 				{
 					error!(
 						target: TW_LOG,
@@ -530,12 +518,6 @@ where
 			// timeouts for messages
 			let receiver = self.sign_data_receiver.clone();
 			let mut signature_requests = receiver.lock().await;
-			// making sure majority is synchronising or waiting for the sync
-			while self.sync_oracle.is_major_syncing() {
-				debug!(target: TW_LOG, "Waiting for major sync to complete...");
-				futures_timer::Delay::new(Duration::from_secs(1)).await;
-			}
-
 			let mut engine = &mut self.gossip_engine;
 
 			futures::select_biased! {

@@ -1,7 +1,7 @@
 pub(crate) mod validator;
 
 pub mod time_protocol_name {
-	use sc_network_common::{config::NonDefaultSetConfig, protocol::ProtocolName};
+	use sc_network::{config::NonDefaultSetConfig, types::ProtocolName};
 
 	/// time gossip protocol name suffix.
 	const GOSSIP_NAME: &str = "/time/1";

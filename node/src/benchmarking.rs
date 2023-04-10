@@ -22,6 +22,7 @@
 
 use crate::service::FullClient;
 
+use futures::TryFutureExt;
 use runtime::{AccountId, Balance, BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
@@ -29,9 +30,8 @@ use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
-use timechain_runtime as runtime;
-
 use std::{sync::Arc, time::Duration};
+use timechain_runtime as runtime;
 
 /// Generates extrinsics for the `benchmark overhead` command.
 ///
@@ -176,8 +176,10 @@ pub fn inherent_benchmark_data() -> Result<InherentData> {
 	let d = Duration::from_millis(0);
 	let timestamp = sp_timestamp::InherentDataProvider::new(d.into());
 
-	timestamp
-		.provide_inherent_data(&mut inherent_data)
-		.map_err(|e| format!("creating inherent data: {e:?}"))?;
+	futures::executor::block_on(
+		timestamp
+			.provide_inherent_data(&mut inherent_data)
+			.map_err(|e| format!("creating inherent data: {e:?}")),
+	)?;
 	Ok(inherent_data)
 }

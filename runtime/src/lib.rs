@@ -1338,7 +1338,7 @@ impl_runtime_apis! {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_task_schedule() -> Result<Vec<abs_TaskSchedule<AccountId>>, DispatchError> {
+		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_schedules()
 		}
 

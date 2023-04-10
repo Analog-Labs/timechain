@@ -137,8 +137,8 @@ where
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
-					let task_id = schedule_task.task_id.0;
-					let shard_id = schedule_task.shard_id;
+					let task_id = schedule_task.1.task_id.0;
+					let shard_id = schedule_task.1.shard_id;
 
 					match map.insert(task_id, "hash".to_string()) {
 						Some(old_value) =>

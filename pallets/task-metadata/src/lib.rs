@@ -19,13 +19,12 @@ pub mod pallet {
 	pub type KeyId = u64;
 
 	pub trait WeightInfo {
-		fn store_task() -> Weight;
-		fn store_collection() -> Weight;
+		fn insert_task() -> Weight;
+		fn insert_collection() -> Weight;
 	}
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -63,7 +62,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
-		#[pallet::weight(T::WeightInfo::store_task())]
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::insert_task())]
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 			let data_list = self::TaskMetaStorage::<T>::get(task.collection_id.0);
@@ -80,7 +80,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(T::WeightInfo::store_collection())]
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::insert_collection())]
 		pub fn insert_collection(
 			origin: OriginFor<T>,
 			hash: String,

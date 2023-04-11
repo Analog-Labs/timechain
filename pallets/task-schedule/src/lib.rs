@@ -26,7 +26,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -66,6 +65,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -92,6 +92,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::update_schedule())]
 		pub fn update_schedule(
 			origin: OriginFor<T>,

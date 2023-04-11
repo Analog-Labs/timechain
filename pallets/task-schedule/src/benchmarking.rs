@@ -24,5 +24,13 @@ benchmarks! {
 		assert!( <ScheduleStorage<T>>::get(1).is_some());
 	}
 
+	update_schedule {
+		let origin: T::AccountId = whitelisted_caller();
+		
+	}: _(RawOrigin::Signed(origin), ScheduleStatus::Completed, 1)
+	verify {
+		assert!( <ScheduleStorage<T>>::get(1).is_some());
+	}
+
 	impl_benchmark_test_suite!(TaskSchedule, crate::mock::new_test_ext(), crate::mock::Test);
 }

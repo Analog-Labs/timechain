@@ -4,7 +4,7 @@ use crate::Pallet as TaskSchedule;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::string::String;
-use time_primitives::abstraction::{ObjectId, ScheduleInput as Schedule, ScheduleStatus, Validity};
+use time_primitives::abstraction::{ObjectId, ScheduleInput as Schedule, Validity};
 
 benchmarks! {
 

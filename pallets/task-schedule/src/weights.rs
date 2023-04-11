@@ -6,9 +6,9 @@
 use frame_support::{traits::Get, weights::{constants::RocksDbWeight,Weight}};
 use crate::WeightInfo;
 use sp_std::marker::PhantomData;
-pub struct SigWeightInfo<T>(PhantomData<T>);
+pub struct ScheduleWeightInfo<T>(PhantomData<T>);
 
-impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
+impl<T: frame_system::Config> WeightInfo for ScheduleWeightInfo<T> {
 	
     fn insert_schedule() -> Weight {
         Weight::from_ref_time(39_000_000_u64)

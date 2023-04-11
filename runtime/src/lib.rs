@@ -1022,12 +1022,12 @@ impl pallet_treasury::Config for Runtime {
 }
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = task_metadata::weights::MetaWeightInfo<Runtime>;
 }
 
 impl task_schedule::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = task_schedule::weights::ScheduleWeightInfo<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

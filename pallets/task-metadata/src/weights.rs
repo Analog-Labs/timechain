@@ -12,9 +12,9 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_task_metadata`.
 
-pub struct SigWeightInfo<T>(PhantomData<T>);
+pub struct MetaWeightInfo<T>(PhantomData<T>);
 
-impl<T: frame_system::Config> WeightInfo for SigWeightInfo<T> {
+impl<T: frame_system::Config> WeightInfo for MetaWeightInfo<T> {
 	
     fn store_task() -> Weight {
         Weight::from_ref_time(39_000_000_u64)

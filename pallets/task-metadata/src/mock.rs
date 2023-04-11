@@ -56,7 +56,7 @@ impl system::Config for Test {
 
 impl task_metadata::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = task_metadata::weights::WeightInfo<Test>;
 }
 
 // Build genesis storage according to the mock runtime.

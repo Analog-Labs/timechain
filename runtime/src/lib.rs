@@ -25,7 +25,6 @@ pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	SaturatedConversion,
 	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
@@ -34,7 +33,7 @@ use sp_runtime::{
 		IdentifyAccount, NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, Percent,
+	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
 
 use frame_system::EnsureRootWithSuccess;
@@ -720,17 +719,18 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		let send_reward = Percent::from_percent(20) * max_payout;
 		// reward distribution for validators/chronicle accounts.
 		let length = session_active_validators.len().saturated_into::<u8>();
-			if length != 0 {
-				// get division percentage for each validator
-				let total_percentage = 100u8;
-				let fraction = Percent::from_percent(total_percentage.saturating_div(length));
-				// reward share of each validator.
-				let share = fraction * send_reward;
+		if length != 0 {
+			// get division percentage for each validator
+			let total_percentage = 100u8;
+			let fraction = Percent::from_percent(total_percentage.saturating_div(length));
+			// reward share of each validator.
+			let share = fraction * send_reward;
 
-				session_active_validators.iter().for_each(|item| {
-					let _resp = Balances::deposit_into_existing(item, share.clone().unique_saturated_into());
-				});
-			}
+			session_active_validators.iter().for_each(|item| {
+				let _resp =
+					Balances::deposit_into_existing(item, share.clone().unique_saturated_into());
+			});
+		}
 		let val_payout = Percent::from_percent(80) * validator_payout;
 		let rest_payout = Percent::from_percent(80) * rest;
 		// send rest for payout.
@@ -1343,6 +1343,8 @@ impl_runtime_apis! {
 			use baseline::Pallet as BaselineBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
+			list_benchmark!(list, extra, task_metadata, TaskMeta);
+			list_benchmark!(list, extra, task_schedule, TaskSchedule);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1366,6 +1368,8 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
+			add_benchmark!(params, batches, task_metadata, TaskMeta);
+			add_benchmark!(params, batches, task_schedule, TaskSchedule);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

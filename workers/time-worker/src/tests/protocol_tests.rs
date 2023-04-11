@@ -8,7 +8,7 @@ use futures_channel::mpsc::Receiver;
 use log::error;
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
-use sc_finality_grandpa::{
+use sc_consensus_grandpa::{
 	block_import, run_grandpa_voter, Config, GenesisAuthoritySetProvider, GrandpaParams, LinkHalf,
 	SharedVoterState,
 };
@@ -22,12 +22,12 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::Pair as SPPair;
-use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
-use sp_finality_grandpa::{
+use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
+use sp_core::{crypto::key_types::GRANDPA, sr25519::Pair};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
-use sp_runtime::{generic::BlockId, traits::Header as HeaderT, BuildStorage};
+use sp_runtime::{traits::Header as HeaderT, BuildStorage};
 use std::{
 	collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc, task::Poll, time::Duration,
 };
@@ -53,7 +53,7 @@ pub enum ConsensusLog<Public: Codec> {
 type TestLinkHalf =
 	LinkHalf<Block, PeersFullClient, LongestChain<substrate_test_runtime_client::Backend, Block>>;
 type GrandpaPeerData = Mutex<Option<TestLinkHalf>>;
-type GrandpaBlockImport = sc_finality_grandpa::GrandpaBlockImport<
+type GrandpaBlockImport = sc_consensus_grandpa::GrandpaBlockImport<
 	substrate_test_runtime_client::Backend,
 	Block,
 	PeersFullClient,
@@ -127,6 +127,10 @@ impl TestNetFactory for TimeTestNet {
 	type Verifier = PassThroughVerifier;
 	type BlockImport = GrandpaBlockImport;
 	type PeerData = GrandpaPeerData;
+
+	fn peers_mut(&mut self) -> &mut Vec<GrandpaPeer> {
+		&mut self.peers
+	}
 
 	fn add_full_peer(&mut self) {
 		self.add_full_peer_with_config(FullPeerConfig {
@@ -243,7 +247,7 @@ impl ProvideRuntimeApi<Block> for TestApi {
 
 #[async_trait::async_trait]
 impl InherentDataProvider for RuntimeApi {
-	fn provide_inherent_data(
+	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut InherentData,
 	) -> Result<(), sp_inherents::Error> {
@@ -340,7 +344,7 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn generate_key_ownership_proof(
 			_set_id: SetId,
-			_authority_id: sp_finality_grandpa::AuthorityId,
+			_authority_id: sp_consensus_grandpa::AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof> {
 			None
 		}
@@ -415,6 +419,7 @@ fn initialize_grandpa(
 			prometheus_registry: None,
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: None,
+			sync: net.peers[peer_id].sync_service().clone(),
 		};
 		let voter =
 			run_grandpa_voter(grandpa_params).expect("all in order with client and network");
@@ -452,9 +457,10 @@ where
 			gossip_network: peer.network_service().clone(),
 			kv: Some(keystore).into(),
 			sign_data_receiver,
+			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),
 		};
-		let gadget = start_timeworker_gadget::<_, _, _, _, _>(time_params);
+		let gadget = start_timeworker_gadget::<_, _, _, _, _, _>(time_params);
 
 		fn assert_send<T: Send>(_: &T) {}
 		assert_send(&gadget);
@@ -462,6 +468,14 @@ where
 	}
 
 	time_workers.for_each(|_| async move {})
+}
+
+async fn run_until_complete(future: impl Future + Unpin, net: &Arc<Mutex<TimeTestNet>>) {
+	let drive_to_completion = futures::future::poll_fn(|cx| {
+		net.lock().poll(cx);
+		Poll::<()>::Pending
+	});
+	future::select(future, drive_to_completion).await;
 }
 
 #[allow(dead_code)]
@@ -482,8 +496,7 @@ fn block_until_complete(
 #[allow(dead_code)]
 // run the voters to completion. provide a closure to be invoked after
 // the voters are spawned but before blocking on them.
-fn run_to_completion_with<F>(
-	runtime: &mut Runtime,
+async fn run_to_completion_with<F>(
 	blocks: u64,
 	net: Arc<Mutex<TimeTestNet>>,
 	peers: &[Ed25519Keyring],
@@ -496,14 +509,13 @@ where
 
 	let highest_finalized = Arc::new(RwLock::new(0));
 
-	if let Some(f) = (with)(runtime.handle().clone()) {
+	if let Some(f) = (with)(Handle::current()) {
 		wait_for.push(f);
 	};
 
-	let net_lock = net.lock();
 	for (peer_id, _) in peers.iter().enumerate() {
 		let highest_finalized = highest_finalized.clone();
-		let client = net_lock.peers[peer_id].client().clone();
+		let client = net.lock().peers[peer_id].client().clone();
 
 		wait_for.push(Box::pin(
 			client
@@ -519,24 +531,22 @@ where
 				.map(|_| ()),
 		));
 	}
-	drop(net_lock);
 
 	// wait for all finalized on each.
 	let wait_for = ::futures::future::join_all(wait_for);
 
-	block_until_complete(wait_for, net.clone(), runtime);
+	run_until_complete(wait_for, &net).await;
 	let highest_finalized = *highest_finalized.read();
 	highest_finalized
 }
 
 #[allow(dead_code)]
-fn run_to_completion(
-	runtime: &mut Runtime,
+async fn run_to_completion(
 	blocks: u64,
 	net: Arc<Mutex<TimeTestNet>>,
 	peers: &[Ed25519Keyring],
 ) -> u64 {
-	run_to_completion_with(runtime, blocks, net, peers, |_| None)
+	run_to_completion_with(blocks, net, peers, |_| None).await
 }
 
 #[allow(dead_code)]
@@ -544,40 +554,32 @@ fn make_gradpa_ids(keys: &[Ed25519Keyring]) -> AuthorityList {
 	keys.iter().map(|key| (*key).public().into()).map(|id| (id, 1)).collect()
 }
 
-#[test]
-fn finalize_3_voters_no_observers() {
+#[tokio::test]
+async fn finalize_3_voters_no_observers() {
 	sp_tracing::try_init_simple();
-	let mut runtime = Runtime::new().unwrap();
 	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 	let genesys_authorities = make_gradpa_ids(grandpa_peers);
 
 	let mut net = TimeTestNet::new(3, 0, TestApi::new(vec![], vec![], genesys_authorities));
-	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
+	tokio::spawn(initialize_grandpa(&mut net, grandpa_peers));
 	net.peer(0).push_blocks(20, false);
-	net.block_until_sync();
-
+	net.run_until_sync().await;
 	for i in 0..3 {
 		assert_eq!(net.peer(i).client().info().best_number, 20, "Peer #{i} failed to sync");
 	}
-
+	let hashof32 = net.peer(0).client().info().best_hash;
 	let net = Arc::new(Mutex::new(net));
-	run_to_completion(&mut runtime, 20, net.clone(), grandpa_peers);
-
+	run_to_completion(20, net.clone(), grandpa_peers).await;
 	// normally there's no justification for finalized blocks
 	assert!(
-		net.lock()
-			.peer(0)
-			.client()
-			.justifications(&BlockId::Number(20))
-			.unwrap()
-			.is_none(),
+		net.lock().peer(0).client().justifications(hashof32).unwrap().is_none(),
 		"Extra justification for block#1",
 	);
 }
 
 #[cfg(feature = "expensive_tests")]
-#[test]
-fn time_keygen_completes() {
+#[tokio::test]
+async fn time_keygen_completes() {
 	sp_tracing::init_for_tests();
 
 	sp_tracing::info!(
@@ -585,7 +587,6 @@ fn time_keygen_completes() {
 		"Starting test..."
 	);
 	// our runtime for the test chain
-	let mut runtime = Runtime::new().unwrap();
 	let peers = &[TimeKeyring::Alice, TimeKeyring::Bob, TimeKeyring::Charlie];
 	let grandpa_peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 	let genesys_authorities = make_gradpa_ids(grandpa_peers);
@@ -593,7 +594,7 @@ fn time_keygen_completes() {
 	let mut senders = vec![];
 	let mut receivers = vec![];
 	for _ in 0..peers.len() {
-		let (s, r) = channel(10);
+		let (s, r) = futures_channel::mpsc::channel(10);
 		senders.push(s);
 		receivers.push(r);
 	}
@@ -606,13 +607,13 @@ fn time_keygen_completes() {
 		.collect::<Vec<_>>();
 
 	let mut net = TimeTestNet::new(3, 0, api.clone());
-	runtime.spawn(initialize_grandpa(&mut net, grandpa_peers));
-	runtime.spawn(initialize_time_worker(&mut net, time_peers));
+	tokio::spawn(initialize_grandpa(&mut net, grandpa_peers));
+	tokio::spawn(initialize_time_worker(&mut net, time_peers));
 	// let's wait for workers to properly spawn
 	std::thread::sleep(std::time::Duration::from_secs(6));
 	// Pushing 1 block
 	net.peer(0).push_blocks(1, false);
-	net.block_until_sync();
+	net.run_until_sync().await;
 
 	// Verify all peers synchronized
 	for i in 0..3 {
@@ -621,7 +622,7 @@ fn time_keygen_completes() {
 
 	let net = Arc::new(Mutex::new(net));
 
-	run_to_completion(&mut runtime, 1, net.clone(), grandpa_peers);
+	run_to_completion(1, net.clone(), grandpa_peers).await;
 
 	for i in 0..3 {
 		assert_eq!(
@@ -636,8 +637,8 @@ fn time_keygen_completes() {
 	std::thread::sleep(std::time::Duration::from_secs(6));
 
 	// signing some data
-	let message = b"AbCdE_fG";
-	assert!(runtime.block_on(senders[0].send((1, message.to_vec()))).is_ok());
+	let message = [1u8; 32];
+	assert!(senders[0].try_send((1, message)).is_ok());
 	std::thread::sleep(std::time::Duration::from_secs(6));
 	assert!(!api.runtime_api().stored_signatures.lock().is_empty());
 }

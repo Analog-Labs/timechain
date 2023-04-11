@@ -31,13 +31,12 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn store_signature_data() -> Weight;
-		fn submit_tss_group_key() -> Weight;
+		fn store_signature_data(_s: u32) -> Weight;
+		fn submit_tss_group_key(s: u32) -> Weight;
 	}
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -183,7 +182,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
-		#[pallet::weight(T::WeightInfo::store_signature_data())]
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::store_signature_data(1))]
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,
@@ -201,7 +201,8 @@ pub mod pallet {
 		}
 
 		/// Submits TSS group key to runtime
-		#[pallet::weight(T::WeightInfo::submit_tss_group_key())]
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
 			set_id: u64,
@@ -219,6 +220,7 @@ pub mod pallet {
 		/// # Param
 		/// * set_id - not yet used ID of new shard
 		/// * members - supported sized set of shard members Id
+		#[pallet::call_index(2)]
 		#[pallet::weight(1_000_000)]
 		pub fn register_shard(
 			origin: OriginFor<T>,

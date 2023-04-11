@@ -108,19 +108,19 @@ pub fn run() -> sc_cli::Result<()> {
 					client, task_manager, backend, ..
 				} = service::new_partial(&config)?;
 				let aux_revert = Box::new(|client, _, blocks| {
-					sc_finality_grandpa::revert(client, blocks)?;
+					sc_consensus_grandpa::revert(client, blocks)?;
 					Ok(())
 				});
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
 			})
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
+			let runner = cli.create_runner(cmd.as_ref())?;
 
 			runner.sync_run(|config| {
 				// This switch needs to be in the client, since the client decides
 				// which sub-commands it wants to support.
-				match cmd {
+				match cmd.as_ref() {
 					BenchmarkCmd::Pallet(cmd) => {
 						if !cfg!(feature = "runtime-benchmarks") {
 							return Err(

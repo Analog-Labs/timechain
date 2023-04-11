@@ -1,18 +1,17 @@
 use hex_literal::hex;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
-
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	Perbill,
 };
 use timechain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig, Signature,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
+	AccountId, BalancesConfig, CouncilConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig,
+	Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
 };
 
 const TOKEN_SYMBOL: &str = "ANLOG";
@@ -374,5 +373,6 @@ fn testnet_genesis(
 		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
+		council: CouncilConfig::default(),
 	}
 }

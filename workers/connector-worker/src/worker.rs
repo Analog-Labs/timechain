@@ -135,39 +135,42 @@ where
 		let sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
 
-		if let Ok((config, client)) = create_client(
+		let connector_config = create_client(
 			self.connector_blockchain.clone(),
 			self.connector_network.clone(),
 			self.connector_url.clone(),
 		)
 		.await
-		{
-			loop {
-				let keys = self.kv.public_keys();
-				if !keys.is_empty() {
-					// Get swap data from db and send it to time-worker
-					let tasks_in_byte = Self::get_swap_data_from_db();
-					if !tasks_in_byte.is_empty() {
-						for task in tasks_in_byte.iter() {
-							let result = sign_data_sender_clone.lock().await.try_send((1, *task));
-							match result {
-								Ok(_) => warn!("sign_data_sender_clone ok"),
-								Err(_) => warn!("sign_data_sender_clone err"),
-							}
+		.ok();
+
+		loop {
+			let keys = self.kv.public_keys();
+			if !keys.is_empty() {
+				// Get swap data from db and send it to time-worker
+				let tasks_in_byte = Self::get_swap_data_from_db();
+				if !tasks_in_byte.is_empty() {
+					for task in tasks_in_byte.iter() {
+						let result = sign_data_sender_clone.lock().await.try_send((1, *task));
+						match result {
+							Ok(_) => warn!("sign_data_sender_clone ok"),
+							Err(_) => warn!("sign_data_sender_clone err"),
 						}
 					}
-
-					// Get latest block event from Uniswap v2 and send it to time-worker
-					if let Err(e) = Self::get_latest_block_event(self, &client, &config).await {
-						log::error!("Error occured while fetching block data {e:?}");
-					}
-					tokio::time::sleep(delay).await;
 				}
+
+				// Get latest block event from Uniswap v2 and send it to time-worker
+				if let Some((config, client)) = &connector_config {
+					if let Err(e) = Self::get_latest_block_event(self, client, config).await {
+						log::error!("XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX");
+					}
+				} else {
+					log::error!(
+						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
+					);
+				}
+
+				tokio::time::sleep(delay).await;
 			}
-		} else {
-			log::error!(
-				"XXXXXXX-Connector-worker not running since client creation failed-XXXXXXX"
-			);
 		}
 	}
 }

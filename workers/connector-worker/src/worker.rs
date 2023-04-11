@@ -92,10 +92,14 @@ where
 		//TODO: get this from runtime of get from task_executor tbd
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 
+		let network_status = client.network_status(config.network()).await?;
+
 		let block_req = BlockRequest {
 			network_identifier: config.network(),
-			//passing both none returns latest block
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+			block_identifier: PartialBlockIdentifier {
+				index: Some(network_status.current_block_identifier.index),
+				hash: None,
+			},
 		};
 
 		let block_data = client.block(&block_req).await?;
@@ -161,7 +165,9 @@ where
 				// Get latest block event from Uniswap v2 and send it to time-worker
 				if let Some((config, client)) = &connector_config {
 					if let Err(e) = Self::get_latest_block_event(self, client, config).await {
-						log::error!("XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX");
+						log::error!(
+							"XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX"
+						);
 					}
 				} else {
 					log::error!(

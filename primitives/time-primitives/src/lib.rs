@@ -120,17 +120,19 @@ pub enum ProxyStatus {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ProxyAccStatus<AccountId, Balance> {
 	pub owner: AccountId,
-	pub max_token_usage: Option<Balance>,
+	pub max_token_usage: Balance,
 	pub token_usage: Balance,
 	pub max_task_execution: Option<u32>,
 	pub task_executed: u32,
 	pub status: ProxyStatus,
+	pub proxy: AccountId,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ProxyAccInput<Balance> {
-	pub max_token_usage: Option<Balance>,
-	pub token_usage: Balance,
+pub struct ProxyAccInput<AccountId> {
+	pub proxy: AccountId,
+	pub max_token_usage: u32,
+	pub token_usage: u32,
 	pub max_task_execution: Option<u32>,
 	pub task_executed: u32,
 }

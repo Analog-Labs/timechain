@@ -1023,7 +1023,7 @@ impl pallet_treasury::Config for Runtime {
 
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = pallet_proxy::weights::ProxyWeightInfo<Runtime>;
 	type Currency = Balances;
 }
 
@@ -1101,7 +1101,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_proxy: PalletProxy]
+		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 
 	);

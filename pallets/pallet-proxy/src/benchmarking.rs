@@ -3,22 +3,21 @@ use super::*;
 use crate::Pallet as PalletProxy;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use scale_info::prelude::string::String;
-use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyStatus};
-
+use time_primitives::ProxyAccInput;
 benchmarks! {
 
-	set_delegate_account {
+	set_proxy_account {
 		let origin: T::AccountId = whitelisted_caller();
-		let input  = ProxyAccInput {
-			max_token_usage: 10,
-			token_usage: 10,
-			max_task_execution: 10
-			task_executed: 10,
-		},
+		let proxy_acc: T::AccountId = whitelisted_caller();
+		let input = ProxyAccInput {
+			max_token_usage: 10u32,
+			token_usage: 10u32,
+			max_task_execution: Some(10u32),
+			task_executed: 10u32,
+			proxy: proxy_acc,
+		};
 
-		let proxy = input.clone();
-	}: _(RawOrigin::Signed(origin.clone()), proxy)
+	}: _(RawOrigin::Signed(origin.clone()), input)
 	verify {
 		assert!( <ProxyStorage<T>>::get(origin).is_some());
 	}

@@ -15,13 +15,17 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::SaturatedConversion;
 	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyStatus};
+
 	pub type KeyId = u64;
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	pub trait WeightInfo {
-		fn store_schedule() -> Weight;
+		fn set_proxy_account() -> Weight;
+		fn update_proxy_account() -> Weight;
+		fn remove_proxy_account() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -49,7 +53,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// the record account that uniquely identify
+		///The record account that uniquely identify
 		ProxyStored(T::AccountId),
 
 		///Already exist case
@@ -66,21 +70,23 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The signing account has no permission to do the operation.
 		NoPermission,
+
 		/// Error getting schedule ref.
 		ErrorRef,
 	}
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
-		#[pallet::weight(T::WeightInfo::store_schedule())]
-		pub fn set_delegate_account(
+		#[pallet::weight(T::WeightInfo::set_proxy_account())]
+		pub fn set_proxy_account(
 			origin: OriginFor<T>,
-			proxy: ProxyAccInput<BalanceOf<T>>,
+			proxy: ProxyAccInput<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// already same valid proxy account.
 			let account_exit = self::ProxyStorage::<T>::iter_values()
-				.find(|item| item.owner == who && item.status == ProxyStatus::Valid);
-			// let account_exit = self::ProxyStorage::<T>::get(&who);
+				.find(|item| item.proxy == proxy.proxy && item.status == ProxyStatus::Valid);
+
 			match account_exit {
 				Some(_acc) => {
 					Self::deposit_event(Event::ProxyAlreadyExist(who));
@@ -90,11 +96,12 @@ pub mod pallet {
 						who.clone(),
 						ProxyAccStatus {
 							owner: who.clone(),
-							max_token_usage: proxy.max_token_usage,
-							token_usage: proxy.token_usage,
+							max_token_usage: proxy.max_token_usage.saturated_into(),
+							token_usage: proxy.token_usage.saturated_into(),
 							max_task_execution: proxy.max_task_execution,
 							task_executed: proxy.task_executed,
 							status: ProxyStatus::Valid,
+							proxy: proxy.proxy,
 						},
 					);
 					Self::deposit_event(Event::ProxyStored(who));
@@ -103,11 +110,8 @@ pub mod pallet {
 
 			Ok(())
 		}
-		#[pallet::weight(T::WeightInfo::store_schedule())]
-		pub fn update_delegate_account(
-			origin: OriginFor<T>,
-			status: ProxyStatus,
-		) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::update_proxy_account())]
+		pub fn update_proxy_account(origin: OriginFor<T>, status: ProxyStatus) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let account_exit = self::ProxyStorage::<T>::iter_values()
@@ -132,8 +136,8 @@ pub mod pallet {
 
 			Ok(())
 		}
-		#[pallet::weight(T::WeightInfo::store_schedule())]
-		pub fn remove_delegate_account(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::remove_proxy_account())]
+		pub fn remove_proxy_account(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let account_exit = self::ProxyStorage::<T>::iter_values()
@@ -162,9 +166,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn _get_delegate_acc() -> Result<(), DispatchError> {
+		pub fn _get_delegate_acc(
+			who: T::AccountId,
+		) -> Result<Option<ProxyAccStatus<T::AccountId, BalanceOf<T>>>, DispatchError> {
 			// will add logic
-			Ok(())
+			let accounts = self::ProxyStorage::<T>::get(who);
+
+			Ok(accounts)
 		}
 		fn _charge_task_exe_fee() -> Result<(), DispatchError> {
 			// will add logic

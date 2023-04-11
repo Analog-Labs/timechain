@@ -32,13 +32,13 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	// Storage: TaskSchedule LastKey (r:1 w:1)
 	// Storage: TaskSchedule ScheduleStorage (r:0 w:1)
 	fn insert_schedule() -> Weight {
-		Weight::from_ref_time(71_000_000_u64)
+		Weight::from_parts(71_000_000_u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	// Storage: TaskSchedule ScheduleStorage (r:1 w:1)
 	fn update_schedule() -> Weight {
-		Weight::from_ref_time(70_000_000_u64)
+		Weight::from_parts(70_000_000_u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}

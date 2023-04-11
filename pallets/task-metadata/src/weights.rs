@@ -31,13 +31,13 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	// Storage: TaskMeta TaskMetaStorage (r:1 w:1)
 	fn insert_task() -> Weight {
-		Weight::from_ref_time(83_000_000_u64)
+		Weight::from_parts(83_000_000_u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: TaskMeta CollectionMeta (r:1 w:1)
 	fn insert_collection() -> Weight {
-		Weight::from_ref_time(79_000_000_u64)
+		Weight::from_parts(79_000_000_u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}

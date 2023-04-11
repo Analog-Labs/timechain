@@ -12,11 +12,10 @@ use sc_client_api::Backend;
 use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
-use sp_core::{sr25519, Pair};
-use sp_io::hashing::{keccak_256, keccak_512};
+use sp_io::hashing::keccak_256;
 use sp_runtime::{generic::BlockId, traits::Block};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
-use time_primitives::{abstraction::Function, rpc::SignRpcPayload, TimeApi};
+use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time::sleep};
 use web3::{
@@ -106,10 +105,6 @@ where
 		keccak_256(input)
 	}
 
-	pub fn hash_keccak_512(input: &[u8]) -> [u8; 64] {
-		keccak_512(input)
-	}
-
 	async fn call_contract_and_send_for_sign(
 		&self,
 		address: String,
@@ -154,33 +149,33 @@ where
 
 		if let Ok(task_in_bytes) = serialize(&message) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
-			let phrase = "owner word vocal dose decline sunset battle example forget excite gentle waste//1//time";
-			let keypair = match sr25519::Pair::from_string(phrase, None) {
-				Ok(pair) => pair,
-				Err(error) => {
-					// handle the error here
-					panic!("Error creating keypair: {:?}", error);
-				},
-			};
-			let raw_signature = keypair.sign(&hash).0;
 			let keys = self.kv.public_keys();
 			if keys.len() != 1 {
 				return Err(Error::TimeKeyNotFound.into());
 			}
-			let payload = SignRpcPayload::new(shard_id, hash, raw_signature);
-			log::info!("\n\n\n--> payload verify {:?}\n", payload.verify(keys[0].clone()));
-			if payload.verify(keys[0].clone()) {
-				match self.sign_data_sender.lock().await.try_send((payload.group_id, hash)) {
-					Ok(()) => {
-						log::info!("Connector successfully send event to -- channel")
-					},
-					Err(_) => {
-						log::info!("Connector failed to send event to channel")
-					},
-				}
-				Ok(())
-			} else {
-				Err(Error::SigVerificationFailure.into())
+			let signature = self.kv.sign(&keys[0].clone(), &task_in_bytes);
+			match signature {
+				Some(signature) => {
+					if <TimeKeyvault>::verify(&keys[0].clone(), &signature, &task_in_bytes) {
+						match self.sign_data_sender.lock().await.try_send((shard_id, hash)) {
+							Ok(_) => {
+								log::info!("Connector successfully send event to -- channel");
+								Ok(())
+							},
+							Err(_) => {
+								log::info!("Connector failed to send event to channel");
+								Ok(())
+							},
+						}
+					} else {
+						log::info!("Failed to verify signature");
+						Ok(())
+					}
+				},
+				None => {
+					log::error!("Failed to sign message with the private key");
+					Ok(())
+				},
 			}
 		} else {
 			log::info!("Failed to serialize task: {:?}", message);
@@ -193,7 +188,6 @@ where
 		block_id: BlockId<B>,
 		map: &mut HashMap<u64, String>,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		// let tasks_schedule = self.runtime.runtime_api().get_task_schedule(&block_id)?;
 		// Get the task schedule for the current block
 		let tasks_schedule = match self.runtime.runtime_api().get_task_schedule(&block_id) {
 			Ok(task_schedule) => task_schedule,

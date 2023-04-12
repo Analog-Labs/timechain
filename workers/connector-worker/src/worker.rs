@@ -90,11 +90,14 @@ where
 		dotenv().ok();
 
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
-
+		let network_status = client.network_status(config.network()).await.unwrap();
 		let block_req = BlockRequest {
 			network_identifier: config.network(),
 			//passing both none returns latest block
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+			block_identifier: PartialBlockIdentifier {
+				index: Some(network_status.current_block_identifier.index),
+				hash: None,
+			},
 		};
 
 		let block_data = client.block(&block_req).await?;

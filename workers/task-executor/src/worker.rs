@@ -91,10 +91,10 @@ where
 		};
 		let contract_address = match address.parse::<H160>() {
 			Ok(parsed_address) => parsed_address,
-			Err(parse_error) => {
+			Err(_) => {
 				// handle the error here, for example by printing a message and exiting the program
-				log::warn!("Error parsing contract address: {}", parse_error);
-				std::process::exit(1);
+				log::warn!("Error parsing contract address");
+				H160::default()
 			},
 		};
 
@@ -124,16 +124,8 @@ where
 		block_id: BlockId<B>,
 		map: &mut HashMap<u64, String>,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		// let tasks_schedule = self.runtime.runtime_api().get_task_schedule(&block_id)?;
 		// Get the task schedule for the current block
-		let tasks_schedule = match self.runtime.runtime_api().get_task_schedule(&block_id) {
-			Ok(task_schedule) => task_schedule,
-			Err(_e) => Ok({
-				log::error!("Failed to get task schedule for block {:?}", block_id);
-				Vec::new() // Return an empty vector as the default value
-			}),
-		};
-
+		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(&block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {

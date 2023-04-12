@@ -1,22 +1,19 @@
-use crate as pallet_tesseract_sig_storage;
+use crate as task_metadata;
 use frame_support::{
-	parameter_types,
-	traits::{ConstU16, ConstU64, OnTimestampSet},
+	sp_io,
+	traits::{ConstU16, ConstU64},
 };
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
+	app_crypto::sp_core,
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::cell::RefCell;
 
-// use pallet_randomness_collective_flip;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-/// Type used for expressing timestamp.
-type Moment = u64;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -25,9 +22,8 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		Timestamp: pallet_timestamp,
 		System: frame_system,
-		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
+		TaskMeta: task_metadata::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -58,38 +54,9 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-thread_local! {
-	pub static CAPTURED_MOMENT: RefCell<Option<Moment>> = RefCell::new(None);
-}
-
-pub struct MockOnTimestampSet;
-impl OnTimestampSet<Moment> for MockOnTimestampSet {
-	fn on_timestamp_set(moment: Moment) {
-		CAPTURED_MOMENT.with(|x| *x.borrow_mut() = Some(moment));
-	}
-}
-
-impl pallet_timestamp::Config for Test {
-	type Moment = Moment;
-	type OnTimestampSet = MockOnTimestampSet;
-	type MinimumPeriod = ConstU64<5>;
-	type WeightInfo = ();
-}
-
-parameter_types! {
-	// Must be > 0 and <= 100
-	pub const SlashingPercentage: u8 = 5;
-	// Must be > 0 and <= 100
-	pub const SlashingPercentageThreshold: u8 = 51;
-}
-
-impl pallet_tesseract_sig_storage::Config for Test {
+impl task_metadata::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = super::weights::WeightInfo<Test>;
-	type Moment = Moment;
-	type Timestamp = Timestamp;
-	type SlashingPercentage = SlashingPercentage;
-	type SlashingPercentageThreshold = SlashingPercentageThreshold;
+	type WeightInfo = task_metadata::weights::WeightInfo<Test>;
 }
 
 // Build genesis storage according to the mock runtime.

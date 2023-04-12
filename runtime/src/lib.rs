@@ -1052,6 +1052,15 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
+impl task_metadata::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
+}
+
+impl task_schedule::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
+}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1081,6 +1090,8 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
+		TaskMeta: task_metadata,
+		TaskSchedule: task_schedule,
 	}
 );
 
@@ -1128,6 +1139,8 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
+		[task_schedule, TaskSchedule]
+		[task_metadata, TaskMeta]
 
 	);
 }
@@ -1373,6 +1386,8 @@ impl_runtime_apis! {
 			use baseline::Pallet as BaselineBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
+			list_benchmark!(list, extra, task_metadata, TaskMeta);
+			list_benchmark!(list, extra, task_schedule, TaskSchedule);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
 			list_benchmarks!(list, extra);
 
@@ -1397,6 +1412,8 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
+			add_benchmark!(params, batches, task_metadata, TaskMeta);
+			add_benchmark!(params, batches, task_schedule, TaskSchedule);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
 			add_benchmarks!(params, batches);
 

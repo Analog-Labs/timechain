@@ -51,9 +51,9 @@ SLEEP=10
 start_chain() {
   ./purge-chain.sh
 
-  install_diesel_cli
-  create_database
-  run_migrations
+  # install_diesel_cli
+  # create_database
+  # run_migrations
 
   start_boot_node
   sleep $SLEEP

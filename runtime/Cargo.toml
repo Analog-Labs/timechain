@@ -66,6 +66,8 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 
 # Local Dependencies
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
+task-metadata = { version = "0.0.1", default-features = false, path = "../pallets/task-metadata" }
+task-schedule = { version = "0.0.1", default-features = false, path = "../pallets/task-schedule" }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
 runtime-common = { path = "./common", default-features = false }
@@ -122,6 +124,8 @@ std = [
 	"sp-version/std",
 	"time-primitives/std",
 	"storage-primitives/std",
+	"task-schedule/std",
+	"task-metadata/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -136,6 +140,8 @@ runtime-benchmarks = [
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
+	"task-schedule/runtime-benchmarks",
+	"task-metadata/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 ]
 try-runtime = [
@@ -154,4 +160,6 @@ try-runtime = [
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
+	"task-schedule/try-runtime",
+	"task-metadata/try-runtime",
 ]

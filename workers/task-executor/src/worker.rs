@@ -5,18 +5,17 @@ use codec::Decode;
 use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
-use ink::env::hash;
 use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
 use sc_client_api::Backend;
 use serde_json::json;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{BlockId as SpBlockId, ProvideRuntimeApi};
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
 use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time};
+use tokio::{sync::Mutex, time::sleep};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -47,7 +46,7 @@ where
 			sign_data_sender,
 			kv,
 			_block,
-			account_id
+			accountid,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -94,7 +93,7 @@ where
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 
 			let at = self.backend.blockchain().last_finalized().unwrap();
-			let at = BlockId::Hash(at);
+			let at = SpBlockId::Hash(at);
 			let my_key =
 				time_primitives::TimeId::decode(&mut self.kv.public_keys()[0].as_ref()).unwrap();
 			if self

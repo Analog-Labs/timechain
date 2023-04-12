@@ -66,6 +66,7 @@ pub async fn start_taskexecutor_gadget<B, A, R, BE>(
 		kv,
 		sign_data_sender,
 		_block,
+		accountid: _,
 		connector_url,
 		connector_blockchain,
 		connector_network,

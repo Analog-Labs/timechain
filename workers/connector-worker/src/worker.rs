@@ -17,7 +17,7 @@ use sp_api::{BlockId as SpBlockId, ProvideRuntimeApi};
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
-use std::{env, marker::PhantomData, str::FromStr, sync::Arc};
+use std::{error::Error, env, marker::PhantomData, str::FromStr, sync::Arc};
 use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;

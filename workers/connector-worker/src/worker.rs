@@ -13,11 +13,11 @@ use rosetta_client::{
 };
 use sc_client_api::Backend;
 use serde_json::Value;
-use sp_api::{BlockId as SpBlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
-use std::{error::Error, env, marker::PhantomData, str::FromStr, sync::Arc};
+use std::{error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
@@ -25,31 +25,34 @@ use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct ConnectorWorker<B: Block, R, BE> {
+pub struct ConnectorWorker<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	pub accountid: PhantomData<A>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
 }
 
-impl<B, R, BE> ConnectorWorker<B, R, BE>
+impl<B, A, R, BE> ConnectorWorker<B, A, R, BE>
 where
 	B: Block,
-	BE: Backend<B>,
+	A: codec::Codec,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
+	BE: Backend<B>,
+	R::Api: TimeApi<B, A>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
 		let WorkerParams {
 			runtime,
 			sign_data_sender,
 			kv,
 			backend,
 			_block,
+			accountid: _,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -61,6 +64,7 @@ where
 			kv,
 			backend,
 			_block: PhantomData,
+			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -128,7 +132,7 @@ where
 							// TODO: change hardcoded 1 to actual shard id
 							// TODO: stabilize no unwraps and blind indexing!
 							let at = self.backend.blockchain().last_finalized().unwrap();
-							let at = SpBlockId::Hash(at);
+							// let at = SpBlockId::Hash(at);
 							let my_key = time_primitives::TimeId::decode(
 								&mut self.kv.public_keys()[0].as_ref(),
 							)
@@ -136,7 +140,7 @@ where
 							if self
 								.runtime
 								.runtime_api()
-								.get_shards(&at)
+								.get_shards(at)
 								.unwrap()
 								.into_iter()
 								.find(|(s, _)| *s == 1)

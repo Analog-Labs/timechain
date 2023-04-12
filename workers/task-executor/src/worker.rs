@@ -8,7 +8,7 @@ use futures::channel::mpsc::Sender;
 use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
 use sc_client_api::Backend;
 use serde_json::json;
-use sp_api::{BlockId as SpBlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
@@ -25,10 +25,10 @@ pub struct TaskExecutor<B: Block, A, R, BE> {
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
-	pub accountid: PhantomData<A>,
-	pub connector_url: Option<String>,
-	pub connector_blockchain: Option<String>,
-	pub connector_network: Option<String>,
+	accountid: PhantomData<A>,
+	connector_url: Option<String>,
+	connector_blockchain: Option<String>,
+	connector_network: Option<String>,
 }
 
 impl<B, A, R, BE> TaskExecutor<B, A, R, BE>
@@ -46,7 +46,7 @@ where
 			sign_data_sender,
 			kv,
 			_block,
-			accountid,
+			accountid: _,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -93,13 +93,13 @@ where
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 
 			let at = self.backend.blockchain().last_finalized().unwrap();
-			let at = SpBlockId::Hash(at);
+			// let at = SpBlockId::Hash(at);
 			let my_key =
 				time_primitives::TimeId::decode(&mut self.kv.public_keys()[0].as_ref()).unwrap();
 			if self
 				.runtime
 				.runtime_api()
-				.get_shards(&at)
+				.get_shards(at)
 				.unwrap()
 				.into_iter()
 				.find(|(s, _)| *s == shard_id)

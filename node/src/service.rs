@@ -375,6 +375,7 @@ pub fn new_full(
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			accountid: PhantomData,
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),

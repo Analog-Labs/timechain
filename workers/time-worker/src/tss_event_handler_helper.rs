@@ -1,6 +1,6 @@
 use crate::{inherents::update_shared_group_key, traits::Client, worker::TimeWorker, TW_LOG};
 use borsh::{BorshDeserialize, BorshSerialize};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as BCTrait;

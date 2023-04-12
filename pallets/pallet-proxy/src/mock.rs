@@ -74,7 +74,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_proxy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
 	type Currency = Balances;
 }
 

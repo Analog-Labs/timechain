@@ -30,7 +30,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -77,6 +76,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
 			origin: OriginFor<T>,
@@ -110,6 +110,7 @@ pub mod pallet {
 
 			Ok(())
 		}
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::update_proxy_account())]
 		pub fn update_proxy_account(origin: OriginFor<T>, status: ProxyStatus) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -136,12 +137,17 @@ pub mod pallet {
 
 			Ok(())
 		}
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::remove_proxy_account())]
-		pub fn remove_proxy_account(origin: OriginFor<T>) -> DispatchResult {
+		pub fn remove_proxy_account(
+			origin: OriginFor<T>,
+			proxy_acc: T::AccountId,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let account_exit = self::ProxyStorage::<T>::iter_values()
-				.find(|item| item.owner == who && item.status == ProxyStatus::Valid);
+			let account_exit = self::ProxyStorage::<T>::iter_values().find(|item| {
+				item.owner == who && proxy_acc == item.proxy && item.status == ProxyStatus::Valid
+			});
 			match account_exit {
 				Some(_acc) => {
 					let _ = self::ProxyStorage::<T>::try_mutate(

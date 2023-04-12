@@ -1064,7 +1064,7 @@ impl task_schedule::Config for Runtime {
 
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::ProxyWeightInfo<Runtime>;
+	type WeightInfo = pallet_proxy::weights::WeightInfo<Runtime>;
 	type Currency = Balances;
 }
 

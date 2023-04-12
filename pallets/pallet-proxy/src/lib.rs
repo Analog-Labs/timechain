@@ -21,6 +21,7 @@ pub mod pallet {
 	pub type KeyId = u64;
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	pub type GetProxyAcc<AccountId, Balance> = Option<ProxyAccStatus<AccountId, Balance>>;
 
 	pub trait WeightInfo {
 		fn set_proxy_account() -> Weight;
@@ -80,12 +81,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
 			origin: OriginFor<T>,
-			proxy: ProxyAccInput<T::AccountId>,
+			proxy_data: ProxyAccInput<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// already same valid proxy account.
 			let account_exit = self::ProxyStorage::<T>::iter_values()
-				.find(|item| item.proxy == proxy.proxy && item.status == ProxyStatus::Valid);
+				.find(|item| item.proxy == proxy_data.proxy && item.status == ProxyStatus::Valid);
 
 			match account_exit {
 				Some(_acc) => {
@@ -96,12 +97,12 @@ pub mod pallet {
 						who.clone(),
 						ProxyAccStatus {
 							owner: who.clone(),
-							max_token_usage: proxy.max_token_usage.saturated_into(),
-							token_usage: proxy.token_usage.saturated_into(),
-							max_task_execution: proxy.max_task_execution,
-							task_executed: proxy.task_executed,
+							max_token_usage: proxy_data.max_token_usage.saturated_into(),
+							token_usage: proxy_data.token_usage.saturated_into(),
+							max_task_execution: proxy_data.max_task_execution,
+							task_executed: proxy_data.task_executed,
 							status: ProxyStatus::Valid,
-							proxy: proxy.proxy,
+							proxy: proxy_data.proxy,
 						},
 					);
 					Self::deposit_event(Event::ProxyStored(who));
@@ -110,6 +111,7 @@ pub mod pallet {
 
 			Ok(())
 		}
+
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::update_proxy_account())]
 		pub fn update_proxy_account(origin: OriginFor<T>, status: ProxyStatus) -> DispatchResult {
@@ -137,6 +139,7 @@ pub mod pallet {
 
 			Ok(())
 		}
+
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::remove_proxy_account())]
 		pub fn remove_proxy_account(
@@ -174,12 +177,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn _get_delegate_acc(
 			who: T::AccountId,
-		) -> Result<Option<ProxyAccStatus<T::AccountId, BalanceOf<T>>>, DispatchError> {
+		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
 			// will add logic
 			let accounts = self::ProxyStorage::<T>::get(who);
 
 			Ok(accounts)
 		}
+
 		fn _charge_task_exe_fee() -> Result<(), DispatchError> {
 			// will add logic
 
@@ -191,6 +195,7 @@ pub mod pallet {
 
 			Ok(())
 		}
+
 		fn _set_delegate_acc_invalid() -> Result<(), DispatchError> {
 			// will add logic
 

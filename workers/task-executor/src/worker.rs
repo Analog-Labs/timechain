@@ -9,7 +9,7 @@ use serde_json::from_str;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
-use sp_runtime::{generic::BlockId, traits::Block};
+use sp_runtime::traits::Block;
 use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{abstraction::Function, TimeApi};
 use time_worker::kv::TimeKeyvault;
@@ -121,11 +121,11 @@ where
 
 	async fn process_tasks_for_block(
 		&self,
-		block_id: BlockId<B>,
+		block_id: <B as Block>::Hash,
 		map: &mut HashMap<u64, String>,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the task schedule for the current block
-		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(&block_id)?;
+		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
@@ -140,7 +140,7 @@ where
 							let metadata_result = self
 								.runtime
 								.runtime_api()
-								.get_task_metadat_by_key(&block_id, task_id)?;
+								.get_task_metadat_by_key(block_id, task_id)?;
 
 							match metadata_result {
 								Ok(metadata) => {
@@ -203,7 +203,7 @@ where
 			if !keys.is_empty() {
 				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
-					let at = BlockId::Hash(at);
+					// let at = BlockId::Hash(at);
 					match self.process_tasks_for_block(at, &mut map).await {
 						Ok(_) => (),
 						Err(e) => {

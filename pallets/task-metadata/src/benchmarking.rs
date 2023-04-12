@@ -29,5 +29,15 @@ benchmarks! {
 		assert!( <TaskMetaStorage<T>>::get(1).is_some());
 	}
 
+	insert_collection {
+		let origin: T::AccountId = whitelisted_caller();
+		let hash = String::from("hash");
+		let	task = [0u8; 32];
+		let validity = 10;
+	}: _(RawOrigin::Signed(origin), hash.clone(), task.into(), validity)
+	verify {
+		assert!( <CollectionMeta<T>>::get(hash).is_some());
+	}
+
 	impl_benchmark_test_suite!(TaskMeta, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -1,4 +1,5 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
+import { stringToHex } from '@polkadot/util';
 import { Channel } from 'async-channel';
 import { dirname} from 'path';
 import { fileURLToPath } from 'url';

@@ -44,7 +44,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule};
+use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule, ScheduleStatus,};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1340,6 +1340,10 @@ impl_runtime_apis! {
 
 		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_schedules()
+		}
+
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError> {
+			TaskSchedule::update_schedule_by_key(status,key)
 		}
 
 		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {

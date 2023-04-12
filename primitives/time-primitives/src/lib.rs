@@ -7,7 +7,7 @@ pub mod rpc;
 pub mod sharding;
 pub mod slashing;
 
-use abstraction::{Task, TaskSchedule};
+use abstraction::{ScheduleStatus, Task, TaskSchedule};
 use arrayref::array_ref;
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -39,6 +39,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
 		fn report_misbehavior(shard_id: u64, offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
 	}
 }

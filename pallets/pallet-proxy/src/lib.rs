@@ -64,6 +64,9 @@ pub mod pallet {
 
 		///Proxy account suspended
 		ProxySuspended(T::AccountId),
+
+		///Proxy account removed
+		ProxyRemoved(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -86,16 +89,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// already same valid proxy account.
-			let account_exit = self::ProxyStorage::<T>::iter_values()
-				.find(|item| item.proxy == proxy_data.proxy && item.status == ProxyStatus::Valid);
-
+			let account_exit = self::ProxyStorage::<T>::get(&proxy_data.proxy);
 			match account_exit {
 				Some(_acc) => {
 					Self::deposit_event(Event::ProxyAlreadyExist(who));
 				},
 				None => {
 					self::ProxyStorage::<T>::insert(
-						who.clone(),
+						proxy_data.proxy.clone(),
 						ProxyAccStatus {
 							owner: who.clone(),
 							max_token_usage: proxy_data.max_token_usage.saturated_into(),
@@ -115,13 +116,16 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::update_proxy_account())]
-		pub fn update_proxy_account(origin: OriginFor<T>, status: ProxyStatus) -> DispatchResult {
+		pub fn update_proxy_account(
+			origin: OriginFor<T>,
+			proxy_acc: T::AccountId,
+			status: ProxyStatus,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			let account_exit = self::ProxyStorage::<T>::iter_values()
-				.find(|item| item.owner == who && item.status == ProxyStatus::Valid);
+			let account_exit = self::ProxyStorage::<T>::get(&proxy_acc);
 			match account_exit {
-				Some(_acc) => {
+				Some(acc) => {
+					ensure!(acc.owner == who, Error::<T>::NoPermission);
 					let _ = self::ProxyStorage::<T>::try_mutate(
 						who.clone(),
 						|proxy| -> DispatchResult {
@@ -148,26 +152,16 @@ pub mod pallet {
 			proxy_acc: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			let account_exit = self::ProxyStorage::<T>::iter_values().find(|item| {
-				item.owner == who && proxy_acc == item.proxy && item.status == ProxyStatus::Valid
-			});
+			let account_exit = self::ProxyStorage::<T>::get(&proxy_acc);
 			match account_exit {
-				Some(_acc) => {
-					let _ = self::ProxyStorage::<T>::try_mutate(
-						who.clone(),
-						|proxy| -> DispatchResult {
-							let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-							ensure!(details.owner == who, Error::<T>::NoPermission);
+				Some(acc) => {
+					ensure!(acc.owner == who, Error::<T>::NoPermission);
+					self::ProxyStorage::<T>::remove(acc.proxy.clone());
 
-							details.status = ProxyStatus::Suspended;
-							Ok(())
-						},
-					);
-					Self::deposit_event(Event::ProxySuspended(who));
+					Self::deposit_event(Event::ProxyRemoved(acc.proxy));
 				},
 				None => {
-					Self::deposit_event(Event::ProxyNotExist(who));
+					Self::deposit_event(Event::ProxyNotExist(proxy_acc));
 				},
 			}
 

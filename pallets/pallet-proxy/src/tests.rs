@@ -25,5 +25,26 @@ fn test_proxy_account() {
 			proxy: 1,
 		};
 		assert_eq!(PalletProxy::get_proxy_status_store(1), Some(output));
+
+		// update Proxy
+		let expected_output = ProxyAccStatus {
+			owner: 1,
+			max_token_usage: 10,
+			token_usage: 10,
+			max_task_execution: Some(100u32),
+			task_executed: 10,
+			status: ProxyStatus::Suspended,
+			proxy: 1,
+		};
+		let _ = PalletProxy::update_proxy_account(
+			RawOrigin::Signed(1).into(),
+			1,
+			ProxyStatus::Suspended,
+		);
+		assert_eq!(PalletProxy::get_proxy_status_store(1), Some(expected_output));
+
+		// remove Proxy
+		let _ = PalletProxy::remove_proxy_account(RawOrigin::Signed(1).into(), 1);
+		assert_eq!(PalletProxy::get_proxy_status_store(1), None);
 	});
 }

@@ -41,11 +41,11 @@ benchmarks! {
 			max_task_execution: input.max_task_execution,
 			task_executed: input.task_executed,
 			status: ProxyStatus::Valid,
-			proxy: input.proxy,
+			proxy: input.proxy.clone(),
 		};
 		let _ = <ProxyStorage<T>>::insert(origin.clone(),data);
 
-	}: _(RawOrigin::Signed(origin.clone()), ProxyStatus::Suspended)
+	}: _(RawOrigin::Signed(origin.clone()), input.proxy, ProxyStatus::Suspended)
 	verify {
 		assert!( <ProxyStorage<T>>::get(origin).is_some());
 	}

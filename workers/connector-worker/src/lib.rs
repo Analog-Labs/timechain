@@ -23,9 +23,9 @@ where
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
-	pub connector_url: String,
-	pub connector_blockchain: String,
-	pub connector_network: String,
+	pub connector_url: Option<String>,
+	pub connector_blockchain: Option<String>,
+	pub connector_network: Option<String>,
 }
 
 pub(crate) struct WorkerParams<B, R> {
@@ -33,9 +33,9 @@ pub(crate) struct WorkerParams<B, R> {
 	_block: PhantomData<B>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
-	pub connector_url: String,
-	pub connector_blockchain: String,
-	pub connector_network: String,
+	pub connector_url: Option<String>,
+	pub connector_blockchain: Option<String>,
+	pub connector_network: Option<String>,
 }
 
 pub async fn start_connectorworker_gadget<B, R>(connectorworker_params: ConnectorWorkerParams<B, R>)

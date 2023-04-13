@@ -159,9 +159,9 @@ fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
 /// Builds a new service for a full client.
 pub fn new_full(
 	mut config: Configuration,
-	connector_url: String,
-	connector_blockchain: String,
-	connector_network: String,
+	connector_url: Option<String>,
+	connector_blockchain: Option<String>,
+	connector_network: Option<String>,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -366,7 +366,8 @@ pub fn new_full(
 			connector_network,
 		};
 
-		task_manager.spawn_essential_handle().spawn_blocking(
+		//if connector worker fails we want to keep node running
+		task_manager.spawn_handle().spawn_blocking(
 			"connector-worker",
 			None,
 			connector_worker::start_connectorworker_gadget(connector_params),

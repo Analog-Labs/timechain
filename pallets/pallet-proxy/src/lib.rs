@@ -74,6 +74,7 @@ pub mod pallet {
 		/// Error getting schedule ref.
 		ErrorRef,
 	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
@@ -175,31 +176,12 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn _get_delegate_acc(
+		pub fn get_delegate_acc(
 			who: T::AccountId,
 		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
-			// will add logic
 			let accounts = self::ProxyStorage::<T>::get(who);
 
 			Ok(accounts)
-		}
-
-		fn _charge_task_exe_fee() -> Result<(), DispatchError> {
-			// will add logic
-
-			Ok(())
-		}
-
-		fn _pay_task_fee() -> Result<(), DispatchError> {
-			// will add logic
-
-			Ok(())
-		}
-
-		fn _set_delegate_acc_invalid() -> Result<(), DispatchError> {
-			// will add logic
-
-			Ok(())
 		}
 	}
 }

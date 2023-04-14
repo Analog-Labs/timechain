@@ -127,11 +127,9 @@ pub mod pallet {
 				Some(acc) => {
 					ensure!(acc.owner == who, Error::<T>::NoPermission);
 					let _ = self::ProxyStorage::<T>::try_mutate(
-						who.clone(),
+						acc.proxy,
 						|proxy| -> DispatchResult {
 							let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-							ensure!(details.owner == who, Error::<T>::NoPermission);
-
 							details.status = status;
 							Ok(())
 						},
@@ -170,10 +168,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_delegate_acc(
-			who: T::AccountId,
+		pub fn get_proxy_acc(
+			proxy: T::AccountId,
 		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
-			let accounts = self::ProxyStorage::<T>::get(who);
+			let accounts = self::ProxyStorage::<T>::get(proxy);
 
 			Ok(accounts)
 		}

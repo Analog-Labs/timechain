@@ -126,14 +126,12 @@ pub mod pallet {
 			match account_exit {
 				Some(acc) => {
 					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					let _ = self::ProxyStorage::<T>::try_mutate(
-						acc.proxy,
-						|proxy| -> DispatchResult {
+					let _ =
+						self::ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
 							let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
 							details.status = status;
 							Ok(())
-						},
-					);
+						});
 				},
 				None => {
 					Self::deposit_event(Event::ProxyNotExist(who));

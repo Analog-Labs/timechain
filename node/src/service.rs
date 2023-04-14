@@ -4,7 +4,6 @@ use sc_client_api::BlockBackend;
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_keystore::LocalKeystore;
-use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
@@ -166,12 +165,12 @@ pub fn new_full(
 	let sc_service::PartialComponents {
 		client,
 		backend,
-		task_manager,
+		mut task_manager,
 		import_queue,
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (block_import, grandpa_link, babe_link, telemetry),
+		other: (block_import, grandpa_link, babe_link, mut telemetry),
 	} = new_partial(&config)?;
 
 	if let Some(url) = &config.keystore_remote {
@@ -206,7 +205,7 @@ pub fn new_full(
 		Vec::default(),
 	));
 
-	let (network, _system_rpc_tx, _tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			client: client.clone(),
@@ -234,23 +233,36 @@ pub fn new_full(
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.sync_keystore();
 
-	let _rpc_extensions_builder = {
+	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
 		let clonestore = keystore.clone();
 
-		Box::new(move |deny_unsafe, _: SubscriptionTaskExecutor| {
+		Box::new(move |deny_unsafe, _| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
 				kv: Some(clonestore.clone()).into(),
 			};
-			crate::rpc::create_full(deps)
-				.map_err(Into::<Box<dyn std::error::Error + Send + Sync>>::into)
+			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
 
+	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+		network: network.clone(),
+		client: client.clone(),
+		keystore,
+		task_manager: &mut task_manager,
+		transaction_pool: transaction_pool.clone(),
+		rpc_builder: rpc_extensions_builder,
+		backend: backend.clone(),
+		system_rpc_tx,
+		tx_handler_controller,
+		config,
+		telemetry: telemetry.as_mut(),
+		sync_service: sync_service.clone(),
+	})?;
 	if role.is_authority() {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),

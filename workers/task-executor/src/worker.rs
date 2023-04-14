@@ -165,7 +165,7 @@ where
 												let _result =
 													Self::call_contract_and_send_for_sign(
 														self,
-														config, 
+														config,
 														client,
 														address.to_string(),
 														function_signature.to_string(),

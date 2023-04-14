@@ -195,22 +195,22 @@ where
 						}
 					}
 
-				// Get latest block event from Uniswap v2 and send it to time-worker
-				if let Some((config, client)) = &connector_config {
-					if let Err(e) = Self::get_latest_block_event(self, client, config).await {
+					// Get latest block event from Uniswap v2 and send it to time-worker
+					if let Some((config, client)) = &connector_config {
+						if let Err(e) = Self::get_latest_block_event(self, client, config).await {
+							log::error!(
+								"XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX"
+							);
+						}
+					} else {
 						log::error!(
-							"XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX"
-						);
-					}
-				} else {
-					log::error!(
 						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
 					);
-				}
+					}
 
-				tokio::time::sleep(delay).await;
+					tokio::time::sleep(delay).await;
+				}
 			}
-		} else {
 		}
 	}
 }

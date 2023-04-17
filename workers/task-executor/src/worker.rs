@@ -152,6 +152,10 @@ where
 								.get_task_metadat_by_key(block_id, schedule_task.1.task_id.0);
 							match metadata_result {
 								Ok(metadata) => {
+									if metadata.is_some() {
+										map.insert(task_id, "hash".to_string());
+									}
+
 									for task in metadata.iter() {
 										match &task.function {
 											// If the task function is an Ethereum contract call,
@@ -202,13 +206,13 @@ where
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, String> = HashMap::new();
 
-		let (config, client) = create_client(
+		let connector_config = create_client(
 			self.connector_blockchain.clone(),
 			self.connector_network.clone(),
 			self.connector_url.clone(),
 		)
 		.await
-		.unwrap_or_else(|e| panic!("Failed to create client with error: {e:?}"));
+		.ok();
 
 		loop {
 			// Get the public keys from the Key-Value store to check key is set
@@ -217,11 +221,18 @@ where
 				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					// let at = BlockId::Hash(at);
-					match self.process_tasks_for_block(at, &mut map, &config, &client).await {
-						Ok(_) => (),
-						Err(e) => {
-							log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
-						},
+
+					if let Some((config, client)) = &connector_config {
+						match self.process_tasks_for_block(at, &mut map, config, client).await {
+							Ok(_) => (),
+							Err(e) => {
+								log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
+							},
+						}
+					} else {
+						log::error!(
+						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
+					);
 					}
 				} else {
 					log::error!("Blockchain is empty");

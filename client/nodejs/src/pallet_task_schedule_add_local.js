@@ -24,9 +24,12 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         task_id: 11,
-        cycle:12,
-        validity:{Seconds:12},
-        hash:'asdasd'
+        owner: 'address',
+        shard_id: 1,
+        cycle: 12,
+        validity: { Seconds: 12 },
+        hash: 'asdasd',
+        status: 0
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);

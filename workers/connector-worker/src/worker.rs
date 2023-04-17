@@ -180,7 +180,7 @@ where
 		)
 		.await
 		.ok();
-
+	
 		loop {
 			let keys = self.kv.public_keys();
 			if !keys.is_empty() {

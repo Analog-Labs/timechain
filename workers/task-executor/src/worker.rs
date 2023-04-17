@@ -127,7 +127,7 @@ where
 	async fn process_tasks_for_block(
 		&self,
 		block_id: <B as Block>::Hash,
-		map: &mut HashMap<u64, String>,
+		map: &mut HashMap<u64, ()>,
 		config: &BlockchainConfig,
 		client: &Client,
 	) -> Result<(), Box<dyn std::error::Error>> {
@@ -136,9 +136,10 @@ where
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
+					let task_id = schedule_task.0;
 					let shard_id = schedule_task.1.shard_id;
 
-					match map.insert(schedule_task.0, ()) {
+					match map.get(&task_id) {
 						Some(old_value) =>
 							log::info!("The key already existed with the value {:?}", old_value),
 						None => {
@@ -150,46 +151,49 @@ where
 								.runtime
 								.runtime_api()
 								.get_task_metadat_by_key(block_id, schedule_task.1.task_id.0);
-							match metadata_result {
-								Ok(metadata) => {
-									if metadata.is_some() {
-										map.insert(task_id, "hash".to_string());
-									}
 
-									for task in metadata.iter() {
-										match &task.function {
-											// If the task function is an Ethereum contract call,
-											// call it and send for signing
-											Function::EthereumContractWithoutAbi {
-												address,
-												function_signature,
-												input: _,
-												output: _,
-											} => {
-												let _result =
-													Self::call_contract_and_send_for_sign(
-														self,
-														config,
-														client,
-														address.to_string(),
-														function_signature.to_string(),
-														shard_id,
-													)
-													.await;
-											},
-											_ => {
-												todo!()
-											},
-										};
-									}
-								},
-								Err(e) => {
-									log::warn!(
-										"Failed to get task metadata for block {:?} {:?}",
-										block_id,
-										e
-									);
-								},
+							if let Ok(metadata_result) = metadata_result {
+								match metadata_result {
+									Ok(metadata) => {
+										if metadata.is_some() {
+											map.insert(task_id, ());
+										}
+
+										for task in metadata.iter() {
+											match &task.function {
+												// If the task function is an Ethereum contract
+												// call, call it and send for signing
+												Function::EthereumContractWithoutAbi {
+													address,
+													function_signature,
+													input: _,
+													output: _,
+												} => {
+													let _result =
+														Self::call_contract_and_send_for_sign(
+															self,
+															config,
+															client,
+															address.to_string(),
+															function_signature.to_string(),
+															shard_id,
+														)
+														.await;
+												},
+												_ => {
+													todo!()
+												},
+											};
+										}
+									},
+									Err(e) => {
+										log::warn!(
+											"Failed to get task metadata for block {:?} {:?}",
+											block_id,
+											e
+										);
+									},
+								}
 							}
 						},
 					}
@@ -204,7 +208,7 @@ where
 	pub(crate) async fn run(&mut self) {
 		// Set the delay for the loop
 		let delay = time::Duration::from_secs(10);
-		let mut map: HashMap<u64, String> = HashMap::new();
+		let mut map: HashMap<u64, ()> = HashMap::new();
 
 		let connector_config = create_client(
 			self.connector_blockchain.clone(),

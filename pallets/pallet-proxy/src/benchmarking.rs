@@ -11,7 +11,7 @@ benchmarks! {
 		let origin: T::AccountId = whitelisted_caller();
 		let proxy_acc: T::AccountId = whitelisted_caller();
 		let input = ProxyAccInput {
-			max_token_usage: 10u32,
+			max_token_usage: Some(10u32),
 			token_usage: 10u32,
 			max_task_execution: Some(10u32),
 			task_executed: 10u32,
@@ -27,7 +27,7 @@ benchmarks! {
 		let origin: T::AccountId = whitelisted_caller();
 		let proxy_acc: T::AccountId = whitelisted_caller();
 		let input = ProxyAccInput {
-			max_token_usage: 10u32,
+			max_token_usage: Some(10u32),
 			token_usage: 10u32,
 			max_task_execution: Some(10u32),
 			task_executed: 10u32,
@@ -36,7 +36,7 @@ benchmarks! {
 
 		let data = ProxyAccStatus {
 			owner: origin.clone(),
-			max_token_usage: input.max_token_usage.saturated_into(),
+			max_token_usage: input.max_token_usage.as_ref().map(|&x| x.saturated_into()),
 			token_usage: input.token_usage.saturated_into(),
 			max_task_execution: input.max_task_execution,
 			task_executed: input.task_executed,
@@ -45,16 +45,26 @@ benchmarks! {
 		};
 		let _ = <ProxyStorage<T>>::insert(origin.clone(),data);
 
+		let output_expected = ProxyAccStatus {
+			owner: origin.clone(),
+			max_token_usage: input.max_token_usage.as_ref().map(|&x| x.saturated_into::<BalanceOf<T>>()),
+			token_usage: input.token_usage.saturated_into(),
+			max_task_execution: input.max_task_execution,
+			task_executed: input.task_executed,
+			status: ProxyStatus::Suspended,
+			proxy: input.proxy.clone(),
+		};
+
 	}: _(RawOrigin::Signed(origin.clone()), input.proxy, ProxyStatus::Suspended)
 	verify {
-		assert!( <ProxyStorage<T>>::get(origin).is_some());
+		assert_eq!( <ProxyStorage<T>>::get(origin).unwrap(), output_expected);
 	}
 
 	remove_proxy_account {
 		let origin: T::AccountId = whitelisted_caller();
 		let proxy_acc: T::AccountId = whitelisted_caller();
 		let input = ProxyAccInput {
-			max_token_usage: 10u32,
+			max_token_usage: Some(10u32),
 			token_usage: 10u32,
 			max_task_execution: Some(10u32),
 			task_executed: 10u32,
@@ -63,7 +73,7 @@ benchmarks! {
 
 		let data = ProxyAccStatus {
 			owner: origin.clone(),
-			max_token_usage: input.max_token_usage.saturated_into(),
+			max_token_usage: input.max_token_usage.as_ref().map(|&x| x.saturated_into()),
 			token_usage: input.token_usage.saturated_into(),
 			max_task_execution: input.max_task_execution,
 			task_executed: input.task_executed,
@@ -74,7 +84,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(origin.clone()), input.proxy)
 	verify {
-		assert!( <ProxyStorage<T>>::get(origin).is_some());
+		assert!( <ProxyStorage<T>>::get(origin).is_none());
 	}
 
 	impl_benchmark_test_suite!(PalletProxy, crate::mock::new_test_ext(), crate::mock::Test);

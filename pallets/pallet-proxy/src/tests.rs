@@ -8,7 +8,7 @@ fn test_proxy_account() {
 	new_test_ext().execute_with(|| {
 		let input = ProxyAccInput {
 			proxy: 1,
-			max_token_usage: 10,
+			max_token_usage: Some(10),
 			token_usage: 10,
 			max_task_execution: Some(100u32),
 			task_executed: 10,
@@ -17,7 +17,7 @@ fn test_proxy_account() {
 
 		let output = ProxyAccStatus {
 			owner: 1,
-			max_token_usage: 10,
+			max_token_usage: Some(10),
 			token_usage: 10,
 			max_task_execution: Some(100u32),
 			task_executed: 10,
@@ -29,7 +29,7 @@ fn test_proxy_account() {
 		// update Proxy
 		let expected_output = ProxyAccStatus {
 			owner: 1,
-			max_token_usage: 10,
+			max_token_usage: Some(10),
 			token_usage: 10,
 			max_task_execution: Some(100u32),
 			task_executed: 10,

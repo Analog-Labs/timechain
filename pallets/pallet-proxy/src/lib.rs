@@ -90,6 +90,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// already same valid proxy account.
 			let account_exit = self::ProxyStorage::<T>::get(&proxy_data.proxy);
+			let bal =
+				proxy_data.max_token_usage.as_ref().map(|&x| x.saturated_into::<BalanceOf<T>>());
+
 			match account_exit {
 				Some(_acc) => {
 					Self::deposit_event(Event::ProxyAlreadyExist(who));
@@ -99,7 +102,7 @@ pub mod pallet {
 						proxy_data.proxy.clone(),
 						ProxyAccStatus {
 							owner: who.clone(),
-							max_token_usage: proxy_data.max_token_usage.saturated_into(),
+							max_token_usage: bal,
 							token_usage: proxy_data.token_usage.saturated_into(),
 							max_task_execution: proxy_data.max_task_execution,
 							task_executed: proxy_data.task_executed,

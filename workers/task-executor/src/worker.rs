@@ -71,7 +71,6 @@ where
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 		let infura_url = std::env::var("INFURA_URL").expect("INFURA_URL must be set");
-
 		let websocket_result = web3::transports::WebSocket::new(&infura_url).await;
 		let websocket = match websocket_result {
 			Ok(websocket) => websocket,
@@ -97,7 +96,6 @@ where
 				H160::default()
 			},
 		};
-
 		// Create a new contract instance using the ABI and address
 		let contract = Contract::new(web3.eth(), contract_address, contract_abi);
 
@@ -122,57 +120,64 @@ where
 	async fn process_tasks_for_block(
 		&self,
 		block_id: <B as Block>::Hash,
-		map: &mut HashMap<u64, String>,
+		map: &mut HashMap<u64, ()>,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the task schedule for the current block
 		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
-					let task_id = schedule_task.1.task_id.0;
 					let shard_id = schedule_task.1.shard_id;
 
-					match map.insert(task_id, "hash".to_string()) {
+					match map.insert(schedule_task.0, ()) {
 						Some(old_value) =>
 							log::info!("The key already existed with the value {:?}", old_value),
 						None => {
-							log::info!("The key didn't exist and was inserted key {:?}.", task_id);
+							log::info!(
+								"The key didn't exist and was inserted key {:?}.",
+								schedule_task.0
+							);
 							let metadata_result = self
 								.runtime
 								.runtime_api()
-								.get_task_metadat_by_key(block_id, task_id)?;
-
+								.get_task_metadat_by_key(block_id, schedule_task.1.task_id.0);
 							match metadata_result {
 								Ok(metadata) => {
-									for task in metadata.iter() {
-										match &task.function {
-											// If the task function is an Ethereum contract call,
-											// call it and send for signing
-											Function::EthereumContract {
-												address,
-												abi,
-												function,
-												input: _,
-												output: _,
-											} => {
-												let _result =
-													Self::call_contract_and_send_for_sign(
-														self,
-														address.to_string(),
-														abi.to_string(),
-														function.to_string(),
-														shard_id,
-													)
-													.await;
-											},
-											Function::EthereumApi {
-												function: _,
-												input: _,
-												output: _,
-											} => {
-												todo!()
-											},
-										};
+									match metadata {
+										Ok(Some(task)) => {
+											match task.function {
+												// If the task function is an Ethereum contract
+												// call, call it and send for signing
+												Function::EthereumContract {
+													address,
+													abi,
+													function,
+													input: _,
+													output: _,
+												} => {
+													let _result =
+														Self::call_contract_and_send_for_sign(
+															self,
+															address.to_string(),
+															abi.to_string(),
+															function.to_string(),
+															shard_id,
+														)
+														.await;
+												},
+												Function::EthereumApi {
+													function: _,
+													input: _,
+													output: _,
+												} => {
+													todo!()
+												},
+											};
+										},
+										Ok(None) => {
+											log::info!("No task function found");
+										},
+										Err(_) => log::info!("No task metadata found"),
 									}
 								},
 								Err(e) => {
@@ -196,7 +201,7 @@ where
 	pub(crate) async fn run(&mut self) {
 		// Set the delay for the loop
 		let delay = time::Duration::from_secs(10);
-		let mut map: HashMap<u64, String> = HashMap::new();
+		let mut map: HashMap<u64, ()> = HashMap::new();
 		loop {
 			// Get the public keys from the Key-Value store to check key is set
 			let keys = self.kv.public_keys();

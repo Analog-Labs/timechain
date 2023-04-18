@@ -1062,6 +1062,12 @@ impl task_schedule::Config for Runtime {
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
 }
 
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_proxy::weights::WeightInfo<Runtime>;
+	type Currency = Balances;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1090,6 +1096,7 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
+		PalletProxy: pallet_proxy,
 		TaskMeta: task_metadata,
 		TaskSchedule: task_schedule,
 	}
@@ -1138,6 +1145,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, TaskSchedule]
 		[task_metadata, TaskMeta]
@@ -1388,6 +1396,7 @@ impl_runtime_apis! {
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, task_metadata, TaskMeta);
 			list_benchmark!(list, extra, task_schedule, TaskSchedule);
+			list_benchmark!(list, extra, pallet_proxy, PalletProxy);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
 			list_benchmarks!(list, extra);
 
@@ -1414,6 +1423,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 			add_benchmark!(params, batches, task_metadata, TaskMeta);
 			add_benchmark!(params, batches, task_schedule, TaskSchedule);
+			add_benchmark!(params, batches, pallet_proxy, PalletProxy);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
 			add_benchmarks!(params, batches);
 

@@ -23,6 +23,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
+		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		TaskMeta: task_metadata::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -54,9 +55,15 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl pallet_proxy::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
+	type Currency = ();
+}
 impl task_metadata::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_metadata::weights::WeightInfo<Test>;
+	type ProxyExtend = PalletProxy;
 }
 
 // Build genesis storage according to the mock runtime.

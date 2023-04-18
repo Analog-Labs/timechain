@@ -16,7 +16,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::SaturatedConversion;
-	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyStatus};
+	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyExtend, ProxyStatus};
 
 	pub type KeyId = u64;
 	pub(crate) type BalanceOf<T> =
@@ -38,6 +38,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Currency: Currency<Self::AccountId>;
+		// type ProxyExtend: crate::ProxyExtend<Self::AccountId>;
 	}
 
 	#[pallet::storage]
@@ -175,6 +176,16 @@ pub mod pallet {
 			let accounts = self::ProxyStorage::<T>::get(proxy);
 
 			Ok(accounts)
+		}
+	}
+
+	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
+		fn proxy_exist(proxy: T::AccountId) -> bool {
+			let account = self::ProxyStorage::<T>::get(proxy);
+			match account {
+				Some(_) => true,
+				None => false,
+			}
 		}
 	}
 }

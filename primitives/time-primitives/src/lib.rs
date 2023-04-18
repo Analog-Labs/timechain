@@ -137,6 +137,10 @@ pub struct ProxyAccInput<AccountId> {
 	pub task_executed: u32,
 }
 
+pub trait ProxyExtend<AccountId> {
+	fn proxy_exist(acc: AccountId) -> bool;
+}
+
 #[test]
 fn foreign_event_id_construction_test() {
 	assert_eq!(Into::<ForeignEventId>::into(0), ForeignEventId::from_bits(0, 0, 0, 0));

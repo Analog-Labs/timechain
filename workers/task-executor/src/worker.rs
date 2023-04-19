@@ -73,13 +73,12 @@ where
 		&self,
 		config: &BlockchainConfig,
 		client: &Client,
-		address: String,
-		function_signature: String,
+		method: String,
 		shard_id: u64,
+		schdule_task_id: u64,
+		map: &mut HashMap<u64, ()>,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-
-		let method = format!("{}-{}-call", address, function_signature);
 
 		let request = CallRequest {
 			network_identifier: config.network(),
@@ -107,13 +106,13 @@ where
 				.1
 				.collector() == &my_key
 			{
-				match self.sign_data_sender.lock().await.try_send((1, hash)) {
-					Ok(()) => {
-						log::info!("Connector successfully send event to channel")
-					},
-					Err(_) => {
-						log::info!("Connector failed to send event to channel")
-					},
+				let result = self.sign_data_sender.lock().await.try_send((shard_id, hash));
+
+				if result.is_ok() {
+					log::info!("Connector successfully send event to channel");
+					map.insert(schdule_task_id, ());
+				} else {
+					log::info!("Connector failed to send event to channel")
 				}
 			} else {
 				log::info!("shard not same");
@@ -136,66 +135,63 @@ where
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
-					let task_id = schedule_task.0;
 					let shard_id = schedule_task.1.shard_id;
 
-					match map.get(&task_id) {
-						Some(old_value) =>
-							log::info!("The key already existed with the value {:?}", old_value),
-						None => {
-							log::info!(
-								"The key didn't exist and was inserted key {:?}.",
-								schedule_task.0
-							);
-							let metadata_result = self
-								.runtime
-								.runtime_api()
-								.get_task_metadat_by_key(block_id, schedule_task.1.task_id.0);
+					if !map.contains_key(&schedule_task.0) {
+						let metadata_result = self
+							.runtime
+							.runtime_api()
+							.get_task_metadat_by_key(block_id, schedule_task.0);
 
-							if let Ok(metadata_result) = metadata_result {
-								match metadata_result {
-									Ok(metadata) => {
-										if metadata.is_some() {
-											map.insert(task_id, ());
-										}
-
-										for task in metadata.iter() {
-											match &task.function {
-												// If the task function is an Ethereum contract
-												// call, call it and send for signing
-												Function::EthereumContractWithoutAbi {
-													address,
-													function_signature,
-													input: _,
-													output: _,
-												} => {
-													let _result =
-														Self::call_contract_and_send_for_sign(
-															self,
-															config,
-															client,
-															address.to_string(),
-															function_signature.to_string(),
-															shard_id,
-														)
-														.await;
-												},
-												_ => {
-													todo!()
-												},
-											};
-										}
-									},
-									Err(e) => {
-										log::warn!(
-											"Failed to get task metadata for block {:?} {:?}",
-											block_id,
-											e
-										);
-									},
-								}
+						if let Ok(metadata_result) = metadata_result {
+							match metadata_result {
+								Ok(metadata) => {
+									for task in metadata.iter() {
+										match &task.function {
+											// If the task function is an Ethereum contract call,
+											// call it and send for signing
+											Function::EthereumContractWithoutAbi {
+												address,
+												function_signature,
+												input: _,
+												output: _,
+											} => {
+												let method = format!(
+													"{}-{}-call",
+													address, function_signature
+												);
+												let _result =
+													Self::call_contract_and_send_for_sign(
+														self,
+														config,
+														client,
+														method.to_string(),
+														shard_id,
+														schedule_task.0,
+														map,
+													)
+													.await;
+											},
+											_ => {
+												todo!()
+											},
+										};
+									}
+								},
+								Err(e) => {
+									log::warn!(
+										"Failed to get task metadata for block {:?} {:?}",
+										block_id,
+										e
+									);
+								},
 							}
-						},
+						}
+					} else {
+						log::info!(
+							"The key didn't exist and was inserted key {:?}.",
+							schedule_task.0
+						);
 					}
 				}
 			},

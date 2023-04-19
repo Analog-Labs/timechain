@@ -1,47 +1,58 @@
 #![allow(clippy::type_complexity)]
 use crate::WorkerParams;
 use bincode::serialize;
+use codec::Decode;
 use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
-use ink::env::hash;
 use log::warn;
 use rosetta_client::{
 	create_client,
 	types::{BlockRequest, PartialBlockIdentifier},
 	BlockchainConfig, Client,
 };
+use sc_client_api::Backend;
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
+use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
 use std::{error::Error, marker::PhantomData, sync::Arc};
+use time_primitives::TimeApi;
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct ConnectorWorker<B: Block, R> {
+pub struct ConnectorWorker<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
+	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	pub accountid: PhantomData<A>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
 }
 
-impl<B, R> ConnectorWorker<B, R>
+impl<B, A, R, BE> ConnectorWorker<B, A, R, BE>
 where
 	B: Block,
+	A: codec::Codec,
 	R: ProvideRuntimeApi<B>,
+	BE: Backend<B>,
+	R::Api: TimeApi<B, A>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, R>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
 		let WorkerParams {
 			runtime,
 			sign_data_sender,
 			kv,
+			backend,
 			_block,
+			accountid: _,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -51,7 +62,9 @@ where
 			runtime,
 			sign_data_sender,
 			kv,
+			backend,
 			_block: PhantomData,
+			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -59,9 +72,7 @@ where
 	}
 
 	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
-		let mut output = <hash::Keccak256 as hash::HashOutput>::Type::default();
-		ink::env::hash_bytes::<hash::Keccak256>(input, &mut output);
-		output
+		keccak_256(input)
 	}
 
 	pub fn get_swap_data_from_db() -> Vec<[u8; 32]> {
@@ -89,7 +100,7 @@ where
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
 
-		//TODO: get this from runtime of get from task_executor tbd
+		//TODO! take this from runtime
 		let contract_address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 
 		let network_status = client.network_status(config.network()).await?;
@@ -117,13 +128,36 @@ where
 					for log in filtered_receipt {
 						if let Ok(log_in_bytes) = serialize(&log) {
 							let hash = Self::hash_keccak_256(&log_in_bytes);
-							match self.sign_data_sender.lock().await.try_send((1, hash)) {
-								Ok(()) => {
-									log::info!("Connector successfully send event to channel")
-								},
-								Err(_) => {
-									log::info!("Connector failed to send event to channel")
-								},
+							// if this node is collector for given shard - we submit for siging
+							// TODO: change hardcoded 1 to actual shard id
+							// TODO: stabilize no unwraps and blind indexing!
+							let at = self.backend.blockchain().last_finalized().unwrap();
+							// let at = SpBlockId::Hash(at);
+							let my_key = time_primitives::TimeId::decode(
+								&mut self.kv.public_keys()[0].as_ref(),
+							)
+							.unwrap();
+							if self
+								.runtime
+								.runtime_api()
+								.get_shards(at)
+								.unwrap()
+								.into_iter()
+								.find(|(s, _)| *s == 1)
+								.unwrap()
+								.1
+								.collector() == &my_key
+							{
+								match self.sign_data_sender.lock().await.try_send((1, hash)) {
+									Ok(()) => {
+										log::info!("Connector successfully send event to channel")
+									},
+									Err(_) => {
+										log::info!("Connector failed to send event to channel")
+									},
+								}
+							} else {
+								log::info!("Failed to serialize log: {:?}", log);
 							}
 						} else {
 							log::info!("Failed to serialize log: {:?}", log);
@@ -160,22 +194,22 @@ where
 							Err(_) => warn!("sign_data_sender_clone err"),
 						}
 					}
-				}
 
-				// Get latest block event from Uniswap v2 and send it to time-worker
-				if let Some((config, client)) = &connector_config {
-					if let Err(e) = Self::get_latest_block_event(self, client, config).await {
+					// Get latest block event from Uniswap v2 and send it to time-worker
+					if let Some((config, client)) = &connector_config {
+						if let Err(e) = Self::get_latest_block_event(self, client, config).await {
+							log::error!(
+								"XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX"
+							);
+						}
+					} else {
 						log::error!(
-							"XXXXXXXX-Error occured while fetching block data {e:?}-XXXXXXXX"
-						);
-					}
-				} else {
-					log::error!(
 						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
 					);
-				}
+					}
 
-				tokio::time::sleep(delay).await;
+					tokio::time::sleep(delay).await;
+				}
 			}
 		}
 	}

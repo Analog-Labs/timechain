@@ -30,7 +30,7 @@ pub type KeyId = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi< AccountId>
+	pub trait TimeApi<AccountId>
 	where AccountId: Codec  {
 		#[allow(clippy::too_many_arguments)]
 		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, event_id: ForeignEventId);

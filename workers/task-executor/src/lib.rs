@@ -30,6 +30,9 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
+	pub connector_url: Option<String>,
+	pub connector_blockchain: Option<String>,
+	pub connector_network: Option<String>,
 }
 
 pub(crate) struct WorkerParams<B, A, R, BE> {
@@ -39,6 +42,9 @@ pub(crate) struct WorkerParams<B, A, R, BE> {
 	accountid: PhantomData<A>,
 	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
+	pub connector_url: Option<String>,
+	pub connector_blockchain: Option<String>,
+	pub connector_network: Option<String>,
 }
 
 /// Start the task Executor gadget.
@@ -61,6 +67,9 @@ pub async fn start_taskexecutor_gadget<B, A, R, BE>(
 		sign_data_sender,
 		_block,
 		accountid: _,
+		connector_url,
+		connector_blockchain,
+		connector_network,
 	} = taskexecutor_params;
 
 	let worker_params = WorkerParams {
@@ -70,6 +79,9 @@ pub async fn start_taskexecutor_gadget<B, A, R, BE>(
 		_block,
 		sign_data_sender,
 		accountid: PhantomData,
+		connector_url,
+		connector_blockchain,
+		connector_network,
 	};
 	let mut worker = worker::TaskExecutor::<_, _, _, _>::new(worker_params);
 	worker.run().await

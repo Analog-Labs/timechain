@@ -1,6 +1,6 @@
 use crate::{inherents::update_shared_group_key, traits::Client, worker::TimeWorker, TW_LOG};
 use borsh::{BorshDeserialize, BorshSerialize};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as BCTrait;
@@ -129,6 +129,7 @@ where
 								let mut other_peer_list = state.others_peer_id.clone();
 								let index =
 									get_participant_index(local_peer_id.clone(), &other_peer_list);
+
 								state.local_index = Some(index);
 
 								//collector node making participant and publishing
@@ -627,7 +628,14 @@ where
 
 								//finalize aggregator
 								let aggregator_finalized = match aggregator.finalize() {
-									Ok(aggregator_finalized) => aggregator_finalized,
+									Ok(aggregator_finalized) => {
+										info!(
+											target: TW_LOG,
+											"Aggregator finalized signature for {:?}",
+											&msg_req.msg_hash
+										);
+										aggregator_finalized
+									},
 									Err(e) => {
 										for (key, value) in e.into_iter() {
 											//These issues are from the aggregator side and not the
@@ -640,11 +648,16 @@ where
 
 								//aggregate aggregator
 								let threshold_signature = match aggregator_finalized.aggregate() {
-									Ok(threshold_signature) => threshold_signature,
+									Ok(threshold_signature) => {
+										info!(
+											target: TW_LOG,
+											"Aggregator aggregate signature for {:?}",
+											&msg_req.msg_hash
+										);
+										threshold_signature
+									},
 									Err(e) => {
 										for (key, value) in e.into_iter() {
-											//can also send the indices of participants to
-											// timechain to keep track of that
 											error!(
 												target: TW_LOG,
 												"Participant {} misbehaved because {}", key, value
@@ -741,7 +754,7 @@ where
 		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
 			if state.tss_process_state >= TSSLocalStateType::StateFinished {
 				if let Ok(threshold_signature) = VerifyThresholdSignatureReq::try_from_slice(data) {
-					if state.msg_pool.get(&threshold_signature.msg_hash).is_some() {
+					if state.msg_pool.contains_key(&threshold_signature.msg_hash) {
 						let finished_state = match state.local_finished_state.clone() {
 							Some(finished_state) => finished_state,
 							None => {
@@ -839,7 +852,7 @@ pub fn aggregator_event_sign(state: &mut TSSLocalStateData, msg_hash: [u8; 64]) 
 		},
 	};
 
-	if state.msg_pool.contains(&msg_hash) {
+	if state.msg_pool.contains_key(&msg_hash) {
 		//making partial signature here
 		let partial_signature = match final_state.1.sign(
 			&msg_hash,
@@ -891,41 +904,34 @@ pub fn handler_partial_signature_generate_req(
 					return None;
 				},
 			};
-
-			if state.msg_pool.get(&msg_req.msg_hash).is_some() {
-				//making partial signature here
-				let partial_signature = match final_state.1.sign(
-					&msg_req.msg_hash,
-					&final_state.0,
-					&mut my_commitment.1,
-					0,
-					&msg_req.signers,
-				) {
-					Ok(partial_signature) => partial_signature,
-					Err(e) => {
-						error!(target: TW_LOG, "error occured while signing: {:?}", e);
-						return None;
-					},
-				};
-
-				let gossip_data = ReceivePartialSignatureReq {
-					msg_hash: msg_req.msg_hash,
-					partial_sign: partial_signature,
-				};
-
-				//publish partial signature to network
-				return Some((
-					local_peer_id,
-					gossip_data,
-					TSSEventType::PartialSignatureReceived(shard_id),
-				));
-			} else {
-				warn!(
-					target: TW_LOG,
-					"data received for signing but not in local pool: {:?}", msg_req.msg_hash
-				);
-				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers);
+			if !state.msg_pool.contains_key(&msg_req.msg_hash) {
+				state.msgs_signature_pending.insert(msg_req.msg_hash, msg_req.signers.clone());
 			}
+			//making partial signature here
+			let partial_signature = match final_state.1.sign(
+				&msg_req.msg_hash,
+				&final_state.0,
+				&mut my_commitment.1,
+				0,
+				&msg_req.signers,
+			) {
+				Ok(partial_signature) => partial_signature,
+				Err(e) => {
+					error!(target: TW_LOG, "error occured while signing: {:?}", e);
+					return None;
+				},
+			};
+			let gossip_data = ReceivePartialSignatureReq {
+				msg_hash: msg_req.msg_hash,
+				partial_sign: partial_signature,
+			};
+
+			//publish partial signature to network
+			return Some((
+				local_peer_id,
+				gossip_data,
+				TSSEventType::PartialSignatureReceived(shard_id),
+			));
 		} else {
 			error!(target: TW_LOG, "Unable to deserialize PartialMessageSign");
 		}

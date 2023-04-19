@@ -2,6 +2,7 @@
 members = [
     "node",
     "pallets/tesseract-sig-storage",
+    "pallets/pallet-proxy",
     "runtime",
     "workers/task-executor",
     "workers/time-worker",

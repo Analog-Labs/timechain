@@ -6945,6 +6945,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-proxy"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec 3.4.0",
+ "scale-info",
+ "serde",
+ "sp-runtime 7.0.0",
+ "sp-std 5.0.0",
+ "time-primitives",
+]
+
+[[package]]
 name = "pallet-session"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.40#76fed9b9082daade5392663f25ed8968f8e8c11c"
@@ -13255,6 +13271,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-offences",
+ "pallet-proxy",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",

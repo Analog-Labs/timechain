@@ -172,8 +172,11 @@ where
 									} else {
 										log::info!("Failed to serialize log: {:?}", log);
 									}
-								}else{
-									log::error!(target: TW_LOG, "connector-worker no matching shard found");
+								} else {
+									log::error!(
+										target: TW_LOG,
+										"connector-worker no matching shard found"
+									);
 								}
 							} else {
 								log::error!(target: TW_LOG, "Failed to construct account");

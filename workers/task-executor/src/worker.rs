@@ -5,7 +5,11 @@ use codec::Decode;
 use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
-use rosetta_client::{create_client, types::CallRequest, BlockchainConfig, Client};
+use rosetta_client::{
+	create_client,
+	types::{CallRequest, CallResponse},
+	BlockchainConfig, Client,
+};
 use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
@@ -13,7 +17,10 @@ use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
 use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
-use time_primitives::{abstraction::Function, TimeApi};
+use time_primitives::{
+	abstraction::{Function, ScheduleStatus},
+	TimeApi,
+};
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time::sleep};
 
@@ -71,22 +78,13 @@ where
 
 	async fn call_contract_and_send_for_sign(
 		&self,
-		config: &BlockchainConfig,
-		client: &Client,
-		method: String,
+		block_id: <B as Block>::Hash,
+		data: CallResponse,
 		shard_id: u64,
 		schdule_task_id: u64,
 		map: &mut HashMap<u64, ()>,
 	) -> Result<(), Box<dyn Error>> {
 		dotenv().ok();
-
-		let request = CallRequest {
-			network_identifier: config.network(),
-			method,
-			parameters: json!({}),
-		};
-
-		let data = client.call(&request).await?;
 
 		if let Ok(task_in_bytes) = serialize(&data.result) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
@@ -111,8 +109,30 @@ where
 				if result.is_ok() {
 					log::info!("Connector successfully send event to channel");
 					map.insert(schdule_task_id, ());
+					match self
+						.runtime
+						.runtime_api()
+						.update_schedule_by_key(
+							block_id,
+							ScheduleStatus::Completed,
+							schdule_task_id,
+						)
+						.unwrap()
+					{
+						Ok(()) => log::info!("updated schedule status to completed"),
+						Err(e) => log::warn!("getting error on updating schedule status {:?}", e),
+					}
 				} else {
-					log::info!("Connector failed to send event to channel")
+					log::info!("Connector failed to send event to channel");
+					match self
+						.runtime
+						.runtime_api()
+						.update_schedule_by_key(block_id, ScheduleStatus::Canceled, schdule_task_id)
+						.unwrap()
+					{
+						Ok(()) => log::info!("updated schedule status to Canceled"),
+						Err(e) => log::warn!("getting error on updating schedule status {:?}", e),
+					}
 				}
 			} else {
 				log::info!("shard not same");
@@ -131,51 +151,64 @@ where
 		client: &Client,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the task schedule for the current block
-		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
+		let tasks_schedule: Result<
+			Vec<(u64, time_primitives::runtime_decl_for_time_api::TaskSchedule<A>)>,
+			sp_runtime::DispatchError,
+		> = self.runtime.runtime_api().get_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
 					let shard_id = schedule_task.1.shard_id;
-
 					if !map.contains_key(&schedule_task.0) {
 						let metadata_result = self
 							.runtime
 							.runtime_api()
 							.get_task_metadat_by_key(block_id, schedule_task.0);
-
 						if let Ok(metadata_result) = metadata_result {
 							match metadata_result {
 								Ok(metadata) => {
-									for task in metadata.iter() {
-										match &task.function {
-											// If the task function is an Ethereum contract call,
-											// call it and send for signing
-											Function::EthereumContractWithoutAbi {
-												address,
-												function_signature,
-												input: _,
-												output: _,
-											} => {
-												let method = format!(
-													"{}-{}-call",
-													address, function_signature
-												);
-												let _result =
-													Self::call_contract_and_send_for_sign(
-														self,
-														config,
-														client,
-														method.to_string(),
-														shard_id,
-														schedule_task.0,
-														map,
-													)
-													.await;
-											},
-											_ => {
-												todo!()
-											},
-										};
+									match metadata {
+										Some(task) => {
+											match &task.function {
+												// If the task function is an Ethereum contract
+												// call, call it and send for signing
+												Function::EthereumContractWithoutAbi {
+													address,
+													function_signature,
+													input: _,
+													output: _,
+												} => {
+													let method = format!(
+														"{}-{}-call",
+														address, function_signature
+													);
+													let request = CallRequest {
+														network_identifier: config.network(),
+														method,
+														parameters: json!({}),
+													};
+
+													let data = client.call(&request).await?;
+
+													let _result =
+														Self::call_contract_and_send_for_sign(
+															self,
+															block_id,
+															data,
+															shard_id,
+															schedule_task.0,
+															map,
+														)
+														.await;
+												},
+												_ => {
+													log::warn!("error on matching task function")
+												},
+											};
+										},
+										None => {
+											log::info!("error on getting task function")
+										},
 									}
 								},
 								Err(e) => {

@@ -1,5 +1,5 @@
 #![allow(clippy::type_complexity)]
-use crate::WorkerParams;
+use crate::{WorkerParams, TW_LOG};
 use bincode::serialize;
 use codec::Decode;
 use core::time;
@@ -18,7 +18,7 @@ use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Block;
 use std::{error::Error, marker::PhantomData, sync::Arc};
-use time_primitives::TimeApi;
+use time_primitives::{TimeApi, TimeId};
 use time_worker::kv::TimeKeyvault;
 use tokio::sync::Mutex;
 use worker_aurora::{self, establish_connection, get_on_chain_data};
@@ -68,6 +68,17 @@ where
 			connector_url,
 			connector_blockchain,
 			connector_network,
+		}
+	}
+
+	fn account_id(&self) -> Option<TimeId> {
+		let keys = self.kv.public_keys();
+		if keys.is_empty() {
+			log::warn!(target: TW_LOG, "No time key found, please inject one.");
+			None
+		} else {
+			let id = &keys[0];
+			TimeId::decode(&mut id.as_ref()).ok()
 		}
 	}
 
@@ -132,32 +143,40 @@ where
 							// TODO: change hardcoded 1 to actual shard id
 							// TODO: stabilize no unwraps and blind indexing!
 							let at = self.backend.blockchain().last_finalized().unwrap();
-							// let at = SpBlockId::Hash(at);
-							let my_key = time_primitives::TimeId::decode(
-								&mut self.kv.public_keys()[0].as_ref(),
-							)
-							.unwrap();
-							if self
-								.runtime
-								.runtime_api()
-								.get_shards(at)
-								.unwrap()
-								.into_iter()
-								.find(|(s, _)| *s == 1)
-								.unwrap()
-								.1
-								.collector() == &my_key
-							{
-								match self.sign_data_sender.lock().await.try_send((1, hash)) {
-									Ok(()) => {
-										log::info!("Connector successfully send event to channel")
-									},
-									Err(_) => {
-										log::info!("Connector failed to send event to channel")
-									},
+
+							if let Some(my_key) = self.account_id() {
+								let current_shard = self
+									.runtime
+									.runtime_api()
+									.get_shards(at)
+									.unwrap_or(vec![])
+									.into_iter()
+									//get this 1 as shard from runtime tbd later
+									.find(|(s, _)| *s == 1);
+
+								if let Some(shard) = current_shard {
+									if shard.1.collector() == &my_key {
+										match self.sign_data_sender.lock().await.try_send((1, hash))
+										{
+											Ok(()) => {
+												log::info!(
+													"Connector successfully send event to channel"
+												)
+											},
+											Err(_) => {
+												log::info!(
+													"Connector failed to send event to channel"
+												)
+											},
+										}
+									} else {
+										log::info!("Failed to serialize log: {:?}", log);
+									}
+								}else{
+									log::error!(target: TW_LOG, "connector-worker no matching shard found");
 								}
 							} else {
-								log::info!("Failed to serialize log: {:?}", log);
+								log::error!(target: TW_LOG, "Failed to construct account");
 							}
 						} else {
 							log::info!("Failed to serialize log: {:?}", log);

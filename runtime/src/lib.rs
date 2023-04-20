@@ -1397,6 +1397,7 @@ impl_runtime_apis! {
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, task_metadata, TaskMeta);
 			list_benchmark!(list, extra, task_schedule, TaskSchedule);
+			list_benchmark!(list, extra, pallet_proxy, PalletProxy);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
 			list_benchmarks!(list, extra);
 
@@ -1423,6 +1424,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 			add_benchmark!(params, batches, task_metadata, TaskMeta);
 			add_benchmark!(params, batches, task_schedule, TaskSchedule);
+			add_benchmark!(params, batches, pallet_proxy, PalletProxy);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
 			add_benchmarks!(params, batches);
 

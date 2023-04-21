@@ -142,7 +142,7 @@ pub mod pallet {
 			Ok(data)
 		}
 
-		fn _update_schedule_by_key(
+		pub fn update_schedule_by_key(
 			status: ScheduleStatus,
 			key: KeyId,
 		) -> Result<(), DispatchError> {

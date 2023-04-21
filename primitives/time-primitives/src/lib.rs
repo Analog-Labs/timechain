@@ -6,12 +6,14 @@ pub mod inherents;
 pub mod rpc;
 pub mod sharding;
 pub mod slashing;
+
+use abstraction::{ScheduleStatus, Task, TaskSchedule};
 use arrayref::array_ref;
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
-	MultiSignature,
+	DispatchError, MultiSignature,
 };
 use sp_std::{borrow::ToOwned, fmt::Debug, vec::Vec};
 /// Time key type
@@ -24,14 +26,20 @@ pub type SignatureData = [u8; 64];
 pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type TaskId = u64;
+pub type KeyId = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi {
+	pub trait TimeApi<AccountId>
+	where AccountId: Codec  {
 		#[allow(clippy::too_many_arguments)]
 		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, event_id: ForeignEventId);
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
+		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
+		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
 		fn report_misbehavior(shard_id: u64, offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
 	}
 }

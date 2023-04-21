@@ -1,5 +1,4 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
-import { stringToHex } from '@polkadot/util';
 import { Channel } from 'async-channel';
 import { dirname} from 'path';
 import { fileURLToPath } from 'url';
@@ -24,34 +23,28 @@ const pallet_task_add = async (_keyspair, who) => {
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        collection_id: 11,
-        schema:[1],
-        function:{ethereumcontract:{
-            address: stringToHex('0x82E75Add4823372C5448A71E76cef5C78ba5259E'),
-            abi: "[{\"inputs\":[],\"name\":\"sayHelloWorld\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-            function: "sayHelloWorld",
-            input: 2,
-            output: 2,
-        }},
-        with:['123','123'],
-        cycle:12,
-        validity:{Seconds:12},
-        hash:'asdasd'
+        task_id: 11,
+        owner: 'address',
+        shard_id: 1,
+        cycle: 12,
+        validity: { Seconds: 12 },
+        hash: 'asdasd',
+        status: 0
     }
     await api.isReady;
-    console.log("api.tx.task_meta ---> ", api.tx.taskMeta.insertTask);
+    console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);
     let input_2 = {...input_task, collection_id : 22};
     let input_3 = {...input_task, collection_id : 33};
-    const unsub = await api.tx.taskMeta.insertTask(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    const unsub = await api.tx.taskSchedule.insertSchedule(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
     setTimeout(async() => {
-        const unsub2 = await api.tx.taskMeta.insertTask(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+        const unsub2 = await api.tx.taskSchedule.insertSchedule(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
             console.log(`Current status is ${status}`);
         });
     },15000)
     setTimeout(async() => {
-        const unsub3 = await api.tx.taskMeta.insertTask(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+        const unsub3 = await api.tx.taskSchedule.insertSchedule(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
             console.log(`Current status is ${status}`);
         });
     },30000)

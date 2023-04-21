@@ -113,6 +113,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
 			let data_list = self::TaskMetaStorage::<T>::get(key);
+
 			match data_list {
 				Some(val) => Ok(Some(val)),
 				None => Ok(None),

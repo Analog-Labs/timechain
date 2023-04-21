@@ -29,13 +29,14 @@ use traits::Client;
 pub const TW_LOG: &str = "⌛time-worker";
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, C, R, BE, N, S>
+pub struct TimeWorkerParams<B: Block, A, C, R, BE, N, S>
 where
 	B: Block + 'static,
+	A: codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: TimeApi<B, A>,
 	N: GossipNetwork<B> + Clone + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
 {
@@ -45,33 +46,36 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
+	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	pub sync_service: Arc<S>,
 }
 
-pub(crate) struct WorkerParams<B: Block, C, R, BE> {
+pub(crate) struct WorkerParams<B: Block, A, C, R, BE> {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub kv: TimeKeyvault,
+	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, C, R, BE, N, S>(
-	timeworker_params: TimeWorkerParams<B, C, R, BE, N, S>,
+pub async fn start_timeworker_gadget<B, A, C, R, BE, N, S>(
+	timeworker_params: TimeWorkerParams<B, A, C, R, BE, N, S>,
 ) where
 	B: Block + 'static,
+	A: codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
-	S: GossipSyncing<B> + SyncOracle + 'static,
+	R::Api: TimeApi<B, A>,
 	N: GossipNetwork<B> + Clone + Send + Sync + 'static,
+	S: GossipSyncing<B> + SyncOracle + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
 	let TimeWorkerParams {
@@ -82,6 +86,7 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N, S>(
 		kv,
 		_block,
 		sign_data_receiver,
+		accountid: _,
 		sync_service,
 	} = timeworker_params;
 
@@ -102,7 +107,8 @@ pub async fn start_timeworker_gadget<B, C, R, BE, N, S>(
 		gossip_engine,
 		kv,
 		sign_data_receiver,
+		accountid: PhantomData,
 	};
-	let mut worker = worker::TimeWorker::<_, _, _, _>::new(worker_params);
+	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
 	worker.run().await
 }

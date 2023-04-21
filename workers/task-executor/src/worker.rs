@@ -116,55 +116,64 @@ where
 		if let Ok(task_in_bytes) = serialize(&data.result) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 
-			let at = self.backend.blockchain().last_finalized().unwrap();
+			let at = self.backend.blockchain().last_finalized();
+			match at {
+				Ok(at) =>
+					if let Some(my_key) = self.account_id() {
+						let current_shard = self
+							.runtime
+							.runtime_api()
+							.get_shards(at)
+							.unwrap_or(vec![])
+							.into_iter()
+							.find(|(s, _)| *s == shard_id);
 
-			if let Some(my_key) = self.account_id() {
-				let current_shard = self
-					.runtime
-					.runtime_api()
-					.get_shards(at)
-					.unwrap_or(vec![])
-					.into_iter()
-					.find(|(s, _)| *s == shard_id);
+						if let Some(shard) = current_shard {
+							if shard.1.collector() == &my_key {
+								let result =
+									self.sign_data_sender.lock().await.try_send((shard_id, hash));
+								if result.is_ok() {
+									log::info!("Connector successfully send event to channel");
+									map.insert(schdule_task_id, ());
 
-				if let Some(shard) = current_shard {
-					if shard.1.collector() == &my_key {
-						let result = self.sign_data_sender.lock().await.try_send((shard_id, hash));
-						if result.is_ok() {
-							log::info!("Connector successfully send event to channel");
-							map.insert(schdule_task_id, ());
-
-							match Self::update_task_schedule_status(
-								self,
-								block_id,
-								ScheduleStatus::Completed,
-								schdule_task_id,
-							) {
-								Ok(()) => log::info!("updated schedule status to completed"),
-								Err(e) =>
-									log::warn!("getting error on updating schedule status {:?}", e),
+									match Self::update_task_schedule_status(
+										self,
+										block_id,
+										ScheduleStatus::Completed,
+										schdule_task_id,
+									) {
+										Ok(()) =>
+											log::info!("updated schedule status to completed"),
+										Err(e) => log::warn!(
+											"getting error on updating schedule status {:?}",
+											e
+										),
+									}
+								} else {
+									log::info!("Connector failed to send event to channel");
+									match Self::update_task_schedule_status(
+										self,
+										block_id,
+										ScheduleStatus::Canceled,
+										schdule_task_id,
+									) {
+										Ok(()) => log::info!("updated schedule status to Canceled"),
+										Err(e) => log::warn!(
+											"getting error on updating schedule status {:?}",
+											e
+										),
+									}
+								}
+							} else {
+								log::info!("shard not same");
 							}
 						} else {
-							log::info!("Connector failed to send event to channel");
-							match Self::update_task_schedule_status(
-								self,
-								block_id,
-								ScheduleStatus::Canceled,
-								schdule_task_id,
-							) {
-								Ok(()) => log::info!("updated schedule status to Canceled"),
-								Err(e) =>
-									log::warn!("getting error on updating schedule status {:?}", e),
-							}
+							log::error!(target: TW_LOG, "task-executor no matching shard found");
 						}
 					} else {
-						log::info!("shard not same");
-					}
-				} else {
-					log::error!(target: TW_LOG, "task-executor no matching shard found");
-				}
-			} else {
-				log::error!(target: TW_LOG, "Failed to construct account");
+						log::error!(target: TW_LOG, "Failed to construct account");
+					},
+				Err(e) => log::warn!("error at getting last finalized block {:?}",e),
 			}
 		} else {
 			log::info!("Failed to serialize task: {:?}", data);
@@ -205,8 +214,7 @@ where
 													output: _,
 												} => {
 													let method = format!(
-														"{}-{}-call",
-														address, function_signature
+														"{address}-{function_signature}-call"
 													);
 													let request = CallRequest {
 														network_identifier: config.network(),

@@ -34,7 +34,7 @@ const pallet_task_add = async (_keyspair, who) => {
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        collection_id: 11,
+        collection_id: 1,
         schema:[1],
         function:{ethereumcontractwithoutabi:{
             address: stringToHex('0x678ea0447843f69805146c521afcbcc07d6e28a2'),

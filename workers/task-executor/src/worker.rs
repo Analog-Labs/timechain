@@ -1,5 +1,5 @@
 #![allow(clippy::type_complexity)]
-use crate::WorkerParams;
+use crate::{WorkerParams, TW_LOG};
 use bincode::serialize;
 use codec::Decode;
 use core::time;
@@ -15,11 +15,11 @@ use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
-use sp_runtime::traits::Block;
+use sp_runtime::{traits::Block, DispatchError};
 use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	TimeApi,
+	TimeApi, TimeId,
 };
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time::sleep};
@@ -72,8 +72,35 @@ where
 		}
 	}
 
+	fn account_id(&self) -> Option<TimeId> {
+		let keys = self.kv.public_keys();
+		if keys.is_empty() {
+			log::warn!(target: TW_LOG, "No time key found, please inject one.");
+			None
+		} else {
+			let id = &keys[0];
+			TimeId::decode(&mut id.as_ref()).ok()
+		}
+	}
+
 	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
 		keccak_256(input)
+	}
+
+	fn update_task_schedule_status(
+		&self,
+		block_id: <B as Block>::Hash,
+		status: ScheduleStatus,
+		schdule_task_id: u64,
+	) -> Result<(), DispatchError> {
+		match self
+			.runtime
+			.runtime_api()
+			.update_schedule_by_key(block_id, status, schdule_task_id)
+		{
+			Ok(update) => update,
+			Err(_) => Err(DispatchError::CannotLookup),
+		}
 	}
 
 	async fn call_contract_and_send_for_sign(
@@ -90,52 +117,54 @@ where
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 
 			let at = self.backend.blockchain().last_finalized().unwrap();
-			// let at = SpBlockId::Hash(at);
-			let my_key =
-				time_primitives::TimeId::decode(&mut self.kv.public_keys()[0].as_ref()).unwrap();
-			if self
-				.runtime
-				.runtime_api()
-				.get_shards(at)
-				.unwrap()
-				.into_iter()
-				.find(|(s, _)| *s == shard_id)
-				.unwrap()
-				.1
-				.collector() == &my_key
-			{
-				let result = self.sign_data_sender.lock().await.try_send((shard_id, hash));
 
-				if result.is_ok() {
-					log::info!("Connector successfully send event to channel");
-					map.insert(schdule_task_id, ());
-					match self
-						.runtime
-						.runtime_api()
-						.update_schedule_by_key(
-							block_id,
-							ScheduleStatus::Completed,
-							schdule_task_id,
-						)
-						.unwrap()
-					{
-						Ok(()) => log::info!("updated schedule status to completed"),
-						Err(e) => log::warn!("getting error on updating schedule status {:?}", e),
+			if let Some(my_key) = self.account_id() {
+				let current_shard = self
+					.runtime
+					.runtime_api()
+					.get_shards(at)
+					.unwrap_or(vec![])
+					.into_iter()
+					.find(|(s, _)| *s == shard_id);
+
+				if let Some(shard) = current_shard {
+					if shard.1.collector() == &my_key {
+						let result = self.sign_data_sender.lock().await.try_send((shard_id, hash));
+						if result.is_ok() {
+							log::info!("Connector successfully send event to channel");
+							map.insert(schdule_task_id, ());
+
+							match Self::update_task_schedule_status(
+								self,
+								block_id,
+								ScheduleStatus::Completed,
+								schdule_task_id,
+							) {
+								Ok(()) => log::info!("updated schedule status to completed"),
+								Err(e) =>
+									log::warn!("getting error on updating schedule status {:?}", e),
+							}
+						} else {
+							log::info!("Connector failed to send event to channel");
+							match Self::update_task_schedule_status(
+								self,
+								block_id,
+								ScheduleStatus::Canceled,
+								schdule_task_id,
+							) {
+								Ok(()) => log::info!("updated schedule status to Canceled"),
+								Err(e) =>
+									log::warn!("getting error on updating schedule status {:?}", e),
+							}
+						}
+					} else {
+						log::info!("shard not same");
 					}
 				} else {
-					log::info!("Connector failed to send event to channel");
-					match self
-						.runtime
-						.runtime_api()
-						.update_schedule_by_key(block_id, ScheduleStatus::Canceled, schdule_task_id)
-						.unwrap()
-					{
-						Ok(()) => log::info!("updated schedule status to Canceled"),
-						Err(e) => log::warn!("getting error on updating schedule status {:?}", e),
-					}
+					log::error!(target: TW_LOG, "task-executor no matching shard found");
 				}
 			} else {
-				log::info!("shard not same");
+				log::error!(target: TW_LOG, "Failed to construct account");
 			}
 		} else {
 			log::info!("Failed to serialize task: {:?}", data);
@@ -151,10 +180,7 @@ where
 		client: &Client,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the task schedule for the current block
-		let tasks_schedule: Result<
-			Vec<(u64, time_primitives::runtime_decl_for_time_api::TaskSchedule<A>)>,
-			sp_runtime::DispatchError,
-		> = self.runtime.runtime_api().get_task_schedule(block_id)?;
+		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
@@ -207,7 +233,18 @@ where
 											};
 										},
 										None => {
-											log::info!("error on getting task function")
+											log::info!("task schedule id have no metadata, Removing task from Schedule list");
+											match Self::update_task_schedule_status(
+												self,
+												block_id,
+												ScheduleStatus::Canceled,
+												schedule_task.0,
+											) {
+												Ok(()) => log::info!("updated schedule status to Canceled"),
+												Err(e) =>
+													log::warn!("getting error on updating schedule status {:?}", e),
+											}
+											//to-do Remove task from schedule list
 										},
 									}
 								},

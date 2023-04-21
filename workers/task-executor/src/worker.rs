@@ -91,7 +91,6 @@ where
 		dotenv().ok();
 
 		let method = format!("{address}-{function_signature}-call");
-
 		let request = CallRequest {
 			network_identifier: config.network(),
 			method,
@@ -99,7 +98,6 @@ where
 		};
 
 		let data = client.call(&request).await?;
-
 		if let Ok(task_in_bytes) = serialize(&data.result) {
 			let hash = Self::hash_keccak_256(&task_in_bytes);
 

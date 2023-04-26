@@ -353,11 +353,12 @@ pub fn new_full(
 		let time_params = time_worker::TimeWorkerParams {
 			runtime: client.clone(),
 			client: client.clone(),
-			backend,
+			backend: backend.clone(),
 			gossip_network: network,
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
+			accountid: PhantomData,
 			sync_service,
 		};
 
@@ -369,21 +370,39 @@ pub fn new_full(
 
 		//Injecting connector worker
 		let connector_params = connector_worker::ConnectorWorkerParams {
-			runtime: client,
+			runtime: client.clone(),
+			backend: backend.clone(),
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
 			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
-			connector_url,
-			connector_blockchain,
-			connector_network,
+			accountid: PhantomData,
+			connector_url: connector_url.clone(),
+			connector_blockchain: connector_blockchain.clone(),
+			connector_network: connector_network.clone(),
 		};
 
-		//if connector worker fails we want to keep node running
-		task_manager.spawn_handle().spawn_blocking(
+		task_manager.spawn_essential_handle().spawn_blocking(
 			"connector-worker",
 			None,
 			connector_worker::start_connectorworker_gadget(connector_params),
 		);
+
+		let taskexecutor_params = task_executor::TaskExecutorParams {
+			runtime: client,
+			backend,
+			kv: keystore.clone().into(),
+			_block: PhantomData::default(),
+			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			accountid: PhantomData,
+			connector_url,
+			connector_blockchain,
+			connector_network,
+		};
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"task-executor",
+			None,
+			task_executor::start_taskexecutor_gadget(taskexecutor_params),
+		)
 	}
 
 	network_starter.start_network();

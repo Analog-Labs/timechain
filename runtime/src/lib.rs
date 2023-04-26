@@ -1149,7 +1149,7 @@ mod benches {
 		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, TaskSchedule]
-		[task_metadata, TaskMeta]
+		[task_metadata, MetaDataBenchmarks::<Runtime>]
 
 	);
 }
@@ -1393,9 +1393,9 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use task_meta_bench::Pallet as MetaDataBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
-			list_benchmark!(list, extra, task_metadata, TaskMeta);
 			list_benchmark!(list, extra, task_schedule, TaskSchedule);
 			list_benchmark!(list, extra, pallet_proxy, PalletProxy);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
@@ -1413,16 +1413,17 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use task_meta_bench::Pallet as MetaDataBenchmarks;
 
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl baseline::Config for Runtime {}
+			impl task_meta_bench::Config for Runtime {}
 
 			use frame_support::traits::WhitelistedStorageKeys;
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			add_benchmark!(params, batches, task_metadata, TaskMeta);
 			add_benchmark!(params, batches, task_schedule, TaskSchedule);
 			add_benchmark!(params, batches, pallet_proxy, PalletProxy);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);

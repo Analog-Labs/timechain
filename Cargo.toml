@@ -13,7 +13,8 @@ members = [
     "tesseract/accounts",
     "tesseract/events",
     "pallets/task-metadata",
-    "pallets/task-schedule"
+    "pallets/task-schedule",
+    "pallets/task-metadata/task-meta-bench",
 ]
 
 [profile.release]

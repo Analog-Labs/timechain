@@ -1,7 +1,10 @@
 use super::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity};
+use time_primitives::{
+	abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity},
+	ProxyAccInput,
+};
 
 #[test]
 fn test_task() {
@@ -19,6 +22,16 @@ fn test_task() {
 			validity: Validity::Seconds(10),
 			hash: String::from("hash"),
 		};
+
+		let proxy_data = ProxyAccInput {
+			proxy: 1,
+			max_token_usage: Some(1),
+			token_usage: 1,
+			max_task_execution: Some(1),
+			task_executed: 1,
+		};
+
+		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(1).into(), proxy_data);
 		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(1).into(), input.clone(),));
 
 		assert_eq!(TaskMeta::get_task_metadata(1), Some(input));

@@ -7,8 +7,8 @@ pub mod weights;
 
 pub use pallet::*;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+// #[cfg(feature = "runtime-benchmarks")]
+// mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -39,12 +39,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_metadata)]
-	pub(super) type TaskMetaStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
+	pub type TaskMetaStorage<T: Config> = StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_collection_metadata)]
-	pub(super) type CollectionMeta<T: Config> =
+	pub type CollectionMeta<T: Config> =
 		StorageMap<_, Blake2_128Concat, String, Collection, OptionQuery>;
 
 	#[pallet::event]
@@ -61,7 +60,6 @@ pub mod pallet {
 
 		///Already exist case
 		ColAlreadyExist(String),
-
 	}
 
 	#[pallet::error]
@@ -80,7 +78,7 @@ pub mod pallet {
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(who);
-			// ensure!(resp, Error::<T>::NotProxyAccount);
+			ensure!(resp, Error::<T>::NotProxyAccount);
 			let data_list = self::TaskMetaStorage::<T>::get(task.collection_id.0);
 			match data_list {
 				Some(val) => {
@@ -89,7 +87,7 @@ pub mod pallet {
 				None => {
 					self::TaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
 					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
-				}
+				},
 			}
 
 			Ok(())

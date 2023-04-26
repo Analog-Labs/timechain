@@ -8,15 +8,15 @@ pub mod weights;
 
 pub use pallet::*;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
-	use time_primitives::abstraction::{ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule};
+	use time_primitives::{
+		abstraction::{ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule},
+		ProxyExtend,
+	};
 	pub type KeyId = u64;
 	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
@@ -32,11 +32,12 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type ProxyExtend: ProxyExtend<Self::AccountId>;
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
-	pub(super) type ScheduleStorage<T: Config> =
+	pub type ScheduleStorage<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
@@ -59,6 +60,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The signing account has no permission to do the operation.
 		NoPermission,
+		/// Not a valid submitter
+		NotProxyAccount,
 		/// Error getting schedule ref.
 		ErrorRef,
 	}
@@ -69,6 +72,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			ensure!(resp, Error::<T>::NotProxyAccount);
 			let last_key = self::LastKey::<T>::get();
 			let schedule_id = match last_key {
 				Some(val) => val + 1,
@@ -100,6 +105,8 @@ pub mod pallet {
 			key: KeyId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			ensure!(resp, Error::<T>::NotProxyAccount);
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				ensure!(details.owner == who, Error::<T>::NoPermission);

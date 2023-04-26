@@ -1,8 +1,11 @@
 use super::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::abstraction::{
-	ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
+use time_primitives::{
+	abstraction::{
+		ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
+	},
+	ProxyAccInput,
 };
 
 #[test]
@@ -15,6 +18,15 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 		};
+		let proxy_data = ProxyAccInput {
+			proxy: 1,
+			max_token_usage: Some(1),
+			token_usage: 1,
+			max_task_execution: Some(1),
+			task_executed: 1,
+		};
+
+		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(1).into(), proxy_data);
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(1).into(), input));
 
 		let output = ScheduleOut {

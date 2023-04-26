@@ -182,7 +182,7 @@ pub mod pallet {
 	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
 		fn proxy_exist(proxy: T::AccountId) -> bool {
 			let account = self::ProxyStorage::<T>::get(proxy);
-			
+
 			account.is_some()
 		}
 	}

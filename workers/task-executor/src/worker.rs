@@ -154,7 +154,7 @@ where
 									match Self::update_task_schedule_status(
 										self,
 										block_id,
-										ScheduleStatus::Canceled,
+										ScheduleStatus::Invalid,
 										schdule_task_id,
 									) {
 										Ok(()) => log::info!("updated schedule status to Canceled"),
@@ -173,7 +173,7 @@ where
 					} else {
 						log::error!(target: TW_LOG, "Failed to construct account");
 					},
-				Err(e) => log::warn!("error at getting last finalized block {:?}",e),
+				Err(e) => log::warn!("error at getting last finalized block {:?}", e),
 			}
 		} else {
 			log::info!("Failed to serialize task: {:?}", data);
@@ -245,7 +245,7 @@ where
 											match Self::update_task_schedule_status(
 												self,
 												block_id,
-												ScheduleStatus::Canceled,
+												ScheduleStatus::Invalid,
 												schedule_task.0,
 											) {
 												Ok(()) => log::info!("updated schedule status to Canceled"),

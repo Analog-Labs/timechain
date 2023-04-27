@@ -1,20 +1,24 @@
 [workspace]
 members = [
+    "connector",
     "node",
-    "pallets/tesseract-sig-storage",
     "pallets/pallet-proxy",
+    "pallets/task-metadata",
+    "pallets/task-schedule",
+    "pallets/tesseract-sig-storage",
+    "pallets/vesting",
+    "primitives/storage-primitives",
+    "primitives/time-primitives",
     "runtime",
+    "runtime/common",
+    "tesseract/accounts",
+    "tesseract/events",
+    "tesseract/tss",
+    "workers/connector-worker",
+    "workers/database",
     "workers/task-executor",
     "workers/time-worker",
     "workers/time-worker/rpc",
-    "workers/database",
-    "primitives/time-primitives",
-    "primitives/storage-primitives",
-    "tesseract/tss",
-    "tesseract/accounts",
-    "tesseract/events",
-    "pallets/task-metadata",
-    "pallets/task-schedule"
 ]
 
 [profile.release]

@@ -1,6 +1,7 @@
 #![allow(clippy::type_complexity)]
 use crate::{WorkerParams, TW_LOG};
 use bincode::serialize;
+use chrono::Utc;
 use codec::Decode;
 use core::time;
 use dotenvy::dotenv;
@@ -23,6 +24,7 @@ use time_primitives::{
 };
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time::sleep};
+use worker_aurora::{establish_connection, models::Feeds, write_data_to_db};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -110,7 +112,7 @@ where
 		shard_id: u64,
 		schdule_task_id: u64,
 		map: &mut HashMap<u64, ()>,
-	) -> Result<(), Box<dyn Error>> {
+	) -> Result<bool, Box<dyn Error>> {
 		dotenv().ok();
 
 		if let Ok(task_in_bytes) = serialize(&data.result) {
@@ -149,6 +151,7 @@ where
 											e
 										),
 									}
+									return Ok(true);
 								} else {
 									log::info!("Connector failed to send event to channel");
 									match Self::update_task_schedule_status(
@@ -173,12 +176,12 @@ where
 					} else {
 						log::error!(target: TW_LOG, "Failed to construct account");
 					},
-				Err(e) => log::warn!("error at getting last finalized block {:?}",e),
+				Err(e) => log::warn!("error at getting last finalized block {:?}", e),
 			}
 		} else {
 			log::info!("Failed to serialize task: {:?}", data);
 		}
-		Ok(())
+		Ok(false)
 	}
 
 	async fn process_tasks_for_block(
@@ -224,16 +227,45 @@ where
 
 													let data = client.call(&request).await?;
 
-													let _result =
-														Self::call_contract_and_send_for_sign(
-															self,
-															block_id,
-															data,
-															shard_id,
-															schedule_task.0,
-															map,
-														)
-														.await;
+													match Self::call_contract_and_send_for_sign(
+														self,
+														block_id,
+														data,
+														shard_id,
+														schedule_task.0,
+														map,
+													)
+													.await
+													{
+														Ok(true) => {
+															let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
+															let mut pg_conn = establish_connection(
+																Some(conn_url),
+															)
+															.unwrap();
+
+															let id:i64 = schedule_task.0.try_into().unwrap();
+															let hash = schedule_task.1.hash.to_owned();
+															let task =  b"some_task".to_vec();
+															let validity = 123;
+															let timestamp = Some(Utc::now().naive_utc());
+															let cycle = Some(schedule_task.1.cycle.try_into().unwrap());
+
+															let record = Feeds {
+																id,
+																hash,
+																task,
+																timestamp,
+																validity,
+																cycle,
+															};
+															write_data_to_db(&mut pg_conn, record);
+														},
+														Ok(false) => {
+															log::warn!("status not updated can't updated data into DB")
+														},
+														Err(_) => log::warn!("Error on call contract and send for sign"),
+													}
 												},
 												_ => {
 													log::warn!("error on matching task function")

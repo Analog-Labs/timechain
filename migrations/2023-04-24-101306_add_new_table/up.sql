@@ -1,20 +1,16 @@
-CREATE DATABASE timechain WITH OWNER = analog ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
-LIMIT
-    = -1 IS_TEMPLATE = False;
-
-CREATE TABLE chains (
-    chain_id serial PRIMARY KEY,
-    chain_name VARCHAR (20) NOT NULL,
-    chain_description VARCHAR (100) NOT NULL
+CREATE TABLE IF NOT EXISTS chains (
+	chain_id serial PRIMARY KEY,
+  	chain_name VARCHAR (20) NOT NULL,
+  	chain_description VARCHAR (100) NOT NULL 
 );
 
-CREATE TABLE task_metadata (
-    task_metadata_id serial PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS task_metadata (
+	task_metadata_id serial PRIMARY KEY,
     task_name VARCHAR (20) NOT NULL,
     task_description VARCHAR (100) NOT NULL
 );
 
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
     task_id serial PRIMARY KEY,
     chain_id INT,
     task_metadata_id INT,
@@ -25,14 +21,15 @@ CREATE TABLE tasks (
     FOREIGN KEY(task_metadata_id) REFERENCES task_metadata(task_metadata_id)
 );
 
-CREATE TABLE on_chain_data (
-    data_id serial PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS on_chain_data (
+	data_id serial PRIMARY KEY,
     task_id INT NOT NULL,
     block_number INT NOT NULL,
-    time_stamp VARCHAR (200) NOT NULL,
-    data_value VARCHAR (100) NOT NULL,
-    FOREIGN KEY(task_id) REFERENCES tasks(task_id)
+	time_stamp timestamp NOT NULL,
+	data_value VARCHAR (100) NOT NULL,
+	FOREIGN KEY(task_id) REFERENCES tasks(task_id)
 );
+
 
 CREATE SEQUENCE IF NOT EXISTS _object_id_ AS BIGINT MINVALUE 100;
 
@@ -65,3 +62,17 @@ CREATE TABLE IF NOT EXISTS _ql_ (
     name TEXT PRIMARY KEY,
     elements TEXT
 );
+
+INSERT INTO chains (chain_name, chain_description) VALUES ('Ethereum', 'Ethereum main net');
+
+INSERT INTO chains (chain_name, chain_description) VALUES ('Cosmos', 'Cosmos main net');
+
+INSERT INTO chains (chain_name, chain_description) VALUES ('Polkadot', 'Polkadot main net');
+
+INSERT INTO chains (chain_name, chain_description) VALUES ('Timechain', 'Timechain main net');
+
+INSERT INTO chains (chain_name, chain_description) VALUES ('Polygon', 'Polygon network');
+
+INSERT INTO task_metadata(task_name, task_description) VALUES ('swap_price', 'get the swap price from one token to other');
+
+INSERT INTO the_last_cycle(id, cycle, updated) VALUES(0,0,NOW()) ON CONFLICT(id) DO NOTHING;

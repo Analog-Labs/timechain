@@ -1061,10 +1061,22 @@ impl task_metadata::Config for Runtime {
 	type ProxyExtend = PalletProxy;
 }
 
+
+pub struct CurrentPalletAccounts;
+impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
+	// type AccountId = AccountId;
+
+	fn get_treasury() -> AccountId {
+		Treasury::account_id()
+	}
+}
+
 impl task_schedule::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
 	type ProxyExtend = PalletProxy;
+	type Currency = Balances;
+	type PalletAccounts = CurrentPalletAccounts;
 }
 
 impl pallet_proxy::Config for Runtime {

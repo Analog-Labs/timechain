@@ -74,9 +74,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The signing account has no permission to do the operation.
 		NoPermission,
-
 		/// Error getting schedule ref.
 		ErrorRef,
+		/// allowed token usage exceed.
+		TokenUsageExceed,
 	}
 
 	#[pallet::call]
@@ -184,6 +185,32 @@ pub mod pallet {
 			let account = self::ProxyStorage::<T>::get(proxy);
 
 			account.is_some()
+		}
+
+		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
+			let res = self::ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
+				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				let max_token_allowed = details.max_token_usage;
+
+				match max_token_allowed {
+					Some(max_allowed) => {
+						let usage = details.token_usage.saturated_into::<u32>();
+						let val = usage.saturating_add(balance_val);
+						let allowd_usage = max_allowed.saturated_into::<u32>();
+						ensure!(val.le(&allowd_usage), Error::<T>::TokenUsageExceed);
+						details.token_usage = val.saturated_into();
+					},
+					None => {
+						let usage = details.token_usage.saturated_into::<u32>();
+						let val = usage.saturating_add(balance_val);
+						details.token_usage = val.saturated_into();
+					},
+				}
+
+				Ok(())
+			});
+
+			res.is_ok()
 		}
 	}
 }

@@ -147,6 +147,13 @@ pub struct ProxyAccInput<AccountId> {
 
 pub trait ProxyExtend<AccountId> {
 	fn proxy_exist(acc: AccountId) -> bool;
+
+	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
+}
+
+pub trait PalletAccounts<AccountId> {
+	// type AccountId: AccountId;
+	fn get_treasury() -> AccountId;
 }
 
 #[test]

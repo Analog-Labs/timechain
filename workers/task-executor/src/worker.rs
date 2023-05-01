@@ -248,7 +248,7 @@ where
 												ScheduleStatus::Invalid,
 												schedule_task.0,
 											) {
-												Ok(()) => log::info!("updated schedule status to Canceled"),
+												Ok(()) => log::info!("The schedule status has been updated to Invalid"),
 												Err(e) =>
 													log::warn!("getting error on updating schedule status {:?}", e),
 											}

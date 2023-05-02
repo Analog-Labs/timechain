@@ -139,11 +139,6 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		// pub fn treasury_account() -> T::AccountId {
-		// 	T::TreasuryId
-		// 	// pallet_treasury::Pallet::<T>::account_id()
-		// }
-
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)

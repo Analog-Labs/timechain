@@ -38,7 +38,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Currency: Currency<Self::AccountId>;
-		// type ProxyExtend: crate::ProxyExtend<Self::AccountId>;
 	}
 
 	#[pallet::storage]

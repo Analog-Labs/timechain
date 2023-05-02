@@ -1064,7 +1064,6 @@ impl task_metadata::Config for Runtime {
 
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-	// type AccountId = AccountId;
 
 	fn get_treasury() -> AccountId {
 		Treasury::account_id()
@@ -1429,7 +1428,6 @@ impl_runtime_apis! {
 			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
-			// list_benchmark!(list, extra, task_schedule, TaskSchedule);
 			list_benchmark!(list, extra, pallet_proxy, PalletProxy);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
 			list_benchmarks!(list, extra);

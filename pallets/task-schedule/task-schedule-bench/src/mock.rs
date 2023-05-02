@@ -134,8 +134,6 @@ impl pallet_treasury::Config for Test {
 }
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<u128> for CurrentPalletAccounts {
-	// type AccountId = AccountId;
-
 	fn get_treasury() -> u128 {
 		Treasury::account_id()
 	}

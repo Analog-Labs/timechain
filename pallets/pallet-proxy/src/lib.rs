@@ -188,6 +188,14 @@ pub mod pallet {
 
 			account.is_some()
 		}
+		fn get_master_account(proxy: T::AccountId) -> Option<T::AccountId> {
+			let account = self::ProxyStorage::<T>::get(proxy);
+
+			match account {
+				Some(acc) => Some(acc.owner),
+				None => None,
+			}
+		}
 
 		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
 			let mut exceed_flg = false;

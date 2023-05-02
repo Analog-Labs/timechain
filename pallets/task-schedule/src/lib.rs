@@ -90,7 +90,8 @@ pub mod pallet {
 
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
-			let res = T::Currency::transfer(&who, &treasury, fix_fee.into(), KeepAlive);
+			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
+			let res = T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
 
 			ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
 

@@ -148,7 +148,7 @@ pub struct ProxyAccInput<AccountId> {
 
 pub trait ProxyExtend<AccountId> {
 	fn proxy_exist(acc: AccountId) -> bool;
-
+	fn get_master_account(acc: AccountId) -> Option<AccountId>;
 	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
 }
 

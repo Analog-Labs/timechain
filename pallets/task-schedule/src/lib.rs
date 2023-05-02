@@ -39,6 +39,7 @@ pub mod pallet {
 		type ProxyExtend: ProxyExtend<Self::AccountId>;
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
+		type ScheduleFee: Get<u32>;
 	}
 
 	#[pallet::storage]

@@ -1016,6 +1016,7 @@ parameter_types! {
 	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
+	pub const ScheduleFee: u32 = 1;
 }
 
 pub struct SubstrateBlockNumberProvider;
@@ -1076,6 +1077,7 @@ impl task_schedule::Config for Runtime {
 	type ProxyExtend = PalletProxy;
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
+	type ScheduleFee = ScheduleFee;
 }
 
 impl pallet_proxy::Config for Runtime {

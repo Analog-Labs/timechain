@@ -26,8 +26,7 @@ fn test_schedule() {
 			task_executed: 1,
 		};
 		let account = 1;
-		let _ =
-			PalletProxy::set_proxy_account(RawOrigin::Signed(account.clone()).into(), proxy_data);
+		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(account).into(), proxy_data);
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account).into(), input));
 
 		let output = ScheduleOut {

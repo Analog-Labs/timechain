@@ -87,6 +87,7 @@ pub enum ScheduleStatus {
 	Initiated,
 	Updated,
 	Completed,
+	Invalid,
 	Canceled,
 }
 

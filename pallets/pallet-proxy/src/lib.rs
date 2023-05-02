@@ -218,11 +218,10 @@ pub mod pallet {
 
 				Ok(())
 			});
-			let result = match exceed_flg {
+			match exceed_flg {
 				true => false,
 				false => res.is_ok(),
-			};
-			result
+			}
 		}
 	}
 }

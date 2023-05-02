@@ -67,6 +67,9 @@ pub mod pallet {
 
 		///Proxy account removed
 		ProxyRemoved(T::AccountId),
+
+		/// allowed token usage exceed.
+		TokenUsageExceed(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -187,6 +190,7 @@ pub mod pallet {
 		}
 
 		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
+			let mut exceed_flg = false;
 			let res = self::ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				let max_token_allowed = details.max_token_usage;
@@ -196,8 +200,14 @@ pub mod pallet {
 						let usage = details.token_usage.saturated_into::<u32>();
 						let val = usage.saturating_add(balance_val);
 						let allowd_usage = max_allowed.saturated_into::<u32>();
-						ensure!(val.le(&allowd_usage), Error::<T>::TokenUsageExceed);
-						details.token_usage = val.saturated_into();
+						let status = val.le(&allowd_usage);
+						if !status {
+							details.status = ProxyStatus::TokenLimitExceed;
+							exceed_flg = true;
+							Self::deposit_event(Event::TokenUsageExceed(details.proxy.clone()));
+						} else {
+							details.token_usage = val.saturated_into();
+						}
 					},
 					None => {
 						let usage = details.token_usage.saturated_into::<u32>();
@@ -208,8 +218,11 @@ pub mod pallet {
 
 				Ok(())
 			});
-
-			res.is_ok()
+			let result = match exceed_flg {
+				true => false,
+				false => res.is_ok(),
+			};
+			result
 		}
 	}
 }

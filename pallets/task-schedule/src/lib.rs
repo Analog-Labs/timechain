@@ -83,7 +83,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let fix_fee = 1u32;
+			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(who.clone());
 			ensure!(resp, Error::<T>::NotProxyAccount);
 			let treasury = T::PalletAccounts::get_treasury();

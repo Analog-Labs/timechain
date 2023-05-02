@@ -123,6 +123,7 @@ pub enum ProxyStatus {
 	Valid,
 	Suspended,
 	Invalid,
+	TokenLimitExceed,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

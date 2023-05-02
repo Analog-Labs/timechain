@@ -1,0 +1,15 @@
+{
+  "name": "timechain-metadata-md",
+  "version": "0.0.1",
+  "engine-strict": true,
+  "engines": {
+    "node": ">=18.14"
+  },
+  "private": true,
+  "scripts": {
+    "export": "yarn polkadot-types-internal-metadata --chain Timechain --endpoint ws://127.0.0.1:9944"
+  },
+  "devDependencies": {
+    "@polkadot/typegen": "10.9.1"
+  }
+}

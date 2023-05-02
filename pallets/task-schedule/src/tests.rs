@@ -28,7 +28,7 @@ fn test_schedule() {
 		let account = 1;
 		let _ =
 			PalletProxy::set_proxy_account(RawOrigin::Signed(account.clone()).into(), proxy_data);
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account).into(), input));
 
 		let output = ScheduleOut {
 			task_id: ObjectId(1),
@@ -42,14 +42,14 @@ fn test_schedule() {
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output));
 		// update schedule
 		assert_ok!(TaskSchedule::update_schedule(
-			RawOrigin::Signed(account.clone()).into(),
+			RawOrigin::Signed(account).into(),
 			ScheduleStatus::Completed,
 			1
 		));
 
 		let output_update = ScheduleOut {
 			task_id: ObjectId(1),
-			owner: account.clone(),
+			owner: account,
 			shard_id: 1,
 			cycle: 12,
 			validity: Validity::Seconds(10),
@@ -58,7 +58,7 @@ fn test_schedule() {
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output_update));
 		// check update token usage
-		let proxy_acc = PalletProxy::get_proxy_acc(account.clone()).unwrap();
+		let proxy_acc = PalletProxy::get_proxy_acc(account).unwrap();
 		match proxy_acc {
 			Some(acc) => {
 				let token_usage = 2;

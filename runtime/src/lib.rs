@@ -1059,7 +1059,7 @@ impl pallet_treasury::Config for Runtime {
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
-	type ProxyExtend = PalletProxy;
+	type ProxyExtend = ();
 }
 
 
@@ -1074,7 +1074,7 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 impl task_schedule::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
-	type ProxyExtend = PalletProxy;
+	type ProxyExtend = ();
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;

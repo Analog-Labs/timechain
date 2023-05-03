@@ -152,6 +152,12 @@ pub trait ProxyExtend<AccountId> {
 	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
 }
 
+impl<AccountId> ProxyExtend<AccountId> for () {
+	fn proxy_exist(_acc: AccountId) -> bool {true}
+	fn get_master_account(acc: AccountId) -> Option<AccountId> {Some(acc)}
+	fn proxy_update_token_used(_acc: AccountId, _amount: u32) -> bool {true}
+}
+
 pub trait PalletAccounts<AccountId> {
 	// type AccountId: AccountId;
 	fn get_treasury() -> AccountId;

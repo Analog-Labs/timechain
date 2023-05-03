@@ -207,8 +207,8 @@ pub mod pallet {
 					Some(max_allowed) => {
 						let usage = details.token_usage.saturated_into::<u32>();
 						let val = usage.saturating_add(balance_val);
-						let allowd_usage = max_allowed.saturated_into::<u32>();
-						let status = val.le(&allowd_usage);
+						let allowed_usage = max_allowed.saturated_into::<u32>();
+						let status = val.le(&allowed_usage);
 						if !status {
 							details.status = ProxyStatus::TokenLimitExceed;
 							exceed_flg = true;

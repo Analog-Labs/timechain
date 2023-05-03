@@ -97,7 +97,7 @@ pub mod pallet {
 
 			let last_key = self::LastKey::<T>::get();
 			let schedule_id = match last_key {
-				Some(val) => val + 1,
+				Some(val) => val.saturating_add(1),
 				None => 1,
 			};
 			self::LastKey::<T>::put(schedule_id);

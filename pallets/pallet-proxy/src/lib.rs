@@ -203,10 +203,11 @@ pub mod pallet {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				let max_token_allowed = details.max_token_usage;
 
+				let usage = details.token_usage.saturated_into::<u32>();
+				let val = usage.saturating_add(balance_val);
+
 				match max_token_allowed {
 					Some(max_allowed) => {
-						let usage = details.token_usage.saturated_into::<u32>();
-						let val = usage.saturating_add(balance_val);
 						let allowed_usage = max_allowed.saturated_into::<u32>();
 						let status = val.le(&allowed_usage);
 						if !status {
@@ -218,8 +219,6 @@ pub mod pallet {
 						}
 					},
 					None => {
-						let usage = details.token_usage.saturated_into::<u32>();
-						let val = usage.saturating_add(balance_val);
 						details.token_usage = val.saturated_into();
 					},
 				}

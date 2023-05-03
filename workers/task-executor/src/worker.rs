@@ -246,14 +246,22 @@ where
 
 															let id:i64 = schedule_task.0.try_into().unwrap();
 															let hash = schedule_task.1.hash.to_owned();
-															let task =  b"some_task".to_vec();
+															let value = match serde_json::to_value(task.clone()){
+																Ok(value) => value,
+																Err(e) => {
+																	log::warn!("Error serializing task: {:?}", e);
+																	serde_json::Value::Null
+																}
+															};
+															
+															let task = value.to_string().as_bytes().to_vec();
 															let validity = 123;
 															let timestamp = Some(Utc::now().naive_utc());
-															let cycle = Some(schedule_task.1.cycle.try_into().unwrap());
+															  let cycle = Some(schedule_task.1.cycle.try_into().unwrap());
 
 															let record = Feeds {
 																id,
-																hash,
+									 							hash,
 																task,
 																timestamp,
 																validity,

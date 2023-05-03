@@ -253,11 +253,10 @@ where
 																	serde_json::Value::Null
 																}
 															};
-															
 															let task = value.to_string().as_bytes().to_vec();
 															let validity = 123;
 															let timestamp = Some(Utc::now().naive_utc());
-															  let cycle = Some(schedule_task.1.cycle.try_into().unwrap());
+															let cycle = Some(schedule_task.1.cycle.try_into().unwrap());
 
 															let record = Feeds {
 																id,

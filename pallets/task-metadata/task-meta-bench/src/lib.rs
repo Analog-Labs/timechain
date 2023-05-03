@@ -46,13 +46,9 @@ benchmarks! {
 		};
 
 		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), proxy_data);
-		// let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(origin), proxy_data);
 	}: _(RawOrigin::Signed(origin), task_data)
 	verify {
-		// TaskMeta::Pallet::TaskMetaStorage
 		assert!(task_metadata::TaskMetaStorage::<T>::get(1).is_some());
-		// assert!(TaskMeta::TaskMetaStorage::<T>::get(1).is_some());/
-		// assert!( <TaskMeta<T>::Pallet::TaskMetaStorage<T>>::get(1).is_some());
 	}
 
 	insert_collection {

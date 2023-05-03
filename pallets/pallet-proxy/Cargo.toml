@@ -22,7 +22,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 time-primitives = { path = "../../primitives/time-primitives", default-features = false }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-log = "0.4.0"
+
 [features]
 default = ["std"]
 std = [

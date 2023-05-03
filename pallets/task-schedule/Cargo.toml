@@ -34,6 +34,7 @@ std = [
   "codec/std",
   "sp-runtime/std",
   "scale-info/std",
+  "time-primitives/std",
 ]
 
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks",  "pallet-proxy/runtime-benchmarks"]

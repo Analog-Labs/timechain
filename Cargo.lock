@@ -259,9 +259,9 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6342bd4f5a1205d7f41e94a41a901f5647c938cdfa96036338e8533c9d6c2450"
+checksum = "0ca84f3628370c59db74ee214b3263d58f9aadd9b4fe7e711fd87dc452b7f163"
 dependencies = [
  "anstyle",
  "anstyle-parse",
@@ -656,9 +656,9 @@ dependencies = [
 
 [[package]]
 name = "auto_impl"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a8c1df849285fbacd587de7818cc7d13be6cd2cbcd47a04fb1801b0e2706e33"
+checksum = "fee3da8ef1276b0bee5dd1c7258010d8fffd31801447323115a25560e1327b89"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -12953,12 +12953,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-meta-bench"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-proxy",
+ "parity-scale-codec 3.4.0",
+ "scale-info",
+ "serde",
+ "sp-runtime 7.0.0",
+ "sp-std 5.0.0",
+ "task-metadata",
+ "time-primitives",
+]
+
+[[package]]
 name = "task-metadata"
 version = "0.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-proxy",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "serde",
@@ -12974,11 +12992,33 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
+ "pallet-proxy",
+ "pallet-treasury",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "serde",
  "sp-runtime 7.0.0",
  "sp-std 5.0.0",
+ "time-primitives",
+]
+
+[[package]]
+name = "task-schedule-bench"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-proxy",
+ "pallet-treasury",
+ "parity-scale-codec 3.4.0",
+ "scale-info",
+ "serde",
+ "sp-runtime 7.0.0",
+ "sp-std 5.0.0",
+ "task-schedule",
  "time-primitives",
 ]
 
@@ -13400,8 +13440,10 @@ dependencies = [
  "sp-version 5.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.40)",
  "storage-primitives",
  "substrate-wasm-builder",
+ "task-meta-bench",
  "task-metadata",
  "task-schedule",
+ "task-schedule-bench",
  "time-primitives",
 ]
 

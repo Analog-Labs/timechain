@@ -165,7 +165,6 @@ impl<AccountId> ProxyExtend<AccountId> for () {
 }
 
 pub trait PalletAccounts<AccountId> {
-	// type AccountId: AccountId;
 	fn get_treasury() -> AccountId;
 }
 

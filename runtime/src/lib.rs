@@ -1459,7 +1459,6 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			// add_benchmark!(params, batches, task_schedule, TaskSchedule);
 			add_benchmark!(params, batches, pallet_proxy, PalletProxy);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
 			add_benchmarks!(params, batches);

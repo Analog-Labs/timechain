@@ -1016,6 +1016,7 @@ parameter_types! {
 	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
+	pub const ScheduleFee: u32 = 1;
 }
 
 pub struct SubstrateBlockNumberProvider;
@@ -1058,11 +1059,25 @@ impl pallet_treasury::Config for Runtime {
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
+	type ProxyExtend = ();
+}
+
+
+pub struct CurrentPalletAccounts;
+impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
+
+	fn get_treasury() -> AccountId {
+		Treasury::account_id()
+	}
 }
 
 impl task_schedule::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
+	type ProxyExtend = ();
+	type Currency = Balances;
+	type PalletAccounts = CurrentPalletAccounts;
+	type ScheduleFee = ScheduleFee;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1150,9 +1165,8 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
-		[task_schedule, TaskSchedule]
-		[task_metadata, TaskMeta]
-
+		[task_schedule, ScheduleBenchmarks::<Runtime>]
+		[task_metadata, MetaDataBenchmarks::<Runtime>]
 	);
 }
 
@@ -1412,10 +1426,10 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use task_meta_bench::Pallet as MetaDataBenchmarks;
+			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
-			list_benchmark!(list, extra, task_metadata, TaskMeta);
-			list_benchmark!(list, extra, task_schedule, TaskSchedule);
 			list_benchmark!(list, extra, pallet_proxy, PalletProxy);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
 			list_benchmarks!(list, extra);
@@ -1432,17 +1446,19 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use task_meta_bench::Pallet as MetaDataBenchmarks;
+			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl baseline::Config for Runtime {}
+			impl task_meta_bench::Config for Runtime {}
+			impl task_schedule_bench::Config for Runtime {}
 
 			use frame_support::traits::WhitelistedStorageKeys;
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			add_benchmark!(params, batches, task_metadata, TaskMeta);
-			add_benchmark!(params, batches, task_schedule, TaskSchedule);
 			add_benchmark!(params, batches, pallet_proxy, PalletProxy);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
 			add_benchmarks!(params, batches);

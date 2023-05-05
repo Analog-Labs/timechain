@@ -1,21 +1,26 @@
-use crate::{self as task_schedule};
+use crate::{self as task_schedule, tests};
 use frame_support::{
 	sp_io,
-	traits::{ConstU16, ConstU32, ConstU64},
+	traits::{ConstU128, ConstU16, ConstU32, ConstU64},
 	PalletId,
 };
 use frame_system as system;
+use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use sp_core::H256;
 use sp_runtime::{
 	app_crypto::sp_core,
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	Permill,
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	BuildStorage, MultiSignature, Perbill, Permill,
 };
 /// An index to a block.
 pub type BlockNumber = u32;
 /// Change this to adjust the block time.
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
+
+// NOTE: Currently it is not possible to change the slot duration after the chain has started.
+//       Attempting to do so will brick block production.
+pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 // Time is measured by number of blocks.
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
@@ -30,6 +35,14 @@ pub type Balance = u128;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+pub type Signature = MultiSignature;
+
+/// Some way of identifying an account on the chain. We intentionally make it equivalent
+/// to the public key of our transaction signing scheme.
+// pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// Existential deposit.
+pub const EXISTENTIAL_DEPOSIT: u128 = 500;
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -53,7 +66,6 @@ frame_support::parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 	pub const MaxBalance: Balance = Balance::max_value();
 	pub static Burn: Permill = Permill::from_percent(50);
-	pub const ExistentialDeposit: u64 = 1;
 	pub const ScheduleFee: u32 = 1;
 }
 impl system::Config for Test {
@@ -98,7 +110,7 @@ impl pallet_balances::Config for Test {
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
+	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
@@ -139,13 +151,8 @@ impl task_schedule::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 10_000_000_000), (2, 20_000_000_000)],
-	}
-	.assimilate_storage(&mut storage)
-	.unwrap();
-	let mut ext: sp_io::TestExternalities = storage.into();
+	let mut ext: sp_io::TestExternalities =
+		GenesisConfig::default().build_storage().unwrap().into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

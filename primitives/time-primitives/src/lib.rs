@@ -123,6 +123,7 @@ pub enum ProxyStatus {
 	Valid,
 	Suspended,
 	Invalid,
+	TokenLimitExceed,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -143,6 +144,28 @@ pub struct ProxyAccInput<AccountId> {
 	pub token_usage: u32,
 	pub max_task_execution: Option<u32>,
 	pub task_executed: u32,
+}
+
+pub trait ProxyExtend<AccountId> {
+	fn proxy_exist(acc: AccountId) -> bool;
+	fn get_master_account(acc: AccountId) -> Option<AccountId>;
+	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
+}
+
+impl<AccountId> ProxyExtend<AccountId> for () {
+	fn proxy_exist(_acc: AccountId) -> bool {
+		true
+	}
+	fn get_master_account(acc: AccountId) -> Option<AccountId> {
+		Some(acc)
+	}
+	fn proxy_update_token_used(_acc: AccountId, _amount: u32) -> bool {
+		true
+	}
+}
+
+pub trait PalletAccounts<AccountId> {
+	fn get_treasury() -> AccountId;
 }
 
 #[test]

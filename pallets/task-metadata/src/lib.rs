@@ -7,15 +7,15 @@ pub mod weights;
 
 pub use pallet::*;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{string::String, vec::Vec};
-	use time_primitives::abstraction::{Collection, Task};
+	use time_primitives::{
+		abstraction::{Collection, Task},
+		ProxyExtend,
+	};
 	pub type KeyId = u64;
 
 	pub trait WeightInfo {
@@ -31,16 +31,16 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type ProxyExtend: ProxyExtend<Self::AccountId>;
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_metadata)]
-	pub(super) type TaskMetaStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
+	pub type TaskMetaStorage<T: Config> = StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_collection_metadata)]
-	pub(super) type CollectionMeta<T: Config> =
+	pub type CollectionMeta<T: Config> =
 		StorageMap<_, Blake2_128Concat, String, Collection, OptionQuery>;
 
 	#[pallet::event]
@@ -59,13 +59,23 @@ pub mod pallet {
 		ColAlreadyExist(String),
 	}
 
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Not a valid submitter
+		NotProxyAccount,
+		/// Error getting schedule ref.
+		ErrorRef,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::insert_task())]
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
+			let resp = T::ProxyExtend::proxy_exist(who);
+			ensure!(resp, Error::<T>::NotProxyAccount);
 			let data_list = self::TaskMetaStorage::<T>::get(task.collection_id.0);
 			match data_list {
 				Some(val) => {

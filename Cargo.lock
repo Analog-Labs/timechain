@@ -7088,13 +7088,14 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.40#98f2e3451c9143278ec53c6718940aeabcd3b68a"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "serde",
+ "serde_json",
  "sp-core 7.0.0",
  "sp-io 7.0.0",
  "sp-runtime 7.0.0",
@@ -7104,7 +7105,6 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment-rpc"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.40#98f2e3451c9143278ec53c6718940aeabcd3b68a"
 dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -7120,7 +7120,6 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment-rpc-runtime-api"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.40#98f2e3451c9143278ec53c6718940aeabcd3b68a"
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec 3.4.0",

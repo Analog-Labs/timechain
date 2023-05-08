@@ -46,7 +46,9 @@ sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/sub
 sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-keyring = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-pallet-transaction-payment = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+#pallet-transaction-payment = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+pallet-transaction-payment =  { version = "4.0.0-dev", default-features = false, path = "../pallets/transaction-payment" }
+
 sp-authorship = "11.0"
 pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 
@@ -59,8 +61,8 @@ sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/paritytech/su
 sp-block-builder = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sc-basic-authorship = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-pallet-transaction-payment-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
-
+#pallet-transaction-payment-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+pallet-transaction-payment-rpc =  { version = "4.0.0-dev", path = "../pallets/transaction-payment/rpc" }
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }

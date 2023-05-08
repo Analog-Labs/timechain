@@ -36,7 +36,7 @@ const pallet_task_add = async (_keyspair, who) => {
     const input_task = {
         collection_id: 1,
         schema:[1],
-        function:{ethereumcontractwithoutabi:{
+        function:{ethereumviewwithoutabi:{
             address: stringToHex('0x678ea0447843f69805146c521afcbcc07d6e28a2'),
             function_signature: "function get_votes_stats() external view returns (uint, uint)",
             input: 2,

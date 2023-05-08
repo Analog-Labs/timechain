@@ -6,9 +6,9 @@ use core::time;
 use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
-	create_client,
+	create_client, create_wallet,
 	types::{CallRequest, CallResponse},
-	BlockchainConfig, Client,
+	BlockchainConfig, Client, EthereumExt,
 };
 use sc_client_api::Backend;
 use serde_json::json;
@@ -181,12 +181,21 @@ where
 		Ok(())
 	}
 
+	async fn _eth_tx_call(
+		&self,
+		_block_id: <B as Block>::Hash,
+		_shard_id: u64,
+		_schdule_task_id: u64,
+	) {
+	}
+
 	async fn process_tasks_for_block(
 		&self,
 		block_id: <B as Block>::Hash,
 		map: &mut HashMap<u64, ()>,
 		config: &BlockchainConfig,
 		client: &Client,
+		url: Option<String>,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the task schedule for the current block
 		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
@@ -207,24 +216,24 @@ where
 											match &task.function {
 												// If the task function is an Ethereum contract
 												// call, call it and send for signing
-												Function::EthereumContractWithoutAbi {
+												Function::EthereumViewWithoutAbi {
 													address,
 													function_signature,
 													input: _,
 													output: _,
 												} => {
-													let method = format!(
+													let method: String = format!(
 														"{address}-{function_signature}-call"
 													);
 													let request = CallRequest {
 														network_identifier: config.network(),
 														method,
-														parameters: json!({}),
+														parameters: json!([]),
 													};
 
 													let data = client.call(&request).await?;
 
-													let _result =
+													if let Err(e) =
 														Self::call_contract_and_send_for_sign(
 															self,
 															block_id,
@@ -233,7 +242,39 @@ where
 															schedule_task.0,
 															map,
 														)
-														.await;
+														.await
+													{
+														log::error!("Error occured while processing view call {:?}", e);
+													}
+												},
+												Function::EthereumTxWithoutAbi {
+													address,
+													function_signature,
+													input,
+													output: _
+												} => {
+													let blockchain =
+														config.network().blockchain.clone();
+
+													let network = config.network().network.clone();
+
+													let wallet = create_wallet(
+														Some(blockchain),
+														Some(network),
+														url.clone(),
+														None,
+													)
+													.await
+													.unwrap();
+
+													let _tx = wallet
+														.eth_send_call(
+															address,
+															&function_signature,
+															&input,
+														)
+														.await
+														.unwrap();
 												},
 												_ => {
 													log::warn!("error on matching task function")
@@ -301,7 +342,16 @@ where
 					// let at = BlockId::Hash(at);
 
 					if let Some((config, client)) = &connector_config {
-						match self.process_tasks_for_block(at, &mut map, config, client).await {
+						match self
+							.process_tasks_for_block(
+								at,
+								&mut map,
+								config,
+								client,
+								self.connector_url.clone(),
+							)
+							.await
+						{
 							Ok(_) => (),
 							Err(e) => {
 								log::error!("Failed to process tasks for block {:?}: {:?}", at, e);

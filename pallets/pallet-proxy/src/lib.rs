@@ -16,7 +16,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::SaturatedConversion;
-	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyStatus};
+	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyExtend, ProxyStatus};
 
 	pub type KeyId = u64;
 	pub(crate) type BalanceOf<T> =
@@ -67,15 +67,19 @@ pub mod pallet {
 
 		///Proxy account removed
 		ProxyRemoved(T::AccountId),
+
+		/// allowed token usage exceed.
+		TokenUsageExceed(T::AccountId),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The signing account has no permission to do the operation.
 		NoPermission,
-
 		/// Error getting schedule ref.
 		ErrorRef,
+		/// allowed token usage exceed.
+		TokenUsageExceed,
 	}
 
 	#[pallet::call]
@@ -175,6 +179,56 @@ pub mod pallet {
 			let accounts = self::ProxyStorage::<T>::get(proxy);
 
 			Ok(accounts)
+		}
+	}
+
+	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
+		fn proxy_exist(proxy: T::AccountId) -> bool {
+			let account = self::ProxyStorage::<T>::get(proxy);
+
+			account.is_some()
+		}
+		fn get_master_account(proxy: T::AccountId) -> Option<T::AccountId> {
+			let account = self::ProxyStorage::<T>::get(proxy);
+
+			match account {
+				Some(acc) => Some(acc.owner),
+				None => None,
+			}
+		}
+
+		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
+			let mut exceed_flg = false;
+			let res = self::ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
+				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				let max_token_allowed = details.max_token_usage;
+
+				let usage = details.token_usage.saturated_into::<u32>();
+				let val = usage.saturating_add(balance_val);
+
+				match max_token_allowed {
+					Some(max_allowed) => {
+						let allowed_usage = max_allowed.saturated_into::<u32>();
+						let status = val.le(&allowed_usage);
+						if !status {
+							details.status = ProxyStatus::TokenLimitExceed;
+							exceed_flg = true;
+							Self::deposit_event(Event::TokenUsageExceed(details.proxy.clone()));
+						} else {
+							details.token_usage = val.saturated_into();
+						}
+					},
+					None => {
+						details.token_usage = val.saturated_into();
+					},
+				}
+
+				Ok(())
+			});
+			match exceed_flg {
+				true => false,
+				false => res.is_ok(),
+			}
 		}
 	}
 }

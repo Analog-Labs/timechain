@@ -16,6 +16,8 @@ members = [
     "pallets/task-metadata",
     "pallets/task-schedule",
     "pallets/transaction-payment"
+    "pallets/task-metadata/task-meta-bench",
+    "pallets/task-schedule/task-schedule-bench",
 ]
 
 [profile.release]

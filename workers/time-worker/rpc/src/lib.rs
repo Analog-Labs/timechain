@@ -1,16 +1,14 @@
 //! RPC API for Time Worker
 #![allow(clippy::type_complexity)]
-use futures::{channel::mpsc::Sender, task::SpawnError, SinkExt};
+use futures::{channel::mpsc, task::SpawnError, SinkExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
 	types::{error::CallError, ErrorObject},
 };
 use log::info;
-use std::sync::Arc;
 use time_primitives::rpc::SignRpcPayload;
 use time_worker::kv::TimeKeyvault;
-use tokio::sync::Mutex;
 
 #[derive(Debug, thiserror::Error)]
 /// Top-level error type for the RPC handler
@@ -78,13 +76,13 @@ pub trait TimeRpcApi {
 
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
-	signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
+	signer: mpsc::Sender<(u64, [u8; 32])>,
 	kv: TimeKeyvault,
 }
 
 impl TimeRpcApiHandler {
 	/// Constructor takes channel of TSS set id and hash of the event to sign
-	pub fn new(signer: Arc<Mutex<Sender<(u64, [u8; 32])>>>, kv: TimeKeyvault) -> Self {
+	pub fn new(signer: mpsc::Sender<(u64, [u8; 32])>, kv: TimeKeyvault) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -107,7 +105,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 				}
 				let payload = SignRpcPayload::new(group_id, message, signature);
 				if payload.verify(keys[0].clone()) {
-					self.signer.lock().await.send((payload.group_id, message)).await?;
+					self.signer.clone().send((payload.group_id, message)).await?;
 					Ok(())
 				} else {
 					Err(Error::SigVerificationFailure.into())

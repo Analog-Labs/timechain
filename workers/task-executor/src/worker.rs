@@ -22,7 +22,7 @@ use time_primitives::{
 	TimeApi, TimeId,
 };
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time::sleep};
+use tokio::time::sleep;
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -30,7 +30,7 @@ pub struct TaskExecutor<B: Block, A, R, BE> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
-	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
+	sign_data_sender: Sender<(u64, [u8; 32])>,
 	kv: TimeKeyvault,
 	accountid: PhantomData<A>,
 	connector_url: Option<String>,
@@ -131,7 +131,7 @@ where
 						if let Some(shard) = current_shard {
 							if shard.1.collector() == &my_key {
 								let result =
-									self.sign_data_sender.lock().await.try_send((shard_id, hash));
+									self.sign_data_sender.clone().try_send((shard_id, hash));
 								if result.is_ok() {
 									log::info!("Connector successfully send event to channel");
 									map.insert(schdule_task_id, ());

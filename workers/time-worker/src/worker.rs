@@ -2,67 +2,125 @@
 use crate::{
 	communication::validator::{topic, GossipValidator},
 	kv::TimeKeyvault,
-	tss_event_handler_helper::{aggregator_event_sign, handler_partial_signature_generate_req},
 	Client, WorkerParams, TW_LOG,
 };
-use borsh::{BorshDeserialize, BorshSerialize};
-use codec::{Decode, Encode};
-use futures::{
-	channel::mpsc::Receiver as FutReceiver, stream::FuturesUnordered, Future, FutureExt, StreamExt,
-};
-use log::{debug, error, info, warn};
+use futures::{channel::mpsc, FutureExt, StreamExt};
+use log::{debug, error, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
+use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
+use sp_core::{sr25519, Pair};
+use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use sp_runtime::traits::{Block, Header};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
+	future::Future,
 	marker::PhantomData,
 	pin::Pin,
 	sync::Arc,
-	time::Duration,
+	task::Poll,
+	time::{Duration, Instant},
 };
-use time_primitives::{
-	crypto::Public,
-	sharding::Shard,
-	slashing::{Protocol, TimeoutData},
-	TimeApi, TimeId, KEY_TYPE,
-};
-use tokio::sync::Mutex as TokioMutex;
-use tss::{
-	frost_dalek::{compute_message_hash, SignatureAggregator},
-	local_state_struct::TSSLocalStateData,
-	tss_event_model::{PartialMessageSign, TSSData, TSSEventType},
-	utils::{get_receive_params_msg, make_gossip_tss_data},
-};
+use time_primitives::{TimeApi, KEY_TYPE};
+use tokio::time::Sleep;
+use tss::{Timeout, Tss, TssAction, TssMessage};
 
-#[allow(unused)]
+fn sign(
+	store: &SyncCryptoStorePtr,
+	public: sr25519::Public,
+	message: &[u8],
+) -> Option<sr25519::Signature> {
+	let sig = SyncCryptoStore::sign_with(&**store, KEY_TYPE, &public.into(), message)
+		.ok()??
+		.try_into()
+		.ok()?;
+	Some(sr25519::Signature::from_raw(sig))
+}
+
+#[derive(Deserialize, Serialize)]
+struct TimeMessage {
+	shard_id: u64,
+	sender: sr25519::Public,
+	payload: TssMessage,
+}
+
+impl TimeMessage {
+	fn encode(&self, kv: &TimeKeyvault) -> Vec<u8> {
+		let kv = kv.get_store().unwrap();
+		let mut bytes = bincode::serialize(self).unwrap();
+		let sig = sign(&kv, self.sender, &bytes).unwrap();
+		bytes.extend_from_slice(sig.as_ref());
+		bytes
+	}
+
+	fn decode(bytes: &[u8]) -> Result<Self, ()> {
+		if bytes.len() < 64 {
+			return Err(());
+		}
+		let split = bytes.len() - 64;
+		let mut sig = [0; 64];
+		sig.copy_from_slice(&bytes[split..]);
+		let payload = &bytes[..split];
+		let msg: Self = bincode::deserialize(payload).map_err(|_| ())?;
+		let sig = sr25519::Signature::from_raw(sig);
+		if !sr25519::Pair::verify(&sig, payload, &msg.sender) {
+			return Err(());
+		}
+		Ok(msg)
+	}
+}
+
+struct Shard {
+	tss: Tss<sr25519::Public>,
+	timeout: Option<TssTimeout>,
+}
+
+impl Shard {
+	fn new(public: sr25519::Public) -> Self {
+		Self {
+			tss: Tss::new(public),
+			timeout: None,
+		}
+	}
+}
+
+struct TssTimeout {
+	timeout: Timeout,
+	deadline: Instant,
+}
+
+impl TssTimeout {
+	fn new(timeout: Timeout) -> Self {
+		let deadline = Instant::now() + Duration::from_secs(30);
+		Self { timeout, deadline }
+	}
+}
+
+fn sleep_until(deadline: Instant) -> Pin<Box<Sleep>> {
+	Box::pin(tokio::time::sleep_until(deadline.into()))
+}
+
 /// Our structure, which holds refs to everything we need to operate
 pub struct TimeWorker<B: Block, A, C, R, BE> {
-	pub(crate) client: Arc<C>,
-	pub(crate) backend: Arc<BE>,
-	pub(crate) runtime: Arc<R>,
-	pub(crate) kv: TimeKeyvault,
-	// cancelling struct for timeouts
-	pub(crate) fulfilled: Vec<TimeoutData>,
-	pub(crate) tss_local_states: HashMap<u64, TSSLocalStateData>,
-	// for each keygen each shard member have it's own timer to comply
-	pub(crate) timeouts:
-		FuturesUnordered<Pin<Box<dyn Future<Output = TimeoutData> + Send + Sync + 'static>>>,
+	_client: Arc<C>,
+	backend: Arc<BE>,
+	runtime: Arc<R>,
+	kv: TimeKeyvault,
+	shards: HashMap<u64, Shard>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
-	gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
-	node_id: Option<TimeId>,
-	known_sets: HashSet<u64>,
+	_gossip_validator: Arc<GossipValidator<B>>,
+	sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
 	accountid: PhantomData<A>,
+	timeout: Option<Pin<Box<Sleep>>>,
 }
 
 impl<B, A, C, R, BE> TimeWorker<B, A, C, R, BE>
 where
 	B: Block + 'static,
-	A: codec::Codec + 'static,
+	A: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
@@ -79,462 +137,143 @@ where
 			sign_data_receiver,
 			accountid,
 		} = worker_params;
-
-		// TODO: threshold calc if required
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
-			client,
+			_client: client,
 			backend,
 			runtime,
 			gossip_engine,
-			gossip_validator,
+			_gossip_validator: gossip_validator,
 			kv,
 			sign_data_receiver,
-			node_id: None,
-			tss_local_states: HashMap::default(),
-			known_sets: HashSet::default(),
-			timeouts: FuturesUnordered::default(),
-			fulfilled: Vec::default(),
+			shards: Default::default(),
 			accountid,
+			timeout: None,
 		}
 	}
 
-	// helper to create new state for new id
-	pub(crate) fn create_tss_state(&self) -> TSSLocalStateData {
-		let mut tss_local_state = TSSLocalStateData::new();
-		tss_local_state.key_type = Some(KEY_TYPE);
-		tss_local_state.keystore = self.kv.get_store();
-		tss_local_state
-	}
-
-	// checks if we're present in specific shard
-	// at latste finalized block
-	fn is_member_of_shard(&self, shard_id: u64) -> bool {
-		let at = self.backend.blockchain().last_finalized().unwrap();
-		if let Some(id) = self.account_id() {
-			if let Ok(Some(members)) = self.runtime.runtime_api().get_shard_members(at, shard_id) {
-				let am_member = members.iter().any(|s| s == &id);
-				debug!(target: TW_LOG, "Am a memmber of shard {}?: {}", shard_id, am_member);
-				am_member
-			} else {
-				error!(
-					target: TW_LOG,
-					"Failed to fetch members for shard {} from runtime in block {}", shard_id, at
-				);
-				false
-			}
-		} else {
-			error!(target: TW_LOG, "Failed to construct account");
-			false
-		}
-	}
-
-	pub(crate) async fn new_timer(duration: Duration, data: TimeoutData) -> TimeoutData {
-		tokio::time::sleep(duration).await;
-		data
-	}
-
-	fn new_keygen_for_new_id(&mut self, shard_id: u64, new_shard: Shard) {
+	/// Returns the public key for the worker if one was set.
+	fn public_key(&self) -> Option<sr25519::Public> {
 		let keys = self.kv.public_keys();
 		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
-			return;
+			return None;
 		}
-		let id = keys[0].clone();
-		// safe unwrap - we know they match always
-		self.node_id = Some(TimeId::decode(&mut id.as_ref()).unwrap());
-		// starting TSS initialization if not yet done
-		let mut state = self.create_tss_state();
-		if state.local_peer_id.is_none() {
-			state.local_peer_id = Some(id.to_string());
-			// TODO: reset if not all comply
-			// slashing goes below too?
-			/*			let msg = make_gossip_tss_data(
-							id.to_string(),
-							get_reset_tss_msg("Reinit state".to_string()).unwrap_or_default(),
-							TSSEventType::ReceiveParams,
-						)
-						.unwrap();
-						self.send(msg);
-			*/
-			// initialize TSS
-			let collector_id = new_shard.collector();
-			if id == Public::decode(&mut &collector_id.encode()[..]).unwrap() {
-				state.is_node_collector = true;
-				// TODO: assign aggregator role to at most one node for protocol to work
-				state.is_node_aggregator = true;
-				if let Ok(peer_id_data) = get_receive_params_msg(id.to_string(), state.tss_params) {
-					if let Ok(data) = make_gossip_tss_data(
-						id.to_string(),
-						peer_id_data,
-						TSSEventType::ReceiveParams(shard_id),
-					) {
-						self.send(data);
-						info!(target: TW_LOG, "TSS keygen initiated by {id}");
-					} else {
-						error!(target: TW_LOG, "Failed to prepare initial TSS message");
-					}
-				} else {
-					error!(target: TW_LOG, "Unable to make publish peer id msg");
-				}
-			}
-			// initialize timeouts for responses to Keygen
-			// skip self
-			for member in new_shard
-				.members()
-				.into_iter()
-				.filter(|member_id| id.encode() != member_id.encode())
-			{
-				let data = TimeoutData::new(Protocol::KgStageOne, member, shard_id);
-				self.timeouts.push(Box::pin(Self::new_timer(Duration::from_secs(30), data)));
-			}
-
-			// store new shard
-			self.tss_local_states.insert(shard_id, state);
-		}
+		Some(*keys[0].as_ref())
 	}
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
-	fn on_finality(&mut self, notification: FinalityNotification<B>) {
-		debug!(target: TW_LOG, "Got new finality notification: {}", notification.header.number());
-		let keys = self.kv.public_keys();
-		if keys.len() != 1 {
-			error!(target: TW_LOG, "Expected exactly one Time key - can not participate.");
-			return;
-		}
-		let our_key = time_primitives::TimeId::decode(&mut keys[0].as_ref()).unwrap();
-		debug!(target: TW_LOG, "our key: {}", our_key.to_string());
-		// TODO: stabilize unwrap
+	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
-		// check if we're member in new shards
-		let new_shards: Vec<_> =
-			shards.into_iter().filter(|(id, _)| !self.known_sets.contains(id)).collect();
-		for (id, new_shard) in new_shards {
-			debug!(
-				target: TW_LOG,
-				"Checking if a member of shard {} with ID: {}",
-				id,
-				our_key.to_string()
-			);
-			if new_shard.members().contains(&our_key) {
-				// participate in keygen for new shard
-				debug!(target: TW_LOG, "Participating in new keygen for id {}", id);
-				// collector starts keygen
-				if new_shard.collector() == &our_key {
-					self.new_keygen_for_new_id(id, new_shard);
-				}
-			} else {
-				debug!(target: TW_LOG, "Not a member of shard {}", id);
+		for (shard_id, shard) in shards {
+			if self.shards.contains_key(&shard_id) {
+				continue;
 			}
-			self.known_sets.insert(id);
+			if !shard.members().contains(&public_key.into()) {
+				debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
+				continue;
+			}
+			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
+
+			let members = shard
+				.members()
+				.into_iter()
+				.map(|id| sr25519::Public::from_raw(id.into()))
+				.collect();
+			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+			state.tss.initialize(members, shard.threshold());
+			self.poll_actions(shard_id, public_key);
 		}
 	}
 
-	fn process_sign_message(&mut self, shard_id: u64, data: [u8; 32]) {
-		// do sig
-		if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
-			let context = state.context;
-			let msg_hash = compute_message_hash(&context, &data);
-			//add node in msg_pool
-			if let std::collections::hash_map::Entry::Vacant(e) = state.msg_pool.entry(msg_hash) {
-				e.insert(data);
-				//process msg if req already received
-				if let Some(pending_msg_req) = state.msgs_signature_pending.get(&msg_hash) {
-					let request = PartialMessageSign {
-						msg_hash,
-						signers: pending_msg_req.to_vec(),
+	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
+		let shard = self.shards.get_mut(&shard_id).unwrap();
+		while let Some(action) = shard.tss.next_action() {
+			match action {
+				TssAction::Send(payload) => {
+					debug!(target: TW_LOG, "Sending gossip message");
+					let msg = TimeMessage {
+						shard_id,
+						sender: public_key,
+						payload,
 					};
-					let encoded = request.try_to_vec().unwrap();
-					if let Some((peer_id, data, message_type)) =
-						handler_partial_signature_generate_req(state, shard_id, &encoded)
-					{
-						if let Ok(encoded_data) = data.try_to_vec() {
-							if let Ok(data) =
-								make_gossip_tss_data(peer_id, encoded_data, message_type)
-							{
-								self.gossip_engine.gossip_message(topic::<B>(), data, false);
-							} else {
-								error!("TSS::error making gossip data for encoded participant");
-							}
-						} else {
-							//log error
-							error!("TSS::tss error");
-						}
-					}
-				// state.msgs_signature_pending.remove(&msg_hash);
-				} else {
-					debug!(
-						target: TW_LOG,
-						"New data for signing received: {:?} with hash {:?}", data, msg_hash
-					);
-				}
-			} else {
-				warn!(
-					target: TW_LOG,
-					"Message with hash {} is already in process of signing",
-					hex::encode(msg_hash)
-				);
-			}
-
-			//creating signature aggregator for msg
-			if state.is_node_aggregator {
-				if let Some(local_state) = state.local_finished_state.clone() {
-					//all nodes should share the same message hash
-					//to verify the threshold signature
-					let mut aggregator =
-						SignatureAggregator::new(state.tss_params, local_state.0, &context, &data);
-
-					for com in state.others_commitment_share.clone() {
-						aggregator.include_signer(
-							com.public_commitment_share_list.participant_index,
-							com.public_commitment_share_list.commitments[0],
-							com.public_key,
-						);
-					}
-
-					//including aggregator as a signer
-					aggregator.include_signer(
-						state.local_index.unwrap(),
-						state.local_commitment_share.clone().unwrap().0.commitments[0],
-						state.local_public_key.clone().unwrap(),
-					);
-
-					//this signers list will be used by other nodes to verify themselves.
-					let signers = aggregator.get_signers();
-					state.current_signers = signers.clone();
-
-					// //sign msg from aggregator side
-					aggregator_event_sign(state, msg_hash);
-
-					let sign_msg_req = PartialMessageSign {
-						msg_hash,
-						signers: signers.clone(),
-					};
-
-					if let Ok(data) = make_gossip_tss_data(
-						state.local_peer_id.clone().unwrap_or_default(),
-						sign_msg_req.try_to_vec().unwrap(),
-						TSSEventType::PartialSignatureGenerateReq(shard_id),
-					) {
-						self.send(data);
-						debug!(target: TW_LOG, "TSS peer collection req sent");
-					} else {
+					let bytes = msg.encode(&self.kv);
+					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
+				},
+				TssAction::PublicKey(tss_public_key) => {
+					debug!(target: TW_LOG, "Updating tss public key");
+					shard.timeout = None;
+					crate::inherents::update_shared_group_key(shard_id, tss_public_key.to_bytes());
+				},
+				TssAction::Tss(tss_signature) => {
+					debug!(target: TW_LOG, "Storing tss signature");
+					shard.timeout = None;
+					let tss_signature = tss_signature.to_bytes();
+					let at = self.backend.blockchain().last_finalized().unwrap();
+					let signature = self.kv.sign(&public_key.into(), &tss_signature).unwrap();
+					self.runtime
+						.runtime_api()
+						.store_signature(
+							at,
+							public_key.into(),
+							signature,
+							tss_signature,
+							// TODO: set task id
+							0u128.into(),
+						)
+						.unwrap();
+				},
+				TssAction::Report(offender) => {
+					shard.timeout = None;
+					let Some(proof) = self.kv.sign(&public_key.into(), &offender) else {
 						error!(
 							target: TW_LOG,
-							"Failed to pack TSS message for signing hash: {}",
-							hex::encode(msg_hash)
+							"Failed to create proof for offence report submission"
+						);
+						return;
+					};
+					let at = self.backend.blockchain().last_finalized().unwrap();
+					if let Err(e) = self.runtime.runtime_api().report_misbehavior(
+						at,
+						shard_id,
+						offender.into(),
+						public_key.into(),
+						proof,
+					) {
+						error!(
+							target: TW_LOG,
+							"Offence report runtime API submission failed with reason: {}",
+							e.to_string()
 						);
 					}
-				}
-			}
-		} else {
-			warn!(
-				target: TW_LOG,
-				"Local finished state for given shard ID {} not found!", shard_id
-			);
-		}
-	}
-
-	pub(crate) fn send(&mut self, msg: Vec<u8>) {
-		debug!(target: TW_LOG, "Sending new gossip message");
-		self.gossip_engine.gossip_message(topic::<B>(), msg, false);
-	}
-
-	// Creates opitonal ID from our Time Key
-	pub(crate) fn id(&self) -> Option<String> {
-		match self.kv.public_keys() {
-			keys if !keys.is_empty() => Some(keys[0].to_string()),
-			_ => {
-				warn!("TSS: No local peer identity ");
-				None
-			},
-		}
-	}
-
-	// Creates optional TimeId from set Time Key
-	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.public_keys();
-		if keys.is_empty() {
-			warn!(target: TW_LOG, "No time key found, please inject one.");
-			None
-		} else {
-			let id = &keys[0];
-			Some(TimeId::decode(&mut id.as_ref()).unwrap())
-		}
-	}
-
-	/// On each gossip we process it, verify signature and update our tracker
-	async fn on_gossip(&mut self, tss_gossiped_data: TSSData) {
-		debug!(target: TW_LOG, "Processing new gossip");
-		match tss_gossiped_data.tss_event_type {
-			//nodes will be receiving this event to make participant using params
-			TSSEventType::ReceiveParams(shard_id) => {
-				// check if we're part of given shard
-				debug!(target: TW_LOG, "ReceiveParams for shard: {}", shard_id);
-				if self.is_member_of_shard(shard_id) {
-					debug!(target: TW_LOG, "Am member of {}", shard_id);
-					self.handler_receive_params(shard_id, &tss_gossiped_data.tss_data).await;
-				}
-			},
-			// no of other nodes will receive peer iddes and will add it to their list
-			TSSEventType::ReceivePeerIDForIndex(shard_id) => {
-				debug!(target: TW_LOG, "ReceivePeerIDForIndex for shard: {}", shard_id);
-				self.handler_receive_peer_id_for_index(shard_id, &tss_gossiped_data.tss_data)
-					.await;
-			}, //nodes receives peers with collector participants
-			TSSEventType::ReceivePeersWithColParticipant(shard_id) => {
-				debug!(target: TW_LOG, "receivePeersWithColParticipant for shard: {}", shard_id);
-				self.handler_receiver_peers_with_col_participant(
-					shard_id,
-					&tss_gossiped_data.tss_data,
-				)
-				.await;
-			},
-			//nodes will receive participant and will add will go to round one state
-			TSSEventType::ReceiveParticipant(shard_id) => {
-				debug!(target: TW_LOG, "ReceiveParticipant for shard: {}", shard_id);
-				self.handler_receive_participant(
-					shard_id,
-					&tss_gossiped_data.tss_data,
-					tss_gossiped_data.peer_id,
-				)
-				.await;
-			},
-			//nodes will receive their secret share and take state to round two
-			TSSEventType::ReceiveSecretShare(shard_id) => {
-				debug!(target: TW_LOG, "Received ReceiveSecretShare");
-				self.handler_receive_secret_share(
-					shard_id,
-					&tss_gossiped_data.tss_data,
-					tss_gossiped_data.peer_id,
-				)
-				.await;
-			},
-
-			//received commitments of other nodes who are participating in TSS process
-			TSSEventType::ReceiveCommitment(shard_id) => {
-				debug!(target: TW_LOG, "ReceiveCommitment for shard: {}", shard_id);
-				self.handler_receive_commitment(shard_id, &tss_gossiped_data.tss_data).await;
-			},
-
-			//event received by collector and partial sign request is received
-			TSSEventType::PartialSignatureGenerateReq(shard_id) => {
-				debug!(target: TW_LOG, "PartialSignatureGeneratedReq for shard: {}", shard_id);
-				if let Some(state) = self.tss_local_states.get_mut(&shard_id) {
-					debug!(target: TW_LOG, "Have state for shard: {}", shard_id);
-					if let Some((peer_id, data, msg_type)) = handler_partial_signature_generate_req(
-						state,
-						shard_id,
-						&tss_gossiped_data.tss_data,
-					) {
-						debug!(target: TW_LOG, "Sending partial signature as {}", peer_id);
-						self.publish_to_network(peer_id, data, msg_type).await;
+				},
+				TssAction::Timeout(timeout) => {
+					let timeout = TssTimeout::new(timeout);
+					if self.timeout.is_none() {
+						self.timeout = Some(sleep_until(timeout.deadline));
 					}
-				}
-			},
-
-			//received partial signature. threshold signature to be made by aggregator
-			TSSEventType::PartialSignatureReceived(shard_id) => {
-				debug!(target: TW_LOG, "PartialSignatureReceived for shard: {}", shard_id);
-				// create slash timer
-				let at = self.backend.blockchain().last_finalized().unwrap();
-				if let Ok(Some(members)) =
-					self.runtime.runtime_api().get_shard_members(at, shard_id)
-				{
-					if let Some(participant_id) = members
-						.iter()
-						.find(|member| member.to_string() == tss_gossiped_data.peer_id)
-					{
-						self.timeouts.push(Box::pin(Self::new_timer(
-							Duration::from_secs(30),
-							TimeoutData::new(
-								Protocol::KgStageTwo,
-								participant_id.clone(),
-								shard_id,
-							),
-						)));
-					}
-				}
-				self.handler_partial_signature_received(
-					shard_id,
-					&tss_gossiped_data.tss_data,
-					tss_gossiped_data.peer_id,
-				)
-				.await;
-			},
-
-			//verify threshold signature generated by aggregator
-			TSSEventType::VerifyThresholdSignature(shard_id) => {
-				debug!(target: TW_LOG, "VerifyTHresholdSignature for shard: {}", shard_id);
-				self.handler_verify_threshold_signature(shard_id, &tss_gossiped_data.tss_data)
-					.await;
-			},
-
-			//received resetting tss state request
-			TSSEventType::ResetTSSState(shard_id) => {
-				debug!(target: TW_LOG, "ResetTSSSTate for shard: {}", shard_id);
-				self.handler_reset_tss_state(shard_id, &tss_gossiped_data.tss_data).await;
-			},
-		}
-	}
-
-	fn report_offence(&mut self, data: TimeoutData) {
-		// we clean up if already fulfilled
-		if let Some(index) = self.fulfilled.iter().position(|ff_data| ff_data == &data) {
-			self.fulfilled.remove(index);
-			return;
-		}
-		// if not fulfilled - we report
-		let TimeoutData { offender, shard_id, .. } = data;
-		if let Some(reporter) = self.node_id.clone() {
-			if let Some(proof) = self.kv.sign(&self.kv.public_keys()[0], offender.as_ref()) {
-				let at = self.backend.blockchain().last_finalized().unwrap();
-				if let Err(e) = self
-					.runtime
-					.runtime_api()
-					.report_misbehavior(at, shard_id, offender, reporter, proof)
-				{
-					error!(
-						target: TW_LOG,
-						"Offence report runtime API submission failed with reason: {}",
-						e.to_string()
-					);
-				}
-			} else {
-				error!(
-					target: TW_LOG,
-					"Failed to create proof for offence report submission - signature"
-				);
+					shard.timeout = Some(timeout);
+				},
 			}
-		} else {
-			error!(
-				target: TW_LOG,
-				"Failed to create proof for offence report submission - reporter"
-			);
 		}
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
-		let mut gossips = Box::pin(
-			self.gossip_engine
-				.messages_for(topic::<B>())
-				.filter_map(|notification| async move {
-					debug!(target: TW_LOG, "Got new gossip message");
-					TSSData::try_from_slice(&notification.message).ok()
-				})
-				.fuse(),
-		);
+		let mut gossips = self.gossip_engine.messages_for(topic::<B>());
 		loop {
-			// timeouts for messages
-			let receiver = self.sign_data_receiver.clone();
-			let mut signature_requests = receiver.lock().await;
-			let mut engine = &mut self.gossip_engine;
-
-			futures::select_biased! {
-				_ = engine => {
+			let timeout = futures::future::poll_fn(|cx| {
+				if let Some(timeout) = self.timeout.as_mut() {
+					futures::pin_mut!(timeout);
+					timeout.poll(cx)
+				} else {
+					Poll::Pending
+				}
+			});
+			futures::select! {
+				_ = &mut self.gossip_engine => {
 					error!(
 						target: TW_LOG,
 						"Gossip engine has terminated."
@@ -542,36 +281,69 @@ where
 					return;
 				},
 				notification = self.finality_notifications.next().fuse() => {
-					if let Some(notification) = notification {
-						self.on_finality(notification);
-					} else {
+					let Some(notification) = notification else {
 						debug!(
 							target: TW_LOG,
 							"no new finality notifications"
 						);
-					}
+						continue;
+					};
+					let Some(public_key) = self.public_key() else {
+						continue;
+					};
+					self.on_finality(notification, public_key);
 				},
-				offence = self.timeouts.next() => {
-					if let Some(offender_data) = offence {
-						self.report_offence(offender_data);
-					}
+				new_sig = self.sign_data_receiver.next().fuse() => {
+					let Some((shard_id, data)) = new_sig else {
+						continue;
+					};
+					let Some(public_key) = self.public_key() else {
+						continue;
+					};
+					let Some(shard) = self.shards.get_mut(&shard_id) else {
+						continue;
+					};
+					shard.tss.sign(data.to_vec());
+					self.poll_actions(shard_id, public_key);
 				},
-				new_sig = signature_requests.next().fuse() => {
-					if let Some((shard_id, data)) = new_sig {
-						info!(target: TW_LOG, "New sig message in TSS for shard {}", shard_id);
-						self.process_sign_message(shard_id, data);
-					}
+				gossip = gossips.next().fuse() => {
+					let Some(notification) = gossip else {
+						debug!(target: TW_LOG, "no new gossip");
+						continue;
+					};
+					let Ok(TimeMessage { shard_id, sender, payload }) = TimeMessage::decode(&notification.message) else {
+						debug!(target: TW_LOG, "received invalid message");
+						continue;
+					};
+					let Some(public_key) = self.public_key() else {
+						continue;
+					};
+					debug!(target: TW_LOG, "received gossip message");
+					let shard = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+					shard.tss.on_message(sender, payload);
+					self.poll_actions(shard_id, public_key);
 				},
-				gossip = gossips.next() => {
-					if let Some(gossip) = gossip {
-						self.on_gossip(gossip).await;
-					} else {
-						debug!(
-							target: TW_LOG,
-							"no new gossips"
-						);
+				_ = timeout.fuse() => {
+					let mut next_timeout = None;
+					let now = Instant::now();
+					for shard in self.shards.values_mut() {
+						if let Some(timeout) = shard.timeout.as_ref() {
+							if timeout.deadline <= now {
+								shard.tss.on_timeout(timeout.timeout);
+								shard.timeout = None;
+							} else if let Some(deadline) = next_timeout {
+								if timeout.deadline < deadline {
+									next_timeout = Some(timeout.deadline);
+								}
+							} else if next_timeout.is_none() {
+								next_timeout = Some(timeout.deadline);
+							}
+						}
 					}
-				},
+					if let Some(next_timeout) = next_timeout {
+						self.timeout = Some(sleep_until(next_timeout));
+					}
+				}
 			}
 		}
 	}

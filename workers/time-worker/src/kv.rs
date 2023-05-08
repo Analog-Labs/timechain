@@ -1,6 +1,5 @@
 use log::warn;
-use sp_application_crypto::Public;
-use sp_core::{keccak_256, Pair};
+use sp_core::{keccak_256, Pair, Public};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::convert::{From, TryInto};
 use time_primitives::{

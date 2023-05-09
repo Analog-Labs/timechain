@@ -110,19 +110,31 @@ impl ExtBuilder {
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
 	// pays_fee: Pays::Yes -- class: DispatchClass::Normal
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo {
+		weight: w,
+		..Default::default()
+	}
 }
 
 fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
-	PostDispatchInfo { actual_weight: Some(w), pays_fee: Default::default() }
+	PostDispatchInfo {
+		actual_weight: Some(w),
+		pays_fee: Default::default(),
+	}
 }
 
 fn post_info_from_pays(p: Pays) -> PostDispatchInfo {
-	PostDispatchInfo { actual_weight: None, pays_fee: p }
+	PostDispatchInfo {
+		actual_weight: None,
+		pays_fee: p,
+	}
 }
 
 fn default_post_info() -> PostDispatchInfo {
-	PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
+	PostDispatchInfo {
+		actual_weight: None,
+		pays_fee: Default::default(),
+	}
 }
 
 #[test]

@@ -440,18 +440,13 @@ async fn time_keygen_completes() {
 
 	// Verify all peers synchronized
 	for i in 0..3 {
-		assert_eq!(net.peer(i).client().info().best_number, 1, "Peer #{} failed to sync", i);
+		assert_eq!(net.peer(i).client().info().best_number, 1, "Peer #{i} failed to sync");
 	}
 
 	run_to_completion(1, &mut net).await;
 
 	for i in 0..3 {
-		assert_eq!(
-			net.peer(i).client().info().finalized_number,
-			1,
-			"Peer #{} failed to finalize",
-			i
-		);
+		assert_eq!(net.peer(i).client().info().finalized_number, 1, "Peer #{i} failed to finalize");
 	}
 
 	tokio::time::sleep(std::time::Duration::from_secs(6)).await;

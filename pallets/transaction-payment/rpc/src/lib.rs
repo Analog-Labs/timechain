@@ -59,7 +59,7 @@ impl<C, P> TransactionPayment<C, P> {
 	pub fn new(client: Arc<C>) -> Self {
 		Self {
 			client,
-		 	_marker: Default::default(),
+			_marker: Default::default(),
 		}
 	}
 }

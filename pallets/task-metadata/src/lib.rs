@@ -37,6 +37,11 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_metadata)]
 	pub type TaskMetaStorage<T: Config> = StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
+	
+	#[pallet::storage]
+	#[pallet::getter(fn get_payable_task_metadata)]
+	pub type PayableTaskMetaStorage<T: Config> = StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
+	
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_collection_metadata)]
@@ -114,6 +119,26 @@ pub mod pallet {
 						},
 					);
 					Self::deposit_event(Event::ColMetaStored(hash));
+				},
+			}
+
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::insert_task())]
+		pub fn insert_payable_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let resp = T::ProxyExtend::proxy_exist(who);
+			ensure!(resp, Error::<T>::NotProxyAccount);
+			let data_list = self::PayableTaskMetaStorage::<T>::get(task.collection_id.0);
+			match data_list {
+				Some(val) => {
+					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
+				},
+				None => {
+					self::PayableTaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
+					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
 				},
 			}
 

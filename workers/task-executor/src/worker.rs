@@ -17,7 +17,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::Block, DispatchError};
-use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, env, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
 	TimeApi, TimeId,
@@ -238,11 +238,10 @@ where
 													.await
 													{
 														Ok(true) => {
-															let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-															let mut pg_conn = establish_connection(
-																Some(conn_url),
-															)
-															.unwrap();
+															let conn_url = env::var("DATABASE_URL").map_err(|_| "Error the DATABASE_URL not set.")?;
+															let pg_conn = establish_connection(
+																Some(&conn_url),
+															);
 
 															let id:i64 = schedule_task.0.try_into().unwrap();
 															let hash = schedule_task.1.hash.to_owned();
@@ -266,7 +265,10 @@ where
 																validity,
 																cycle,
 															};
-															write_data_to_db(&mut pg_conn, record);
+															match pg_conn {
+																Ok(mut pg_conn) => write_data_to_db(&mut pg_conn, record),
+																Err(e) => log::warn!("Error in connection {:?}",e),
+															}
 														},
 														Ok(false) => {
 															log::warn!("status not updated can't updated data into DB")

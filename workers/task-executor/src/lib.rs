@@ -1,6 +1,5 @@
 #![allow(clippy::type_complexity)]
 
-mod schema;
 pub mod worker;
 
 use futures::channel::mpsc::Sender;

@@ -181,13 +181,6 @@ where
 		Ok(())
 	}
 
-	async fn _eth_tx_call(
-		&self,
-		_block_id: <B as Block>::Hash,
-		_shard_id: u64,
-		_schdule_task_id: u64,
-	) {
-	}
 
 	async fn process_tasks_for_block(
 		&self,
@@ -251,30 +244,44 @@ where
 													address,
 													function_signature,
 													input,
-													output: _
+													output: _,
 												} => {
 													let blockchain =
 														config.network().blockchain.clone();
 
 													let network = config.network().network.clone();
 
-													let wallet = create_wallet(
+													match create_wallet(
 														Some(blockchain),
 														Some(network),
 														url.clone(),
 														None,
 													)
 													.await
-													.unwrap();
-
-													let _tx = wallet
-														.eth_send_call(
-															address,
-															&function_signature,
-															&input,
-														)
-														.await
-														.unwrap();
+													{
+														Ok(wallet) => {
+															match wallet
+																.eth_send_call(
+																	address,
+																	&function_signature,
+																	&input,
+																)
+																.await
+															{
+																Ok(tx) => {
+																	//process tx identifier here
+																},
+																Err(e) => {
+																	log::error!("Error occured while processing contract call {:?}", e);
+																},
+															}
+														},
+														Err(e) => {
+															log::error!(
+																"Error occured while creating wallet {:?}" , e
+															);
+														},
+													}
 												},
 												_ => {
 													log::warn!("error on matching task function")

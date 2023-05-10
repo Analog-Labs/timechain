@@ -69,3 +69,8 @@ the command line is like
     >./ind_validators/validator3/out_validator3 2>&1 &
 ```
 To guarantee the node could be automatically started after unexpected exit, you can use daemon tool to start the node.
+
+## monitor 
+You need to install monitor system to know the status of validator node. You can check [polkadot node monitor](https://wiki.polkadot.network/docs/maintain-guides-how-to-monitor-your-node)
+
+Analog will extend the service to monitor the chronicle worker. 

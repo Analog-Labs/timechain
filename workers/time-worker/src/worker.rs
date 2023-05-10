@@ -75,6 +75,7 @@ impl TimeMessage {
 struct Shard {
 	tss: Tss<sr25519::Public>,
 	timeout: Option<TssTimeout>,
+	is_collector: bool,
 }
 
 impl Shard {
@@ -82,6 +83,7 @@ impl Shard {
 		Self {
 			tss: Tss::new(public),
 			timeout: None,
+			is_collector: false,
 		}
 	}
 }
@@ -183,6 +185,7 @@ where
 				.collect();
 			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
 			state.tss.initialize(members, shard.threshold());
+			state.is_collector = *shard.collector() == public_key.into();
 			self.poll_actions(shard_id, public_key);
 		}
 	}
@@ -209,20 +212,22 @@ where
 				TssAction::Tss(tss_signature) => {
 					debug!(target: TW_LOG, "Storing tss signature");
 					shard.timeout = None;
-					let tss_signature = tss_signature.to_bytes();
-					let at = self.backend.blockchain().last_finalized().unwrap();
-					let signature = self.kv.sign(&public_key.into(), &tss_signature).unwrap();
-					self.runtime
-						.runtime_api()
-						.store_signature(
-							at,
-							public_key.into(),
-							signature,
-							tss_signature,
-							// TODO: set task id
-							0u128.into(),
-						)
-						.unwrap();
+					if shard.is_collector {
+						let tss_signature = tss_signature.to_bytes();
+						let at = self.backend.blockchain().last_finalized().unwrap();
+						let signature = self.kv.sign(&public_key.into(), &tss_signature).unwrap();
+						self.runtime
+							.runtime_api()
+							.store_signature(
+								at,
+								public_key.into(),
+								signature,
+								tss_signature,
+								// TODO: set task id
+								0u128.into(),
+							)
+							.unwrap();
+					}
 				},
 				TssAction::Report(offender) => {
 					shard.timeout = None;

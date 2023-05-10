@@ -1,6 +1,7 @@
 # Validator setup
 ## overview
 Timechain blockchain is a permissionless network, anyone can join and help to verify the blocks. Timechain is based on substrate framework, current consensus is NPoS. So validator can get the reward according to the staking and block production. 
+
 Timechain extends the client functionality like data fetch from external blockchain, send transaction to external blockchain and using TSS to verify any event or state, TSS signatures storage submission and storage in Timechain. All these extended and off-chain functionalities is implemented by chronicle worker, which share the same binary with Timechain node. It is mandatory for Timechain validator to run chronicle worker to involve in off-chain function execution. Chronicle worker also is rewarded according to its contribution.
 
 
@@ -9,7 +10,7 @@ For hardware requirement, reference to the [Polkadot validator hardware](https:/
 
 As mentioned overview, Timechain validator also needs to run chronicle node. The requirement for hardware is higher than running a polkadot validator. Other factor is the block slot is 3.6 seconds for Timechain, higher throughput is expected.
 
-### CPU
+### CPUs
 
 Recommended:  
 
@@ -30,34 +31,46 @@ The latest Ubuntu is recommended to run validator.
 
 ## Software
 
-### deploy
+### deploy binary
 You can build binary from scratch or download the image with right version from analog docker hub.
 
 #### build binary
-- install according to substrate env setup [build env](https://docs.substrate.io/install/) or follow the doc [rust-setup](./rust-setup.md) in the same folder
+- install tools according to substrate env setup [build env](https://docs.substrate.io/install/) or follow the doc [rust-setup](./rust-setup.md) in the same folder
 - run 
 ```sh
 cargo +nightly build --release
 ```
 
+#### download the docker image
+get from analog docker hub with right version.
+```sh
+docker image pull analog/timechain-node:latest
+```
+
+### SDK installation
+TODO
+if any SDK is needed in validator node.
+
 ## account
 ### account for validator 
-[session key](https://docs.substrate.io/deploy/keys-and-network-operations/)
+For validator, you need a [session key](https://docs.substrate.io/deploy/keys-and-network-operations/).
 
 ### account for TSS
 chronicle worker need to run the TSS service, to sign event data and verify fetched data. 
 TODO how to generate TSS account
 
 
-download the image from analog docker hub with right version.
-`docker image pull analog/timechain-node:latest`
+
 
 ## staking 
 To become a validator node, you need stake Analog token. The [official instruction](https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#bond-dot).
 
+TODO
+we may have the different frontend for Analog validator to stake.
 
 ## Rosetta service
 To interact with external chain, the chronicle worker needs to connect to Rosetta service. You can run your own Rosetta or connect to the entry point provided by Analog.
+
 
 ## start the validator
 the command line is like
@@ -69,6 +82,15 @@ the command line is like
     >./ind_validators/validator3/out_validator3 2>&1 &
 ```
 To guarantee the node could be automatically started after unexpected exit, you can use daemon tool to start the node.
+
+## network
+The Timechain node need several different ports for all services.
+- p2p interface with other Timechain node, default port is 30333.
+- RPC service, port number is 9943
+- WS service, port number is 9944
+
+To use the rosetta service, we need to know its IP and port.
+The default one provided by Analog is http://rosetta.analog.one:8081
 
 ## monitor 
 You need to install monitor system to know the status of validator node. You can check [polkadot node monitor](https://wiki.polkadot.network/docs/maintain-guides-how-to-monitor-your-node)

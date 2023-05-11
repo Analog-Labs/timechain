@@ -1,6 +1,7 @@
 #![allow(clippy::type_complexity)]
 use crate::{WorkerParams, TW_LOG};
 use bincode::serialize;
+use chrono::Utc;
 use codec::Decode;
 use core::time;
 use dotenvy::dotenv;
@@ -16,13 +17,14 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::Block, DispatchError};
-use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, env, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
 	TimeApi, TimeId,
 };
 use time_worker::kv::TimeKeyvault;
 use tokio::{sync::Mutex, time::sleep};
+use worker_aurora::{establish_connection, models::Feeds, write_data_to_db};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -110,7 +112,7 @@ where
 		shard_id: u64,
 		schdule_task_id: u64,
 		map: &mut HashMap<u64, ()>,
-	) -> Result<(), Box<dyn Error>> {
+	) -> Result<bool, Box<dyn Error>> {
 		dotenv().ok();
 
 		if let Ok(task_in_bytes) = serialize(&data.result) {
@@ -149,6 +151,7 @@ where
 											e
 										),
 									}
+									return Ok(true);
 								} else {
 									log::info!("Connector failed to send event to channel");
 									match Self::update_task_schedule_status(
@@ -178,7 +181,7 @@ where
 		} else {
 			log::info!("Failed to serialize task: {:?}", data);
 		}
-		Ok(())
+		Ok(false)
 	}
 
 	async fn process_tasks_for_block(
@@ -224,16 +227,54 @@ where
 
 													let data = client.call(&request).await?;
 
-													let _result =
-														Self::call_contract_and_send_for_sign(
-															self,
-															block_id,
-															data,
-															shard_id,
-															schedule_task.0,
-															map,
-														)
-														.await;
+													match Self::call_contract_and_send_for_sign(
+														self,
+														block_id,
+														data,
+														shard_id,
+														schedule_task.0,
+														map,
+													)
+													.await
+													{
+														Ok(true) => {
+															let conn_url = env::var("DATABASE_URL").map_err(|_| "Error the DATABASE_URL not set.")?;
+															let pg_conn = establish_connection(
+																Some(&conn_url),
+															);
+
+															let id:i64 = schedule_task.0.try_into().unwrap();
+															let hash = schedule_task.1.hash.to_owned();
+															let value = match serde_json::to_value(task.clone()){
+																Ok(value) => value,
+																Err(e) => {
+																	log::warn!("Error serializing task: {:?}", e);
+																	serde_json::Value::Null
+																}
+															};
+															let task = value.to_string().as_bytes().to_vec();
+															let validity = 123;
+															let timestamp = Some(Utc::now().naive_utc());
+															let cycle = Some(schedule_task.1.cycle.try_into().unwrap());
+
+															let record = Feeds {
+																id,
+									 							hash,
+																task,
+																timestamp,
+																validity,
+																cycle,
+															};
+															match pg_conn {
+																Ok(mut pg_conn) => write_data_to_db(&mut pg_conn, record),
+																Err(e) => log::warn!("Error in connection {:?}",e),
+															}
+														},
+														Ok(false) => {
+															log::warn!("status not updated can't updated data into DB")
+														},
+														Err(_) => log::warn!("Error on call contract and send for sign"),
+													}
 												},
 												_ => {
 													log::warn!("error on matching task function")

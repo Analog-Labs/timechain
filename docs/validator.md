@@ -59,9 +59,6 @@ For validator, you need a [session key](https://docs.substrate.io/deploy/keys-an
 chronicle worker need to run the TSS service, to sign event data and verify fetched data. 
 TODO how to generate TSS account
 
-
-
-
 ## staking 
 To become a validator node, you need stake Analog token. The [official instruction](https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#bond-dot).
 
@@ -89,6 +86,11 @@ the command line is like
     >./ind_validators/validator3/out_validator3 2>&1 &
 ```
 To guarantee the node could be automatically started after unexpected exit, you can use daemon tool to start the node.
+
+## TSS shard
+Each TSS shard is a group, they work together to sign data and finalized the TSS process. According to TSS algorithm, you can create the TSS group with different number of TSS node.In Timechain network, we create the TSS shard via extrinsic. Every task just be executed by single TSS shard. User can specify the TSS shard type according to node number.
+
+In the future, the shard will be created automatically after the node become validator and validator can set the shard type. With efficient computing resource, validator can join multiple TSS shard.
 
 ## network
 The Timechain node need several different ports for all services.

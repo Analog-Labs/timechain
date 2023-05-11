@@ -6,3 +6,4 @@
 **/ind_*
 **/migrations
 infra
+!/.github

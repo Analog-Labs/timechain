@@ -1,9 +1,14 @@
 FROM paritytech/ci-linux:production as pre-build
 ENV DEBIAN_FRONTEND=noninteractive
-RUN rustup toolchain uninstall nightly && rustup install nightly
 RUN apt update -y && apt install libpq-dev -y
+ADD https://github.com/PowerShell/PowerShell/releases/download/v7.3.4/powershell-7.3.4-linux-x64.tar.gz /pwsh7/7.tar.gz
+RUN cd /pwsh7 && tar xzf 7.tar.gz
 COPY ./cargo.toml.tar /
 COPY ./Cargo.lock /build/
+COPY ./rust-toolchain.toml /build/
+COPY ./.github/update-rust.ps1 /build/
+COPY ./.github/config.txt /build/.github/
+RUN cd /build && ls -la .github && /pwsh7/pwsh -nologo update-rust.ps1
 RUN cd /build && tar xf ../cargo.toml.tar && cargo fetch --locked
 
 FROM pre-build as build

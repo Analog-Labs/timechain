@@ -68,8 +68,15 @@ To become a validator node, you need stake Analog token. The [official instructi
 TODO
 we may have the different frontend for Analog validator to stake.
 
-## Rosetta service
-To interact with external chain, the chronicle worker needs to connect to Rosetta service. You can run your own Rosetta or connect to the entry point provided by Analog.
+## Connector service
+Connector is a Rust-based package that implements Coinbase’s Rosetta API. The chronicle worker uses it to interact with external chain. You can run your own Connector or service provided by Analog.
+For validator, you need three arguments to start the node.
+- connector-url
+- connector-blockchain
+- connector-network
+
+### Run your own Connector
+You can follow the [Connector instruction](https://github.com/Analog-Labs/chain-connectors#readme).
 
 
 ## start the validator

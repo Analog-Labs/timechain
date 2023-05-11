@@ -1,8 +1,12 @@
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
+#[cfg(feature = "std")]
+use serde::Serialize;
 use sp_std::vec::Vec;
 // Function defines target network endpoint
 // It can be smart contract or native network API.
+
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
 	EthereumContract {
@@ -25,6 +29,7 @@ pub enum Function {
 	},
 }
 
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Input {
 	Array(Vec<Input>),
@@ -33,6 +38,7 @@ pub enum Input {
 	NumberAsQuad,
 }
 
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Output {
 	Array(Vec<Output>),
@@ -44,18 +50,23 @@ pub enum Output {
 }
 
 // Unique database identifier (it also is used as a primary key)
+
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
 
 // Numeric value affinity. Where a digital point is.
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Affinity(pub u64);
 
 // Required value precision
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Rounding(pub u64);
 
 // Defines how to store collected data into collection
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Schema {
 	String(String),
@@ -72,6 +83,7 @@ impl Schema {
 }
 
 // Defines how to update collection
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Task {
 	pub collection_id: ObjectId,
@@ -135,8 +147,11 @@ impl Status {
 	}
 }
 
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct QueryId(pub u64);
+
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Validity {
 	Seconds(u64),

@@ -140,7 +140,7 @@ pub fn analog_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 		// Properties
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
@@ -226,7 +226,7 @@ pub fn analog_development_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 		// Properties
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
@@ -284,7 +284,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		None,
 		// Properties
 		None,
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))

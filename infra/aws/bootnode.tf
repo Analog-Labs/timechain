@@ -45,3 +45,8 @@ sudo docker run --name boot-node \
 EOF
 
 }
+
+output "boonode_ip" {
+  value       = aws_instance.boot_node.public_ip
+  description = "Bootnode"
+}

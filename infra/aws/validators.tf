@@ -48,3 +48,9 @@ sudo docker run --name validator-node \
 EOF
 
 }
+
+
+output "validators_ip" {
+  value = aws_instance.validator_node[*].public_ip
+  description = "Validators"
+}

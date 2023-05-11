@@ -13504,6 +13504,7 @@ dependencies = [
  "chrono",
  "diesel",
  "dotenvy",
+ "log",
  "serde",
 ]
 

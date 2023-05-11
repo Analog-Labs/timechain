@@ -6,12 +6,12 @@ if ( $Cargo -or -not(Test-path ../cargo.toml.tar -PathType leaf)) {
     ./make.cargo.tar.sh
 }
 
-if ( $Build -or $Upload ) {
-    docker build .. -f ./Dockerfile -t ghcr.io/analog-labs/testnode
+if ( $Build ) {
+    docker build .. -f ./Dockerfile -t ghcr.io/analog-labs/testnet
 }
 
 if ( $Upload ) {
-    docker push ghcr.io/analog-labs/timegraph-backend
+    docker push ghcr.io/analog-labs/testnet
 }
 
 if ( $Down -or $Up ) {

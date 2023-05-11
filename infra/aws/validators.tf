@@ -30,15 +30,18 @@ sudo systemctl enable docker
 sudo groupadd docker
 sudo usermod -aG docker ubuntu
 docker login ghcr.io -u sudachen -p ${var.ghcr_token}
-docker pull ghcr.io/analog-labs/testnode
+docker pull ghcr.io/analog-labs/testnet
+sudo docker run -it \
+  -e WAIT_HOSTS="${aws_instance.boot_node.public_ip}:30333" \
+  --entrypoint=/wait ghcr.io/analog-labs/testnet
 sudo docker run --name validator-node \
   -p 30333:30333 -p ${var.rpc_port}:${var.rpc_port} -p ${var.ws_port}:${var.ws_port} \
-  -d ghcr.io/analog-labs/testnode \
+  -d ghcr.io/analog-labs/testnet \
     --validator \
-    --base-path ./validator \
+    --base-path /timechain \
     --port 30333 --ws-port=${var.ws_port} --rpc-port=${var.rpc_port} \
-    --chain local --${var.validators[count.index]}
-    --bootnodes /ip4/${aws_instance.boot_node.public_ip}/tcp/30333/p2p/${var.boot_node_key}
+    --chain local --${var.validators[count.index]} \
+    --bootnodes /ip4/${aws_instance.boot_node.public_ip}/tcp/30333/p2p/${var.boot_node_key} \
     --connector-url http://rosetta.analog.one:8081 \
     --connector-blockchain ethereum \
     --connector-network dev

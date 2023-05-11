@@ -31,12 +31,12 @@ sudo systemctl enable docker
 sudo groupadd docker
 sudo usermod -aG docker ubuntu
 docker login ghcr.io -u sudachen -p ${var.ghcr_token}
-docker pull ghcr.io/analog-labs/testnode
+docker pull ghcr.io/analog-labs/testnet
 sudo docker run --name boot-node \
     -p 30333:30333 -p ${var.rpc_port}:${var.rpc_port} -p ${var.ws_port}:${var.ws_port} \
-    -d ghcr.io/analog-labs/testnode \
+    -d ghcr.io/analog-labs/testnet \
       --validator \
-      --base-path ./validator \
+      --base-path /timechain \
       --port 30333 --ws-port=${var.ws_port} --rpc-port=${var.rpc_port} \
       --chain local --alice --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
       --connector-url http://rosetta.analog.one:8081 \

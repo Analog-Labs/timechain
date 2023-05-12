@@ -94,6 +94,15 @@ pub struct Task {
 	pub validity: Validity,
 	pub hash: String,
 }
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct PayableTask {
+	pub collection_id: ObjectId,
+	pub address: String,
+	pub function: String,
+	pub input: Vec<Input>,
+}
+
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Initiated,
@@ -115,12 +124,26 @@ pub struct TaskSchedule<AccountId> {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct PayableTaskSchedule<AccountId> {
+	pub task_id: ObjectId,
+	pub owner: AccountId,
+	pub shard_id: u64,
+	pub status: ScheduleStatus,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
 	pub shard_id: u64,
 	pub cycle: u64,
 	pub validity: Validity,
 	pub hash: String,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct PayableScheduleInput {
+	pub task_id: ObjectId,
+	pub shard_id: u64,
 }
 
 // Collection value

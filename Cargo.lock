@@ -2217,6 +2217,7 @@ checksum = "72eb77396836a4505da85bae0712fa324b74acfe1876d7c2f7e694ef3d0ee373"
 dependencies = [
  "bitflags",
  "byteorder",
+ "chrono",
  "diesel_derives",
  "itoa",
  "pq-sys",
@@ -11378,6 +11379,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "borsh",
+ "chrono",
  "diesel",
  "dotenvy",
  "fnv",
@@ -11426,6 +11428,7 @@ dependencies = [
  "time-primitives",
  "time-worker",
  "tokio",
+ "worker-aurora",
 ]
 
 [[package]]
@@ -13714,8 +13717,10 @@ dependencies = [
 name = "worker-aurora"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "diesel",
  "dotenvy",
+ "log",
  "serde",
 ]
 

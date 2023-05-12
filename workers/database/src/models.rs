@@ -1,4 +1,7 @@
+use crate::schema;
+use chrono;
 use diesel::prelude::*;
+use schema::_feeds_;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use std::time::SystemTime;
 
@@ -24,4 +27,15 @@ impl Serialize for OnChainData {
 		state.serialize_field("on_chain_data", &self.on_chain_data)?;
 		state.end()
 	}
+}
+
+#[derive(Insertable, Debug)]
+#[table_name = "_feeds_"]
+pub struct Feeds {
+	pub id: i64,
+	pub hash: String,
+	pub task: Vec<u8>,
+	pub validity: i64,
+	pub timestamp: Option<chrono::NaiveDateTime>,
+	pub cycle: Option<i64>,
 }

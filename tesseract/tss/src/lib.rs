@@ -611,6 +611,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							{
 								Ok(signature) => {
 									self.actions.push_back(TssAction::Tss(signature));
+									signing_state.remove(&hash);
 									step = true;
 								},
 								Err(Error::InvalidSignatureShare { signer }) => {
@@ -634,7 +635,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			TssState::Initialized { key_package, signing_state, .. } => {
 				let mut commitments = match signing_state.entry(hash).or_default() {
 					SigningState::PreCommit { commitments } => std::mem::take(commitments),
-					state => panic!("invalid state ({})", state),
+					_ => return,
 				};
 				let (nonces, commitment) =
 					round1::commit(self.frost_id, key_package.secret_share(), &mut OsRng);

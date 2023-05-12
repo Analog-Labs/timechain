@@ -42,8 +42,9 @@ impl<P> Default for TssState<P> {
 impl<P> std::fmt::Display for TssState<P> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Self::Uninitialized { round1_packages } =>
-				write!(f, "uninitialized {}", round1_packages.len()),
+			Self::Uninitialized { round1_packages } => {
+				write!(f, "uninitialized {}", round1_packages.len())
+			},
 			Self::DkgR1 { round1_packages, .. } => write!(f, "dkgr1 {}", round1_packages.len()),
 			Self::DkgR2 { round2_packages, .. } => write!(f, "dkgr2 {}", round2_packages.len()),
 			Self::Initialized { .. } => write!(f, "initialized"),
@@ -330,28 +331,32 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 					}
 				}
 			},
-			(TssState::Initialized { signing_state, .. }, TimeoutKind::Sign(hash, timeout)) =>
+			(TssState::Initialized { signing_state, .. }, TimeoutKind::Sign(hash, timeout)) => {
 				match (signing_state.get(&hash), timeout) {
-					(Some(SigningState::PreCommit { commitments }), SignTimeoutKind::PreCommit) =>
+					(Some(SigningState::PreCommit { commitments }), SignTimeoutKind::PreCommit) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if commitments.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
-						},
-					(Some(SigningState::Commit { commitments, .. }), SignTimeoutKind::Commit) =>
+						}
+					},
+					(Some(SigningState::Commit { commitments, .. }), SignTimeoutKind::Commit) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if !commitments.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
-						},
-					(Some(SigningState::Sign { signature_shares, .. }), SignTimeoutKind::Sign) =>
+						}
+					},
+					(Some(SigningState::Sign { signature_shares, .. }), SignTimeoutKind::Sign) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if !signature_shares.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
-						},
+						}
+					},
 					_ => {},
-				},
+				}
+			},
 			_ => {},
 		}
 		for report in report {
@@ -504,7 +509,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						round2_packages,
 					},
 					None,
-				) =>
+				) => {
 					if round1_packages.len() == self.config.total_nodes - 1 {
 						let round1_packages =
 							std::mem::take(round1_packages).into_values().collect::<Vec<_>>();
@@ -526,7 +531,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							},
 							Err(err) => unreachable!("{err}"),
 						}
-					},
+					}
+				},
 				(
 					TssState::DkgR2 {
 						secret_package,
@@ -534,7 +540,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						round2_packages,
 					},
 					None,
-				) =>
+				) => {
 					if round2_packages.len() == self.config.total_nodes - 1 {
 						let round2_packages =
 							std::mem::take(round2_packages).into_values().collect::<Vec<_>>();
@@ -555,7 +561,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							},
 							Err(err) => unreachable!("{err}"),
 						}
-					},
+					}
+				},
 				(
 					TssState::Initialized {
 						key_package,
@@ -569,7 +576,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						nonces,
 						commitments,
 						signature_shares,
-					} =>
+					} => {
 						if commitments.len() == self.config.total_nodes {
 							let data = std::mem::take(data);
 							let commitments =
@@ -591,11 +598,12 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							self.actions.push_back(TssAction::Timeout(Timeout::sign(hash)));
 							self.actions.push_back(TssAction::Send(TssMessage::Sign { hash, msg }));
 							step = true;
-						},
+						}
+					},
 					SigningState::Sign {
 						signing_package,
 						signature_shares,
-					} =>
+					} => {
 						if signature_shares.len() == self.config.total_nodes {
 							let shares =
 								std::mem::take(signature_shares).into_values().collect::<Vec<_>>();
@@ -610,7 +618,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 								},
 								Err(err) => unreachable!("{err}"),
 							}
-						},
+						}
+					},
 					_ => {},
 				},
 				_ => {},
@@ -807,7 +816,7 @@ mod tests {
 		pub fn run(&mut self) -> TssEvents {
 			while let Some((peer_id, action)) = self.actions.pop_front() {
 				match action {
-					TssAction::Send(msg) =>
+					TssAction::Send(msg) => {
 						if let Some(msg) = (self.fault_injector)(peer_id, msg) {
 							for tss in &mut self.tss {
 								tss.on_message(peer_id, msg.clone());
@@ -815,7 +824,8 @@ mod tests {
 									self.actions.push_back((*tss.peer_id(), action));
 								}
 							}
-						},
+						}
+					},
 					TssAction::Report(offender) => {
 						assert!(self.events.reports.insert(peer_id, offender).is_none());
 						self.events.timeouts.insert(peer_id, None);

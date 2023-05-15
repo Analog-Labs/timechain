@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use futures::channel::mpsc;
 use sc_client_api::BlockBackend;
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
@@ -193,11 +194,12 @@ pub fn new_full(
 		.push(sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
 
 	// registering time p2p gossip protocol
-	config.network.extra_sets.push(
-		time_worker::communication::time_protocol_name::time_peers_set_config(
-			time_worker::communication::time_protocol_name::gossip_protocol_name(),
-		),
-	);
+	config
+		.network
+		.extra_sets
+		.push(time_worker::time_protocol_name::time_peers_set_config(
+			time_worker::time_protocol_name::gossip_protocol_name(),
+		));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -233,10 +235,12 @@ pub fn new_full(
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.sync_keystore();
 
+	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
 		let clonestore = keystore.clone();
+		let sign_data_sender = sign_data_sender.clone();
 
 		Box::new(move |deny_unsafe, _| {
 			let deps = crate::rpc::FullDeps {
@@ -244,6 +248,7 @@ pub fn new_full(
 				pool: pool.clone(),
 				deny_unsafe,
 				kv: Some(clonestore.clone()).into(),
+				sign_data_sender: sign_data_sender.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
@@ -357,7 +362,7 @@ pub fn new_full(
 			gossip_network: network,
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
-			sign_data_receiver: crate::rpc::TIME_RPC_CHANNEL.1.clone(),
+			sign_data_receiver,
 			accountid: PhantomData,
 			sync_service,
 		};
@@ -374,7 +379,7 @@ pub fn new_full(
 			backend: backend.clone(),
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
-			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			sign_data_sender: sign_data_sender.clone(),
 			accountid: PhantomData,
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
@@ -392,7 +397,7 @@ pub fn new_full(
 			backend,
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
-			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			sign_data_sender,
 			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,

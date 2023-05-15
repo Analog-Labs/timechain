@@ -613,7 +613,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 								self.config.total_nodes,
 								commitments.len()
 							);
-						},
+						}
+					},
 					SigningState::Sign {
 						signing_package,
 						signature_shares,
@@ -641,7 +642,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 								self.config.total_nodes,
 								signature_shares.len()
 							);
-						},
+						}
+					},
 					_ => {},
 				},
 				_ => {},

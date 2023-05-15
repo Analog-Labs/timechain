@@ -1479,8 +1479,6 @@ dependencies = [
  "substrate-test-runtime-client",
  "surf",
  "tempfile",
- "tesseract-accounts",
- "tesseract-tss",
  "time-primitives",
  "time-worker",
  "tokio",
@@ -11409,8 +11407,6 @@ dependencies = [
  "substrate-test-runtime-client",
  "surf",
  "tempfile",
- "tesseract-accounts",
- "tesseract-tss",
  "time-primitives",
  "time-worker",
  "tokio",
@@ -11514,19 +11510,6 @@ name = "termtree"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
-
-[[package]]
-name = "tesseract-accounts"
-version = "0.0.1"
-dependencies = [
- "log",
- "sc-keystore",
- "sc-service",
- "serde",
- "serde_json",
- "sp-core 7.0.0",
- "sp-keystore 0.13.0",
-]
 
 [[package]]
 name = "tesseract-tss"

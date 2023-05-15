@@ -13,7 +13,7 @@ parking_lot = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 time-primitives = { path = "../../primitives/time-primitives" }
 tokio = { version = "1.28.1", features = ["time"] }
-tss = { path = "../../tesseract/tss", package = "tesseract-tss" }
+tss = { path = "../../tss", package = "tesseract-tss" }
 
 sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-network = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }

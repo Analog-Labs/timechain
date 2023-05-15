@@ -48,11 +48,10 @@ sc-network-common = { git = "https://github.com/paritytech/substrate.git", branc
 sc-network-gossip = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 time-primitives = { path = "../../primitives/time-primitives" }
 storage-primitives = { path = "../../primitives/storage-primitives"}
-tss = { path = "../../tesseract/tss", package = "tesseract-tss" }
-accounts = { path = "../../tesseract/accounts", package = "tesseract-accounts" }
 borsh = { version ="0.10", default-features = false }
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
 rosetta-client = "0.2.5"
+
 [dev-dependencies]
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }

@@ -339,24 +339,27 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			(TssState::Initialized { signing_state, .. }, TimeoutKind::Sign(hash, timeout)) => {
 				timeout_hash = Some(hash);
 				match (signing_state.get(&hash), timeout) {
-					(Some(SigningState::PreCommit { commitments }), SignTimeoutKind::PreCommit) =>
+					(Some(SigningState::PreCommit { commitments }), SignTimeoutKind::PreCommit) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if commitments.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
-						},
-					(Some(SigningState::Commit { commitments, .. }), SignTimeoutKind::Commit) =>
+						}
+					},
+					(Some(SigningState::Commit { commitments, .. }), SignTimeoutKind::Commit) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if !commitments.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
-						},
-					(Some(SigningState::Sign { signature_shares, .. }), SignTimeoutKind::Sign) =>
+						}
+					},
+					(Some(SigningState::Sign { signature_shares, .. }), SignTimeoutKind::Sign) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if !signature_shares.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
-						},
+						}
+					},
 					_ => {},
 				}
 			},
@@ -513,7 +516,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						round2_packages,
 					},
 					None,
-				) =>
+				) => {
 					if round1_packages.len() == self.config.total_nodes - 1 {
 						let round1_packages =
 							std::mem::take(round1_packages).into_values().collect::<Vec<_>>();
@@ -535,7 +538,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							},
 							Err(err) => unreachable!("{err}"),
 						}
-					},
+					}
+				},
 				(
 					TssState::DkgR2 {
 						secret_package,
@@ -543,7 +547,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						round2_packages,
 					},
 					None,
-				) =>
+				) => {
 					if round2_packages.len() == self.config.total_nodes - 1 {
 						let round2_packages =
 							std::mem::take(round2_packages).into_values().collect::<Vec<_>>();
@@ -564,7 +568,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							},
 							Err(err) => unreachable!("{err}"),
 						}
-					},
+					}
+				},
 				(
 					TssState::Initialized {
 						key_package,
@@ -578,7 +583,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						nonces,
 						commitments,
 						signature_shares,
-					} =>
+					} => {
 						if commitments.len() == self.config.total_nodes {
 							log::debug!("received all commitments processing signing");
 							let data = std::mem::take(data);
@@ -608,11 +613,12 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 								self.config.total_nodes,
 								commitments.len()
 							);
-						},
+						}
+					},
 					SigningState::Sign {
 						signing_package,
 						signature_shares,
-					} =>
+					} => {
 						if signature_shares.len() == self.config.total_nodes {
 							log::debug!("Received all shares processing aggregator");
 							let shares =
@@ -636,7 +642,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 								self.config.total_nodes,
 								signature_shares.len()
 							);
-						},
+						}
+					},
 					_ => {},
 				},
 				_ => {},
@@ -836,7 +843,7 @@ mod tests {
 		pub fn run(&mut self) -> TssEvents {
 			while let Some((peer_id, action)) = self.actions.pop_front() {
 				match action {
-					TssAction::Send(msg) =>
+					TssAction::Send(msg) => {
 						if let Some(msg) = (self.fault_injector)(peer_id, msg) {
 							for tss in &mut self.tss {
 								tss.on_message(peer_id, msg.clone());
@@ -844,7 +851,8 @@ mod tests {
 									self.actions.push_back((*tss.peer_id(), action));
 								}
 							}
-						},
+						}
+					},
 					TssAction::Report(offender, _) => {
 						assert!(self.events.reports.insert(peer_id, offender).is_none());
 						self.events.timeouts.insert(peer_id, None);

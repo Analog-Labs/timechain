@@ -42,7 +42,8 @@ sudo docker run --name boot-node \
       --connector-url http://rosetta.analog.one:8081 \
       --connector-blockchain ethereum \
       --connector-network dev \
-      --unsafe-ws-external --unsafe-rpc-external
+      --rpc-cors all \
+      --ws-external --rpc-external --rpc-methods unsafe --prometheus-external
 EOF
 
 }

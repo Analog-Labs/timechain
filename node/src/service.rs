@@ -213,7 +213,7 @@ pub fn new_full(
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
-		let clonestore = keystore.clone();
+		let keystore = keystore.clone();
 		let sign_data_sender = sign_data_sender.clone();
 
 		Box::new(move |deny_unsafe, _| {
@@ -221,7 +221,7 @@ pub fn new_full(
 				client: client.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
-				kv: Some(clonestore.clone()).into(),
+				kv: keystore.clone(),
 				sign_data_sender: sign_data_sender.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
@@ -333,7 +333,7 @@ pub fn new_full(
 			client: client.clone(),
 			backend: backend.clone(),
 			gossip_network: network,
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_receiver,
 			accountid: PhantomData,
@@ -350,7 +350,7 @@ pub fn new_full(
 		let connector_params = connector_worker::ConnectorWorkerParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender: sign_data_sender.clone(),
 			accountid: PhantomData,
@@ -368,7 +368,7 @@ pub fn new_full(
 		let taskexecutor_params = task_executor::TaskExecutorParams {
 			runtime: client,
 			backend,
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender,
 			accountid: PhantomData,

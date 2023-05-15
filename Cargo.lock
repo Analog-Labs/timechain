@@ -1480,7 +1480,6 @@ dependencies = [
  "surf",
  "tempfile",
  "time-primitives",
- "time-worker",
  "tokio",
  "worker-aurora",
 ]
@@ -11408,7 +11407,6 @@ dependencies = [
  "surf",
  "tempfile",
  "time-primitives",
- "time-worker",
  "tokio",
  "worker-aurora",
 ]
@@ -11727,10 +11725,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core 7.0.0",
+ "sp-keystore 0.13.0",
  "sp-runtime 7.0.0",
  "thiserror",
  "time-primitives",
- "time-worker",
  "tokio",
 ]
 
@@ -11780,6 +11778,7 @@ dependencies = [
  "sp-core 7.0.0",
  "sp-inherents 4.0.0-dev",
  "sp-keyring",
+ "sp-keystore 0.13.0",
  "sp-runtime 7.0.0",
  "sp-timestamp",
  "substrate-build-script-utils",

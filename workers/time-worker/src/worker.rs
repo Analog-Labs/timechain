@@ -1,7 +1,6 @@
 #![allow(clippy::type_complexity)]
 use crate::{
 	communication::validator::{topic, GossipValidator},
-	kv::TimeKeyvault,
 	Client, WorkerParams, TW_LOG,
 };
 use futures::{channel::mpsc, FutureExt, StreamExt};
@@ -27,15 +26,6 @@ use time_primitives::{TimeApi, KEY_TYPE};
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
 
-fn sign(
-	store: &KeystorePtr,
-	public: &sr25519::Public,
-	message: &[u8],
-) -> Option<sr25519::Signature> {
-	let sig = store.sr25519_sign(KEY_TYPE, public, message).ok()??.try_into().ok()?;
-	Some(sr25519::Signature::from_raw(sig))
-}
-
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
 	shard_id: u64,
@@ -44,10 +34,9 @@ struct TimeMessage {
 }
 
 impl TimeMessage {
-	fn encode(&self, kv: &TimeKeyvault) -> Vec<u8> {
-		let kv = kv.get_store().unwrap();
+	fn encode(&self, kv: &KeystorePtr) -> Vec<u8> {
 		let mut bytes = bincode::serialize(self).unwrap();
-		let sig = sign(&kv, &self.sender, &bytes).unwrap();
+		let sig = kv.sr25519_sign(KEY_TYPE, &self.sender, &bytes).unwrap().unwrap();
 		bytes.extend_from_slice(sig.as_ref());
 		bytes
 	}
@@ -104,7 +93,7 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	_client: Arc<C>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
-	kv: TimeKeyvault,
+	kv: KeystorePtr,
 	shards: HashMap<u64, Shard>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
@@ -153,12 +142,12 @@ where
 
 	/// Returns the public key for the worker if one was set.
 	fn public_key(&self) -> Option<sr25519::Public> {
-		let keys = self.kv.public_keys();
+		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
 			return None;
 		}
-		Some(*keys[0].as_ref())
+		Some(keys[0])
 	}
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
@@ -212,13 +201,17 @@ where
 					if shard.is_collector {
 						let tss_signature = tss_signature.to_bytes();
 						let at = self.backend.blockchain().last_finalized().unwrap();
-						let signature = self.kv.sign(&public_key.into(), &tss_signature).unwrap();
+						let signature = self
+							.kv
+							.sr25519_sign(KEY_TYPE, &public_key, &tss_signature)
+							.unwrap()
+							.unwrap();
 						self.runtime
 							.runtime_api()
 							.store_signature(
 								at,
 								public_key.into(),
-								signature,
+								signature.into(),
 								tss_signature,
 								// TODO: set task id
 								0u128.into(),
@@ -228,7 +221,7 @@ where
 				},
 				TssAction::Report(offender, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
-					let Some(proof) = self.kv.sign(&public_key.into(), &offender) else {
+					let Some(proof) = self.kv.sr25519_sign(KEY_TYPE, &public_key, &offender).unwrap() else {
 						error!(
 							target: TW_LOG,
 							"Failed to create proof for offence report submission"
@@ -241,7 +234,7 @@ where
 						shard_id,
 						offender.into(),
 						public_key.into(),
-						proof,
+						proof.into(),
 					) {
 						error!(
 							target: TW_LOG,

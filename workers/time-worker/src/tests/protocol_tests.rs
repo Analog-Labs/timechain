@@ -26,7 +26,7 @@ use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Header as HeaderT;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{
-	runtime::AccountId, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
+	runtime::AccountId, Ed25519Keyring, Keystore, KeystorePtr, LongestChain,
 };
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
@@ -268,7 +268,8 @@ fn initialize_grandpa(net: &mut TimeTestNet) -> impl Future<Output = ()> {
 	// initializing grandpa gadget per peer
 	for (peer_id, key) in net.test_net.grandpa_peers.iter().enumerate() {
 		let keystore = Arc::new(LocalKeystore::in_memory());
-		SyncCryptoStore::ed25519_generate_new(&*keystore, GRANDPA, Some(&key.to_seed()))
+		keystore
+			.ed25519_generate_new(GRANDPA, Some(&key.to_seed()))
 			.expect("Creates authority key");
 
 		let (net_service, link) = {
@@ -327,7 +328,8 @@ where
 		let peer = &net.peers[peer_id];
 
 		let keystore = Arc::new(LocalKeystore::in_memory());
-		SyncCryptoStore::sr25519_generate_new(&*keystore, TimeKeyType, Some(&key.to_seed()))
+		keystore
+			.sr25519_generate_new(TimeKeyType, Some(&key.to_seed()))
 			.expect("Creates authority key");
 
 		let time_params = TimeWorkerParams {
@@ -335,7 +337,7 @@ where
 			backend: peer.client().as_backend(),
 			runtime: api.into(),
 			gossip_network: peer.network_service().clone(),
-			kv: Some(keystore as SyncCryptoStorePtr).into(),
+			kv: Some(keystore as KeystorePtr).into(),
 			sign_data_receiver,
 			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),

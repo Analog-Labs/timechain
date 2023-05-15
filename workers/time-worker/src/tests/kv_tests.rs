@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use sc_keystore::LocalKeystore;
 use sp_core::{ed25519, keccak_256, sr25519, Pair};
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use sp_keystore::KeystorePtr;
 
 use time_primitives::{crypto, TimeId, KEY_TYPE};
 
@@ -66,7 +66,7 @@ impl From<Keyring> for ed25519::Pair {
 	}
 }
 
-fn keystore() -> SyncCryptoStorePtr {
+fn keystore() -> KeystorePtr {
 	Arc::new(LocalKeystore::in_memory())
 }
 
@@ -126,11 +126,11 @@ fn pair_works() {
 fn authority_id_works() {
 	let store = keystore();
 
-	let alice: crypto::Public =
-		SyncCryptoStore::sr25519_generate_new(&*store, KEY_TYPE, Some(&Keyring::Alice.to_seed()))
-			.ok()
-			.unwrap()
-			.into();
+	let alice: crypto::Public = store
+		.sr25519_generate_new(KEY_TYPE, Some(&Keyring::Alice.to_seed()))
+		.ok()
+		.unwrap()
+		.into();
 
 	let bob = Keyring::Bob.public();
 	let charlie = Keyring::Charlie.public();
@@ -153,11 +153,11 @@ fn authority_id_works() {
 fn sign_works() {
 	let store = keystore();
 
-	let alice: crypto::Public =
-		SyncCryptoStore::sr25519_generate_new(&*store, KEY_TYPE, Some(&Keyring::Alice.to_seed()))
-			.ok()
-			.unwrap()
-			.into();
+	let alice: crypto::Public = store
+		.sr25519_generate_new(KEY_TYPE, Some(&Keyring::Alice.to_seed()))
+		.ok()
+		.unwrap()
+		.into();
 
 	let store: TimeKeyvault = Some(store).into();
 
@@ -174,7 +174,8 @@ fn sign_works() {
 fn sign_error() {
 	let store = keystore();
 
-	let _ = SyncCryptoStore::sr25519_generate_new(&*store, KEY_TYPE, Some(&Keyring::Bob.to_seed()))
+	let _ = store
+		.sr25519_generate_new(KEY_TYPE, Some(&Keyring::Bob.to_seed()))
 		.ok()
 		.unwrap();
 
@@ -204,11 +205,11 @@ fn sign_no_keystore() {
 fn verify_works() {
 	let store = keystore();
 
-	let alice: crypto::Public =
-		SyncCryptoStore::sr25519_generate_new(&*store, KEY_TYPE, Some(&Keyring::Alice.to_seed()))
-			.ok()
-			.unwrap()
-			.into();
+	let alice: crypto::Public = store
+		.sr25519_generate_new(KEY_TYPE, Some(&Keyring::Alice.to_seed()))
+		.ok()
+		.unwrap()
+		.into();
 
 	let store: TimeKeyvault = Some(store).into();
 

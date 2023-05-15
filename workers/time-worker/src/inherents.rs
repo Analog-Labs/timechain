@@ -55,7 +55,7 @@ impl InherentDataProvider for TimeInherentTssDataProvider {
 		}
 
 		match InherentError::try_from(&INHERENT_IDENTIFIER, error)? {
-			InherentError::InvalidGroupKey(wrong_key) => {
+			InherentError::InvalidGroupKey(wrong_key) =>
 				if wrong_key.group_key == [0u8; 33] {
 					error!(
 						target: TW_LOG,
@@ -69,8 +69,7 @@ impl InherentDataProvider for TimeInherentTssDataProvider {
 					Some(Err(sp_inherents::Error::Application(Box::from(
 						InherentError::InvalidGroupKey(wrong_key),
 					))))
-				}
-			},
+				},
 			InherentError::WrongInherentCall => {
 				error!(target: TW_LOG, "Invalid Call inserted in block");
 				Some(Err(sp_inherents::Error::Application(Box::from(

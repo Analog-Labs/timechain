@@ -56,7 +56,7 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	node_id: Option<TimeId>,
 	known_sets: HashSet<u64>,
-	accountid: PhantomData<A>,
+	account_id: PhantomData<A>,
 }
 
 impl<B, A, C, R, BE> TimeWorker<B, A, C, R, BE>
@@ -77,7 +77,7 @@ where
 			gossip_validator,
 			kv,
 			sign_data_receiver,
-			accountid,
+			account_id,
 		} = worker_params;
 
 		// TODO: threshold calc if required
@@ -95,7 +95,7 @@ where
 			known_sets: HashSet::default(),
 			timeouts: FuturesUnordered::default(),
 			fulfilled: Vec::default(),
-			accountid,
+			account_id,
 		}
 	}
 

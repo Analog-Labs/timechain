@@ -5,7 +5,9 @@ Param(
     [switch]$Build,
     [switch]$Upload,
     [switch]$Cargo,
-    [switch]$Restart)
+    [switch]$Restart,
+    [switch]$Status
+)
 
 Push-Location $PSScriptRoot
 
@@ -39,6 +41,16 @@ if ($Restart)
     Push-Location aws
     terraform apply -destroy -target aws_instance.validator_node -target aws_instance.boot_node -auto-approve
     terraform apply -auto-approve
+    Pop-Location
+}
+
+if ($Status)
+{
+    Push-Location aws
+    if ($Cargo -or -not(Test-path ./.terraform)) {
+        terraform init
+    }
+    terraform show | sed '0,/^Outputs:$/d'
     Pop-Location
 }
 

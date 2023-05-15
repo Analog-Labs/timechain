@@ -39,6 +39,9 @@ if ($Up)
 if ($Restart)
 {
     Push-Location aws
+    if (-not(Test-path ./.terraform)) {
+        terraform init
+    }
     terraform apply -destroy -target aws_instance.validator_node -target aws_instance.boot_node -auto-approve
     terraform apply -auto-approve
     Pop-Location
@@ -47,7 +50,7 @@ if ($Restart)
 if ($Status)
 {
     Push-Location aws
-    if ($Cargo -or -not(Test-path ./.terraform)) {
+    if (-not(Test-path ./.terraform)) {
         terraform init
     }
     terraform show | sed '0,/^Outputs:$/d'

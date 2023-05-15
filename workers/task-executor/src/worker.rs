@@ -304,7 +304,7 @@ where
 							}
 						}
 					} else {
-						log::info!("Task already executed key, Task id: {:?}.", schedule_task.0);
+						log::info!("Task already executed key, Schedule id: {:?}.", schedule_task.0);
 					}
 				}
 			},

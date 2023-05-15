@@ -62,7 +62,7 @@ mod tests {
 		let path = std::env::temp_dir().join("test_load_pubkey_file");
 		let keystore: KeystorePtr = Arc::new(LocalKeystore::open(path, None).unwrap());
 		let acc = Account::new("analog", key_type, keystore);
-		let path = "../artifacts/test-account.json";
+		let path = std::env::temp_dir().join("test-account.json");
 		acc.gen_key_file(path).unwrap();
 		let account_str = Account::read_account_from_file(path).unwrap();
 		assert_eq!(acc.accounts, account_str);

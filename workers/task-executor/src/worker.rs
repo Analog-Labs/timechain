@@ -149,24 +149,6 @@ where
 										e
 									),
 								}
-							} else {
-								// TBD this was checking if tss received data to sign
-								// task invalidity cannot be identified by sign data channel
-								// receiver.
-
-								// log::info!("Connector failed to send event to channel");
-								// match Self::update_task_schedule_status(
-								// 	self,
-								// 	block_id,
-								// 	ScheduleStatus::Invalid,
-								// 	schdule_task_id,
-								// ) {
-								// 	Ok(()) => log::info!("updated schedule status to Canceled"),
-								// 	Err(e) => log::warn!(
-								// 		"getting error on updating schedule status {:?}",
-								// 		e
-								// 	),
-								// }
 							}
 						}
 					} else {

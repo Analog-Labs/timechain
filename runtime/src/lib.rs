@@ -76,7 +76,8 @@ pub use pallet_tesseract_sig_storage;
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
 pub struct StakingBenchmarkingConfig;
-
+// Weights used in the runtime.
+mod weights;
 #[cfg(any(feature = "std", test))]
 pub use pallet_staking::StakerStatus;
 
@@ -393,7 +394,7 @@ macro_rules! impl_elections_weights {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MILLISECS_PER_BLOCK: u64 = 3600;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -918,7 +919,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>; // pallet_balances::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {

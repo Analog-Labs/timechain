@@ -597,17 +597,37 @@ where
 			log::info!("compute_fee_raw  ======>  length = {:?} -- weight = {:?}", len, weight);
 			// the adjustable part of the fee.
 			let unadjusted_weight_fee = Self::weight_to_fee(weight);
-			log::info!("compute_fee_raw  ======>  unadjusted_weight_fee = {:?} -- weight = {:?}", unadjusted_weight_fee, weight);
+			log::info!(
+				"compute_fee_raw  ======>  unadjusted_weight_fee = {:?} -- weight = {:?}",
+				unadjusted_weight_fee,
+				weight
+			);
 			let multiplier = Self::next_fee_multiplier();
-			log::info!("compute_fee_raw  ======>  multiplier = {:?} -- weight = {:?}", multiplier, weight);
+			log::info!(
+				"compute_fee_raw  ======>  multiplier = {:?} -- weight = {:?}",
+				multiplier,
+				weight
+			);
 			// final adjusted weight fee.
 			let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
-			log::info!("compute_fee_raw  ======>  adjusted_weight_fee = {:?} -- weight = {:?}", adjusted_weight_fee, weight);
+			log::info!(
+				"compute_fee_raw  ======>  adjusted_weight_fee = {:?} -- weight = {:?}",
+				adjusted_weight_fee,
+				weight
+			);
 			// length fee. this is adjusted via `LengthToFee`.
 			let len_fee = Self::length_to_fee(len);
-			log::info!("compute_fee_raw  ======>  len_fee = {:?} -- weight = {:?}", len_fee, weight);
+			log::info!(
+				"compute_fee_raw  ======>  len_fee = {:?} -- weight = {:?}",
+				len_fee,
+				weight
+			);
 			let base_fee = Self::weight_to_fee(T::BlockWeights::get().get(class).base_extrinsic);
-			log::info!("compute_fee_raw  ======>  base_fee = {:?} -- weight = {:?}", base_fee, weight);
+			log::info!(
+				"compute_fee_raw  ======>  base_fee = {:?} -- weight = {:?}",
+				base_fee,
+				weight
+			);
 			FeeDetails {
 				inclusion_fee: Some(InclusionFee {
 					base_fee,

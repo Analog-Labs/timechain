@@ -1,11 +1,9 @@
-use keystore::commands::KeyTypeId;
-use sp_core::{sr25519, sr25519::Public, Pair};
-use sp_keystore::SyncCryptoStore;
+use sp_core::{crypto::KeyTypeId, sr25519, sr25519::Public, Pair};
+use sp_keystore::KeystorePtr;
 use std::{
 	error::Error,
 	io::{Read, Write},
 	str,
-	sync::Arc,
 };
 
 #[derive(Clone)]
@@ -16,16 +14,15 @@ pub struct Account {
 impl Account {
 	//create a new account
 	//the account is created with a random keypair
-	pub fn new(password: &str, key_type: KeyTypeId, keystore: Arc<dyn SyncCryptoStore>) -> Self {
+	pub fn new(password: &str, key_type: KeyTypeId, keystore: KeystorePtr) -> Self {
 		let key_pair = sr25519::Pair::generate_with_phrase(Some(password));
-		let pubkey =
-			match SyncCryptoStore::sr25519_generate_new(&*keystore, key_type, Some(&key_pair.1)) {
-				Ok(keypair) => keypair,
-				Err(e) => {
-					log::error!("Error generating keypair: {e:?}");
-					panic!("Error generating keypair: {e:?}");
-				},
-			};
+		let pubkey = match keystore.sr25519_generate_new(key_type, Some(&key_pair.1)) {
+			Ok(keypair) => keypair,
+			Err(e) => {
+				log::error!("Error generating keypair: {e:?}");
+				panic!("Error generating keypair: {e:?}");
+			},
+		};
 
 		Self { accounts: pubkey }
 	}
@@ -55,28 +52,15 @@ impl Account {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use keystore::{commands::KeyTypeId, params::keystore_params::KeystoreParams};
 	use sc_keystore::LocalKeystore;
-	use sc_service::config::KeystoreConfig;
-	use sp_keystore::SyncCryptoStorePtr;
-	use std::{convert::TryFrom, env, sync::Arc};
+	use std::{convert::TryFrom, sync::Arc};
 
 	//tests account creation, keypair generation and keypair storage
 	#[test]
 	fn test_load_pubkey_file() {
-		let keystore_params = KeystoreParams::default();
-
-		let config_dir = env::current_dir().unwrap();
-		let keystore = match keystore_params.keystore_config(&config_dir).unwrap() {
-			(_, KeystoreConfig::Path { path, password }) => {
-				// let public = with_crypto_scheme!(self.scheme, to_vec(&suri, password.clone()))?;
-				let keystore: SyncCryptoStorePtr =
-					Arc::new(LocalKeystore::open(path, password).unwrap());
-				keystore
-			},
-			_ => unreachable!("keystore_config always returns path and password; qed"),
-		};
 		let key_type = KeyTypeId::try_from("ANLG").unwrap();
+		let path = std::env::temp_dir().join("test_load_pubkey_file");
+		let keystore: KeystorePtr = Arc::new(LocalKeystore::open(path, None).unwrap());
 		let acc = Account::new("analog", key_type, keystore);
 		let path = "../artifacts/test-account.json";
 		acc.gen_key_file(path).unwrap();

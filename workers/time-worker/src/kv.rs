@@ -1,6 +1,6 @@
 use log::warn;
-use sp_core::{keccak_256, Pair, Public};
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use sp_core::{keccak_256, Pair};
+use sp_keystore::KeystorePtr;
 use std::convert::{From, TryInto};
 use time_primitives::{
 	crypto::{Public as TimePublic, Signature},
@@ -8,13 +8,13 @@ use time_primitives::{
 };
 
 #[derive(Clone)]
-pub struct TimeKeyvault(Option<SyncCryptoStorePtr>);
+pub struct TimeKeyvault(Option<KeystorePtr>);
 
 impl TimeKeyvault {
 	pub fn authority_id(&self, _keys: &[TimePublic]) -> Option<sp_core::sr25519::Public> {
 		let store = self.0.clone()?;
 
-		let public = SyncCryptoStore::sr25519_public_keys(&*store, KEY_TYPE);
+		let public = store.sr25519_public_keys(KEY_TYPE);
 		if public.len() > 1 {
 			warn!(target: crate::TW_LOG, "Multiple private keys found!");
 		}
@@ -25,9 +25,7 @@ impl TimeKeyvault {
 		let store = self.0.clone()?;
 
 		let msg = keccak_256(message);
-		let public = public.to_public_crypto_pair();
-
-		let sig = SyncCryptoStore::sign_with(&*store, KEY_TYPE, &public, &msg).ok()??;
+		let sig = store.sr25519_sign(KEY_TYPE, &public.clone().into(), &msg).ok()??;
 
 		// check that `sig` has the expected result type
 		let sig = sig.try_into().ok()?;
@@ -45,7 +43,8 @@ impl TimeKeyvault {
 
 	pub fn public_keys(&self) -> Vec<TimePublic> {
 		let store = self.0.clone().unwrap();
-		SyncCryptoStore::sr25519_public_keys(&*store, KEY_TYPE)
+		store
+			.sr25519_public_keys(KEY_TYPE)
 			.iter()
 			.map(|k| TimePublic::from(*k))
 			.collect()
@@ -53,36 +52,29 @@ impl TimeKeyvault {
 
 	pub fn authority_keys(&self) -> Vec<sp_core::ed25519::Public> {
 		let store = self.0.clone().unwrap();
-		SyncCryptoStore::ed25519_public_keys(&*store, sp_consensus_grandpa::KEY_TYPE).to_vec()
+		store.ed25519_public_keys(sp_consensus_grandpa::KEY_TYPE).to_vec()
 	}
 
 	pub fn authority_sign(
 		&self,
 		public: &sp_core::ed25519::Public,
 		message: &[u8],
-	) -> Option<Signature> {
+	) -> Option<sp_core::ed25519::Signature> {
 		let store = self.0.clone()?;
 
 		let msg = keccak_256(message);
-		let public = public.to_public_crypto_pair();
-
-		let sig =
-			SyncCryptoStore::sign_with(&*store, sp_consensus_grandpa::KEY_TYPE, &public, &msg)
-				.ok()??;
-
-		// check that `sig` has the expected result type
-		let sig = sig.try_into().ok()?;
+		let sig = store.ed25519_sign(sp_consensus_grandpa::KEY_TYPE, &public, &msg).ok()??;
 
 		Some(sig)
 	}
 
-	pub fn get_store(&self) -> Option<SyncCryptoStorePtr> {
+	pub fn get_store(&self) -> Option<KeystorePtr> {
 		self.0.clone()
 	}
 }
 
-impl From<Option<SyncCryptoStorePtr>> for TimeKeyvault {
-	fn from(store: Option<SyncCryptoStorePtr>) -> TimeKeyvault {
+impl From<Option<KeystorePtr>> for TimeKeyvault {
+	fn from(store: Option<KeystorePtr>) -> TimeKeyvault {
 		TimeKeyvault(store)
 	}
 }

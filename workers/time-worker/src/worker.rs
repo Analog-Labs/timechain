@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::HashMap,
@@ -28,14 +28,11 @@ use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
 
 fn sign(
-	store: &SyncCryptoStorePtr,
+	store: &KeystorePtr,
 	public: sr25519::Public,
 	message: &[u8],
 ) -> Option<sr25519::Signature> {
-	let sig = SyncCryptoStore::sign_with(&**store, KEY_TYPE, &public.into(), message)
-		.ok()??
-		.try_into()
-		.ok()?;
+	let sig = store.sr25519_sign(KEY_TYPE, &public.into(), message).ok()??.try_into().ok()?;
 	Some(sr25519::Signature::from_raw(sig))
 }
 

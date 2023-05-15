@@ -17,4 +17,3 @@ sp-core = { version = "7.0.0", git = "https://github.com/paritytech/substrate.gi
 sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sp-keystore = { version = "0.13.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-keystore = { version = "0.1.0", git = "https://github.com/Analog-Labs/Keystore.git", branch = "iv-0.9.38" }

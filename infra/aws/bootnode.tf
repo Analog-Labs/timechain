@@ -23,7 +23,7 @@ resource "aws_instance" "boot_node" {
 sudo apt update -y
 sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu  $(lsb_release -cs)  stable"
+sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu  $(lsb_release -cs)  stable"
 sudo apt update -y
 sudo apt-get install -y docker-ce
 sudo systemctl start docker
@@ -41,7 +41,8 @@ sudo docker run --name boot-node \
       --chain local --alice --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
       --connector-url http://rosetta.analog.one:8081 \
       --connector-blockchain ethereum \
-      --connector-network dev
+      --connector-network dev \
+      --unsafe-ws-external --unsafe-rpc-external
 EOF
 
 }

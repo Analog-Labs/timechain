@@ -19,28 +19,23 @@ ec2 = {
 security_groups = [{
   name        = "SSH"
   protocol    = "tcp"
-  port     = 22
-  cidr_blocks = ["0.0.0.0/0"]
+  port        = 22
 }, {
   name        = "substrate P2P/TCP"
   protocol    = "tcp"
   port        = 30333
-  cidr_blocks = ["0.0.0.0/0"]
-}, {
-  name        = "substrate P2P/UDP"
-  protocol    = "udp"
-  port        = 30333
-  cidr_blocks = ["0.0.0.0/0"]
 }, {
   name        = "substrate RPC"
   protocol    = "tcp"
   port        = 9933
-  cidr_blocks = ["0.0.0.0/0"]
 }, {
   name        = "substrate WS"
   protocol    = "tcp"
   port        = 9944
-  cidr_blocks = ["0.0.0.0/0"]
+}, {
+  name        = "substrate P2P/TCP"
+  protocol    = "udp"
+  port        = 30333
 }]
 
 # do not forget modify security group!

@@ -23,7 +23,6 @@ variable "security_groups" {
     name        = string
     port        = number
     protocol    = string
-    cidr_blocks = list(string)
   }))
 }
 

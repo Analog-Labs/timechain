@@ -4,11 +4,12 @@ resource "aws_security_group" "testnet_sg" {
   dynamic "ingress" {
     for_each = var.security_groups
     content {
-      from_port   = 0
+      from_port   = ingress.value["port"]
       description = ingress.value["name"]
       to_port     = ingress.value["port"]
       protocol    = ingress.value["protocol"]
-      cidr_blocks = ingress.value["cidr_blocks"]
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = ["::/0"]
     }
   }
   egress {

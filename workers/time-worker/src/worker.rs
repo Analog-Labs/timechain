@@ -74,7 +74,6 @@ impl TimeMessage {
 
 struct Shard {
 	tss: Tss<sr25519::Public>,
-	timeout: Option<TssTimeout>,
 	is_collector: bool,
 }
 
@@ -82,7 +81,6 @@ impl Shard {
 	fn new(public: sr25519::Public) -> Self {
 		Self {
 			tss: Tss::new(public),
-			timeout: None,
 			is_collector: false,
 		}
 	}
@@ -116,6 +114,7 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	_gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
 	accountid: PhantomData<A>,
+	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 }
 
@@ -150,6 +149,7 @@ where
 			sign_data_receiver,
 			shards: Default::default(),
 			accountid,
+			timeouts: Default::default(),
 			timeout: None,
 		}
 	}
@@ -206,12 +206,12 @@ where
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					debug!(target: TW_LOG, "Updating tss public key");
-					shard.timeout = None;
+					self.timeouts.remove(&(shard_id, None));
 					crate::inherents::update_shared_group_key(shard_id, tss_public_key.to_bytes());
 				},
-				TssAction::Tss(tss_signature) => {
+				TssAction::Tss(tss_signature, hash) => {
 					debug!(target: TW_LOG, "Storing tss signature");
-					shard.timeout = None;
+					self.timeouts.remove(&(shard_id, Some(hash)));
 					if shard.is_collector {
 						let tss_signature = tss_signature.to_bytes();
 						let at = self.backend.blockchain().last_finalized().unwrap();
@@ -229,8 +229,8 @@ where
 							.unwrap();
 					}
 				},
-				TssAction::Report(offender) => {
-					shard.timeout = None;
+				TssAction::Report(offender, hash) => {
+					self.timeouts.remove(&(shard_id, hash));
 					let Some(proof) = self.kv.sign(&public_key.into(), &offender) else {
 						error!(
 							target: TW_LOG,
@@ -253,12 +253,12 @@ where
 						);
 					}
 				},
-				TssAction::Timeout(timeout) => {
+				TssAction::Timeout(timeout, hash) => {
 					let timeout = TssTimeout::new(timeout);
 					if self.timeout.is_none() {
 						self.timeout = Some(sleep_until(timeout.deadline));
 					}
-					shard.timeout = Some(timeout);
+					self.timeouts.insert((shard_id, hash), timeout);
 				},
 			}
 		}
@@ -330,19 +330,24 @@ where
 				},
 				_ = timeout.fuse() => {
 					let mut next_timeout = None;
+					let mut fired = vec![];
 					let now = Instant::now();
-					for shard in self.shards.values_mut() {
-						if let Some(timeout) = shard.timeout.as_ref() {
-							if timeout.deadline <= now {
-								shard.tss.on_timeout(timeout.timeout);
-								shard.timeout = None;
-							} else if let Some(deadline) = next_timeout {
-								if timeout.deadline < deadline {
-									next_timeout = Some(timeout.deadline);
-								}
-							} else if next_timeout.is_none() {
+					for (key, timeout) in &self.timeouts {
+						if timeout.deadline <= now {
+							fired.push(*key);
+						} else if let Some(deadline) = next_timeout {
+							if timeout.deadline < deadline {
 								next_timeout = Some(timeout.deadline);
 							}
+						} else if next_timeout.is_none() {
+							next_timeout = Some(timeout.deadline);
+						}
+					}
+					for (shard_id, hash) in fired {
+						let timeout = self.timeouts.remove(&(shard_id, hash));
+						let shard = self.shards.get_mut(&shard_id);
+						if let (Some(shard), Some(timeout)) = (shard, timeout) {
+							shard.tss.on_timeout(timeout.timeout);
 						}
 					}
 					if let Some(next_timeout) = next_timeout {

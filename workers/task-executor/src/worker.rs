@@ -131,47 +131,42 @@ where
 							.find(|(s, _)| *s == shard_id);
 
 						if let Some(shard) = current_shard {
+							self.sign_data_sender.clone().try_send((shard_id, hash))?;
+							map.insert(schdule_task_id, ());
 							if shard.1.collector() == &my_key {
-								let result =
-									self.sign_data_sender.clone().try_send((shard_id, hash));
-								if result.is_ok() {
-									log::info!("Connector successfully send event to channel");
-									map.insert(schdule_task_id, ());
-
-									match Self::update_task_schedule_status(
-										self,
-										block_id,
-										ScheduleStatus::Completed,
-										schdule_task_id,
-									) {
-										Ok(()) =>
-											log::info!("updated schedule status to completed"),
-										Err(e) => log::warn!(
-											"getting error on updating schedule status {:?}",
-											e
-										),
-									}
-									return Ok(true);
-								} else {
-									log::info!("Connector failed to send event to channel");
-									match Self::update_task_schedule_status(
-										self,
-										block_id,
-										ScheduleStatus::Invalid,
-										schdule_task_id,
-									) {
-										Ok(()) => log::info!("updated schedule status to Canceled"),
-										Err(e) => log::warn!(
-											"getting error on updating schedule status {:?}",
-											e
-										),
-									}
+								log::info!("Connector successfully send event to channel");
+								match Self::update_task_schedule_status(
+									self,
+									block_id,
+									ScheduleStatus::Completed,
+									schdule_task_id,
+								) {
+									Ok(()) => {
+										log::info!("updated schedule status to completed")
+									},
+									Err(e) => log::warn!(
+										"getting error on updating schedule status {:?}",
+										e
+									),
 								}
 							} else {
-								log::info!("shard not same");
+								// TBD this was checking if tss received data to sign
+								// task invalidity cannot be identified by sign data channel receiver.
+
+								// log::info!("Connector failed to send event to channel");
+								// match Self::update_task_schedule_status(
+								// 	self,
+								// 	block_id,
+								// 	ScheduleStatus::Invalid,
+								// 	schdule_task_id,
+								// ) {
+								// 	Ok(()) => log::info!("updated schedule status to Canceled"),
+								// 	Err(e) => log::warn!(
+								// 		"getting error on updating schedule status {:?}",
+								// 		e
+								// 	),
+								// }
 							}
-						} else {
-							log::error!(target: TW_LOG, "task-executor no matching shard found");
 						}
 					} else {
 						log::error!(target: TW_LOG, "Failed to construct account");
@@ -201,7 +196,7 @@ where
 						let metadata_result = self
 							.runtime
 							.runtime_api()
-							.get_task_metadat_by_key(block_id, schedule_task.0);
+							.get_task_metadat_by_key(block_id, schedule_task.1.task_id.0);
 						if let Ok(metadata_result) = metadata_result {
 							match metadata_result {
 								Ok(metadata) => {
@@ -308,7 +303,7 @@ where
 						}
 					} else {
 						log::info!(
-							"The key didn't exist and was inserted key {:?}.",
+							"Task already executed key, Task id: {:?}.",
 							schedule_task.0
 						);
 					}

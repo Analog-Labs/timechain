@@ -571,6 +571,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						signature_shares,
 					} =>
 						if commitments.len() == self.config.total_nodes {
+							log::debug!("received all commitments processing signing");
 							let data = std::mem::take(data);
 							let commitments =
 								std::mem::take(commitments).into_values().collect::<Vec<_>>();
@@ -591,18 +592,23 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							self.actions.push_back(TssAction::Timeout(Timeout::sign(hash)));
 							self.actions.push_back(TssAction::Send(TssMessage::Sign { hash, msg }));
 							step = true;
+						}else{
+							log::debug!("commitments needed {} got {}", self.config.total_nodes, commitments.len());
 						},
 					SigningState::Sign {
 						signing_package,
 						signature_shares,
 					} =>
 						if signature_shares.len() == self.config.total_nodes {
+							log::debug!("Received all shares processing aggregator");
 							let shares =
 								std::mem::take(signature_shares).into_values().collect::<Vec<_>>();
 							match frost_evm::aggregate(signing_package, &shares, public_key_package)
 							{
 								Ok(signature) => {
+									log::debug!("Aggregated signature successfully");
 									self.actions.push_back(TssAction::Tss(signature));
+									signing_state.remove(&hash);
 									step = true;
 								},
 								Err(Error::InvalidSignatureShare { signer }) => {
@@ -610,6 +616,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 								},
 								Err(err) => unreachable!("{err}"),
 							}
+						}else{
+							log::debug!("Required signature shares are {} got {}", self.config.total_nodes, signature_shares.len());
 						},
 					_ => {},
 				},
@@ -625,7 +633,10 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			TssState::Initialized { key_package, signing_state, .. } => {
 				let mut commitments = match signing_state.entry(hash).or_default() {
 					SigningState::PreCommit { commitments } => std::mem::take(commitments),
-					state => panic!("invalid state ({})", state),
+					_ => {
+						log::warn!("Signing already in progress for hash {:?}", hash);
+						return;
+					},
 				};
 				let (nonces, commitment) =
 					round1::commit(self.frost_id, key_package.secret_share(), &mut OsRng);

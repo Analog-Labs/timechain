@@ -297,7 +297,7 @@ pub mod pallet {
 					if !proof.verify(offender.as_ref(), &reporter_pub) {
 						return;
 					}
-					<ReportedOffence<T>>::mutate(&offender, |o| {
+					<ReportedOffences<T>>::mutate(&offender, |o| {
 						if let Some(known_offender) = o {
 							// check reached threshold
 							let shard_th =

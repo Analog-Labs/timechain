@@ -12,7 +12,7 @@ log = "0.4"
 parking_lot = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 time-primitives = { path = "../../primitives/time-primitives" }
-tokio = { version = "1.28.0", features = ["time"] }
+tokio = { version = "1.28.1", features = ["time"] }
 tss = { path = "../../tesseract/tss", package = "tesseract-tss" }
 
 sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
@@ -28,7 +28,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "po
 sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
 [dev-dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = ["derive"] }
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }

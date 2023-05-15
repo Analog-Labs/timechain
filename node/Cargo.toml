@@ -15,14 +15,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "timechain-node"
 
 [dependencies]
-clap = { version = "4.0.9", features = ["derive"] }
+clap = { version = "4.2.7", features = ["derive"] }
 serde_json = "1.0"
-hex-literal = "0.3.1"
+hex-literal = "0.4.1"
 web3 = "0.18.0"
-tokio = "1.24.0"
+tokio = "1.28.1"
 lazy_static = "1.4.0"
-futures = "0.3.25"
-log = "0.4.0"
+futures = "0.3.28"
+log = "0.4.17"
 snow = "0.9.2"
 
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
@@ -51,7 +51,7 @@ sp-authorship = "11.0"
 pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
 # node 's RPCs deps
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.18.2", features = ["server"] }
 sc-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }

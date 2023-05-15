@@ -29,10 +29,10 @@ use tss::{Timeout, Tss, TssAction, TssMessage};
 
 fn sign(
 	store: &KeystorePtr,
-	public: sr25519::Public,
+	public: &sr25519::Public,
 	message: &[u8],
 ) -> Option<sr25519::Signature> {
-	let sig = store.sr25519_sign(KEY_TYPE, &public.into(), message).ok()??.try_into().ok()?;
+	let sig = store.sr25519_sign(KEY_TYPE, public, message).ok()??.try_into().ok()?;
 	Some(sr25519::Signature::from_raw(sig))
 }
 
@@ -47,7 +47,7 @@ impl TimeMessage {
 	fn encode(&self, kv: &TimeKeyvault) -> Vec<u8> {
 		let kv = kv.get_store().unwrap();
 		let mut bytes = bincode::serialize(self).unwrap();
-		let sig = sign(&kv, self.sender, &bytes).unwrap();
+		let sig = sign(&kv, &self.sender, &bytes).unwrap();
 		bytes.extend_from_slice(sig.as_ref());
 		bytes
 	}

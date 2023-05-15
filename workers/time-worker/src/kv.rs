@@ -63,7 +63,7 @@ impl TimeKeyvault {
 		let store = self.0.clone()?;
 
 		let msg = keccak_256(message);
-		let sig = store.ed25519_sign(sp_consensus_grandpa::KEY_TYPE, &public, &msg).ok()??;
+		let sig = store.ed25519_sign(sp_consensus_grandpa::KEY_TYPE, public, &msg).ok()??;
 
 		Some(sig)
 	}

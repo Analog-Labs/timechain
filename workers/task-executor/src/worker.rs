@@ -34,7 +34,7 @@ pub struct TaskExecutor<B: Block, A, R, BE> {
 	_block: PhantomData<B>,
 	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
 	kv: TimeKeyvault,
-	accountid: PhantomData<A>,
+	account_id: PhantomData<A>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
@@ -55,7 +55,7 @@ where
 			sign_data_sender,
 			kv,
 			_block,
-			accountid: _,
+			account_id: _,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -67,7 +67,7 @@ where
 			sign_data_sender,
 			kv,
 			_block: PhantomData,
-			accountid: PhantomData,
+			account_id: PhantomData,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -93,12 +93,12 @@ where
 		&self,
 		block_id: <B as Block>::Hash,
 		status: ScheduleStatus,
-		schdule_task_id: u64,
+		schedule_task_id: u64,
 	) -> Result<(), DispatchError> {
 		match self
 			.runtime
 			.runtime_api()
-			.update_schedule_by_key(block_id, status, schdule_task_id)
+			.update_schedule_by_key(block_id, status, schedule_task_id)
 		{
 			Ok(update) => update,
 			Err(_) => Err(DispatchError::CannotLookup),
@@ -110,7 +110,7 @@ where
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
-		schdule_task_id: u64,
+		schedule_task_id: u64,
 		map: &mut HashMap<u64, ()>,
 	) -> Result<bool, Box<dyn Error>> {
 		dotenv().ok();
@@ -136,13 +136,13 @@ where
 									self.sign_data_sender.lock().await.try_send((shard_id, hash));
 								if result.is_ok() {
 									log::info!("Connector successfully send event to channel");
-									map.insert(schdule_task_id, ());
+									map.insert(schedule_task_id, ());
 
 									match Self::update_task_schedule_status(
 										self,
 										block_id,
 										ScheduleStatus::Completed,
-										schdule_task_id,
+										schedule_task_id,
 									) {
 										Ok(()) =>
 											log::info!("updated schedule status to completed"),
@@ -158,7 +158,7 @@ where
 										self,
 										block_id,
 										ScheduleStatus::Invalid,
-										schdule_task_id,
+										schedule_task_id,
 									) {
 										Ok(()) => log::info!("updated schedule status to Canceled"),
 										Err(e) => log::warn!(
@@ -201,7 +201,7 @@ where
 						let metadata_result = self
 							.runtime
 							.runtime_api()
-							.get_task_metadat_by_key(block_id, schedule_task.0);
+							.get_task_metadata_by_key(block_id, schedule_task.0);
 						if let Ok(metadata_result) = metadata_result {
 							match metadata_result {
 								Ok(metadata) => {

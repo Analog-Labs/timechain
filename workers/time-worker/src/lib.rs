@@ -46,7 +46,7 @@ where
 	pub gossip_network: N,
 	pub kv: TimeKeyvault,
 	pub _block: PhantomData<B>,
-	pub accountid: PhantomData<A>,
+	pub account_id: PhantomData<A>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 	pub sync_service: Arc<S>,
 }
@@ -58,7 +58,7 @@ pub(crate) struct WorkerParams<B: Block, A, C, R, BE> {
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub kv: TimeKeyvault,
-	pub accountid: PhantomData<A>,
+	pub account_id: PhantomData<A>,
 	pub sign_data_receiver: Arc<TokioMutex<FutReceiver<(u64, [u8; 32])>>>,
 }
 
@@ -86,7 +86,7 @@ pub async fn start_timeworker_gadget<B, A, C, R, BE, N, S>(
 		kv,
 		_block,
 		sign_data_receiver,
-		accountid: _,
+		account_id: _,
 		sync_service,
 	} = timeworker_params;
 
@@ -107,7 +107,7 @@ pub async fn start_timeworker_gadget<B, A, C, R, BE, N, S>(
 		gossip_engine,
 		kv,
 		sign_data_receiver,
-		accountid: PhantomData,
+		account_id: PhantomData,
 	};
 	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);
 	worker.run().await

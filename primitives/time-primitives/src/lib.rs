@@ -37,7 +37,7 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
-		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
+		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
 		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
 		fn report_misbehavior(shard_id: u64, offender: TimeId, reporter: TimeId, proof: crate::crypto::Signature);
@@ -91,7 +91,7 @@ impl ForeignEventId {
 		for (index, b) in event_id.to_le_bytes().into_iter().enumerate() {
 			all[index + 10] = b;
 		}
-		// non_persistant_id
+		// non_persistent_id
 		// it's bytes start from index 2 (2 bytes of chain, 8 bytes of block, 2 bytes of event)
 		for (index, b) in task_id.to_le_bytes().into_iter().enumerate() {
 			all[index + 12] = b;

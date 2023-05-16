@@ -1419,12 +1419,12 @@ impl_runtime_apis! {
 			TaskSchedule::get_schedules()
 		}
 
-		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError> {
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
 			TaskSchedule::update_schedule_by_key(status,key)
 		}
 
-		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
-			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}
 	}
 

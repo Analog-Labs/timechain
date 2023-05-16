@@ -91,12 +91,6 @@ pub mod pallet {
 		/// the signature id that uniquely identify the signature
 		SignatureStored(ForeignEventId),
 
-		/// Unauthorized attempt to add signed data
-		UnregisteredWorkerDataSubmission(T::AccountId),
-
-		/// Default account is not allowed for this operation
-		DefaultAccountForbidden(),
-
 		/// New group key submitted to runtime
 		/// .0 - set_id,
 		/// .1 - group key bytes
@@ -104,19 +98,15 @@ pub mod pallet {
 
 		/// Shard has ben registered with new Id
 		ShardRegistered(u64),
-
-		/// Offence report verification failed
-		/// Identifies sender of faulty offence report
-		ShardIsNotRegistered(TimeId),
-
-		/// Reporter TimeId can not be converted to Public key
-		WrongIdOfReporter(TimeId),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The Tesseract address in not known
 		UnknownTesseract,
+
+		/// Shard already registered
+		ShardAlreadyRegistered,
 
 		/// Shard registartion failed
 		ShardRegistrationFailed,
@@ -129,6 +119,21 @@ pub mod pallet {
 
 		/// Unauthorized attempt to add signed data
 		UnregisteredWorkerDataSubmission,
+
+		/// Reporter TimeId can not be converted to Public key
+		InvalidReporterId,
+
+		/// Reporter or offender not in members
+		ReporterOrOffenderNotInMembers,
+
+		/// Collector not in members
+		CollectorNotInMembers,
+
+		/// Shard does not exist in storage
+		ShardIsNotRegistered,
+
+		/// Misbehavior report proof verification failed
+		ProofVerificationFailed,
 	}
 
 	#[pallet::inherent]
@@ -239,21 +244,17 @@ pub mod pallet {
 			collector: Option<TimeId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(!<TssShards<T>>::contains_key(set_id), "Shard already registered.");
-			if let Ok(mut shard) = Shard::try_from(members) {
-				// we set specified collector if required
-				if let Some(collector) = collector {
-					ensure!(
-						shard.set_collector(&collector).is_ok(),
-						"Collector is not member of given set."
-					);
-				}
-				<TssShards<T>>::insert(set_id, shard);
-				Self::deposit_event(Event::ShardRegistered(set_id));
-				Ok(())
-			} else {
-				Err(Error::<T>::ShardRegistrationFailed.into())
+			ensure!(!<TssShards<T>>::contains_key(set_id), Error::<T>::ShardAlreadyRegistered);
+			let mut shard = Shard::try_from(members).map_err(|_| Error::<T>::ShardRegistrationFailed)?;
+			if let Some(collector) = collector {
+				ensure!(
+					shard.set_collector(&collector).is_ok(),
+					Error::<T>::CollectorNotInMembers
+				);
 			}
+			<TssShards<T>>::insert(set_id, shard);
+			Self::deposit_event(Event::ShardRegistered(set_id));
+			Ok(())
 		}
 	}
 
@@ -268,7 +269,7 @@ pub mod pallet {
 			// transform AccountId32 int T::AccountId
 			let encoded_account = auth_id.encode();
 			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
-			ensure!(encoded_account != [0u8; 32].to_vec(), Error::<T>::EncodedAccountWrongLen);
+			ensure!(encoded_account != [0u8; 32].to_vec(), Error::<T>::DefaultAccountForbidden);
 			// TODO: same check as for extrinsic after task management is implemented
 			ensure!(
 				auth_sig.verify(signature_data.as_ref(), &auth_id),
@@ -291,44 +292,34 @@ pub mod pallet {
 			offender: time_primitives::TimeId,
 			reporter: TimeId,
 			proof: time_primitives::crypto::Signature,
-		) {
-			if let Ok(reporter_pub) = Public::from_slice(reporter.as_ref()) {
-				if let Some(shard) = <TssShards<T>>::get(shard_id) {
-					let members = shard.members();
-					// if reporter or offender are not from reported shard
-					if !members.contains(&offender) || !members.contains(&reporter) {
-						Self::deposit_event(Event::WrongIdOfReporter(reporter));
-						return;
+		) -> DispatchResult {
+			let reporter_pub = Public::from_slice(reporter.as_ref()).map_err(|_| Error::<T>::InvalidReporterId)?;
+			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let members = shard.members();
+			ensure!(members.contains(&offender) && members.contains(&reporter), Error::<T>::ReporterOrOffenderNotInMembers);
+			// verify signature
+			ensure!(proof.verify(offender.as_ref(), &reporter_pub), Error::<T>::ProofVerificationFailed);
+			<ReportedOffences<T>>::mutate(&offender, |o| {
+				if let Some(known_offender) = o {
+					// check reached threshold
+					let shard_th =
+						Percent::from_percent(T::SlashingPercentageThreshold::get())
+							* members.len();
+					// move to commitment if reached
+					if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
+						<CommitedOffences<T>>::insert(offender.clone(), known_offender);
 					}
-					// verify signature
-					if !proof.verify(offender.as_ref(), &reporter_pub) {
-						return;
-					}
-					<ReportedOffences<T>>::mutate(&offender, |o| {
-						if let Some(known_offender) = o {
-							// check reached threshold
-							let shard_th =
-								Percent::from_percent(T::SlashingPercentageThreshold::get())
-									* members.len();
-							// move to commitment if reached
-							if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
-								<CommitedOffences<T>>::insert(offender.clone(), known_offender);
-							}
-						// add if not
-						} else {
-							let mut hs = BTreeSet::new();
-							hs.insert(reporter);
-							// 1 here is count of reports received for this offence
-							// incremented in above If section
-							let _ = o.insert((1, hs));
-						}
-					});
+				// add if not
 				} else {
-					Self::deposit_event(Event::ShardIsNotRegistered(reporter));
+					let mut hs = BTreeSet::new();
+					hs.insert(reporter);
+					// 1 here is count of reports received for this offence
+					// incremented in above If section
+					let _ = o.insert((1, hs));
 				}
-			} else {
-				Self::deposit_event(Event::WrongIdOfReporter(reporter));
-			}
+			});
+			// TODO: add event if correctly reported
+			Ok(())
 		}
 	}
 }

@@ -6607,6 +6607,62 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f746c4065a8fa3fe23974dd82f15431cc8d40779821001404d10d2e79ca7d79"
 
 [[package]]
+name = "payable-task-executor"
+version = "0.1.0"
+dependencies = [
+ "array-bytes",
+ "arrayref",
+ "async-trait",
+ "borsh",
+ "diesel",
+ "fnv",
+ "frame-support",
+ "futures",
+ "futures-channel",
+ "futures-timer",
+ "hex",
+ "lazy_static",
+ "log",
+ "parity-scale-codec 3.5.0",
+ "parking_lot 0.11.2",
+ "rosetta-client",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-grandpa",
+ "sc-keystore",
+ "sc-network",
+ "sc-network-common",
+ "sc-network-gossip",
+ "sc-network-test",
+ "sc-utils",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-application-crypto 7.0.0",
+ "sp-arithmetic 6.0.0",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-grandpa",
+ "sp-core 7.0.0",
+ "sp-inherents 4.0.0-dev",
+ "sp-io 7.0.0",
+ "sp-keystore 0.13.0",
+ "sp-runtime 7.0.0",
+ "sp-tracing 6.0.0",
+ "strum",
+ "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "surf",
+ "tempfile",
+ "tesseract-accounts",
+ "tesseract-tss",
+ "time-primitives",
+ "time-worker",
+ "tokio",
+]
+
+[[package]]
 name = "pbkdf2"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11593,6 +11649,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "payable-task-executor",
  "runtime-common",
  "sc-basic-authorship",
  "sc-chain-spec",

@@ -40,10 +40,13 @@ const pallet_task_add = async (_keyspair, who) => {
 
   const chan = new Channel(0 /* default */);
   const input_task = {
-    address: stringToHex("0x678ea0447843f69805146c521afcbcc07d6e28a2"),
-    function_signature:
-      "function get_votes_stats() external view returns (uint, uint)",
-    input: 2,
+    collection_id: 1,
+    function:{ethereumtxwithoutabi:{
+      address: stringToHex('0x678ea0447843f69805146c521afcbcc07d6e28a2'),
+      function_signature: "function vote_yes()",
+      input: 2,
+      output: 2,
+  }}
   };
   await api.isReady;
   console.log("api.tx.task_meta ---> ", api.tx.taskMeta.insertPayableTask);

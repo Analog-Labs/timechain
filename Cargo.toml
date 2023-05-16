@@ -4,6 +4,7 @@ members = [
     "pallets/tesseract-sig-storage",
     "pallets/pallet-proxy",
     "runtime",
+    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/time-worker",
     "workers/time-worker/rpc",

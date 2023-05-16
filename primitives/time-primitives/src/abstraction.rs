@@ -16,10 +16,16 @@ pub enum Function {
 		input: Vec<Input>,
 		output: Vec<Output>,
 	},
-	EthereumContractWithoutAbi {
+	EthereumViewWithoutAbi {
 		address: String,
 		function_signature: String,
 		input: Vec<Input>,
+		output: Vec<Output>,
+	},
+	EthereumTxWithoutAbi {
+		address: String,
+		function_signature: String,
+		input: Vec<String>,
 		output: Vec<Output>,
 	},
 	EthereumApi {
@@ -98,9 +104,7 @@ pub struct Task {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct PayableTask {
 	pub collection_id: ObjectId,
-	pub address: String,
-	pub function: String,
-	pub input: Vec<Input>,
+	pub function: Function,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

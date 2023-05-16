@@ -6,6 +6,8 @@ Param(
     [switch]$Upload,
     [switch]$Cargo,
     [switch]$Restart,
+    [switch]$Stop,    
+    [switch]$Start,
     [switch]$Status
 )
 
@@ -39,7 +41,8 @@ if ($Up)
 if ($Restart)
 {
     Push-Location aws
-    if (-not(Test-path ./.terraform)) {
+    if (-not(Test-path ./.terraform))
+    {
         terraform init
     }
     terraform apply -destroy -target aws_instance.validator_node -target aws_instance.boot_node -auto-approve
@@ -47,10 +50,33 @@ if ($Restart)
     Pop-Location
 }
 
+if ($Stop)
+{
+    Push-Location aws
+    if (-not(Test-path ./.terraform))
+    {
+        terraform init
+    }
+    terraform apply -destroy -target aws_instance.validator_node -target aws_instance.boot_node -auto-approve
+    Pop-Location
+}
+
+if ($Start)
+{
+    Push-Location aws
+    if (-not(Test-path ./.terraform))
+    {
+        terraform init
+    }
+    terraform apply -auto-approve
+    Pop-Location
+}
+
 if ($Status)
 {
     Push-Location aws
-    if (-not(Test-path ./.terraform)) {
+    if (-not(Test-path ./.terraform))
+    {
         terraform init
     }
     terraform show | sed '0,/^Outputs:$/d'

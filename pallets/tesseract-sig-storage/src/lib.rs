@@ -120,6 +120,15 @@ pub mod pallet {
 
 		/// Shard registartion failed
 		ShardRegistrationFailed,
+
+		/// Encoded account wrong length
+		EncodedAccountWrongLen,
+
+		/// Default account is not allowed for this operation
+		DefaultAccountForbidden,
+
+		/// Unauthorized attempt to add signed data
+		UnregisteredWorkerDataSubmission,
 	}
 
 	#[pallet::inherent]
@@ -254,23 +263,20 @@ pub mod pallet {
 			auth_sig: Signature,
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
-		) {
+		) -> DispatchResult {
 			use sp_runtime::traits::AppVerify;
 			// transform AccountId32 int T::AccountId
 			let encoded_account = auth_id.encode();
-			if encoded_account.len() != 32 || encoded_account == [0u8; 32].to_vec() {
-				Self::deposit_event(Event::DefaultAccountForbidden());
-				return;
-			}
-			// Unwrapping is safe - we've checked for len and default-ness
-			let account_id = T::AccountId::decode(&mut &*encoded_account).unwrap();
+			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
+			ensure!(encoded_account != [0u8; 32].to_vec(), Error::<T>::EncodedAccountWrongLen);
 			// TODO: same check as for extrinsic after task management is implemented
-			if !auth_sig.verify(signature_data.as_ref(), &auth_id) {
-				Self::deposit_event(Event::UnregisteredWorkerDataSubmission(account_id));
-				return;
-			}
+			ensure!(
+				auth_sig.verify(signature_data.as_ref(), &auth_id),
+				Error::<T>::UnregisteredWorkerDataSubmission
+			);
 			<SignatureStoreData<T>>::insert(event_id, signature_data);
 			Self::deposit_event(Event::SignatureStored(event_id));
+			Ok(())
 		}
 
 		// Getter method for runtime api storage access

@@ -64,4 +64,8 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(5_709, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn register_shard(_s: u32) -> Weight {
+		Weight::from_parts(1_000_000, 0)
+	}
 }

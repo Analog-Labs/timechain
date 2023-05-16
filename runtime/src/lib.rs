@@ -46,7 +46,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule, ScheduleStatus,};
+use time_primitives::abstraction::{ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -481,6 +481,7 @@ parameter_types! {
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
+	pub CollectivesMaxProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
 	pub const SS58Prefix: u8 = 42;
 }
 
@@ -731,6 +732,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type MaxProposalWeight = CollectivesMaxProposalWeight;
 }
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
 impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
@@ -920,6 +922,10 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>; // pallet_balances::weights::SubstrateWeight<Runtime>;
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type HoldIdentifier = ();
+	type MaxHolds = ();
 }
 
 parameter_types! {
@@ -1063,10 +1069,8 @@ impl task_metadata::Config for Runtime {
 	type ProxyExtend = ();
 }
 
-
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-
 	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}
@@ -1189,6 +1193,14 @@ impl_runtime_apis! {
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
+		}
+
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			Runtime::metadata_versions()
 		}
 	}
 

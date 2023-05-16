@@ -16,11 +16,10 @@ use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{error::Error, marker::PhantomData, sync::Arc};
-use time_primitives::{TimeApi, TimeId};
-use time_worker::kv::TimeKeyvault;
-use tokio::sync::Mutex;
+use time_primitives::{TimeApi, TimeId, KEY_TYPE};
 use worker_aurora::{self, establish_connection, get_on_chain_data};
 
 #[allow(unused)]
@@ -29,8 +28,8 @@ pub struct ConnectorWorker<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
-	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
-	kv: TimeKeyvault,
+	sign_data_sender: Sender<(u64, [u8; 32])>,
+	kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
@@ -72,7 +71,7 @@ where
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.public_keys();
+		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 		if keys.is_empty() {
 			log::warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
@@ -156,8 +155,7 @@ where
 
 								if let Some(shard) = current_shard {
 									if shard.1.collector() == &my_key {
-										match self.sign_data_sender.lock().await.try_send((1, hash))
-										{
+										match self.sign_data_sender.clone().try_send((1, hash)) {
 											Ok(()) => {
 												log::info!(
 													"Connector successfully send event to channel"
@@ -192,7 +190,7 @@ where
 	}
 
 	pub(crate) async fn run(&mut self) {
-		let sign_data_sender_clone = self.sign_data_sender.clone();
+		let mut sign_data_sender_clone = self.sign_data_sender.clone();
 		let delay = time::Duration::from_secs(3);
 
 		let connector_config = create_client(
@@ -204,13 +202,12 @@ where
 		.ok();
 
 		loop {
-			let keys = self.kv.public_keys();
-			if !keys.is_empty() {
+			if self.account_id().is_some() {
 				// Get swap data from db and send it to time-worker
 				let tasks_in_byte = Self::get_swap_data_from_db();
 				if !tasks_in_byte.is_empty() {
 					for task in tasks_in_byte.iter() {
-						let result = sign_data_sender_clone.lock().await.try_send((1, *task));
+						let result = sign_data_sender_clone.try_send((1, *task));
 						match result {
 							Ok(_) => warn!("sign_data_sender_clone ok"),
 							Err(_) => warn!("sign_data_sender_clone err"),

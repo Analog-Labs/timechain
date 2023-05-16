@@ -32,7 +32,8 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn store_signature_data(_s: u32) -> Weight;
-		fn submit_tss_group_key(s: u32) -> Weight;
+		fn submit_tss_group_key(_s: u32) -> Weight;
+		fn register_shard(_s: u32) -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -66,7 +67,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
-	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 32], OptionQuery>;
+	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 33], OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
@@ -99,7 +100,7 @@ pub mod pallet {
 		/// New group key submitted to runtime
 		/// .0 - set_id,
 		/// .1 - group key bytes
-		NewTssGroupKey(u64, [u8; 32]),
+		NewTssGroupKey(u64, [u8; 33]),
 
 		/// Shard has ben registered with new Id
 		ShardRegistered(u64),
@@ -131,7 +132,7 @@ pub mod pallet {
 			if let Ok(inherent_data) = data.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER) {
 				return match inherent_data {
 					None => None,
-					Some(inherent_data) if inherent_data.group_key != [0u8; 32] => {
+					Some(inherent_data) if inherent_data.group_key != [0u8; 33] => {
 						// We don't need to set the inherent data every block, it is only needed
 						// once.
 						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
@@ -206,7 +207,7 @@ pub mod pallet {
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
 			set_id: u64,
-			group_key: [u8; 32],
+			group_key: [u8; 33],
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			<TssGroupKey<T>>::insert(set_id, group_key);
@@ -221,7 +222,7 @@ pub mod pallet {
 		/// * set_id - not yet used ID of new shard
 		/// * members - supported sized set of shard members Id
 		#[pallet::call_index(2)]
-		#[pallet::weight(1_000_000)]
+		#[pallet::weight(T::WeightInfo::register_shard(1))]
 		pub fn register_shard(
 			origin: OriginFor<T>,
 			set_id: u64,

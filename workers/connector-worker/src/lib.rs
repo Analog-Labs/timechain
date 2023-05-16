@@ -6,11 +6,10 @@ use futures::channel::mpsc::Sender;
 use log::*;
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
-use time_worker::kv::TimeKeyvault;
-use tokio::sync::Mutex;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "connector-worker";
@@ -26,10 +25,10 @@ where
 {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
-	pub kv: TimeKeyvault,
+	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
-	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
+	pub sign_data_sender: Sender<(u64, [u8; 32])>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
@@ -40,8 +39,8 @@ pub(crate) struct WorkerParams<B, A, R, BE> {
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
 	accountid: PhantomData<A>,
-	pub sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
-	kv: TimeKeyvault,
+	pub sign_data_sender: Sender<(u64, [u8; 32])>,
+	kv: KeystorePtr,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,

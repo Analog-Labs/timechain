@@ -10,12 +10,9 @@ members = [
     "workers/database",
     "primitives/time-primitives",
     "primitives/storage-primitives",
-    "tesseract/tss",
-    "tesseract/accounts",
-    "tesseract/events",
+    "tss",
     "pallets/task-metadata",
     "pallets/task-schedule",
-    "pallets/transaction-payment",
     "pallets/task-metadata/task-meta-bench",
     "pallets/task-schedule/task-schedule-bench",
 ]

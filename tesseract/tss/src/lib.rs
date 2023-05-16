@@ -282,7 +282,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		log::debug!("{} initialize {}/{}", self.peer_id, threshold, members.len());
 		let round1_packages_preinit = match &mut self.state {
 			TssState::Uninitialized { round1_packages } => std::mem::take(round1_packages),
-			state => panic!("invalid state ({})", state),
+			state => panic!("invalid state ({state})"),
 		};
 		self.config = TssConfig::new(&self.peer_id, members, threshold);
 		self.frost_id = self.peer_to_frost(&self.peer_id);

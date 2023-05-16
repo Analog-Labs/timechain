@@ -1,23 +1,20 @@
 #![allow(clippy::type_complexity)]
 mod communication;
 mod inherents;
-pub mod kv;
 mod traits;
 mod worker;
 
 #[cfg(test)]
 mod tests;
 
-use crate::{
-	communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator},
-	kv::TimeKeyvault,
-};
+use crate::communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator};
 use futures::channel::mpsc;
 use log::*;
 use sc_client_api::Backend;
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
@@ -44,7 +41,7 @@ where
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub gossip_network: N,
-	pub kv: TimeKeyvault,
+	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
@@ -57,7 +54,7 @@ pub(crate) struct WorkerParams<B: Block, A, C, R, BE> {
 	pub runtime: Arc<R>,
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B>>,
-	pub kv: TimeKeyvault,
+	pub kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
 }

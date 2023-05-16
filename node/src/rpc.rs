@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
 
-use futures::channel::mpsc::{channel, Receiver, Sender};
+use futures::channel::mpsc;
 use jsonrpsee::RpcModule;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
@@ -15,15 +15,6 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;
 use time_worker::kv::TimeKeyvault;
 use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
-use tokio::sync::Mutex;
-
-lazy_static::lazy_static! {
-	pub(crate) static ref TIME_RPC_CHANNEL: (Arc<Mutex<Sender<(u64, [u8; 32])>>>, Arc<Mutex<Receiver<(u64, [u8; 32])>>>) = {
-		// Max 400 calls in parallel
-		let (s, r) =  channel(400);
-		(Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
-	};
-}
 
 pub use sc_rpc_api::DenyUnsafe;
 
@@ -37,6 +28,8 @@ pub struct FullDeps<C, P> {
 	pub deny_unsafe: DenyUnsafe,
 	/// Time keyvault
 	pub kv: TimeKeyvault,
+	/// Sign data sender
+	pub sign_data_sender: mpsc::Sender<(u64, [u8; 32])>,
 }
 
 /// Instantiate all full RPC extensions.
@@ -61,11 +54,17 @@ where
 	use time_worker_rpc::{TimeRpcApiHandler, TimeRpcApiServer};
 
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, deny_unsafe, kv } = deps;
+	let FullDeps {
+		client,
+		pool,
+		deny_unsafe,
+		kv,
+		sign_data_sender,
+	} = deps;
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
-	module.merge(TimeRpcApiHandler::new(TIME_RPC_CHANNEL.0.clone(), kv).into_rpc())?;
+	module.merge(TimeRpcApiHandler::new(sign_data_sender, kv).into_rpc())?;
 
 	Ok(module)
 }

@@ -4,12 +4,11 @@ use sc_keystore::LocalKeystore;
 use sp_core::{ed25519, keccak_256, sr25519, Pair};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 
-use time_primitives::{crypto, KEY_TYPE};
+use time_primitives::{crypto, TimeId, KEY_TYPE};
 
 use crate::TimeKeyvault;
 
 /// Set of test accounts using [`time_primitives::crypto`] types.
-#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
 pub(crate) enum Keyring {
 	Alice,
@@ -42,6 +41,10 @@ impl Keyring {
 	/// Return seed string.
 	pub fn to_seed(self) -> String {
 		format!("//{self}")
+	}
+
+	pub fn to_time_id(self) -> TimeId {
+		sr25519::Public::from(self.public()).into()
 	}
 }
 

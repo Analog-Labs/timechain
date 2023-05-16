@@ -6,7 +6,7 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tsskey01";
 /// TSS Public key output type
 #[derive(Encode, Decode, sp_runtime::RuntimeDebug)]
 pub struct TimeTssKey {
-	pub group_key: [u8; 32],
+	pub group_key: [u8; 33],
 	pub set_id: u64,
 }
 

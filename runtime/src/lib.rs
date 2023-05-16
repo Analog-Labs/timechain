@@ -1062,10 +1062,8 @@ impl task_metadata::Config for Runtime {
 	type ProxyExtend = ();
 }
 
-
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-
 	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}

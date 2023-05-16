@@ -23,7 +23,7 @@ const pallet_task_add = async (_keyspair, who) => {
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        task_id: 11,
+        task_id: 1,
         owner: 'address',
         shard_id: 1,
         cycle: 12,
@@ -33,8 +33,8 @@ const pallet_task_add = async (_keyspair, who) => {
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);
-    let input_2 = {...input_task, collection_id : 22};
-    let input_3 = {...input_task, collection_id : 33};
+    let input_2 = { ...input_task, task_id: 22};
+    let input_3 = { ...input_task, task_id: 33};
     const unsub = await api.tx.taskSchedule.insertSchedule(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });

@@ -4,51 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-futures = "0.3.28"
-futures-channel = "0.3.28"
-fnv = "1.0.7"
-hex = "0.4"
-log = "0.4"
-parking_lot = "0.12"
-array-bytes = "6.1"
-futures-timer = "3.0.2"
-tokio = "1.28.1"
-async-trait = "0.1.68"
-lazy_static = "1.4"
-worker-aurora = {path = "../database"}
+anyhow = "1.0.71"
 bincode = "1.3.3"
-diesel = { version = "2.0.4", features = ["postgres"] }
-dotenvy = "0.15"
-serde_json = "1.0.96"
-
 codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = ["derive"] }
-prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-core = { features = ["full_crypto"], git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sc-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-time-primitives = { path = "../../primitives/time-primitives" }
-surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
+futures = "0.3.28"
+log = "0.4.17"
 rosetta-client = "0.2.5"
-
-[dev-dependencies]
-sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-tracing = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-tempfile = "*"
-serde = { version = "1.0", features = ["derive"] }
-scale-info = "2.7.0"
-strum = { version = "0.24.1", features = ["derive"] }
-arrayref = "0.3.7"
-
-[features]
-expensive_tests = []
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
+serde_json = "1.0.96"
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
+time-db = { path = "../database" }
+time-primitives = { path = "../../primitives/time-primitives" }
+tokio = "1.28.1"

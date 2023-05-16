@@ -38,10 +38,10 @@ pub fn get_on_chain_data(
 pub fn write_data_to_db(conn: &mut PgConnection, record: Feeds) {
 	use self::schema::_feeds_::dsl::*;
 
-	insert_into(_feeds_)
-		.values(record)
-		.execute(conn)
-		.expect("Failed to insert new user");
+	match insert_into(_feeds_).values(record).execute(conn) {
+		Ok(_) => log::info!("Feed inserted to the DB"),
+		Err(e) => log::info!("Error on Inserting Feed : {:?}", e),
+	}
 }
 
 #[ignore]

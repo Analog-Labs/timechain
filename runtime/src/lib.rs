@@ -47,6 +47,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
 use time_primitives::{abstraction::{Task, TaskSchedule as abs_TaskSchedule, ScheduleStatus, PayableTask, PayableTaskSchedule}};
+
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1062,10 +1063,8 @@ impl task_metadata::Config for Runtime {
 	type ProxyExtend = ();
 }
 
-
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-
 	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}

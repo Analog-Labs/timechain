@@ -32,6 +32,8 @@ sp-core = {  default-features = false, git = "https://github.com/paritytech/subs
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 rand = "0.8.5"
+sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
 
 [features]

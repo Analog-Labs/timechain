@@ -311,11 +311,16 @@ pub mod pallet {
 					// check reached threshold
 					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
 						* members.len();
+					let new_report_count = known_offender.0 + 1;
 					// move to commitment if reached
-					if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
-						<CommitedOffences<T>>::insert(offender.clone(), known_offender);
-					} // TODO: unit test that known_offender is updated
-				 // add if not
+					// TODO: move into else branch if removing ReportedOffenses below
+					known_offender.0 = new_report_count;
+					known_offender.1.insert(reporter);
+					if new_report_count.saturated_into::<usize>() >= shard_th {
+						<CommitedOffences<T>>::insert(offender.clone(), known_offender.clone());
+						// do we want to remove ReportedOffenses or what is purge storage strategy
+						// o = None;
+					}
 				} else {
 					let mut hs = BTreeSet::new();
 					hs.insert(reporter);

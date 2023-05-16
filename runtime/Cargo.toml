@@ -151,6 +151,7 @@ runtime-benchmarks = [
 	"task-meta-bench/runtime-benchmarks",
 	"task-schedule-bench/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",
@@ -172,4 +173,5 @@ try-runtime = [
 	"task-schedule/try-runtime",
 	"task-meta-bench/try-runtime",
 	"task-schedule-bench/try-runtime",
+	"pallet-staking/try-runtime",
 ]

@@ -1172,6 +1172,7 @@ mod benches {
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
 		[task_metadata, MetaDataBenchmarks::<Runtime>]
+		[pallet_staking, Staking]
 	);
 }
 

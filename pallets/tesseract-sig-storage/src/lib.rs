@@ -108,8 +108,9 @@ pub mod pallet {
 		/// Shard already registered
 		ShardAlreadyRegistered,
 
-		/// Shard registartion failed
-		ShardRegistrationFailed,
+		/// Shard registartion failed because wrong number of members
+		/// NOTE: supported sizes are 3, 5, and 10
+		UnsupportedMembershipSize,
 
 		/// Encoded account wrong length
 		EncodedAccountWrongLen,
@@ -245,12 +246,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(!<TssShards<T>>::contains_key(set_id), Error::<T>::ShardAlreadyRegistered);
-			let mut shard = Shard::try_from(members).map_err(|_| Error::<T>::ShardRegistrationFailed)?;
+			let mut shard =
+				Shard::try_from(members).map_err(|_| Error::<T>::UnsupportedMembershipSize)?;
 			if let Some(collector) = collector {
-				ensure!(
-					shard.set_collector(&collector).is_ok(),
-					Error::<T>::CollectorNotInMembers
-				);
+				ensure!(shard.set_collector(&collector).is_ok(), Error::<T>::CollectorNotInMembers);
 			}
 			<TssShards<T>>::insert(set_id, shard);
 			Self::deposit_event(Event::ShardRegistered(set_id));
@@ -293,23 +292,30 @@ pub mod pallet {
 			reporter: TimeId,
 			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
-			let reporter_pub = Public::from_slice(reporter.as_ref()).map_err(|_| Error::<T>::InvalidReporterId)?;
+			let reporter_pub =
+				Public::from_slice(reporter.as_ref()).map_err(|_| Error::<T>::InvalidReporterId)?;
 			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let members = shard.members();
-			ensure!(members.contains(&offender) && members.contains(&reporter), Error::<T>::ReporterOrOffenderNotInMembers);
+			ensure!(
+				members.contains(&offender) && members.contains(&reporter),
+				Error::<T>::ReporterOrOffenderNotInMembers
+			);
 			// verify signature
-			ensure!(proof.verify(offender.as_ref(), &reporter_pub), Error::<T>::ProofVerificationFailed);
+			ensure!(
+				proof.verify(offender.as_ref(), &reporter_pub),
+				Error::<T>::ProofVerificationFailed
+			);
+			// TODO: add event if moved to commitment
 			<ReportedOffences<T>>::mutate(&offender, |o| {
 				if let Some(known_offender) = o {
 					// check reached threshold
-					let shard_th =
-						Percent::from_percent(T::SlashingPercentageThreshold::get())
-							* members.len();
+					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
+						* members.len();
 					// move to commitment if reached
 					if (known_offender.0 + 1).saturated_into::<usize>() >= shard_th {
 						<CommitedOffences<T>>::insert(offender.clone(), known_offender);
-					}
-				// add if not
+					} // TODO: unit test that known_offender is updated
+				 // add if not
 				} else {
 					let mut hs = BTreeSet::new();
 					hs.insert(reporter);

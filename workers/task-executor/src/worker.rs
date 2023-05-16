@@ -16,13 +16,13 @@ use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
+use sp_keystore::KeystorePtr;
 use sp_runtime::{traits::Block, DispatchError};
 use std::{collections::HashMap, env, error::Error, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	TimeApi, TimeId,
+	TimeApi, TimeId, KEY_TYPE,
 };
-use time_worker::kv::TimeKeyvault;
 use tokio::time::sleep;
 use worker_aurora::{establish_connection, models::Feeds, write_data_to_db};
 
@@ -33,7 +33,7 @@ pub struct TaskExecutor<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
-	kv: TimeKeyvault,
+	kv: KeystorePtr,
 	accountid: PhantomData<A>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
@@ -75,7 +75,7 @@ where
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.public_keys();
+		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 		if keys.is_empty() {
 			log::warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
@@ -120,7 +120,7 @@ where
 
 			let at = self.backend.blockchain().last_finalized();
 			match at {
-				Ok(at) =>
+				Ok(at) => {
 					if let Some(my_key) = self.account_id() {
 						let current_shard = self
 							.runtime
@@ -153,7 +153,8 @@ where
 						}
 					} else {
 						log::error!(target: TW_LOG, "Failed to construct account");
-					},
+					}
+				},
 				Err(e) => log::warn!("error at getting last finalized block {:?}", e),
 			}
 		} else {
@@ -313,8 +314,7 @@ where
 
 		loop {
 			// Get the public keys from the Key-Value store to check key is set
-			let keys = self.kv.public_keys();
-			if !keys.is_empty() {
+			if self.account_id().is_some() {
 				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					// let at = BlockId::Hash(at);

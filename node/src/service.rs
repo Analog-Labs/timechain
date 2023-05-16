@@ -4,7 +4,6 @@ use futures::channel::mpsc;
 use sc_client_api::BlockBackend;
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
-use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
@@ -56,10 +55,6 @@ pub fn new_partial(
 	>,
 	ServiceError,
 > {
-	if config.keystore_remote.is_some() {
-		return Err(ServiceError::Other("Remote Keystores are not supported.".to_string()));
-	}
-
 	let telemetry = config
 		.telemetry_endpoints
 		.clone()
@@ -71,12 +66,7 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
-	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
-		config.wasm_method,
-		config.default_heap_pages,
-		config.max_runtime_instances,
-		config.runtime_cache_size,
-	);
+	let executor = sc_service::new_native_or_wasm_executor(config);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -115,7 +105,7 @@ pub fn new_partial(
 	let slot_duration = babe_link.config().slot_duration();
 	let justification_import = grandpa_block_import;
 
-	let import_queue = sc_consensus_babe::import_queue(
+	let (import_queue, _) = sc_consensus_babe::import_queue(
 		babe_link.clone(),
 		block_import.clone(),
 		Some(Box::new(justification_import)),
@@ -149,13 +139,6 @@ pub fn new_partial(
 	})
 }
 
-fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
-	// FIXME: here would the concrete keystore be built,
-	//        must return a concrete type (NOT `LocalKeystore`) that
-	//        implements `CryptoStore` and `SyncCryptoStore`
-	Err("Remote Keystore not supported.")
-}
-
 /// Builds a new service for a full client.
 pub fn new_full(
 	mut config: Configuration,
@@ -168,21 +151,12 @@ pub fn new_full(
 		backend,
 		mut task_manager,
 		import_queue,
-		mut keystore_container,
+		keystore_container,
 		select_chain,
 		transaction_pool,
 		other: (block_import, grandpa_link, babe_link, mut telemetry),
 	} = new_partial(&config)?;
 
-	if let Some(url) = &config.keystore_remote {
-		match remote_keystore(url) {
-			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) =>
-				return Err(ServiceError::Other(format!(
-					"Error hooking up remote keystore for {url}: {e}"
-				))),
-		};
-	}
 	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
@@ -233,13 +207,13 @@ pub fn new_full(
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
-	let keystore = keystore_container.sync_keystore();
+	let keystore = keystore_container.keystore();
 
 	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
-		let clonestore = keystore.clone();
+		let keystore = keystore.clone();
 		let sign_data_sender = sign_data_sender.clone();
 
 		Box::new(move |deny_unsafe, _| {
@@ -247,7 +221,7 @@ pub fn new_full(
 				client: client.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
-				kv: Some(clonestore.clone()).into(),
+				kv: keystore.clone(),
 				sign_data_sender: sign_data_sender.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
@@ -279,7 +253,7 @@ pub fn new_full(
 
 		let slot_duration = babe_link.config().slot_duration();
 		let babe_config = sc_consensus_babe::BabeParams {
-			keystore: keystore_container.sync_keystore(),
+			keystore: keystore_container.keystore(),
 			client: client.clone(),
 			select_chain,
 			block_import,
@@ -315,8 +289,7 @@ pub fn new_full(
 	if enable_grandpa {
 		// if the node isn't actively participating in consensus then it doesn't
 		// need a keystore, regardless of which protocol we use below.
-		let keystore =
-			if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
+		let keystore = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
 		let grandpa_config = sc_consensus_grandpa::Config {
 			// FIXME #1578 make this available through chainspec
@@ -360,7 +333,7 @@ pub fn new_full(
 			client: client.clone(),
 			backend: backend.clone(),
 			gossip_network: network,
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_receiver,
 			accountid: PhantomData,
@@ -377,7 +350,7 @@ pub fn new_full(
 		let connector_params = connector_worker::ConnectorWorkerParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender: sign_data_sender.clone(),
 			accountid: PhantomData,
@@ -395,7 +368,7 @@ pub fn new_full(
 		let taskexecutor_params = task_executor::TaskExecutorParams {
 			runtime: client,
 			backend,
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender,
 			accountid: PhantomData,

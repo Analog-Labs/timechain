@@ -32,7 +32,8 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn store_signature_data(_s: u32) -> Weight;
-		fn submit_tss_group_key(s: u32) -> Weight;
+		fn submit_tss_group_key(_s: u32) -> Weight;
+		fn register_shard(_s: u32) -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -221,7 +222,7 @@ pub mod pallet {
 		/// * set_id - not yet used ID of new shard
 		/// * members - supported sized set of shard members Id
 		#[pallet::call_index(2)]
-		#[pallet::weight(1_000_000)]
+		#[pallet::weight(T::WeightInfo::register_shard(1))]
 		pub fn register_shard(
 			origin: OriginFor<T>,
 			set_id: u64,

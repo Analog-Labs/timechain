@@ -24,6 +24,7 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
+	tx_data_sender: Sender<Vec<u8>>,
 	kv: KeystorePtr,
 	accountid: PhantomData<A>,
 	connector_url: Option<String>,

@@ -2,6 +2,7 @@ use super::mock::*;
 use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use sp_keystore::Keystore;
 use time_primitives::{ForeignEventId, TimeId};
 
 // generate keypair
@@ -119,7 +120,6 @@ fn test_register_shard_fails_if_shard_id_taken() {
 
 #[test]
 fn test_api_report_misbehavior_increments_report_count() {
-	use sp_keystore::Keystore;
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -161,13 +161,12 @@ fn test_api_report_misbehavior_increments_report_count() {
 			bob_report.into(),
 		));
 		// 2 reported offences
-		assert_eq!(2, TesseractSigStorage::reported_offences(CHARLIE).unwrap().0);
+		assert_eq!(2, TesseractSigStorage::commited_offences(CHARLIE).unwrap().0);
 	});
 }
 
 #[test]
 fn test_api_report_misbehavior_updates_reporters() {
-	use sp_keystore::Keystore;
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -209,17 +208,16 @@ fn test_api_report_misbehavior_updates_reporters() {
 			bob_report.into(),
 		));
 		// alice and bob are reporters
-		assert!(TesseractSigStorage::reported_offences(CHARLIE)
+		assert!(TesseractSigStorage::commited_offences(CHARLIE)
 			.unwrap()
 			.1
 			.contains(&alice.into()));
-		assert!(TesseractSigStorage::reported_offences(CHARLIE).unwrap().1.contains(&bob.into()));
+		assert!(TesseractSigStorage::commited_offences(CHARLIE).unwrap().1.contains(&bob.into()));
 	});
 }
 
 #[test]
 fn test_api_report_misbehavior_moves_offences_to_committed() {
-	use sp_keystore::Keystore;
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -262,15 +260,246 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 			bob_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(CHARLIE).is_some());
-		// check commitment
-		// report nth offence to move to commitment (see if count is tracked)
-		//api_report_misbehavior
 	});
 }
 
 #[test]
-fn test_api_report_misbehavior_moves_offences_to_committed_without_purging_reported() {
-	use sp_keystore::Keystore;
+fn test_api_report_misbehavior_pushes_offences_to_committed() {
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	// test the thresholds
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let bob = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	new_test_ext().execute_with(|| {
+		// register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![alice.into(), bob.into(), CHARLIE],
+			Some(alice.into()),
+		));
+		// To report offence, need to sign the public key
+
+		// report 1st offence
+
+		let alice_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &alice, CHARLIE.as_ref())
+			.unwrap()
+			.unwrap();
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			CHARLIE,
+			alice.into(),
+			alice_report.into(),
+		));
+		let mut expected_committed_offences =
+			TesseractSigStorage::reported_offences(CHARLIE).unwrap();
+		expected_committed_offences.0 += 1;
+		expected_committed_offences.1.insert(bob.into());
+		let bob_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &bob, CHARLIE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			CHARLIE,
+			bob.into(),
+			bob_report.into(),
+		));
+		assert_eq!(
+			expected_committed_offences,
+			TesseractSigStorage::commited_offences(CHARLIE).unwrap()
+		);
+	});
+}
+
+#[test]
+fn test_api_report_misbehavior_for_group_len_5() {
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	// test the thresholds
+	let charlie = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let david = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let edward = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	new_test_ext().execute_with(|| {
+		// register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![ALICE, BOB, charlie.into(), david.into(), edward.into()],
+			Some(charlie.into()),
+		));
+		// To report offence, need to sign the public key
+
+		// report 1st offence
+
+		let charlie_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &charlie, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			charlie.into(),
+			charlie_report.into(),
+		));
+		let david_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &david, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			david.into(),
+			david_report.into(),
+		));
+		assert!(TesseractSigStorage::commited_offences(ALICE).is_none());
+		let mut expected_committed_offences =
+			TesseractSigStorage::reported_offences(ALICE).unwrap();
+		expected_committed_offences.0 += 1;
+		expected_committed_offences.1.insert(edward.into());
+		let edward_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &edward, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 3nd offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			edward.into(),
+			edward_report.into(),
+		));
+		assert_eq!(
+			expected_committed_offences,
+			TesseractSigStorage::commited_offences(ALICE).unwrap()
+		);
+	});
+}
+
+#[test]
+fn test_api_report_misbehavior_for_group_len_10() {
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	// test the thresholds
+	let edward = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let frank = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let greg = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let hank = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let indigo = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let jared = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	new_test_ext().execute_with(|| {
+		// register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![
+				ALICE,
+				BOB,
+				CHARLIE,
+				DJANGO,
+				edward.into(),
+				frank.into(),
+				greg.into(),
+				hank.into(),
+				indigo.into(),
+				jared.into()
+			],
+			Some(edward.into()),
+		));
+		// To report offence, need to sign the public key
+
+		// report 1st offence
+
+		let edward_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &edward, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			edward.into(),
+			edward_report.into(),
+		));
+		let frank_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &frank, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			frank.into(),
+			frank_report.into(),
+		));
+		let greg_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &greg, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 3nd offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			greg.into(),
+			greg_report.into(),
+		));
+		let hank_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &hank, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 4th offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			hank.into(),
+			hank_report.into(),
+		));
+		assert!(TesseractSigStorage::commited_offences(ALICE).is_none());
+		let mut expected_committed_offences =
+			TesseractSigStorage::reported_offences(ALICE).unwrap();
+		expected_committed_offences.0 += 1;
+		expected_committed_offences.1.insert(indigo.into());
+		let indigo_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &indigo, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		// report 5th offence
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			indigo.into(),
+			indigo_report.into(),
+		));
+		assert!(TesseractSigStorage::reported_offences(ALICE).is_none());
+		assert_eq!(
+			expected_committed_offences,
+			TesseractSigStorage::commited_offences(ALICE).unwrap()
+		);
+	});
+}
+
+#[test]
+fn test_api_report_misbehavior_moves_offences_to_committed_and_removed_reported() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -313,7 +542,7 @@ fn test_api_report_misbehavior_moves_offences_to_committed_without_purging_repor
 			bob_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(CHARLIE).is_some());
-		// is keeping reported offences in storage intentional or a bug
-		assert!(TesseractSigStorage::reported_offences(CHARLIE).is_some());
+		// remove reported_offences from storage once moved to commited_offences
+		assert!(TesseractSigStorage::reported_offences(CHARLIE).is_none());
 	});
 }

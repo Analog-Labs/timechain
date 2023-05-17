@@ -98,6 +98,11 @@ pub mod pallet {
 
 		/// Shard has ben registered with new Id
 		ShardRegistered(u64),
+
+		/// Reports moved from reported to committed
+		/// .0 Offender TimeId
+		/// .1 Report count
+		OffenceCommitted(TimeId, u8),
 	}
 
 	#[pallet::error]
@@ -135,6 +140,9 @@ pub mod pallet {
 
 		/// Misbehavior report proof verification failed
 		ProofVerificationFailed,
+
+		/// Misbehavior reported for commited offender
+		OffenderAlreadyCommittedOffence,
 	}
 
 	#[pallet::inherent]
@@ -305,21 +313,27 @@ pub mod pallet {
 				proof.verify(offender.as_ref(), &reporter_pub),
 				Error::<T>::ProofVerificationFailed
 			);
-			// TODO: add event if moved to commitment
+			// do not allow new reports for committed offenders
+			ensure!(
+				<CommitedOffences<T>>::contains_key(&offender),
+				Error::<T>::OffenderAlreadyCommittedOffence
+			);
 			<ReportedOffences<T>>::mutate(&offender, |o| {
 				if let Some(known_offender) = o {
 					// check reached threshold
 					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
 						* members.len();
 					let new_report_count = known_offender.0 + 1;
-					// move to commitment if reached
-					// TODO: move into else branch if removing ReportedOffenses below
 					known_offender.0 = new_report_count;
 					known_offender.1.insert(reporter);
 					if new_report_count.saturated_into::<usize>() >= shard_th {
-						<CommitedOffences<T>>::insert(offender.clone(), known_offender.clone());
-						// do we want to remove ReportedOffenses or what is purge storage strategy
-						// o = None;
+						<CommitedOffences<T>>::insert(&offender, known_offender);
+						// remove ReportedOffences because moved to CommittedOffences
+						*o = None;
+						Self::deposit_event(Event::OffenceCommitted(
+							offender.clone(),
+							new_report_count,
+						));
 					}
 				} else {
 					let mut hs = BTreeSet::new();
@@ -329,7 +343,6 @@ pub mod pallet {
 					let _ = o.insert((1, hs));
 				}
 			});
-			// TODO: add event if correctly reported
 			Ok(())
 		}
 	}

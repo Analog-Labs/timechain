@@ -200,9 +200,9 @@ pub struct Collection {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct EthTxValidation{
-	pub blockchain: String,
-	pub network: String,
-	pub url: String,
+	pub blockchain: Option<String>,
+	pub network: Option<String>,
+	pub url: Option<String>,
 	pub tx_id: String,
 	pub contract_address: String
 }

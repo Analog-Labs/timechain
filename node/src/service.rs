@@ -338,6 +338,7 @@ pub fn new_full(
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_receiver,
+			tx_data_sender: tx_data_sender.clone(),
 			accountid: PhantomData,
 			sync_service,
 		};

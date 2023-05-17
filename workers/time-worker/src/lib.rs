@@ -45,6 +45,7 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
+	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
 	pub sync_service: Arc<S>,
 }
 
@@ -57,6 +58,7 @@ pub(crate) struct WorkerParams<B: Block, A, C, R, BE> {
 	pub kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
 	pub sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
+	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
 }
 
 /// Start the Timeworker gadget.
@@ -83,6 +85,7 @@ pub async fn start_timeworker_gadget<B, A, C, R, BE, N, S>(
 		kv,
 		_block,
 		sign_data_receiver,
+		tx_data_sender,
 		accountid: _,
 		sync_service,
 	} = timeworker_params;
@@ -103,6 +106,7 @@ pub async fn start_timeworker_gadget<B, A, C, R, BE, N, S>(
 		gossip_engine,
 		kv,
 		sign_data_receiver,
+		tx_data_sender,
 		accountid: PhantomData,
 	};
 	let mut worker = worker::TimeWorker::<_, _, _, _, _>::new(worker_params);

@@ -1,9 +1,9 @@
 #![allow(clippy::type_complexity)]
 use crate::{WorkerParams, TW_LOG};
-use codec::Decode;
+use codec::{Decode, Encode};
 use core::time;
-use futures::channel::mpsc::Sender;
-use rosetta_client::{create_wallet, EthereumExt, Wallet};
+use futures::{channel::mpsc::Sender};
+use rosetta_client::{create_client, create_wallet, BlockchainConfig, EthereumExt};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
@@ -11,7 +11,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::{traits::Block, DispatchError};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use time_primitives::{
-	abstraction::{Function, ScheduleStatus},
+	abstraction::{EthTxValidation, Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
 };
 // use time_worker::kv::TimeKeyvault;
@@ -45,6 +45,7 @@ where
 			backend,
 			runtime,
 			sign_data_sender,
+			tx_data_sender,
 			kv,
 			_block,
 			accountid: _,
@@ -57,6 +58,7 @@ where
 			backend,
 			runtime,
 			sign_data_sender,
+			tx_data_sender,
 			kv,
 			_block: PhantomData,
 			accountid: PhantomData,
@@ -153,7 +155,7 @@ where
 						let metadata_result = self
 							.runtime
 							.runtime_api()
-							.get_payable_task_metadata_by_key(block_id, schedule_task.0);
+							.get_payable_task_metadata_by_key(block_id, schedule_task.1.task_id.0);
 						if let Ok(metadata_result) = metadata_result {
 							match metadata_result {
 								Ok(metadata) => {

@@ -17,7 +17,7 @@ use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
 use time_db::{feed::Model, DatabaseConnection};
 use time_primitives::{
-	abstraction::{EthTxValidation, Function, ScheduleStatus},
+	abstraction::{Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
 };
 

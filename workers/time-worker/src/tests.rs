@@ -1,6 +1,6 @@
 use crate::{
 	communication::time_protocol_name::gossip_protocol_name, start_timeworker_gadget,
-	tests::kv_tests::Keyring as TimeKeyring, TimeWorkerParams,
+	TimeWorkerParams,
 };
 use futures::{
 	channel::mpsc::Receiver, future, stream::FuturesUnordered, Future, FutureExt, StreamExt,
@@ -21,13 +21,11 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
-use sp_core::crypto::key_types::GRANDPA;
+use sp_core::{crypto::key_types::GRANDPA, sr25519, Pair};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Header as HeaderT;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
-use substrate_test_runtime_client::{
-	runtime::AccountId, Ed25519Keyring, LongestChain, SyncCryptoStore, SyncCryptoStorePtr,
-};
+use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore, LongestChain};
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
 	sharding::Shard,
@@ -50,6 +48,36 @@ type GrandpaPeer = Peer<GrandpaPeerData, GrandpaBlockImport>;
 
 // same as runtime
 type GrandpaBlockNumber = u64;
+
+/// Set of test accounts using [`time_primitives::crypto`] types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
+enum TimeKeyring {
+	Alice,
+	Bob,
+	Charlie,
+	Dave,
+	Eve,
+	Ferdie,
+	One,
+	Two,
+}
+
+impl TimeKeyring {
+	/// Return key pair.
+	pub fn pair(self) -> sr25519::Pair {
+		sr25519::Pair::from_string(self.to_seed().as_str(), None).unwrap()
+	}
+
+	/// Return public key.
+	pub fn public(self) -> sr25519::Public {
+		self.pair().public()
+	}
+
+	/// Return seed string.
+	pub fn to_seed(self) -> String {
+		format!("//{self}")
+	}
+}
 
 pub(crate) struct TimeTestNet {
 	peers: Vec<GrandpaPeer>,
@@ -243,9 +271,9 @@ sp_api::mock_impl_runtime_apis! {
 	impl TimeApi<Block, AccountId> for RuntimeApi {
 		fn get_shards(&self) -> Vec<(u64, Shard)> {
 			vec![(1, Shard::Three([
-				TimeKeyring::Alice.to_time_id(),
-				TimeKeyring::Bob.to_time_id(),
-				TimeKeyring::Charlie.to_time_id(),
+				TimeKeyring::Alice.public().into(),
+				TimeKeyring::Bob.public().into(),
+				TimeKeyring::Charlie.public().into(),
 			]))]
 		}
 
@@ -268,7 +296,8 @@ fn initialize_grandpa(net: &mut TimeTestNet) -> impl Future<Output = ()> {
 	// initializing grandpa gadget per peer
 	for (peer_id, key) in net.test_net.grandpa_peers.iter().enumerate() {
 		let keystore = Arc::new(LocalKeystore::in_memory());
-		SyncCryptoStore::ed25519_generate_new(&*keystore, GRANDPA, Some(&key.to_seed()))
+		keystore
+			.ed25519_generate_new(GRANDPA, Some(&key.to_seed()))
 			.expect("Creates authority key");
 
 		let (net_service, link) = {
@@ -327,7 +356,8 @@ where
 		let peer = &net.peers[peer_id];
 
 		let keystore = Arc::new(LocalKeystore::in_memory());
-		SyncCryptoStore::sr25519_generate_new(&*keystore, TimeKeyType, Some(&key.to_seed()))
+		keystore
+			.sr25519_generate_new(TimeKeyType, Some(&key.to_seed()))
 			.expect("Creates authority key");
 
 		let time_params = TimeWorkerParams {
@@ -335,7 +365,7 @@ where
 			backend: peer.client().as_backend(),
 			runtime: api.into(),
 			gossip_network: peer.network_service().clone(),
-			kv: Some(keystore as SyncCryptoStorePtr).into(),
+			kv: keystore,
 			sign_data_receiver,
 			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),

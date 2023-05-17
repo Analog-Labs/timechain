@@ -7,8 +7,8 @@ use jsonrpsee::{
 	types::{error::CallError, ErrorObject},
 };
 use log::info;
-use time_primitives::rpc::SignRpcPayload;
-use time_worker::kv::TimeKeyvault;
+use sp_keystore::KeystorePtr;
+use time_primitives::{rpc::SignRpcPayload, KEY_TYPE};
 
 #[derive(Debug, thiserror::Error)]
 /// Top-level error type for the RPC handler
@@ -77,12 +77,12 @@ pub trait TimeRpcApi {
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
 	signer: mpsc::Sender<(u64, [u8; 32])>,
-	kv: TimeKeyvault,
+	kv: KeystorePtr,
 }
 
 impl TimeRpcApiHandler {
 	/// Constructor takes channel of TSS set id and hash of the event to sign
-	pub fn new(signer: mpsc::Sender<(u64, [u8; 32])>, kv: TimeKeyvault) -> Self {
+	pub fn new(signer: mpsc::Sender<(u64, [u8; 32])>, kv: KeystorePtr) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -99,12 +99,12 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 		if let Ok(message) = serde_json::from_str::<[u8; 32]>(&message) {
 			if let Ok(signature) = serde_json::from_str::<Vec<u8>>(&signature) {
 				let signature: [u8; 64] = arrayref::array_ref!(signature, 0, 64).to_owned();
-				let keys = self.kv.public_keys();
+				let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 				if keys.len() != 1 {
 					return Err(Error::TimeKeyNotFound.into());
 				}
 				let payload = SignRpcPayload::new(group_id, message, signature);
-				if payload.verify(keys[0].clone()) {
+				if payload.verify(keys[0].into()) {
 					self.signer.clone().send((payload.group_id, message)).await?;
 					Ok(())
 				} else {

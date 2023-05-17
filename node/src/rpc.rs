@@ -12,8 +12,8 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_keystore::KeystorePtr;
 use std::sync::Arc;
-use time_worker::kv::TimeKeyvault;
 use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
 
 pub use sc_rpc_api::DenyUnsafe;
@@ -27,7 +27,7 @@ pub struct FullDeps<C, P> {
 	/// Whether to deny unsafe calls
 	pub deny_unsafe: DenyUnsafe,
 	/// Time keyvault
-	pub kv: TimeKeyvault,
+	pub kv: KeystorePtr,
 	/// Sign data sender
 	pub sign_data_sender: mpsc::Sender<(u64, [u8; 32])>,
 }

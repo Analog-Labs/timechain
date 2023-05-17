@@ -4,7 +4,7 @@ use sp_inherents::{InherentIdentifier, IsFatalError};
 /// ID of inherent data we submit to runtime
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tsskey01";
 /// TSS Public key output type
-#[derive(Encode, Decode, sp_runtime::RuntimeDebug)]
+#[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 pub struct TimeTssKey {
 	pub group_key: [u8; 33],
 	pub set_id: u64,

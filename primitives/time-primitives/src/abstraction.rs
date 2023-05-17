@@ -197,3 +197,12 @@ pub struct Collection {
 	pub task: Vec<u8>,
 	pub validity: i64,
 }
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct TxValidation{
+	pub blockchain: String,
+	pub network: String,
+	pub url: String,
+	pub tx_id: String,
+	pub event: String
+}

@@ -1,0 +1,26 @@
+2023-05-17 18:16:12.783  INFO main sc_cli::runner: Substrate Node    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: ✌️  version 0.0.1-ec0765d5677    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: ❤️  by Analog Devs <https://github.com/analog-labs>, 2017-2023    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: 📋 Chain specification: Local Testnet    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: 🏷  Node name: Bob    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: 👤 Role: AUTHORITY    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: 💾 Database: RocksDb at ./ind_validators/validator2/chains/local_testnet/db/full    
+2023-05-17 18:16:12.784  INFO main sc_cli::runner: ⛓  Native runtime: timechain-node-100 (timechain-node-1.tx1.au1)    
+2023-05-17 18:16:16.801  INFO main runtime::staking: [0] 💸 generated 0 npos voters, 0 from validators and 0 nominators    
+2023-05-17 18:16:16.801  INFO main runtime::staking: [0] 💸 generated 0 npos targets    
+2023-05-17 18:16:16.801  INFO main runtime::staking: [0] 💸 generated 0 npos voters, 0 from validators and 0 nominators    
+2023-05-17 18:16:16.802  INFO main runtime::staking: [0] 💸 generated 0 npos targets    
+2023-05-17 18:17:13.073  INFO main sc_service::client::client: 🔨 Initializing Genesis block/state (state: 0x47a9…38b1, header-hash: 0x074f…6211)    
+2023-05-17 18:17:13.110  INFO main grandpa: 👴 Loading GRANDPA authority set from genesis on what appears to be first startup.    
+2023-05-17 18:17:59.496  INFO main babe: 👶 Creating empty BABE epoch changes on what appears to be first startup.    
+2023-05-17 18:17:59.497  WARN main sc_service::config: Using default protocol ID "sup" because none is configured in the chain specs    
+2023-05-17 18:17:59.497 ERROR tokio-runtime-worker sc_service::task_manager: Essential task `babe-worker` failed. Shutting down service.    
+2023-05-17 18:17:59.503  INFO                 main sub-libp2p: 🏷  Local node identity is: 12D3KooWNGeWaNpwq9cC11qaXTuHStj9oMxMifXJBawQNhgCfkSg    
+2023-05-17 18:18:00.176  INFO                 main sc_sysinfo: 💻 Operating system: macos    
+2023-05-17 18:18:00.176  INFO                 main sc_sysinfo: 💻 CPU architecture: x86_64    
+2023-05-17 18:18:00.176  INFO                 main sc_service::builder: 📦 Highest known block at #0    
+2023-05-17 18:18:00.183  INFO tokio-runtime-worker substrate_prometheus_endpoint: 〽️ Prometheus exporter started at 127.0.0.1:9615    
+2023-05-17 18:18:00.191  INFO                 main sc_rpc_server: Running JSON-RPC HTTP server: addr=127.0.0.1:9946, allowed origins=["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*", "https://polkadot.js.org"]    
+2023-05-17 18:18:00.197  INFO                 main sc_rpc_server: Running JSON-RPC WS server: addr=127.0.0.1:9945, allowed origins=["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*", "https://polkadot.js.org"]    
+2023-05-17 18:18:00.199  INFO                 main babe: 👶 Starting BABE Authorship worker    
+Error: Service(Other("Essential task failed."))

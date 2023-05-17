@@ -211,6 +211,7 @@ pub fn new_full(
 	let keystore = keystore_container.keystore();
 
 	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
+	let (tx_data_sender, tx_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -370,6 +371,7 @@ pub fn new_full(
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender,
+			tx_data_sender,
 			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,

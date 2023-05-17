@@ -120,7 +120,7 @@ where
 
 			let at = self.backend.blockchain().last_finalized();
 			match at {
-				Ok(at) =>
+				Ok(at) => {
 					if let Some(my_key) = self.account_id() {
 						let current_shard = self
 							.runtime
@@ -153,7 +153,8 @@ where
 						}
 					} else {
 						log::error!(target: TW_LOG, "Failed to construct account");
-					},
+					}
+				},
 				Err(e) => log::warn!("error at getting last finalized block {:?}", e),
 			}
 		} else {

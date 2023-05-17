@@ -177,10 +177,11 @@ pub fn new_full(
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
 			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) =>
+			Err(e) => {
 				return Err(ServiceError::Other(format!(
 					"Error hooking up remote keystore for {url}: {e}"
-				))),
+				)))
+			},
 		};
 	}
 	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
@@ -397,7 +398,7 @@ pub fn new_full(
 			backend: backend.clone(),
 			kv: keystore.clone().into(),
 			_block: PhantomData::default(),
-			sign_data_sender: crate::rpc::TIME_RPC_CHANNEL.0.clone(),
+			sign_data_sender: sign_data_sender.clone(),
 			accountid: PhantomData,
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),

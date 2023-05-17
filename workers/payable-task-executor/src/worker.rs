@@ -14,7 +14,7 @@ use time_primitives::{
 	TimeApi, TimeId,
 };
 use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time::sleep};
+use tokio::time::sleep;
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -22,7 +22,7 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
-	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
+	sign_data_sender: Sender<(u64, [u8; 32])>,
 	kv: TimeKeyvault,
 	accountid: PhantomData<A>,
 	connector_url: Option<String>,
@@ -94,7 +94,7 @@ where
 	fn check_if_connector(&self, shard_id: u64) -> bool {
 		let at = self.backend.blockchain().last_finalized();
 		match at {
-			Ok(at) =>
+			Ok(at) => {
 				if let Some(my_key) = self.account_id() {
 					let current_shard = self
 						.runtime
@@ -109,7 +109,8 @@ where
 					} else {
 						log::warn!("Shards does not match");
 					}
-				},
+				}
+			},
 			Err(e) => {
 				log::warn!("error at getting last finalized block {:?}", e);
 			},
@@ -148,7 +149,7 @@ where
 													function_signature,
 													input,
 													output: _,
-												} =>
+												} => {
 													if self.check_if_connector(shard_id) {
 														let blockchain =
 															config.network().blockchain.clone();
@@ -187,7 +188,8 @@ where
 															);
 															},
 														}
-													},
+													}
+												},
 												_ => {
 													log::warn!("error on matching task function")
 												},

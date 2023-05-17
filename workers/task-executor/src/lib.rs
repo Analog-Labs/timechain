@@ -5,7 +5,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::TimeApi;
+use time_primitives::{TimeApi, abstraction::EthTxValidation};
 
 mod worker;
 
@@ -27,7 +27,7 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub sign_data_sender: Sender<(u64, [u8; 32])>,
-	pub tx_data_sender: Sender<Vec<u8>>,
+	pub tx_data_sender: Sender<EthTxValidation>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,

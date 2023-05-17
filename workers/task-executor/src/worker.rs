@@ -17,7 +17,7 @@ use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
 use time_db::{feed::Model, DatabaseConnection};
 use time_primitives::{
-	abstraction::{Function, ScheduleStatus},
+	abstraction::{EthTxValidation, Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
 };
 
@@ -27,7 +27,7 @@ pub struct TaskExecutor<B, BE, R, A> {
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
-	tx_data_sender: Sender<Vec<u8>>,
+	tx_data_sender: Sender<EthTxValidation>,
 	kv: KeystorePtr,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
 	tasks: HashSet<u64>,

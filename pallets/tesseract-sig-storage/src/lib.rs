@@ -315,7 +315,7 @@ pub mod pallet {
 			);
 			// do not allow new reports for committed offenders
 			ensure!(
-				<CommitedOffences<T>>::contains_key(&offender),
+				<CommitedOffences<T>>::get(&offender).is_none(),
 				Error::<T>::OffenderAlreadyCommittedOffence
 			);
 			<ReportedOffences<T>>::mutate(&offender, |o| {

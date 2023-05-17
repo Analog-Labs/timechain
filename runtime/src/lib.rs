@@ -27,7 +27,6 @@ use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::DispatchError;
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -39,6 +38,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
+use sp_runtime::{DispatchError, DispatchResult};
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;

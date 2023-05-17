@@ -806,7 +806,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = ConstU32<32>;
 	// type OnStakerSlash = NominationPools;
 	type OnStakerSlash = ();
-	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>; //pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
@@ -1065,7 +1065,7 @@ impl pallet_treasury::Config for Runtime {
 }
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::task_metadata::WeightInfo<Runtime>; //task_metadata::weights::WeightInfo<Runtime>;
 	type ProxyExtend = ();
 }
 
@@ -1087,7 +1087,7 @@ impl task_schedule::Config for Runtime {
 
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>; //pallet_proxy::weights::WeightInfo<Runtime>;
 	type Currency = Balances;
 }
 

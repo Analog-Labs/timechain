@@ -20,7 +20,7 @@ pub mod pallet {
 	use sp_application_crypto::ByteArray;
 	use sp_runtime::{
 		traits::{AppVerify, Scale},
-		Percent, SaturatedConversion,
+		Percent, SaturatedConversion, Saturating,
 	};
 	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
 	use time_primitives::{
@@ -99,10 +99,16 @@ pub mod pallet {
 		/// Shard has ben registered with new Id
 		ShardRegistered(u64),
 
-		/// Reports moved from reported to committed
+		/// Offence reported, above threshold s.t.
+		/// reports are moved from reported to committed.
 		/// .0 Offender TimeId
 		/// .1 Report count
 		OffenceCommitted(TimeId, u8),
+
+		/// Offence reported
+		/// .0 Offender TimeId
+		/// .1 Report count
+		OffenceReported(TimeId, u8),
 	}
 
 	#[pallet::error]
@@ -313,36 +319,41 @@ pub mod pallet {
 				proof.verify(offender.as_ref(), &reporter_pub),
 				Error::<T>::ProofVerificationFailed
 			);
-			// do not allow new reports for committed offenders
-			ensure!(
-				<CommitedOffences<T>>::get(&offender).is_none(),
-				Error::<T>::OffenderAlreadyCommittedOffence
-			);
-			<ReportedOffences<T>>::mutate(&offender, |o| {
-				if let Some(known_offender) = o {
+			let reported_offences_count =
+				if let Some(mut known_offender) = <ReportedOffences<T>>::take(&offender) {
 					// check reached threshold
 					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
 						* members.len();
-					let new_report_count = known_offender.0 + 1;
+					let new_report_count = known_offender.0.saturating_plus_one();
+					// update known offender
 					known_offender.0 = new_report_count;
 					known_offender.1.insert(reporter);
 					if new_report_count.saturated_into::<usize>() >= shard_th {
 						<CommitedOffences<T>>::insert(&offender, known_offender);
-						// remove ReportedOffences because moved to CommittedOffences
-						*o = None;
+						// removed ReportedOffences because moved to CommittedOffences
 						Self::deposit_event(Event::OffenceCommitted(
 							offender.clone(),
 							new_report_count,
 						));
+					} else {
+						<ReportedOffences<T>>::insert(&offender, known_offender);
 					}
+					new_report_count
 				} else {
-					let mut hs = BTreeSet::new();
-					hs.insert(reporter);
-					// 1 here is count of reports received for this offence
-					// incremented in above If section
-					let _ = o.insert((1, hs));
-				}
-			});
+					// do not allow new reports for committed offenders because offences
+					// already moved from reported to committed before clearing reported
+					ensure!(
+						<CommitedOffences<T>>::get(&offender).is_none(),
+						Error::<T>::OffenderAlreadyCommittedOffence
+					);
+					let mut new_reports = BTreeSet::new();
+					new_reports.insert(reporter);
+					let new_report_count = 1u8;
+					// insert new report
+					<ReportedOffences<T>>::insert(&offender, (new_report_count, new_reports));
+					new_report_count
+				};
+			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
 		}
 	}

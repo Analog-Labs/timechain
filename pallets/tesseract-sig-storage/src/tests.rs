@@ -5,8 +5,6 @@ use frame_system::RawOrigin;
 use sp_keystore::Keystore;
 use time_primitives::{ForeignEventId, TimeId};
 
-// generate keypair
-//  sp_core::sr25519::Pair
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
 pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);

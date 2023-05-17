@@ -105,7 +105,7 @@ pub fn new_partial(
 	let slot_duration = babe_link.config().slot_duration();
 	let justification_import = grandpa_block_import;
 
-	let (import_queue, _) = sc_consensus_babe::import_queue(
+	let (import_queue, babe_task_handle) = sc_consensus_babe::import_queue(
 		babe_link.clone(),
 		block_import.clone(),
 		Some(Box::new(justification_import)),
@@ -126,6 +126,7 @@ pub fn new_partial(
 		config.prometheus_registry(),
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
+	std::mem::forget(babe_task_handle);
 
 	Ok(sc_service::PartialComponents {
 		client,

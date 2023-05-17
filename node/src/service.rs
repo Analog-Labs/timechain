@@ -368,7 +368,7 @@ pub fn new_full(
 		let taskexecutor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
-			kv: keystore.clone().into(),
+			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender: sign_data_sender.clone(),
 			accountid: PhantomData,

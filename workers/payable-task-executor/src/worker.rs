@@ -7,13 +7,14 @@ use rosetta_client::{create_client, create_wallet, BlockchainConfig, EthereumExt
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
+use sp_keystore::KeystorePtr;
 use sp_runtime::{traits::Block, DispatchError};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	TimeApi, TimeId,
+	TimeApi, TimeId, KEY_TYPE,
 };
-use time_worker::kv::TimeKeyvault;
+// use time_worker::kv::TimeKeyvault;
 use tokio::time::sleep;
 
 #[allow(unused)]
@@ -23,7 +24,7 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
-	kv: TimeKeyvault,
+	kv: KeystorePtr,
 	accountid: PhantomData<A>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
@@ -65,7 +66,7 @@ where
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.public_keys();
+		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 		if keys.is_empty() {
 			log::warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
@@ -171,6 +172,7 @@ where
 																		address,
 																		function_signature,
 																		input,
+																		1,
 																	)
 																	.await
 																{
@@ -249,7 +251,7 @@ where
 
 		loop {
 			// Get the public keys from the Key-Value store to check key is set
-			let keys = self.kv.public_keys();
+			let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 			if !keys.is_empty() {
 				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {

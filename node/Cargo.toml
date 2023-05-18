@@ -18,7 +18,6 @@ name = "timechain-node"
 clap = { version = "4.2.7", features = ["derive"] }
 serde_json = "1.0"
 hex-literal = "0.4.1"
-web3 = "0.18.0"
 tokio = "1.28.1"
 lazy_static = "1.4.0"
 futures = "0.3.28"
@@ -48,7 +47,6 @@ sp-keyring = { version = "7.0.0", git = "https://github.com/paritytech/substrate
 sp-keystore = { version = "0.13.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 pallet-transaction-payment = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sp-authorship = "11.0"
 pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
 # node 's RPCs deps
@@ -72,9 +70,6 @@ runtime-common = { path = "../runtime/common" }
 
 # CLI-specific dependencies
 try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-
-#connector
-connector = { path = "../connector"}
 
 # Runtime Workers
 time-worker = { path = "../workers/time-worker" }

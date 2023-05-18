@@ -8,8 +8,19 @@ homepage = ""
 repository = ""
 
 [dependencies]
+smallvec = "1.8.0"
+
+frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+sp-core = { version = "7.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+sp-runtime = { version = "7.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+sp-weights = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
 [features]
 default = [ "std" ]
-std = [  ]
+std = [
+    "frame-support/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-weights/std",
+]
 runtime-benchmarks = [  ]

@@ -14,7 +14,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	dispatch::DispatchClass,
 	traits::{EitherOfDiverse, Imbalance},
-	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier},
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
@@ -24,7 +24,7 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_session::historical as pallet_session_historical;
-pub use runtime_common::constants::ANLOG;
+pub use runtime_common::currency::*;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -38,7 +38,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult, FixedPointNumber};
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
@@ -65,11 +65,12 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 pub use pallet_utility::Call as UtilityCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{traits::Bounded, Perbill, Permill, Perquintill};
+use static_assertions::const_assert;
 
 pub use pallet_tesseract_sig_storage;
 
@@ -298,6 +299,8 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
 	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
+
+const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -928,6 +931,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
+	pub const TransactionByteFee: Balance = 10 * MILLIANLOG;
 	pub FeeMultiplier: Multiplier = Multiplier::one();
 	pub const UncleGenerations: u32 = 0;
 }
@@ -975,13 +979,38 @@ where
 	}
 }
 
+parameter_types! {
+	/// The portion of the `NORMAL_DISPATCH_RATIO` that we adjust the fees with. Blocks filled less
+	/// than this will decrease the weight and more will increase.
+	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+	/// The adjustment variable of the runtime. Higher values will cause `TargetBlockFullness` to
+	/// change the fees more rapidly.
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(75, 1000_000);
+	/// Minimum amount of the multiplier. This value cannot be too low. A test case should ensure
+	/// that combined with `AdjustmentVariable`, we can recover from the minimum.
+	/// See `multiplier_can_grow_from_zero`.
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 10u128);
+	/// The maximum amount of the multiplier.
+	pub MaximumMultiplier: Multiplier = Bounded::max_value();
+}
+
+/// Parameterized slow adjusting fee updated based on
+/// https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html#-2.-slow-adjusting-mechanism
+pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
+	R,
+	TargetBlockFullness,
+	AdjustmentVariable,
+	MinimumMultiplier,
+	MaximumMultiplier,
+>;
+
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
-	type LengthToFee = IdentityFee<Balance>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+	type WeightToFee = runtime_common::fee::WeightToFee;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
 
 impl pallet_utility::Config for Runtime {

@@ -9,7 +9,6 @@ members = [
     "workers/time-worker/rpc",
     "workers/database",
     "primitives/time-primitives",
-    "primitives/storage-primitives",
     "tss",
     "pallets/task-metadata",
     "pallets/task-schedule",

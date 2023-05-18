@@ -226,10 +226,9 @@ where
 						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
 					);
 					}
-
-					tokio::time::sleep(delay).await;
 				}
 			}
+			tokio::time::sleep(delay).await;
 		}
 	}
 }

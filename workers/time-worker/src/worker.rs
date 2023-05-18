@@ -101,6 +101,7 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	_gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
 	tx_data_sender: mpsc::Sender<Vec<u8>>,
+	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
 	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
@@ -125,6 +126,7 @@ where
 			kv,
 			sign_data_receiver,
 			tx_data_sender,
+			gossip_data_receiver,
 			accountid,
 		} = worker_params;
 		TimeWorker {
@@ -137,6 +139,7 @@ where
 			kv,
 			sign_data_receiver,
 			tx_data_sender,
+			gossip_data_receiver,
 			shards: Default::default(),
 			accountid,
 			timeouts: Default::default(),
@@ -305,6 +308,13 @@ where
 					};
 					shard.tss.sign(data.to_vec());
 					self.poll_actions(shard_id, public_key);
+				},
+				gossip_data = self.gossip_data_receiver.next().fuse() => {
+					let Some(bytes) = gossip_data else{
+						continue;
+					};
+
+					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
 				},
 				gossip = gossips.next().fuse() => {
 					let Some(notification) = gossip else {

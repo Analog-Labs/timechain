@@ -212,6 +212,7 @@ pub fn new_full(
 
 	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let (tx_data_sender, tx_data_receiver) = mpsc::channel(400);
+	let (gossip_data_sender, gossip_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -339,6 +340,7 @@ pub fn new_full(
 			_block: PhantomData::default(),
 			sign_data_receiver,
 			tx_data_sender: tx_data_sender.clone(),
+			gossip_data_receiver,
 			accountid: PhantomData,
 			sync_service,
 		};
@@ -373,6 +375,7 @@ pub fn new_full(
 			_block: PhantomData::default(),
 			sign_data_sender,
 			tx_data_sender,
+			gossip_data_sender,
 			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,

@@ -2,7 +2,7 @@
 use crate::{WorkerParams, TW_LOG};
 use codec::{Decode, Encode};
 use core::time;
-use futures::{channel::mpsc::Sender};
+use futures::channel::mpsc::Sender;
 use rosetta_client::{create_client, create_wallet, BlockchainConfig, EthereumExt};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
@@ -25,6 +25,7 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	_block: PhantomData<B>,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
 	tx_data_sender: Sender<Vec<u8>>,
+	gossip_data_sender: Sender<Vec<u8>>,
 	kv: KeystorePtr,
 	accountid: PhantomData<A>,
 	connector_url: Option<String>,
@@ -46,6 +47,7 @@ where
 			runtime,
 			sign_data_sender,
 			tx_data_sender,
+			gossip_data_sender,
 			kv,
 			_block,
 			accountid: _,
@@ -59,6 +61,7 @@ where
 			runtime,
 			sign_data_sender,
 			tx_data_sender,
+			gossip_data_sender,
 			kv,
 			_block: PhantomData,
 			accountid: PhantomData,

@@ -282,7 +282,7 @@ pub mod pallet {
 			// transform AccountId32 int T::AccountId
 			let encoded_account = auth_id.encode();
 			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
-			ensure!(&encoded_account[..] != &[0u8; 32][..], Error::<T>::DefaultAccountForbidden);
+			ensure!(encoded_account[..] != [0u8; 32][..], Error::<T>::DefaultAccountForbidden);
 			// TODO: same check as for extrinsic after task management is implemented
 			ensure!(
 				auth_sig.verify(signature_data.as_ref(), &auth_id),

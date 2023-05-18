@@ -206,7 +206,7 @@ where
 							.sr25519_sign(KEY_TYPE, &public_key, &tss_signature)
 							.unwrap()
 							.unwrap();
-						self.runtime
+						let _ = self.runtime
 							.runtime_api()
 							.store_signature(
 								at,

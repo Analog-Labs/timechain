@@ -313,7 +313,7 @@ where
 					let Some(bytes) = gossip_data else{
 						continue;
 					};
-
+					log::info!("got tx data for verifying, sending to network",);
 					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
 				},
 				gossip = gossips.next().fuse() => {

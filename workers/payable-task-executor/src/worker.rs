@@ -130,6 +130,8 @@ where
 		address: &str,
 		function_signature: &str,
 		input: &[String],
+		map: &mut HashMap<u64, ()>,
+		schedule_task_id: u64,
 	) {
 		match wallet.eth_send_call(address, function_signature, input, 0).await {
 			Ok(tx) => {
@@ -179,6 +181,8 @@ where
 															address,
 															function_signature,
 															input,
+															map,
+															schedule_task.0
 														)
 														.await;
 													}

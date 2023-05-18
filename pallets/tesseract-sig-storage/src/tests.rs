@@ -531,3 +531,46 @@ fn cannot_report_offence_if_already_committed_offender() {
 		);
 	});
 }
+
+#[test]
+fn cannot_report_more_than_once_per_offender_by_member() {
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	// test the thresholds
+	let bob = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	let edward = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+	new_test_ext().execute_with(|| {
+		// register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![ALICE, bob.into(), CHARLIE, DJANGO, edward.into()],
+			Some(CHARLIE),
+		));
+
+		// report 1st offence
+		let bob_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &bob, ALICE.as_ref())
+			.unwrap()
+			.unwrap();
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			bob.into(),
+			bob_report.clone().into(),
+		));
+		// cannot report 2nd offence if reported first
+		assert_noop!(
+			TesseractSigStorage::api_report_misbehavior(
+				0, // setId is 0
+				ALICE,
+				bob.into(),
+				bob_report.into(),
+			),
+			Error::<Test>::MaxOneReportPerMember
+		);
+	});
+}

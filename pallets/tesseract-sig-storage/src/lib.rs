@@ -149,6 +149,9 @@ pub mod pallet {
 
 		/// Misbehavior reported for commited offender
 		OffenderAlreadyCommittedOffence,
+
+		/// Do not allow more than one misbehavior report of offender by member
+		MaxOneReportPerMember,
 	}
 
 	#[pallet::inherent]
@@ -320,17 +323,19 @@ pub mod pallet {
 				Error::<T>::ProofVerificationFailed
 			);
 			let reported_offences_count =
-				if let Some(mut known_offender) = <ReportedOffences<T>>::take(&offender) {
+				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
 					// check reached threshold
 					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
 						* members.len();
 					let new_report_count = known_offender.0.saturating_plus_one();
-					// update known offender
+					// update known offender report count
 					known_offender.0 = new_report_count;
-					known_offender.1.insert(reporter);
+					// do not allow more than one report per reporter
+					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
 					if new_report_count.saturated_into::<usize>() >= shard_th {
 						<CommitedOffences<T>>::insert(&offender, known_offender);
 						// removed ReportedOffences because moved to CommittedOffences
+						<ReportedOffences<T>>::remove(&offender);
 						Self::deposit_event(Event::OffenceCommitted(
 							offender.clone(),
 							new_report_count,

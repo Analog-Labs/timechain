@@ -280,7 +280,6 @@ where
 				} else {
 					log::error!("Blockchain is empty");
 				}
-				log::info!("in payable task worker");
 				sleep(delay).await;
 			}
 		}

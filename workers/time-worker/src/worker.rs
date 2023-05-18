@@ -331,7 +331,7 @@ where
 						self.poll_actions(shard_id, public_key);
 
 					} else if let Ok(data) = EthTxValidation::decode(&mut &notification.message[..]) {
-						debug!(target: TW_LOG, "received gossip message");
+						debug!(target: TW_LOG, "received gossip message for ethereum transaction validation");
 						self.tx_data_sender.clone().try_send(data.encode()).unwrap_or_else(|e| {
 							warn!(target: TW_LOG, "Failed to send tx data: {}", e);
 						});

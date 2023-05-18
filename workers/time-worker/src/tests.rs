@@ -23,7 +23,7 @@ use sp_consensus_grandpa::{
 };
 use sp_core::{crypto::key_types::GRANDPA, sr25519, Pair};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
-use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::{traits::Header as HeaderT, DispatchResult};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore, LongestChain};
 use time_primitives::{
@@ -277,8 +277,9 @@ sp_api::mock_impl_runtime_apis! {
 			]))]
 		}
 
-		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) {
+		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) -> DispatchResult {
 			self.stored_signatures.lock().push(signature_data);
+			Ok(())
 		}
 	}
 

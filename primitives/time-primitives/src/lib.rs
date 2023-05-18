@@ -13,7 +13,7 @@ use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
-	DispatchError, MultiSignature,
+	DispatchError, DispatchResult, MultiSignature,
 };
 use sp_std::{borrow::ToOwned, fmt::Debug, vec::Vec};
 /// Time key type
@@ -33,7 +33,12 @@ sp_api::decl_runtime_apis! {
 	pub trait TimeApi<AccountId>
 	where AccountId: Codec  {
 		#[allow(clippy::too_many_arguments)]
-		fn store_signature(auth_key: crate::crypto::Public, auth_sig: crate::crypto::Signature, signature_data: SignatureData, event_id: ForeignEventId);
+		fn store_signature(
+			auth_key: crate::crypto::Public,
+			auth_sig: crate::crypto::Signature,
+			signature_data: SignatureData,
+			event_id: ForeignEventId
+		) -> DispatchResult;
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;

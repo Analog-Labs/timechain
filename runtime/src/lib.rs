@@ -27,7 +27,6 @@ use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::constants::ANLOG;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::DispatchError;
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -39,6 +38,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
+use sp_runtime::{DispatchError, DispatchResult};
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
@@ -1393,9 +1393,9 @@ impl_runtime_apis! {
 			auth_key: time_primitives::crypto::Public,
 			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
-			event_id: time_primitives::ForeignEventId)
+			event_id: time_primitives::ForeignEventId) -> DispatchResult
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id)
 		}
 
 		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
@@ -1419,12 +1419,12 @@ impl_runtime_apis! {
 			TaskSchedule::get_schedules()
 		}
 
-		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError> {
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
 			TaskSchedule::update_schedule_by_key(status,key)
 		}
 
-		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
-			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}
 	}
 

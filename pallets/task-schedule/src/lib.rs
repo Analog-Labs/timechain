@@ -26,6 +26,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
+		fn update_execution_state() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -40,6 +41,7 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<u32>;
+		type ExecutionFee: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -61,6 +63,12 @@ pub mod pallet {
 
 		///Already exist case
 		AlreadyExist(KeyId),
+
+		///Execution Status Updated
+		ExecutionStatusUpdated(KeyId),
+
+		///Schedule Not Found
+		ScheduleNotFound(KeyId),
 	}
 
 	#[pallet::error]
@@ -132,10 +140,37 @@ pub mod pallet {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				ensure!(details.owner == who, Error::<T>::NoPermission);
 
-				details.status = status;
+				details.status = status.clone();
+				if status == ScheduleStatus::Recurring && details.cycle > 0 {
+					details.cycle -= 1;
+				}
+
 				Ok(())
 			});
 			Self::deposit_event(Event::ScheduleUpdated(key));
+
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::update_execution_state())]
+		pub fn update_execution_state(origin: OriginFor<T>, schedule_id: u64) -> DispatchResult {
+			let _who = ensure_signed(origin)?;
+			let fix_fee = T::ExecutionFee::get();
+			let treasury = T::PalletAccounts::get_treasury();
+			let schedule_info = self::ScheduleStorage::<T>::get(schedule_id);
+			match schedule_info {
+				Some(schedule) => {
+					let master_acc = schedule.owner;
+					let res =
+						T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
+					ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+					Self::deposit_event(Event::ExecutionStatusUpdated(schedule_id));
+				},
+				None => {
+					Self::deposit_event(Event::ScheduleNotFound(schedule_id));
+				},
+			}
 
 			Ok(())
 		}
@@ -143,7 +178,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter()
-				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| {
+					item.1.status == ScheduleStatus::Initiated
+						|| (item.1.status == ScheduleStatus::Recurring && item.1.cycle > 0)
+				})
 				.collect::<Vec<_>>();
 
 			Ok(data_list)
@@ -176,11 +214,30 @@ pub mod pallet {
 		) -> Result<(), DispatchError> {
 			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				details.status = status;
+				details.status = status.clone();
+				if status == ScheduleStatus::Recurring && details.cycle > 0 {
+					details.cycle -= 1;
+				}
 				Ok(())
 			});
 
 			Ok(())
+		}
+
+		pub fn update_execution(schedule_id: u64) -> Result<(), DispatchError> {
+			let fix_fee = T::ExecutionFee::get();
+			let treasury = T::PalletAccounts::get_treasury();
+			let schedule_info = self::ScheduleStorage::<T>::get(schedule_id);
+			match schedule_info {
+				Some(schedule) => {
+					let master_acc = schedule.owner;
+					let res =
+						T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
+					ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+					Ok(())
+				},
+				None => Ok(()),
+			}
 		}
 	}
 }

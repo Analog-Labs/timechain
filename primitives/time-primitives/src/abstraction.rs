@@ -97,6 +97,7 @@ pub struct Task {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Initiated,
+	Recurring,
 	Updated,
 	Completed,
 	Invalid,

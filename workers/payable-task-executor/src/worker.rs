@@ -182,7 +182,7 @@ where
 															function_signature,
 															input,
 															map,
-															schedule_task.0
+															schedule_task.0,
 														)
 														.await;
 													}

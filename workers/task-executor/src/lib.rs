@@ -5,7 +5,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::{TimeApi};
+use time_primitives::TimeApi;
 
 mod worker;
 

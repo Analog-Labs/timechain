@@ -10,8 +10,8 @@ use sc_network_gossip::GossipEngine;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
-use sp_core::{Encode, Decode};
 use sp_core::{sr25519, Pair};
+use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header};
 use std::{

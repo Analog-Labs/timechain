@@ -30,6 +30,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
+		fn insert_payable_schedule() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -153,7 +154,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::insert_schedule())]
+		#[pallet::weight(T::WeightInfo::insert_payable_schedule())]
 		pub fn insert_payable_task_schedule(
 			origin: OriginFor<T>,
 			schedule: PayableScheduleInput,

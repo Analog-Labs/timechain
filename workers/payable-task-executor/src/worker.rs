@@ -119,6 +119,29 @@ where
 		false
 	}
 
+	async fn create_wallet_and_tx(
+		blockchain: String,
+		network: String,
+		url: Option<String>,
+		address: &str,
+		function_signature: &str,
+		input: &[String],
+	) {
+		match create_wallet(Some(blockchain), Some(network), url.clone(), None).await {
+			Ok(wallet) => match wallet.eth_send_call(address, function_signature, input, 1).await {
+				Ok(tx) => {
+					log::info!("Successfully executed contract call {:?}", tx);
+				},
+				Err(e) => {
+					log::error!("Error occured while processing contract call {:?}", e);
+				},
+			},
+			Err(e) => {
+				log::error!("Error occured while creating wallet {:?}", e);
+			},
+		}
+	}
+
 	async fn process_tasks_for_block(
 		&self,
 		block_id: <B as Block>::Hash,
@@ -126,13 +149,14 @@ where
 		config: &BlockchainConfig,
 		url: Option<String>,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		// Get the task schedule for the current block
+		// Get the payable task schedule for the current block
 		let tasks_schedule = self.runtime.runtime_api().get_payable_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
 				for schedule_task in task_schedule.iter() {
 					let shard_id = schedule_task.1.shard_id;
 					if !map.contains_key(&schedule_task.0) {
+						//Get the metadata from scheduled payable task by key
 						let metadata_result = self
 							.runtime
 							.runtime_api()
@@ -158,38 +182,15 @@ where
 														let network =
 															config.network().network.clone();
 
-														match create_wallet(
-															Some(blockchain),
-															Some(network),
+														Self::create_wallet_and_tx(
+															blockchain,
+															network,
 															url.clone(),
-															None,
+															address,
+															function_signature,
+															input,
 														)
-														.await
-														{
-															Ok(wallet) => {
-																match wallet
-																	.eth_send_call(
-																		address,
-																		function_signature,
-																		input,
-																		1,
-																	)
-																	.await
-																{
-																	Ok(tx) => {
-																		log::info!("Successfully executed contract call {:?}", tx);
-																	},
-																	Err(e) => {
-																		log::error!("Error occured while processing contract call {:?}", e);
-																	},
-																}
-															},
-															Err(e) => {
-																log::error!(
-																"Error occured while creating wallet {:?}" , e
-															);
-															},
-														}
+														.await;
 													}
 												},
 												_ => {

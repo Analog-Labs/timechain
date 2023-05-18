@@ -1437,8 +1437,8 @@ impl_runtime_apis! {
 			TaskSchedule::get_payable_task_schedules()
 		}
 
-		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
-			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}
 	}
 

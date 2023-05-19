@@ -3,8 +3,8 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use time_primitives::{
 	abstraction::{
-		ObjectId, PayableScheduleInput, ScheduleInput as Schedule, ScheduleStatus,
-		TaskSchedule as ScheduleOut, Validity,
+		ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule,
+		ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
 	},
 	ProxyAccInput,
 };
@@ -72,14 +72,32 @@ fn test_schedule() {
 #[test]
 fn test_payable_schedule() {
 	new_test_ext().execute_with(|| {
-		let input = PayableScheduleInput {
+		//Insert payable task schedule
+		let input: PayableScheduleInput = PayableScheduleInput {
 			task_id: ObjectId(1),
 			shard_id: 1,
 		};
+		let proxy_data = ProxyAccInput {
+			proxy: 1,
+			max_token_usage: Some(1000),
+			token_usage: 1,
+			max_task_execution: Some(1),
+			task_executed: 1,
+		};
 		let account = 1;
+		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(account).into(), proxy_data);
 		assert_ok!(TaskSchedule::insert_payable_task_schedule(
 			RawOrigin::Signed(account).into(),
 			input
 		));
+
+		//get payable task schedule
+		let output = PayableTaskSchedule {
+			task_id: ObjectId(1),
+			owner: 1,
+			shard_id: 1,
+			status: ScheduleStatus::Initiated,
+		};
+		assert_eq!(TaskSchedule::get_payable_task_schedule(account as u64), Some(output));
 	});
 }

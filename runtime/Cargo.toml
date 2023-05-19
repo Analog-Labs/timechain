@@ -76,6 +76,9 @@ time-primitives = { path = "../primitives/time-primitives", default-features = f
 task-meta-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-metadata/task-meta-bench", optional = true }
 task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench", optional = true }
 
+[dev-dependencies]
+separator = "0.4.1"
+
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 

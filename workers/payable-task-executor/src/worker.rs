@@ -3,7 +3,7 @@ use crate::{WorkerParams, TW_LOG};
 use codec::{Decode, Encode};
 use core::time;
 use futures::channel::mpsc::Sender;
-use rosetta_client::{create_client, create_wallet, BlockchainConfig, EthereumExt};
+use rosetta_client::{create_wallet, EthereumExt, Wallet};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
@@ -14,7 +14,6 @@ use time_primitives::{
 	abstraction::{EthTxValidation, Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
 };
-// use time_worker::kv::TimeKeyvault;
 use tokio::time::sleep;
 
 #[allow(unused)]
@@ -126,6 +125,7 @@ where
 	}
 
 	async fn create_wallet_and_tx(
+		&self,
 		wallet: &Wallet,
 		address: &str,
 		function_signature: &str,
@@ -135,7 +135,20 @@ where
 	) {
 		match wallet.eth_send_call(address, function_signature, input, 0).await {
 			Ok(tx) => {
+				map.insert(schedule_task_id, ());
 				log::info!("Successfully executed contract call {:?}", tx);
+				let eth_tx_validation = EthTxValidation {
+					blockchain: self.connector_blockchain.clone(),
+					network: self.connector_network.clone(),
+					url: self.connector_url.clone(),
+					tx_id: tx.hash.into(),
+					contract_address: address.into(),
+				};
+
+				let encoded_data = eth_tx_validation.encode();
+				self.tx_data_sender.clone().try_send(encoded_data.clone()).unwrap();
+				self.gossip_data_sender.clone().try_send(encoded_data).unwrap();
+				log::info!("Sent data to network for signing");
 			},
 			Err(e) => {
 				log::error!("Error occurred while processing contract call {:?}", e);
@@ -176,7 +189,7 @@ where
 													output: _,
 												} => {
 													if self.check_if_connector(shard_id) {
-														Self::create_wallet_and_tx(
+														self.create_wallet_and_tx(
 															wallet,
 															address,
 															function_signature,

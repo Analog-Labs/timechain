@@ -35,16 +35,16 @@ const pallet_payable_task_add = async (_keyspair, who) => {
     const unsub = await api.tx.taskSchedule.insertPayableTaskSchedule(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
-    // setTimeout(async() => {
-    //     const unsub2 = await api.tx.taskSchedule.insertPayableTaskSchedule(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-    //         console.log(`Current status is ${status}`);
-    //     });
-    // },15000)
-    // setTimeout(async() => {
-    //     const unsub3 = await api.tx.taskSchedule.insertPayableTaskSchedule(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-    //         console.log(`Current status is ${status}`);
-    //     });
-    // },30000)
+    setTimeout(async() => {
+        const unsub2 = await api.tx.taskSchedule.insertPayableTaskSchedule(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+            console.log(`Current status is ${status}`);
+        });
+    },15000)
+    setTimeout(async() => {
+        const unsub3 = await api.tx.taskSchedule.insertPayableTaskSchedule(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+            console.log(`Current status is ${status}`);
+        });
+    },30000)
     
     await chan.get().then(value => console.log(value), error => console.error(error));
     // chan.close();

@@ -135,7 +135,7 @@ pub fn run() -> sc_cli::Result<()> {
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = new_partial(&config)?;
+						let partial = service::new_partial(&config)?;
 
 						cmd.run(partial.client)
 					},
@@ -147,7 +147,7 @@ pub fn run() -> sc_cli::Result<()> {
 					#[cfg(feature = "runtime-benchmarks")]
 					BenchmarkCmd::Storage(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = new_partial(&config)?;
+						let partial = service::new_partial(&config)?;
 						let db = partial.backend.expose_db();
 						let storage = partial.backend.expose_storage();
 
@@ -155,7 +155,7 @@ pub fn run() -> sc_cli::Result<()> {
 					},
 					BenchmarkCmd::Overhead(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = new_partial(&config)?;
+						let partial = service::new_partial(&config)?;
 						let ext_builder = RemarkBuilder::new(partial.client.clone());
 
 						cmd.run(

@@ -7281,10 +7281,7 @@ dependencies = [
 name = "runtime-common"
 version = "1.0.0"
 dependencies = [
- "frame-support",
- "smallvec",
  "sp-core",
- "sp-runtime",
  "sp-weights",
 ]
 

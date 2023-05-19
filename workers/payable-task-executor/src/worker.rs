@@ -3,7 +3,7 @@ use crate::{WorkerParams, TW_LOG};
 use codec::Decode;
 use core::time;
 use futures::channel::mpsc::Sender;
-use rosetta_client::{create_client, create_wallet, BlockchainConfig, EthereumExt};
+use rosetta_client::{create_wallet, EthereumExt, Wallet};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
@@ -120,24 +120,17 @@ where
 	}
 
 	async fn create_wallet_and_tx(
-		blockchain: String,
-		network: String,
-		url: Option<String>,
+		wallet: &Wallet,
 		address: &str,
 		function_signature: &str,
 		input: &[String],
 	) {
-		match create_wallet(Some(blockchain), Some(network), url.clone(), None).await {
-			Ok(wallet) => match wallet.eth_send_call(address, function_signature, input, 1).await {
-				Ok(tx) => {
-					log::info!("Successfully executed contract call {:?}", tx);
-				},
-				Err(e) => {
-					log::error!("Error occured while processing contract call {:?}", e);
-				},
+		match wallet.eth_send_call(address, function_signature, input, 1).await {
+			Ok(tx) => {
+				log::info!("Successfully executed contract call {:?}", tx);
 			},
 			Err(e) => {
-				log::error!("Error occured while creating wallet {:?}", e);
+				log::error!("Error occurred while processing contract call {:?}", e);
 			},
 		}
 	}
@@ -146,8 +139,7 @@ where
 		&self,
 		block_id: <B as Block>::Hash,
 		map: &mut HashMap<u64, ()>,
-		config: &BlockchainConfig,
-		url: Option<String>,
+		wallet: &Wallet,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the payable task schedule for the current block
 		let tasks_schedule = self.runtime.runtime_api().get_payable_task_schedule(block_id)?;
@@ -176,16 +168,8 @@ where
 													output: _,
 												} => {
 													if self.check_if_connector(shard_id) {
-														let blockchain =
-															config.network().blockchain.clone();
-
-														let network =
-															config.network().network.clone();
-
 														Self::create_wallet_and_tx(
-															blockchain,
-															network,
-															url.clone(),
+															wallet,
 															address,
 															function_signature,
 															input,
@@ -242,41 +226,32 @@ where
 		let delay = time::Duration::from_secs(10);
 		let mut map: HashMap<u64, ()> = HashMap::new();
 
-		let connector_config = create_client(
-			self.connector_blockchain.clone(),
-			self.connector_network.clone(),
-			self.connector_url.clone(),
-		)
-		.await
-		.ok();
+		let blockchain = self.connector_blockchain.clone();
+
+		let network = self.connector_network.clone();
+
+		let res_wallet = create_wallet(blockchain, network, self.connector_url.clone(), None).await;
 
 		loop {
-			// Get the public keys from the Key-Value store to check key is set
 			let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 			if !keys.is_empty() {
-				// Get the last finalized block from the blockchain
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
-					// let at = BlockId::Hash(at);
-
-					if let Some((config, _client)) = &connector_config {
-						match self
-							.process_tasks_for_block(
-								at,
-								&mut map,
-								config,
-								self.connector_url.clone(),
-							)
-							.await
-						{
-							Ok(_) => (),
-							Err(e) => {
-								log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
-							},
-						}
-					} else {
-						log::error!(
-						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
-					);
+					match &res_wallet {
+						Ok(wallet) => {
+							match self.process_tasks_for_block(at, &mut map, wallet).await {
+								Ok(_) => (),
+								Err(e) => {
+									log::error!(
+										"Failed to process tasks for block {:?}: {:?}",
+										at,
+										e
+									);
+								},
+							}
+						},
+						Err(e) => {
+							log::error!("Error occurred while creating wallet: {:?}", e);
+						},
 					}
 				} else {
 					log::error!("Blockchain is empty");

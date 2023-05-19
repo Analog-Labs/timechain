@@ -475,7 +475,6 @@ async fn time_keygen_completes() {
 		gossip_data_receivers.push(r);
 	}
 
-
 	receivers.reverse();
 	let time_peers = peers
 		.iter()

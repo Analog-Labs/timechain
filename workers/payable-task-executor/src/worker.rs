@@ -218,10 +218,7 @@ where
 							}
 						}
 					} else {
-						log::info!(
-							"Payable task already executed, Key {:?}.",
-							schedule_task.0
-						);
+						log::info!("Payable task already executed, Key {:?}.", schedule_task.0);
 					}
 				}
 			},

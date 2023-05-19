@@ -2597,6 +2597,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "event-worker"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.1.0",
+ "arrayref",
+ "async-trait",
+ "bincode",
+ "diesel",
+ "dotenvy",
+ "fnv",
+ "futures",
+ "futures-channel",
+ "futures-timer",
+ "hex",
+ "lazy_static",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "rosetta-client",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-network-test",
+ "sc-utils",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-tracing",
+ "strum",
+ "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
+ "surf",
+ "tempfile",
+ "time-primitives",
+ "tokio",
+ "worker-aurora",
+]
+
+[[package]]
 name = "exit-future"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11032,7 +11080,12 @@ dependencies = [
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
+<<<<<<< HEAD
  "clap 4.3.0",
+=======
+ "clap 4.2.7",
+ "event-worker",
+>>>>>>> 9cfea1a (adding event-worker)
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",

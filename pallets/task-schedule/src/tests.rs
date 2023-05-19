@@ -3,7 +3,8 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use time_primitives::{
 	abstraction::{
-		ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
+		ObjectId, PayableScheduleInput, ScheduleInput as Schedule, ScheduleStatus,
+		TaskSchedule as ScheduleOut, Validity,
 	},
 	ProxyAccInput,
 };
@@ -65,5 +66,20 @@ fn test_schedule() {
 			},
 			None => print!("proxy account not exist"),
 		}
+	});
+}
+
+#[test]
+fn test_payable_schedule() {
+	new_test_ext().execute_with(|| {
+		let input = PayableScheduleInput {
+			task_id: ObjectId(1),
+			shard_id: 1,
+		};
+		let account = 1;
+		assert_ok!(TaskSchedule::insert_payable_task_schedule(
+			RawOrigin::Signed(account).into(),
+			input
+		));
 	});
 }

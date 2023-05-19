@@ -125,7 +125,7 @@ where
 		function_signature: &str,
 		input: &[String],
 	) {
-		match wallet.eth_send_call(address, function_signature, input, 1).await {
+		match wallet.eth_send_call(address, function_signature, input, 0).await {
 			Ok(tx) => {
 				log::info!("Successfully executed contract call {:?}", tx);
 			},

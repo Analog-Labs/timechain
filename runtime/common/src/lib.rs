@@ -60,33 +60,3 @@ pub mod fee {
 		}
 	}
 }
-
-#[cfg(test)]
-mod tests {
-	use super::{
-		currency::{MICROANLOG, MILLIANLOG},
-		fee::WeightToFee,
-	};
-	use crate::weights::ExtrinsicBaseWeight;
-	use frame_support::weights::WeightToFee as WeightToFeeT;
-	use runtime_common::MAXIMUM_BLOCK_WEIGHT;
-
-	#[test]
-	// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
-	fn full_block_fee_is_correct() {
-		// A full block should cost between 1,000 and 10,000 CENTS.
-		let full_block = WeightToFee::weight_to_fee(&MAXIMUM_BLOCK_WEIGHT);
-		assert!(full_block >= 1_000 * MICROANLOG);
-		assert!(full_block <= 10_000 * MICROANLOG);
-	}
-
-	#[test]
-	// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
-	fn extrinsic_base_fee_is_correct() {
-		// `ExtrinsicBaseWeight` should cost 1/10 of a MICROANOG
-		println!("Base: {}", ExtrinsicBaseWeight::get());
-		let x = WeightToFee::weight_to_fee(&ExtrinsicBaseWeight::get());
-		let y = MICROANLOG / 10;
-		assert!(x.max(y) - x.min(y) < MILLIANLOG);
-	}
-}

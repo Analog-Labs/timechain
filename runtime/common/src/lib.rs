@@ -1,8 +1,6 @@
 //! common types and constants used in both pallet tests and runtime
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod weights;
-
 /// Money matters
 pub mod currency {
 

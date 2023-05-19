@@ -102,12 +102,12 @@ where
 			receipt_contract_address.strip_prefix("0x").unwrap_or(receipt_contract_address);
 
 		if receipt_tx_hash == received_tx && receipt_contract_address == received_contract_address {
-			let tx_hash_and_contract = format!("{}-{}", receipt_tx_hash, receipt_contract_address);
-			let hashed_val = Self::hash_keccak_256(&tx_hash_and_contract.as_bytes());
+			let tx_hash_and_contract = format!("{receipt_tx_hash}-{receipt_contract_address}");
+			let hashed_val = Self::hash_keccak_256(tx_hash_and_contract.as_bytes());
 			log::info!("Contract execution is valid");
-			return Ok(hashed_val);
+			Ok(hashed_val)
 		} else {
-			return Err("Invalid tx hash or contract address".into());
+			Err("Invalid tx hash or contract address".into())
 		}
 	}
 

@@ -141,7 +141,7 @@ where
 					blockchain: self.connector_blockchain.clone(),
 					network: self.connector_network.clone(),
 					url: self.connector_url.clone(),
-					tx_id: tx.hash.into(),
+					tx_id: tx.hash,
 					contract_address: address.into(),
 				};
 

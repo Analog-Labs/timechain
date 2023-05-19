@@ -105,6 +105,33 @@ where
 		}
 	}
 
+	fn update_failed_schedule_by_key(
+		&self,
+		block_id: <B as Block>::Hash,
+		status: ScheduleStatus,
+		schdule_task_id: u64,
+	) -> Result<(), DispatchError> {
+		match self.runtime.runtime_api().update_failed_schedule_by_key(
+			block_id,
+			status,
+			schdule_task_id,
+		) {
+			Ok(update) => update,
+			Err(_) => Err(DispatchError::CannotLookup),
+		}
+	}
+
+	fn update_execution(
+		&self,
+		block_id: <B as Block>::Hash,
+		schedule_id: u64,
+	) -> Result<(), DispatchError> {
+		match self.runtime.runtime_api().update_execution(block_id, schedule_id) {
+			Ok(update) => update,
+			Err(_) => Err(DispatchError::CannotLookup),
+		}
+	}
+
 	async fn call_contract_and_send_for_sign(
 		&self,
 		block_id: <B as Block>::Hash,
@@ -139,15 +166,25 @@ where
 									self,
 									block_id,
 									ScheduleStatus::Completed,
-									schdule_task_id,
+									schdule_task_id.clone(),
 								) {
 									Ok(()) => {
+										let _ = Self::update_execution(&self, block_id, schdule_task_id);
 										log::info!("updated schedule status to completed")
 									},
-									Err(e) => log::warn!(
-										"getting error on updating schedule status {:?}",
-										e
-									),
+									Err(e) => {
+										
+										let _ = Self::update_failed_schedule_by_key(
+											&self,
+											block_id,
+											ScheduleStatus::Recurring,
+											schdule_task_id,
+										);
+										log::warn!(
+											"getting error on updating schedule status {:?}",
+											e
+										)
+									},
 								}
 							}
 						}

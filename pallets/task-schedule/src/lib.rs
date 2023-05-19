@@ -224,6 +224,22 @@ pub mod pallet {
 			Ok(())
 		}
 
+		pub fn update_failed_schedule_by_key(
+			status: ScheduleStatus,
+			key: KeyId,
+		) -> Result<(), DispatchError> {
+			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				details.status = status.clone();
+				if status == ScheduleStatus::Recurring {
+					details.cycle += 1;
+				}
+				Ok(())
+			});
+
+			Ok(())
+		}
+
 		pub fn update_execution(schedule_id: u64) -> Result<(), DispatchError> {
 			let fix_fee = T::ExecutionFee::get();
 			let treasury = T::PalletAccounts::get_treasury();

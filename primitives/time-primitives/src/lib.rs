@@ -45,6 +45,8 @@ sp_api::decl_runtime_apis! {
 		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
 		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult;
+		fn update_failed_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult;
+		fn update_execution(schedule_id: u64) -> DispatchResult;
 		fn report_misbehavior(
 			shard_id: u64,
 			offender: TimeId,

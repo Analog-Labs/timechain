@@ -1425,6 +1425,14 @@ impl_runtime_apis! {
 			TaskSchedule::update_schedule_by_key(status,key)
 		}
 
+		fn update_failed_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
+			TaskSchedule::update_failed_schedule_by_key(status,key)
+		}
+
+		fn update_execution(schedule_id: u64) -> DispatchResult {
+			TaskSchedule::update_execution(schedule_id)
+		}
+
 		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
 			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}

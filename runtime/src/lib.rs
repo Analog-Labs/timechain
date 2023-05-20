@@ -1168,7 +1168,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_proxy, PalletProxy]
-		[pallet_tesseract_sig_storage, TesseractSigStorage]
+		//[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
 		[task_metadata, MetaDataBenchmarks::<Runtime>]
 	);

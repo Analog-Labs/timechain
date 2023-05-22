@@ -13,7 +13,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
-hex-literal = "0.4.1"
 
 pallet-bags-list = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 pallet-babe = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
@@ -67,15 +66,15 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 # Local Dependencies
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
 task-metadata = { version = "0.0.1", default-features = false, path = "../pallets/task-metadata" }
-task-meta-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-metadata/task-meta-bench" }
-task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench" }
 task-schedule = { version = "0.0.1", default-features = false, path = "../pallets/task-schedule" }
 pallet-proxy = { version = "0.1.0", default-features = false, path = "../pallets/pallet-proxy" }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
-storage-primitives = { path = "../primitives/storage-primitives", default-features = false }
+task-meta-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-metadata/task-meta-bench", optional = true }
+task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench", optional = true }
+
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
@@ -126,7 +125,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"time-primitives/std",
-	"storage-primitives/std",
 	"pallet-proxy/std",
 	"task-schedule/std",
 	"task-metadata/std",

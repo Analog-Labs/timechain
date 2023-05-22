@@ -319,31 +319,29 @@ pub mod pallet {
 				proof.verify(offender.as_ref(), &reporter_pub),
 				Error::<T>::ProofVerificationFailed
 			);
-			let reported_offences_count = if let Some(mut known_offender) =
-				<ReportedOffences<T>>::get(&offender)
-			{
-				// do not allow more than one report per reporter
-				ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
-				// check reached threshold
-				let shard_th =
-					Percent::from_percent(T::SlashingPercentageThreshold::get()) * members.len();
-				let new_report_count = known_offender.0.saturating_plus_one();
-				// update known offender report count
-				known_offender.0 = new_report_count;
-				if new_report_count.saturated_into::<usize>() >= shard_th {
-					<CommitedOffences<T>>::insert(&offender, known_offender);
-					// removed ReportedOffences because moved to CommittedOffences
-					<ReportedOffences<T>>::remove(&offender);
-					Self::deposit_event(Event::OffenceCommitted(
-						offender.clone(),
-						new_report_count,
-					));
-				} else {
-					<ReportedOffences<T>>::insert(&offender, known_offender);
-				}
-				new_report_count
-			} else {
-				if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
+			let reported_offences_count =
+				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
+					// do not allow more than one report per reporter
+					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
+					// check reached threshold
+					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
+						* members.len();
+					let new_report_count = known_offender.0.saturating_plus_one();
+					// update known offender report count
+					known_offender.0 = new_report_count;
+					if new_report_count.saturated_into::<usize>() >= shard_th {
+						<CommitedOffences<T>>::insert(&offender, known_offender);
+						// removed ReportedOffences because moved to CommittedOffences
+						<ReportedOffences<T>>::remove(&offender);
+						Self::deposit_event(Event::OffenceCommitted(
+							offender.clone(),
+							new_report_count,
+						));
+					} else {
+						<ReportedOffences<T>>::insert(&offender, known_offender);
+					}
+					new_report_count
+				} else if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
 					// do not allow more than one report per reporter
 					ensure!(guilty_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
 					// do allow new reports but only write to `CommittedOffences`
@@ -360,8 +358,7 @@ pub mod pallet {
 					// insert new report
 					<ReportedOffences<T>>::insert(&offender, (new_report_count, new_reports));
 					new_report_count
-				}
-			};
+				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
 		}

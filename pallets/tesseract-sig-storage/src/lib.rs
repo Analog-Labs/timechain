@@ -147,9 +147,6 @@ pub mod pallet {
 		/// Misbehavior report proof verification failed
 		ProofVerificationFailed,
 
-		/// Misbehavior reported for commited offender
-		OffenderAlreadyCommittedOffence,
-
 		/// Do not allow more than one misbehavior report of offender by member
 		MaxOneReportPerMember,
 	}
@@ -324,14 +321,14 @@ pub mod pallet {
 			);
 			let reported_offences_count =
 				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
+					// do not allow more than one report per reporter
+					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
 					// check reached threshold
 					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
 						* members.len();
 					let new_report_count = known_offender.0.saturating_plus_one();
 					// update known offender report count
 					known_offender.0 = new_report_count;
-					// do not allow more than one report per reporter
-					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
 					if new_report_count.saturated_into::<usize>() >= shard_th {
 						<CommitedOffences<T>>::insert(&offender, known_offender);
 						// removed ReportedOffences because moved to CommittedOffences
@@ -344,13 +341,17 @@ pub mod pallet {
 						<ReportedOffences<T>>::insert(&offender, known_offender);
 					}
 					new_report_count
+				} else if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
+					// do not allow more than one report per reporter
+					ensure!(guilty_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
+					// do allow new reports but only write to `CommittedOffences`
+					// (better to allow additional reports than enforce only up to threshold)
+					let new_report_count = guilty_offender.0.saturating_plus_one();
+					// update known offender report count
+					guilty_offender.0 = new_report_count;
+					new_report_count
 				} else {
-					// do not allow new reports for committed offenders because offences
-					// already moved from reported to committed before clearing reported
-					ensure!(
-						<CommitedOffences<T>>::get(&offender).is_none(),
-						Error::<T>::OffenderAlreadyCommittedOffence
-					);
+					// else write first first report ever to ReportedOffences
 					let mut new_reports = BTreeSet::new();
 					new_reports.insert(reporter);
 					let new_report_count = 1u8;

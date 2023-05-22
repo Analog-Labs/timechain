@@ -34,6 +34,12 @@ CREATE TABLE on_chain_data (
     FOREIGN KEY(task_id) REFERENCES tasks(task_id)
 );
 
+CREATE TABLE c_{hash} (
+    block_number INT NOT NULL,
+    frequency INT,
+    data_value VARCHAR (500) NOT NULL,
+);
+
 CREATE SEQUENCE IF NOT EXISTS _object_id_ AS BIGINT MINVALUE 100;
 
 CREATE TABLE IF NOT EXISTS _feeds_ (

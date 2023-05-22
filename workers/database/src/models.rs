@@ -1,7 +1,7 @@
 use crate::schema;
 use chrono;
 use diesel::prelude::*;
-use schema::_feeds_;
+use schema::{_feeds_, c_hash};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use std::time::SystemTime;
 
@@ -38,4 +38,12 @@ pub struct Feeds {
 	pub validity: i64,
 	pub timestamp: Option<chrono::NaiveDateTime>,
 	pub cycle: Option<i64>,
+}
+
+#[derive(Insertable, Debug)]
+#[table_name = "c_hash"]
+pub struct FeedsResult {
+	pub cycle: Option<i64>,
+	pub block_id: i64,
+	pub data: String,
 }

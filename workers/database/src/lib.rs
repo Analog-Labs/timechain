@@ -45,6 +45,15 @@ pub fn write_data_to_db(conn: &mut PgConnection, record: Feeds) {
 	}
 }
 
+pub fn write_result_to_db(conn: &mut PgConnection, record: FeedsResult) {
+	use self::schema::c_hash::dsl::*;
+
+	match insert_into(c_hash).values(record).execute(conn) {
+		Ok(_) => log::info!("Feed inserted to the DB"),
+		Err(e) => log::info!("Error on Inserting Feed : {:?}", e),
+	}
+}
+
 #[ignore]
 #[test]
 fn get_data() {
@@ -78,4 +87,23 @@ fn insert_data() {
 	};
 
 	write_data_to_db(&mut pg_conn, feeds);
+}
+
+#[ignore]
+#[test]
+fn insert_result() {
+	let conn_url: &str = "postgresql://localhost/timechain?user=postgres&password=postgres";
+	let mut pg_conn = establish_connection(Some(conn_url)).unwrap();
+
+	let id = 1;
+	let cycle = Some(456);
+	let hash = "some_hash".to_owned();
+
+	let feeds = FeedsResult {
+		cycle,
+		block_id: id,
+		data: hash,
+	};
+
+	write_result_to_db(&mut pg_conn, feeds);
 }

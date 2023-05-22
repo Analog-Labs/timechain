@@ -18,3 +18,11 @@ diesel::table! {
 		cycle -> Nullable<Int8>,
 	}
 }
+
+diesel::table! {
+	c_hash(block_id) {
+		cycle -> Nullable<Int8>,
+		block_id -> Int8,
+		data -> Bpchar,
+	}
+}

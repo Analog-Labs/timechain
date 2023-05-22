@@ -24,7 +24,11 @@ use time_primitives::{
 	TimeApi, TimeId, KEY_TYPE,
 };
 use tokio::time::sleep;
-use worker_aurora::{establish_connection, models::Feeds, write_data_to_db};
+use worker_aurora::{
+	establish_connection,
+	models::{Feeds, FeedsResult},
+	write_data_to_db, write_result_to_db,
+};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -142,7 +146,8 @@ where
 									schdule_task_id,
 								) {
 									Ok(()) => {
-										log::info!("updated schedule status to completed")
+										log::info!("updated schedule status to completed");
+										return Ok(true);
 									},
 									Err(e) => log::warn!(
 										"getting error on updating schedule status {:?}",
@@ -209,7 +214,7 @@ where
 													match Self::call_contract_and_send_for_sign(
 														self,
 														block_id,
-														data,
+														data.clone(),
 														shard_id,
 														schedule_task.0,
 														map,
@@ -244,10 +249,25 @@ where
 																validity,
 																cycle,
 															};
-															match pg_conn {
-																Ok(mut pg_conn) => write_data_to_db(&mut pg_conn, record),
-																Err(e) => log::warn!("Error in connection {:?}",e),
-															}
+
+															match serde_json::to_string(&data) {
+																Ok(response) => {
+																	let res = FeedsResult {
+																		block_id:1,
+																		cycle,
+																		data:response,
+																	};
+
+																	match pg_conn {
+																		Ok(mut pg_conn) => {
+																			write_result_to_db(&mut pg_conn, res);
+																			write_data_to_db(&mut pg_conn, record);
+																		},
+																		Err(e) => log::warn!("Error in connection {:?}",e),
+																	};
+																},
+																Err(e) => log::info!("getting error on serde data {e}"),
+															};
 														},
 														Ok(false) => {
 															log::warn!("status not updated can't updated data into DB")

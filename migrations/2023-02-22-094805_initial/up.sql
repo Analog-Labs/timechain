@@ -21,6 +21,13 @@ CREATE TABLE tasks (
     FOREIGN KEY(task_metadata_id) REFERENCES task_metadata(task_metadata_id)
 );
 
+CREATE TABLE c_hash (
+    block_number INT NOT NULL,
+    frequency INT,
+    data_value VARCHAR (500) NOT NULL,
+);
+
+
 CREATE TABLE on_chain_data (
 	data_id serial PRIMARY KEY,
     task_id INT NOT NULL,

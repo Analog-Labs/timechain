@@ -24,7 +24,7 @@ benchmarks! {
 
 	submit_tss_group_key {
 		let s in 1 .. 255;
-		let key = [s as u8; 32];
+		let key = [s as u8; 33];
 	}: _(RawOrigin::None, s.into(), key)
 	verify {
 		assert_last_event::<T>(Event::<T>::NewTssGroupKey(s.into(), key).into());

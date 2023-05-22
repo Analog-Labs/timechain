@@ -349,7 +349,6 @@ pub mod pallet {
 					let new_report_count = guilty_offender.0.saturating_plus_one();
 					// update known offender report count
 					guilty_offender.0 = new_report_count;
-					<CommitedOffences<T>>::insert(&offender, guilty_offender);
 					new_report_count
 				} else {
 					// else write first first report ever to ReportedOffences

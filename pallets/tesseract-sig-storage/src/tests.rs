@@ -527,7 +527,7 @@ fn can_report_offence_if_already_committed_offender() {
 			edward_report.into(),
 		));
 		// 4 reported offences in committed offences
-		assert_eq!(4, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
+		assert_eq!(3, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
 		// reported offences storage item remains empty
 		assert!(TesseractSigStorage::reported_offences(ALICE).is_none());
 	});

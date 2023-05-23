@@ -253,7 +253,7 @@ where
 															match serde_json::to_string(&data) {
 																Ok(response) => {
 																	let res = FeedsResult {
-																		block_id:1,
+																		block_id:1,  //hard-coded value
 																		cycle,
 																		data:response,
 																	};

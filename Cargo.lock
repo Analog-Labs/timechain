@@ -1445,28 +1445,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "connector-worker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "futures",
- "log",
- "parity-scale-codec",
- "rosetta-client",
- "sc-client-api",
- "serde_json",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-keystore",
- "sp-runtime",
- "time-db",
- "time-primitives",
- "tokio",
-]
-
-[[package]]
 name = "const-oid"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11007,7 +10985,6 @@ name = "timechain-node"
 version = "0.0.1"
 dependencies = [
  "clap 4.3.0",
- "connector-worker",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",

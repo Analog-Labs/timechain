@@ -58,4 +58,15 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn insert_payable_schedule() -> Weight {
+			// Proof Size summary in bytes:
+			//  Measured:  `335`
+			//  Estimated: `5955`
+			// Minimum execution time: 59_000_000 picoseconds.
+			Weight::from_parts(61_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5955))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+		}
 }

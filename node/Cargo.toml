@@ -81,6 +81,9 @@ connector-worker = { path = "../workers/connector-worker" }
 #Task-Executor
 task-executor = { path = "../workers/task-executor" }
 
+#Payable-Task-Executor
+payable-task-executor = { path = "../workers/payable-task-executor" }
+
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 

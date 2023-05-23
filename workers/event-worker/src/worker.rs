@@ -66,10 +66,6 @@ where
 		}
 	}
 
-	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
-		keccak_256(input)
-	}
-
 	pub async fn process_tx_validation_req(
 		&self,
 		eth_tx_data: EthTxValidation,
@@ -103,7 +99,7 @@ where
 
 		if receipt_tx_hash == received_tx && receipt_contract_address == received_contract_address {
 			let tx_hash_and_contract = format!("{receipt_tx_hash}-{receipt_contract_address}");
-			let hashed_val = Self::hash_keccak_256(tx_hash_and_contract.as_bytes());
+			let hashed_val = keccak_256(tx_hash_and_contract.as_bytes());
 			log::info!("Contract execution is valid");
 			Ok(hashed_val)
 		} else {
@@ -117,19 +113,21 @@ where
 		loop {
 			futures::select! {
 				data = self.tx_data_receiver.next().fuse() => {
-					if let Some(data) = data {
-						if let Ok(eth_tx_validation) = EthTxValidation::decode(&mut &data[..]){
-							match self.process_tx_validation_req(eth_tx_validation).await{
-								Ok(keccak_hash) => {
-									// process validated successfully
-									sign_data_sender_clone.try_send((1, keccak_hash)).unwrap();
-									log::info!("sent data for signing");
-								}
-								Err(e) => {
-									//error occured while matching tx data
-									log::error!("Error occured while verifying trasnaction {:?}", e);
-								}
-							}
+					let Some(data) = data else{
+						continue;
+					};
+					let Ok(eth_tx_validation) = EthTxValidation::decode(&mut &data[..]) else {
+						continue;
+					};
+					match self.process_tx_validation_req(eth_tx_validation).await{
+						Ok(keccak_hash) => {
+							// process validated successfully
+							sign_data_sender_clone.try_send((1, keccak_hash)).unwrap();
+							log::info!("sent data for signing");
+						}
+						Err(e) => {
+							//error occured while matching tx data
+							log::error!("Error occured while verifying trasnaction {:?}", e);
 						}
 					}
 				}

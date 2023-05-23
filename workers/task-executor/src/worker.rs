@@ -226,7 +226,7 @@ where
 											match &task.function {
 												// If the task function is an Ethereum contract
 												// call, call it and send for signing
-												Function::EthereumContractWithoutAbi {
+												Function::EthereumViewWithoutAbi {
 													address,
 													function_signature,
 													input: _,

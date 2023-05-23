@@ -137,6 +137,7 @@ where
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
+		frequency: u64,
 		schdule_task_id: u64,
 		map: &mut HashMap<u64, ()>,
 	) -> Result<bool, Box<dyn Error>> {
@@ -160,6 +161,7 @@ where
 						if let Some(shard) = current_shard {
 							self.sign_data_sender.clone().try_send((shard_id, hash))?;
 							map.insert(schdule_task_id, ());
+
 							if shard.1.collector() == &my_key {
 								log::info!("Connector successfully send event to channel");
 								match Self::update_task_schedule_status(
@@ -169,7 +171,10 @@ where
 									schdule_task_id.clone(),
 								) {
 									Ok(()) => {
-										let _ = Self::update_execution(&self, block_id, schdule_task_id);
+										// if frequency > 0 && {
+
+										// }
+										// let _ = Self::update_execution(&self, block_id, schdule_task_id);
 										log::info!("updated schedule status to completed")
 									},
 									Err(e) => {
@@ -248,6 +253,7 @@ where
 														block_id,
 														data,
 														shard_id,
+														schedule_task.1.frequency,
 														schedule_task.0,
 														map,
 													)

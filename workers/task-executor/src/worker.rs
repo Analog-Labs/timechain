@@ -97,12 +97,12 @@ where
 		&self,
 		block_id: <B as Block>::Hash,
 		status: ScheduleStatus,
-		schdule_task_id: u64,
+		schedule_task_id: u64,
 	) -> Result<(), DispatchError> {
 		match self
 			.runtime
 			.runtime_api()
-			.update_schedule_by_key(block_id, status, schdule_task_id)
+			.update_schedule_by_key(block_id, status, schedule_task_id)
 		{
 			Ok(update) => update,
 			Err(_) => Err(DispatchError::CannotLookup),
@@ -114,7 +114,7 @@ where
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
-		schdule_task_id: u64,
+		schedule_task_id: u64,
 		map: &mut HashMap<u64, ()>,
 	) -> Result<bool, Box<dyn Error>> {
 		dotenv().ok();
@@ -136,14 +136,14 @@ where
 
 						if let Some(shard) = current_shard {
 							self.sign_data_sender.clone().try_send((shard_id, hash))?;
-							map.insert(schdule_task_id, ());
+							map.insert(schedule_task_id, ());
 							if shard.1.collector() == &my_key {
 								log::info!("Connector successfully send event to channel");
 								match Self::update_task_schedule_status(
 									self,
 									block_id,
 									ScheduleStatus::Completed,
-									schdule_task_id,
+									schedule_task_id,
 								) {
 									Ok(()) => {
 										log::info!("updated schedule status to completed");

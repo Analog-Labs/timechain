@@ -77,6 +77,12 @@ jobs:
         run: |
           cargo build $BUILD_OPTS
 
+      - name: Check benchmarking builds
+        env:
+          CARGO_NET_OFFLINE: true
+        run: |
+          cargo check --features runtime-benchmarks
+
       - name: Upload timechain-node binary
         if: ${{ github.ref == 'refs/heads/staging' }}
         uses: actions/upload-artifact@v3

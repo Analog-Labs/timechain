@@ -114,6 +114,9 @@ jobs:
         if: steps.cache-flag.outputs.cache-hit != 'true'
         run: cargo fmt --all --check
 
+      - name: Check benchmarking builds
+        run: cargo check --features runtime-benchmarks
+
       - name: Set up cache
         if: steps.cache-flag.outputs.cache-hit != 'true'
         uses: actions/cache@v3

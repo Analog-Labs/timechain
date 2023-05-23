@@ -4,6 +4,7 @@ members = [
     "pallets/tesseract-sig-storage",
     "pallets/pallet-proxy",
     "runtime",
+    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/time-worker",
     "workers/time-worker/rpc",
@@ -15,6 +16,7 @@ members = [
     "pallets/task-metadata/task-meta-bench",
     "pallets/task-schedule/task-schedule-bench",
 ]
+resolver = "2"
 
 [profile.release]
 panic = "unwind"

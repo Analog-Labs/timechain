@@ -1,5 +1,5 @@
 [package]
-name = "task-executor"
+name = "payable-task-executor"
 version = "0.1.0"
 edition = "2021"
 

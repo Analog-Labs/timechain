@@ -347,8 +347,7 @@ pub fn new_full(
 			time_worker::start_timeworker_gadget(time_params),
 		);
 
-		//Injecting connector worker
-		let connector_params = connector_worker::ConnectorWorkerParams {
+		let taskexecutor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
 			kv: keystore_container.keystore(),
@@ -359,14 +358,13 @@ pub fn new_full(
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),
 		};
-
 		task_manager.spawn_essential_handle().spawn_blocking(
-			"connector-worker",
+			"task-executor",
 			None,
-			connector_worker::start_connectorworker_gadget(connector_params),
+			task_executor::start_taskexecutor_gadget(taskexecutor_params),
 		);
 
-		let taskexecutor_params = task_executor::TaskExecutorParams {
+		let payabletaskexecutor_params = payable_task_executor::PayableTaskExecutorParams {
 			runtime: client,
 			backend,
 			kv: keystore_container.keystore(),
@@ -378,9 +376,9 @@ pub fn new_full(
 			connector_network,
 		};
 		task_manager.spawn_essential_handle().spawn_blocking(
-			"task-executor",
+			"payable-task-executor",
 			None,
-			task_executor::start_taskexecutor_gadget(taskexecutor_params),
+			payable_task_executor::start_payabletaskexecutor_gadget(payabletaskexecutor_params),
 		)
 	}
 

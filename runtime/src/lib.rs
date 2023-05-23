@@ -49,7 +49,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule};
+use time_primitives::abstraction::{
+	PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule,
+};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1421,6 +1423,18 @@ impl_runtime_apis! {
 
 		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
 			TaskSchedule::update_schedule_by_key(status,key)
+		}
+
+		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
+			TaskMeta::get_payable_tasks()
+		}
+
+		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError> {
+			TaskMeta::get_payable_task_metadata_by_key(key)
+		}
+
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_payable_task_schedules()
 		}
 
 		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {

@@ -453,9 +453,9 @@ fn test_api_report_misbehavior_for_group_len_10() {
 }
 
 #[test]
-/// Once moved to committed, cannot be reported again until this is handled
-/// i.e. until slashing punishment is executed
-fn cannot_report_offence_if_already_committed_offender() {
+/// Once moved to committed, reports only update committed offences
+/// and do not update reported offences (remains empty)
+fn can_report_offence_if_already_committed_offender() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let bob = keystore
@@ -518,17 +518,18 @@ fn cannot_report_offence_if_already_committed_offender() {
 			.sr25519_sign(time_primitives::KEY_TYPE, &edward, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
-		// cannot report offence because already past threshold so already
-		// moved from reported to committed offences
-		assert_noop!(
-			TesseractSigStorage::api_report_misbehavior(
-				0, // setId is 0
-				ALICE,
-				edward.into(),
-				edward_report.into(),
-			),
-			Error::<Test>::OffenderAlreadyCommittedOffence
-		);
+		// can report offence but only updates committed offences
+		// such that reported offences stays empty
+		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+			0, // setId is 0
+			ALICE,
+			edward.into(),
+			edward_report.into(),
+		));
+		// 4 reported offences in committed offences
+		assert_eq!(3, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
+		// reported offences storage item remains empty
+		assert!(TesseractSigStorage::reported_offences(ALICE).is_none());
 	});
 }
 

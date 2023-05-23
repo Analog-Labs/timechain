@@ -30,21 +30,22 @@
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
-/// Weight functions for `pallet_tesseract_storage`.
+/// Weight functions for `pallet_tesseract_sig_storage`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_tesseract_storage::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> pallet_tesseract_sig_storage::WeightInfo for WeightInfo<T> {
 	/// Storage: TesseractSigStorage SignatureStoreData (r:0 w:1)
 	/// Proof Skipped: TesseractSigStorage SignatureStoreData (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `s` is `[0, 255]`.
-	fn store_signature(_s: u32, ) -> Weight {
-		// Proof Size summary in bytes:
+    fn store_signature_data(_s: u32) -> Weight { 
+        // Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 12_726_000 picoseconds.
 		Weight::from_parts(13_393_405, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
+            .saturating_add(Weight::from_parts(0, 0))
+            .saturating_add(T::DbWeight::get().writes(1))
+    }
+    fn register_shard(_: u32) -> Weight { todo!() }
 	/// Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
 	/// Proof Skipped: TesseractSigStorage TssGroupKey (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `s` is `[1, 255]`.

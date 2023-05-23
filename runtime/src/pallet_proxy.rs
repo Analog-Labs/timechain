@@ -20,7 +20,7 @@
 // --repeat
 // 20
 // --output
-// ../runtime/src/weights/proxy.rs
+// ../runtime/src/
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -39,8 +39,8 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `147`
 		//  Estimated: `3612`
-		// Minimum execution time: 20_806_000 picoseconds.
-		Weight::from_parts(21_197_000, 0)
+		// Minimum execution time: 20_986_000 picoseconds.
+		Weight::from_parts(21_494_000, 0)
 			.saturating_add(Weight::from_parts(0, 3612))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -51,8 +51,8 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `331`
 		//  Estimated: `3796`
-		// Minimum execution time: 18_972_000 picoseconds.
-		Weight::from_parts(19_349_000, 0)
+		// Minimum execution time: 19_041_000 picoseconds.
+		Weight::from_parts(19_523_000, 0)
 			.saturating_add(Weight::from_parts(0, 3796))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -63,8 +63,8 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `331`
 		//  Estimated: `3796`
-		// Minimum execution time: 24_336_000 picoseconds.
-		Weight::from_parts(24_897_000, 0)
+		// Minimum execution time: 24_379_000 picoseconds.
+		Weight::from_parts(24_970_000, 0)
 			.saturating_add(Weight::from_parts(0, 3796))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))

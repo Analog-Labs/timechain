@@ -30,7 +30,7 @@ services:
     volumes:
     - 'bootnode-volume:/data'
     ports:
-    - '9934:9933'
+    - '9943:9933'
     - '9944:9944'
 
   validator1:
@@ -56,7 +56,7 @@ services:
     volumes:
     - 'validator1-volume:/data'
     ports:
-    - '9936:9933'
+    - '9945:9933'
     - '9946:9944'
 
   validator2:
@@ -82,5 +82,5 @@ services:
     volumes:
     - 'validator2-volume:/data'
     ports:
-    - '9938:9933'
+    - '9947:9933'
     - '9948:9944'

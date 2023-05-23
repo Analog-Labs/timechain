@@ -17,6 +17,7 @@ services:
     - '--chain=local'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
+    - '--unsafe-ws-external'
     - '--rpc-methods=unsafe'
     - '--connector-url=http://rosetta.analog.one:8081'
     - '--connector-blockchain=ethereum'
@@ -30,8 +31,8 @@ services:
     volumes:
     - 'bootnode-volume:/data'
     ports:
-    - '9943:9933'
-    - '9944:9944'
+    - '9943:9944'
+    - '9944:9933'
 
   validator1:
     image: 'analoglabs/timechain-node'
@@ -41,6 +42,7 @@ services:
     - '--chain=local'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
+    - '--unsafe-ws-external'
     - '--rpc-methods=unsafe'
     - '--connector-url=http://rosetta.analog.one:8081'
     - '--connector-blockchain=ethereum'
@@ -56,8 +58,8 @@ services:
     volumes:
     - 'validator1-volume:/data'
     ports:
-    - '9945:9933'
-    - '9946:9944'
+    - '9945:9944'
+    - '9946:9933'
 
   validator2:
     image: 'analoglabs/timechain-node'
@@ -67,6 +69,7 @@ services:
     - '--chain=local'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
+    - '--unsafe-ws-external'
     - '--rpc-methods=unsafe'
     - '--connector-url=http://rosetta.analog.one:8081'
     - '--connector-blockchain=ethereum'
@@ -82,5 +85,5 @@ services:
     volumes:
     - 'validator2-volume:/data'
     ports:
-    - '9947:9933'
-    - '9948:9944'
+    - '9947:9944'
+    - '9948:9933'

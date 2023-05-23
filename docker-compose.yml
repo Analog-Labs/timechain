@@ -30,7 +30,8 @@ services:
     volumes:
     - 'bootnode-volume:/data'
     ports:
-    - '9944:9933'
+    - '9934:9933'
+    - '9944:9944'
 
   validator1:
     image: 'analoglabs/timechain-node'
@@ -55,7 +56,8 @@ services:
     volumes:
     - 'validator1-volume:/data'
     ports:
-    - '9946:9933'
+    - '9936:9933'
+    - '9946:9944'
 
   validator2:
     image: 'analoglabs/timechain-node'
@@ -80,4 +82,5 @@ services:
     volumes:
     - 'validator2-volume:/data'
     ports:
-    - '9948:9933'
+    - '9938:9933'
+    - '9948:9944'

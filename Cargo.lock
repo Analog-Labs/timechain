@@ -7472,6 +7472,10 @@ dependencies = [
 [[package]]
 name = "runtime-common"
 version = "1.0.0"
+dependencies = [
+ "sp-core",
+ "sp-weights",
+]
 
 [[package]]
 name = "rust-bip39"

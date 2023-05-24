@@ -45,17 +45,22 @@ cargo build --release
 ./target/release/timechain-node --staging
 ```
 
-## Run Using Script
+## Run Using Docker
 
-Use the following command to build, start ethereum local node, start multiple validator and set-key
-
-```sh
-cargo build
-cd eth_node
-npx hardhat node
-./start_chain.sh
-./set-keys.sh
+if you're on macos add the following to your `.cargo/config`:
 ```
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+
+[env]
+CC_x86_64-unknown-linux-musl = "x86_64-linux-musl-gcc"
+```
+
+1. Install docker, docker compose and musl using your system package manager.
+2. Install the musl target with rustup `rustup target add x86_64-unknown-linux-musl`.
+3. Build the docker image with `./build_docker.sh`.
+4. Start the timechain validators, connectors and chain nodes with `docker compose up`.
+5. Set the validator keys with `./set_keys.sh`.
 
 ## Run public testnet
 

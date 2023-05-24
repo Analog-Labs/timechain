@@ -24,10 +24,10 @@ futures = "0.3.28"
 log = "0.4.17"
 snow = "0.9.2"
 
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42", default-features = false }
 sp-core = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42", default-features = false }
 sc-telemetry = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
@@ -51,6 +51,7 @@ pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech
 
 # node 's RPCs deps
 jsonrpsee = { version = "0.16.2", features = ["server"] }
+surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
 sc-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
@@ -62,7 +63,7 @@ pallet-transaction-payment-rpc = { version = "4.0.0-dev", git = "https://github.
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42", default-features = false }
 
 # Local Dependencies
 timechain-runtime = { version = "0.0.1", path = "../runtime" }
@@ -74,9 +75,6 @@ try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://gith
 # Runtime Workers
 time-worker = { path = "../workers/time-worker" }
 time-worker-rpc = { path = "../workers/time-worker/rpc" }
-
-connector-worker = { path = "../workers/connector-worker" }
-
 
 #Task-Executor
 task-executor = { path = "../workers/task-executor" }

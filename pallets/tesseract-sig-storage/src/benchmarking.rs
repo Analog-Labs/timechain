@@ -30,5 +30,17 @@ benchmarks! {
 		assert_last_event::<T>(Event::<T>::NewTssGroupKey(s.into(), key).into());
 	}
 
+	register_shard {
+		let s in 1..256;
+		let user1: T::AccountId = whitelisted_caller();
+		let user2: T::AccountId = whitelisted_caller();
+		let user3: T::AccountId = whitelisted_caller();
+		let members = vec![user1.clone(), user2, user3];
+		let collector Option<T::AccountId> = Some(tesseract.clone());
+	}; _(RawOrigin::Signed(user1), s.into(), members, collector)
+	verify {
+		assert!(<TssShards<T>>::get(shard).is_some());
+	}
+
 	impl_benchmark_test_suite!(TesseractSigStorage, crate::mock::new_test_ext(), crate::mock::Test);
 }

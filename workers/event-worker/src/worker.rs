@@ -17,7 +17,7 @@ use time_primitives::{abstraction::EthTxValidation, TimeApi};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct ConnectorWorker<B: Block, A, R, BE> {
+pub struct EventWorker<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
@@ -30,7 +30,7 @@ pub struct ConnectorWorker<B: Block, A, R, BE> {
 	connector_network: Option<String>,
 }
 
-impl<B, A, R, BE> ConnectorWorker<B, A, R, BE>
+impl<B, A, R, BE> EventWorker<B, A, R, BE>
 where
 	B: Block,
 	A: codec::Codec,
@@ -52,7 +52,7 @@ where
 			connector_network,
 		} = worker_params;
 
-		ConnectorWorker {
+		EventWorker {
 			runtime,
 			sign_data_sender,
 			tx_data_receiver,

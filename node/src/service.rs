@@ -351,8 +351,8 @@ pub fn new_full(
 			time_worker::start_timeworker_gadget(time_params),
 		);
 
-		//Injecting connector worker
-		let connector_params = event_worker::ConnectorWorkerParams {
+		//Injecting event worker
+		let event_params = event_worker::EventWorkerParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
 			kv: keystore_container.keystore(),
@@ -368,7 +368,7 @@ pub fn new_full(
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"event-worker",
 			None,
-			event_worker::start_connectorworker_gadget(connector_params),
+			event_worker::start_eventworker_gadget(event_params),
 		);
 
 		let taskexecutor_params = task_executor::TaskExecutorParams {

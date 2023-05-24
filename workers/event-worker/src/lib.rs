@@ -15,7 +15,7 @@ use time_primitives::TimeApi;
 pub const TW_LOG: &str = "event-worker";
 
 /// Set of properties we need to run our gadget
-pub struct ConnectorWorkerParams<B: Block, A, R, BE>
+pub struct EventWorkerParams<B: Block, A, R, BE>
 where
 	B: Block,
 	A: codec::Codec,
@@ -48,8 +48,8 @@ pub(crate) struct WorkerParams<B, A, R, BE> {
 	connector_network: Option<String>,
 }
 
-pub async fn start_connectorworker_gadget<B, A, R, BE>(
-	connectorworker_params: ConnectorWorkerParams<B, A, R, BE>,
+pub async fn start_eventworker_gadget<B, A, R, BE>(
+	eventworker_params: EventWorkerParams<B, A, R, BE>,
 ) where
 	B: Block,
 	A: codec::Codec + 'static,
@@ -57,8 +57,8 @@ pub async fn start_connectorworker_gadget<B, A, R, BE>(
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B, A>,
 {
-	debug!(target: TW_LOG, "Starting ConnectorWorker gadget");
-	let ConnectorWorkerParams {
+	debug!(target: TW_LOG, "Starting EventWorker gadget");
+	let EventWorkerParams {
 		runtime,
 		kv,
 		sign_data_sender,
@@ -69,7 +69,7 @@ pub async fn start_connectorworker_gadget<B, A, R, BE>(
 		connector_url,
 		connector_blockchain,
 		connector_network,
-	} = connectorworker_params;
+	} = eventworker_params;
 
 	let worker_params = WorkerParams {
 		runtime,
@@ -83,6 +83,6 @@ pub async fn start_connectorworker_gadget<B, A, R, BE>(
 		connector_blockchain,
 		connector_network,
 	};
-	let mut worker = worker::ConnectorWorker::<_, _, _, _>::new(worker_params);
+	let mut worker = worker::EventWorker::<_, _, _, _>::new(worker_params);
 	worker.run().await
 }

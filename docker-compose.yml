@@ -9,6 +9,9 @@ services:
     environment:
       POSTGRES_DB: timechain
       POSTGRES_PASSWORD: postgres
+    ports:
+    - '5432:5432'
+
   bootnode:
     image: 'analoglabs/timechain-node'
     command:

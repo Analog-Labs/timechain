@@ -37,7 +37,7 @@ benchmarks! {
 		let user3: T::AccountId = whitelisted_caller();
 		let members = vec![user1.clone(), user2, user3];
 		let collector Option<T::AccountId> = Some(user1.clone());
-	}; _(RawOrigin::Signed(user1), s.into(), members, collector)
+	}: _(RawOrigin::Signed(user1), s.into(), members, collector)
 	verify {
 		assert!(<TssShards<T>>::get(shard).is_some());
 	}

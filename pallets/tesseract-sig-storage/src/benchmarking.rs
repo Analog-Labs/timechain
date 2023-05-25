@@ -39,7 +39,7 @@ benchmarks! {
 		let collector: Option<T::AccountId> = Some(user1.clone());
 	}: _(RawOrigin::Signed(user1), s.into(), members, collector)
 	verify {
-		assert!(<TssShards<T>>::get(shard).is_some());
+		assert!(<TssShards<T>>::get(s).is_some());
 	}
 
 	impl_benchmark_test_suite!(TesseractSigStorage, crate::mock::new_test_ext(), crate::mock::Test);

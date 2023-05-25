@@ -3,7 +3,7 @@ use super::*;
 use crate::Pallet as TesseractSigStorage;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use time_primitives::ForeignEventId;
+use time_primitives::{ForeignEventId, TimeId};
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
@@ -36,7 +36,7 @@ benchmarks! {
 
 	register_shard {
 		let s in 1..256;
-	}: _(RawOrigin::Signed(user1), s.into(), vec![ALICE, BOB, CHARLIE], Some(ALICE))
+	}: _(RawOrigin::Signed(ALICE), s.into(), vec![ALICE, BOB, CHARLIE], Some(ALICE))
 	verify {
 		assert!(<TssShards<T>>::get(s.into()).is_some());
 	}

@@ -17,11 +17,10 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 benchmarks! {
 	store_signature {
 		let s in 0..255;
-		let tesseract: T::AccountId = whitelisted_caller();
 		let signature_data = [s as u8; 64];
 		// TODO: extend implementation after same todo fixed in pallet
 		let id: ForeignEventId = (s as u128).into();
-	}: _(RawOrigin::Signed(tesseract), signature_data, id)
+	}: _(RawOrigin::Signed(ALICE), signature_data, id)
 	verify {
 		assert!(<SignatureStoreData<T>>::get(id).is_some());
 	}
@@ -36,7 +35,7 @@ benchmarks! {
 
 	register_shard {
 		let s in 1..256;
-	}: _(RawOrigin::Signed(ALICE), s.into(), vec![ALICE, BOB, CHARLIE], Some(ALICE))
+	}: _(RawOrigin::Root, s.into(), vec![ALICE, BOB, CHARLIE], Some(ALICE))
 	verify {
 		assert!(<TssShards<T>>::get(s.into()).is_some());
 	}

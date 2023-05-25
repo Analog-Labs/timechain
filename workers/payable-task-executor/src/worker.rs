@@ -85,12 +85,12 @@ where
 		&self,
 		block_id: <B as Block>::Hash,
 		status: ScheduleStatus,
-		schdule_task_id: u64,
+		schedule_task_id: u64,
 	) -> Result<(), DispatchError> {
 		match self
 			.runtime
 			.runtime_api()
-			.update_schedule_by_key(block_id, status, schdule_task_id)
+			.update_schedule_by_key(block_id, status, schedule_task_id)
 		{
 			Ok(update) => update,
 			Err(_) => Err(DispatchError::CannotLookup),

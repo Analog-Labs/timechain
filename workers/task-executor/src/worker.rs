@@ -15,7 +15,7 @@ use sp_core::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
-use time_db::{feed::Model, DatabaseConnection};
+use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
@@ -159,7 +159,7 @@ where
 						};
 						let data = self.chain_client.call(&request).await?;
 						if !self
-							.call_contract_and_send_for_sign(block_id, data, shard_id, *id)
+							.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
 							.await?
 						{
 							log::warn!("status not updated can't updated data into DB");
@@ -185,6 +185,20 @@ where
 							validity,
 							cycle,
 						};
+
+						match serde_json::to_string(&data) {
+							Ok(response) => {
+								let fetch_record = FEModel {
+									block_number: 1,
+									cycle,
+									value: response,
+								};
+								let _ =
+									time_db::write_fetch_event(&mut self.db, fetch_record).await;
+							},
+							Err(e) => log::info!("getting error on serde data {e}"),
+						};
+
 						time_db::write_feed(&mut self.db, record).await?;
 					},
 					_ => {

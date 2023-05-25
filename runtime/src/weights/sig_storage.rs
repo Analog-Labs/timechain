@@ -40,33 +40,37 @@ impl<T: frame_system::Config> pallet_tesseract_sig_storage::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 13_418_000 picoseconds.
-		Weight::from_parts(13_993_392, 0)
+		// Minimum execution time: 13_280_000 picoseconds.
+		Weight::from_parts(14_047_964, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
 	/// Proof Skipped: TesseractSigStorage TssGroupKey (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `s` is `[1, 255]`.
-	fn submit_tss_group_key(_s: u32, ) -> Weight {
+	fn submit_tss_group_key(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 12_969_000 picoseconds.
-		Weight::from_parts(13_569_391, 0)
+		// Minimum execution time: 12_602_000 picoseconds.
+		Weight::from_parts(13_191_080, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 95
+			.saturating_add(Weight::from_parts(1_199, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: TesseractSigStorage TssShards (r:1 w:1)
 	/// Proof Skipped: TesseractSigStorage TssShards (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `s` is `[1, 256]`.
-	fn register_shard(_s: u32, ) -> Weight {
+	fn register_shard(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6`
 		//  Estimated: `3471`
-		// Minimum execution time: 16_799_000 picoseconds.
-		Weight::from_parts(17_573_527, 0)
+		// Minimum execution time: 16_704_000 picoseconds.
+		Weight::from_parts(17_499_315, 0)
 			.saturating_add(Weight::from_parts(0, 3471))
+			// Standard Error: 111
+			.saturating_add(Weight::from_parts(734, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}

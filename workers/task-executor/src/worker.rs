@@ -4,7 +4,7 @@ use codec::Decode;
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
-	types::{CallRequest, CallResponse},
+	types::{CallRequest, CallResponse, BlockRequest, block_identifier, BlockIdentifier, partial_block_identifier, PartialBlockIdentifier},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -85,34 +85,6 @@ where
 		}
 	}
 
-
-	// fn update_failed_schedule_by_key(
-	// 	&self,
-	// 	block_id: <B as Block>::Hash,
-	// 	status: ScheduleStatus,
-	// 	schdule_task_id: u64,
-	// ) -> Result<(), DispatchError> {
-	// 	match self.runtime.runtime_api().update_failed_schedule_by_key(
-	// 		block_id,
-	// 		status,
-	// 		schdule_task_id,
-	// 	) {
-	// 		Ok(update) => update,
-	// 		Err(_) => Err(DispatchError::CannotLookup),
-	// 	}
-	// }
-
-	// fn update_execution(
-	// 	&self,
-	// 	block_id: <B as Block>::Hash,
-	// 	schedule_id: u64,
-	// ) -> Result<(), DispatchError> {
-	// 	match self.runtime.runtime_api().update_execution(block_id, schedule_id) {
-	// 		Ok(update) => update,
-	// 		Err(_) => Err(DispatchError::CannotLookup),
-	// 	}
-	// }
-
 	async fn call_contract_and_send_for_sign(
 		&mut self,
 		block_id: <B as Block>::Hash,
@@ -146,7 +118,7 @@ where
 		Ok(true)
 	}
 
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash, start_block_number:u64) -> Result<()> {
 		let task_schedules = self
 			.runtime
 			.runtime_api()
@@ -185,6 +157,23 @@ where
 							method,
 							parameters: json!({}),
 						};
+						if schedule.cycle > 1 {
+							// todo!() mark status repetative
+							let block_identifier = PartialBlockIdentifier {
+								index: None,
+								hash: None,
+							};
+							let block_request = BlockRequest {
+								network_identifier: self.chain_config.network(),
+								block_identifier,
+							};
+							let response  = self.chain_client.block(&block_request).await;
+							if let Some(block) = response.unwrap().block {
+								// if let Some(block_number) = block.block_identifier.index {
+									log::info!("\n\n\nLatest block number: {:?}\n\n\n", block.block_identifier);
+								// }
+							}
+						}
 						let data = self.chain_client.call(&request).await?;
 						if !self
 							.call_contract_and_send_for_sign(block_id, data, shard_id, *id)
@@ -225,10 +214,11 @@ where
 	}
 
 	pub async fn run(&mut self) {
+		let mut start_current_block:u64 = 1;
 		loop {
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at).await {
+					if let Err(e) = self.process_tasks_for_block(at, start_current_block).await {
 						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},

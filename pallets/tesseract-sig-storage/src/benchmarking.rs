@@ -16,7 +16,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 benchmarks! {
-	store_signature {
+	store_signature_daa {
 		let s in 0..255;
 		let signature_data = [s as u8; 64];
 		// TODO: extend implementation after same todo fixed in pallet

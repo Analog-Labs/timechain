@@ -3,7 +3,8 @@ use crate::{
 	TimeWorkerParams,
 };
 use futures::{
-	channel::mpsc::Receiver, future, stream::FuturesUnordered, Future, FutureExt, StreamExt,
+	channel::mpsc::Receiver, channel::mpsc::Sender, future, stream::FuturesUnordered, Future,
+	FutureExt, StreamExt,
 };
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
@@ -344,7 +345,14 @@ fn initialize_grandpa(net: &mut TimeTestNet) -> impl Future<Output = ()> {
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
-	peers: Vec<(usize, &TimeKeyring, API, Receiver<(u64, [u8; 32])>)>,
+	peers: Vec<(
+		usize,
+		&TimeKeyring,
+		API,
+		Receiver<(u64, [u8; 32])>,
+		Sender<Vec<u8>>,
+		Receiver<Vec<u8>>,
+	)>,
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
@@ -353,7 +361,9 @@ where
 	let time_workers = FuturesUnordered::new();
 
 	// initializing time gadget per peer
-	for (peer_id, key, api, sign_data_receiver) in peers.into_iter() {
+	for (peer_id, key, api, sign_data_receiver, tx_data_sender, gossip_data_receiver) in
+		peers.into_iter()
+	{
 		let peer = &net.peers[peer_id];
 
 		let keystore = Arc::new(LocalKeystore::in_memory());
@@ -368,6 +378,8 @@ where
 			gossip_network: peer.network_service().clone(),
 			kv: keystore,
 			sign_data_receiver,
+			tx_data_sender,
+			gossip_data_receiver,
 			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),
 			accountid: PhantomData::default(),
@@ -454,11 +466,29 @@ async fn time_keygen_completes() {
 		senders.push(s);
 		receivers.push(r);
 	}
+
+	let mut tx_data_senders = vec![];
+	let mut gossip_data_receivers = vec![];
+	for _ in 0..peers.len() {
+		let (s, r) = futures::channel::mpsc::channel(10);
+		tx_data_senders.push(s);
+		gossip_data_receivers.push(r);
+	}
+
 	receivers.reverse();
 	let time_peers = peers
 		.iter()
 		.enumerate()
-		.map(|(id, p)| (id, p, api.clone(), receivers.pop().unwrap()))
+		.map(|(id, p)| {
+			(
+				id,
+				p,
+				api.clone(),
+				receivers.pop().unwrap(),
+				tx_data_senders.pop().unwrap(),
+				gossip_data_receivers.pop().unwrap(),
+			)
+		})
 		.collect::<Vec<_>>();
 
 	tokio::spawn(initialize_grandpa(&mut net));

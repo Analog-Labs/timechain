@@ -76,6 +76,9 @@ try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://gith
 time-worker = { path = "../workers/time-worker" }
 time-worker-rpc = { path = "../workers/time-worker/rpc" }
 
+event-worker = { path = "../workers/event-worker" }
+
+
 #Task-Executor
 task-executor = { path = "../workers/task-executor" }
 

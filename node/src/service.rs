@@ -211,6 +211,8 @@ pub fn new_full(
 	let keystore = keystore_container.keystore();
 
 	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
+	let (tx_data_sender, tx_data_receiver) = mpsc::channel(400);
+	let (gossip_data_sender, gossip_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -337,6 +339,8 @@ pub fn new_full(
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_receiver,
+			tx_data_sender: tx_data_sender.clone(),
+			gossip_data_receiver,
 			accountid: PhantomData,
 			sync_service,
 		};
@@ -345,6 +349,26 @@ pub fn new_full(
 			"time-worker",
 			None,
 			time_worker::start_timeworker_gadget(time_params),
+		);
+
+		//Injecting event worker
+		let event_params = event_worker::EventWorkerParams {
+			runtime: client.clone(),
+			backend: backend.clone(),
+			kv: keystore_container.keystore(),
+			_block: PhantomData::default(),
+			sign_data_sender: sign_data_sender.clone(),
+			tx_data_receiver,
+			accountid: PhantomData,
+			connector_url: connector_url.clone(),
+			connector_blockchain: connector_blockchain.clone(),
+			connector_network: connector_network.clone(),
+		};
+
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"event-worker",
+			None,
+			event_worker::start_eventworker_gadget(event_params),
 		);
 
 		let taskexecutor_params = task_executor::TaskExecutorParams {
@@ -370,6 +394,8 @@ pub fn new_full(
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender,
+			tx_data_sender,
+			gossip_data_sender,
 			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,

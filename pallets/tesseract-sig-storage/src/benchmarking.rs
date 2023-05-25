@@ -20,7 +20,7 @@ benchmarks! {
 		let signature_data = [s as u8; 64];
 		// TODO: extend implementation after same todo fixed in pallet
 		let id: ForeignEventId = (s as u128).into();
-	}: _(RawOrigin::Signed(ALICE), signature_data, id)
+	}: _(RawOrigin::Signed(whitelisted_caller()), signature_data, id)
 	verify {
 		assert!(<SignatureStoreData<T>>::get(id).is_some());
 	}

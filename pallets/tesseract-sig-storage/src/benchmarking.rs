@@ -38,7 +38,7 @@ benchmarks! {
 		let s in 1..256;
 	}: _(RawOrigin::Signed(user1), s.into(), vec![ALICE, BOB, CHARLIE], Some(ALICE))
 	verify {
-		assert!(<TssShards<T>>::get(s).is_some());
+		assert!(<TssShards<T>>::get(s.into()).is_some());
 	}
 
 	impl_benchmark_test_suite!(TesseractSigStorage, crate::mock::new_test_ext(), crate::mock::Test);

@@ -132,6 +132,8 @@ pub mod pallet {
 					frequency: schedule.frequency,
 					validity: schedule.validity,
 					hash: schedule.hash,
+					start_execution_block: 0,
+					last_execution_block: 0,
 					status: ScheduleStatus::Initiated,
 				},
 			);

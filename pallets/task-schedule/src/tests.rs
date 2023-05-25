@@ -16,7 +16,7 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			shard_id: 1,
 			cycle: 12,
-			frequency:1,
+			frequency: 1,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 		};
@@ -39,6 +39,8 @@ fn test_schedule() {
 			frequency: 1,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
+			start_execution_block: 0,
+			last_execution_block: 0,
 			status: ScheduleStatus::Initiated,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output));
@@ -57,6 +59,8 @@ fn test_schedule() {
 			frequency: 1,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
+			start_execution_block: 0,
+			last_execution_block: 0,
 			status: ScheduleStatus::Completed,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output_update));

@@ -4,7 +4,7 @@ use codec::Decode;
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
-	types::{CallRequest, CallResponse, BlockRequest, block_identifier, BlockIdentifier, partial_block_identifier, PartialBlockIdentifier},
+	types::{BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -15,7 +15,7 @@ use sp_core::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
-use time_db::{feed::Model, DatabaseConnection};
+use time_db::DatabaseConnection;
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
@@ -91,6 +91,7 @@ where
 		data: CallResponse,
 		shard_id: u64,
 		id: u64,
+		status: ScheduleStatus,
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
@@ -112,13 +113,17 @@ where
 		if *shard.collector() == account {
 			self.runtime
 				.runtime_api()
-				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
+				.update_schedule_by_key(block_id, status, id)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		}
 		Ok(true)
 	}
 
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash, start_block_number:u64) -> Result<()> {
+	async fn process_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		mut start_block_number: u64,
+	) -> Result<()> {
 		let task_schedules = self
 			.runtime
 			.runtime_api()
@@ -158,51 +163,59 @@ where
 							parameters: json!({}),
 						};
 						if schedule.cycle > 1 {
-							// todo!() mark status repetative
-							let block_identifier = PartialBlockIdentifier {
-								index: None,
-								hash: None,
-							};
+							let block_identifier =
+								PartialBlockIdentifier { index: None, hash: None };
 							let block_request = BlockRequest {
 								network_identifier: self.chain_config.network(),
 								block_identifier,
 							};
-							let response  = self.chain_client.block(&block_request).await;
+							let response = self.chain_client.block(&block_request).await;
 							if let Some(block) = response.unwrap().block {
-								// if let Some(block_number) = block.block_identifier.index {
-									log::info!("\n\n\nLatest block number: {:?}\n\n\n", block.block_identifier);
-								// }
+								let block_number = block.block_identifier.index;
+								if schedule.start_execution_block == 0 {
+									//need to update start execution block
+								}
+								if block_number > schedule.last_execution_block {
+									//Need to update last execution block
+
+									if ((block_number - schedule.start_execution_block)
+										% schedule.frequency) == 0
+									{
+										let data = self.chain_client.call(&request).await?;
+										if !self
+											.call_contract_and_send_for_sign(
+												block_id,
+												data,
+												shard_id,
+												*id,
+												ScheduleStatus::Recurring,
+											)
+											.await?
+										{
+											log::warn!(
+												"status not updated can't updated data into DB"
+											);
+											return Ok(());
+										}
+									}
+								}
+							}
+						} else {
+							let data = self.chain_client.call(&request).await?;
+							if !self
+								.call_contract_and_send_for_sign(
+									block_id,
+									data,
+									shard_id,
+									*id,
+									ScheduleStatus::Completed,
+								)
+								.await?
+							{
+								log::warn!("status not updated can't updated data into DB");
+								return Ok(());
 							}
 						}
-						let data = self.chain_client.call(&request).await?;
-						if !self
-							.call_contract_and_send_for_sign(block_id, data, shard_id, *id)
-							.await?
-						{
-							log::warn!("status not updated can't updated data into DB");
-							return Ok(());
-						}
-						let id: i64 = (*id).try_into().unwrap();
-						let hash = task.hash.to_owned();
-						let value = match serde_json::to_value(task.clone()) {
-							Ok(value) => value,
-							Err(e) => {
-								log::warn!("Error serializing task: {:?}", e);
-								serde_json::Value::Null
-							},
-						};
-						let validity = 123;
-						let cycle = Some(task.cycle.try_into().unwrap());
-						let task = value.to_string().as_bytes().to_vec();
-						let record = Model {
-							id,
-							hash,
-							task,
-							timestamp: None,
-							validity,
-							cycle,
-						};
-						time_db::write_feed(&mut self.db, record).await?;
 					},
 					_ => {
 						log::warn!("error on matching task function")
@@ -214,7 +227,7 @@ where
 	}
 
 	pub async fn run(&mut self) {
-		let mut start_current_block:u64 = 1;
+		let mut start_current_block: u64 = 1;
 		loop {
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {

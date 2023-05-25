@@ -41,7 +41,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	/// Storage: TesseractSigStorage SignatureStoreData (r:0 w:1)
 	/// Proof Skipped: TesseractSigStorage SignatureStoreData (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `s` is `[0, 255]`.
-	fn store_signature_data(_s: u32, ) -> Weight {
+	fn store_signature(_s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

@@ -31,7 +31,7 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn store_signature_data(_s: u32) -> Weight;
+		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
 		fn register_shard(_s: u32) -> Weight;
 	}
@@ -213,7 +213,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Extrinsic for storing a signature
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::store_signature_data(1))]
+		#[pallet::weight(T::WeightInfo::store_signature(1))]
 		pub fn store_signature(
 			origin: OriginFor<T>,
 			signature_data: SignatureData,

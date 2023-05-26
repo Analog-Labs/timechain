@@ -15,7 +15,7 @@ use sp_core::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
-use time_db::DatabaseConnection;
+use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
 	TimeApi, TimeId, KEY_TYPE,
@@ -26,8 +26,8 @@ pub struct TaskExecutor<B, BE, R, A> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
-	kv: KeystorePtr,
 	sign_data_sender: Sender<(u64, [u8; 32])>,
+	kv: KeystorePtr,
 	tasks: HashSet<u64>,
 	db: DatabaseConnection,
 	chain_config: BlockchainConfig,
@@ -65,8 +65,8 @@ where
 			backend,
 			runtime,
 			_account_id: PhantomData,
-			kv,
 			sign_data_sender,
+			kv,
 			tasks: Default::default(),
 			db,
 			chain_config,
@@ -216,6 +216,52 @@ where
 								return Ok(());
 							}
 						}
+
+						// let data = self.chain_client.call(&request).await?;
+						// if !self
+						// 	.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
+						// 	.await?
+						// {
+						// 	log::warn!("status not updated can't updated data into DB");
+						// 	return Ok(());
+						// }
+						// 	let id: i64 = (*id).try_into().unwrap();
+						// 	let hash = task.hash.to_owned();
+						// 	let value = match serde_json::to_value(task.clone()) {
+						// 		Ok(value) => value,
+						// 		Err(e) => {
+						// 			log::warn!("Error serializing task: {:?}", e);
+						// 			serde_json::Value::Null
+						// 		},
+						// 	};
+						// 	let validity = 123;
+						// 	let cycle = Some(task.cycle.try_into().unwrap());
+						// 	let task = value.to_string().as_bytes().to_vec();
+						// 	let record = Model {
+						// 		id: 1,
+						// 		task_id: id,
+						// 		hash,
+						// 		task,
+						// 		timestamp: None,
+						// 		validity,
+						// 		cycle,
+						// 	};
+
+						// 	match serde_json::to_string(&data) {
+						// 		Ok(response) => {
+						// 			let fetch_record = FEModel {
+						// 				id: 1,
+						// 				block_number: 1,
+						// 				cycle,
+						// 				value: response,
+						// 			};
+						// 			let _ =
+						// 				time_db::write_fetch_event(&mut self.db, fetch_record).await;
+						// 		},
+						// 		Err(e) => log::info!("getting error on serde data {e}"),
+						// 	};
+
+						// 	time_db::write_feed(&mut self.db, record).await?;
 					},
 					_ => {
 						log::warn!("error on matching task function")

@@ -626,7 +626,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							match frost_evm::aggregate(signing_package, &shares, public_key_package)
 							{
 								Ok(signature) => {
-									log::debug!("Aggregated signature successfully");
+									log::info!("Aggregated signature successfully");
 									self.actions.push_back(TssAction::Tss(signature, hash));
 									signing_state.remove(&hash);
 									step = true;

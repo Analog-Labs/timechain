@@ -47,7 +47,8 @@ impl Shard {
 	pub fn try_set_collector<T: Config>(&mut self, index: u8) -> Result<(), DispatchError> {
 		ensure!(index != 0, Error::<T>::AlreadyCollector);
 		let set = self.inner();
-		let new_collector = set.get(index as usize).ok_or(Error::<T>::CollectorNotInMembers)?;
+		let new_collector =
+			set.get(index as usize).ok_or(Error::<T>::CollectorIndexBeyondMemberLen)?;
 		let old_collector = set[0].clone();
 		set[0] = new_collector.to_owned();
 		set[index as usize] = old_collector;

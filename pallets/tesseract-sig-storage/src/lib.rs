@@ -138,9 +138,6 @@ pub mod pallet {
 		/// Reporter or offender not in members
 		ReporterOrOffenderNotInMembers,
 
-		/// Collector not in members
-		CollectorNotInMembers,
-
 		/// Cannot set collector if they are already in that role
 		AlreadyCollector,
 

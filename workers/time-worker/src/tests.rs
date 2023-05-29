@@ -270,12 +270,8 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block, AccountId> for RuntimeApi {
-		fn get_shards(&self) -> Vec<(u64, Shard)> {
-			vec![(1, Shard::Three([
-				TimeKeyring::Alice.public().into(),
-				TimeKeyring::Bob.public().into(),
-				TimeKeyring::Charlie.public().into(),
-			]))]
+		fn get_shards(&self) -> Vec<u64> {
+			vec![1]
 		}
 
 		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) -> DispatchResult {

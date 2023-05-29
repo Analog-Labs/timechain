@@ -108,7 +108,7 @@ where
 						.get_shards(at)
 						.unwrap_or(vec![])
 						.into_iter()
-						.find(|(s, _)| *s == shard_id);
+						.find(|s| *s == shard_id);
 
 					if let Some(shard) = current_shard {
 						return shard.1.collector() == &my_key;

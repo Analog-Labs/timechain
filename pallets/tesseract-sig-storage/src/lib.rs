@@ -6,6 +6,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod shard;
 pub mod weights;
 pub use pallet::*;
 
@@ -14,6 +15,7 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::shard::*;
 	use frame_support::{pallet_prelude::*, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
@@ -26,7 +28,6 @@ pub mod pallet {
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::Shard,
 		ForeignEventId, SignatureData, TimeId,
 	};
 
@@ -139,6 +140,9 @@ pub mod pallet {
 
 		/// Collector not in members
 		CollectorNotInMembers,
+
+		/// Cannot set collector if they are already in that role
+		AlreadyCollector,
 
 		/// Shard does not exist in storage
 		ShardIsNotRegistered,
@@ -259,21 +263,13 @@ pub mod pallet {
 		pub fn register_shard(
 			origin: OriginFor<T>,
 			members: Vec<TimeId>,
-			collector_index: Option<u32>,
+			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			let shard = Shard::new::<T>(members, collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
-			// try_from only fails if members.len()!= 3, 5, or 10
-			let mut shard = Shard::try_from(members.clone())
-				.map_err(|_| Error::<T>::UnsupportedMembershipSize)?;
-			if let Some(i) = collector_index {
-				ensure!(i < members.len() as u32, Error::<T>::CollectorIndexBeyondMemberLen);
-				ensure!(
-					shard.set_collector(&members[i as usize]).is_ok(),
-					Error::<T>::CollectorNotInMembers
-				);
-			}
+			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
 			<TssShards<T>>::insert(shard_id, shard);
 			<ShardId<T>>::put(next_shard_id);

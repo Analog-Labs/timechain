@@ -4,7 +4,6 @@
 pub mod abstraction;
 pub mod inherents;
 pub mod rpc;
-pub mod sharding;
 pub mod slashing;
 
 use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
@@ -40,7 +39,7 @@ sp_api::decl_runtime_apis! {
 			event_id: ForeignEventId
 		) -> DispatchResult;
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
-		fn get_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_shards() -> Vec<u64>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;

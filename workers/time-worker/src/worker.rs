@@ -159,28 +159,28 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
-		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
-		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
-		for (shard_id, shard) in shards {
-			if self.shards.contains_key(&shard_id) {
-				continue;
-			}
-			if !shard.members().contains(&public_key.into()) {
-				debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
-				continue;
-			}
-			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
+		let shard_ids = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
+		debug!(target: TW_LOG, "Read shards from runtime {:?}", shard_ids);
+		// TODO: rewrite by also getting shard members for each shard_id
+		// for shard_id in shards {
+		// 	if self.shards.contains_key(&shard_id) {
+		// 		continue;
+		// 	}
+		// 	if !self.shards.contains(&public_key.into()) {
+		// 		debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
+		// 		continue;
+		// 	}
+		// 	debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 
-			let members = shard
-				.members()
-				.into_iter()
-				.map(|id| sr25519::Public::from_raw(id.into()))
-				.collect();
-			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-			state.tss.initialize(members, shard.threshold());
-			state.is_collector = *shard.collector() == public_key.into();
-			self.poll_actions(shard_id, public_key);
-		}
+		// 	let members = self.shards
+		// 		.into_iter()
+		// 		.map(|id| sr25519::Public::from_raw(id.into()))
+		// 		.collect();
+		// 	let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+		// 	state.tss.initialize(members, shard.threshold());
+		// 	state.is_collector = *shard.collector() == public_key.into();
+		// 	self.poll_actions(shard_id, public_key);
+		// }
 	}
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {

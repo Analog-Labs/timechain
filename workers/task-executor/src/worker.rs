@@ -103,8 +103,8 @@ where
 							.get_shards(block_id)
 							.unwrap_or(vec![])
 							.into_iter()
-							.find(|(s, _)| *s == shard_id)
-							.map(|(_, s)| s) else {
+							.find(|s| *s == shard_id)
+							.map(|s| s) else {
 			anyhow::bail!("failed to find shard");
 		};
 		self.sign_data_sender.clone().try_send((shard_id, hash))?;

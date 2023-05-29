@@ -254,4 +254,27 @@ pub mod pallet {
 			Ok(data)
 		}
 	}
+
+	pub trait ScheduleFetchInterface<AccountId> {
+		fn get_schedule_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<TaskSchedule<AccountId>>, DispatchError>;
+		fn get_payable_schedules_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<AccountId>>, DispatchError>;
+	}
+
+	impl<T: Config> ScheduleFetchInterface<T::AccountId> for Pallet<T> {
+		fn get_schedule_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_schedules_by_task_id(key)
+		}
+
+		fn get_payable_schedules_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_payable_schedules_by_task_id(key)
+		}
+	}
 }

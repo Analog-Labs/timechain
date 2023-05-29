@@ -6065,6 +6065,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "task-schedule",
  "time-primitives",
 ]
 

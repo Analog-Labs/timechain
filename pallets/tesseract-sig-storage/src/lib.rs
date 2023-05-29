@@ -23,7 +23,9 @@ pub mod pallet {
 		Percent, SaturatedConversion, Saturating,
 	};
 	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
+	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
+		abstraction::ObjectId,
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
@@ -57,6 +59,8 @@ pub mod pallet {
 		/// Slashing threshold percentage for commiting misbehavior consensus
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
+
+		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
 	}
 
 	/// Indicates precise members of each TSS set by it's u64 id
@@ -149,6 +153,15 @@ pub mod pallet {
 
 		/// Do not allow more than one misbehavior report of offender by member
 		MaxOneReportPerMember,
+
+		/// Invalid Caller,
+		InvalidCaller,
+
+		/// Task not scheduled
+		TaskNotScheduled,
+
+		/// Invalid collector id
+		InvalidCollectorId,
 	}
 
 	#[pallet::inherent]
@@ -219,11 +232,23 @@ pub mod pallet {
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
+			let task_id = ObjectId(event_id.task_id().into());
 
-			// TODO: based on 'event_id.task_id()' find task, get ShardId from it and check if
-			// origin is a collector node of that shard this should be implemented after some task
-			// management pallet is present and coupled with this one
+			let Ok(schedule_data) = T::TaskScheduleHelper::get_schedule_via_task_id(task_id) else{
+				return Err(Error::<T>::TaskNotScheduled.into());
+			};
+
+			let Some(schedule) = schedule_data.first() else{
+				return Err(Error::<T>::TaskNotScheduled.into());
+			};
+
+			let shard =
+				<TssShards<T>>::get(schedule.shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let collector = shard.collector();
+			let collector_account_id = T::AccountId::decode(&mut collector.as_ref()).map_err(|_| Error::<T>::InvalidCollectorId)?;
+
+			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
 
 			<SignatureStoreData<T>>::insert(event_id, signature_data);
 			Self::deposit_event(Event::SignatureStored(event_id));
@@ -284,6 +309,8 @@ pub mod pallet {
 			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
 			ensure!(encoded_account[..] != [0u8; 32][..], Error::<T>::DefaultAccountForbidden);
 			// TODO: same check as for extrinsic after task management is implemented
+			// Update: implemnetation here is not necessary since this function will be removed
+			// and only extrinsics will be used to store signature.
 			ensure!(
 				auth_sig.verify(signature_data.as_ref(), &auth_id),
 				Error::<T>::UnregisteredWorkerDataSubmission

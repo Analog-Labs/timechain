@@ -81,7 +81,7 @@ jobs:
         env:
           CARGO_NET_OFFLINE: true
         run: |
-          cargo check --features runtime-benchmarks
+          cargo check --release --features runtime-benchmarks
 
       - name: Upload timechain-node binary
         if: ${{ github.ref == 'refs/heads/staging' }}

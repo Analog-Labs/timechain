@@ -142,7 +142,7 @@ pub fn new_partial(
 
 /// Builds a new service for a full client.
 pub fn new_full(
-	mut config: Configuration,
+	config: Configuration,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
@@ -158,23 +158,21 @@ pub fn new_full(
 		other: (block_import, grandpa_link, babe_link, mut telemetry),
 	} = new_partial(&config)?;
 
+	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+
 	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
 
-	config
-		.network
-		.extra_sets
-		.push(sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+	net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
+		grandpa_protocol_name.clone(),
+	));
 
 	// registering time p2p gossip protocol
-	config
-		.network
-		.extra_sets
-		.push(time_worker::time_protocol_name::time_peers_set_config(
-			time_worker::time_protocol_name::gossip_protocol_name(),
-		));
+	net_config.add_notification_protocol(time_worker::time_protocol_name::time_peers_set_config(
+		time_worker::time_protocol_name::gossip_protocol_name(),
+	));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -191,6 +189,7 @@ pub fn new_full(
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(sc_service::WarpSyncParams::WithProvider(warp_sync)),
+			net_config,
 		})?;
 
 	if config.offchain_worker.enabled {

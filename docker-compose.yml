@@ -9,6 +9,9 @@ services:
     environment:
       POSTGRES_DB: timechain
       POSTGRES_PASSWORD: postgres
+    ports:
+    - '5432:5432'
+
   bootnode:
     image: 'analoglabs/timechain-node'
     command:
@@ -17,7 +20,6 @@ services:
     - '--chain=local'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
-    - '--unsafe-ws-external'
     - '--rpc-methods=unsafe'
     - '--connector-url=http://rosetta.analog.one:8081'
     - '--connector-blockchain=ethereum'
@@ -32,7 +34,6 @@ services:
     - 'bootnode-volume:/data'
     ports:
     - '9943:9944'
-    - '9944:9933'
 
   validator1:
     image: 'analoglabs/timechain-node'
@@ -42,7 +43,6 @@ services:
     - '--chain=local'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
-    - '--unsafe-ws-external'
     - '--rpc-methods=unsafe'
     - '--connector-url=http://rosetta.analog.one:8081'
     - '--connector-blockchain=ethereum'
@@ -59,7 +59,6 @@ services:
     - 'validator1-volume:/data'
     ports:
     - '9945:9944'
-    - '9946:9933'
 
   validator2:
     image: 'analoglabs/timechain-node'
@@ -69,7 +68,6 @@ services:
     - '--chain=local'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
-    - '--unsafe-ws-external'
     - '--rpc-methods=unsafe'
     - '--connector-url=http://rosetta.analog.one:8081'
     - '--connector-blockchain=ethereum'
@@ -86,4 +84,3 @@ services:
     - 'validator2-volume:/data'
     ports:
     - '9947:9944'
-    - '9948:9933'

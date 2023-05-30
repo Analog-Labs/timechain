@@ -178,7 +178,8 @@ where
 						let cycle = Some(task.cycle.try_into().unwrap());
 						let task = value.to_string().as_bytes().to_vec();
 						let record = Model {
-							id,
+							id: 1,
+							task_id: id,
 							hash,
 							task,
 							timestamp: None,
@@ -189,6 +190,7 @@ where
 						match serde_json::to_string(&data) {
 							Ok(response) => {
 								let fetch_record = FEModel {
+									id: 1,
 									block_number: 1,
 									cycle,
 									value: response,

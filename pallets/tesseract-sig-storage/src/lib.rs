@@ -7,7 +7,6 @@ mod mock;
 mod tests;
 
 pub mod shard;
-pub mod weights;
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]

@@ -176,14 +176,11 @@ where
 					debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
 					continue;
 				}
-				m[0] == public_key
+				m[0] == public_key.into()
 			} else {
 				false
 			};
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
-
-			let members =
-				self.shards.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();
 			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
 			let threshold = match members.len() {
 				3 => 2,

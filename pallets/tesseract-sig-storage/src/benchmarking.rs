@@ -36,7 +36,7 @@ benchmarks! {
 
 	register_shard {
 		let s in 1..256;
-	}: _(RawOrigin::Root, vec![ALICE, BOB, CHARLIE], Some(s % 3))
+	}: _(RawOrigin::Root, vec![ALICE, BOB, CHARLIE], None)
 	verify {
 		assert!(<TssShards<T>>::get(s as u64).is_some());
 	}

@@ -171,7 +171,7 @@ where
 				.runtime_api()
 				.get_shard_members(notification.header.hash(), shard_id)
 				.unwrap();
-			let is_collector = if let Ok(Some(m)) = members {
+			let is_collector = if let Some(m) = members {
 				if !m.contains(&public_key.into()) {
 					debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
 					continue;
@@ -185,7 +185,12 @@ where
 			let members =
 				self.shards.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();
 			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-			state.tss.initialize(members, shard.threshold());
+			let threshold = match members.len() {
+				3 => 2,
+				5 => 3,
+				10 => 7,
+			};
+			state.tss.initialize(members, threshold);
 			state.is_collector = is_collector;
 			self.poll_actions(shard_id, public_key);
 		}

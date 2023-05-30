@@ -108,17 +108,14 @@ jobs:
             ./Cargo.toml
           key: "Flag-${{ runner.os }}-r${{env.RUSTUP_TOOLCHAIN}}-${{ hashFiles('**/Cargo.lock') }}"
 
-      - name: Update Rust
-        if: steps.cache-flag.outputs.cache-hit != 'true'
-        id: rustc-version
-        shell: pwsh
-        run: |
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Cargo fmt Check
         if: steps.cache-flag.outputs.cache-hit != 'true'
         run: cargo fmt --all --check
+
+      - name: Check benchmarking builds
+        run: cargo check --features runtime-benchmarks
 
       - name: Set up cache
         if: steps.cache-flag.outputs.cache-hit != 'true'
@@ -177,12 +174,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: |
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Cargo fmt Check
         run: cargo fmt --all --check
@@ -218,12 +210,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: |
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -260,12 +248,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: |
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -297,12 +281,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: | 
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -334,11 +314,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: .github/update-rust.ps1
 
       # looks like it's better to use plane text reporter
       #  because of an error in audit check action
@@ -380,12 +355,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: |
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov

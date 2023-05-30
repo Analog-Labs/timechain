@@ -1,0 +1,9 @@
+**/target
+**/.*
+**/build
+**/node_modules
+**/tests
+**/ind_*
+**/migrations
+infra
+!/.github

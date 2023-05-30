@@ -1,0 +1,8 @@
+[package]
+name = "time-db-migration"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-std = { version = "1", features = ["attributes", "tokio1"] }
+sea-orm-migration = { version = "0.11.0", features = ["runtime-tokio-rustls", "sqlx-postgres"] }

@@ -60,6 +60,15 @@ impl Shard {
 		}
 	}
 
+	/// Returns the shard threshold.
+	pub fn threshold(&self) -> u16 {
+		match self {
+			Shard::Three(_) => 2,
+			Shard::Five(_) => 3,
+			Shard::Ten(_) => 7,
+		}
+	}
+
 	// intentionaly private
 	fn inner(&mut self) -> &mut [TimeId] {
 		match self {

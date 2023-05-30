@@ -3,6 +3,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
+mod weights;
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -24,10 +26,12 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_session::historical as pallet_session_historical;
-pub use runtime_common::constants::ANLOG;
+pub use runtime_common::{
+	constants::ANLOG,
+	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
+};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::DispatchError;
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -39,6 +43,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
+use sp_runtime::{DispatchError, DispatchResult};
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
@@ -46,7 +51,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule, ScheduleStatus,};
+use time_primitives::abstraction::{
+	PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule,
+};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -56,10 +63,7 @@ pub use frame_support::{
 		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
 		OnUnbalanced, Randomness, StorageInfo,
 	},
-	weights::{
-		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-		IdentityFee, Weight,
-	},
+	weights::{constants::RocksDbWeight, IdentityFee, Weight},
 	PalletId, StorageValue,
 };
 pub use frame_system::Call as SystemCall;
@@ -289,9 +293,9 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
 
-/// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
-/// This is used to limit the maximal weight of a single extrinsic.
-const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+/// We assume that an on-initialize consumes 1% of the weight on average, hence a single extrinsic
+/// will not be allowed to consume more than `AvailableBlockRatio - 1%`.
+pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -480,6 +484,7 @@ parameter_types! {
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
+	pub CollectivesMaxProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
 	pub const SS58Prefix: u8 = 42;
 }
 
@@ -528,7 +533,7 @@ impl frame_system::Config for Runtime {
 	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
 	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
+	type SystemWeightInfo = weights::system::WeightInfo<Runtime>;
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	/// The set code logic, just the default since we're not a parachain.
@@ -730,6 +735,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type MaxProposalWeight = CollectivesMaxProposalWeight;
 }
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
 impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
@@ -889,7 +895,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Babe;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = ();
+	type WeightInfo = weights::timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -918,7 +924,11 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::balances::WeightInfo<Runtime>;
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type HoldIdentifier = ();
+	type MaxHolds = ();
 }
 
 parameter_types! {
@@ -988,6 +998,7 @@ impl pallet_utility::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -999,7 +1010,7 @@ parameter_types! {
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_tesseract_sig_storage::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
 	type Moment = u64;
 	type Timestamp = Timestamp;
 	type SlashingPercentage = SlashingPercentage;
@@ -1062,10 +1073,8 @@ impl task_metadata::Config for Runtime {
 	type ProxyExtend = ();
 }
 
-
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-
 	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}
@@ -1082,7 +1091,7 @@ impl task_schedule::Config for Runtime {
 
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::proxy::WeightInfo<Runtime>;
 	type Currency = Balances;
 }
 
@@ -1188,6 +1197,14 @@ impl_runtime_apis! {
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
+		}
+
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			Runtime::metadata_versions()
 		}
 	}
 
@@ -1381,9 +1398,9 @@ impl_runtime_apis! {
 			auth_key: time_primitives::crypto::Public,
 			auth_sig: time_primitives::crypto::Signature,
 			signature_data: time_primitives::SignatureData,
-			event_id: time_primitives::ForeignEventId)
+			event_id: time_primitives::ForeignEventId) -> DispatchResult
 		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id);
+			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id)
 		}
 
 		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
@@ -1407,12 +1424,24 @@ impl_runtime_apis! {
 			TaskSchedule::get_schedules()
 		}
 
-		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError> {
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
 			TaskSchedule::update_schedule_by_key(status,key)
 		}
 
-		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) {
-			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof);
+		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
+			TaskMeta::get_payable_tasks()
+		}
+
+		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError> {
+			TaskMeta::get_payable_task_metadata_by_key(key)
+		}
+
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_payable_task_schedules()
+		}
+
+		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
+			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}
 	}
 

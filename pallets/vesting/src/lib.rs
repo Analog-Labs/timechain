@@ -25,7 +25,7 @@
 //!   required.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(clippy::unused_unit)]
+#![allow(clippy::let_unit_value)]
 // TODO: implement benchmarks for this pallet and then generate new weights
 #![allow(deprecated)]
 

@@ -1,5 +1,5 @@
 build-opts=--release
 target=release
-toolchain=nightly-2022-12-25
+toolchain=stable
 clippy-opts=-W clippy::all
 exclude-tests=

@@ -1,23 +1,26 @@
 [workspace]
 members = [
     "node",
-    "pallets/tesseract-sig-storage",
     "pallets/pallet-proxy",
+    "pallets/task-metadata",
+    "pallets/task-metadata/task-meta-bench",
+    "pallets/task-schedule",
+    "pallets/task-schedule/task-schedule-bench",
+    "pallets/tesseract-sig-storage",
+    "pallets/vesting",
+    "primitives/time-primitives",
     "runtime",
+    "runtime/common",
+    "tss",
+    "workers/database",
+    "workers/database/migration",
+    "workers/event-worker",
+    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/time-worker",
     "workers/time-worker/rpc",
-    "workers/database",
-    "primitives/time-primitives",
-    "primitives/storage-primitives",
-    "tesseract/tss",
-    "tesseract/accounts",
-    "tesseract/events",
-    "pallets/task-metadata",
-    "pallets/task-schedule",
-    "pallets/task-metadata/task-meta-bench",
-    "pallets/task-schedule/task-schedule-bench",
 ]
+resolver = "2"
 
 [profile.release]
 panic = "unwind"

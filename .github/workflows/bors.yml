@@ -61,12 +61,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: |
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Cargo fmt Check
         if: success()
@@ -81,6 +76,12 @@ jobs:
           CARGO_NET_OFFLINE: true
         run: |
           cargo build $BUILD_OPTS
+
+      - name: Check benchmarking builds
+        env:
+          CARGO_NET_OFFLINE: true
+        run: |
+          cargo check --features runtime-benchmarks
 
       - name: Upload timechain-node binary
         if: ${{ github.ref == 'refs/heads/staging' }}
@@ -134,12 +135,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: | 
-          .github/update-rust.ps1
-          cargo install cargo-audit --locked 
+      - run: cargo install cargo-audit --locked 
 
       - name: Audit
         run: |
@@ -166,12 +162,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Update Rust
-        id: rustc-version
-        shell: pwsh
-        run: | 
-          .github/update-rust.ps1
-          sudo apt-get install -y protobuf-compiler
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov

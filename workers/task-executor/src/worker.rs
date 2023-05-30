@@ -1,9 +1,6 @@
-#![allow(clippy::type_complexity)]
-use crate::{WorkerParams, TW_LOG};
-use bincode::serialize;
+use crate::{TaskExecutorParams, TW_LOG};
+use anyhow::{Context, Result};
 use codec::Decode;
-use core::time;
-use dotenvy::dotenv;
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
@@ -13,41 +10,40 @@ use rosetta_client::{
 use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Backend as SpBackend;
-use sp_io::hashing::keccak_256;
-use sp_runtime::{traits::Block, DispatchError};
-use std::{collections::HashMap, error::Error, marker::PhantomData, sync::Arc};
+use sp_blockchain::Backend as _;
+use sp_core::hashing::keccak_256;
+use sp_keystore::KeystorePtr;
+use sp_runtime::traits::Block;
+use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
+use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	TimeApi, TimeId,
+	TimeApi, TimeId, KEY_TYPE,
 };
-use time_worker::kv::TimeKeyvault;
-use tokio::{sync::Mutex, time::sleep};
 
-#[allow(unused)]
-/// Our structure, which holds refs to everything we need to operate
-pub struct TaskExecutor<B: Block, A, R, BE> {
-	pub(crate) backend: Arc<BE>,
-	pub(crate) runtime: Arc<R>,
+pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
-	sign_data_sender: Arc<Mutex<Sender<(u64, [u8; 32])>>>,
-	kv: TimeKeyvault,
-	accountid: PhantomData<A>,
-	connector_url: Option<String>,
-	connector_blockchain: Option<String>,
-	connector_network: Option<String>,
+	backend: Arc<BE>,
+	runtime: Arc<R>,
+	_account_id: PhantomData<A>,
+	sign_data_sender: Sender<(u64, [u8; 32])>,
+	kv: KeystorePtr,
+	tasks: HashSet<u64>,
+	db: DatabaseConnection,
+	chain_config: BlockchainConfig,
+	chain_client: Client,
 }
 
-impl<B, A, R, BE> TaskExecutor<B, A, R, BE>
+impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
-	A: codec::Codec,
-	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
+	R: ProvideRuntimeApi<B>,
+	A: codec::Codec,
 	R::Api: TimeApi<B, A>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
-		let WorkerParams {
+	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
+		let TaskExecutorParams {
 			backend,
 			runtime,
 			sign_data_sender,
@@ -57,23 +53,29 @@ where
 			connector_url,
 			connector_blockchain,
 			connector_network,
-		} = worker_params;
+		} = params;
 
-		TaskExecutor {
+		let (chain_config, chain_client) =
+			create_client(connector_blockchain, connector_network, connector_url).await?;
+
+		let db = time_db::connect().await?;
+
+		Ok(Self {
+			_block: PhantomData,
 			backend,
 			runtime,
+			_account_id: PhantomData,
 			sign_data_sender,
 			kv,
-			_block: PhantomData,
-			accountid: PhantomData,
-			connector_url,
-			connector_blockchain,
-			connector_network,
-		}
+			tasks: Default::default(),
+			db,
+			chain_config,
+			chain_client,
+		})
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.public_keys();
+		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
 		if keys.is_empty() {
 			log::warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
@@ -83,240 +85,146 @@ where
 		}
 	}
 
-	pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
-		keccak_256(input)
-	}
-
-	fn update_task_schedule_status(
-		&self,
-		block_id: <B as Block>::Hash,
-		status: ScheduleStatus,
-		schdule_task_id: u64,
-	) -> Result<(), DispatchError> {
-		match self
-			.runtime
-			.runtime_api()
-			.update_schedule_by_key(block_id, status, schdule_task_id)
-		{
-			Ok(update) => update,
-			Err(_) => Err(DispatchError::CannotLookup),
-		}
-	}
-
 	async fn call_contract_and_send_for_sign(
-		&self,
+		&mut self,
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
-		schdule_task_id: u64,
-		map: &mut HashMap<u64, ()>,
-	) -> Result<(), Box<dyn Error>> {
-		dotenv().ok();
-
-		if let Ok(task_in_bytes) = serialize(&data.result) {
-			let hash = Self::hash_keccak_256(&task_in_bytes);
-
-			let at = self.backend.blockchain().last_finalized();
-			match at {
-				Ok(at) =>
-					if let Some(my_key) = self.account_id() {
-						let current_shard = self
+		id: u64,
+	) -> Result<bool> {
+		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
+		let hash = keccak_256(&bytes);
+		let Some(account) = self.account_id() else {
+			return Ok(false);
+		};
+		let Some(shard) = self
 							.runtime
 							.runtime_api()
-							.get_shards(at)
+							.get_shards(block_id)
 							.unwrap_or(vec![])
 							.into_iter()
-							.find(|(s, _)| *s == shard_id);
-
-						if let Some(shard) = current_shard {
-							if shard.1.collector() == &my_key {
-								let result =
-									self.sign_data_sender.lock().await.try_send((shard_id, hash));
-								if result.is_ok() {
-									log::info!("Connector successfully send event to channel");
-									map.insert(schdule_task_id, ());
-
-									match Self::update_task_schedule_status(
-										self,
-										block_id,
-										ScheduleStatus::Completed,
-										schdule_task_id,
-									) {
-										Ok(()) =>
-											log::info!("updated schedule status to completed"),
-										Err(e) => log::warn!(
-											"getting error on updating schedule status {:?}",
-											e
-										),
-									}
-								} else {
-									log::info!("Connector failed to send event to channel");
-									match Self::update_task_schedule_status(
-										self,
-										block_id,
-										ScheduleStatus::Invalid,
-										schdule_task_id,
-									) {
-										Ok(()) => log::info!("updated schedule status to Canceled"),
-										Err(e) => log::warn!(
-											"getting error on updating schedule status {:?}",
-											e
-										),
-									}
-								}
-							} else {
-								log::info!("shard not same");
-							}
-						} else {
-							log::error!(target: TW_LOG, "task-executor no matching shard found");
-						}
-					} else {
-						log::error!(target: TW_LOG, "Failed to construct account");
-					},
-				Err(e) => log::warn!("error at getting last finalized block {:?}", e),
-			}
-		} else {
-			log::info!("Failed to serialize task: {:?}", data);
+							.find(|(s, _)| *s == shard_id)
+							.map(|(_, s)| s) else {
+			anyhow::bail!("failed to find shard");
+		};
+		self.sign_data_sender.clone().try_send((shard_id, hash))?;
+		self.tasks.insert(id);
+		if *shard.collector() == account {
+			self.runtime
+				.runtime_api()
+				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
+				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		}
-		Ok(())
+		Ok(true)
 	}
 
-	async fn process_tasks_for_block(
-		&self,
-		block_id: <B as Block>::Hash,
-		map: &mut HashMap<u64, ()>,
-		config: &BlockchainConfig,
-		client: &Client,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		// Get the task schedule for the current block
-		let tasks_schedule = self.runtime.runtime_api().get_task_schedule(block_id)?;
-		match tasks_schedule {
-			Ok(task_schedule) => {
-				for schedule_task in task_schedule.iter() {
-					let shard_id = schedule_task.1.shard_id;
-					if !map.contains_key(&schedule_task.0) {
-						let metadata_result = self
-							.runtime
-							.runtime_api()
-							.get_task_metadat_by_key(block_id, schedule_task.0);
-						if let Ok(metadata_result) = metadata_result {
-							match metadata_result {
-								Ok(metadata) => {
-									match metadata {
-										Some(task) => {
-											match &task.function {
-												// If the task function is an Ethereum contract
-												// call, call it and send for signing
-												Function::EthereumContractWithoutAbi {
-													address,
-													function_signature,
-													input: _,
-													output: _,
-												} => {
-													let method = format!(
-														"{address}-{function_signature}-call"
-													);
-													let request = CallRequest {
-														network_identifier: config.network(),
-														method,
-														parameters: json!({}),
-													};
-
-													let data = client.call(&request).await?;
-
-													let _result =
-														Self::call_contract_and_send_for_sign(
-															self,
-															block_id,
-															data,
-															shard_id,
-															schedule_task.0,
-															map,
-														)
-														.await;
-												},
-												_ => {
-													log::warn!("error on matching task function")
-												},
-											};
-										},
-										None => {
-											log::info!("task schedule id have no metadata, Removing task from Schedule list");
-											match Self::update_task_schedule_status(
-												self,
-												block_id,
-												ScheduleStatus::Invalid,
-												schedule_task.0,
-											) {
-												Ok(()) => log::info!("The schedule status has been updated to Invalid"),
-												Err(e) =>
-													log::warn!("getting error on updating schedule status {:?}", e),
-											}
-											//to-do Remove task from schedule list
-										},
-									}
-								},
-								Err(e) => {
-									log::warn!(
-										"Failed to get task metadata for block {:?} {:?}",
-										block_id,
-										e
-									);
-								},
-							}
+	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+		let task_schedules = self
+			.runtime
+			.runtime_api()
+			.get_task_schedule(block_id)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		for (id, schedule) in &task_schedules {
+			if !self.tasks.contains(id) {
+				let metadata = self
+					.runtime
+					.runtime_api()
+					.get_task_metadat_by_key(block_id, schedule.task_id.0)?
+					.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+				let Some(task) = metadata else {
+					log::info!("task schedule id have no metadata, Removing task from Schedule list");
+					self.runtime.runtime_api().update_schedule_by_key(
+						block_id,
+						ScheduleStatus::Invalid,
+						*id,
+					)?.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+					// TODO: Remove task from schedule list
+					return Ok(());
+				};
+				let shard_id = schedule.shard_id;
+				match &task.function {
+					// If the task function is an Ethereum contract
+					// call, call it and send for signing
+					Function::EthereumViewWithoutAbi {
+						address,
+						function_signature,
+						input: _,
+						output: _,
+					} => {
+						let method = format!("{address}-{function_signature}-call");
+						let request = CallRequest {
+							network_identifier: self.chain_config.network(),
+							method,
+							parameters: json!({}),
+						};
+						let data = self.chain_client.call(&request).await?;
+						if !self
+							.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
+							.await?
+						{
+							log::warn!("status not updated can't updated data into DB");
+							return Ok(());
 						}
-					} else {
-						log::info!(
-							"The key didn't exist and was inserted key {:?}.",
-							schedule_task.0
-						);
-					}
-				}
-			},
-			Err(e) => log::warn!("getting error on task schedule {:?}", e),
-		}
-
-		Ok(())
-	}
-
-	pub(crate) async fn run(&mut self) {
-		// Set the delay for the loop
-		let delay = time::Duration::from_secs(10);
-		let mut map: HashMap<u64, ()> = HashMap::new();
-
-		let connector_config = create_client(
-			self.connector_blockchain.clone(),
-			self.connector_network.clone(),
-			self.connector_url.clone(),
-		)
-		.await
-		.ok();
-
-		loop {
-			// Get the public keys from the Key-Value store to check key is set
-			let keys = self.kv.public_keys();
-			if !keys.is_empty() {
-				// Get the last finalized block from the blockchain
-				if let Ok(at) = self.backend.blockchain().last_finalized() {
-					// let at = BlockId::Hash(at);
-
-					if let Some((config, client)) = &connector_config {
-						match self.process_tasks_for_block(at, &mut map, config, client).await {
-							Ok(_) => (),
+						let id: i64 = (*id).try_into().unwrap();
+						let hash = task.hash.to_owned();
+						let value = match serde_json::to_value(task.clone()) {
+							Ok(value) => value,
 							Err(e) => {
-								log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
+								log::warn!("Error serializing task: {:?}", e);
+								serde_json::Value::Null
 							},
-						}
-					} else {
-						log::error!(
-						"XXXXXXX-Connector-worker not running since no client available-XXXXXXX"
-					);
-					}
-				} else {
-					log::error!("Blockchain is empty");
-				}
-				sleep(delay).await;
+						};
+						let validity = 123;
+						let cycle = Some(task.cycle.try_into().unwrap());
+						let task = value.to_string().as_bytes().to_vec();
+						let record = Model {
+							id: 1,
+							task_id: id,
+							hash,
+							task,
+							timestamp: None,
+							validity,
+							cycle,
+						};
+
+						match serde_json::to_string(&data) {
+							Ok(response) => {
+								let fetch_record = FEModel {
+									id: 1,
+									block_number: 1,
+									cycle,
+									value: response,
+								};
+								let _ =
+									time_db::write_fetch_event(&mut self.db, fetch_record).await;
+							},
+							Err(e) => log::info!("getting error on serde data {e}"),
+						};
+
+						time_db::write_feed(&mut self.db, record).await?;
+					},
+					_ => {
+						log::warn!("error on matching task function")
+					},
+				};
 			}
+		}
+		Ok(())
+	}
+
+	pub async fn run(&mut self) {
+		loop {
+			match self.backend.blockchain().last_finalized() {
+				Ok(at) => {
+					if let Err(e) = self.process_tasks_for_block(at).await {
+						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
+					}
+				},
+				Err(e) => {
+					log::error!("Blockchain is empty: {}", e);
+				},
+			};
+			tokio::time::sleep(Duration::from_secs(10)).await;
 		}
 	}
 }

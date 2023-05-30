@@ -1,44 +1,36 @@
-use diesel::{pg::PgConnection, prelude::*};
-use dotenvy::dotenv;
-use std::env;
+use anyhow::Result;
+use sea_orm::entity::prelude::*;
+use sea_orm::{ActiveValue, Database};
+use time_db_migration::MigratorTrait;
 
-mod models;
-mod schema;
+mod entities;
 
-use models::*;
+pub use crate::entities::*;
+pub use sea_orm::DatabaseConnection;
 
-const DEFAULT_LIMIT: i64 = 1000;
-
-pub fn establish_connection(conn_url: Option<&str>) -> Result<PgConnection, String> {
-	dotenv().ok();
-
-	match conn_url {
-		Some(url) =>
-			PgConnection::establish(url).map_err(|_| format!("Error connecting to {url}.")),
-		None => {
-			let url = env::var("DATABASE_URL").map_err(|_| "Error the DATABASE_URL not set.")?;
-			PgConnection::establish(&url).map_err(|_| format!("Error connecting to {url}"))
-		},
-	}
+pub async fn connect() -> Result<DatabaseConnection> {
+	let url = std::env::var("DATABASE_URL")
+		.map_err(|_| anyhow::anyhow!("Error the DATABASE_URL not set."))?;
+	let db = Database::connect(url).await?;
+	time_db_migration::Migrator::up(&db, None).await?;
+	Ok(db)
 }
 
-pub fn get_on_chain_data(
-	conn: &mut PgConnection,
-	min_id: i32,
-) -> Result<Vec<OnChainData>, &'static str> {
-	use self::schema::on_chain_data::dsl::*;
-
-	on_chain_data
-		.filter(data_id.lt(min_id))
-		.limit(DEFAULT_LIMIT)
-		.load::<OnChainData>(conn)
-		.map_err(|_| "Can't load data from on_chain_data table.")
+pub async fn write_feed(conn: &mut DatabaseConnection, record: feed::Model) -> Result<()> {
+	let mut record: feed::ActiveModel = record.into();
+	let now = TimeDateTimeWithTimeZone::now_utc();
+	record.id = ActiveValue::NotSet;
+	record.timestamp = ActiveValue::Set(Some(TimeDateTime::new(now.date(), now.time())));
+	feed::Entity::insert(record).exec(conn).await?;
+	Ok(())
 }
 
-#[ignore]
-#[test]
-fn get_data() {
-	let conn_url = "postgresql://localhost/timechain?user=postgres&password=postgres";
-	let mut pg_conn = establish_connection(Some(conn_url)).unwrap();
-	let _data = get_on_chain_data(&mut pg_conn, 0).unwrap();
+pub async fn write_fetch_event(
+	conn: &mut DatabaseConnection,
+	record: fetch_event::Model,
+) -> Result<()> {
+	let mut record: fetch_event::ActiveModel = record.into();
+	record.id = ActiveValue::NotSet;
+	fetch_event::Entity::insert(record).exec(conn).await?;
+	Ok(())
 }

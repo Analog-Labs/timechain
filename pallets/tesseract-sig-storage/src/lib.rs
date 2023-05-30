@@ -298,8 +298,8 @@ pub mod pallet {
 		}
 
 		// Getter method for runtime api storage access
-		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter().collect()
+		pub fn api_tss_shards() -> Vec<u64> {
+			<TssShards<T>>::iter_keys().collect()
 		}
 
 		/// Method to provide misbehavior report to runtime

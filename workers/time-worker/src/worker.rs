@@ -162,25 +162,33 @@ where
 		let shard_ids = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shard_ids);
 		// TODO: rewrite by also getting shard members for each shard_id
-		// for shard_id in shards {
-		// 	if self.shards.contains_key(&shard_id) {
-		// 		continue;
-		// 	}
-		// 	if !self.shards.contains(&public_key.into()) {
-		// 		debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
-		// 		continue;
-		// 	}
-		// 	debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
+		for shard_id in shard_ids {
+			if self.shards.contains_key(&shard_id) {
+				continue;
+			}
+			let members = self
+				.runtime
+				.runtime_api()
+				.get_shard_members(notification.header.hash(), shard_id)
+				.unwrap();
+			let is_collector = if let Ok(Some(m)) = members {
+				if !m.contains(&public_key.into()) {
+					debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
+					continue;
+				}
+				m[0] == public_key
+			} else {
+				false
+			};
+			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 
-		// 	let members = self.shards
-		// 		.into_iter()
-		// 		.map(|id| sr25519::Public::from_raw(id.into()))
-		// 		.collect();
-		// 	let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-		// 	state.tss.initialize(members, shard.threshold());
-		// 	state.is_collector = *shard.collector() == public_key.into();
-		// 	self.poll_actions(shard_id, public_key);
-		// }
+			let members =
+				self.shards.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();
+			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+			state.tss.initialize(members, shard.threshold());
+			state.is_collector = is_collector;
+			self.poll_actions(shard_id, public_key);
+		}
 	}
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {

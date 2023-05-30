@@ -20,7 +20,7 @@ pub enum Shard {
 }
 
 impl Shard {
-	pub fn new<T: crate::Config>(
+	pub fn new<T: Config>(
 		members: Vec<TimeId>,
 		collector_index: Option<u8>,
 	) -> Result<Self, DispatchError> {

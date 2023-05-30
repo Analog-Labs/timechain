@@ -26,7 +26,7 @@ pub struct TaskExecutor<B, BE, R, A> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
-	sign_data_sender: Sender<(u64, [u8; 32])>,
+	sign_data_sender: Sender<(u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 	tasks: HashSet<u64>,
 	db: DatabaseConnection,
@@ -90,6 +90,7 @@ where
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
+		task_id: u64,
 		id: u64,
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
@@ -107,7 +108,7 @@ where
 							.map(|(_, s)| s) else {
 			anyhow::bail!("failed to find shard");
 		};
-		self.sign_data_sender.clone().try_send((shard_id, hash))?;
+		self.sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
 		self.tasks.insert(id);
 		if *shard.collector() == account {
 			self.runtime
@@ -159,7 +160,13 @@ where
 						};
 						let data = self.chain_client.call(&request).await?;
 						if !self
-							.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
+							.call_contract_and_send_for_sign(
+								block_id,
+								data.clone(),
+								shard_id,
+								schedule.task_id.0,
+								*id,
+							)
 							.await?
 						{
 							log::warn!("status not updated can't updated data into DB");

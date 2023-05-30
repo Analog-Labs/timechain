@@ -99,7 +99,7 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
+	sign_data_receiver: mpsc::Receiver<(u64, u64, [u8; 32])>,
 	tx_data_sender: mpsc::Sender<Vec<u8>>,
 	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
@@ -206,6 +206,10 @@ where
 					debug!(target: TW_LOG, "Storing tss signature");
 					self.timeouts.remove(&(shard_id, Some(hash)));
 					if shard.is_collector {
+						let Some(task_id) = shard.tss.event_id_map.get(&hash) else {
+							log::error!("Failed to store signature, Task id not found for hash {:?}", hash);
+							return;
+						};
 						let tss_signature = tss_signature.to_bytes();
 						let at = self.backend.blockchain().last_finalized().unwrap();
 						let signature = self
@@ -221,10 +225,11 @@ where
 								public_key.into(),
 								signature.into(),
 								tss_signature,
-								// TODO: set task id
-								0u128.into(),
+								task_id.clone().into(),
 							)
 							.unwrap();
+						log::info!("stored signature for task {:?}", task_id);
+						shard.tss.event_id_map.remove(&hash);
 					}
 				},
 				TssAction::Report(offender, hash) => {
@@ -297,7 +302,7 @@ where
 					self.on_finality(notification, public_key);
 				},
 				new_sig = self.sign_data_receiver.next().fuse() => {
-					let Some((shard_id, data)) = new_sig else {
+					let Some((shard_id, task_id, data)) = new_sig else {
 						continue;
 					};
 					let Some(public_key) = self.public_key() else {
@@ -306,7 +311,7 @@ where
 					let Some(shard) = self.shards.get_mut(&shard_id) else {
 						continue;
 					};
-					shard.tss.sign(data.to_vec());
+					shard.tss.sign(data.to_vec(), task_id);
 					self.poll_actions(shard_id, public_key);
 				},
 				gossip_data = self.gossip_data_receiver.next().fuse() => {

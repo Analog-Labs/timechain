@@ -349,7 +349,7 @@ fn initialize_time_worker<API>(
 		usize,
 		&TimeKeyring,
 		API,
-		Receiver<(u64, [u8; 32])>,
+		Receiver<(u64, u64, [u8; 32])>,
 		Sender<Vec<u8>>,
 		Receiver<Vec<u8>>,
 	)>,

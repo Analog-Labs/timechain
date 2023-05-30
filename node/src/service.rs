@@ -392,7 +392,6 @@ pub fn new_full(
 			backend,
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
-			sign_data_sender,
 			tx_data_sender,
 			gossip_data_sender,
 			accountid: PhantomData,

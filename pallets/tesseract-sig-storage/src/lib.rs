@@ -246,7 +246,8 @@ pub mod pallet {
 			let shard =
 				<TssShards<T>>::get(schedule.shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let collector = shard.collector();
-			let collector_account_id = T::AccountId::decode(&mut collector.as_ref()).map_err(|_| Error::<T>::InvalidCollectorId)?;
+			let collector_account_id = T::AccountId::decode(&mut collector.as_ref())
+				.map_err(|_| Error::<T>::InvalidCollectorId)?;
 
 			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
 

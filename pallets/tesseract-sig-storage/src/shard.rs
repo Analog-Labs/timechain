@@ -43,10 +43,10 @@ impl Shard {
 	/// Sets collector to a given ID if is not the same.
 	/// Returns error if `collector` is not member of this shard.
 	/// # Param
-	/// * init - if the method is being called to set the collector
+	/// * init - if the method is being called to initialize the shard
 	/// * index - is the current index of the collector
 	fn try_set_collector<T: Config>(&mut self, init: bool, index: u8) -> Result<(), DispatchError> {
-		if initial && index == 0 {
+		if init && index == 0 {
 			// collector already set
 			return Ok(());
 		}

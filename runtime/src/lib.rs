@@ -1505,9 +1505,6 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}
 
-		fn offchain_worker(block_number: BlockNumber) {
-			TaskSchedule::offchain_worker(block_number);
-		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

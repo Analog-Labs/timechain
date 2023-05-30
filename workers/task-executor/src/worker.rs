@@ -1,11 +1,15 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::Decode;
+use frame_system::{
+	offchain::{SigningTypes, SubmitTransaction},
+	pallet, Error,
+};
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
-	types::{BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
-	BlockchainConfig, Client, Signer,
+	types::{CallRequest, CallResponse},
+	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
 use serde_json::json;
@@ -18,8 +22,9 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	TimeApi, TimeId, KEY_TYPE,
+	KeyId, TimeApi, TimeId, KEY_TYPE,
 };
+use tokio::runtime::Runtime;
 
 pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
@@ -85,13 +90,27 @@ where
 		}
 	}
 
+	// pub fn offchain_worker<T: frame_system::Config + frame_system::offchain::SigningTypes>(status:ScheduleStatus, key: KeyId) {
+	// 	let signer: frame_system::offchain::Signer<_, _, frame_system::offchain::ForAll> = frame_system::offchain::Signer::<T, T::AuthorityId>::all_accounts();
+
+	// 	let results = signer.send_signed_transaction(|_account| {
+	// 		pallet::Call::update_schedule { status, key }
+	// 	});
+
+	// 	for (acc, res) in &results {
+	// 		match res {
+	// 			Ok(()) => log::info!("[{:?}]: submit transaction success.", acc.id),
+	// 			Err(e) => log::error!("[{:?}]: submit transaction failure. Reason: {:?}", acc.id, e),
+	// 		}
+	// 	}
+	// }
+
 	async fn call_contract_and_send_for_sign(
 		&mut self,
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
 		id: u64,
-		status: ScheduleStatus,
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
@@ -113,7 +132,7 @@ where
 		if *shard.collector() == account {
 			self.runtime
 				.runtime_api()
-				.update_schedule_by_key(block_id, status, id)?
+				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		}
 		Ok(true)
@@ -132,8 +151,6 @@ where
 					.runtime_api()
 					.get_task_metadat_by_key(block_id, schedule.task_id.0)?
 					.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-				let x = self.runtime.runtime_api().offchain_worker(block_id, 1);
-				log::info!("offf chain using runtime {:?}", x.unwrap());
 				let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 					self.runtime.runtime_api().update_schedule_by_key(
@@ -160,100 +177,51 @@ where
 							method,
 							parameters: json!({}),
 						};
-						if schedule.cycle > 1 {
-							let block_identifier =
-								PartialBlockIdentifier { index: None, hash: None };
-							let block_request = BlockRequest {
-								network_identifier: self.chain_config.network(),
-								block_identifier,
-							};
-							let response = self.chain_client.block(&block_request).await;
-							if let Some(block) = response.unwrap().block {
-								let block_number = block.block_identifier.index;
-								if schedule.start_execution_block == 0 {
-									//need to update start execution block
-								}
-								if ((block_number - schedule.start_execution_block)
-									% schedule.frequency) == 0
-								{
-									let data = self.chain_client.call(&request).await?;
-									if !self
-										.call_contract_and_send_for_sign(
-											block_id,
-											data,
-											shard_id,
-											*id,
-											ScheduleStatus::Recurring,
-										)
-										.await?
-									{
-										log::warn!("status not updated can't updated data into DB");
-										return Ok(());
-									}
-								}
-							}
-						} else {
-							let data = self.chain_client.call(&request).await?;
-							if !self
-								.call_contract_and_send_for_sign(
-									block_id,
-									data,
-									shard_id,
-									*id,
-									ScheduleStatus::Completed,
-								)
-								.await?
-							{
-								log::warn!("status not updated can't updated data into DB");
-								return Ok(());
-							}
+						let data = self.chain_client.call(&request).await?;
+						if !self
+							.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
+							.await?
+						{
+							log::warn!("status not updated can't updated data into DB");
+							return Ok(());
 						}
+						let id: i64 = (*id).try_into().unwrap();
+						let hash = task.hash.to_owned();
+						let value = match serde_json::to_value(task.clone()) {
+							Ok(value) => value,
+							Err(e) => {
+								log::warn!("Error serializing task: {:?}", e);
+								serde_json::Value::Null
+							},
+						};
+						let validity = 123;
+						let cycle = Some(task.cycle.try_into().unwrap());
+						let task = value.to_string().as_bytes().to_vec();
+						let record = Model {
+							id: 1,
+							task_id: id,
+							hash,
+							task,
+							timestamp: None,
+							validity,
+							cycle,
+						};
 
-						// let data = self.chain_client.call(&request).await?;
-						// if !self
-						// 	.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
-						// 	.await?
-						// {
-						// 	log::warn!("status not updated can't updated data into DB");
-						// 	return Ok(());
-						// }
-						// 	let id: i64 = (*id).try_into().unwrap();
-						// 	let hash = task.hash.to_owned();
-						// 	let value = match serde_json::to_value(task.clone()) {
-						// 		Ok(value) => value,
-						// 		Err(e) => {
-						// 			log::warn!("Error serializing task: {:?}", e);
-						// 			serde_json::Value::Null
-						// 		},
-						// 	};
-						// 	let validity = 123;
-						// 	let cycle = Some(task.cycle.try_into().unwrap());
-						// 	let task = value.to_string().as_bytes().to_vec();
-						// 	let record = Model {
-						// 		id: 1,
-						// 		task_id: id,
-						// 		hash,
-						// 		task,
-						// 		timestamp: None,
-						// 		validity,
-						// 		cycle,
-						// 	};
+						match serde_json::to_string(&data) {
+							Ok(response) => {
+								let fetch_record = FEModel {
+									id: 1,
+									block_number: 1,
+									cycle,
+									value: response,
+								};
+								let _ =
+									time_db::write_fetch_event(&mut self.db, fetch_record).await;
+							},
+							Err(e) => log::info!("getting error on serde data {e}"),
+						};
 
-						// 	match serde_json::to_string(&data) {
-						// 		Ok(response) => {
-						// 			let fetch_record = FEModel {
-						// 				id: 1,
-						// 				block_number: 1,
-						// 				cycle,
-						// 				value: response,
-						// 			};
-						// 			let _ =
-						// 				time_db::write_fetch_event(&mut self.db, fetch_record).await;
-						// 		},
-						// 		Err(e) => log::info!("getting error on serde data {e}"),
-						// 	};
-
-						// 	time_db::write_feed(&mut self.db, record).await?;
+						time_db::write_feed(&mut self.db, record).await?;
 					},
 					_ => {
 						log::warn!("error on matching task function")

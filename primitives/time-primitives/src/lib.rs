@@ -27,7 +27,6 @@ pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type TaskId = u64;
 pub type KeyId = u64;
-pub type BlockNumber = u32;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
@@ -51,7 +50,6 @@ sp_api::decl_runtime_apis! {
 		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
 		fn update_failed_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult;
 		fn update_execution(schedule_id: u64) -> DispatchResult;
-		fn offchain_worker(block_number: BlockNumber);
 		fn report_misbehavior(
 			shard_id: u64,
 			offender: TimeId,

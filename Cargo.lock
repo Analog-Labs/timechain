@@ -10800,6 +10800,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
+ "frame-support",
+ "frame-system",
  "futures",
  "log",
  "parity-scale-codec",

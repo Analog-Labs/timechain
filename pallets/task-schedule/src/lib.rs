@@ -25,7 +25,6 @@ pub mod pallet {
 		},
 		PalletAccounts, ProxyExtend,
 	};
-	pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
 
 	pub type KeyId = u64;
 	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
@@ -36,6 +35,8 @@ pub mod pallet {
 		fn insert_payable_schedule() -> Weight;
 		fn update_execution_state() -> Weight;
 	}
+
+	pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
 
 	pub mod crypto {
 		use super::KEY_TYPE;
@@ -256,6 +257,30 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
+		pub fn offchain_worker(_block_number: T::BlockNumber) {
+			let signer = frame_system::offchain::Signer::<T, T::AuthorityId>::all_accounts();
+
+			let results = signer.send_signed_transaction(|_account| Call::update_schedule {
+				status: ScheduleStatus::Completed,
+				key: 1,
+			});
+
+			// ...
+
+			for (acc, res) in &results {
+				match res {
+					Ok(()) => {
+						frame_support::log::info!("[{:?}]: submit transaction success.", acc.id)
+					},
+					Err(e) => frame_support::log::error!(
+						"[{:?}]: submit transaction failure. Reason: {:?}",
+						acc.id,
+						e
+					),
+				}
+			}
+		}
+
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter()
 				.filter(|item| {
@@ -353,36 +378,6 @@ pub mod pallet {
 				},
 				None => Ok(()),
 			}
-		}
-
-		fn offchain_worker(_block_number: T::BlockNumber) {
-			let signer = frame_system::offchain::Signer::<T, T::AuthorityId>::all_accounts();
-
-			// Using `send_signed_transaction` associated type we create and submit a transaction
-			// representing the call we've just created.
-			// `send_signed_transaction()` return type is `Option<(Account<T>, Result<(), ()>)>`. It is:
-			//	 - `None`: no account is available for sending transaction
-			//	 - `Some((account, Ok(())))`: transaction is successfully sent
-			//	 - `Some((account, Err(())))`: error occurred when sending the transaction
-			let results = signer.send_signed_transaction(|_account| Call::update_schedule {
-				status: ScheduleStatus::Completed,
-				key: 1,
-			});
-
-			for (acc, res) in &results {
-				match res {
-					Ok(()) => {
-						frame_support::log::info!("[{:?}]: submit transaction success.", acc.id)
-					},
-					Err(e) => frame_support::log::error!(
-						"[{:?}]: submit transaction failure. Reason: {:?}",
-						acc.id,
-						e
-					),
-				}
-			}
-
-			// Ok(())
 		}
 	}
 

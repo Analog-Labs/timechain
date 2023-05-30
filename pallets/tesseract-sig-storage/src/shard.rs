@@ -26,7 +26,7 @@ impl Shard {
 	) -> Result<Self, DispatchError> {
 		let mut s = Shard::try_from(members).map_err(|_| Error::<T>::UnsupportedMembershipSize)?;
 		if let Some(c) = collector_index {
-			s.try_set_collector::<T>(c)?;
+			s.try_set_collector::<T>(true, c)?;
 		}
 		Ok(s)
 	}
@@ -43,8 +43,13 @@ impl Shard {
 	/// Sets collector to a given ID if is not the same.
 	/// Returns error if `collector` is not member of this shard.
 	/// # Param
+	/// * init - if the method is being called to set the collector
 	/// * index - is the current index of the collector
-	pub fn try_set_collector<T: Config>(&mut self, index: u8) -> Result<(), DispatchError> {
+	fn try_set_collector<T: Config>(&mut self, init: bool, index: u8) -> Result<(), DispatchError> {
+		if initial && index == 0 {
+			// collector already set
+			return Ok(());
+		}
 		ensure!(index != 0, Error::<T>::AlreadyCollector);
 		let set = self.inner();
 		let new_collector =

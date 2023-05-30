@@ -29,7 +29,6 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time
 use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore, LongestChain};
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
-	sharding::Shard,
 	ForeignEventId, SignatureData, TimeApi, KEY_TYPE as TimeKeyType,
 };
 

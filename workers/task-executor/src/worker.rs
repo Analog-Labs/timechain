@@ -97,19 +97,16 @@ where
 		let Some(account) = self.account_id() else {
 			return Ok(false);
 		};
-		let Some(shard) = self
+		let Ok(Some(shard)) = self
 							.runtime
 							.runtime_api()
-							.get_shards(block_id)
-							.unwrap_or(vec![])
-							.into_iter()
-							.find(|s| *s == shard_id)
-							.map(|s| s) else {
+							.get_shard_members(block_id, shard_id)
+							else {
 			anyhow::bail!("failed to find shard");
 		};
 		self.sign_data_sender.clone().try_send((shard_id, hash))?;
 		self.tasks.insert(id);
-		if *shard.collector() == account {
+		if shard[0] == account {
 			self.runtime
 				.runtime_api()
 				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?

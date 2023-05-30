@@ -5,7 +5,7 @@ use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
 	types::{BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
-	BlockchainConfig, Client,
+	BlockchainConfig, Client, Signer,
 };
 use sc_client_api::Backend;
 use serde_json::json;
@@ -119,11 +119,7 @@ where
 		Ok(true)
 	}
 
-	async fn process_tasks_for_block(
-		&mut self,
-		block_id: <B as Block>::Hash,
-		mut start_block_number: u64,
-	) -> Result<()> {
+	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let task_schedules = self
 			.runtime
 			.runtime_api()
@@ -136,6 +132,8 @@ where
 					.runtime_api()
 					.get_task_metadat_by_key(block_id, schedule.task_id.0)?
 					.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+				let x = self.runtime.runtime_api().offchain_worker(block_id, 1);
+				log::info!("offf chain using runtime {:?}", x.unwrap());
 				let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 					self.runtime.runtime_api().update_schedule_by_key(
@@ -175,28 +173,22 @@ where
 								if schedule.start_execution_block == 0 {
 									//need to update start execution block
 								}
-								if block_number > schedule.last_execution_block {
-									//Need to update last execution block
-
-									if ((block_number - schedule.start_execution_block)
-										% schedule.frequency) == 0
+								if ((block_number - schedule.start_execution_block)
+									% schedule.frequency) == 0
+								{
+									let data = self.chain_client.call(&request).await?;
+									if !self
+										.call_contract_and_send_for_sign(
+											block_id,
+											data,
+											shard_id,
+											*id,
+											ScheduleStatus::Recurring,
+										)
+										.await?
 									{
-										let data = self.chain_client.call(&request).await?;
-										if !self
-											.call_contract_and_send_for_sign(
-												block_id,
-												data,
-												shard_id,
-												*id,
-												ScheduleStatus::Recurring,
-											)
-											.await?
-										{
-											log::warn!(
-												"status not updated can't updated data into DB"
-											);
-											return Ok(());
-										}
+										log::warn!("status not updated can't updated data into DB");
+										return Ok(());
 									}
 								}
 							}
@@ -273,11 +265,10 @@ where
 	}
 
 	pub async fn run(&mut self) {
-		let mut start_current_block: u64 = 1;
 		loop {
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at, start_current_block).await {
+					if let Err(e) = self.process_tasks_for_block(at).await {
 						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},

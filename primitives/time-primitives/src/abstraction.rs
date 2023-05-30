@@ -127,7 +127,6 @@ pub struct TaskSchedule<AccountId> {
 	pub validity: Validity,
 	pub hash: String,
 	pub start_execution_block: u64,
-	pub last_execution_block: u64,
 	pub status: ScheduleStatus,
 }
 

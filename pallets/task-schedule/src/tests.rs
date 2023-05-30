@@ -40,7 +40,6 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			start_execution_block: 0,
-			last_execution_block: 0,
 			status: ScheduleStatus::Initiated,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output));
@@ -60,7 +59,6 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			start_execution_block: 0,
-			last_execution_block: 0,
 			status: ScheduleStatus::Completed,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output_update));

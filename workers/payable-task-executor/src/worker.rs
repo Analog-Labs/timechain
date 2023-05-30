@@ -189,7 +189,10 @@ where
 													output: _,
 												} => {
 													if self.check_if_connector(shard_id) {
-														log::info!("Running task {:?}", schedule_task.1.task_id.0);
+														log::info!(
+															"Running task {:?}",
+															schedule_task.1.task_id.0
+														);
 														self.create_wallet_and_tx(
 															wallet,
 															address,

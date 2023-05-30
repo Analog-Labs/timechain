@@ -29,12 +29,15 @@ time-primitives = { path = "../../primitives/time-primitives", default-features 
 task-schedule = { path = "../task-schedule", default-features = false }
 
 [dev-dependencies]
+pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
+pallet-treasury = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-core = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 rand = "0.8.5"
 sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
+
 
 
 [features]

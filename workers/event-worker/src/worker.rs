@@ -72,12 +72,9 @@ where
 		network: Option<String>,
 		url: Option<String>,
 		tx_id: String,
-		contract_address: String
+		contract_address: String,
 	) -> Result<[u8; 32], Box<dyn Error>> {
-		let (config, client) =
-			create_client(blockchain, network, url)
-				.await
-				.unwrap();
+		let (config, client) = create_client(blockchain, network, url).await.unwrap();
 
 		let call_req = CallRequest {
 			network_identifier: config.network(),
@@ -86,9 +83,8 @@ where
 		};
 
 		let received_tx = tx_id.strip_prefix("0x").unwrap_or(&tx_id);
-		let received_contract_address = contract_address
-			.strip_prefix("0x")
-			.unwrap_or(&contract_address);
+		let received_contract_address =
+			contract_address.strip_prefix("0x").unwrap_or(&contract_address);
 
 		let receipt = client.call(&call_req).await.unwrap();
 		let result = receipt.result;

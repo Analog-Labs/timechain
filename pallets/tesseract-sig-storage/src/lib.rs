@@ -235,9 +235,7 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let task_id = ObjectId(event_id.task_id().into());
 
-			let Ok(schedule_data) = T::TaskScheduleHelper::get_schedule_via_task_id(task_id) else{
-				return Err(Error::<T>::TaskNotScheduled.into());
-			};
+			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
 
 			let Some(schedule) = schedule_data.first() else{
 				return Err(Error::<T>::TaskNotScheduled.into());

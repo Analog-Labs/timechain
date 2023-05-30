@@ -225,7 +225,7 @@ where
 								public_key.into(),
 								signature.into(),
 								tss_signature,
-								task_id.clone().into(),
+								(*task_id).into(),
 							)
 							.unwrap();
 						log::info!("stored signature for task {:?}", task_id);

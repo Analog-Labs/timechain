@@ -1,14 +1,15 @@
 use crate as pallet_tesseract_sig_storage;
 use frame_support::{
 	parameter_types,
-	traits::{ConstU16, ConstU64, OnTimestampSet}, PalletId,
+	traits::{ConstU16, ConstU64, OnTimestampSet},
+	PalletId,
 };
 use frame_system as system;
-use sp_core::{H256, ConstU32};
+use sp_core::{ConstU32, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Permill,
+	Permill,
 };
 use sp_std::cell::RefCell;
 
@@ -43,12 +44,12 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp,
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>},
 		TaskSchedule: task_schedule::{Pallet, Call, Storage, Event<T>},
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
 	}
 );
-
 
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -86,7 +87,6 @@ parameter_types! {
 	pub const SlashingPercentage: u8 = 5;
 	// Must be > 0 and <= 100
 	pub const SlashingPercentageThreshold: u8 = 51;
-	
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = DOLLARS;
@@ -96,7 +96,6 @@ parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const ExistentialDeposit: u64 = 1;
 	pub const ScheduleFee: u32 = 1;
-	
 }
 pub struct MockOnTimestampSet;
 impl OnTimestampSet<Moment> for MockOnTimestampSet {
@@ -156,6 +155,12 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+impl pallet_proxy::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
+	type Currency = ();
+}
+
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
@@ -177,8 +182,18 @@ impl pallet_tesseract_sig_storage::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities =
-		GenesisConfig::default().build_storage().unwrap().into();
+	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![
+			(1, 10_000_000_000),
+			(2, 20_000_000_000),
+			//Alice account
+			(1334440654591915542993625911497130241, 20_000_000_000),
+		],
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
+	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

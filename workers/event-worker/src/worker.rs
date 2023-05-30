@@ -78,7 +78,7 @@ where
 
 		let call_req = CallRequest {
 			network_identifier: config.network(),
-			method: format!("{}--transaction_receipt", tx_id),
+			method: format!("{tx_id}--transaction_receipt"),
 			parameters: json!({}),
 		};
 

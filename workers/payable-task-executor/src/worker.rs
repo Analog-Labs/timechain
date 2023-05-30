@@ -124,13 +124,14 @@ where
 	async fn create_wallet_and_tx(
 		&self,
 		wallet: &Wallet,
-		address: &str,
-		function_signature: &str,
-		input: &[String],
+		call_params: (&str, &str, &[String]),
 		map: &mut HashMap<u64, ()>,
 		schedule_id: u64,
 		shard_and_task_id: (u64, u64),
 	) {
+		let address = call_params.0;
+		let function_signature = call_params.1;
+		let input = call_params.2;
 		match wallet.eth_send_call(address, function_signature, input, 0).await {
 			Ok(tx) => {
 				map.insert(schedule_id, ());
@@ -195,9 +196,7 @@ where
 														);
 														self.create_wallet_and_tx(
 															wallet,
-															address,
-															function_signature,
-															input,
+															(address, function_signature, input),
 															map,
 															schedule_task.0,
 															(shard_id, schedule_task.1.task_id.0),

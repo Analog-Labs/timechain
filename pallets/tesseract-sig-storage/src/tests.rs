@@ -3,7 +3,10 @@ use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_keystore::Keystore;
-use time_primitives::{ForeignEventId, TimeId};
+use time_primitives::{
+	abstraction::{ObjectId, ScheduleInput, Validity},
+	ForeignEventId, TimeId,
+};
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
@@ -11,15 +14,37 @@ pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
 pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
 
 #[test]
+// #[ignore]
 fn test_signature_storage() {
 	let r: u8 = rand::random();
 	let sig_data: [u8; 64] = [r; 64];
 	new_test_ext().execute_with(|| {
-		let event_id: ForeignEventId = rand::random::<u128>().into();
+		let task_id: u64 = 1;
+		let event_id: ForeignEventId = u128::from(task_id).into();
+		
+		let alice_u128: u128 = 1334440654591915542993625911497130241;
 
-		// TODO: update with proper tesseract and task creation after task management is in place
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![ALICE, BOB, CHARLIE],
+			Some(ALICE),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id: ObjectId(task_id),
+			shard_id: 0,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+
 		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(1).into(),
+			RawOrigin::Signed(alice_u128).into(),
 			sig_data,
 			event_id
 		));

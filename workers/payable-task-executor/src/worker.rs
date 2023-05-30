@@ -105,13 +105,11 @@ where
 					let current_shard = self
 						.runtime
 						.runtime_api()
-						.get_shards(at)
-						.unwrap_or(vec![])
-						.into_iter()
-						.find(|s| *s == shard_id);
+						.get_shard_members(at, shard_id)
+						.unwrap_or(Some(vec![]));
 
 					if let Some(shard) = current_shard {
-						return shard.1.collector() == &my_key;
+						return shard[0] == my_key;
 					} else {
 						log::warn!("Shards does not match");
 					}

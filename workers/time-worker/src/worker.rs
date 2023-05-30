@@ -166,22 +166,23 @@ where
 			if self.shards.contains_key(&shard_id) {
 				continue;
 			}
-			let members = self
+			let maybe_members = self
 				.runtime
 				.runtime_api()
 				.get_shard_members(notification.header.hash(), shard_id)
 				.unwrap();
-			let is_collector = if let Some(m) = members {
+			let (is_collector, members) = if let Some(m) = maybe_members {
 				if !m.contains(&public_key.into()) {
 					debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
 					continue;
 				}
-				m[0] == public_key.into()
+				(m[0] == public_key.into(), m)
 			} else {
-				false
+				continue;
 			};
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+			// TODO: fix and clean
 			let threshold = match members.len() {
 				3 => 2,
 				5 => 3,

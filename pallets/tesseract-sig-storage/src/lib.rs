@@ -36,6 +36,18 @@ pub mod pallet {
 		fn register_shard() -> Weight;
 	}
 
+	impl WeightInfo for () {
+		fn store_signature(_s: u32) -> Weight {
+			0.into()
+		}
+		fn submit_tss_group_key(_s: u32) -> Weight {
+			0.into()
+		}
+		fn register_shard() -> Weight {
+			0.into()
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);

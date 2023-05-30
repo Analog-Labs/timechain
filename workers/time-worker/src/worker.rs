@@ -15,7 +15,7 @@ use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header};
 use std::{
-	collections::HashMap,
+	collections::{BTreeSet, HashMap},
 	future::Future,
 	marker::PhantomData,
 	pin::Pin,
@@ -161,7 +161,6 @@ where
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
 		let shard_ids = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shard_ids);
-		// TODO: rewrite by also getting shard members for each shard_id
 		for shard_id in shard_ids {
 			if self.shards.contains_key(&shard_id) {
 				continue;
@@ -182,13 +181,17 @@ where
 			};
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-			// TODO: fix and clean
+			// will thresholds ever change? if not, it should not be a parameter but
+			// instead computed from members.len() in the calling function state.tss.initialize
 			let threshold = match members.len() {
 				3 => 2,
 				5 => 3,
 				10 => 7,
+				_ => continue,
 			};
-			state.tss.initialize(members, threshold);
+			let members_set: BTreeSet<sr25519::Public> =
+				members.into_iter().map(|s| sr25519::Public::from_raw(s.into())).collect();
+			state.tss.initialize(members_set, threshold);
 			state.is_collector = is_collector;
 			self.poll_actions(shard_id, public_key);
 		}

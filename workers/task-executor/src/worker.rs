@@ -15,16 +15,32 @@ use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
-use sp_core::hashing::keccak_256;
+use sp_core::{crypto::AccountId32, hashing::keccak_256};
+use sp_keyring::{sr25519::sr25519::Pair, AccountKeyring};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
+use subxt::tx::PairSigner;
+use subxt::{OnlineClient, PolkadotConfig};
+
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
 	KeyId, TimeApi, TimeId, KEY_TYPE,
 };
 use tokio::runtime::Runtime;
+
+#[subxt::subxt(
+	runtime_metadata_path = "../../artifacts/testnet-metadata.scale",
+	derive_for_all_types = "PartialEq, Clone"
+)]
+pub mod timechain {}
+
+pub struct TimechainSubmitter {
+	pub signer: PairSigner<PolkadotConfig, Pair>,
+	pub api: OnlineClient<PolkadotConfig>,
+	pub account: AccountId32,
+}
 
 pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
@@ -135,6 +151,15 @@ where
 				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		}
+
+		let api =  OnlineClient::<PolkadotConfig>::new().await?;
+		    // Build a storage query to access account information.
+			// let account = AccountKeyring::Alice.to_account_id().into();
+			let storage_query = timechain::storage().task_schedule().schedule_storage(1);
+		
+		let x = api.storage().at_latest().await?.fetch(&storage_query).await?;
+		log::info!("\n\n\n==subxt api =====> {:?}\n\n",x.unwrap());
+
 		Ok(true)
 	}
 

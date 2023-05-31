@@ -14,10 +14,10 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement::KeepAlive},
 	};
-	use frame_system::offchain::SendSignedTransaction;
+	// use frame_system::offchain::SendSignedTransaction;
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
-	use sp_core::crypto::KeyTypeId;
+	// use sp_core::crypto::KeyTypeId;
 	use time_primitives::{
 		abstraction::{
 			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
@@ -36,27 +36,27 @@ pub mod pallet {
 		fn update_execution_state() -> Weight;
 	}
 
-	pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
+	// pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
 
-	pub mod crypto {
-		use super::KEY_TYPE;
-		use sp_core::sr25519::Signature as Sr25519Signature;
-		use sp_runtime::{
-			app_crypto::{app_crypto, sr25519},
-			traits::Verify,
-			MultiSignature, MultiSigner,
-		};
-		app_crypto!(sr25519, KEY_TYPE);
+	// pub mod crypto {
+	// 	use super::KEY_TYPE;
+	// 	use sp_core::sr25519::Signature as Sr25519Signature;
+	// 	use sp_runtime::{
+	// 		app_crypto::{app_crypto, sr25519},
+	// 		traits::Verify,
+	// 		MultiSignature, MultiSigner,
+	// 	};
+	// 	app_crypto!(sr25519, KEY_TYPE);
 
-		pub struct TestAuthId;
+	// 	pub struct TestAuthId;
 
-		// implemented for runtime
-		impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
-			type RuntimeAppPublic = Public;
-			type GenericSignature = sp_core::sr25519::Signature;
-			type GenericPublic = sp_core::sr25519::Public;
-		}
-	}
+	// 	// implemented for runtime
+	// 	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
+	// 		type RuntimeAppPublic = Public;
+	// 		type GenericSignature = sp_core::sr25519::Signature;
+	// 		type GenericPublic = sp_core::sr25519::Public;
+	// 	}
+	// }
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -64,7 +64,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::offchain::CreateSignedTransaction<Call<Self>> + frame_system::Config
+		frame_system::Config
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
@@ -73,7 +73,7 @@ pub mod pallet {
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<u32>;
 		type ExecutionFee: Get<u32>;
-		type AuthorityId: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>;
+		// type AuthorityId: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>;
 	}
 
 	#[pallet::storage]
@@ -257,29 +257,29 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		pub fn offchain_worker(_block_number: T::BlockNumber) {
-			let signer = frame_system::offchain::Signer::<T, T::AuthorityId>::all_accounts();
+		// pub fn offchain_worker(_block_number: T::BlockNumber) {
+		// 	let signer = frame_system::offchain::Signer::<T, T::AuthorityId>::all_accounts();
 
-			let results = signer.send_signed_transaction(|_account| Call::update_schedule {
-				status: ScheduleStatus::Completed,
-				key: 1,
-			});
+		// 	let results = signer.send_signed_transaction(|_account| Call::update_schedule {
+		// 		status: ScheduleStatus::Completed,
+		// 		key: 1,
+		// 	});
 
-			// ...
+		// 	// ...
 
-			for (acc, res) in &results {
-				match res {
-					Ok(()) => {
-						frame_support::log::info!("[{:?}]: submit transaction success.", acc.id)
-					},
-					Err(e) => frame_support::log::error!(
-						"[{:?}]: submit transaction failure. Reason: {:?}",
-						acc.id,
-						e
-					),
-				}
-			}
-		}
+		// 	for (acc, res) in &results {
+		// 		match res {
+		// 			Ok(()) => {
+		// 				frame_support::log::info!("[{:?}]: submit transaction success.", acc.id)
+		// 			},
+		// 			Err(e) => frame_support::log::error!(
+		// 				"[{:?}]: submit transaction failure. Reason: {:?}",
+		// 				acc.id,
+		// 				e
+		// 			),
+		// 		}
+		// 	}
+		// }
 
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = self::ScheduleStorage::<T>::iter()
@@ -381,12 +381,12 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Offchain worker entry point.
-		fn offchain_worker(block_number: T::BlockNumber) {
-			frame_support::log::info!("Hello from pallet-ocw.{:?}", block_number);
-			// The entry point of your code called by offchain worker
-		}
-	}
+	// #[pallet::hooks]
+	// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	// 	/// Offchain worker entry point.
+	// 	fn offchain_worker(block_number: T::BlockNumber) {
+	// 		frame_support::log::info!("Hello from pallet-ocw.{:?}", block_number);
+	// 		// The entry point of your code called by offchain worker
+	// 	}
+	// }
 }

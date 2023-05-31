@@ -27,6 +27,7 @@ pub mod pallet {
 	use time_primitives::{
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
+		sharding::Shard,
 		ForeignEventId, SignatureData, TimeId,
 	};
 
@@ -274,7 +275,7 @@ pub mod pallet {
 			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let shard = Shard::new::<T>(members, collector_index)?;
+			let shard = new_shard::<T>(members, collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
@@ -309,8 +310,8 @@ pub mod pallet {
 		}
 
 		// Getter method for runtime api storage access
-		pub fn api_tss_shards() -> Vec<u64> {
-			<TssShards<T>>::iter_keys().collect()
+		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter().collect()
 		}
 
 		/// Method to provide misbehavior report to runtime

@@ -15,7 +15,7 @@ use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header};
 use std::{
-	collections::{BTreeSet, HashMap},
+	collections::HashMap,
 	future::Future,
 	marker::PhantomData,
 	pin::Pin,
@@ -159,40 +159,26 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
-		let shard_ids = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
-		debug!(target: TW_LOG, "Read shards from runtime {:?}", shard_ids);
-		for shard_id in shard_ids {
+		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
+		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
+		for (shard_id, shard) in shards {
 			if self.shards.contains_key(&shard_id) {
 				continue;
 			}
-			let maybe_members = self
-				.runtime
-				.runtime_api()
-				.get_shard_members(notification.header.hash(), shard_id)
-				.unwrap();
-			let (is_collector, members) = if let Some(m) = maybe_members {
-				if !m.contains(&public_key.into()) {
-					debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
-					continue;
-				}
-				(m[0] == public_key.into(), m)
-			} else {
+			if !shard.members().contains(&public_key.into()) {
+				debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
 				continue;
-			};
+			}
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
+
+			let members = shard
+				.members()
+				.into_iter()
+				.map(|id| sr25519::Public::from_raw(id.into()))
+				.collect();
 			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-			// will thresholds ever change? if not, it should not be a parameter but
-			// instead computed from members.len() in the calling function state.tss.initialize
-			let threshold = match members.len() {
-				3 => 2,
-				5 => 3,
-				10 => 7,
-				_ => continue,
-			};
-			let members_set: BTreeSet<sr25519::Public> =
-				members.into_iter().map(|s| sr25519::Public::from_raw(s.into())).collect();
-			state.tss.initialize(members_set, threshold);
-			state.is_collector = is_collector;
+			state.tss.initialize(members, shard.threshold());
+			state.is_collector = *shard.collector() == public_key.into();
 			self.poll_actions(shard_id, public_key);
 		}
 	}

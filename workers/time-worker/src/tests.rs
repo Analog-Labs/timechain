@@ -29,6 +29,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time
 use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore, LongestChain};
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
+	sharding::Shard,
 	ForeignEventId, SignatureData, TimeApi, KEY_TYPE as TimeKeyType,
 };
 
@@ -64,13 +65,11 @@ enum TimeKeyring {
 
 impl TimeKeyring {
 	/// Return key pair.
-	#[allow(dead_code)]
 	pub fn pair(self) -> sr25519::Pair {
 		sr25519::Pair::from_string(self.to_seed().as_str(), None).unwrap()
 	}
 
 	/// Return public key.
-	#[allow(dead_code)]
 	pub fn public(self) -> sr25519::Public {
 		self.pair().public()
 	}
@@ -271,8 +270,12 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block, AccountId> for RuntimeApi {
-		fn get_shards(&self) -> Vec<u64> {
-			vec![1]
+		fn get_shards(&self) -> Vec<(u64, Shard)> {
+			vec![(1, Shard::Three([
+				TimeKeyring::Alice.public().into(),
+				TimeKeyring::Bob.public().into(),
+				TimeKeyring::Charlie.public().into(),
+			]))]
 		}
 
 		fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) -> DispatchResult {

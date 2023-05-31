@@ -1407,7 +1407,7 @@ impl_runtime_apis! {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.members())
 		}
 
-		fn get_shards() -> Vec<u64> {
+		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::api_tss_shards()
 		}
 

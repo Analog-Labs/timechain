@@ -14,7 +14,10 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::*, traits::Time};
+	use frame_support::{
+		pallet_prelude::{ValueQuery, *},
+		traits::Time,
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
@@ -76,7 +79,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
 	pub type SignatureStoreData<T: Config> =
-		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureData, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ForeignEventId, BTreeSet<SignatureData>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reported_offences)]
@@ -162,6 +165,9 @@ pub mod pallet {
 
 		/// Invalid collector id
 		InvalidCollectorId,
+
+		///TSS Signature already added
+		DuplicateSignature,
 	}
 
 	#[pallet::inherent]
@@ -249,7 +255,15 @@ pub mod pallet {
 
 			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
 
-			<SignatureStoreData<T>>::insert(event_id, signature_data);
+			<SignatureStoreData<T>>::try_mutate(&event_id, |signature_set| -> DispatchResult {
+				ensure!(
+					signature_set.get(&signature_data).is_none(),
+					Error::<T>::DuplicateSignature
+				);
+				signature_set.insert(signature_data);
+				Ok(())
+			})?;
+
 			Self::deposit_event(Event::SignatureStored(event_id));
 			Ok(())
 		}
@@ -314,7 +328,14 @@ pub mod pallet {
 				auth_sig.verify(signature_data.as_ref(), &auth_id),
 				Error::<T>::UnregisteredWorkerDataSubmission
 			);
-			<SignatureStoreData<T>>::insert(event_id, signature_data);
+			<SignatureStoreData<T>>::try_mutate(&event_id, |signature_set| -> DispatchResult {
+				ensure!(
+					signature_set.get(&signature_data).is_none(),
+					Error::<T>::DuplicateSignature
+				);
+				signature_set.insert(signature_data);
+				Ok(())
+			})?;
 			Self::deposit_event(Event::SignatureStored(event_id));
 			Ok(())
 		}

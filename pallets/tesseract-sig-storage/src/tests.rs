@@ -14,14 +14,13 @@ pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
 pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
 
 #[test]
-// #[ignore]
 fn test_signature_storage() {
 	let r: u8 = rand::random();
 	let sig_data: [u8; 64] = [r; 64];
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
 		let event_id: ForeignEventId = u128::from(task_id).into();
-		
+
 		let alice_u128: u128 = 1334440654591915542993625911497130241;
 
 		//register shard
@@ -49,7 +48,99 @@ fn test_signature_storage() {
 			event_id
 		));
 
-		assert_eq!(TesseractSigStorage::signature_storage(event_id), Some(sig_data));
+		assert!(TesseractSigStorage::signature_storage(event_id).len() == 1);
+	});
+}
+
+#[test]
+fn test_recurring_signature() {
+	let r: u8 = rand::random();
+	let sig_data_1: [u8; 64] = [r; 64];
+	let s = r.saturating_add(1);
+	let sig_data_2: [u8; 64] = [s; 64];
+	new_test_ext().execute_with(|| {
+		let task_id: u64 = 1;
+		let event_id: ForeignEventId = u128::from(task_id).into();
+
+		let alice_u128: u128 = 1334440654591915542993625911497130241;
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![ALICE, BOB, CHARLIE],
+			Some(ALICE),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id: ObjectId(task_id),
+			shard_id: 0,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(alice_u128).into(),
+			sig_data_1,
+			event_id
+		));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(alice_u128).into(),
+			sig_data_2,
+			event_id
+		));
+		assert!(TesseractSigStorage::signature_storage(event_id).len() == 2);
+	});
+}
+
+#[test]
+fn test_duplicate_signature() {
+	let r: u8 = rand::random();
+	let sig_data: [u8; 64] = [r; 64];
+	new_test_ext().execute_with(|| {
+		let task_id: u64 = 1;
+		let event_id: ForeignEventId = u128::from(task_id).into();
+
+		let alice_u128: u128 = 1334440654591915542993625911497130241;
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			0, // setId is 0
+			vec![ALICE, BOB, CHARLIE],
+			Some(ALICE),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id: ObjectId(task_id),
+			shard_id: 0,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(alice_u128).into(),
+			sig_data,
+			event_id
+		));
+
+		assert_noop!(
+			TesseractSigStorage::store_signature(
+				RawOrigin::Signed(alice_u128).into(),
+				sig_data,
+				event_id
+			),
+			Error::<Test>::DuplicateSignature
+		);
 	});
 }
 

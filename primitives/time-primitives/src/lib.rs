@@ -7,7 +7,7 @@ pub mod rpc;
 pub mod sharding;
 pub mod slashing;
 
-use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
+pub use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
 use arrayref::array_ref;
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;

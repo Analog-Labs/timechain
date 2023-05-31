@@ -23,7 +23,7 @@ const pallet_task_add = async (_keyspair, who) => {
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        task_id: 11,
+        task_id: 2,
         shard_id: 1,
         cycle:12,
         validity:{Seconds:12},

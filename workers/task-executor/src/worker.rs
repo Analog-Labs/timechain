@@ -4,7 +4,7 @@ use codec::Decode;
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
-	types::{CallRequest, CallResponse},
+	types::{BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -18,8 +18,7 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	runtime_decl_for_time_api::TaskSchedule,
-	TimeApi, TimeId, KEY_TYPE,
+	TaskSchedule, TimeApi, TimeId, KEY_TYPE,
 };
 
 use queue::Queue;
@@ -125,16 +124,18 @@ where
 	async fn task_executor(
 		&mut self,
 		block_id: <B as Block>::Hash,
-		task_schedules: (u64, &TaskSchedule),
+		task_schedules: (u64, &TaskSchedule<A>),
 	) -> Result<()> {
-		for (id, schedule) in &task_schedules {
-			if !self.tasks.contains(id) {
-				let metadata = self
-					.runtime
-					.runtime_api()
-					.get_task_metadat_by_key(block_id, schedule.task_id.0)?
-					.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-				let Some(task) = metadata else {
+		let id = &task_schedules.0;
+		let schedule = task_schedules.1;
+
+		if !self.tasks.contains(id) {
+			let metadata = self
+				.runtime
+				.runtime_api()
+				.get_task_metadat_by_key(block_id, schedule.task_id.0)?
+				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+			let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 					self.runtime.runtime_api().update_schedule_by_key(
 						block_id,
@@ -144,73 +145,71 @@ where
 					// TODO: Remove task from schedule list
 					return Ok(());
 				};
-				let shard_id = schedule.shard_id;
-				match &task.function {
-					// If the task function is an Ethereum contract
-					// call, call it and send for signing
-					Function::EthereumViewWithoutAbi {
-						address,
-						function_signature,
-						input: _,
-						output: _,
-					} => {
-						let method = format!("{address}-{function_signature}-call");
-						let request = CallRequest {
-							network_identifier: self.chain_config.network(),
-							method,
-							parameters: json!({}),
-						};
-						let data = self.chain_client.call(&request).await?;
-						if !self
-							.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
-							.await?
-						{
-							log::warn!("status not updated can't updated data into DB");
-							return Ok(());
-						}
-						let id: i64 = (*id).try_into().unwrap();
-						let hash = task.hash.to_owned();
-						let value = match serde_json::to_value(task.clone()) {
-							Ok(value) => value,
-							Err(e) => {
-								log::warn!("Error serializing task: {:?}", e);
-								serde_json::Value::Null
-							},
-						};
-						let validity = 123;
-						let cycle = Some(task.cycle.try_into().unwrap());
-						let task = value.to_string().as_bytes().to_vec();
-						let record = Model {
-							id: 1,
-							task_id: id,
-							hash,
-							task,
-							timestamp: None,
-							validity,
-							cycle,
-						};
+			let shard_id = schedule.shard_id;
+			match &task.function {
+				// If the task function is an Ethereum contract
+				// call, call it and send for signing
+				Function::EthereumViewWithoutAbi {
+					address,
+					function_signature,
+					input: _,
+					output: _,
+				} => {
+					let method = format!("{address}-{function_signature}-call");
+					let request = CallRequest {
+						network_identifier: self.chain_config.network(),
+						method,
+						parameters: json!({}),
+					};
+					let data = self.chain_client.call(&request).await?;
+					if !self
+						.call_contract_and_send_for_sign(block_id, data.clone(), shard_id, *id)
+						.await?
+					{
+						log::warn!("status not updated can't updated data into DB");
+						return Ok(());
+					}
+					let id: i64 = (*id).try_into().unwrap();
+					let hash = task.hash.to_owned();
+					let value = match serde_json::to_value(task.clone()) {
+						Ok(value) => value,
+						Err(e) => {
+							log::warn!("Error serializing task: {:?}", e);
+							serde_json::Value::Null
+						},
+					};
+					let validity = 123;
+					let cycle = Some(task.cycle.try_into().unwrap());
+					let task = value.to_string().as_bytes().to_vec();
+					let record = Model {
+						id: 1,
+						task_id: id,
+						hash,
+						task,
+						timestamp: None,
+						validity,
+						cycle,
+					};
 
-						match serde_json::to_string(&data) {
-							Ok(response) => {
-								let fetch_record = FEModel {
-									id: 1,
-									block_number: 1,
-									cycle,
-									value: response,
-								};
-								let _ =
-									time_db::write_fetch_event(&mut self.db, fetch_record).await;
-							},
-							Err(e) => log::info!("getting error on serde data {e}"),
-						};
+					match serde_json::to_string(&data) {
+						Ok(response) => {
+							let fetch_record = FEModel {
+								id: 1,
+								block_number: 1,
+								cycle,
+								value: response,
+							};
+							let _ = time_db::write_fetch_event(&mut self.db, fetch_record).await;
+						},
+						Err(e) => log::info!("getting error on serde data {e}"),
+					};
 
-						time_db::write_feed(&mut self.db, record).await?;
-					},
-					_ => {
-						log::warn!("error on matching task function")
-					},
-				};
-			}
+					time_db::write_feed(&mut self.db, record).await?;
+				},
+				_ => {
+					log::warn!("error on matching task function")
+				},
+			};
 		}
 		Ok(())
 	}
@@ -223,29 +222,37 @@ where
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		//Add single task in queue and recurssive in HashMap
 		let mut queue = Queue::new();
-		let mut task_map: HashMap<u32, Vec<(u64, &TaskSchedule)>> = HashMap::new();
+		let mut task_map = HashMap::new();
 
 		for (id, schedule) in &task_schedules {
 			if schedule.cycle == 1 {
-				queue.queue((id, schedule));
+				let _ = queue.queue((*id, schedule));
 			} else {
-				task_map.entry(schedule.start_block).or_insert(Vec::new()).push((id, &schedule));
+				task_map.entry(schedule.start_block).or_insert(Vec::new()).push((*id, schedule));
 			}
 		}
-
 		//iterate through queue
 		while let Some(single_task_schedule) = queue.dequeue() {
-			self.task_executor(block_id, single_task_schedule);
+			let _ = self.task_executor(block_id, single_task_schedule).await;
 		}
 
 		//get all task with current block number of eth-dev http://rosetta.analog.one:3000/networks/ethereum/dev
-
-		if let Some(tasks) = task_map.get(&10) {
-			for recrusive_task_schedule in tasks {
-				self.task_executor(block_id, recrusive_task_schedule);
-			}
-		}
-
+		//requesting latest block number
+		let block_request = BlockRequest {
+			network_identifier: self.chain_config.network(),
+			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+		};
+		let response = self.chain_client.block(&block_request).await?;
+		match response.block {
+			Some(block) => {
+				if let Some(tasks) = task_map.get(&block.block_identifier.index) {
+					for recrusive_task_schedule in tasks {
+						let _ = self.task_executor(block_id, *recrusive_task_schedule).await;
+					}
+				}
+			},
+			None => log::info!("faild to get BlockResponse from rosetta"),
+		};
 		Ok(())
 	}
 

@@ -15,6 +15,7 @@ fn test_schedule() {
 		let input = Schedule {
 			task_id: ObjectId(1),
 			shard_id: 1,
+			start_block: 10,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
@@ -34,6 +35,7 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			owner: 1,
 			shard_id: 1,
+			start_block: 10,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
@@ -51,6 +53,7 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			owner: account,
 			shard_id: 1,
+			start_block: 10,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),

@@ -38,13 +38,13 @@ pub mod pallet {
 
 	impl WeightInfo for () {
 		fn store_signature(_s: u32) -> Weight {
-			Weight::from_ref_time(0)
+			Weight::from_parts(0, 1)
 		}
 		fn submit_tss_group_key(_s: u32) -> Weight {
-			Weight::from_ref_time(0)
+			Weight::from_parts(0, 1)
 		}
 		fn register_shard() -> Weight {
-			Weight::from_ref_time(0)
+			Weight::from_parts(0, 1)
 		}
 	}
 

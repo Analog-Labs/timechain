@@ -64,11 +64,13 @@ enum TimeKeyring {
 
 impl TimeKeyring {
 	/// Return key pair.
+	#[allow(dead_code)]
 	pub fn pair(self) -> sr25519::Pair {
 		sr25519::Pair::from_string(self.to_seed().as_str(), None).unwrap()
 	}
 
 	/// Return public key.
+	#[allow(dead_code)]
 	pub fn public(self) -> sr25519::Public {
 		self.pair().public()
 	}

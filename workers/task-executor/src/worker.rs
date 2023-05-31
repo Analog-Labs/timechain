@@ -18,8 +18,12 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
+	runtime_decl_for_time_api::TaskSchedule,
 	TimeApi, TimeId, KEY_TYPE,
 };
+
+use queue::Queue;
+use std::collections::HashMap;
 
 pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
@@ -118,12 +122,11 @@ where
 		Ok(true)
 	}
 
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let task_schedules = self
-			.runtime
-			.runtime_api()
-			.get_task_schedule(block_id)?
-			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+	async fn task_executor(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		task_schedules: (u64, &TaskSchedule),
+	) -> Result<()> {
 		for (id, schedule) in &task_schedules {
 			if !self.tasks.contains(id) {
 				let metadata = self
@@ -209,6 +212,40 @@ where
 				};
 			}
 		}
+		Ok(())
+	}
+
+	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+		let task_schedules = self
+			.runtime
+			.runtime_api()
+			.get_task_schedule(block_id)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		//Add single task in queue and recurssive in HashMap
+		let mut queue = Queue::new();
+		let mut task_map: HashMap<u32, Vec<(u64, &TaskSchedule)>> = HashMap::new();
+
+		for (id, schedule) in &task_schedules {
+			if schedule.cycle == 1 {
+				queue.queue((id, schedule));
+			} else {
+				task_map.entry(schedule.start_block).or_insert(Vec::new()).push((id, &schedule));
+			}
+		}
+
+		//iterate through queue
+		while let Some(single_task_schedule) = queue.dequeue() {
+			self.task_executor(block_id, single_task_schedule);
+		}
+
+		//get all task with current block number of eth-dev http://rosetta.analog.one:3000/networks/ethereum/dev
+
+		if let Some(tasks) = task_map.get(&10) {
+			for recrusive_task_schedule in tasks {
+				self.task_executor(block_id, recrusive_task_schedule);
+			}
+		}
+
 		Ok(())
 	}
 

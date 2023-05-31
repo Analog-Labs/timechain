@@ -255,7 +255,7 @@ pub mod pallet {
 
 			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
 
-			<SignatureStoreData<T>>::try_mutate(&event_id, |signature_set| -> DispatchResult {
+			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
 				ensure!(
 					signature_set.get(&signature_data).is_none(),
 					Error::<T>::DuplicateSignature
@@ -328,7 +328,7 @@ pub mod pallet {
 				auth_sig.verify(signature_data.as_ref(), &auth_id),
 				Error::<T>::UnregisteredWorkerDataSubmission
 			);
-			<SignatureStoreData<T>>::try_mutate(&event_id, |signature_set| -> DispatchResult {
+			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
 				ensure!(
 					signature_set.get(&signature_data).is_none(),
 					Error::<T>::DuplicateSignature

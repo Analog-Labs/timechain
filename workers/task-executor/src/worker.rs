@@ -14,7 +14,12 @@ use sp_blockchain::Backend as _;
 use sp_core::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, HashSet},
+	marker::PhantomData,
+	sync::Arc,
+	time::Duration,
+};
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
@@ -214,19 +219,47 @@ where
 		Ok(())
 	}
 
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	async fn process_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		mut task_map: HashMap<u64, Vec<(u64, &TaskSchedule<A>)>>,
+	) -> Result<()> {
 		let task_schedules = self
 			.runtime
 			.runtime_api()
 			.get_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		//Add single task in queue and recurssive in HashMap
+		//Using BTreeMap for sorting schedule tasks
+		let mut tree_map = BTreeMap::new();
+		//Queue for One-time task
 		let mut queue = Queue::new();
-		let mut task_map = HashMap::new();
 
-		for (id, schedule) in &task_schedules {
+		for (id, schedule) in task_schedules {
+			tree_map.insert(id, schedule);
+		}
+		//get all task with current block number of eth-dev http://rosetta.analog.one:3000/networks/ethereum/dev
+		//requesting latest block number
+		let block_request = BlockRequest {
+			network_identifier: self.chain_config.network(),
+			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+		};
+		let response = self.chain_client.block(&block_request).await?;
+		// let response_clone = response.cl
+		//Add single task in queue and recurssive in HashMap
+		for (id, schedule) in tree_map.iter() {
 			if schedule.cycle == 1 {
 				let _ = queue.queue((*id, schedule));
+			} else if schedule.start_block == 0 {
+				//if task schedule first time and start block is 0.
+				match response.clone().block {
+					Some(block) => {
+						task_map
+							.entry(block.block_identifier.index)
+							.or_insert(Vec::new())
+							.push((*id, schedule));
+					},
+					None => log::info!("faild to get BlockResponse from rosetta"),
+				}
 			} else {
 				task_map.entry(schedule.start_block).or_insert(Vec::new()).push((*id, schedule));
 			}
@@ -236,13 +269,7 @@ where
 			let _ = self.task_executor(block_id, single_task_schedule).await;
 		}
 
-		//get all task with current block number of eth-dev http://rosetta.analog.one:3000/networks/ethereum/dev
-		//requesting latest block number
-		let block_request = BlockRequest {
-			network_identifier: self.chain_config.network(),
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
-		};
-		let response = self.chain_client.block(&block_request).await?;
+		//todo! update start_block number after execution with the next start_block number
 		match response.block {
 			Some(block) => {
 				if let Some(tasks) = task_map.get(&block.block_identifier.index) {
@@ -257,10 +284,12 @@ where
 	}
 
 	pub async fn run(&mut self) {
+		//Map for Repetative task
+		let task_map: HashMap<u64, Vec<(u64, &TaskSchedule<A>)>> = HashMap::new();
 		loop {
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at).await {
+					if let Err(e) = self.process_tasks_for_block(at, task_map.clone()).await {
 						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},

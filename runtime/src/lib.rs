@@ -38,7 +38,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
-		IdentifyAccount, NumberFor, One, OpaqueKeys, Verify,
+		IdentifyAccount, NumberFor, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
@@ -934,12 +934,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxHolds = ();
 }
 
-parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MILLIANLOG;
-	pub FeeMultiplier: Multiplier = Multiplier::one();
-	pub const UncleGenerations: u32 = 0;
-}
-
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -1014,10 +1008,9 @@ impl pallet_transaction_payment::Config for Runtime {
 	// multiplier to boost the priority of operational transactions
 	type OperationalFeeMultiplier = ConstU8<5>;
 	// charged weight = WEIGHT_FEE * weight_units_recorded
-	type WeightToFee =
-		ConstantMultiplier<Balance, ConstU128<{ runtime_common::currency::WEIGHT_FEE }>>;
+	type WeightToFee = ConstantMultiplier<Balance, ConstU128<{ WEIGHT_FEE }>>;
 	// length fee = TransactionByteFee * encoded_tx.len()
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
 

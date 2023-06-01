@@ -140,7 +140,6 @@ pub struct PayableTaskSchedule<AccountId> {
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
 	pub shard_id: u64,
-	pub start_block: u64,
 	pub cycle: u64,
 	pub validity: Validity,
 	pub hash: String,
@@ -207,4 +206,6 @@ pub struct EthTxValidation {
 	pub url: Option<String>,
 	pub tx_id: String,
 	pub contract_address: String,
+	pub shard_id: u64,
+	pub task_id: u64,
 }

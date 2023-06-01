@@ -3,7 +3,10 @@ use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_keystore::Keystore;
-use time_primitives::{ForeignEventId, TimeId};
+use time_primitives::{
+	abstraction::{ObjectId, ScheduleInput, Validity},
+	ForeignEventId, TimeId,
+};
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
@@ -15,16 +18,126 @@ fn test_signature_storage() {
 	let r: u8 = rand::random();
 	let sig_data: [u8; 64] = [r; 64];
 	new_test_ext().execute_with(|| {
-		let event_id: ForeignEventId = rand::random::<u128>().into();
+		let task_id: u64 = 1;
+		let event_id: ForeignEventId = u128::from(task_id).into();
 
-		// TODO: update with proper tesseract and task creation after task management is in place
+		let alice_u128: u128 = 1334440654591915542993625911497130241;
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![ALICE, BOB, CHARLIE],
+			Some(0),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id: ObjectId(task_id),
+			shard_id: 0,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+
 		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(1).into(),
+			RawOrigin::Signed(alice_u128).into(),
 			sig_data,
 			event_id
 		));
 
-		assert_eq!(TesseractSigStorage::signature_storage(event_id), Some(sig_data));
+		assert!(TesseractSigStorage::signature_storage(event_id).len() == 1);
+	});
+}
+
+#[test]
+fn test_recurring_signature() {
+	let r: u8 = rand::random();
+	let sig_data_1: [u8; 64] = [r; 64];
+	let s = r.saturating_add(1);
+	let sig_data_2: [u8; 64] = [s; 64];
+	new_test_ext().execute_with(|| {
+		let task_id: u64 = 1;
+		let event_id: ForeignEventId = u128::from(task_id).into();
+
+		let alice_u128: u128 = 1334440654591915542993625911497130241;
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![ALICE, BOB, CHARLIE],
+			Some(0),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id: ObjectId(task_id),
+			shard_id: 0,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(alice_u128).into(),
+			sig_data_1,
+			event_id
+		));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(alice_u128).into(),
+			sig_data_2,
+			event_id
+		));
+		assert!(TesseractSigStorage::signature_storage(event_id).len() == 2);
+	});
+}
+
+#[test]
+fn test_duplicate_signature() {
+	let r: u8 = rand::random();
+	let sig_data: [u8; 64] = [r; 64];
+	new_test_ext().execute_with(|| {
+		let task_id: u64 = 1;
+		let event_id: ForeignEventId = u128::from(task_id).into();
+
+		let alice_u128: u128 = 1334440654591915542993625911497130241;
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![ALICE, BOB, CHARLIE],
+			Some(0),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id: ObjectId(task_id),
+			shard_id: 0,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(alice_u128).into(),
+			sig_data,
+			event_id
+		));
+
+		assert_noop!(
+			TesseractSigStorage::store_signature(
+				RawOrigin::Signed(alice_u128).into(),
+				sig_data,
+				event_id
+			),
+			Error::<Test>::DuplicateSignature
+		);
 	});
 }
 
@@ -34,9 +147,8 @@ fn test_register_shard_fails_if_member_len_not_supported() {
 		assert_noop!(
 			TesseractSigStorage::register_shard(
 				RawOrigin::Root.into(),
-				0, // setId is 0
 				vec![ALICE, BOB, CHARLIE, DJANGO],
-				Some(ALICE),
+				Some(0),
 			),
 			Error::<Test>::UnsupportedMembershipSize
 		);
@@ -51,9 +163,8 @@ fn test_register_shard_works_for_supported_member_lengths() {
 		// supports 3
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			members.clone(),
-			Some(ALICE),
+			Some(1),
 		));
 
 		// supports 5
@@ -61,57 +172,28 @@ fn test_register_shard_works_for_supported_member_lengths() {
 		members.push(TimeId::new([5u8; 32]));
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			1, // setId is 0
 			members.clone(),
-			Some(ALICE),
+			Some(1),
 		));
 
 		// supports 10
 		for i in 6..=10 {
 			members.push(TimeId::new([i as u8; 32]));
 		}
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			2, // setId is 0
-			members,
-			Some(ALICE),
-		));
+		assert_ok!(TesseractSigStorage::register_shard(RawOrigin::Root.into(), members, Some(1),));
 	});
 }
 
 #[test]
-fn test_register_shard_fails_if_collector_not_in_membership() {
+fn test_register_shard_fails_if_collector_index_invalid() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TesseractSigStorage::register_shard(
 				RawOrigin::Root.into(),
-				0, // setId is 0
 				vec![ALICE, BOB, CHARLIE],
-				Some(DJANGO),
+				Some(4),
 			),
-			Error::<Test>::CollectorNotInMembers
-		);
-	});
-}
-
-#[test]
-fn test_register_shard_fails_if_shard_id_taken() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			0, // setId is 0
-			vec![ALICE, BOB, CHARLIE],
-			Some(ALICE),
-		));
-
-		assert_noop!(
-			TesseractSigStorage::register_shard(
-				RawOrigin::Root.into(),
-				0, // setId is 0
-				vec![ALICE, BOB, CHARLIE],
-				Some(ALICE),
-			),
-			Error::<Test>::ShardAlreadyRegistered
+			Error::<Test>::CollectorIndexBeyondMemberLen
 		);
 	});
 }
@@ -130,9 +212,8 @@ fn test_api_report_misbehavior_increments_report_count() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(alice.into()),
+			Some(1),
 		));
 
 		// report 1st offence
@@ -177,9 +258,8 @@ fn test_api_report_misbehavior_updates_reporters() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(alice.into()),
+			Some(1),
 		));
 
 		// report 1st offence
@@ -229,9 +309,8 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(alice.into()),
+			Some(1),
 		));
 		// To report offence, need to sign the public key
 
@@ -288,9 +367,8 @@ fn test_api_report_misbehavior_for_group_len_5() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, BOB, charlie.into(), david.into(), edward.into()],
-			Some(charlie.into()),
+			Some(1),
 		));
 		// To report offence, need to sign the public key
 
@@ -366,7 +444,6 @@ fn test_api_report_misbehavior_for_group_len_10() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![
 				ALICE,
 				BOB,
@@ -379,7 +456,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 				indigo.into(),
 				jared.into()
 			],
-			Some(edward.into()),
+			Some(1),
 		));
 		// To report offence, need to sign the public key
 
@@ -474,9 +551,8 @@ fn can_report_offence_if_already_committed_offender() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, bob.into(), charlie.into(), david.into(), edward.into()],
-			Some(charlie.into()),
+			Some(1),
 		));
 
 		// report 1st offence
@@ -547,9 +623,8 @@ fn cannot_report_more_than_once_per_offender_by_member() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, bob.into(), CHARLIE, DJANGO, edward.into()],
-			Some(CHARLIE),
+			Some(1),
 		));
 
 		// report 1st offence

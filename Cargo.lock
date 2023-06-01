@@ -6054,7 +6054,10 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
+ "pallet-proxy",
  "pallet-timestamp",
+ "pallet-treasury",
  "parity-scale-codec",
  "rand 0.8.5",
  "sc-keystore",
@@ -6065,6 +6068,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "task-schedule",
  "time-primitives",
 ]
 

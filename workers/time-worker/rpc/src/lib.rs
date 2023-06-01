@@ -70,19 +70,20 @@ pub trait TimeRpcApi {
 		&self,
 		group_id: u64,
 		message: String,
+		task_id: u64,
 		signature: String,
 	) -> RpcResult<()>;
 }
 
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
-	signer: mpsc::Sender<(u64, [u8; 32])>,
+	signer: mpsc::Sender<(u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 }
 
 impl TimeRpcApiHandler {
 	/// Constructor takes channel of TSS set id and hash of the event to sign
-	pub fn new(signer: mpsc::Sender<(u64, [u8; 32])>, kv: KeystorePtr) -> Self {
+	pub fn new(signer: mpsc::Sender<(u64, u64, [u8; 32])>, kv: KeystorePtr) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -93,6 +94,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 		&self,
 		group_id: u64,
 		message: String,
+		task_id: u64,
 		signature: String,
 	) -> RpcResult<()> {
 		info!("data received ===> message == {:?}  |  signature == {:?}", message, signature);
@@ -105,7 +107,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 				}
 				let payload = SignRpcPayload::new(group_id, message, signature);
 				if payload.verify(keys[0].into()) {
-					self.signer.clone().send((payload.group_id, message)).await?;
+					self.signer.clone().send((payload.group_id, task_id, message)).await?;
 					Ok(())
 				} else {
 					Err(Error::SigVerificationFailure.into())

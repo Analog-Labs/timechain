@@ -1011,9 +1011,12 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
+	// multiplier to boost the priority of operational transactions
 	type OperationalFeeMultiplier = ConstU8<5>;
+	// charged weight = WEIGHT_FEE * weight_units_recorded
 	type WeightToFee =
 		ConstantMultiplier<Balance, ConstU128<{ runtime_common::currency::WEIGHT_FEE }>>;
+	// length fee = TransactionByteFee * encoded_tx.len()
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
@@ -1600,12 +1603,9 @@ mod tests {
 #[cfg(test)]
 mod multiplier_tests {
 	use super::*;
-	use frame_support::{
-		dispatch::DispatchInfo,
-		traits::{Get, OnFinalize},
-	};
+	use frame_support::{dispatch::DispatchInfo, traits::OnFinalize};
 	use separator::Separatable;
-	use sp_runtime::traits::{Convert, Saturating};
+	use sp_runtime::traits::Convert;
 
 	fn run_with_system_weight<F>(w: Weight, mut assertions: F)
 	where
@@ -1635,7 +1635,6 @@ mod multiplier_tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn multiplier_growth_simulator() {
 		// assume the multiplier is initially set to its minimum. We update it with values twice the
 		//target (target is 25%, thus 50%) and we see at which point it reaches 1.
@@ -1643,8 +1642,6 @@ mod multiplier_tests {
 		let block_weight = RuntimeBlockWeights::get().get(DispatchClass::Normal).max_total.unwrap();
 		let mut blocks = 0;
 		let mut fees_paid = 0;
-
-		frame_system::Pallet::<Runtime>::set_block_consumed_resources(Weight::MAX, 0);
 		let info = DispatchInfo {
 			weight: Weight::MAX,
 			..Default::default()
@@ -1656,6 +1653,7 @@ mod multiplier_tests {
 			.into();
 		// set the minimum
 		t.execute_with(|| {
+			frame_system::Pallet::<Runtime>::set_block_consumed_resources(Weight::MAX, 0);
 			pallet_transaction_payment::NextFeeMultiplier::<Runtime>::set(MinimumMultiplier::get());
 		});
 
@@ -1680,38 +1678,6 @@ mod multiplier_tests {
 					fee.separated_string(),
 					fees_paid.separated_string()
 				);
-			});
-			blocks += 1;
-		}
-	}
-
-	#[test]
-	#[ignore]
-	fn multiplier_cool_down_simulator() {
-		// assume the multiplier is initially set to its minimum. We update it with values twice the
-		//target (target is 25%, thus 50%) and we see at which point it reaches 1.
-		let mut multiplier = Multiplier::from_u32(2);
-		let mut blocks = 0;
-
-		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
-			.unwrap()
-			.into();
-		// set the minimum
-		t.execute_with(|| {
-			pallet_transaction_payment::NextFeeMultiplier::<Runtime>::set(multiplier);
-		});
-
-		while multiplier > Multiplier::from_u32(0) {
-			t.execute_with(|| {
-				// this will update the multiplier.
-				TransactionPayment::on_finalize(1);
-				let next = TransactionPayment::next_fee_multiplier();
-
-				assert!(next < multiplier, "{:?} !>= {:?}", next, multiplier);
-				multiplier = next;
-
-				println!("block = {} / multiplier {:?}", blocks, multiplier);
 			});
 			blocks += 1;
 		}

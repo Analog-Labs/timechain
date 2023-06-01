@@ -14,9 +14,9 @@ pub mod currency {
 	pub const MICROANLOG: Balance = MILLIANLOG / 1000; // 10^2
 	pub const TOCK: Balance = MICROANLOG / 100; // 1
 
-	pub const TRANSACTION_BYTE_FEE: Balance = 1 * MICROANLOG;
-	pub const STORAGE_BYTE_FEE: Balance = 6 * MILLIANLOG;
-	pub const WEIGHT_FEE: Balance = 1 * TOCK;
+	pub const TRANSACTION_BYTE_FEE: Balance = 100 * MILLIANLOG;
+	pub const STORAGE_BYTE_FEE: Balance = 500 * MICROANLOG;
+	pub const WEIGHT_FEE: Balance = 5 * MILLIANLOG;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		items as Balance * 15 * MICROANLOG + (bytes as Balance) * STORAGE_BYTE_FEE

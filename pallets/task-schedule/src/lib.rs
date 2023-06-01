@@ -82,8 +82,6 @@ pub mod pallet {
 		NoPermission,
 		/// Not a valid submitter
 		NotProxyAccount,
-		/// Fee couldn't deducted
-		FeeDeductIssue,
 		/// Proxy account(s) token usage not updated
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
@@ -104,9 +102,7 @@ pub mod pallet {
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
 			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
-			let res = T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
-
-			ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
 
 			let last_key = self::LastKey::<T>::get();
 			let schedule_id = match last_key {
@@ -168,9 +164,7 @@ pub mod pallet {
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
 			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
-			let res = T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
-
-			ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
 
 			let last_key = self::LastKey::<T>::get();
 			let schedule_id = match last_key {
@@ -252,6 +246,29 @@ pub mod pallet {
 				.collect::<Vec<_>>();
 
 			Ok(data)
+		}
+	}
+
+	pub trait ScheduleFetchInterface<AccountId> {
+		fn get_schedule_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<TaskSchedule<AccountId>>, DispatchError>;
+		fn get_payable_schedules_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<AccountId>>, DispatchError>;
+	}
+
+	impl<T: Config> ScheduleFetchInterface<T::AccountId> for Pallet<T> {
+		fn get_schedule_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_schedules_by_task_id(key)
+		}
+
+		fn get_payable_schedules_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_payable_schedules_by_task_id(key)
 		}
 	}
 }

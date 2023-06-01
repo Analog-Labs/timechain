@@ -34,12 +34,8 @@ benchmarks! {
 		assert_last_event::<T>(Event::<T>::NewTssGroupKey(s.into(), key).into());
 	}
 
-	register_shard {
-		let s in 1..256;
-	}: _(RawOrigin::Root, s.into(), vec![ALICE, BOB, CHARLIE], Some(ALICE))
-	verify {
-		assert!(<TssShards<T>>::get(s as u64).is_some());
-	}
+	register_shard { }: _(RawOrigin::Root, vec![ALICE, BOB, CHARLIE], None)
+	verify { }
 
 	impl_benchmark_test_suite!(TesseractSigStorage, crate::mock::new_test_ext(), crate::mock::Test);
 }

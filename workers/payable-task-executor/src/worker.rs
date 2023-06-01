@@ -22,7 +22,6 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
-	sign_data_sender: Sender<(u64, [u8; 32])>,
 	tx_data_sender: Sender<Vec<u8>>,
 	gossip_data_sender: Sender<Vec<u8>>,
 	kv: KeystorePtr,
@@ -44,7 +43,6 @@ where
 		let WorkerParams {
 			backend,
 			runtime,
-			sign_data_sender,
 			tx_data_sender,
 			gossip_data_sender,
 			kv,
@@ -58,7 +56,6 @@ where
 		PayableTaskExecutor {
 			backend,
 			runtime,
-			sign_data_sender,
 			tx_data_sender,
 			gossip_data_sender,
 			kv,
@@ -127,15 +124,17 @@ where
 	async fn create_wallet_and_tx(
 		&self,
 		wallet: &Wallet,
-		address: &str,
-		function_signature: &str,
-		input: &[String],
+		call_params: (&str, &str, &[String]),
 		map: &mut HashMap<u64, ()>,
-		schedule_task_id: u64,
+		schedule_id: u64,
+		shard_and_task_id: (u64, u64),
 	) {
+		let address = call_params.0;
+		let function_signature = call_params.1;
+		let input = call_params.2;
 		match wallet.eth_send_call(address, function_signature, input, 0).await {
 			Ok(tx) => {
-				map.insert(schedule_task_id, ());
+				map.insert(schedule_id, ());
 				log::info!("Successfully executed contract call {:?}", tx);
 				let eth_tx_validation = EthTxValidation {
 					blockchain: self.connector_blockchain.clone(),
@@ -143,6 +142,8 @@ where
 					url: self.connector_url.clone(),
 					tx_id: tx.hash,
 					contract_address: address.into(),
+					shard_id: shard_and_task_id.0,
+					task_id: shard_and_task_id.1,
 				};
 
 				let encoded_data = eth_tx_validation.encode();
@@ -189,13 +190,16 @@ where
 													output: _,
 												} => {
 													if self.check_if_connector(shard_id) {
+														log::info!(
+															"Running task {:?}",
+															schedule_task.1.task_id.0
+														);
 														self.create_wallet_and_tx(
 															wallet,
-															address,
-															function_signature,
-															input,
+															(address, function_signature, input),
 															map,
 															schedule_task.0,
+															(shard_id, schedule_task.1.task_id.0),
 														)
 														.await;
 													}

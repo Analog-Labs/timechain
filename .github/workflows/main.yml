@@ -115,7 +115,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Check benchmarking builds
-        run: cargo check --features runtime-benchmarks
+        run: cargo check --release --features runtime-benchmarks
 
       - name: Set up cache
         if: steps.cache-flag.outputs.cache-hit != 'true'

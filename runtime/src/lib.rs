@@ -1015,6 +1015,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type Timestamp = Timestamp;
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
+	type TaskScheduleHelper = TaskSchedule;
 }
 
 parameter_types! {
@@ -1410,7 +1411,6 @@ impl_runtime_apis! {
 		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::api_tss_shards()
 		}
-
 
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
 			TaskMeta::get_tasks()

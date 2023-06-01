@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
+use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header};
 use std::{
@@ -22,7 +23,7 @@ use std::{
 	task::Poll,
 	time::{Duration, Instant},
 };
-use time_primitives::{TimeApi, KEY_TYPE};
+use time_primitives::{abstraction::EthTxValidation, TimeApi, KEY_TYPE};
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
 
@@ -98,7 +99,9 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: mpsc::Receiver<(u64, [u8; 32])>,
+	sign_data_receiver: mpsc::Receiver<(u64, u64, [u8; 32])>,
+	tx_data_sender: mpsc::Sender<Vec<u8>>,
+	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
 	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
@@ -122,6 +125,8 @@ where
 			gossip_validator,
 			kv,
 			sign_data_receiver,
+			tx_data_sender,
+			gossip_data_receiver,
 			accountid,
 		} = worker_params;
 		TimeWorker {
@@ -133,6 +138,8 @@ where
 			_gossip_validator: gossip_validator,
 			kv,
 			sign_data_receiver,
+			tx_data_sender,
+			gossip_data_receiver,
 			shards: Default::default(),
 			accountid,
 			timeouts: Default::default(),
@@ -199,6 +206,10 @@ where
 					debug!(target: TW_LOG, "Storing tss signature");
 					self.timeouts.remove(&(shard_id, Some(hash)));
 					if shard.is_collector {
+						let Some(task_id) = shard.tss.event_id_map.get(&hash) else {
+							log::error!("Failed to store signature, Task id not found for hash {:?}", hash);
+							return;
+						};
 						let tss_signature = tss_signature.to_bytes();
 						let at = self.backend.blockchain().last_finalized().unwrap();
 						let signature = self
@@ -214,10 +225,11 @@ where
 								public_key.into(),
 								signature.into(),
 								tss_signature,
-								// TODO: set task id
-								0u128.into(),
+								(*task_id).into(),
 							)
 							.unwrap();
+						log::info!("stored signature for task {:?}", task_id);
+						shard.tss.event_id_map.remove(&hash);
 					}
 				},
 				TssAction::Report(offender, hash) => {
@@ -290,7 +302,7 @@ where
 					self.on_finality(notification, public_key);
 				},
 				new_sig = self.sign_data_receiver.next().fuse() => {
-					let Some((shard_id, data)) = new_sig else {
+					let Some((shard_id, task_id, data)) = new_sig else {
 						continue;
 					};
 					let Some(public_key) = self.public_key() else {
@@ -299,25 +311,40 @@ where
 					let Some(shard) = self.shards.get_mut(&shard_id) else {
 						continue;
 					};
-					shard.tss.sign(data.to_vec());
+					shard.tss.sign(data.to_vec(), task_id);
 					self.poll_actions(shard_id, public_key);
+				},
+				gossip_data = self.gossip_data_receiver.next().fuse() => {
+					let Some(bytes) = gossip_data else{
+						continue;
+					};
+					log::info!("got tx data for verifying, sending to network",);
+					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
 				},
 				gossip = gossips.next().fuse() => {
 					let Some(notification) = gossip else {
 						debug!(target: TW_LOG, "no new gossip");
 						continue;
 					};
-					let Ok(TimeMessage { shard_id, sender, payload }) = TimeMessage::decode(&notification.message) else {
-						debug!(target: TW_LOG, "received invalid message");
-						continue;
-					};
 					let Some(public_key) = self.public_key() else {
 						continue;
 					};
-					debug!(target: TW_LOG, "received gossip message");
-					let shard = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-					shard.tss.on_message(sender, payload);
-					self.poll_actions(shard_id, public_key);
+					if let Ok(TimeMessage { shard_id, sender, payload }) = TimeMessage::decode(&notification.message){
+						debug!(target: TW_LOG, "received gossip message");
+						let shard = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+						shard.tss.on_message(sender, payload);
+						self.poll_actions(shard_id, public_key);
+
+					} else if let Ok(data) = EthTxValidation::decode(&mut &notification.message[..]) {
+						debug!(target: TW_LOG, "received gossip message for ethereum transaction validation");
+						self.tx_data_sender.clone().try_send(data.encode()).unwrap_or_else(|e| {
+							warn!(target: TW_LOG, "Failed to send tx data: {}", e);
+						});
+
+					}else{
+						debug!(target: TW_LOG, "received invalid message");
+						continue;
+					}
 				},
 				_ = timeout.fuse() => {
 					let mut next_timeout = None;

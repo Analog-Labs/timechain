@@ -1,7 +1,8 @@
 //! common types and constants used in both pallet tests and runtime
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Money matters
+pub mod weights;
+
 pub mod currency {
 
 	pub type Balance = u128;

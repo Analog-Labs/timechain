@@ -18,14 +18,19 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		abstraction::{ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule},
+		abstraction::{
+			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
+			TaskSchedule,
+		},
 		PalletAccounts, ProxyExtend,
 	};
 	pub type KeyId = u64;
 	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
+	pub type PayableScheduleResults<AccountId> = Vec<(KeyId, PayableTaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
+		fn insert_payable_schedule() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -48,6 +53,11 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn get_payable_task_schedule)]
+	pub type PayableScheduleStorage<T: Config> =
+		StorageMap<_, Blake2_128Concat, KeyId, PayableTaskSchedule<T::AccountId>, OptionQuery>;
+
+	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	#[pallet::event]
@@ -61,6 +71,9 @@ pub mod pallet {
 
 		///Already exist case
 		AlreadyExist(KeyId),
+
+		// Payable Schedule
+		PayableScheduleStored(KeyId),
 	}
 
 	#[pallet::error]
@@ -69,8 +82,6 @@ pub mod pallet {
 		NoPermission,
 		/// Not a valid submitter
 		NotProxyAccount,
-		/// Fee couldn't deducted
-		FeeDeductIssue,
 		/// Proxy account(s) token usage not updated
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
@@ -91,9 +102,7 @@ pub mod pallet {
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
 			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
-			let res = T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
-
-			ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
 
 			let last_key = self::LastKey::<T>::get();
 			let schedule_id = match last_key {
@@ -139,6 +148,43 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::insert_payable_schedule())]
+		pub fn insert_payable_task_schedule(
+			origin: OriginFor<T>,
+			schedule: PayableScheduleInput,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let fix_fee = T::ScheduleFee::get();
+			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			ensure!(resp, Error::<T>::NotProxyAccount);
+			let treasury = T::PalletAccounts::get_treasury();
+
+			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
+			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
+			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
+			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
+
+			let last_key = self::LastKey::<T>::get();
+			let schedule_id = match last_key {
+				Some(val) => val.saturating_add(1),
+				None => 1,
+			};
+			self::LastKey::<T>::put(schedule_id);
+			self::PayableScheduleStorage::<T>::insert(
+				schedule_id,
+				PayableTaskSchedule {
+					task_id: schedule.task_id,
+					owner: who,
+					shard_id: schedule.shard_id,
+					status: ScheduleStatus::Initiated,
+				},
+			);
+			Self::deposit_event(Event::PayableScheduleStored(schedule_id));
+
+			Ok(())
+		}
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
@@ -181,6 +227,48 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+
+		pub fn get_payable_task_schedules(
+		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
+			let data_list = self::PayableScheduleStorage::<T>::iter()
+				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.collect::<Vec<_>>();
+
+			Ok(data_list)
+		}
+
+		pub fn get_payable_schedules_by_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+			let data = self::PayableScheduleStorage::<T>::iter_values()
+				.filter(|item| item.task_id == key)
+				.collect::<Vec<_>>();
+
+			Ok(data)
+		}
+	}
+
+	pub trait ScheduleFetchInterface<AccountId> {
+		fn get_schedule_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<TaskSchedule<AccountId>>, DispatchError>;
+		fn get_payable_schedules_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<AccountId>>, DispatchError>;
+	}
+
+	impl<T: Config> ScheduleFetchInterface<T::AccountId> for Pallet<T> {
+		fn get_schedule_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_schedules_by_task_id(key)
+		}
+
+		fn get_payable_schedules_via_task_id(
+			key: ObjectId,
+		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_payable_schedules_by_task_id(key)
 		}
 	}
 }

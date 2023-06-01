@@ -3,6 +3,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
+mod weights;
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -24,7 +26,10 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_session::historical as pallet_session_historical;
-pub use runtime_common::currency::*;
+pub use runtime_common::{
+	currency::*,
+	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
+};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -46,7 +51,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule};
+use time_primitives::abstraction::{
+	PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule,
+};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -56,10 +63,7 @@ pub use frame_support::{
 		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
 		OnUnbalanced, Randomness, StorageInfo,
 	},
-	weights::{
-		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-		IdentityFee, Weight,
-	},
+	weights::{constants::RocksDbWeight, IdentityFee, Weight},
 	PalletId, StorageValue,
 };
 pub use frame_system::Call as SystemCall;
@@ -532,7 +536,7 @@ impl frame_system::Config for Runtime {
 	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
 	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
+	type SystemWeightInfo = weights::system::WeightInfo<Runtime>;
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	/// The set code logic, just the default since we're not a parachain.
@@ -894,7 +898,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Babe;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = ();
+	type WeightInfo = weights::timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -923,7 +927,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type HoldIdentifier = ();
@@ -1024,6 +1028,7 @@ impl pallet_utility::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1035,11 +1040,12 @@ parameter_types! {
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_tesseract_sig_storage::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
 	type Moment = u64;
 	type Timestamp = Timestamp;
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
+	type TaskScheduleHelper = TaskSchedule;
 }
 
 parameter_types! {
@@ -1116,7 +1122,7 @@ impl task_schedule::Config for Runtime {
 
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::proxy::WeightInfo<Runtime>;
 	type Currency = Balances;
 }
 
@@ -1436,7 +1442,6 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
-
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
 			TaskMeta::get_tasks()
 		}
@@ -1451,6 +1456,18 @@ impl_runtime_apis! {
 
 		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
 			TaskSchedule::update_schedule_by_key(status,key)
+		}
+
+		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
+			TaskMeta::get_payable_tasks()
+		}
+
+		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError> {
+			TaskMeta::get_payable_task_metadata_by_key(key)
+		}
+
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_payable_task_schedules()
 		}
 
 		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {

@@ -142,7 +142,7 @@ pub fn new_partial(
 
 /// Builds a new service for a full client.
 pub fn new_full(
-	mut config: Configuration,
+	config: Configuration,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
@@ -158,23 +158,21 @@ pub fn new_full(
 		other: (block_import, grandpa_link, babe_link, mut telemetry),
 	} = new_partial(&config)?;
 
+	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+
 	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
 
-	config
-		.network
-		.extra_sets
-		.push(sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+	net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
+		grandpa_protocol_name.clone(),
+	));
 
 	// registering time p2p gossip protocol
-	config
-		.network
-		.extra_sets
-		.push(time_worker::time_protocol_name::time_peers_set_config(
-			time_worker::time_protocol_name::gossip_protocol_name(),
-		));
+	net_config.add_notification_protocol(time_worker::time_protocol_name::time_peers_set_config(
+		time_worker::time_protocol_name::gossip_protocol_name(),
+	));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -191,6 +189,7 @@ pub fn new_full(
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(sc_service::WarpSyncParams::WithProvider(warp_sync)),
+			net_config,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -211,6 +210,8 @@ pub fn new_full(
 	let keystore = keystore_container.keystore();
 
 	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
+	let (tx_data_sender, tx_data_receiver) = mpsc::channel(400);
+	let (gossip_data_sender, gossip_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -337,6 +338,8 @@ pub fn new_full(
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_receiver,
+			tx_data_sender: tx_data_sender.clone(),
+			gossip_data_receiver,
 			accountid: PhantomData,
 			sync_service,
 		};
@@ -347,13 +350,14 @@ pub fn new_full(
 			time_worker::start_timeworker_gadget(time_params),
 		);
 
-		//Injecting connector worker
-		let connector_params = connector_worker::ConnectorWorkerParams {
+		//Injecting event worker
+		let event_params = event_worker::EventWorkerParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender: sign_data_sender.clone(),
+			tx_data_receiver,
 			accountid: PhantomData,
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
@@ -361,26 +365,44 @@ pub fn new_full(
 		};
 
 		task_manager.spawn_essential_handle().spawn_blocking(
-			"connector-worker",
+			"event-worker",
 			None,
-			connector_worker::start_connectorworker_gadget(connector_params),
+			event_worker::start_eventworker_gadget(event_params),
 		);
 
 		let taskexecutor_params = task_executor::TaskExecutorParams {
+			runtime: client.clone(),
+			backend: backend.clone(),
+			kv: keystore_container.keystore(),
+			_block: PhantomData::default(),
+			sign_data_sender,
+			accountid: PhantomData,
+			connector_url: connector_url.clone(),
+			connector_blockchain: connector_blockchain.clone(),
+			connector_network: connector_network.clone(),
+		};
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"task-executor",
+			None,
+			task_executor::start_taskexecutor_gadget(taskexecutor_params),
+		);
+
+		let payabletaskexecutor_params = payable_task_executor::PayableTaskExecutorParams {
 			runtime: client,
 			backend,
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
-			sign_data_sender,
+			tx_data_sender,
+			gossip_data_sender,
 			accountid: PhantomData,
 			connector_url,
 			connector_blockchain,
 			connector_network,
 		};
 		task_manager.spawn_essential_handle().spawn_blocking(
-			"task-executor",
+			"payable-task-executor",
 			None,
-			task_executor::start_taskexecutor_gadget(taskexecutor_params),
+			payable_task_executor::start_payabletaskexecutor_gadget(payabletaskexecutor_params),
 		)
 	}
 

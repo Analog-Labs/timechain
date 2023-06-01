@@ -7,15 +7,14 @@ pub mod rpc;
 pub mod sharding;
 pub mod slashing;
 
-use abstraction::{ScheduleStatus, Task, TaskSchedule};
-use arrayref::array_ref;
+use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
 	DispatchError, DispatchResult, MultiSignature,
 };
-use sp_std::{borrow::ToOwned, fmt::Debug, vec::Vec};
+use sp_std::{fmt::Debug, vec::Vec};
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
 
@@ -44,7 +43,10 @@ sp_api::decl_runtime_apis! {
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
-		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult;
+		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
+		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError>;
+		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
 		fn report_misbehavior(
 			shard_id: u64,
 			offender: TimeId,
@@ -112,8 +114,11 @@ impl ForeignEventId {
 
 	/// Returns task id from appropriate portion of bytes
 	pub fn task_id(&self) -> u32 {
-		let bytes = self.0.to_le_bytes();
-		u32::from_le_bytes(array_ref!(bytes, 12, 4).to_owned())
+		self.0 as u32
+
+		// This is not giving right number?
+		// let bytes = self.0.to_le_bytes();
+		// u32::from_le_bytes(array_ref!(bytes, 12, 4).to_owned())
 	}
 }
 

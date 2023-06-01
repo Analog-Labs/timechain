@@ -26,9 +26,8 @@ fn test_signature_storage() {
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, BOB, CHARLIE],
-			Some(ALICE),
+			Some(0),
 		),);
 
 		// insert schedule
@@ -67,9 +66,8 @@ fn test_recurring_signature() {
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, BOB, CHARLIE],
-			Some(ALICE),
+			Some(0),
 		),);
 
 		// insert schedule
@@ -111,9 +109,8 @@ fn test_duplicate_signature() {
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, BOB, CHARLIE],
-			Some(ALICE),
+			Some(0),
 		),);
 
 		// insert schedule

@@ -34,9 +34,8 @@ fn test_register_shard_fails_if_member_len_not_supported() {
 		assert_noop!(
 			TesseractSigStorage::register_shard(
 				RawOrigin::Root.into(),
-				0, // setId is 0
 				vec![ALICE, BOB, CHARLIE, DJANGO],
-				Some(ALICE),
+				Some(0),
 			),
 			Error::<Test>::UnsupportedMembershipSize
 		);
@@ -51,9 +50,8 @@ fn test_register_shard_works_for_supported_member_lengths() {
 		// supports 3
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			members.clone(),
-			Some(ALICE),
+			Some(1),
 		));
 
 		// supports 5
@@ -61,57 +59,28 @@ fn test_register_shard_works_for_supported_member_lengths() {
 		members.push(TimeId::new([5u8; 32]));
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			1, // setId is 0
 			members.clone(),
-			Some(ALICE),
+			Some(1),
 		));
 
 		// supports 10
 		for i in 6..=10 {
 			members.push(TimeId::new([i as u8; 32]));
 		}
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			2, // setId is 0
-			members,
-			Some(ALICE),
-		));
+		assert_ok!(TesseractSigStorage::register_shard(RawOrigin::Root.into(), members, Some(1),));
 	});
 }
 
 #[test]
-fn test_register_shard_fails_if_collector_not_in_membership() {
+fn test_register_shard_fails_if_collector_index_invalid() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TesseractSigStorage::register_shard(
 				RawOrigin::Root.into(),
-				0, // setId is 0
 				vec![ALICE, BOB, CHARLIE],
-				Some(DJANGO),
+				Some(4),
 			),
-			Error::<Test>::CollectorNotInMembers
-		);
-	});
-}
-
-#[test]
-fn test_register_shard_fails_if_shard_id_taken() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			0, // setId is 0
-			vec![ALICE, BOB, CHARLIE],
-			Some(ALICE),
-		));
-
-		assert_noop!(
-			TesseractSigStorage::register_shard(
-				RawOrigin::Root.into(),
-				0, // setId is 0
-				vec![ALICE, BOB, CHARLIE],
-				Some(ALICE),
-			),
-			Error::<Test>::ShardAlreadyRegistered
+			Error::<Test>::CollectorIndexBeyondMemberLen
 		);
 	});
 }
@@ -130,9 +99,8 @@ fn test_api_report_misbehavior_increments_report_count() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(alice.into()),
+			Some(1),
 		));
 
 		// report 1st offence
@@ -177,9 +145,8 @@ fn test_api_report_misbehavior_updates_reporters() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(alice.into()),
+			Some(1),
 		));
 
 		// report 1st offence
@@ -229,9 +196,8 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(alice.into()),
+			Some(1),
 		));
 		// To report offence, need to sign the public key
 
@@ -288,9 +254,8 @@ fn test_api_report_misbehavior_for_group_len_5() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, BOB, charlie.into(), david.into(), edward.into()],
-			Some(charlie.into()),
+			Some(1),
 		));
 		// To report offence, need to sign the public key
 
@@ -366,7 +331,6 @@ fn test_api_report_misbehavior_for_group_len_10() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![
 				ALICE,
 				BOB,
@@ -379,7 +343,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 				indigo.into(),
 				jared.into()
 			],
-			Some(edward.into()),
+			Some(1),
 		));
 		// To report offence, need to sign the public key
 
@@ -474,9 +438,8 @@ fn can_report_offence_if_already_committed_offender() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, bob.into(), charlie.into(), david.into(), edward.into()],
-			Some(charlie.into()),
+			Some(1),
 		));
 
 		// report 1st offence
@@ -547,9 +510,8 @@ fn cannot_report_more_than_once_per_offender_by_member() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			0, // setId is 0
 			vec![ALICE, bob.into(), CHARLIE, DJANGO, edward.into()],
-			Some(CHARLIE),
+			Some(1),
 		));
 
 		// report 1st offence

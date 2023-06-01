@@ -6,7 +6,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub mod weights;
+pub mod shard;
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -14,6 +14,7 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::shard::*;
 	use frame_support::{pallet_prelude::*, traits::Time};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
@@ -33,7 +34,19 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
-		fn register_shard(_s: u32) -> Weight;
+		fn register_shard() -> Weight;
+	}
+
+	impl WeightInfo for () {
+		fn store_signature(_s: u32) -> Weight {
+			Weight::from_parts(0, 1)
+		}
+		fn submit_tss_group_key(_s: u32) -> Weight {
+			Weight::from_parts(0, 1)
+		}
+		fn register_shard() -> Weight {
+			Weight::from_parts(0, 1)
+		}
 	}
 
 	#[pallet::pallet]
@@ -58,6 +71,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn shard_id)]
+	/// Counter for creating unique shard_ids during on-chain creation
+	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
@@ -113,12 +131,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The Tesseract address in not known
-		UnknownTesseract,
-
-		/// Shard already registered
-		ShardAlreadyRegistered,
-
 		/// Shard registartion failed because wrong number of members
 		/// NOTE: supported sizes are 3, 5, and 10
 		UnsupportedMembershipSize,
@@ -138,8 +150,8 @@ pub mod pallet {
 		/// Reporter or offender not in members
 		ReporterOrOffenderNotInMembers,
 
-		/// Collector not in members
-		CollectorNotInMembers,
+		/// Cannot set collector if they are already in that role
+		AlreadyCollector,
 
 		/// Shard does not exist in storage
 		ShardIsNotRegistered,
@@ -149,6 +161,12 @@ pub mod pallet {
 
 		/// Do not allow more than one misbehavior report of offender by member
 		MaxOneReportPerMember,
+
+		/// ShardId generation overflowed u64 type
+		ShardIdOverflow,
+
+		/// Collector index exceeds length of members
+		CollectorIndexBeyondMemberLen,
 	}
 
 	#[pallet::inherent]
@@ -245,28 +263,26 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Root can register new shard via providing not used set_id and
+		/// Root can register new shard via providing
 		/// set of IDs matching one of supported size of shard
 		/// # Param
-		/// * set_id - not yet used ID of new shard
 		/// * members - supported sized set of shard members Id
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::register_shard(1))]
+		#[pallet::weight(T::WeightInfo::register_shard())]
 		pub fn register_shard(
 			origin: OriginFor<T>,
-			set_id: u64,
 			members: Vec<TimeId>,
-			collector: Option<TimeId>,
+			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(!<TssShards<T>>::contains_key(set_id), Error::<T>::ShardAlreadyRegistered);
-			let mut shard =
-				Shard::try_from(members).map_err(|_| Error::<T>::UnsupportedMembershipSize)?;
-			if let Some(collector) = collector {
-				ensure!(shard.set_collector(&collector).is_ok(), Error::<T>::CollectorNotInMembers);
-			}
-			<TssShards<T>>::insert(set_id, shard);
-			Self::deposit_event(Event::ShardRegistered(set_id));
+			let shard = new_shard::<T>(members, collector_index)?;
+			// get unused ShardId from storage
+			let shard_id = <ShardId<T>>::get();
+			// compute next ShardId before putting it in storage
+			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
+			<TssShards<T>>::insert(shard_id, shard);
+			<ShardId<T>>::put(next_shard_id);
+			Self::deposit_event(Event::ShardRegistered(shard_id));
 			Ok(())
 		}
 	}

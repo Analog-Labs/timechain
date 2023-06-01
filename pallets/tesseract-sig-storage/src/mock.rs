@@ -172,7 +172,7 @@ impl task_schedule::Config for Test {
 
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = super::weights::WeightInfo<Test>;
+	type WeightInfo = ();
 	type Moment = Moment;
 	type Timestamp = Timestamp;
 	type SlashingPercentage = SlashingPercentage;

@@ -21,7 +21,7 @@ pub struct EventWorker<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
-	sign_data_sender: Sender<(u64, [u8; 32])>,
+	sign_data_sender: Sender<(u64, u64, [u8; 32])>,
 	tx_data_receiver: Receiver<Vec<u8>>,
 	kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
@@ -68,24 +68,23 @@ where
 
 	pub async fn process_tx_validation_req(
 		&self,
-		eth_tx_data: EthTxValidation,
+		blockchain: Option<String>,
+		network: Option<String>,
+		url: Option<String>,
+		tx_id: String,
+		contract_address: String,
 	) -> Result<[u8; 32], Box<dyn Error>> {
-		let (config, client) =
-			create_client(eth_tx_data.blockchain, eth_tx_data.network, eth_tx_data.url)
-				.await
-				.unwrap();
+		let (config, client) = create_client(blockchain, network, url).await.unwrap();
 
 		let call_req = CallRequest {
 			network_identifier: config.network(),
-			method: format!("{}--transaction_receipt", eth_tx_data.tx_id),
+			method: format!("{tx_id}--transaction_receipt"),
 			parameters: json!({}),
 		};
 
-		let received_tx = eth_tx_data.tx_id.strip_prefix("0x").unwrap_or(&eth_tx_data.tx_id);
-		let received_contract_address = eth_tx_data
-			.contract_address
-			.strip_prefix("0x")
-			.unwrap_or(&eth_tx_data.contract_address);
+		let received_tx = tx_id.strip_prefix("0x").unwrap_or(&tx_id);
+		let received_contract_address =
+			contract_address.strip_prefix("0x").unwrap_or(&contract_address);
 
 		let receipt = client.call(&call_req).await.unwrap();
 		let result = receipt.result;
@@ -116,13 +115,20 @@ where
 					let Some(data) = data else{
 						continue;
 					};
-					let Ok(eth_tx_validation) = EthTxValidation::decode(&mut &data[..]) else {
+					let Ok(EthTxValidation{
+						blockchain,
+						network,
+						url,
+						tx_id,
+						contract_address,
+						shard_id,
+						task_id,
+					}) = EthTxValidation::decode(&mut &data[..]) else {
 						continue;
 					};
-					match self.process_tx_validation_req(eth_tx_validation).await{
+					match self.process_tx_validation_req(blockchain, network, url, tx_id, contract_address).await{
 						Ok(keccak_hash) => {
-							// process validated successfully
-							sign_data_sender_clone.try_send((1, keccak_hash)).unwrap();
+							sign_data_sender_clone.try_send((shard_id, task_id, keccak_hash)).unwrap();
 							log::info!("sent data for signing");
 						}
 						Err(e) => {

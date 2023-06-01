@@ -205,4 +205,6 @@ pub struct EthTxValidation {
 	pub url: Option<String>,
 	pub tx_id: String,
 	pub contract_address: String,
+	pub shard_id: u64,
+	pub task_id: u64,
 }

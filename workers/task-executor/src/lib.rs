@@ -26,7 +26,7 @@ where
 	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
-	pub sign_data_sender: Sender<(u64, [u8; 32])>,
+	pub sign_data_sender: Sender<(u64, u64, [u8; 32])>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,

@@ -15,7 +15,10 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::shard::*;
-	use frame_support::{pallet_prelude::*, traits::Time};
+	use frame_support::{
+		pallet_prelude::{ValueQuery, *},
+		traits::Time,
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
@@ -24,7 +27,9 @@ pub mod pallet {
 		Percent, SaturatedConversion, Saturating,
 	};
 	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
+	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
+		abstraction::ObjectId,
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
@@ -70,6 +75,8 @@ pub mod pallet {
 		/// Slashing threshold percentage for commiting misbehavior consensus
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
+
+		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
 	}
 
 	#[pallet::storage]
@@ -90,7 +97,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
 	pub type SignatureStoreData<T: Config> =
-		StorageMap<_, Blake2_128Concat, ForeignEventId, SignatureData, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ForeignEventId, BTreeSet<SignatureData>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reported_offences)]
@@ -167,6 +174,18 @@ pub mod pallet {
 
 		/// Collector index exceeds length of members
 		CollectorIndexBeyondMemberLen,
+
+		/// Invalid Caller,
+		InvalidCaller,
+
+		/// Task not scheduled
+		TaskNotScheduled,
+
+		/// Invalid collector id
+		InvalidCollectorId,
+
+		///TSS Signature already added
+		DuplicateSignature,
 	}
 
 	#[pallet::inherent]
@@ -237,13 +256,32 @@ pub mod pallet {
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
+			let task_id = ObjectId(event_id.task_id().into());
 
-			// TODO: based on 'event_id.task_id()' find task, get ShardId from it and check if
-			// origin is a collector node of that shard this should be implemented after some task
-			// management pallet is present and coupled with this one
+			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
 
-			<SignatureStoreData<T>>::insert(event_id, signature_data);
+			let Some(schedule) = schedule_data.first() else{
+				return Err(Error::<T>::TaskNotScheduled.into());
+			};
+
+			let shard =
+				<TssShards<T>>::get(schedule.shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let collector = shard.collector();
+			let collector_account_id = T::AccountId::decode(&mut collector.as_ref())
+				.map_err(|_| Error::<T>::InvalidCollectorId)?;
+
+			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
+
+			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
+				ensure!(
+					signature_set.get(&signature_data).is_none(),
+					Error::<T>::DuplicateSignature
+				);
+				signature_set.insert(signature_data);
+				Ok(())
+			})?;
+
 			Self::deposit_event(Event::SignatureStored(event_id));
 			Ok(())
 		}
@@ -300,11 +338,20 @@ pub mod pallet {
 			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
 			ensure!(encoded_account[..] != [0u8; 32][..], Error::<T>::DefaultAccountForbidden);
 			// TODO: same check as for extrinsic after task management is implemented
+			// Update: implemnetation here is not necessary since this function will be removed
+			// and only extrinsics will be used to store signature.
 			ensure!(
 				auth_sig.verify(signature_data.as_ref(), &auth_id),
 				Error::<T>::UnregisteredWorkerDataSubmission
 			);
-			<SignatureStoreData<T>>::insert(event_id, signature_data);
+			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
+				ensure!(
+					signature_set.get(&signature_data).is_none(),
+					Error::<T>::DuplicateSignature
+				);
+				signature_set.insert(signature_data);
+				Ok(())
+			})?;
 			Self::deposit_event(Event::SignatureStored(event_id));
 			Ok(())
 		}

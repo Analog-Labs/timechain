@@ -153,12 +153,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
 			let data_list = self::TaskMetaStorage::<T>::get(key);
-
-			match data_list {
-				Some(val) => Ok(Some(val)),
-				None => Ok(None),
-			}
+			Ok(data_list)
 		}
+
 		pub fn get_tasks() -> Result<Vec<Task>, DispatchError> {
 			let data_list = self::TaskMetaStorage::<T>::iter_values().collect::<Vec<_>>();
 

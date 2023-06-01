@@ -1,5 +1,10 @@
-# Architecture of Blockchain Client
+# Architecture of Timechain Node
  A blockchain client is a software application that enables users to interact with a blockchain network. It provides the necessary tools and interfaces for users to create, manage, and interact with their blockchain assets. The architecture of a blockchain client can be divided into four main components: the summary, modules, interface, and reference.
+
+ Timechain node is a software that enable users to join a blockchain network, to create p2p connection and participate the blockchain consensus. Timechain node is based on the Substrate framework. The software includes the p2p network, runtime, client, wasm execution, rpc, pallets and so on.
+
+ Except all these functionalities for a blockchain node, the Timechain node can run other application like TSS, task execution and so on. All these functions are run in the chronicle worker, which share the same process with Substrate client. Chronicle worker starts with some handlers from Substrate components like p2p network, the grandpa message notifier, Substrate backend, rpc service, runtime api and so on.  So chronicle worker can easily access all service from Substrate node.
+ 
  ## Summary
  The summary is a brief overview of the blockchain client architecture. It describes the main features and functionalities of the client, as well as its overall design. The summary should be concise and provide a clear understanding of what the blockchain client is and what it does.
  ## Modules

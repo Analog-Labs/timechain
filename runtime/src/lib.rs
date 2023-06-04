@@ -11,6 +11,7 @@ use log;
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use frame_system::{limits::BlockWeights, EnsureRoot, EnsureSigned};
 
+use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	generate_solution_type, onchain, ExtendedBalance, SequentialPhragmen,
 };
@@ -19,12 +20,11 @@ use frame_support::{
 	traits::{EitherOfDiverse, Imbalance},
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use codec::{Encode, Decode};
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::{
 	constants::ANLOG,
@@ -488,7 +488,6 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
@@ -498,8 +497,11 @@ where
 		public: <Signature as sp_runtime::traits::Verify>::Signer,
 		account: AccountId,
 		nonce: Index,
-	) -> Option<(RuntimeCall, <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
-		let tip = 0;
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		// let tip = 0;
 		// take the biggest period possible.
 		let period =
 			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
@@ -1055,12 +1057,11 @@ impl pallet_utility::Config for Runtime {
 // 	type RuntimeEvent = RuntimeEvent;
 // 	type Fungibles = Assets;
 // 	type OnChargeAssetTransaction = ();
-	// pallet_asset_tx_payment::FungiblesAdapter<
-	// 	pallet_assets::BalanceToAssetBalance<Balances, Runtime, sp_runtime::traits::ConvertInto, frame_support::instances::Instance1>,
-	// 	CreditToBlockAuthor,
-	// >;
+// pallet_asset_tx_payment::FungiblesAdapter<
+// 	pallet_assets::BalanceToAssetBalance<Balances, Runtime, sp_runtime::traits::ConvertInto, frame_support::instances::Instance1>,
+// 	CreditToBlockAuthor,
+// >;
 // }
-
 
 // parameter_types! {
 // 	pub const AssetDeposit: Balance = 100 * DOLLARS;

@@ -28,9 +28,6 @@ pallet-collective  = { version = "4.0.0-dev", default-features = false, git = "h
 
 pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-
-pallet-asset-tx-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-pallet-assets = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43"	}
 sp-io = { version = "7.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 
 frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
@@ -133,8 +130,6 @@ std = [
 	"task-metadata/std",
 	"task-meta-bench/std",
 	"task-schedule-bench/std",
-	"pallet-asset-tx-payment/std",
-	"pallet-assets/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

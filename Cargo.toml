@@ -9,6 +9,7 @@ members = [
     "pallets/tesseract-sig-storage",
     "pallets/vesting",
     "primitives/time-primitives",
+    "primitives/ocw",
     "runtime",
     "runtime/common",
     "tss",

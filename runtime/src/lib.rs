@@ -4,6 +4,7 @@
 #![recursion_limit = "256"]
 
 mod weights;
+use log;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -19,8 +20,7 @@ use frame_support::{
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-
-use codec::Decode;
+use codec::{Encode, Decode};
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -488,6 +488,62 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		public: <Signature as sp_runtime::traits::Verify>::Signer,
+		account: AccountId,
+		nonce: Index,
+	) -> Option<(RuntimeCall, <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+		let tip = 0;
+		// take the biggest period possible.
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		let current_block = System::block_number()
+			.saturated_into::<u64>()
+			// The `System::block_number` is initialized with `n+1`,
+			// so the actual block number is `n`.
+			.saturating_sub(1);
+		let era = sp_runtime::generic::Era::mortal(period, current_block);
+		let extra = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			// pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+		);
+		let raw_payload = SignedPayload::new(call, extra)
+			.map_err(|e| {
+				log::warn!("Unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		// let address = Indices::unlookup(account);
+		let (call, extra, _) = raw_payload.deconstruct();
+		Some((call, (sp_runtime::MultiAddress::Id(account), signature, extra)))
+	}
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
 // Configure FRAME pallets to include in runtime.
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
@@ -541,13 +597,13 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-	RuntimeCall: From<C>,
-{
-	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
-}
+// impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+// where
+// 	RuntimeCall: From<C>,
+// {
+// 	type Extrinsic = UncheckedExtrinsic;
+// 	type OverarchingCall = RuntimeCall;
+// }
 
 parameter_types! {
 	pub EpochDuration: u64 = 8 * HOURS as u64;
@@ -995,6 +1051,48 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
+// impl pallet_asset_tx_payment::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type Fungibles = Assets;
+// 	type OnChargeAssetTransaction = ();
+	// pallet_asset_tx_payment::FungiblesAdapter<
+	// 	pallet_assets::BalanceToAssetBalance<Balances, Runtime, sp_runtime::traits::ConvertInto, frame_support::instances::Instance1>,
+	// 	CreditToBlockAuthor,
+	// >;
+// }
+
+
+// parameter_types! {
+// 	pub const AssetDeposit: Balance = 100 * DOLLARS;
+// 	pub const ApprovalDeposit: Balance = 1 * DOLLARS;
+// 	pub const StringLimit: u32 = 50;
+// 	pub const MetadataDepositBase: Balance = 10 * DOLLARS;
+// 	pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
+// }
+
+// impl pallet_assets::Config<frame_support::instances::Instance1> for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type Balance = u128;
+// 	type AssetId = u32;
+// 	type AssetIdParameter = codec::Compact<u32>;
+// 	type Currency = Balances;
+// 	type CreateOrigin = EnsureRoot<AccountId>;
+// 	type ForceOrigin = EnsureRoot<AccountId>;
+// 	type AssetDeposit = AssetDeposit;
+// 	type AssetAccountDeposit = ConstU128<DOLLARS>;
+// 	type MetadataDepositBase = MetadataDepositBase;
+// 	type MetadataDepositPerByte = MetadataDepositPerByte;
+// 	type ApprovalDeposit = ApprovalDeposit;
+// 	type StringLimit = StringLimit;
+// 	type Freezer = ();
+// 	type Extra = ();
+// 	type CallbackHandle = ();
+// 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+// 	type RemoveItemsLimit = ConstU32<1000>;
+// 	#[cfg(feature = "runtime-benchmarks")]
+// 	type BenchmarkHelper = ();
+// }
+
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1118,6 +1216,8 @@ construct_runtime!(
 		VoterList: pallet_bags_list,
 		Historical: pallet_session_historical,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
+		// Assets: pallet_assets::<frame_support::instances::Instance1>,
+		// AssetTxPayment: pallet_asset_tx_payment,
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
@@ -1145,7 +1245,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.

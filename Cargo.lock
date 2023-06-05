@@ -5548,21 +5548,14 @@ dependencies = [
 name = "offchain-call"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "arrayref",
  "frame-system",
  "log",
  "pallet-tesseract-sig-storage",
  "parity-scale-codec",
  "scale-info",
- "serde",
- "sp-api",
  "sp-application-crypto",
  "sp-core",
- "sp-inherents",
  "sp-runtime",
- "sp-std",
- "thiserror",
  "time-primitives",
  "timechain-runtime",
 ]

@@ -31,7 +31,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ProxyExtend: ProxyExtend<Self::AccountId>;
+		type ProxyExtend: ProxyExtend<Self::AccountId, u128>;
 	}
 
 	#[pallet::storage]

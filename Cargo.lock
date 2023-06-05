@@ -5545,7 +5545,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ocw"
+name = "offchain-call"
 version = "0.1.0"
 dependencies = [
  "anyhow",

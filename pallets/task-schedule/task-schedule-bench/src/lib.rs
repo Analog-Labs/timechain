@@ -9,12 +9,9 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::string::String;
 use task_schedule::{Call, Pallet as TaskSchedule};
-use time_primitives::{
-	abstraction::{
-		ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as TaskScheduleInput,
-		Validity,
-	},
-	ProxyAccInput,
+use time_primitives::abstraction::{
+	ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as TaskScheduleInput,
+	Validity,
 };
 
 pub trait Config: task_schedule::Config + pallet_proxy::Config {}
@@ -35,15 +32,8 @@ benchmarks! {
 
 		let schedule = input.clone();
 		let proxy_acc: T::AccountId = whitelisted_caller();
-		let proxy_data = ProxyAccInput {
-			max_token_usage: Some(10u32),
-			token_usage: 10u32,
-			max_task_execution: Some(10u32),
-			task_executed: 10u32,
-			proxy: proxy_acc,
-		};
 
-		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), proxy_data);
+		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32, proxy_acc);
 
 	}: _(RawOrigin::Signed(origin), schedule)
 	verify {
@@ -62,15 +52,8 @@ benchmarks! {
 			status: ScheduleStatus::Initiated,
 		};
 		let proxy_acc: T::AccountId = whitelisted_caller();
-		let proxy_data = ProxyAccInput {
-			max_token_usage: Some(10u32),
-			token_usage: 10u32,
-			max_task_execution: Some(10u32),
-			task_executed: 10u32,
-			proxy: proxy_acc,
-		};
 
-		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), proxy_data);
+		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32, proxy_acc);
 
 		task_schedule::ScheduleStorage::<T>::insert(
 			1,

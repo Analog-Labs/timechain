@@ -1,12 +1,9 @@
 use super::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{
-	abstraction::{
-		ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule,
-		ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
-	},
-	ProxyAccInput,
+use time_primitives::abstraction::{
+	ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule, ScheduleStatus,
+	TaskSchedule as ScheduleOut, Validity,
 };
 
 #[test]
@@ -19,15 +16,15 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 		};
-		let proxy_data = ProxyAccInput {
-			proxy: 1,
-			max_token_usage: Some(1000),
-			token_usage: 1,
-			max_task_execution: Some(1),
-			task_executed: 1,
-		};
 		let account = 1;
-		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(account).into(), proxy_data);
+		assert_ok!(PalletProxy::set_proxy_account(
+			RawOrigin::Signed(account).into(),
+			Some(1000),
+			1,
+			Some(1),
+			1,
+			1
+		));
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account).into(), input));
 
 		let output = ScheduleOut {
@@ -77,15 +74,15 @@ fn test_payable_schedule() {
 			task_id: ObjectId(1),
 			shard_id: 1,
 		};
-		let proxy_data = ProxyAccInput {
-			proxy: 1,
-			max_token_usage: Some(1000),
-			token_usage: 1,
-			max_task_execution: Some(1),
-			task_executed: 1,
-		};
 		let account = 1;
-		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(account).into(), proxy_data);
+		assert_ok!(PalletProxy::set_proxy_account(
+			RawOrigin::Signed(account).into(),
+			Some(1000),
+			1,
+			Some(1),
+			1,
+			1
+		));
 		assert_ok!(TaskSchedule::insert_payable_task_schedule(
 			RawOrigin::Signed(account).into(),
 			input

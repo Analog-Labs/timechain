@@ -152,15 +152,6 @@ pub struct ProxyAccStatus<AccountId, Balance> {
 	pub proxy: AccountId,
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ProxyAccInput<AccountId> {
-	pub proxy: AccountId,
-	pub max_token_usage: Option<u32>,
-	pub token_usage: u32,
-	pub max_task_execution: Option<u32>,
-	pub task_executed: u32,
-}
-
 pub trait ProxyExtend<AccountId> {
 	fn proxy_exist(acc: AccountId) -> bool;
 	fn get_master_account(acc: AccountId) -> Option<AccountId>;

@@ -1071,6 +1071,7 @@ impl pallet_treasury::Config for Runtime {
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
+	type Currency = Balances;
 	type ProxyExtend = ();
 }
 

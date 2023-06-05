@@ -15,7 +15,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::SaturatedConversion;
+	use sp_runtime::{SaturatedConversion, Saturating};
 	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyExtend, ProxyStatus};
 
 	pub type KeyId = u64;
@@ -72,8 +72,6 @@ pub mod pallet {
 		NoPermission,
 		/// Error getting schedule ref.
 		ErrorRef,
-		/// allowed token usage exceed.
-		TokenUsageExceed,
 		/// Cannot add proxy that already exists
 		ProxyAlreadyExists,
 		/// Cannot remove proxy that does not exist
@@ -82,7 +80,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for setting a newproxy account
+		/// Extrinsic for setting a new proxy
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
@@ -90,7 +88,7 @@ pub mod pallet {
 			proxy_data: ProxyAccInput<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// already some valid proxy account, use `update_proxy_account` instead
+			// if already some valid proxy account, use `update_proxy_account` instead
 			ensure!(
 				ProxyStorage::<T>::get(&proxy_data.proxy).is_none(),
 				Error::<T>::ProxyAlreadyExists
@@ -124,7 +122,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyAlreadyExists)?;
 			ensure!(acc.owner == who, Error::<T>::NoPermission);
-			let _ = self::ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
+			let _ = ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				details.status = status;
 				Ok(())
@@ -140,7 +138,7 @@ pub mod pallet {
 			proxy_acc: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let acc = self::ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
+			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
 			ensure!(acc.owner == who, Error::<T>::NoPermission);
 			ProxyStorage::<T>::remove(acc.proxy.clone());
 
@@ -153,7 +151,7 @@ pub mod pallet {
 		pub fn get_proxy_acc(
 			proxy: T::AccountId,
 		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
-			let accounts = self::ProxyStorage::<T>::get(proxy);
+			let accounts = ProxyStorage::<T>::get(proxy);
 
 			Ok(accounts)
 		}
@@ -161,14 +159,10 @@ pub mod pallet {
 
 	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
 		fn proxy_exist(proxy: T::AccountId) -> bool {
-			let account = self::ProxyStorage::<T>::get(proxy);
-
-			account.is_some()
+			ProxyStorage::<T>::get(proxy).is_some()
 		}
 		fn get_master_account(proxy: T::AccountId) -> Option<T::AccountId> {
-			let account = self::ProxyStorage::<T>::get(proxy);
-
-			match account {
+			match ProxyStorage::<T>::get(proxy) {
 				Some(acc) => Some(acc.owner),
 				None => None,
 			}
@@ -176,7 +170,7 @@ pub mod pallet {
 
 		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
 			let mut exceed_flg = false;
-			let res = self::ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
+			let res = ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				let max_token_allowed = details.max_token_usage;
 
@@ -185,14 +179,13 @@ pub mod pallet {
 
 				match max_token_allowed {
 					Some(max_allowed) => {
-						let allowed_usage = max_allowed.saturated_into::<u32>();
-						let status = val.le(&allowed_usage);
-						if !status {
+						if details.token_usage > max_allowed {
 							details.status = ProxyStatus::TokenLimitExceed;
 							exceed_flg = true;
 							Self::deposit_event(Event::TokenUsageExceed(details.proxy.clone()));
 						} else {
-							details.token_usage = val.saturated_into();
+							details.token_usage =
+								details.token_usage.saturating_add(balance_val.saturated_into());
 						}
 					},
 					None => {

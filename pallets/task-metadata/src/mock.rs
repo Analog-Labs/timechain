@@ -58,7 +58,7 @@ impl system::Config for Test {
 impl pallet_proxy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
-	type Currency = ();
+	type Currency = u128;
 }
 impl task_metadata::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

@@ -4,7 +4,6 @@
 #![recursion_limit = "256"]
 
 mod weights;
-use log;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]

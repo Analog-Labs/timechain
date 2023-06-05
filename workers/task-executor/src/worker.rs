@@ -48,7 +48,7 @@ where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	A: codec::Codec,
+	A: codec::Codec + Clone,
 	R::Api: TimeApi<B, A>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
@@ -256,16 +256,16 @@ async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Res
                     self.task_map
                         .entry(schedule.start_block)
                         .or_insert(Vec::new())
-                        .push((*id, schedule));
+                        .push((*id, schedule.clone()));
                 },
                 None => log::info!("failed to get BlockResponse from rosetta"),
             }
         } else {
-			//If start block is not 0 than task is repetative and start_block now contians next execution
+			// If start block is not 0 than task is repetative and start_block now contians next execution
             self.task_map
                 .entry(schedule.start_block)
                 .or_insert(Vec::new())
-                .push((*id, schedule));
+                .push((*id, schedule.clone()));
         }
     }
 

@@ -227,69 +227,73 @@ where
 		Ok(())
 	}
 
-async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-    let task_schedules = self
-        .runtime
-        .runtime_api()
-        .get_task_schedule(block_id)?
-        .map_err(|err| anyhow::anyhow!("{:?}", err))?;
+	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+		let task_schedules = self
+			.runtime
+			.runtime_api()
+			.get_task_schedule(block_id)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
-    let mut tree_map = BTreeMap::new();
-    let mut queue = Queue::new();
+		let mut tree_map = BTreeMap::new();
+		let mut queue = Queue::new();
 
-    for (id, schedule) in task_schedules {
-        tree_map.insert(id, schedule);
-    }
+		for (id, schedule) in task_schedules {
+			tree_map.insert(id, schedule);
+		}
 
-    let block_request = BlockRequest {
-        network_identifier: self.chain_config.network(),
-        block_identifier: PartialBlockIdentifier { index: None, hash: None },
-    };
-    let response = self.chain_client.block(&block_request).await?;
+		let block_request = BlockRequest {
+			network_identifier: self.chain_config.network(),
+			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+		};
+		let response = self.chain_client.block(&block_request).await?;
 
-    for (id, schedule) in tree_map.iter() {
-        if schedule.cycle == 1 {
-            let _ = queue.queue((*id, schedule.clone()));
-        } else if schedule.start_block == 0 {
-            match response.clone().block {
-                Some(block) => {
-                    self.task_map
-                        .entry(schedule.start_block)
-                        .or_insert(Vec::new())
-                        .push((*id, schedule.clone()));
-                },
-                None => log::info!("failed to get BlockResponse from rosetta"),
-            }
-        } else {
-			// If start block is not 0 than task is repetative and start_block now contians next execution
-            self.task_map
-                .entry(schedule.start_block)
-                .or_insert(Vec::new())
-                .push((*id, schedule.clone()));
-        }
-    }
+		for (id, schedule) in tree_map.iter() {
+			if schedule.cycle == 1 {
+				let _ = queue.queue((*id, schedule.clone()));
+			} else if schedule.start_block == 0 {
+				match response.clone().block {
+					Some(block) => {
+						self.task_map
+							.entry(block.block_identifier.index)
+							.or_insert(Vec::new())
+							.push((*id, schedule.clone()));
+					},
+					None => log::info!("failed to get BlockResponse from rosetta"),
+				}
+			} else {
+				// If start block is not 0 than task is repetative and start_block now contians next execution
+				self.task_map
+					.entry(schedule.start_block)
+					.or_insert(Vec::new())
+					.push((*id, schedule.clone()));
+			}
+		}
 
-    while let Some(single_task_schedule) = queue.dequeue() {
-        let _ = self
-            .task_executor(block_id, &single_task_schedule.0, &single_task_schedule.1)
-            .await;
-    }
+		while let Some(single_task_schedule) = queue.dequeue() {
+			let _ = self
+				.task_executor(block_id, &single_task_schedule.0, &single_task_schedule.1)
+				.await;
+		}
 
-    match response.block {
-        Some(block) => {
-            if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
-                for recursive_task_schedule in tasks {
-                    let _ = self
-                        .task_executor(block_id, &recursive_task_schedule.0, &recursive_task_schedule.1)
-                        .await;
-                }
-            }
-        },
-        None => log::info!("failed to get BlockResponse from rosetta"),
-    };
+		match response.block {
+			Some(block) => {
+				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
+					for recursive_task_schedule in tasks {
+						let _ = self
+							.task_executor(
+								block_id,
+								&recursive_task_schedule.0,
+								&recursive_task_schedule.1,
+							)
+							.await;
+					}
+				}
+			},
+			None => log::info!("failed to get BlockResponse from rosetta"),
+		};
 
-    Ok(())
-}
+		Ok(())
+	}
 
 	pub async fn run(&mut self) {
 		loop {

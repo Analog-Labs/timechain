@@ -56,6 +56,9 @@ pub mod pallet {
 		///The record account that uniquely identify
 		ProxyStored(T::AccountId),
 
+		/// The updated proxy account
+		ProxyUpdated(T::AccountId),
+
 		///Proxy account suspended
 		ProxySuspended(T::AccountId),
 
@@ -120,13 +123,11 @@ pub mod pallet {
 			status: ProxyStatus,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyAlreadyExists)?;
-			ensure!(acc.owner == who, Error::<T>::NoPermission);
-			let _ = ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
-				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				details.status = status;
-				Ok(())
-			});
+			let mut proxy = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
+			ensure!(proxy.owner == who, Error::<T>::NoPermission);
+			proxy.status = status;
+			ProxyStorage::<T>::insert(&proxy_acc, proxy);
+			Self::deposit_event(Event::ProxyUpdated(who));
 
 			Ok(())
 		}
@@ -140,7 +141,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
 			ensure!(acc.owner == who, Error::<T>::NoPermission);
-			ProxyStorage::<T>::remove(acc.proxy.clone());
+			ProxyStorage::<T>::remove(&acc.proxy);
 
 			Self::deposit_event(Event::ProxyRemoved(acc.proxy));
 			Ok(())
@@ -149,11 +150,9 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_proxy_acc(
-			proxy: T::AccountId,
+			proxy: &T::AccountId,
 		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
-			let accounts = ProxyStorage::<T>::get(proxy);
-
-			Ok(accounts)
+			Ok(ProxyStorage::<T>::get(proxy))
 		}
 	}
 

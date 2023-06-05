@@ -157,39 +157,34 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
-		fn proxy_exist(proxy: T::AccountId) -> bool {
+	impl<T: Config> ProxyExtend<T::AccountId, BalanceOf<T>> for Pallet<T> {
+		fn proxy_exist(proxy: &T::AccountId) -> bool {
 			ProxyStorage::<T>::get(proxy).is_some()
 		}
-		fn get_master_account(proxy: T::AccountId) -> Option<T::AccountId> {
+		fn get_master_account(proxy: &T::AccountId) -> Option<T::AccountId> {
 			match ProxyStorage::<T>::get(proxy) {
 				Some(acc) => Some(acc.owner),
 				None => None,
 			}
 		}
 
-		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
+		fn proxy_update_token_used(proxy: &T::AccountId, balance_val: BalanceOf<T>) -> bool {
 			let mut exceed_flg = false;
 			let res = ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				let max_token_allowed = details.max_token_usage;
 
-				let usage = details.token_usage.saturated_into::<u32>();
-				let val = usage.saturating_add(balance_val);
-
-				match max_token_allowed {
+				match details.max_token_usage {
 					Some(max_allowed) => {
 						if details.token_usage > max_allowed {
 							details.status = ProxyStatus::TokenLimitExceed;
 							exceed_flg = true;
 							Self::deposit_event(Event::TokenUsageExceed(details.proxy.clone()));
 						} else {
-							details.token_usage =
-								details.token_usage.saturating_add(balance_val.saturated_into());
+							details.token_usage = details.token_usage.saturating_add(balance_val);
 						}
 					},
 					None => {
-						details.token_usage = val.saturated_into();
+						details.token_usage = details.token_usage.saturating_add(balance_val);
 					},
 				}
 

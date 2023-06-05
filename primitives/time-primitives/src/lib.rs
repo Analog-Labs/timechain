@@ -161,21 +161,21 @@ pub struct ProxyAccInput<AccountId> {
 	pub task_executed: u32,
 }
 
-pub trait ProxyExtend<AccountId> {
-	fn proxy_exist(acc: AccountId) -> bool;
-	fn get_master_account(acc: AccountId) -> Option<AccountId>;
-	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
+pub trait ProxyExtend<AccountId, Balance> {
+	fn proxy_exist(acc: &AccountId) -> bool;
+	fn get_master_account(acc: &AccountId) -> Option<AccountId>;
+	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
 }
 
-impl<AccountId> ProxyExtend<AccountId> for () {
-	fn proxy_exist(_acc: AccountId) -> bool {
-		true
+impl<AccountId, Balance> ProxyExtend<AccountId, Balance> for () {
+	fn proxy_exist(_acc: &AccountId) -> bool {
+		false
 	}
-	fn get_master_account(acc: AccountId) -> Option<AccountId> {
-		Some(acc)
+	fn get_master_account(_acc: &AccountId) -> Option<AccountId> {
+		None
 	}
-	fn proxy_update_token_used(_acc: AccountId, _amount: u32) -> bool {
-		true
+	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
+		false
 	}
 }
 

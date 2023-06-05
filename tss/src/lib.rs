@@ -7,6 +7,7 @@ use frost_evm::{
 };
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// Tss state.
@@ -235,6 +236,7 @@ pub struct Tss<P> {
 	config: TssConfig<P>,
 	state: TssState<P>,
 	actions: VecDeque<TssAction<P>>,
+	pub event_id_map: HashMap<[u8; 32], u128>,
 }
 
 impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
@@ -245,6 +247,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			config: Default::default(),
 			state: Default::default(),
 			actions: Default::default(),
+			event_id_map: HashMap::new(),
 		}
 	}
 
@@ -651,8 +654,9 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		}
 	}
 
-	pub fn sign(&mut self, data: Vec<u8>) {
+	pub fn sign(&mut self, data: Vec<u8>, task_id: u64) {
 		let hash = blake3::hash(&data).into();
+		self.event_id_map.insert(hash, task_id.into());
 		log::debug!("{} sign", self.peer_id);
 		match &mut self.state {
 			TssState::Initialized { key_package, signing_state, .. } => {
@@ -816,7 +820,7 @@ mod tests {
 
 		pub fn sign_one(&mut self, i: usize, data: &[u8]) {
 			let tss = &mut self.tss[i];
-			tss.sign(data.to_vec());
+			tss.sign(data.to_vec(), 0);
 			while let Some(action) = tss.next_action() {
 				self.actions.push_back((*tss.peer_id(), action));
 			}
@@ -824,7 +828,7 @@ mod tests {
 
 		pub fn sign(&mut self, data: &[u8]) {
 			for tss in &mut self.tss {
-				tss.sign(data.to_vec());
+				tss.sign(data.to_vec(), 0);
 				while let Some(action) = tss.next_action() {
 					self.actions.push_back((*tss.peer_id(), action));
 				}

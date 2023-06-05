@@ -66,7 +66,7 @@ frame_support::parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 	pub const MaxBalance: Balance = Balance::max_value();
 	pub static Burn: Permill = Permill::from_percent(50);
-	pub const ScheduleFee: u32 = 1;
+	pub const ScheduleFee: Balance = 1;
 }
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;

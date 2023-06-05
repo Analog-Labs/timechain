@@ -1028,7 +1028,7 @@ parameter_types! {
 	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
-	pub const ScheduleFee: u32 = 1;
+	pub const ScheduleFee: Balance = 1;
 }
 
 pub struct SubstrateBlockNumberProvider;

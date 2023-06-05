@@ -56,12 +56,6 @@ pub mod pallet {
 		///The record account that uniquely identify
 		ProxyStored(T::AccountId),
 
-		///Already exist case
-		ProxyAlreadyExist(T::AccountId),
-
-		///Does not exist case
-		ProxyNotExist(T::AccountId),
-
 		///Proxy account suspended
 		ProxySuspended(T::AccountId),
 
@@ -80,11 +74,15 @@ pub mod pallet {
 		ErrorRef,
 		/// allowed token usage exceed.
 		TokenUsageExceed,
+		/// Cannot add proxy that already exists
+		ProxyAlreadyExists,
+		/// Cannot remove proxy that does not exist
+		ProxyNotExist,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing a signature
+		/// Extrinsic for setting a newproxy account
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
@@ -92,32 +90,27 @@ pub mod pallet {
 			proxy_data: ProxyAccInput<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// already same valid proxy account.
-			let account_exit = self::ProxyStorage::<T>::get(&proxy_data.proxy);
-			let bal =
-				proxy_data.max_token_usage.as_ref().map(|&x| x.saturated_into::<BalanceOf<T>>());
-
-			match account_exit {
-				Some(_acc) => {
-					Self::deposit_event(Event::ProxyAlreadyExist(who));
+			// already some valid proxy account, use `update_proxy_account` instead
+			ensure!(
+				ProxyStorage::<T>::get(&proxy_data.proxy).is_none(),
+				Error::<T>::ProxyAlreadyExists
+			);
+			ProxyStorage::<T>::insert(
+				&proxy_data.proxy,
+				ProxyAccStatus {
+					owner: who.clone(),
+					max_token_usage: proxy_data
+						.max_token_usage
+						.as_ref()
+						.map(|x| (*x).saturated_into::<BalanceOf<T>>()),
+					token_usage: proxy_data.token_usage.saturated_into(),
+					max_task_execution: proxy_data.max_task_execution,
+					task_executed: proxy_data.task_executed,
+					status: ProxyStatus::Valid,
+					proxy: proxy_data.proxy.clone(),
 				},
-				None => {
-					self::ProxyStorage::<T>::insert(
-						proxy_data.proxy.clone(),
-						ProxyAccStatus {
-							owner: who.clone(),
-							max_token_usage: bal,
-							token_usage: proxy_data.token_usage.saturated_into(),
-							max_task_execution: proxy_data.max_task_execution,
-							task_executed: proxy_data.task_executed,
-							status: ProxyStatus::Valid,
-							proxy: proxy_data.proxy,
-						},
-					);
-					Self::deposit_event(Event::ProxyStored(who));
-				},
-			}
-
+			);
+			Self::deposit_event(Event::ProxyStored(who));
 			Ok(())
 		}
 
@@ -129,21 +122,13 @@ pub mod pallet {
 			status: ProxyStatus,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let account_exit = self::ProxyStorage::<T>::get(&proxy_acc);
-			match account_exit {
-				Some(acc) => {
-					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					let _ =
-						self::ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
-							let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-							details.status = status;
-							Ok(())
-						});
-				},
-				None => {
-					Self::deposit_event(Event::ProxyNotExist(who));
-				},
-			}
+			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyAlreadyExists)?;
+			ensure!(acc.owner == who, Error::<T>::NoPermission);
+			let _ = self::ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
+				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				details.status = status;
+				Ok(())
+			});
 
 			Ok(())
 		}
@@ -155,19 +140,11 @@ pub mod pallet {
 			proxy_acc: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let account_exit = self::ProxyStorage::<T>::get(&proxy_acc);
-			match account_exit {
-				Some(acc) => {
-					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					self::ProxyStorage::<T>::remove(acc.proxy.clone());
+			let acc = self::ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
+			ensure!(acc.owner == who, Error::<T>::NoPermission);
+			ProxyStorage::<T>::remove(acc.proxy.clone());
 
-					Self::deposit_event(Event::ProxyRemoved(acc.proxy));
-				},
-				None => {
-					Self::deposit_event(Event::ProxyNotExist(proxy_acc));
-				},
-			}
-
+			Self::deposit_event(Event::ProxyRemoved(acc.proxy));
 			Ok(())
 		}
 	}

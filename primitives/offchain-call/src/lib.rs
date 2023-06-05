@@ -35,7 +35,7 @@ pub mod crypto {
 	app_crypto!(sr25519, crate::KEY_TYPE);
 }
 
-pub fn fetch_price_and_send_signed(signature_data: SignatureData, event_id: ForeignEventId) {
+pub fn store_signature_signed(signature_data: SignatureData, event_id: ForeignEventId) {
 	let signer = Signer::<Runtime, crypto::TestAuthId>::all_accounts();
 	if !signer.can_sign() {
 		log::error!("No local accounts available");

@@ -167,7 +167,7 @@ pub trait ProxyExtend<AccountId, Balance> {
 	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
 }
 
-impl<AccountId, Balance> ProxyExtend<AccountId, Balance> for () {
+impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for () {
 	fn proxy_exist(_acc: &AccountId) -> bool {
 		true
 	}

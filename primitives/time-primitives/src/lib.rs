@@ -167,12 +167,7 @@ pub trait ProxyExtend<AccountId, Balance> {
 	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
 }
 
-/// Configured temporarily for testing purposes so users do not have to
-/// add their proxy. TODO: node should automatically add proxy for each user and add it
-/// as an onboarding cost if proxy will ever be required as is coded in the pallets.
-pub struct IgnoreProxy;
-
-impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for IgnoreProxy {
+impl<AccountId, Balance> ProxyExtend<AccountId, Balance> for () {
 	fn proxy_exist(_acc: &AccountId) -> bool {
 		true
 	}
@@ -181,18 +176,6 @@ impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for IgnoreProxy 
 	}
 	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
 		true
-	}
-}
-
-impl<AccountId, Balance> ProxyExtend<AccountId, Balance> for () {
-	fn proxy_exist(_acc: &AccountId) -> bool {
-		false
-	}
-	fn get_master_account(_acc: &AccountId) -> Option<AccountId> {
-		None
-	}
-	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
-		false
 	}
 }
 

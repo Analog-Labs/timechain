@@ -164,7 +164,7 @@ impl pallet_proxy::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
-	type ProxyExtend = time_primitives::IgnoreProxy;
+	type ProxyExtend = ();
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;

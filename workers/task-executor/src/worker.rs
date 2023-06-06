@@ -1,10 +1,6 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::Decode;
-use frame_system::{
-	offchain::{SigningTypes, SubmitTransaction},
-	pallet, Error,
-};
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
@@ -15,32 +11,15 @@ use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
-use sp_core::{crypto::AccountId32, hashing::keccak_256};
-use sp_keyring::{sr25519::sr25519::Pair, AccountKeyring};
+use sp_core::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
-use subxt::tx::PairSigner;
-use subxt::{OnlineClient, PolkadotConfig};
-
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, ScheduleStatus},
-	KeyId, TimeApi, TimeId, KEY_TYPE,
+	TimeApi, TimeId, KEY_TYPE,
 };
-use tokio::runtime::Runtime;
-
-#[subxt::subxt(
-	runtime_metadata_path = "../../artifacts/testnet-metadata.scale",
-	derive_for_all_types = "PartialEq, Clone"
-)]
-pub mod timechain {}
-
-pub struct TimechainSubmitter {
-	pub signer: PairSigner<PolkadotConfig, Pair>,
-	pub api: OnlineClient<PolkadotConfig>,
-	pub account: AccountId32,
-}
 
 pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
@@ -105,22 +84,7 @@ where
 			TimeId::decode(&mut id.as_ref()).ok()
 		}
 	}
-
-	// pub fn offchain_worker<T: frame_system::Config + frame_system::offchain::SigningTypes>(status:ScheduleStatus, key: KeyId) {
-	// 	let signer: frame_system::offchain::Signer<_, _, frame_system::offchain::ForAll> = frame_system::offchain::Signer::<T, T::AuthorityId>::all_accounts();
-
-	// 	let results = signer.send_signed_transaction(|_account| {
-	// 		pallet::Call::update_schedule { status, key }
-	// 	});
-
-	// 	for (acc, res) in &results {
-	// 		match res {
-	// 			Ok(()) => log::info!("[{:?}]: submit transaction success.", acc.id),
-	// 			Err(e) => log::error!("[{:?}]: submit transaction failure. Reason: {:?}", acc.id, e),
-	// 		}
-	// 	}
-	// }
-
+	
 	async fn call_contract_and_send_for_sign(
 		&mut self,
 		block_id: <B as Block>::Hash,
@@ -152,15 +116,6 @@ where
 				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		}
-
-		let api =  OnlineClient::<PolkadotConfig>::new().await?;
-		    // Build a storage query to access account information.
-			// let account = AccountKeyring::Alice.to_account_id().into();
-			let storage_query = timechain::storage().task_schedule().schedule_storage(1);
-		
-		let x = api.storage().at_latest().await?.fetch(&storage_query).await?;
-		log::info!("\n\n\n==subxt api =====> {:?}\n\n",x.unwrap());
-
 		Ok(true)
 	}
 

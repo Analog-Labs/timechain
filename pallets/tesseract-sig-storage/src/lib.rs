@@ -49,6 +49,7 @@ pub mod pallet {
 		traits::Time,
 	};
 	use frame_system::offchain::{Signer, AppCrypto, CreateSignedTransaction};
+	use sp_runtime::offchain::storage::StorageValueRef;
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
@@ -91,7 +92,11 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			Self::ocw_store_signature().unwrap();
+			// Self::ocw_store_signature().unwrap();
+			log::info!("hello from offchain worker");
+			let id: ForeignEventId = (1 as u128).into();
+			let res = StorageValueRef::persistent(&id.encode()).get::<SignatureData>();
+			log::info!("reading from storage {:?}", res);
 		}
 	}
 

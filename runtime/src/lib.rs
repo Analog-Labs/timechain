@@ -983,7 +983,7 @@ parameter_types! {
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	/// The adjustment variable of the runtime. Higher values will cause `TargetBlockFullness` to
 	/// change the fees more rapidly.
-	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(75, 1000_000);
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(75, 1_000_000);
 	/// Minimum amount of the multiplier. This value cannot be too low. A test case should ensure
 	/// that combined with `AdjustmentVariable`, we can recover from the minimum.
 	/// See `multiplier_can_grow_from_zero`.
@@ -1602,7 +1602,7 @@ mod multiplier_tests {
 
 	fn run_with_system_weight<F>(w: Weight, mut assertions: F)
 	where
-		F: FnMut() -> (),
+		F: FnMut(),
 	{
 		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
 			.build_storage::<Runtime>()

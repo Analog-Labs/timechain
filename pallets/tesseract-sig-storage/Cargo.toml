@@ -28,7 +28,6 @@ sp-io = {  default-features = false, git = "https://github.com/paritytech/substr
 time-primitives = { path = "../../primitives/time-primitives", default-features = false }
 task-schedule = { path = "../task-schedule", default-features = false }
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 
 
 [dev-dependencies]
@@ -39,7 +38,6 @@ pallet-treasury = { version = "4.0.0-dev", git = "https://github.com/paritytech/
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-# sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 
 
 
@@ -53,7 +51,7 @@ std = [
 	"scale-info/std",
 	"sp-std/std",
 	"time-primitives/std",
-	"sp-core/std"
+	"sp-core/std",
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

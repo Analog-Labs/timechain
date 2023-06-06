@@ -132,6 +132,7 @@ where
 		let address = call_params.0;
 		let function_signature = call_params.1;
 		let input = call_params.2;
+		wallet.faucet(100000000000000).await;
 		match wallet.eth_send_call(address, function_signature, input, 0).await {
 			Ok(tx) => {
 				map.insert(schedule_id, ());

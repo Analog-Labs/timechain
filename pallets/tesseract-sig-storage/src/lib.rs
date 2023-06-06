@@ -1,10 +1,39 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_core::crypto::KeyTypeId;
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
+
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"psig");
+
+pub mod crypto {
+	use super::KEY_TYPE;
+	use sp_core::sr25519::Signature as Sr25519Signature;
+	use sp_runtime::{
+		app_crypto::{app_crypto, sr25519},
+		traits::Verify,
+		MultiSignature, MultiSigner,
+	};
+	app_crypto!(sr25519, KEY_TYPE);
+	pub struct SigAuthId;
+
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
+		for SigAuthId
+	{
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+}
 
 pub mod shard;
 pub use pallet::*;
@@ -19,6 +48,7 @@ pub mod pallet {
 		pallet_prelude::{ValueQuery, *},
 		traits::Time,
 	};
+	use frame_system::offchain::{Signer, AppCrypto, CreateSignedTransaction};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
@@ -58,8 +88,17 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			Self::ocw_store_signature().unwrap();
+		}
+	}
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
+
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Moment: Parameter
@@ -344,15 +383,11 @@ pub mod pallet {
 				auth_sig.verify(signature_data.as_ref(), &auth_id),
 				Error::<T>::UnregisteredWorkerDataSubmission
 			);
-			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
-				ensure!(
-					signature_set.get(&signature_data).is_none(),
-					Error::<T>::DuplicateSignature
-				);
-				signature_set.insert(signature_data);
-				Ok(())
-			})?;
-			Self::deposit_event(Event::SignatureStored(event_id));
+			let encoded_id = event_id.encode();
+			sp_std::if_std!{
+				println!("encoded_id {:?}", encoded_id);
+			}
+			sp_io::offchain_index::set(&encoded_id, &signature_data);
 			Ok(())
 		}
 
@@ -424,6 +459,16 @@ pub mod pallet {
 					new_report_count
 				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
+			Ok(())
+		}
+
+		fn ocw_store_signature() -> Result<(), &'static str> {
+			let signer = Signer::<T, T::AuthorityId>::all_accounts();
+			if !signer.can_sign() {
+				return Err(
+					"No local accounts available. Consider adding one via `author_insertKey` RPC.",
+				);
+			}
 			Ok(())
 		}
 	}

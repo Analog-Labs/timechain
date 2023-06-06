@@ -38,7 +38,7 @@ const pair = kv.addFromUri(phrase);
 
 const unsub = await api.tx.sudo
   .sudo(
-    api.tx.tesseractSigStorage.registerShard(1, [time1, time2, time3])
+    api.tx.tesseractSigStorage.registerShard([time1, time2, time3], 0)
   )
   .signAndSend(pair, (result) => { 
   console.log('Result of shard creation: ', resul)  

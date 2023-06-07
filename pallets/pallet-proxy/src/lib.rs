@@ -16,7 +16,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::SaturatedConversion;
-	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyExtend, ProxyStatus};
+	use time_primitives::{ProxyAccStatus, ProxyExtend, ProxyStatus};
 
 	pub type KeyId = u64;
 	pub(crate) type BalanceOf<T> =
@@ -89,13 +89,15 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
 			origin: OriginFor<T>,
-			proxy_data: ProxyAccInput<T::AccountId>,
+			max_token_usage: Option<BalanceOf<T>>,
+			token_usage: BalanceOf<T>,
+			max_task_execution: Option<u32>,
+			task_executed: u32,
+			proxy: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// already same valid proxy account.
-			let account_exit = ProxyStorage::<T>::get(&proxy_data.proxy);
-			let bal =
-				proxy_data.max_token_usage.as_ref().map(|&x| x.saturated_into::<BalanceOf<T>>());
+			let account_exit = ProxyStorage::<T>::get(&proxy);
 
 			match account_exit {
 				Some(_acc) => {
@@ -103,15 +105,15 @@ pub mod pallet {
 				},
 				None => {
 					ProxyStorage::<T>::insert(
-						proxy_data.proxy.clone(),
+						proxy.clone(),
 						ProxyAccStatus {
 							owner: who.clone(),
-							max_token_usage: bal,
-							token_usage: proxy_data.token_usage.saturated_into(),
-							max_task_execution: proxy_data.max_task_execution,
-							task_executed: proxy_data.task_executed,
+							max_token_usage,
+							token_usage,
+							max_task_execution,
+							task_executed,
 							status: ProxyStatus::Valid,
-							proxy: proxy_data.proxy,
+							proxy,
 						},
 					);
 					Self::deposit_event(Event::ProxyStored(who));

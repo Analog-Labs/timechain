@@ -1,6 +1,6 @@
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use runtime_common::constants::{Balance, ANLOG, TOKEN_DECIMALS};
+use runtime_common::currency::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;

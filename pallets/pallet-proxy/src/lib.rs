@@ -93,7 +93,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// already same valid proxy account.
-			let account_exit = self::ProxyStorage::<T>::get(&proxy_data.proxy);
+			let account_exit = ProxyStorage::<T>::get(&proxy_data.proxy);
 			let bal =
 				proxy_data.max_token_usage.as_ref().map(|&x| x.saturated_into::<BalanceOf<T>>());
 
@@ -102,7 +102,7 @@ pub mod pallet {
 					Self::deposit_event(Event::ProxyAlreadyExist(who));
 				},
 				None => {
-					self::ProxyStorage::<T>::insert(
+					ProxyStorage::<T>::insert(
 						proxy_data.proxy.clone(),
 						ProxyAccStatus {
 							owner: who.clone(),
@@ -129,16 +129,15 @@ pub mod pallet {
 			status: ProxyStatus,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let account_exit = self::ProxyStorage::<T>::get(&proxy_acc);
+			let account_exit = ProxyStorage::<T>::get(&proxy_acc);
 			match account_exit {
 				Some(acc) => {
 					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					let _ =
-						self::ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
-							let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-							details.status = status;
-							Ok(())
-						});
+					let _ = ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
+						let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
+						details.status = status;
+						Ok(())
+					});
 				},
 				None => {
 					Self::deposit_event(Event::ProxyNotExist(who));
@@ -155,11 +154,11 @@ pub mod pallet {
 			proxy_acc: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let account_exit = self::ProxyStorage::<T>::get(&proxy_acc);
+			let account_exit = ProxyStorage::<T>::get(&proxy_acc);
 			match account_exit {
 				Some(acc) => {
 					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					self::ProxyStorage::<T>::remove(acc.proxy.clone());
+					ProxyStorage::<T>::remove(acc.proxy.clone());
 
 					Self::deposit_event(Event::ProxyRemoved(acc.proxy));
 				},
@@ -176,7 +175,7 @@ pub mod pallet {
 		pub fn get_proxy_acc(
 			proxy: T::AccountId,
 		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
-			let accounts = self::ProxyStorage::<T>::get(proxy);
+			let accounts = ProxyStorage::<T>::get(proxy);
 
 			Ok(accounts)
 		}
@@ -184,12 +183,12 @@ pub mod pallet {
 
 	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
 		fn proxy_exist(proxy: T::AccountId) -> bool {
-			let account = self::ProxyStorage::<T>::get(proxy);
+			let account = ProxyStorage::<T>::get(proxy);
 
 			account.is_some()
 		}
 		fn get_master_account(proxy: T::AccountId) -> Option<T::AccountId> {
-			let account = self::ProxyStorage::<T>::get(proxy);
+			let account = ProxyStorage::<T>::get(proxy);
 
 			match account {
 				Some(acc) => Some(acc.owner),
@@ -199,7 +198,7 @@ pub mod pallet {
 
 		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
 			let mut exceed_flg = false;
-			let res = self::ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
+			let res = ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				let max_token_allowed = details.max_token_usage;
 

@@ -104,13 +104,13 @@ pub mod pallet {
 			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
 			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
 
-			let last_key = self::LastKey::<T>::get();
+			let last_key = LastKey::<T>::get();
 			let schedule_id = match last_key {
 				Some(val) => val.saturating_add(1),
 				None => 1,
 			};
-			self::LastKey::<T>::put(schedule_id);
-			self::ScheduleStorage::<T>::insert(
+			LastKey::<T>::put(schedule_id);
+			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
 					task_id: schedule.task_id,
@@ -138,7 +138,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(who.clone());
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+			let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				ensure!(details.owner == who, Error::<T>::NoPermission);
 
@@ -167,13 +167,13 @@ pub mod pallet {
 			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
 			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
 
-			let last_key = self::LastKey::<T>::get();
+			let last_key = LastKey::<T>::get();
 			let schedule_id = match last_key {
 				Some(val) => val.saturating_add(1),
 				None => 1,
 			};
-			self::LastKey::<T>::put(schedule_id);
-			self::PayableScheduleStorage::<T>::insert(
+			LastKey::<T>::put(schedule_id);
+			PayableScheduleStorage::<T>::insert(
 				schedule_id,
 				PayableTaskSchedule {
 					task_id: schedule.task_id,
@@ -189,7 +189,7 @@ pub mod pallet {
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
-			let data_list = self::ScheduleStorage::<T>::iter()
+			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
 
@@ -198,21 +198,21 @@ pub mod pallet {
 		pub fn get_schedules_by_task_id(
 			key: ObjectId,
 		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
-			let data = self::ScheduleStorage::<T>::iter_values()
+			let data = ScheduleStorage::<T>::iter_values()
 				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
 
 			Ok(data)
 		}
 		pub fn get_schedules_keys() -> Result<Vec<u64>, DispatchError> {
-			let data_list = self::ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
+			let data_list = ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
 		pub fn get_schedule_by_key(
 			key: u64,
 		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
-			let data = self::ScheduleStorage::<T>::get(key);
+			let data = ScheduleStorage::<T>::get(key);
 
 			Ok(data)
 		}
@@ -221,7 +221,7 @@ pub mod pallet {
 			status: ScheduleStatus,
 			key: KeyId,
 		) -> Result<(), DispatchError> {
-			let _ = self::ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+			let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				details.status = status;
 				Ok(())
@@ -232,7 +232,7 @@ pub mod pallet {
 
 		pub fn get_payable_task_schedules(
 		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
-			let data_list = self::PayableScheduleStorage::<T>::iter()
+			let data_list = PayableScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
 
@@ -242,7 +242,7 @@ pub mod pallet {
 		pub fn get_payable_schedules_by_task_id(
 			key: ObjectId,
 		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
-			let data = self::PayableScheduleStorage::<T>::iter_values()
+			let data = PayableScheduleStorage::<T>::iter_values()
 				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
 

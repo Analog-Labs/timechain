@@ -117,6 +117,7 @@ pub mod pallet {
 					owner: who,
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
+					start_block: 0,
 					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,

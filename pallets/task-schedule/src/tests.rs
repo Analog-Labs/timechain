@@ -13,8 +13,11 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			shard_id: 1,
 			cycle: 12,
+			frequency: 1,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
+			start_execution_block: 0,
+			status: ScheduleStatus::Initiated,
 		};
 		let account = 1;
 		assert_ok!(PalletProxy::set_proxy_account(

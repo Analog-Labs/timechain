@@ -45,6 +45,7 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<u32>;
+		type ExecutionFee: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -74,6 +75,12 @@ pub mod pallet {
 
 		// Payable Schedule
 		PayableScheduleStored(KeyId),
+
+		///Execution Status Updated
+		ExecutionStatusUpdated(KeyId),
+
+		///Schedule Not Found
+		ScheduleNotFound(KeyId),
 	}
 
 	#[pallet::error]
@@ -117,9 +124,11 @@ pub mod pallet {
 					owner: who,
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
+					frequency: schedule.frequency,
 					start_block: 0,
 					validity: schedule.validity,
 					hash: schedule.hash,
+					start_execution_block: 0,
 					status: ScheduleStatus::Initiated,
 				},
 			);
@@ -186,11 +195,37 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		// #[pallet::call_index(3)]
+		// #[pallet::weight(T::WeightInfo::update_execution_state())]
+		// pub fn update_execution_state(origin: OriginFor<T>, schedule_id: u64) -> DispatchResult {
+		// 	let _who = ensure_signed(origin)?;
+		// 	let fix_fee = T::ExecutionFee::get();
+		// 	let treasury = T::PalletAccounts::get_treasury();
+		// 	let schedule_info = self::ScheduleStorage::<T>::get(schedule_id);
+		// 	match schedule_info {
+		// 		Some(schedule) => {
+		// 			let master_acc = schedule.owner;
+		// 			let res =
+		// 			T::Currency::transfer(&schedule.owner, &treasury, fix_fee.into(), KeepAlive)?;
+		// 			ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+		// 			Self::deposit_event(Event::ExecutionStatusUpdated(schedule_id));
+		// 		},
+		// 		None => {
+		// 			Self::deposit_event(Event::ScheduleNotFound(schedule_id));
+		// 		},
+		// 	}
+
+		// 	Ok(())
+		// }
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
-				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+			.filter(|item| {
+				item.1.status == ScheduleStatus::Initiated
+					|| (item.1.status == ScheduleStatus::Recurring && item.1.cycle > 0)
+			})
 				.collect::<Vec<_>>();
 
 			Ok(data_list)
@@ -249,7 +284,21 @@ pub mod pallet {
 			Ok(data)
 		}
 	}
-
+	// pub fn update_execution(schedule_id: u64) -> Result<(), DispatchError> {
+	// 	let fix_fee = T::ExecutionFee::get();
+	// 	let treasury = T::PalletAccounts::get_treasury();
+	// 	let schedule_info = self::ScheduleStorage::<T>::get(schedule_id);
+	// 	match schedule_info {
+	// 		Some(schedule) => {
+	// 			let master_acc = schedule.owner;
+	// 			let res =
+	// 				T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive);
+	// 			ensure!(res.is_ok(), Error::<T>::FeeDeductIssue);
+	// 			Ok(())
+	// 		},
+	// 		None => Ok(()),
+	// 	}
+	// }
 	pub trait ScheduleFetchInterface<AccountId> {
 		fn get_schedule_via_task_id(
 			key: ObjectId,

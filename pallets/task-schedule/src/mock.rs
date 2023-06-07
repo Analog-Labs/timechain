@@ -55,6 +55,7 @@ frame_support::parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const ExistentialDeposit: u64 = 1;
 	pub const ScheduleFee: u32 = 1;
+	pub const ExecutionFee: u32 = 1;
 }
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -139,6 +140,7 @@ impl task_schedule::Config for Test {
 	type PalletAccounts = CurrentPalletAccounts;
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
+	type ExecutionFee = ExecutionFee;
 }
 
 // Build genesis storage according to the mock runtime.

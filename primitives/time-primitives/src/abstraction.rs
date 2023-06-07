@@ -110,6 +110,7 @@ pub struct PayableTask {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Initiated,
+	Recurring,
 	Updated,
 	Completed,
 	Invalid,
@@ -123,8 +124,10 @@ pub struct TaskSchedule<AccountId> {
 	pub shard_id: u64,
 	pub start_block: u64,
 	pub cycle: u64,
+	pub frequency: u64,
 	pub validity: Validity,
 	pub hash: String,
+	pub start_execution_block: u64,
 	pub status: ScheduleStatus,
 }
 
@@ -141,6 +144,7 @@ pub struct ScheduleInput {
 	pub task_id: ObjectId,
 	pub shard_id: u64,
 	pub cycle: u64,
+	pub frequency: u64,
 	pub validity: Validity,
 	pub hash: String,
 }

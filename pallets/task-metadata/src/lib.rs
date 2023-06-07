@@ -86,13 +86,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = self::TaskMetaStorage::<T>::get(task.collection_id.0);
+			let data_list = TaskMetaStorage::<T>::get(task.collection_id.0);
 			match data_list {
 				Some(val) => {
 					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
 				},
 				None => {
-					self::TaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
+					TaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
 					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
 				},
 			}
@@ -109,13 +109,13 @@ pub mod pallet {
 			validity: i64,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
-			let data_list = self::CollectionMeta::<T>::get(&hash);
+			let data_list = CollectionMeta::<T>::get(&hash);
 			match data_list {
 				Some(val) => {
 					Self::deposit_event(Event::ColAlreadyExist(val.hash));
 				},
 				None => {
-					self::CollectionMeta::<T>::insert(
+					CollectionMeta::<T>::insert(
 						hash.clone(),
 						Collection {
 							hash: hash.clone(),
@@ -136,13 +136,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = self::PayableTaskMetaStorage::<T>::get(task.collection_id.0);
+			let data_list = PayableTaskMetaStorage::<T>::get(task.collection_id.0);
 			match data_list {
 				Some(val) => {
 					Self::deposit_event(Event::PayableTaskMetaAlreadyExist(val.collection_id.0));
 				},
 				None => {
-					self::PayableTaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
+					PayableTaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
 					Self::deposit_event(Event::PayableTaskMetaStorage(task.collection_id.0));
 				},
 			}
@@ -152,24 +152,24 @@ pub mod pallet {
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
-			let data_list = self::TaskMetaStorage::<T>::get(key);
+			let data_list = TaskMetaStorage::<T>::get(key);
 			Ok(data_list)
 		}
 
 		pub fn get_tasks() -> Result<Vec<Task>, DispatchError> {
-			let data_list = self::TaskMetaStorage::<T>::iter_values().collect::<Vec<_>>();
+			let data_list = TaskMetaStorage::<T>::iter_values().collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
 
 		pub fn get_tasks_keys() -> Result<Vec<u64>, DispatchError> {
-			let data_list = self::TaskMetaStorage::<T>::iter_keys().collect::<Vec<_>>();
+			let data_list = TaskMetaStorage::<T>::iter_keys().collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
 
 		pub fn get_payable_tasks() -> Result<Vec<PayableTask>, DispatchError> {
-			let data_list = self::PayableTaskMetaStorage::<T>::iter_values().collect::<Vec<_>>();
+			let data_list = PayableTaskMetaStorage::<T>::iter_values().collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
@@ -177,7 +177,7 @@ pub mod pallet {
 		pub fn get_payable_task_metadata_by_key(
 			key: KeyId,
 		) -> Result<Option<PayableTask>, DispatchError> {
-			let data_list = self::PayableTaskMetaStorage::<T>::get(key);
+			let data_list = PayableTaskMetaStorage::<T>::get(key);
 
 			match data_list {
 				Some(val) => Ok(Some(val)),

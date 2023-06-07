@@ -23,9 +23,10 @@ use std::{
 	task::Poll,
 	time::{Duration, Instant},
 };
-use time_primitives::{abstraction::EthTxValidation, TimeApi, KEY_TYPE};
+use time_primitives::{abstraction::EthTxValidation, TimeApi, KEY_TYPE, ForeignEventId, SignatureData};
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
+use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -217,18 +218,22 @@ where
 							.sr25519_sign(KEY_TYPE, &public_key, &tss_signature)
 							.unwrap()
 							.unwrap();
-						let _ = self
-							.runtime
-							.runtime_api()
-							.store_signature(
-								at,
-								public_key.into(),
-								signature.into(),
-								tss_signature,
-								(*task_id).into(),
-							)
-							.unwrap();
-						log::info!("stored signature for task {:?}", task_id);
+						// if let Err(e) = self.runtime.runtime_api().store_signature(
+						// 	at,
+						// 	public_key.into(),
+						// 	signature.into(),
+						// 	tss_signature,
+						// 	(*task_id).into(),
+						// ) {
+						// 	log::error!("error storing signature: {:?}", e);
+						// } else {
+						// 	log::info!("stored signature for task {:?}", task_id);
+						// };
+						let event_id: ForeignEventId = (*task_id).into();
+						let sig_data: SignatureData = tss_signature;
+						let mut ocw_storage = self.backend.offchain_storage().unwrap();
+						ocw_storage.set(STORAGE_PREFIX, &event_id.encode(), &sig_data.encode());
+
 						shard.tss.event_id_map.remove(&hash);
 					}
 				},

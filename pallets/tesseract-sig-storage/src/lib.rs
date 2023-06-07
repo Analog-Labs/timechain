@@ -48,11 +48,12 @@ pub mod pallet {
 		pallet_prelude::{ValueQuery, *},
 		traits::Time,
 	};
-	use frame_system::offchain::{Signer, AppCrypto, CreateSignedTransaction};
-	use sp_runtime::offchain::storage::StorageValueRef;
+	use frame_system::offchain::{AppCrypto, CreateSignedTransaction, Signer, SendSignedTransaction};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
+	use sp_io::offchain::local_storage_get;
+	use sp_runtime::offchain::storage::StorageValueRef;
 	use sp_runtime::{
 		traits::{AppVerify, Scale},
 		Percent, SaturatedConversion, Saturating,
@@ -95,8 +96,25 @@ pub mod pallet {
 			// Self::ocw_store_signature().unwrap();
 			log::info!("hello from offchain worker");
 			let id: ForeignEventId = (1 as u128).into();
-			let res = StorageValueRef::persistent(&id.encode()).get::<SignatureData>();
-			log::info!("reading from storage {:?}", res);
+			let binding = id.encode();
+			let mut storage_ref = StorageValueRef::persistent(&binding);
+			let res = storage_ref.get::<SignatureData>();
+			let Ok(data) = res else{
+				log::error!("could not fetch data from storage");
+				return;
+			};
+
+			let Some(sig_data) = data else {
+				log::info!("key is empty");
+				return;
+			};
+
+			if let Err(err) = Self::ocw_store_signature(sig_data, id){
+				log::error!("Error occured while submitting extrinsic {:?}", err);
+			};
+			
+			storage_ref.clear();
+
 		}
 	}
 
@@ -376,6 +394,7 @@ pub mod pallet {
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
+			log::info!("api_store_signature");
 			use sp_runtime::traits::AppVerify;
 			// transform AccountId32 int T::AccountId
 			let encoded_account = auth_id.encode();
@@ -389,10 +408,13 @@ pub mod pallet {
 				Error::<T>::UnregisteredWorkerDataSubmission
 			);
 			let encoded_id = event_id.encode();
-			sp_std::if_std!{
-				println!("encoded_id {:?}", encoded_id);
-			}
-			sp_io::offchain_index::set(&encoded_id, &signature_data);
+			// sp_io::offchain_index::set(&encoded_id, &signature_data);
+			//try2
+			// sp_io::offchain::local_storage_set(sp_core::offchain::StorageKind::PERSISTENT, &encoded_id, &signature_data);
+			//try3 this also does not work
+			StorageValueRef::persistent(&encoded_id).set(&signature_data);
+			log::info!("setted storage with encoded_id {:?}", encoded_id);
+
 			Ok(())
 		}
 
@@ -467,13 +489,33 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn ocw_store_signature() -> Result<(), &'static str> {
+		fn ocw_store_signature(signature_data: SignatureData, event_id: ForeignEventId) -> Result<(), &'static str> {
 			let signer = Signer::<T, T::AuthorityId>::all_accounts();
 			if !signer.can_sign() {
 				return Err(
 					"No local accounts available. Consider adding one via `author_insertKey` RPC.",
 				);
 			}
+
+			let results = signer.send_signed_transaction(|_account| {
+				Call::store_signature{
+					signature_data, 
+					event_id
+				}
+			});
+
+			for (_, res) in &results {
+				match res {
+					Ok(()) => {
+						log::info!("Submited Extrinsic results")
+					},
+					Err(e) => log::error!(
+						"Failed to submit transaction: {:?}",
+						e
+					),
+				}
+			}
+
 			Ok(())
 		}
 	}

@@ -3,6 +3,8 @@ use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
 use sp_std::vec::Vec;
+
+use crate::{ForeignEventId, SignatureData};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -209,3 +211,10 @@ pub struct EthTxValidation {
 	pub shard_id: u64,
 	pub task_id: u64,
 }
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct OCWSigData{
+	pub id: ForeignEventId,
+	pub data: SignatureData
+}
+

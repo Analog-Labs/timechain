@@ -52,7 +52,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
-	use sp_io::offchain::local_storage_get;
 	use sp_runtime::offchain::storage::StorageValueRef;
 	use sp_runtime::{
 		traits::{AppVerify, Scale},
@@ -67,7 +66,7 @@ pub mod pallet {
 		sharding::Shard,
 		ForeignEventId, SignatureData, TimeId,
 	};
-
+	
 	pub trait WeightInfo {
 		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
@@ -319,7 +318,7 @@ pub mod pallet {
 			event_id: ForeignEventId,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let task_id = ObjectId(event_id.task_id().into());
+			let task_id: ObjectId = ObjectId(event_id.task_id().into());
 
 			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
 

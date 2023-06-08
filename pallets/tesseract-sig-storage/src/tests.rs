@@ -40,10 +40,10 @@ fn test_signature_storage() {
 			hash: String::from("address"),
 		};
 
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
 		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(alice_u128).into(),
+			RawOrigin::Signed(ALICE).into(),
 			sig_data,
 			event_id
 		));
@@ -80,16 +80,16 @@ fn test_recurring_signature() {
 			hash: String::from("address"),
 		};
 
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
 		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(alice_u128).into(),
+			RawOrigin::Signed(ALICE).into(),
 			sig_data_1,
 			event_id
 		));
 
 		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(alice_u128).into(),
+			RawOrigin::Signed(ALICE).into(),
 			sig_data_2,
 			event_id
 		));
@@ -123,17 +123,17 @@ fn test_duplicate_signature() {
 			hash: String::from("address"),
 		};
 
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
 		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(alice_u128).into(),
+			RawOrigin::Signed(ALICE).into(),
 			sig_data,
 			event_id
 		));
 
 		assert_noop!(
 			TesseractSigStorage::store_signature(
-				RawOrigin::Signed(alice_u128).into(),
+				RawOrigin::Signed(ALICE).into(),
 				sig_data,
 				event_id
 			),

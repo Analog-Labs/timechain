@@ -37,7 +37,8 @@ pub const MILLICENTS: Balance = 1_000_000_000;
 pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
 pub const DOLLARS: Balance = 100 * CENTS;
 type Balance = u128;
-type AccountId = u128;
+// type AccountId = u128;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Index = u64;
 
 // Configure a mock runtime to test the pallet.
@@ -132,8 +133,8 @@ impl pallet_balances::Config for Test {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
-	type RejectOrigin = frame_system::EnsureRoot<u128>;
+	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
@@ -149,8 +150,8 @@ impl pallet_treasury::Config for Test {
 }
 
 pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<u128> for CurrentPalletAccounts {
-	fn get_treasury() -> u128 {
+impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
+	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}
 }
@@ -201,7 +202,7 @@ where
 		RuntimeCall,
 		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
 	)> {
-		Some((call, (nonce.into(), (), ())))
+		Some((call, (account, (), ())))
 	}
 }
 
@@ -223,10 +224,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
-			(1, 10_000_000_000),
-			(2, 20_000_000_000),
+			(acc_pub(1).into(), 10_000_000_000),
+			(acc_pub(2).into(), 20_000_000_000),
 			//Alice account
-			(1334440654591915542993625911497130241, 20_000_000_000),
+			// (1334440654591915542993625911497130241, 20_000_000_000),
 		],
 	}
 	.assimilate_storage(&mut storage)
@@ -234,4 +235,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }

@@ -59,7 +59,11 @@ pub mod pallet {
 		traits::{AppVerify, Scale},
 		Percent, SaturatedConversion, Saturating,
 	};
-	use sp_std::{collections::{vec_deque::VecDeque, btree_set::BTreeSet}, result, vec::Vec};
+	use sp_std::{
+		collections::{btree_set::BTreeSet, vec_deque::VecDeque},
+		result,
+		vec::Vec,
+	};
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
 		abstraction::{OCWSigData, ObjectId},
@@ -399,7 +403,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().collect()
@@ -490,10 +493,7 @@ pub mod pallet {
 					Ok(()) => {
 						log::info!("Submited ocw signature extrinsic")
 					},
-					Err(e) => log::error!(
-						"Failed to submit transaction: {:?}",
-						e
-					),
+					Err(e) => log::error!("Failed to submit transaction: {:?}", e),
 				}
 			}
 

@@ -226,12 +226,13 @@ where
 						let event_id: ForeignEventId = (*task_id).into();
 						let sig_data: SignatureData = tss_signature;
 
-						let ocw_sig_data = OCWSigData::new(signature.into(),sig_data, event_id);
+						let ocw_sig_data = OCWSigData::new(signature.into(), sig_data, event_id);
 
 						let mut ocw_storage = self.backend.offchain_storage().unwrap();
-						if let Some(mut data) = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY){
+						if let Some(mut data) = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY) {
 							let mut bytes: &[u8] = &mut data;
-							let mut inner_data: VecDeque<OCWSigData> = Decode::decode(&mut bytes).unwrap();
+							let mut inner_data: VecDeque<OCWSigData> =
+								Decode::decode(&mut bytes).unwrap();
 							inner_data.push_back(ocw_sig_data);
 							let encoded_data = Encode::encode(&inner_data);
 							ocw_storage.set(STORAGE_PREFIX, OCW_SIG_KEY, &encoded_data);

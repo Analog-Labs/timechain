@@ -220,7 +220,7 @@ pub struct OCWSigData {
 }
 
 impl OCWSigData {
-	pub fn new(auth_sig: Signature, sig_data: SignatureData, event_id: ForeignEventId,) -> Self {
+	pub fn new(auth_sig: Signature, sig_data: SignatureData, event_id: ForeignEventId) -> Self {
 		Self { auth_sig, sig_data, event_id }
 	}
 }

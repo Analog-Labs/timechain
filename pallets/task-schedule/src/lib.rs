@@ -222,10 +222,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
-			.filter(|item| {
-				item.1.status == ScheduleStatus::Initiated
-					|| (item.1.status == ScheduleStatus::Recurring && item.1.cycle > 0)
-			})
+				.filter(|item| {
+					item.1.status == ScheduleStatus::Initiated
+						|| (item.1.status == ScheduleStatus::Recurring && item.1.cycle > 0)
+				})
 				.collect::<Vec<_>>();
 
 			Ok(data_list)

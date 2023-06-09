@@ -275,23 +275,74 @@ where
 				.await;
 		}
 
-		match response.block {
-			Some(block) => {
-				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
-					for recursive_task_schedule in tasks {
-						let _ = self
-							.task_executor(
-								block_id,
-								&recursive_task_schedule.0,
-								&recursive_task_schedule.1,
-							)
-							.await;
-					}
-				}
-			},
-			None => log::info!("failed to get BlockResponse from rosetta"),
-		};
+		if let Some((&key, _value)) = tree_map.first_key_value() {
+			// Use key and value here
+			match response.block {
+				Some(block) => {
+					let block_number = if block.block_identifier.index >= key {
+						block.block_identifier.index
+					} else {
+						key
+					};
 
+					if let Some(tasks) = self.task_map.remove(&block_number) {
+						for recursive_task_schedule in tasks {
+							let result = self
+								.task_executor(
+									block_id,
+									&recursive_task_schedule.0,
+									&recursive_task_schedule.1,
+								)
+								.await;
+
+							match result {
+								Ok(()) => {
+									if recursive_task_schedule.1.cycle > 1
+										&& recursive_task_schedule.1.status
+											== ScheduleStatus::Recurring
+									{
+										//Update Extrinsic with cycle count-1;
+										todo!();
+									} else if recursive_task_schedule.1.cycle > 1 {
+										//Update cycle count-1 and status = Recursive;
+										todo!();
+									}
+									if let Some(value) = tree_map.remove(&key) {
+										tree_map.insert(
+											block_number + recursive_task_schedule.1.frequency,
+											value,
+										);
+									}
+
+									//Updating BTree key and value, because not going to retrive this task again from task schedule
+									if let Some(value) = tree_map.get_mut(
+										&(block_number + recursive_task_schedule.1.frequency),
+									) {
+										*value = TaskSchedule {
+											task_id: value.task_id,
+											owner: value.owner.clone(),
+											shard_id: value.shard_id,
+											start_block: value.start_block,
+											cycle: value.cycle - 1,
+											frequency: value.frequency,
+											validity: value.validity,
+											hash: value.hash.clone(),
+											start_execution_block: value.start_execution_block,
+											status: ScheduleStatus::Recurring,
+										};
+									}
+								},
+								Err(_) => todo!(),
+							}
+						}
+					}
+				},
+				None => log::info!("failed to get BlockResponse from rosetta"),
+			}
+		} else {
+			// Handle the case when the map is empty
+			println!("The map is empty.");
+		}
 		Ok(())
 	}
 

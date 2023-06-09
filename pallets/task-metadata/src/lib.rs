@@ -86,14 +86,14 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = TaskMetaStorage::<T>::get(task.collection_id.0);
+			let data_list = TaskMetaStorage::<T>::get(task.task_id.0);
 			match data_list {
 				Some(val) => {
-					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
+					Self::deposit_event(Event::AlreadyExist(val.task_id.0));
 				},
 				None => {
-					TaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
-					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
+					TaskMetaStorage::<T>::insert(task.task_id.0, task.clone());
+					Self::deposit_event(Event::TaskMetaStored(task.task_id.0));
 				},
 			}
 
@@ -136,14 +136,14 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = PayableTaskMetaStorage::<T>::get(task.collection_id.0);
+			let data_list = PayableTaskMetaStorage::<T>::get(task.task_id.0);
 			match data_list {
 				Some(val) => {
-					Self::deposit_event(Event::PayableTaskMetaAlreadyExist(val.collection_id.0));
+					Self::deposit_event(Event::PayableTaskMetaAlreadyExist(val.task_id.0));
 				},
 				None => {
-					PayableTaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
-					Self::deposit_event(Event::PayableTaskMetaStorage(task.collection_id.0));
+					PayableTaskMetaStorage::<T>::insert(task.task_id.0, task.clone());
+					Self::deposit_event(Event::PayableTaskMetaStorage(task.task_id.0));
 				},
 			}
 

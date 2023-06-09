@@ -48,7 +48,9 @@ pub mod pallet {
 		pallet_prelude::{ValueQuery, *},
 		traits::Time,
 	};
-	use frame_system::offchain::{AppCrypto, CreateSignedTransaction, Signer, SendSignedTransaction};
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
@@ -57,16 +59,16 @@ pub mod pallet {
 		traits::{AppVerify, Scale},
 		Percent, SaturatedConversion, Saturating,
 	};
-	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
+	use sp_std::{collections::{vec_deque::VecDeque, btree_set::BTreeSet}, result, vec::Vec};
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
-		abstraction::ObjectId,
+		abstraction::{OCWSigData, ObjectId},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
-		ForeignEventId, SignatureData, TimeId,
+		ForeignEventId, SignatureData, TimeId, OCW_SIG_KEY,
 	};
-	
+
 	pub trait WeightInfo {
 		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
@@ -92,28 +94,27 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			// Self::ocw_store_signature().unwrap();
-			log::info!("hello from offchain worker");
-			let id: ForeignEventId = (1 as u128).into();
-			let binding = id.encode();
-			let mut storage_ref = StorageValueRef::persistent(&binding);
-			let res = storage_ref.get::<SignatureData>();
-			let Ok(data) = res else{
+			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
+			let res = storage_ref.get::<VecDeque<OCWSigData>>();
+			let Ok(data) = res else {
 				log::error!("could not fetch data from storage");
 				return;
 			};
 
-			let Some(sig_data) = data else {
-				log::info!("key is empty");
+			let Some(mut sig_vec) = data else {
 				return;
 			};
 
-			if let Err(err) = Self::ocw_store_signature(sig_data, id){
+			let Some(sig_req) = sig_vec.pop_front()else{
+				log::info!("no signature request");
+				return;
+			};
+
+			if let Err(err) = Self::ocw_store_signature(sig_req) {
 				log::error!("Error occured while submitting extrinsic {:?}", err);
 			};
-			
-			storage_ref.clear();
 
+			storage_ref.set(&sig_vec);
 		}
 	}
 
@@ -243,7 +244,7 @@ pub mod pallet {
 		TaskNotScheduled,
 
 		/// Invalid collector id
-		InvalidCollectorId,
+		InvalidValidationSignature,
 
 		///TSS Signature already added
 		DuplicateSignature,
@@ -314,25 +315,36 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::store_signature(1))]
 		pub fn store_signature(
 			origin: OriginFor<T>,
+			auth_sig: Signature,
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let _ = ensure_signed(origin)?;
 			let task_id: ObjectId = ObjectId(event_id.task_id().into());
 
 			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
+			let payable_schedule_data =
+				T::TaskScheduleHelper::get_payable_schedules_via_task_id(task_id)?;
 
-			let Some(schedule) = schedule_data.first() else{
+			let shard_id = if let Some(schedule) = schedule_data.first() {
+				schedule.shard_id
+			} else if let Some(payable_schedule) = payable_schedule_data.first() {
+				payable_schedule.shard_id
+			} else {
 				return Err(Error::<T>::TaskNotScheduled.into());
 			};
 
-			let shard =
-				<TssShards<T>>::get(schedule.shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let collector = shard.collector();
-			let collector_account_id = T::AccountId::decode(&mut collector.as_ref())
-				.map_err(|_| Error::<T>::InvalidCollectorId)?;
 
-			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
+			let raw_public_key: &[u8; 32] = collector.as_ref();
+			let collector_public_id =
+				sp_application_crypto::sr25519::Public::from_raw(*raw_public_key);
+
+			ensure!(
+				auth_sig.verify(signature_data.as_ref(), &collector_public_id.into()),
+				Error::<T>::InvalidValidationSignature
+			);
 
 			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
 				ensure!(
@@ -387,36 +399,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn api_store_signature(
-			auth_id: Public,
-			auth_sig: Signature,
-			signature_data: SignatureData,
-			event_id: ForeignEventId,
-		) -> DispatchResult {
-			log::info!("api_store_signature");
-			use sp_runtime::traits::AppVerify;
-			// transform AccountId32 int T::AccountId
-			let encoded_account = auth_id.encode();
-			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
-			ensure!(encoded_account[..] != [0u8; 32][..], Error::<T>::DefaultAccountForbidden);
-			// TODO: same check as for extrinsic after task management is implemented
-			// Update: implemnetation here is not necessary since this function will be removed
-			// and only extrinsics will be used to store signature.
-			ensure!(
-				auth_sig.verify(signature_data.as_ref(), &auth_id),
-				Error::<T>::UnregisteredWorkerDataSubmission
-			);
-			let encoded_id = event_id.encode();
-			// sp_io::offchain_index::set(&encoded_id, &signature_data);
-			//try2
-			// sp_io::offchain::local_storage_set(sp_core::offchain::StorageKind::PERSISTENT, &encoded_id, &signature_data);
-			//try3 this also does not work
-			StorageValueRef::persistent(&encoded_id).set(&signature_data);
-			log::info!("setted storage with encoded_id {:?}", encoded_id);
-
-			Ok(())
-		}
-
+		
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().collect()
@@ -488,7 +471,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn ocw_store_signature(signature_data: SignatureData, event_id: ForeignEventId) -> Result<(), &'static str> {
+		fn ocw_store_signature(data: OCWSigData) -> Result<(), &'static str> {
 			let signer = Signer::<T, T::AuthorityId>::all_accounts();
 			if !signer.can_sign() {
 				return Err(
@@ -496,17 +479,16 @@ pub mod pallet {
 				);
 			}
 
-			let results = signer.send_signed_transaction(|_account| {
-				Call::store_signature{
-					signature_data, 
-					event_id
-				}
+			let results = signer.send_signed_transaction(|_account| Call::store_signature {
+				auth_sig: data.auth_sig.clone(),
+				signature_data: data.sig_data,
+				event_id: data.event_id,
 			});
 
 			for (_, res) in &results {
 				match res {
 					Ok(()) => {
-						log::info!("Submited Extrinsic results")
+						log::info!("Submited ocw signature extrinsic")
 					},
 					Err(e) => log::error!(
 						"Failed to submit transaction: {:?}",

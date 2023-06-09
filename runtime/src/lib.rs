@@ -1473,15 +1473,6 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block, AccountId>  for Runtime {
-		fn store_signature(
-			auth_key: time_primitives::crypto::Public,
-			auth_sig: time_primitives::crypto::Signature,
-			signature_data: time_primitives::SignatureData,
-			event_id: time_primitives::ForeignEventId) -> DispatchResult
-		{
-			TesseractSigStorage::api_store_signature(auth_key, auth_sig, signature_data, event_id)
-		}
-
 		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.members())
 		}

@@ -6,15 +6,15 @@ use frame_support::{
 };
 use frame_system as system;
 use sp_core::{ConstU32, H256};
+use sp_runtime::generic::Era;
+use sp_runtime::MultiSignature;
+use sp_runtime::SaturatedConversion;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup, IdentifyAccount, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
 use sp_std::cell::RefCell;
-use sp_runtime::SaturatedConversion;
-use sp_runtime::generic::Era;
-use sp_runtime::MultiSignature;
 
 // use pallet_randomness_collective_flip;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -226,8 +226,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		balances: vec![
 			(acc_pub(1).into(), 10_000_000_000),
 			(acc_pub(2).into(), 20_000_000_000),
-			//Alice account
-			// (1334440654591915542993625911497130241, 20_000_000_000),
 		],
 	}
 	.assimilate_storage(&mut storage)

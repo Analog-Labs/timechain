@@ -1,9 +1,8 @@
 use super::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{
-	abstraction::{Function, Input, ObjectId, Output, PayableTask, Schema, Task, Validity},
-	ProxyAccInput,
+use time_primitives::abstraction::{
+	Function, Input, ObjectId, Output, PayableTask, Schema, Task, Validity,
 };
 
 #[test]
@@ -23,15 +22,14 @@ fn test_task() {
 			hash: String::from("hash"),
 		};
 
-		let proxy_data = ProxyAccInput {
-			proxy: 1,
-			max_token_usage: Some(1),
-			token_usage: 1,
-			max_task_execution: Some(1),
-			task_executed: 1,
-		};
-
-		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(1).into(), proxy_data);
+		assert_ok!(PalletProxy::set_proxy_account(
+			RawOrigin::Signed(1).into(),
+			Some(1),
+			1,
+			Some(1),
+			1,
+			1
+		));
 		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(1).into(), input.clone(),));
 
 		assert_eq!(TaskMeta::get_task_metadata(1), Some(input));
@@ -51,15 +49,14 @@ fn test_payable_task() {
 			},
 		};
 
-		let proxy_data = ProxyAccInput {
-			proxy: 1,
-			max_token_usage: Some(1),
-			token_usage: 1,
-			max_task_execution: Some(1),
-			task_executed: 1,
-		};
-
-		let _ = PalletProxy::set_proxy_account(RawOrigin::Signed(1).into(), proxy_data);
+		assert_ok!(PalletProxy::set_proxy_account(
+			RawOrigin::Signed(1).into(),
+			Some(1),
+			1,
+			Some(1),
+			1,
+			1
+		));
 		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input.clone(),));
 
 		assert_eq!(TaskMeta::get_payable_task_metadata(1), Some(input));

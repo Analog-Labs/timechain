@@ -7,7 +7,7 @@ pub mod rpc;
 pub mod sharding;
 pub mod slashing;
 
-use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
+pub use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -150,15 +150,6 @@ pub struct ProxyAccStatus<AccountId, Balance> {
 	pub task_executed: u32,
 	pub status: ProxyStatus,
 	pub proxy: AccountId,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ProxyAccInput<AccountId> {
-	pub proxy: AccountId,
-	pub max_token_usage: Option<u32>,
-	pub token_usage: u32,
-	pub max_task_execution: Option<u32>,
-	pub task_executed: u32,
 }
 
 pub trait ProxyExtend<AccountId> {

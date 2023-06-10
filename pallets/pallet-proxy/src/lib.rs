@@ -88,7 +88,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
 			origin: OriginFor<T>,
-			proxy_data: ProxyAccInput<T::AccountId>,
+			max_token_usage: Option<BalanceOf<T>>,
+			token_usage: BalanceOf<T>,
+			max_task_execution: Option<u32>,
+			task_executed: u32,
+			proxy: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// if already some valid proxy account, use `update_proxy_account` instead
@@ -142,7 +146,6 @@ pub mod pallet {
 			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
 			ensure!(acc.owner == who, Error::<T>::NoPermission);
 			ProxyStorage::<T>::remove(&acc.proxy);
-
 			Self::deposit_event(Event::ProxyRemoved(acc.proxy));
 			Ok(())
 		}

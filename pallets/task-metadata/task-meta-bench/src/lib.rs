@@ -9,10 +9,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::{string::String, vec};
 use task_metadata::{Call, Pallet as TaskMeta};
-use time_primitives::{
-	abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity},
-	ProxyAccInput,
-};
+use time_primitives::abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity};
 
 pub trait Config: task_metadata::Config + pallet_proxy::Config {}
 
@@ -37,15 +34,8 @@ benchmarks! {
 		let origin: T::AccountId = whitelisted_caller();
 		let task_data = input.clone();
 		let proxy_acc: T::AccountId = whitelisted_caller();
-		let proxy_data = ProxyAccInput {
-			max_token_usage: Some(10u32),
-			token_usage: 10u32,
-			max_task_execution: Some(10u32),
-			task_executed: 10u32,
-			proxy: proxy_acc,
-		};
 
-		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), proxy_data);
+		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32 proxy_acc);
 	}: _(RawOrigin::Signed(origin), task_data)
 	verify {
 		assert!(task_metadata::TaskMetaStorage::<T>::get(1).is_some());

@@ -483,11 +483,12 @@ pub mod pallet {
 		fn ocw_store_signature(data: OCWSigData) -> Result<(), Error<T>> {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 
-			if let Some(acc, res) = signer.send_signed_transaction(|_account| Call::store_signature {
-				auth_sig: data.auth_sig.clone(),
-				signature_data: data.sig_data,
-				event_id: data.event_id,
-			}) {
+			if let Some(acc, res) =
+				signer.send_signed_transaction(|_account| Call::store_signature {
+					auth_sig: data.auth_sig.clone(),
+					signature_data: data.sig_data,
+					event_id: data.event_id,
+				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
 					return Err(Error::OffchainSignedTxFailed);

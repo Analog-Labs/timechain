@@ -247,11 +247,17 @@ pub mod pallet {
 		/// Task not scheduled
 		TaskNotScheduled,
 
-		/// Invalid collector id
+		/// Invalid validation signature
 		InvalidValidationSignature,
 
 		///TSS Signature already added
 		DuplicateSignature,
+
+		///Offchain signed tx failed
+		OffchainSignedTxFailed,
+
+		///no local account for signed tx
+		NoLocalAcctForSignedTx,
 	}
 
 	#[pallet::inherent]
@@ -323,8 +329,8 @@ pub mod pallet {
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
-			let task_id: ObjectId = ObjectId(event_id.task_id().into());
+			ensure_signed(origin)?;
+			let task_id = ObjectId(event_id.task_id().into());
 
 			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
 			let payable_schedule_data =
@@ -474,30 +480,24 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn ocw_store_signature(data: OCWSigData) -> Result<(), &'static str> {
-			let signer = Signer::<T, T::AuthorityId>::all_accounts();
-			if !signer.can_sign() {
-				return Err(
-					"No local accounts available. Consider adding one via `author_insertKey` RPC.",
-				);
-			}
+		fn ocw_store_signature(data: OCWSigData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
 
-			let results = signer.send_signed_transaction(|_account| Call::store_signature {
+			if let Some(acc, res) = signer.send_signed_transaction(|_account| Call::store_signature {
 				auth_sig: data.auth_sig.clone(),
 				signature_data: data.sig_data,
 				event_id: data.event_id,
-			});
-
-			for (_, res) in &results {
-				match res {
-					Ok(()) => {
-						log::info!("Submited ocw signature extrinsic")
-					},
-					Err(e) => log::error!("Failed to submit transaction: {:?}", e),
+			}) {
+				if res.is_err() {
+					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					return Ok(());
 				}
 			}
 
-			Ok(())
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
 		}
 	}
 }

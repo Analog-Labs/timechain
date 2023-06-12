@@ -6,9 +6,7 @@ use frame_support::{
 };
 use frame_system as system;
 use sp_core::{ConstU32, H256};
-use sp_runtime::generic::Era;
 use sp_runtime::MultiSignature;
-use sp_runtime::SaturatedConversion;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -195,9 +193,9 @@ where
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: RuntimeCall,
-		public: <Signature as Verify>::Signer,
+		_public: <Signature as Verify>::Signer,
 		account: AccountId,
-		nonce: Index,
+		_nonce: Index,
 	) -> Option<(
 		RuntimeCall,
 		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,

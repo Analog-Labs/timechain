@@ -3,11 +3,11 @@ use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_keystore::Keystore;
-// use sc_keystore::Keystore;
 use time_primitives::{
 	abstraction::{ObjectId, ScheduleInput, Validity},
 	ForeignEventId, TimeId,
 };
+
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
@@ -18,16 +18,20 @@ pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
 fn test_signature_storage() {
 	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
+
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
 		let event_id: ForeignEventId = u128::from(task_id).into();
 
-		let alice_u128: u128 = 1334440654591915542993625911497130241;
-
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![ALICE, BOB, CHARLIE],
+			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
 		),);
 
@@ -40,10 +44,16 @@ fn test_signature_storage() {
 			hash: String::from("address"),
 		};
 
+		let alice_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data.as_ref())
+			.unwrap()
+			.unwrap();
+
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(ALICE).into(),
+			alice_report.into(),
 			sig_data,
 			event_id
 		));
@@ -58,16 +68,20 @@ fn test_recurring_signature() {
 	let sig_data_1: [u8; 64] = [r; 64];
 	let s = r.saturating_add(1);
 	let sig_data_2: [u8; 64] = [s; 64];
+
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
 		let event_id: ForeignEventId = u128::from(task_id).into();
 
-		let alice_u128: u128 = 1334440654591915542993625911497130241;
-
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![ALICE, BOB, CHARLIE],
+			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
 		),);
 
@@ -82,14 +96,26 @@ fn test_recurring_signature() {
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
+		let alice_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data_1.as_ref())
+			.unwrap()
+			.unwrap();
+
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(ALICE).into(),
+			alice_report.into(),
 			sig_data_1,
 			event_id
 		));
 
+		let alice_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data_2.as_ref())
+			.unwrap()
+			.unwrap();
+
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(ALICE).into(),
+			alice_report.into(),
 			sig_data_2,
 			event_id
 		));
@@ -101,16 +127,20 @@ fn test_recurring_signature() {
 fn test_duplicate_signature() {
 	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
+
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.expect("Creates authority key");
+
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
 		let event_id: ForeignEventId = u128::from(task_id).into();
 
-		let alice_u128: u128 = 1334440654591915542993625911497130241;
-
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![ALICE, BOB, CHARLIE],
+			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
 		),);
 
@@ -125,8 +155,14 @@ fn test_duplicate_signature() {
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
+		let alice_report = keystore
+			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data.as_ref())
+			.unwrap()
+			.unwrap();
+
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(ALICE).into(),
+			alice_report.clone().into(),
 			sig_data,
 			event_id
 		));
@@ -134,6 +170,7 @@ fn test_duplicate_signature() {
 		assert_noop!(
 			TesseractSigStorage::store_signature(
 				RawOrigin::Signed(ALICE).into(),
+				alice_report.into(),
 				sig_data,
 				event_id
 			),

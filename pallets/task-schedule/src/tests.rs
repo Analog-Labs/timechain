@@ -16,7 +16,6 @@ fn test_schedule() {
 			frequency: 1,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
-			start_execution_block: 0,
 			status: ScheduleStatus::Initiated,
 		};
 		let account = 1;
@@ -39,6 +38,7 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
+			frequency: 1,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output));
 		// update schedule
@@ -57,6 +57,7 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
+			frequency: 1,
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output_update));
 		// check update token usage

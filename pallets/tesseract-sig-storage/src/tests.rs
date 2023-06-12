@@ -37,6 +37,8 @@ fn test_signature_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 1,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
@@ -77,6 +79,8 @@ fn test_recurring_signature() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 1,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));
@@ -120,6 +124,8 @@ fn test_duplicate_signature() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 1,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(alice_u128).into(), input));

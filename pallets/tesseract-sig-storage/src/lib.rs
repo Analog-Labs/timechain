@@ -483,7 +483,7 @@ pub mod pallet {
 		fn ocw_store_signature(data: OCWSigData) -> Result<(), Error<T>> {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 
-			if let Some(acc, res) =
+			if let Some((acc, res)) =
 				signer.send_signed_transaction(|_account| Call::store_signature {
 					auth_sig: data.auth_sig.clone(),
 					signature_data: data.sig_data,

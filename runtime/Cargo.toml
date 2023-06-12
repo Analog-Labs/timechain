@@ -13,6 +13,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
+static_assertions = "1.1.0"
 
 pallet-bags-list = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-babe = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
@@ -74,6 +75,9 @@ runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
 task-meta-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-metadata/task-meta-bench", optional = true }
 task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench", optional = true }
+
+[dev-dependencies]
+separator = "0.4.1"
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }

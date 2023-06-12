@@ -3,18 +3,22 @@
 
 pub mod weights;
 
-pub mod constants {
+pub mod currency {
 
 	pub type Balance = u128;
 
 	pub const TOKEN_DECIMALS: u32 = 8;
 	const TOKEN_BASE: u128 = 10;
-	pub const ANLOG: Balance = TOKEN_BASE.pow(TOKEN_DECIMALS);
-	pub const MILLIANLOG: Balance = ANLOG / 1000;
-	pub const MICROANLOG: Balance = MILLIANLOG / 1000;
-	pub const TOCK: Balance = MICROANLOG / 100;
+	pub const ANLOG: Balance = TOKEN_BASE.pow(TOKEN_DECIMALS); // 10^8
+	pub const MILLIANLOG: Balance = ANLOG / 1000; // 10^5
+	pub const MICROANLOG: Balance = MILLIANLOG / 1000; // 10^2
+	pub const TOCK: Balance = MICROANLOG / 100; // 1
+
+	pub const TRANSACTION_BYTE_FEE: Balance = 100 * MILLIANLOG;
+	pub const STORAGE_BYTE_FEE: Balance = 500 * MICROANLOG;
+	pub const WEIGHT_FEE: Balance = 5 * MILLIANLOG;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
-		items as Balance * 15 * MICROANLOG + (bytes as Balance) * 6 * MICROANLOG
+		items as Balance * 15 * MICROANLOG + (bytes as Balance) * STORAGE_BYTE_FEE
 	}
 }

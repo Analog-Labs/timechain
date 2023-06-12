@@ -16,7 +16,7 @@ pub const TW_LOG: &str = "task-executor";
 pub struct TaskExecutorParams<B: Block, A, R, BE>
 where
 	B: Block,
-	A: codec::Codec,
+	A: codec::Codec + Clone,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B, A>,
@@ -38,7 +38,7 @@ where
 pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
 where
 	B: Block,
-	A: codec::Codec + 'static,
+	A: codec::Codec + Clone + 'static,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
 	R::Api: TimeApi<B, A>,

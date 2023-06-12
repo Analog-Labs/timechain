@@ -344,10 +344,6 @@ pub mod pallet {
 		}
 	}
 
-	// GetShards should contain the impl to get the list of whether a shard has offended
-	// and scheduler should get it from here using another function
-	// fn shard_can_reach_threshold(id: Id) -> bool; and us it in the other pallet
-	// instead of using the storage item there, keep it here to use it in this
 	impl<T: Config> GetShards<ShardId> for Pallet<T> {
 		fn shard_can_reach_threshold(id: ShardId) -> bool {
 			<ShardCannotReachConsensus<T>>::get(id).is_none()

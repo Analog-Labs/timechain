@@ -15,7 +15,7 @@ pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
 
 #[test]
 fn test_signature_storage() {
-	let r: u8 = rand::random();
+	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
@@ -53,7 +53,7 @@ fn test_signature_storage() {
 
 #[test]
 fn test_recurring_signature() {
-	let r: u8 = rand::random();
+	let r: u8 = 123;
 	let sig_data_1: [u8; 64] = [r; 64];
 	let s = r.saturating_add(1);
 	let sig_data_2: [u8; 64] = [s; 64];
@@ -98,7 +98,7 @@ fn test_recurring_signature() {
 
 #[test]
 fn test_duplicate_signature() {
-	let r: u8 = rand::random();
+	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;

@@ -11,7 +11,7 @@ use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
-use sp_core::hashing::keccak_256;
+use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{
@@ -22,8 +22,8 @@ use std::{
 };
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
-	abstraction::{Function, ScheduleStatus},
-	TaskSchedule, TimeApi, TimeId, KEY_TYPE,
+	abstraction::{Function, OCWSkdData, ScheduleStatus},
+	KeyId, TaskSchedule, TimeApi, TimeId, KEY_TYPE, OCW_SKD_KEY,
 };
 
 use queue::Queue;
@@ -293,6 +293,25 @@ where
 		};
 
 		Ok(())
+	}
+
+	fn update_schedule_ocw_storage(&mut self, schedule_status: ScheduleStatus, key: KeyId) {
+		let ocw_skd = OCWSkdData::new(schedule_status, key);
+
+		let mut ocw_storage = self.backend.offchain_storage().unwrap();
+
+		if let Some(mut data) = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY) {
+			let mut bytes: &[u8] = &mut data;
+			let mut inner_data: VecDeque<OCWSkdData> = Decode::decode(&mut bytes).unwrap();
+			inner_data.push_back(ocw_skd);
+			let encoded_data = Encode::encode(&inner_data);
+			ocw_storage.set(STORAGE_PREFIX, OCW_SKD_KEY, &encoded_data);
+		} else {
+			let mut new_data = VecDeque::new();
+			new_data.push_back(ocw_skd);
+			let encoded_data = Encode::encode(&new_data);
+			ocw_storage.set(STORAGE_PREFIX, OCW_SKD_KEY, &encoded_data);
+		}
 	}
 
 	pub async fn run(&mut self) {

@@ -224,3 +224,15 @@ impl OCWSigData {
 		Self { auth_sig, sig_data, event_id }
 	}
 }
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct OCWSkdData {
+	status: ScheduleStatus,
+	key: KeyId,
+}
+
+impl OCWSkdData {
+	pub fn new(status: ScheduleStatus, key: KeyId) -> Self {
+		Self { status, key }
+	}
+}

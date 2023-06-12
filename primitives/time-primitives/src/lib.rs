@@ -19,6 +19,7 @@ use sp_std::{fmt::Debug, vec::Vec};
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
 pub const OCW_SIG_KEY: &[u8; 20] = b"pallet_sig::offchain";
+pub const OCW_SKD_KEY: &[u8; 20] = b"pallet_skd::offchain";
 
 /// The type representing a signature data
 // ThresholdSignature::to_bytes()

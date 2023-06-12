@@ -1164,6 +1164,7 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 }
 
 impl task_schedule::Config for Runtime {
+	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
 	type ProxyExtend = ();

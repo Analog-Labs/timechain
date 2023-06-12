@@ -15,7 +15,7 @@ use sp_runtime::{
 	DispatchError, DispatchResult, MultiSignature,
 };
 use sp_std::{fmt::Debug, vec::Vec};
-use sp_weight::Weight;
+use sp_weights::Weight;
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
 

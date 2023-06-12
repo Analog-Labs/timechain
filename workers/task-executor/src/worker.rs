@@ -250,7 +250,7 @@ where
 		for (id, schedule) in tree_map.iter() {
 			if schedule.cycle == 1 {
 				let _ = queue.queue((*id, schedule.clone()));
-			} else if schedule.start_block == 0 {
+			} else if schedule.start_execution_block == 0 {
 				match response.clone().block {
 					Some(block) => {
 						self.task_map
@@ -261,9 +261,9 @@ where
 					None => log::info!("failed to get BlockResponse from rosetta"),
 				}
 			} else {
-				// If start block is not 0 than task is repetative and start_block now contians next execution
+				// If start block is not 0 than task is repetative and start_execution_block now contians next execution
 				self.task_map
-					.entry(schedule.start_block)
+					.entry(schedule.start_execution_block)
 					.or_insert(Vec::new())
 					.push((*id, schedule.clone()));
 			}
@@ -322,12 +322,11 @@ where
 											task_id: value.task_id,
 											owner: value.owner.clone(),
 											shard_id: value.shard_id,
-											start_block: value.start_block,
+											start_execution_block: value.start_execution_block,
 											cycle: value.cycle - 1,
 											frequency: value.frequency,
 											validity: value.validity,
 											hash: value.hash.clone(),
-											start_execution_block: value.start_execution_block,
 											status: ScheduleStatus::Recurring,
 										};
 									}

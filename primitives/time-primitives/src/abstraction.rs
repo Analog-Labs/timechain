@@ -122,7 +122,6 @@ pub struct TaskSchedule<AccountId> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub shard_id: u64,
-	pub start_block: u64,
 	pub cycle: u64,
 	pub frequency: u64,
 	pub validity: Validity,

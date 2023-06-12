@@ -1115,7 +1115,6 @@ impl task_schedule::Config for Runtime {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
-	type ExecutionFee = ExecutionFee;
 }
 
 impl pallet_proxy::Config for Runtime {

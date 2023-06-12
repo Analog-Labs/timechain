@@ -15,8 +15,8 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{SaturatedConversion, Saturating};
-	use time_primitives::{ProxyAccInput, ProxyAccStatus, ProxyExtend, ProxyStatus};
+	use sp_runtime::Saturating;
+	use time_primitives::{ProxyAccStatus, ProxyExtend, ProxyStatus};
 
 	pub type KeyId = u64;
 	pub(crate) type BalanceOf<T> =
@@ -96,23 +96,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// if already some valid proxy account, use `update_proxy_account` instead
-			ensure!(
-				ProxyStorage::<T>::get(&proxy_data.proxy).is_none(),
-				Error::<T>::ProxyAlreadyExists
-			);
+			ensure!(ProxyStorage::<T>::get(&proxy).is_none(), Error::<T>::ProxyAlreadyExists);
 			ProxyStorage::<T>::insert(
-				&proxy_data.proxy,
+				&proxy,
 				ProxyAccStatus {
 					owner: who.clone(),
-					max_token_usage: proxy_data
-						.max_token_usage
-						.as_ref()
-						.map(|x| (*x).saturated_into::<BalanceOf<T>>()),
-					token_usage: proxy_data.token_usage.saturated_into(),
-					max_task_execution: proxy_data.max_task_execution,
-					task_executed: proxy_data.task_executed,
+					max_token_usage,
+					token_usage,
+					max_task_execution,
+					task_executed,
 					status: ProxyStatus::Valid,
-					proxy: proxy_data.proxy.clone(),
+					proxy: proxy.clone(),
 				},
 			);
 			Self::deposit_event(Event::ProxyStored(who));

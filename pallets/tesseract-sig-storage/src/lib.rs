@@ -54,6 +54,15 @@ pub mod pallet {
 		}
 	}
 
+	// TODO: move to primitives so not repeating in pallet-task-schedule
+	pub trait ReportShard<Id> {
+		fn report_shard(_id: Id) -> Weight {
+			Weight::default()
+		}
+	}
+	impl<Id> ReportShard<Id> for () {}
+	pub type ShardId = u64;
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -77,22 +86,25 @@ pub mod pallet {
 		type SlashingPercentageThreshold: Get<u8>;
 
 		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
+
+		type ShardReporter: ReportShard<ShardId>;
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_id)]
+	#[pallet::getter(fn shard_id_counter)]
 	/// Counter for creating unique shard_ids during on-chain creation
-	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
-	/// Indicates precise members of each TSS set by it's u64 id
+	/// Indicates precise members of each TSS set by it's ShardId
 	/// Required for key generation and identification
 	#[pallet::storage]
 	#[pallet::getter(fn tss_shards)]
-	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, Shard, OptionQuery>;
+	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, Shard, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
-	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 33], OptionQuery>;
+	pub type TssGroupKey<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, [u8; 33], OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
@@ -103,6 +115,11 @@ pub mod pallet {
 	#[pallet::getter(fn reported_offences)]
 	pub type ReportedOffences<T: Config> =
 		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn committed_offenses_count)]
+	pub type CommittedOffensesCount<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, u8, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn commited_offences)]
@@ -119,10 +136,10 @@ pub mod pallet {
 		/// New group key submitted to runtime
 		/// .0 - set_id,
 		/// .1 - group key bytes
-		NewTssGroupKey(u64, [u8; 33]),
+		NewTssGroupKey(ShardId, [u8; 33]),
 
 		/// Shard has ben registered with new Id
-		ShardRegistered(u64),
+		ShardRegistered(ShardId),
 
 		/// Offence reported, above threshold s.t.
 		/// reports are moved from reported to committed.
@@ -169,7 +186,7 @@ pub mod pallet {
 		/// Do not allow more than one misbehavior report of offender by member
 		MaxOneReportPerMember,
 
-		/// ShardId generation overflowed u64 type
+		/// ShardId generation overflowed ShardId type
 		ShardIdOverflow,
 
 		/// Collector index exceeds length of members
@@ -291,7 +308,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
-			set_id: u64,
+			set_id: ShardId,
 			group_key: [u8; 33],
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
@@ -315,11 +332,11 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let shard = new_shard::<T>(members, collector_index)?;
 			// get unused ShardId from storage
-			let shard_id = <ShardId<T>>::get();
+			let shard_id = <ShardIdCounter<T>>::get();
 			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
 			<TssShards<T>>::insert(shard_id, shard);
-			<ShardId<T>>::put(next_shard_id);
+			<ShardIdCounter<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id));
 			Ok(())
 		}
@@ -357,14 +374,14 @@ pub mod pallet {
 		}
 
 		// Getter method for runtime api storage access
-		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+		pub fn api_tss_shards() -> Vec<(ShardId, Shard)> {
 			<TssShards<T>>::iter().collect()
 		}
 
 		/// Method to provide misbehavior report to runtime
 		/// Is protected with proven ownership of private key to prevent spam
 		pub fn api_report_misbehavior(
-			shard_id: u64,
+			shard_id: ShardId,
 			offender: time_primitives::TimeId,
 			reporter: TimeId,
 			proof: time_primitives::crypto::Signature,
@@ -382,47 +399,55 @@ pub mod pallet {
 				proof.verify(offender.as_ref(), &reporter_pub),
 				Error::<T>::ProofVerificationFailed
 			);
-			let reported_offences_count =
-				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
-					// do not allow more than one report per reporter
-					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
-					// check reached threshold
-					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
-						* members.len();
-					let new_report_count = known_offender.0.saturating_plus_one();
-					// update known offender report count
-					known_offender.0 = new_report_count;
-					if new_report_count.saturated_into::<usize>() >= shard_th {
-						<CommitedOffences<T>>::insert(&offender, known_offender);
-						// removed ReportedOffences because moved to CommittedOffences
-						<ReportedOffences<T>>::remove(&offender);
-						Self::deposit_event(Event::OffenceCommitted(
-							offender.clone(),
-							new_report_count,
-						));
-					} else {
-						<ReportedOffences<T>>::insert(&offender, known_offender);
+			let reported_offences_count = if let Some(mut known_offender) =
+				<ReportedOffences<T>>::get(&offender)
+			{
+				// do not allow more than one report per reporter
+				ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
+				// check reached threshold
+				let shard_th =
+					Percent::from_percent(T::SlashingPercentageThreshold::get()) * members.len();
+				let new_report_count = known_offender.0.saturating_plus_one();
+				// update known offender report count
+				known_offender.0 = new_report_count;
+				if new_report_count.saturated_into::<usize>() >= shard_th {
+					let committed_offenses_count =
+						<CommittedOffensesCount<T>>::get(shard_id).saturating_plus_one();
+					if shard.threshold() + committed_offenses_count as u16 > members.len() as u16 {
+						// TODO: use weight returned from this hook once report_misbehavior is an extrinsic
+						T::ShardReporter::report_shard(shard_id);
 					}
-					new_report_count
-				} else if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
-					// do not allow more than one report per reporter
-					ensure!(guilty_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
-					// do allow new reports but only write to `CommittedOffences`
-					// (better to allow additional reports than enforce only up to threshold)
-					let new_report_count = guilty_offender.0.saturating_plus_one();
-					// update known offender report count
-					guilty_offender.0 = new_report_count;
-					<CommitedOffences<T>>::insert(&offender, guilty_offender);
-					new_report_count
+					<CommittedOffensesCount<T>>::insert(shard_id, committed_offenses_count);
+					<CommitedOffences<T>>::insert(&offender, known_offender);
+					// removed ReportedOffences because moved to CommittedOffences
+					<ReportedOffences<T>>::remove(&offender);
+					Self::deposit_event(Event::OffenceCommitted(
+						offender.clone(),
+						new_report_count,
+					));
 				} else {
-					// else write first first report ever to ReportedOffences
-					let mut new_reports = BTreeSet::new();
-					new_reports.insert(reporter);
-					let new_report_count = 1u8;
-					// insert new report
-					<ReportedOffences<T>>::insert(&offender, (new_report_count, new_reports));
-					new_report_count
-				};
+					<ReportedOffences<T>>::insert(&offender, known_offender);
+				}
+				new_report_count
+			} else if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
+				// do not allow more than one report per reporter
+				ensure!(guilty_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
+				// do allow new reports but only write to `CommittedOffences`
+				// (better to allow additional reports than enforce only up to threshold)
+				let new_report_count = guilty_offender.0.saturating_plus_one();
+				// update known offender report count
+				guilty_offender.0 = new_report_count;
+				<CommitedOffences<T>>::insert(&offender, guilty_offender);
+				new_report_count
+			} else {
+				// else write first first report ever to ReportedOffences
+				let mut new_reports = BTreeSet::new();
+				new_reports.insert(reporter);
+				let new_report_count = 1u8;
+				// insert new report
+				<ReportedOffences<T>>::insert(&offender, (new_report_count, new_reports));
+				new_report_count
+			};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
 		}

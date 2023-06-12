@@ -178,6 +178,7 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type ShardReporter = ();
 }
 
 // Build genesis storage according to the mock runtime.

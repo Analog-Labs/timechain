@@ -1042,6 +1042,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type ShardReporter = TaskSchedule;
 }
 
 parameter_types! {

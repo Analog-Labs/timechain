@@ -25,6 +25,7 @@ pub mod pallet {
 		PalletAccounts, ProxyExtend,
 	};
 	pub type KeyId = u64;
+	pub type ShardId = u64;
 	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub type PayableScheduleResults<AccountId> = Vec<(KeyId, PayableTaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
@@ -46,6 +47,11 @@ pub mod pallet {
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<u32>;
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn shard_cannot_reach_consensus)]
+	pub type ShardCannotReachConsensus<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
@@ -86,6 +92,8 @@ pub mod pallet {
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
 		ErrorRef,
+		/// Cannot assign task to shard because shard cannot reach threshold
+		ShardNotAssignable,
 	}
 
 	#[pallet::call]
@@ -94,6 +102,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				ShardCannotReachConsensus::<T>::get(schedule.shard_id).is_none(),
+				Error::<T>::ShardNotAssignable
+			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(who.clone());
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -157,6 +169,10 @@ pub mod pallet {
 			schedule: PayableScheduleInput,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				ShardCannotReachConsensus::<T>::get(schedule.shard_id).is_none(),
+				Error::<T>::ShardNotAssignable
+			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(who.clone());
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -185,6 +201,21 @@ pub mod pallet {
 			Self::deposit_event(Event::PayableScheduleStored(schedule_id));
 
 			Ok(())
+		}
+	}
+	pub trait ReportShard<Id> {
+		fn report_shard(_id: Id) -> Weight {
+			Weight::default()
+		}
+	}
+	// Hook to STOP assigning tasks when shard committed offenses prevent
+	// reaching the threshold required for shard consensus.
+	// TODO: no shard recovery protocol as of this impl, new shard is required
+	impl<T: Config> ReportShard<ShardId> for Pallet<T> {
+		fn report_shard(id: ShardId) -> Weight {
+			// Reported shard cannot reach threshold => cannot handle tasks
+			<ShardCannotReachConsensus<T>>::insert(id, ());
+			<T as frame_system::Config>::DbWeight::get().writes(1)
 		}
 	}
 	impl<T: Config> Pallet<T> {

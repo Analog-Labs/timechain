@@ -33,7 +33,7 @@ pub mod pallet {
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
-		ForeignEventId, ReportShard, SignatureData, TimeId,
+		ForeignEventId, GetShards, ReportShard, SignatureData, TimeId,
 	};
 
 	pub trait WeightInfo {
@@ -81,6 +81,16 @@ pub mod pallet {
 
 		type ShardReporter: ReportShard<ShardId>;
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn shard_cannot_reach_consensus)]
+	pub type ShardCannotReachConsensus<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_shards_index)]
+	/// Counter for getting (N) next available shard(s)s
+	pub type GetShardsIndex<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_id_counter)]
@@ -334,6 +344,34 @@ pub mod pallet {
 		}
 	}
 
+	// GetShards should contain the impl to get the list of whether a shard has offended
+	// and scheduler should get it from here using another function
+	// fn shard_can_reach_threshold(id: Id) -> bool; and us it in the other pallet
+	// instead of using the storage item there, keep it here to use it in this
+	impl<T: Config> GetShards<ShardId> for Pallet<T> {
+		fn shard_can_reach_threshold(id: ShardId) -> bool {
+			<ShardCannotReachConsensus<T>>::get(id).is_none()
+		}
+		fn get_valid_shard_ids(n: u32) -> Vec<ShardId> {
+			let mut n_shards = Vec::new();
+			let mut shard_id = <GetShardsIndex<T>>::take();
+			let max_shard_id = <ShardIdCounter<T>>::get().saturating_sub(1);
+			while (n_shards.len() as u32) < n {
+				if Self::shard_can_reach_threshold(shard_id) {
+					n_shards.push(shard_id);
+				}
+				shard_id = if shard_id >= max_shard_id {
+					// wrap at maximum current shard_id
+					0
+				} else {
+					shard_id + 1
+				};
+			}
+			<GetShardsIndex<T>>::put(shard_id);
+			n_shards
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
 		pub fn api_store_signature(
 			auth_id: Public,
@@ -408,6 +446,7 @@ pub mod pallet {
 					if shard.threshold() + committed_offenses_count as u16 > members.len() as u16 {
 						// TODO: use weight returned from this hook once report_misbehavior is an extrinsic
 						T::ShardReporter::report_shard(shard_id);
+						<ShardCannotReachConsensus<T>>::insert(shard_id, ());
 					}
 					<CommittedOffensesCount<T>>::insert(shard_id, committed_offenses_count);
 					<CommitedOffences<T>>::insert(&offender, known_offender);

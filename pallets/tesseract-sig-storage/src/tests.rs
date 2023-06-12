@@ -8,7 +8,6 @@ use time_primitives::{
 	ForeignEventId, TimeId,
 };
 
-
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
 pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);

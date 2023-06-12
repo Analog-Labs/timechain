@@ -20,8 +20,14 @@ fn test_signature_storage() {
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
 		let event_id: ForeignEventId = u128::from(task_id).into();
-
 		let alice_u128: u128 = 1334440654591915542993625911497130241;
+		let block_number = 10;
+		System::set_block_number(block_number);
+		let shard_id = 0;
+
+		// check the init status before any signature is stored
+		assert_eq!(Pallet::<Test>::last_committed_chronicle(ALICE), 0);
+		assert_eq!(Pallet::<Test>::last_committed_shard(shard_id), 0);
 
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
@@ -33,7 +39,7 @@ fn test_signature_storage() {
 		// insert schedule
 		let input = ScheduleInput {
 			task_id: ObjectId(task_id),
-			shard_id: 0,
+			shard_id,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -48,6 +54,8 @@ fn test_signature_storage() {
 		));
 
 		assert!(TesseractSigStorage::signature_storage(event_id).len() == 1);
+		assert_eq!(Pallet::<Test>::last_committed_chronicle(ALICE), block_number);
+		assert_eq!(Pallet::<Test>::last_committed_shard(shard_id), block_number);
 	});
 }
 

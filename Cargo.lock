@@ -6050,6 +6050,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "pallet-proxy",
+ "pallet-session",
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",

@@ -17,13 +17,14 @@ pub mod pallet {
 	use crate::shard::*;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
-		traits::Time,
+		storage::bounded_vec::BoundedVec,
+		traits::{Time, ValidatorSet},
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
 	use sp_runtime::{
-		traits::{AppVerify, Scale},
+		traits::{AppVerify, Convert, Scale},
 		Percent, SaturatedConversion, Saturating,
 	};
 	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
@@ -40,6 +41,7 @@ pub mod pallet {
 		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
 		fn register_shard() -> Weight;
+		fn register_chronicle() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -52,6 +54,9 @@ pub mod pallet {
 		fn register_shard() -> Weight {
 			Weight::from_parts(0, 1)
 		}
+		fn register_chronicle() -> Weight {
+			Weight::from_parts(0, 1)
+		}
 	}
 
 	#[pallet::pallet]
@@ -60,6 +65,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		// pub trait Config: frame_system::Config + pallet_session::Config {
+
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Moment: Parameter
@@ -77,6 +84,9 @@ pub mod pallet {
 		type SlashingPercentageThreshold: Get<u8>;
 
 		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
+		type ValidatorSet: ValidatorSet<Self::AccountId>;
+		#[pallet::constant]
+		type MaxChronicleWorkers: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -108,6 +118,24 @@ pub mod pallet {
 	#[pallet::getter(fn commited_offences)]
 	pub type CommitedOffences<T: Config> =
 		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
+
+	/// record the last block number of each chronicle worker commit valid signature
+	#[pallet::storage]
+	#[pallet::getter(fn last_committed_chronicle)]
+	pub type LastCommittedChronicle<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, T::BlockNumber, ValueQuery>;
+
+	/// record the last block number of each shard commit valid signature
+	#[pallet::storage]
+	#[pallet::getter(fn last_committed_shard)]
+	pub type LastCommittedShard<T: Config> =
+		StorageMap<_, Blake2_128Concat, u64, T::BlockNumber, ValueQuery>;
+
+	/// record the chronicle worker ids for each validator
+	#[pallet::storage]
+	#[pallet::getter(fn validator_to_chronicle)]
+	pub type ValidatorToChronicle<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<TimeId, T::MaxChronicleWorkers>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -283,6 +311,14 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::SignatureStored(event_id));
+			<LastCommittedChronicle<T>>::insert(
+				collector,
+				frame_system::Pallet::<T>::block_number(),
+			);
+			<LastCommittedShard<T>>::insert(
+				schedule.shard_id,
+				frame_system::Pallet::<T>::block_number(),
+			);
 			Ok(())
 		}
 
@@ -313,7 +349,7 @@ pub mod pallet {
 			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let shard = new_shard::<T>(members, collector_index)?;
+			let shard = new_shard::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
@@ -321,6 +357,44 @@ pub mod pallet {
 			<TssShards<T>>::insert(shard_id, shard);
 			<ShardId<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id));
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::register_chronicle())]
+		pub fn register_chronicle(origin: OriginFor<T>, member: TimeId) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+
+			// get current validator set
+			let validator_set = T::ValidatorSet::validators();
+
+			// convert AccountId to ValidatorId
+			let validator_id: <T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorId =
+				<T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(
+					caller.clone(),
+				)
+				.ok_or(Error::<T>::UnsupportedMembershipSize)?;
+
+			// caller must be one of validators
+			ensure!(validator_set.contains(&validator_id), Error::<T>::UnsupportedMembershipSize);
+
+			// update chronicle worker set for caller
+			ValidatorToChronicle::<T>::try_mutate(caller, |chronicles| match chronicles {
+				Some(ref mut node) => {
+					if node.contains(&member) {
+						return Err::<(), Error<T>>(Error::<T>::UnsupportedMembershipSize.into());
+					};
+
+					node.try_insert(0, member).map_err(|_| Error::<T>::UnsupportedMembershipSize.into())?;
+					Ok(())
+				},
+				None => {
+					let _ = BoundedVec::<TimeId, T::MaxChronicleWorkers>::default()
+						.try_insert(0, member);
+					Ok(())
+				},
+			})?;
+
 			Ok(())
 		}
 	}

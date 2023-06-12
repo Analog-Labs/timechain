@@ -13,7 +13,6 @@ use sp_runtime::{
 	Permill,
 };
 
-use sp_staking;
 use sp_std::cell::RefCell;
 use time_primitives::TimeId;
 // use pallet_randomness_collective_flip;

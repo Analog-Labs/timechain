@@ -135,7 +135,7 @@ pub mod pallet {
 	pub type ValidatorToChronicle<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<TimeId, T::MaxChronicleWorkers>>;
 
-	/// record the chronicle worker ids for each validator
+	/// record the chronicle worker's owner or its validator account id
 	#[pallet::storage]
 	#[pallet::getter(fn chronicle_owner)]
 	pub type ChronicleOwner<T: Config> =
@@ -420,11 +420,11 @@ pub mod pallet {
 			ValidatorToChronicle::<T>::try_mutate(caller.clone(), |chronicles| match chronicles {
 				Some(ref mut node) => {
 					if node.contains(&member) {
-						return Err::<(), Error<T>>(Error::<T>::ChronicleAlreadyInSet.into());
+						return Err::<(), Error<T>>(Error::<T>::ChronicleAlreadyInSet);
 					};
 
 					node.try_insert(0, member.clone())
-						.map_err(|_| Error::<T>::ChronicleSetIsFull.into())?;
+						.map_err(|_| Error::<T>::ChronicleSetIsFull)?;
 					Ok(())
 				},
 				None => {

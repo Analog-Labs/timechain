@@ -1,21 +1,57 @@
 use super::mock::*;
 use crate::*;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, storage::bounded_vec::BoundedVec};
 use frame_system::RawOrigin;
+use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use time_primitives::{
 	abstraction::{ObjectId, ScheduleInput, Validity},
 	ForeignEventId, TimeId,
 };
 
-pub const ALICE: TimeId = TimeId::new([1u8; 32]);
-pub const BOB: TimeId = TimeId::new([2u8; 32]);
-pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
-pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
+#[test]
+fn test_register_chronicle() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(INVALID_VALIDATOR).into(),
+				ALICE,
+			),
+			Error::<Test>::OnlyValidatorCanRegisterChronicle
+		);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		let expected_data = BoundedVec::<TimeId, ConstU32<3>>::truncate_from(vec![ALICE]);
+		assert_eq!(ValidatorToChronicle::<Test>::get(VALIDATOR_1), Some(expected_data));
+
+		assert_noop!(
+			TesseractSigStorage::register_chronicle(RawOrigin::Signed(VALIDATOR_2).into(), ALICE,),
+			Error::<Test>::ChronicleAlreadyRegistered
+		);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			BOB,
+		),);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			CHARLIE,
+		),);
+
+		assert_noop!(
+			TesseractSigStorage::register_chronicle(RawOrigin::Signed(VALIDATOR_1).into(), DJANGO,),
+			Error::<Test>::ChronicleSetIsFull
+		);
+	});
+}
 
 #[test]
 fn test_signature_storage() {
-	let r: u8 = rand::random();
+	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
@@ -29,6 +65,18 @@ fn test_signature_storage() {
 		assert_eq!(Pallet::<Test>::last_committed_chronicle(ALICE), 0);
 		assert_eq!(Pallet::<Test>::last_committed_shard(shard_id), 0);
 
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -61,7 +109,7 @@ fn test_signature_storage() {
 
 #[test]
 fn test_recurring_signature() {
-	let r: u8 = rand::random();
+	let r: u8 = 123;
 	let sig_data_1: [u8; 64] = [r; 64];
 	let s = r.saturating_add(1);
 	let sig_data_2: [u8; 64] = [s; 64];
@@ -71,6 +119,18 @@ fn test_recurring_signature() {
 
 		let alice_u128: u128 = 1334440654591915542993625911497130241;
 
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -106,14 +166,27 @@ fn test_recurring_signature() {
 
 #[test]
 fn test_duplicate_signature() {
-	let r: u8 = rand::random();
+	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
+
 	new_test_ext().execute_with(|| {
 		let task_id: u64 = 1;
 		let event_id: ForeignEventId = u128::from(task_id).into();
 
 		let alice_u128: u128 = 1334440654591915542993625911497130241;
 
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -152,6 +225,22 @@ fn test_duplicate_signature() {
 #[test]
 fn test_register_shard_fails_if_member_len_not_supported() {
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_4).into(),
+			DJANGO,
+		),);
 		assert_noop!(
 			TesseractSigStorage::register_shard(
 				RawOrigin::Root.into(),
@@ -167,6 +256,27 @@ fn test_register_shard_fails_if_member_len_not_supported() {
 /// Currently supported sizes are 3, 5, 10
 fn test_register_shard_works_for_supported_member_lengths() {
 	new_test_ext().execute_with(|| {
+		let tmp_time_id = TimeId::new([5u8; 32]);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			CHARLIE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			DJANGO,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			tmp_time_id.clone(),
+		),);
 		let mut members = vec![ALICE, BOB, CHARLIE];
 		// supports 3
 		assert_ok!(TesseractSigStorage::register_shard(
@@ -177,7 +287,7 @@ fn test_register_shard_works_for_supported_member_lengths() {
 
 		// supports 5
 		members.push(DJANGO);
-		members.push(TimeId::new([5u8; 32]));
+		members.push(tmp_time_id);
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
 			members.clone(),
@@ -185,8 +295,22 @@ fn test_register_shard_works_for_supported_member_lengths() {
 		));
 
 		// supports 10
-		for i in 6..=10 {
-			members.push(TimeId::new([i as u8; 32]));
+		for i in 6..=8 {
+			let tmp_time_id = TimeId::new([i as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_3).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
+		}
+
+		for i in 9..=10 {
+			let tmp_time_id = TimeId::new([i as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_4).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
 		}
 		assert_ok!(TesseractSigStorage::register_shard(RawOrigin::Root.into(), members, Some(1),));
 	});
@@ -195,6 +319,19 @@ fn test_register_shard_works_for_supported_member_lengths() {
 #[test]
 fn test_register_shard_fails_if_collector_index_invalid() {
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
 		assert_noop!(
 			TesseractSigStorage::register_shard(
 				RawOrigin::Root.into(),
@@ -217,6 +354,18 @@ fn test_api_report_misbehavior_increments_report_count() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			alice.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			bob.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -263,6 +412,18 @@ fn test_api_report_misbehavior_updates_reporters() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			alice.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			bob.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -314,6 +475,19 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			alice.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			bob.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
+
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -372,6 +546,26 @@ fn test_api_report_misbehavior_for_group_len_5() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			charlie.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			david.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			edward.into(),
+		),);
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -449,6 +643,46 @@ fn test_api_report_misbehavior_for_group_len_10() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			CHARLIE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			DJANGO,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			edward.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			frank.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			greg.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			hank.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_4).into(),
+			indigo.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_4).into(),
+			jared.into(),
+		),);
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -556,6 +790,26 @@ fn can_report_offence_if_already_committed_offender() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			bob.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			charlie.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			david.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			edward.into(),
+		),);
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
@@ -628,6 +882,27 @@ fn cannot_report_more_than_once_per_offender_by_member() {
 		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			bob.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			DJANGO,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			edward.into(),
+		),);
+
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),

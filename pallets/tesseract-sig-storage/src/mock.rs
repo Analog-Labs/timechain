@@ -1,18 +1,21 @@
 use crate as pallet_tesseract_sig_storage;
 use frame_support::{
+	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU16, ConstU64, OnTimestampSet},
+	traits::{ConstU16, ConstU64, OnTimestampSet, ValidatorSet},
 	PalletId,
 };
 use frame_system as system;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup},
 	Permill,
 };
-use sp_std::cell::RefCell;
 
+use sp_staking;
+use sp_std::cell::RefCell;
+use time_primitives::TimeId;
 // use pallet_randomness_collective_flip;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -33,6 +36,19 @@ pub const MILLICENTS: Balance = 1_000_000_000;
 pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
 pub const DOLLARS: Balance = 100 * CENTS;
 type Balance = u128;
+type AccountId = u128;
+
+pub const VALIDATOR_1: u128 = 1;
+pub const VALIDATOR_2: u128 = 2;
+pub const VALIDATOR_3: u128 = 3;
+pub const VALIDATOR_4: u128 = 4;
+
+pub const INVALID_VALIDATOR: u128 = 100;
+
+pub const ALICE: TimeId = TimeId::new([1u8; 32]);
+pub const BOB: TimeId = TimeId::new([2u8; 32]);
+pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
+pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -170,6 +186,32 @@ impl task_schedule::Config for Test {
 	type ScheduleFee = ScheduleFee;
 }
 
+pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);
+
+impl<AccountId> Convert<AccountId, Option<AccountId>> for ConvertMock<AccountId> {
+	fn convert(account_id: AccountId) -> Option<AccountId> {
+		Some(account_id)
+	}
+}
+
+pub struct ValidatorSetMock<T>(sp_std::marker::PhantomData<T>);
+
+impl<AccountId> ValidatorSet<AccountId> for ValidatorSetMock<AccountId>
+where
+	AccountId: Clone + Eq + PartialEq + Parameter + MaxEncodedLen + From<u128>,
+{
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = ConvertMock<AccountId>;
+
+	fn session_index() -> sp_staking::SessionIndex {
+		sp_staking::SessionIndex::default()
+	}
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		vec![VALIDATOR_1.into(), VALIDATOR_2.into(), VALIDATOR_3.into(), VALIDATOR_4.into()]
+	}
+}
+
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -178,6 +220,8 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type ValidatorSet = ValidatorSetMock<AccountId>;
+	type MaxChronicleWorkers = ConstU32<3>;
 }
 
 // Build genesis storage according to the mock runtime.

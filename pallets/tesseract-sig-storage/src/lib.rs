@@ -65,8 +65,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		// pub trait Config: frame_system::Config + pallet_session::Config {
-
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Moment: Parameter
@@ -136,6 +134,12 @@ pub mod pallet {
 	#[pallet::getter(fn validator_to_chronicle)]
 	pub type ValidatorToChronicle<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<TimeId, T::MaxChronicleWorkers>>;
+
+	/// record the chronicle worker ids for each validator
+	#[pallet::storage]
+	#[pallet::getter(fn chronicle_owner)]
+	pub type ChronicleOwner<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, T::AccountId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -214,6 +218,24 @@ pub mod pallet {
 
 		///TSS Signature already added
 		DuplicateSignature,
+
+		/// Chronicle already registered
+		ChronicleAlreadyRegistered,
+
+		/// Failed to get validator id
+		FailedToGetValidatorId,
+
+		/// Only validator can register chronicle
+		OnlyValidatorCanRegisterChronicle,
+
+		/// Chronicle already in set
+		ChronicleAlreadyInSet,
+
+		/// Chronicle set is full
+		ChronicleSetIsFull,
+
+		/// Chronicle not registered
+		ChronicleNotRegistered,
 	}
 
 	#[pallet::inherent]
@@ -349,6 +371,13 @@ pub mod pallet {
 			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			// ensure each member is registered
+			for member in members.iter() {
+				ensure!(
+					ChronicleOwner::<T>::contains_key(member.clone()),
+					Error::<T>::ChronicleNotRegistered
+				);
+			}
 			let shard = new_shard::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
@@ -365,6 +394,12 @@ pub mod pallet {
 		pub fn register_chronicle(origin: OriginFor<T>, member: TimeId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
+			// ensure chronicle is not already registered
+			ensure!(
+				!ChronicleOwner::<T>::contains_key(member.clone()),
+				Error::<T>::ChronicleAlreadyRegistered
+			);
+
 			// get current validator set
 			let validator_set = T::ValidatorSet::validators();
 
@@ -373,27 +408,34 @@ pub mod pallet {
 				<T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(
 					caller.clone(),
 				)
-				.ok_or(Error::<T>::UnsupportedMembershipSize)?;
+				.ok_or(Error::<T>::FailedToGetValidatorId)?;
 
 			// caller must be one of validators
-			ensure!(validator_set.contains(&validator_id), Error::<T>::UnsupportedMembershipSize);
+			ensure!(
+				validator_set.contains(&validator_id),
+				Error::<T>::OnlyValidatorCanRegisterChronicle
+			);
 
 			// update chronicle worker set for caller
-			ValidatorToChronicle::<T>::try_mutate(caller, |chronicles| match chronicles {
+			ValidatorToChronicle::<T>::try_mutate(caller.clone(), |chronicles| match chronicles {
 				Some(ref mut node) => {
 					if node.contains(&member) {
-						return Err::<(), Error<T>>(Error::<T>::UnsupportedMembershipSize.into());
+						return Err::<(), Error<T>>(Error::<T>::ChronicleAlreadyInSet.into());
 					};
 
-					node.try_insert(0, member).map_err(|_| Error::<T>::UnsupportedMembershipSize.into())?;
+					node.try_insert(0, member.clone())
+						.map_err(|_| Error::<T>::ChronicleSetIsFull.into())?;
 					Ok(())
 				},
 				None => {
-					let _ = BoundedVec::<TimeId, T::MaxChronicleWorkers>::default()
-						.try_insert(0, member);
+					let mut a = BoundedVec::<TimeId, T::MaxChronicleWorkers>::default();
+					let _ = a.try_insert(0, member.clone());
+					*chronicles = Some(a);
 					Ok(())
 				},
 			})?;
+
+			ChronicleOwner::<T>::insert(member, caller);
 
 			Ok(())
 		}

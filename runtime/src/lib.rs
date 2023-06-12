@@ -449,8 +449,8 @@ impl pallet_session::Config for Runtime {
 	// TODO
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 
-	type ShouldEndSession = Babe;
-	type NextSessionRotation = Babe;
+	type ShouldEndSession = ();
+	type NextSessionRotation = ();
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
@@ -1032,6 +1032,7 @@ parameter_types! {
 	pub const SlashingPercentage: u8 = 5;
 	// Must be > 0 and <= 100
 	pub const SlashingPercentageThreshold: u8 = 51;
+	pub const MaxChronicleWorkers: u32 = 5;
 }
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
@@ -1042,6 +1043,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type MaxChronicleWorkers = MaxChronicleWorkers;
 }
 
 parameter_types! {

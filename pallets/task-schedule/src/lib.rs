@@ -22,7 +22,7 @@ pub mod pallet {
 			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
 			TaskSchedule,
 		},
-		PalletAccounts, ProxyExtend,
+		PalletAccounts, ProxyExtend, ReportShard,
 	};
 	pub type KeyId = u64;
 	pub type ShardId = u64;
@@ -201,11 +201,6 @@ pub mod pallet {
 			Self::deposit_event(Event::PayableScheduleStored(schedule_id));
 
 			Ok(())
-		}
-	}
-	pub trait ReportShard<Id> {
-		fn report_shard(_id: Id) -> Weight {
-			Weight::default()
 		}
 	}
 	// Hook to STOP assigning tasks when shard committed offenses prevent

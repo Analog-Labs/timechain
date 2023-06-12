@@ -27,6 +27,13 @@ pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::Accoun
 pub type TaskId = u64;
 pub type KeyId = u64;
 
+pub trait ReportShard<Id> {
+	fn report_shard(_id: Id) -> Weight {
+		Weight::default()
+	}
+}
+impl<Id> ReportShard<Id> for () {}
+
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi<AccountId>

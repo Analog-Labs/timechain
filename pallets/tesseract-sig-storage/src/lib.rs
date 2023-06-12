@@ -33,7 +33,7 @@ pub mod pallet {
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
-		ForeignEventId, SignatureData, TimeId,
+		ForeignEventId, ReportShard, SignatureData, TimeId,
 	};
 
 	pub trait WeightInfo {
@@ -53,14 +53,6 @@ pub mod pallet {
 			Weight::from_parts(0, 1)
 		}
 	}
-
-	// TODO: move to primitives so not repeating in pallet-task-schedule
-	pub trait ReportShard<Id> {
-		fn report_shard(_id: Id) -> Weight {
-			Weight::default()
-		}
-	}
-	impl<Id> ReportShard<Id> for () {}
 	pub type ShardId = u64;
 
 	#[pallet::pallet]

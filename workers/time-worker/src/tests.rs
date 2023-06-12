@@ -278,10 +278,6 @@ sp_api::mock_impl_runtime_apis! {
 			]))]
 		}
 
-		// fn store_signature(&self, _auth_key: time_primitives::crypto::Public, _auth_sig: time_primitives::crypto::Signature, signature_data: time_primitives::SignatureData, _event_id: ForeignEventId) -> DispatchResult {
-		// 	self.stored_signatures.lock().push(signature_data);
-		// 	Ok(())
-		// }
 	}
 
 	impl InherentApi<Block> for RuntimeApi {

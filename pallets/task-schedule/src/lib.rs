@@ -74,6 +74,9 @@ pub mod pallet {
 
 		// Payable Schedule
 		PayableScheduleStored(KeyId),
+
+		//updated Payable Schedule
+		PayableScheduleUpdated(KeyId),
 	}
 
 	#[pallet::error]
@@ -183,6 +186,28 @@ pub mod pallet {
 				},
 			);
 			Self::deposit_event(Event::PayableScheduleStored(schedule_id));
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::update_schedule())]
+		pub fn update_payable_schedule(
+			origin: OriginFor<T>,
+			status: ScheduleStatus,
+			key: KeyId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			ensure!(resp, Error::<T>::NotProxyAccount);
+			let _ = PayableScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				ensure!(details.owner == who, Error::<T>::NoPermission);
+
+				details.status = status;
+				Ok(())
+			});
+			Self::deposit_event(Event::PayableScheduleUpdated(key));
 
 			Ok(())
 		}

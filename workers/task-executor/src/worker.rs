@@ -250,7 +250,7 @@ where
 		for (id, schedule) in tree_map.iter() {
 			if schedule.cycle == 1 {
 				let _ = queue.queue((*id, schedule.clone()));
-			} else if schedule.start_execution_block == 0 {
+			} else {
 				match response.clone().block {
 					Some(block) => {
 						self.task_map
@@ -260,12 +260,6 @@ where
 					},
 					None => log::info!("failed to get BlockResponse from rosetta"),
 				}
-			} else {
-				// If start block is not 0 than task is repetative and start_execution_block now contians next execution
-				self.task_map
-					.entry(schedule.start_execution_block)
-					.or_insert(Vec::new())
-					.push((*id, schedule.clone()));
 			}
 		}
 
@@ -274,73 +268,77 @@ where
 				.task_executor(block_id, &single_task_schedule.0, &single_task_schedule.1)
 				.await;
 		}
+		let key: u64;
 
-		if let Some((&key, _value)) = tree_map.first_key_value() {
-			// Use key and value here
-			match response.block {
-				Some(block) => {
-					let block_number = if block.block_identifier.index >= key {
-						block.block_identifier.index
-					} else {
-						key
-					};
+		{
+			let min_key = self.task_map.keys().min();
+			key = match min_key {
+				Some(key) => *key,
+				None => 0,
+			};
+		}
+		match response.block {
+			Some(block) => {
+				let block_number = if block.block_identifier.index >= key {
+					block.block_identifier.index
+				} else {
+					key
+				};
+				if let Some(tasks) = self.task_map.remove(&block_number) {
+					for recursive_task_schedule in tasks {
+						let result = self
+							.task_executor(
+								block_id,
+								&recursive_task_schedule.0,
+								&recursive_task_schedule.1,
+							)
+							.await;
 
-					if let Some(tasks) = self.task_map.remove(&block_number) {
-						for recursive_task_schedule in tasks {
-							let result = self
-								.task_executor(
-									block_id,
-									&recursive_task_schedule.0,
-									&recursive_task_schedule.1,
-								)
-								.await;
+						match result {
+							Ok(()) => {
+								if recursive_task_schedule.1.cycle > 1
+									&& recursive_task_schedule.1.status == ScheduleStatus::Recurring
+								{
+									//Update Extrinsic with cycle count-1;
+									todo!();
+								} else if recursive_task_schedule.1.cycle > 1 {
+									//Update cycle count-1 and status = Recursive;
+									todo!();
+								}
+								if let Some(value) = tree_map.remove(&key) {
+									tree_map.insert(
+										block_number + recursive_task_schedule.1.frequency,
+										value,
+									);
+								}
 
-							match result {
-								Ok(()) => {
-									if recursive_task_schedule.1.cycle > 1
-										&& recursive_task_schedule.1.status
-											== ScheduleStatus::Recurring
-									{
-										//Update Extrinsic with cycle count-1;
-										todo!();
-									} else if recursive_task_schedule.1.cycle > 1 {
-										//Update cycle count-1 and status = Recursive;
-										todo!();
-									}
-									if let Some(value) = tree_map.remove(&key) {
-										tree_map.insert(
-											block_number + recursive_task_schedule.1.frequency,
-											value,
-										);
-									}
-
-									//Updating BTree key and value, because not going to retrive this task again from task schedule
-									if let Some(value) = tree_map.get_mut(
-										&(block_number + recursive_task_schedule.1.frequency),
-									) {
-										*value = TaskSchedule {
-											task_id: value.task_id,
-											owner: value.owner.clone(),
-											shard_id: value.shard_id,
-											start_execution_block: value.start_execution_block,
-											cycle: value.cycle - 1,
-											frequency: value.frequency,
-											validity: value.validity,
-											hash: value.hash.clone(),
+								// Updating HashMap key and value, because not going to retrive this task again from task schedule
+								self.task_map
+									.entry(block_number + recursive_task_schedule.1.frequency)
+									.or_insert(Vec::new())
+									.push((
+										recursive_task_schedule.0,
+										TaskSchedule {
+											task_id: recursive_task_schedule.1.task_id,
+											owner: recursive_task_schedule.1.owner,
+											shard_id: recursive_task_schedule.1.shard_id,
+											cycle: recursive_task_schedule.1.cycle - 1,
+											frequency: recursive_task_schedule.1.frequency,
+											validity: recursive_task_schedule.1.validity,
+											hash: recursive_task_schedule.1.hash,
+											start_execution_block: recursive_task_schedule
+												.1
+												.start_execution_block,
 											status: ScheduleStatus::Recurring,
-										};
-									}
-								},
-								Err(_) => todo!(),
-							}
+										},
+									));
+							},
+							Err(e) => log::warn!("error on result {:?}", e),
 						}
 					}
-				},
-				None => log::info!("failed to get BlockResponse from rosetta"),
-			}
-		} else {
-			// Handle the case when the map is empty
-			println!("The map is empty.");
+				}
+			},
+			None => log::info!("failed to get BlockResponse from rosetta"),
 		}
 		Ok(())
 	}

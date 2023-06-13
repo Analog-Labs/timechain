@@ -304,27 +304,32 @@ where
 								} else if recursive_task_schedule.1.cycle > 1 {
 									//Update cycle count-1 and status = Recursive;
 									todo!();
+								} else {
+									//Update status = Compelete
 								}
-								// Updating HashMap key and value, because not going to retrive this task again from task schedule
-								self.task_map
-									.entry(block_number + recursive_task_schedule.1.frequency)
-									.or_insert(Vec::new())
-									.push((
-										recursive_task_schedule.0,
-										TaskSchedule {
-											task_id: recursive_task_schedule.1.task_id,
-											owner: recursive_task_schedule.1.owner,
-											shard_id: recursive_task_schedule.1.shard_id,
-											cycle: recursive_task_schedule.1.cycle - 1,
-											frequency: recursive_task_schedule.1.frequency,
-											validity: recursive_task_schedule.1.validity,
-											hash: recursive_task_schedule.1.hash,
-											start_execution_block: recursive_task_schedule
-												.1
-												.start_execution_block,
-											status: ScheduleStatus::Recurring,
-										},
-									));
+
+								if recursive_task_schedule.1.cycle > 1 {
+									// Updating HashMap key and value, because not going to retrive this task again from task schedule
+									self.task_map
+										.entry(block_number + recursive_task_schedule.1.frequency)
+										.or_insert(Vec::new())
+										.push((
+											recursive_task_schedule.0,
+											TaskSchedule {
+												task_id: recursive_task_schedule.1.task_id,
+												owner: recursive_task_schedule.1.owner,
+												shard_id: recursive_task_schedule.1.shard_id,
+												cycle: recursive_task_schedule.1.cycle - 1,
+												frequency: recursive_task_schedule.1.frequency,
+												validity: recursive_task_schedule.1.validity,
+												hash: recursive_task_schedule.1.hash,
+												start_execution_block: recursive_task_schedule
+													.1
+													.start_execution_block,
+												status: ScheduleStatus::Recurring,
+											},
+										));
+								}
 							},
 							Err(e) => log::warn!("error on result {:?}", e),
 						}

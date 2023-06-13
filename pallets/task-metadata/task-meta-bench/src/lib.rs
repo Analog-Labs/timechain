@@ -18,7 +18,7 @@ pub struct Pallet<T: Config>(TaskMeta<T>);
 benchmarks! {
 	insert_task {
 		let input: Task = Task {
-			collection_id: ObjectId(1),
+			task_id: ObjectId(1),
 			schema: vec![Schema::String(String::from("schema"))],
 			 function: Function::EthereumApi {
 				function: String::from("function name"),

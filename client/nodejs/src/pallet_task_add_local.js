@@ -34,7 +34,7 @@ const pallet_task_add = async (_keyspair, who) => {
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        collection_id: 1,
+        task_id: 1,
         schema:[1],
         function:{EthereumViewWithoutAbi:{
             address: stringToHex('0x678ea0447843f69805146c521afcbcc07d6e28a2'),
@@ -49,8 +49,8 @@ const pallet_task_add = async (_keyspair, who) => {
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskMeta.insertTask);
-    let input_2 = {...input_task, collection_id : 22};
-    let input_3 = {...input_task, collection_id : 33};
+    let input_2 = { ...input_task, task_id : 22};
+    let input_3 = { ...input_task, task_id : 33};
 
     const unsub = await api.tx.taskMeta.insertTask(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);

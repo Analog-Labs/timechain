@@ -11,6 +11,7 @@ repository = "https://github.com/Analog-Labs/testnet/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
 static_assertions = "1.1.0"

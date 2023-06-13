@@ -9,7 +9,7 @@ use time_primitives::abstraction::{
 fn test_task() {
 	new_test_ext().execute_with(|| {
 		let input: Task = Task {
-			collection_id: ObjectId(1),
+			task_id: ObjectId(1),
 			schema: vec![Schema::String(String::from("schema"))],
 			function: Function::EthereumApi {
 				function: String::from("function name"),
@@ -41,7 +41,7 @@ fn test_payable_task() {
 	new_test_ext().execute_with(|| {
 		//insert payable task metadata
 		let input: PayableTask = PayableTask {
-			collection_id: ObjectId(1),
+			task_id: ObjectId(1),
 			function: Function::EthereumApi {
 				function: String::from("function name"),
 				input: vec![Input::HexAddress],

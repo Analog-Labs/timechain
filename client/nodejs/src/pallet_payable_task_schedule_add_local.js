@@ -25,7 +25,7 @@ const pallet_payable_task_add = async (_keyspair, who) => {
     const input_task = {
         task_id: 1,
         owner: 'address',
-        shard_id: 1,
+        shard_id: 0,
         status: 0
     }
     await api.isReady;

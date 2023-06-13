@@ -15,8 +15,10 @@ use sp_runtime::{
 	DispatchError, DispatchResult, MultiSignature,
 };
 use sp_std::{fmt::Debug, vec::Vec};
+
 /// Time key type
 pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
+pub const OCW_SIG_KEY: &[u8; 20] = b"pallet_sig::offchain";
 
 /// The type representing a signature data
 // ThresholdSignature::to_bytes()
@@ -30,14 +32,9 @@ pub type KeyId = u64;
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi<AccountId>
-	where AccountId: Codec  {
-		#[allow(clippy::too_many_arguments)]
-		fn store_signature(
-			auth_key: crate::crypto::Public,
-			auth_sig: crate::crypto::Signature,
-			signature_data: SignatureData,
-			event_id: ForeignEventId
-		) -> DispatchResult;
+	where
+	AccountId: Codec,
+	{
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
@@ -152,20 +149,29 @@ pub struct ProxyAccStatus<AccountId, Balance> {
 	pub proxy: AccountId,
 }
 
-pub trait ProxyExtend<AccountId> {
-	fn proxy_exist(acc: AccountId) -> bool;
-	fn get_master_account(acc: AccountId) -> Option<AccountId>;
-	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct ProxyAccInput<AccountId> {
+	pub proxy: AccountId,
+	pub max_token_usage: Option<u32>,
+	pub token_usage: u32,
+	pub max_task_execution: Option<u32>,
+	pub task_executed: u32,
 }
 
-impl<AccountId> ProxyExtend<AccountId> for () {
-	fn proxy_exist(_acc: AccountId) -> bool {
+pub trait ProxyExtend<AccountId, Balance> {
+	fn proxy_exist(acc: &AccountId) -> bool;
+	fn get_master_account(acc: &AccountId) -> Option<AccountId>;
+	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
+}
+
+impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for () {
+	fn proxy_exist(_acc: &AccountId) -> bool {
 		true
 	}
-	fn get_master_account(acc: AccountId) -> Option<AccountId> {
-		Some(acc)
+	fn get_master_account(acc: &AccountId) -> Option<AccountId> {
+		Some(acc.clone())
 	}
-	fn proxy_update_token_used(_acc: AccountId, _amount: u32) -> bool {
+	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
 		true
 	}
 }

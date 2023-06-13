@@ -10,6 +10,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use frame_support::traits::Currency;
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{string::String, vec::Vec};
 	use time_primitives::{
@@ -17,6 +18,8 @@ pub mod pallet {
 		ProxyExtend,
 	};
 	pub type KeyId = u64;
+	pub(crate) type BalanceOf<T> =
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	pub trait WeightInfo {
 		fn insert_task() -> Weight;
@@ -31,7 +34,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ProxyExtend: ProxyExtend<Self::AccountId>;
+		type Currency: Currency<Self::AccountId>;
+		type ProxyExtend: ProxyExtend<Self::AccountId, BalanceOf<Self>>;
 	}
 
 	#[pallet::storage]
@@ -84,16 +88,16 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_task())]
 		pub fn insert_task(origin: OriginFor<T>, task: Task) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let resp = T::ProxyExtend::proxy_exist(who);
+			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = TaskMetaStorage::<T>::get(task.collection_id.0);
+			let data_list = TaskMetaStorage::<T>::get(task.task_id.0);
 			match data_list {
 				Some(val) => {
-					Self::deposit_event(Event::AlreadyExist(val.collection_id.0));
+					Self::deposit_event(Event::AlreadyExist(val.task_id.0));
 				},
 				None => {
-					TaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
-					Self::deposit_event(Event::TaskMetaStored(task.collection_id.0));
+					TaskMetaStorage::<T>::insert(task.task_id.0, task.clone());
+					Self::deposit_event(Event::TaskMetaStored(task.task_id.0));
 				},
 			}
 
@@ -134,16 +138,16 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_task())]
 		pub fn insert_payable_task(origin: OriginFor<T>, task: PayableTask) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let resp = T::ProxyExtend::proxy_exist(who);
+			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = PayableTaskMetaStorage::<T>::get(task.collection_id.0);
+			let data_list = PayableTaskMetaStorage::<T>::get(task.task_id.0);
 			match data_list {
 				Some(val) => {
-					Self::deposit_event(Event::PayableTaskMetaAlreadyExist(val.collection_id.0));
+					Self::deposit_event(Event::PayableTaskMetaAlreadyExist(val.task_id.0));
 				},
 				None => {
-					PayableTaskMetaStorage::<T>::insert(task.collection_id.0, task.clone());
-					Self::deposit_event(Event::PayableTaskMetaStorage(task.collection_id.0));
+					PayableTaskMetaStorage::<T>::insert(task.task_id.0, task.clone());
+					Self::deposit_event(Event::PayableTaskMetaStorage(task.task_id.0));
 				},
 			}
 

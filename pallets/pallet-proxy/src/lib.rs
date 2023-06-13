@@ -15,7 +15,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::SaturatedConversion;
+	use sp_runtime::Saturating;
 	use time_primitives::{ProxyAccStatus, ProxyExtend, ProxyStatus};
 
 	pub type KeyId = u64;
@@ -56,11 +56,8 @@ pub mod pallet {
 		///The record account that uniquely identify
 		ProxyStored(T::AccountId),
 
-		///Already exist case
-		ProxyAlreadyExist(T::AccountId),
-
-		///Does not exist case
-		ProxyNotExist(T::AccountId),
+		/// The updated proxy account
+		ProxyUpdated(T::AccountId),
 
 		///Proxy account suspended
 		ProxySuspended(T::AccountId),
@@ -78,13 +75,15 @@ pub mod pallet {
 		NoPermission,
 		/// Error getting schedule ref.
 		ErrorRef,
-		/// allowed token usage exceed.
-		TokenUsageExceed,
+		/// Cannot add proxy that already exists
+		ProxyAlreadyExists,
+		/// Cannot remove proxy that does not exist
+		ProxyNotExist,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing a signature
+		/// Extrinsic for setting a new proxy
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_proxy_account())]
 		pub fn set_proxy_account(
@@ -96,30 +95,21 @@ pub mod pallet {
 			proxy: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// already same valid proxy account.
-			let account_exit = ProxyStorage::<T>::get(&proxy);
-
-			match account_exit {
-				Some(_acc) => {
-					Self::deposit_event(Event::ProxyAlreadyExist(who));
+			// if already some valid proxy account, use `update_proxy_account` instead
+			ensure!(ProxyStorage::<T>::get(&proxy).is_none(), Error::<T>::ProxyAlreadyExists);
+			ProxyStorage::<T>::insert(
+				&proxy,
+				ProxyAccStatus {
+					owner: who.clone(),
+					max_token_usage,
+					token_usage,
+					max_task_execution,
+					task_executed,
+					status: ProxyStatus::Valid,
+					proxy: proxy.clone(),
 				},
-				None => {
-					ProxyStorage::<T>::insert(
-						proxy.clone(),
-						ProxyAccStatus {
-							owner: who.clone(),
-							max_token_usage,
-							token_usage,
-							max_task_execution,
-							task_executed,
-							status: ProxyStatus::Valid,
-							proxy,
-						},
-					);
-					Self::deposit_event(Event::ProxyStored(who));
-				},
-			}
-
+			);
+			Self::deposit_event(Event::ProxyStored(who));
 			Ok(())
 		}
 
@@ -131,20 +121,11 @@ pub mod pallet {
 			status: ProxyStatus,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let account_exit = ProxyStorage::<T>::get(&proxy_acc);
-			match account_exit {
-				Some(acc) => {
-					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					let _ = ProxyStorage::<T>::try_mutate(acc.proxy, |proxy| -> DispatchResult {
-						let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-						details.status = status;
-						Ok(())
-					});
-				},
-				None => {
-					Self::deposit_event(Event::ProxyNotExist(who));
-				},
-			}
+			let mut proxy = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
+			ensure!(proxy.owner == who, Error::<T>::NoPermission);
+			proxy.status = status;
+			ProxyStorage::<T>::insert(&proxy_acc, proxy);
+			Self::deposit_event(Event::ProxyUpdated(who));
 
 			Ok(())
 		}
@@ -156,71 +137,50 @@ pub mod pallet {
 			proxy_acc: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let account_exit = ProxyStorage::<T>::get(&proxy_acc);
-			match account_exit {
-				Some(acc) => {
-					ensure!(acc.owner == who, Error::<T>::NoPermission);
-					ProxyStorage::<T>::remove(acc.proxy.clone());
-
-					Self::deposit_event(Event::ProxyRemoved(acc.proxy));
-				},
-				None => {
-					Self::deposit_event(Event::ProxyNotExist(proxy_acc));
-				},
-			}
-
+			let acc = ProxyStorage::<T>::get(&proxy_acc).ok_or(Error::<T>::ProxyNotExist)?;
+			ensure!(acc.owner == who, Error::<T>::NoPermission);
+			ProxyStorage::<T>::remove(&acc.proxy);
+			Self::deposit_event(Event::ProxyRemoved(acc.proxy));
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_proxy_acc(
-			proxy: T::AccountId,
+			proxy: &T::AccountId,
 		) -> Result<GetProxyAcc<T::AccountId, BalanceOf<T>>, DispatchError> {
-			let accounts = ProxyStorage::<T>::get(proxy);
-
-			Ok(accounts)
+			Ok(ProxyStorage::<T>::get(proxy))
 		}
 	}
 
-	impl<T: Config> ProxyExtend<T::AccountId> for Pallet<T> {
-		fn proxy_exist(proxy: T::AccountId) -> bool {
-			let account = ProxyStorage::<T>::get(proxy);
-
-			account.is_some()
+	impl<T: Config> ProxyExtend<T::AccountId, BalanceOf<T>> for Pallet<T> {
+		fn proxy_exist(proxy: &T::AccountId) -> bool {
+			ProxyStorage::<T>::get(proxy).is_some()
 		}
-		fn get_master_account(proxy: T::AccountId) -> Option<T::AccountId> {
-			let account = ProxyStorage::<T>::get(proxy);
-
-			match account {
+		fn get_master_account(proxy: &T::AccountId) -> Option<T::AccountId> {
+			match ProxyStorage::<T>::get(proxy) {
 				Some(acc) => Some(acc.owner),
 				None => None,
 			}
 		}
 
-		fn proxy_update_token_used(proxy: T::AccountId, balance_val: u32) -> bool {
+		fn proxy_update_token_used(proxy: &T::AccountId, balance_val: BalanceOf<T>) -> bool {
 			let mut exceed_flg = false;
 			let res = ProxyStorage::<T>::try_mutate(proxy, |proxy| -> DispatchResult {
 				let details = proxy.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				let max_token_allowed = details.max_token_usage;
 
-				let usage = details.token_usage.saturated_into::<u32>();
-				let val = usage.saturating_add(balance_val);
-
-				match max_token_allowed {
+				match details.max_token_usage {
 					Some(max_allowed) => {
-						let allowed_usage = max_allowed.saturated_into::<u32>();
-						let status = val.le(&allowed_usage);
-						if !status {
+						if details.token_usage > max_allowed {
 							details.status = ProxyStatus::TokenLimitExceed;
 							exceed_flg = true;
 							Self::deposit_event(Event::TokenUsageExceed(details.proxy.clone()));
 						} else {
-							details.token_usage = val.saturated_into();
+							details.token_usage = details.token_usage.saturating_add(balance_val);
 						}
 					},
 					None => {
-						details.token_usage = val.saturated_into();
+						details.token_usage = details.token_usage.saturating_add(balance_val);
 					},
 				}
 

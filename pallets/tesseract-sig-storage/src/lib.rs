@@ -1,10 +1,39 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_core::crypto::KeyTypeId;
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
+
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"psig");
+
+pub mod crypto {
+	use super::KEY_TYPE;
+	use sp_core::sr25519::Signature as Sr25519Signature;
+	use sp_runtime::{
+		app_crypto::{app_crypto, sr25519},
+		traits::Verify,
+		MultiSignature, MultiSigner,
+	};
+	app_crypto!(sr25519, KEY_TYPE);
+	pub struct SigAuthId;
+
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
+		for SigAuthId
+	{
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+}
 
 pub mod shard;
 pub use pallet::*;
@@ -20,21 +49,29 @@ pub mod pallet {
 		storage::bounded_vec::BoundedVec,
 		traits::{Time, ValidatorSet},
 	};
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
+	use sp_runtime::offchain::storage::StorageValueRef;
 	use sp_runtime::{
 		traits::{AppVerify, Convert, Scale},
 		Percent, SaturatedConversion, Saturating,
 	};
-	use sp_std::{collections::btree_set::BTreeSet, result, vec::Vec};
+	use sp_std::{
+		collections::{btree_set::BTreeSet, vec_deque::VecDeque},
+		result,
+		vec::Vec,
+	};
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
-		abstraction::ObjectId,
+		abstraction::{OCWSigData, ObjectId},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
-		ForeignEventId, SignatureData, TimeId,
+		ForeignEventId, SignatureData, TimeId, OCW_SIG_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -63,8 +100,37 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
+			let res = storage_ref.get::<VecDeque<OCWSigData>>();
+			let Ok(data) = res else {
+				log::error!("could not fetch data from storage");
+				return;
+			};
+
+			let Some(mut sig_vec) = data else {
+				return;
+			};
+
+			let Some(sig_req) = sig_vec.pop_front()else{
+				log::info!("no signature request");
+				return;
+			};
+
+			if let Err(err) = Self::ocw_store_signature(sig_req) {
+				log::error!("Error occured while submitting extrinsic {:?}", err);
+			};
+
+			storage_ref.set(&sig_vec);
+		}
+	}
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
+
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Moment: Parameter
@@ -213,8 +279,8 @@ pub mod pallet {
 		/// Task not scheduled
 		TaskNotScheduled,
 
-		/// Invalid collector id
-		InvalidCollectorId,
+		/// Invalid validation signature
+		InvalidValidationSignature,
 
 		///TSS Signature already added
 		DuplicateSignature,
@@ -236,6 +302,12 @@ pub mod pallet {
 
 		/// Chronicle not registered
 		ChronicleNotRegistered,
+
+		///Offchain signed tx failed
+		OffchainSignedTxFailed,
+
+		///no local account for signed tx
+		NoLocalAcctForSignedTx,
 	}
 
 	#[pallet::inherent]
@@ -303,25 +375,36 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::store_signature(1))]
 		pub fn store_signature(
 			origin: OriginFor<T>,
+			auth_sig: Signature,
 			signature_data: SignatureData,
 			event_id: ForeignEventId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let task_id = ObjectId(event_id.task_id().into());
 
 			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
+			let payable_schedule_data =
+				T::TaskScheduleHelper::get_payable_schedules_via_task_id(task_id)?;
 
-			let Some(schedule) = schedule_data.first() else{
+			let shard_id = if let Some(schedule) = schedule_data.first() {
+				schedule.shard_id
+			} else if let Some(payable_schedule) = payable_schedule_data.first() {
+				payable_schedule.shard_id
+			} else {
 				return Err(Error::<T>::TaskNotScheduled.into());
 			};
 
-			let shard =
-				<TssShards<T>>::get(schedule.shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let collector = shard.collector();
-			let collector_account_id = T::AccountId::decode(&mut collector.as_ref())
-				.map_err(|_| Error::<T>::InvalidCollectorId)?;
 
-			ensure!(caller == collector_account_id, Error::<T>::InvalidCaller);
+			let raw_public_key: &[u8; 32] = collector.as_ref();
+			let collector_public_id =
+				sp_application_crypto::sr25519::Public::from_raw(*raw_public_key);
+
+			ensure!(
+				auth_sig.verify(signature_data.as_ref(), &collector_public_id.into()),
+				Error::<T>::InvalidValidationSignature
+			);
 
 			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
 				ensure!(
@@ -337,10 +420,7 @@ pub mod pallet {
 				collector,
 				frame_system::Pallet::<T>::block_number(),
 			);
-			<LastCommittedShard<T>>::insert(
-				schedule.shard_id,
-				frame_system::Pallet::<T>::block_number(),
-			);
+			<LastCommittedShard<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
 			Ok(())
 		}
 
@@ -442,36 +522,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn api_store_signature(
-			auth_id: Public,
-			auth_sig: Signature,
-			signature_data: SignatureData,
-			event_id: ForeignEventId,
-		) -> DispatchResult {
-			use sp_runtime::traits::AppVerify;
-			// transform AccountId32 int T::AccountId
-			let encoded_account = auth_id.encode();
-			ensure!(encoded_account.len() == 32, Error::<T>::EncodedAccountWrongLen);
-			ensure!(encoded_account[..] != [0u8; 32][..], Error::<T>::DefaultAccountForbidden);
-			// TODO: same check as for extrinsic after task management is implemented
-			// Update: implemnetation here is not necessary since this function will be removed
-			// and only extrinsics will be used to store signature.
-			ensure!(
-				auth_sig.verify(signature_data.as_ref(), &auth_id),
-				Error::<T>::UnregisteredWorkerDataSubmission
-			);
-			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
-				ensure!(
-					signature_set.get(&signature_data).is_none(),
-					Error::<T>::DuplicateSignature
-				);
-				signature_set.insert(signature_data);
-				Ok(())
-			})?;
-			Self::deposit_event(Event::SignatureStored(event_id));
-			Ok(())
-		}
-
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().collect()
@@ -541,6 +591,27 @@ pub mod pallet {
 				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
+		}
+
+		fn ocw_store_signature(data: OCWSigData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::store_signature {
+					auth_sig: data.auth_sig.clone(),
+					signature_data: data.sig_data,
+					event_id: data.event_id,
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
 		}
 	}
 }

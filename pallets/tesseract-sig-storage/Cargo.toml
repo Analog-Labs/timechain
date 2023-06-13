@@ -23,6 +23,7 @@ frame-support = { default-features = false, git = "https://github.com/paritytech
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-application-crypto = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
+pallet-session = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
@@ -37,9 +38,9 @@ pallet-proxy = { version = "0.1.0", default-features = false, path = "../../pall
 pallet-treasury = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
+sp-staking = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-
 
 
 [features]
@@ -49,6 +50,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-session/std",
 	"scale-info/std",
 	"sp-std/std",
 	"time-primitives/std",

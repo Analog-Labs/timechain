@@ -305,13 +305,6 @@ where
 									//Update cycle count-1 and status = Recursive;
 									todo!();
 								}
-								if let Some(value) = tree_map.remove(&key) {
-									tree_map.insert(
-										block_number + recursive_task_schedule.1.frequency,
-										value,
-									);
-								}
-
 								// Updating HashMap key and value, because not going to retrive this task again from task schedule
 								self.task_map
 									.entry(block_number + recursive_task_schedule.1.frequency)

@@ -78,6 +78,7 @@ pub use sp_runtime::{traits::Bounded, Perbill, Permill, Perquintill};
 use static_assertions::const_assert;
 
 pub use pallet_tesseract_sig_storage;
+pub use task_schedule;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
@@ -1499,7 +1500,8 @@ impl_runtime_apis! {
 		}
 
 		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
-			TaskSchedule::update_schedule_by_key(status,key)
+			// TaskSchedule::update_schedule_by_key(status,key)
+			Ok(())
 		}
 
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {

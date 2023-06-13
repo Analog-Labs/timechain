@@ -84,6 +84,7 @@ where
 		status: ScheduleStatus,
 		schedule_task_id: u64,
 	) -> Result<(), DispatchError> {
+		// this is wrong. we need to update payable schedule not normal schedule.
 		match self
 			.runtime
 			.runtime_api()

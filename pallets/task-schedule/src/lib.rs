@@ -51,12 +51,14 @@ pub mod pallet {
 
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
+	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_std::collections::vec_deque::VecDeque;
 	use time_primitives::{
 		abstraction::{
-			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
-			TaskSchedule,
+			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
+			ScheduleStatus, TaskSchedule,
 		},
-		PalletAccounts, ProxyExtend,
+		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -76,7 +78,29 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			log::info!("ocw_sdk");
+			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
+
+			match storage_ref.get::<VecDeque<OCWSkdData>>() {
+				Ok(data) => {
+					let Some(mut skd_vec) = data else {
+						return;
+					};
+
+					let Some(skd_req) = skd_vec.pop_front()else{
+						log::info!("no signature request");
+						return;
+					};
+
+					if let Err(err) = Self::ocw_update_schedule_by_key(skd_req.clone()) {
+						log::error!("Error occured while submitting extrinsic {:?}", err);
+					};
+
+					storage_ref.set(&skd_req);
+				},
+				Err(e) => {
+					log::error!("error occured while fetching skd storage {:?}", e);
+				},
+			}
 		}
 	}
 
@@ -130,6 +154,10 @@ pub mod pallet {
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
 		ErrorRef,
+		///Offchain signed tx failed
+		OffchainSignedTxFailed,
+		///no local account for signed tx
+		NoLocalAcctForSignedTx,
 	}
 
 	#[pallet::call]
@@ -261,18 +289,18 @@ pub mod pallet {
 			Ok(data)
 		}
 
-		pub fn update_schedule_by_key(
-			status: ScheduleStatus,
-			key: KeyId,
-		) -> Result<(), DispatchError> {
-			let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				details.status = status;
-				Ok(())
-			});
+		// pub fn update_schedule_by_key(
+		// 	status: ScheduleStatus,
+		// 	key: KeyId,
+		// ) -> Result<(), DispatchError> {
+		// 	let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+		// 		let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
+		// 		details.status = status;
+		// 		Ok(())
+		// 	});
 
-			Ok(())
-		}
+		// 	Ok(())
+		// }
 
 		pub fn get_payable_task_schedules(
 		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
@@ -291,6 +319,27 @@ pub mod pallet {
 				.collect::<Vec<_>>();
 
 			Ok(data)
+		}
+
+		fn ocw_update_schedule_by_key(data: OCWSkdData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::update_schedule {
+					status: data.status.clone(),
+					key: data.key,
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					log::info!("success: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
 		}
 	}
 

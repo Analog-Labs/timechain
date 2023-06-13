@@ -4,7 +4,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, ForeignEventId, SignatureData};
+use crate::{crypto::Signature, ForeignEventId, KeyId, SignatureData};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -227,8 +227,8 @@ impl OCWSigData {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct OCWSkdData {
-	status: ScheduleStatus,
-	key: KeyId,
+	pub status: ScheduleStatus,
+	pub key: KeyId,
 }
 
 impl OCWSkdData {

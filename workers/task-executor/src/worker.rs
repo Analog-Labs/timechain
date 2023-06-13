@@ -1,6 +1,6 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
-use codec::Decode;
+use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
@@ -13,9 +13,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
 use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
+use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::{
-	collections::{BTreeMap, HashSet},
+	collections::{BTreeMap, HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
@@ -105,27 +106,35 @@ where
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
-		let Some(account) = self.account_id() else {
-			return Ok(false);
-		};
-		let Some(shard) = self
-							.runtime
-							.runtime_api()
-							.get_shards(block_id)
-							.unwrap_or(vec![])
-							.into_iter()
-							.find(|(s, _)| *s == shard_id)
-							.map(|(_, s)| s) else {
-			anyhow::bail!("failed to find shard");
-		};
+
 		self.sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
 		self.tasks.insert(id);
-		if *shard.collector() == account {
-			self.runtime
-				.runtime_api()
-				.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
-				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+
+		// let Some(account) = self.account_id() else {
+		// 	return Ok(false);
+		// };
+		// let Some(shard) = self
+		// 					.runtime
+		// 					.runtime_api()
+		// 					.get_shards(block_id)
+		// 					.unwrap_or(vec![])
+		// 					.into_iter()
+		// 					.find(|(s, _)| *s == shard_id)
+		// 					.map(|(_, s)| s) else {
+		// 	anyhow::bail!("failed to find shard");
+		// };
+
+		// if *shard.collector() == account {
+		// 	self.runtime
+		// 		.runtime_api()
+		// 		.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
+		// 		.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		// }
+
+		if self.is_collector(block_id, shard_id).unwrap_or(false) {
+			self.update_schedule_ocw_storage(ScheduleStatus::Completed, id);
 		}
+
 		Ok(true)
 	}
 
@@ -162,6 +171,7 @@ where
 					input: _,
 					output: _,
 				} => {
+					log::info!("running task_id {:?}", id);
 					let method = format!("{address}-{function_signature}-call");
 					let request = CallRequest {
 						network_identifier: self.chain_config.network(),
@@ -225,6 +235,25 @@ where
 			};
 		}
 		Ok(())
+	}
+
+	fn is_collector(&self, block_id: <B as Block>::Hash, shard_id: u64) -> Result<bool> {
+		let Some(account) = self.account_id() else {
+			return Ok(false);
+		};
+
+		let Some(shard) = self
+							.runtime
+							.runtime_api()
+							.get_shards(block_id)
+							.unwrap_or(vec![])
+							.into_iter()
+							.find(|(s, _)| *s == shard_id)
+							.map(|(_, s)| s) else {
+			anyhow::bail!("failed to find shard");
+		};
+
+		Ok(*shard.collector() == account)
 	}
 
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {

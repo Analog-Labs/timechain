@@ -25,7 +25,7 @@ const pallet_task_add = async (_keyspair, who) => {
     const input_task = {
         task_id: 1,
         owner: 'address',
-        shard_id: 1,
+        shard_id: 0,
         start_block: 10,
         cycle: 12,
         validity: { Seconds: 12 },
@@ -39,16 +39,16 @@ const pallet_task_add = async (_keyspair, who) => {
     const unsub = await api.tx.taskSchedule.insertSchedule(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
-    setTimeout(async() => {
-        const unsub2 = await api.tx.taskSchedule.insertSchedule(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-            console.log(`Current status is ${status}`);
-        });
-    },15000)
-    setTimeout(async() => {
-        const unsub3 = await api.tx.taskSchedule.insertSchedule(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-            console.log(`Current status is ${status}`);
-        });
-    },30000)
+    // setTimeout(async() => {
+    //     const unsub2 = await api.tx.taskSchedule.insertSchedule(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    //         console.log(`Current status is ${status}`);
+    //     });
+    // },15000)
+    // setTimeout(async() => {
+    //     const unsub3 = await api.tx.taskSchedule.insertSchedule(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    //         console.log(`Current status is ${status}`);
+    //     });
+    // },30000)
     
     await chan.get().then(value => console.log(value), error => console.error(error));
     // chan.close();

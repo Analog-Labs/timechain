@@ -209,6 +209,15 @@ pub fn new_full(
 				Some("//Alice"),
 			)
 			.expect("Creating key with account Alice should succeed.");
+
+		// adding dev acc for schedule pallet
+		keystore_container
+			.local_keystore()
+			.sr25519_generate_new(
+				timechain_runtime::task_schedule::KEY_TYPE,
+				Some("//Alice"),
+			)
+			.expect("Creating key with account Alice should succeed.");
 	}
 
 	let role = config.role.clone();

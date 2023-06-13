@@ -232,6 +232,11 @@ pub mod pallet {
 		/// .0 Offender TimeId
 		/// .1 Report count
 		OffenceReported(TimeId, u8),
+
+		/// Chronicle has ben registered
+		/// .0 TimeId
+		/// .1 Validator's AccountId
+		ChronicleRegistered(TimeId, T::AccountId),
 	}
 
 	#[pallet::error]
@@ -515,8 +520,8 @@ pub mod pallet {
 				},
 			})?;
 
-			ChronicleOwner::<T>::insert(member, caller);
-
+			ChronicleOwner::<T>::insert(&member, caller.clone());
+			Self::deposit_event(Event::ChronicleRegistered(member, caller));
 			Ok(())
 		}
 	}

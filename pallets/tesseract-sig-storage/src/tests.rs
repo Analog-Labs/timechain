@@ -26,6 +26,9 @@ fn test_register_chronicle() {
 		),);
 		let expected_data = BoundedVec::<TimeId, ConstU32<3>>::truncate_from(vec![ALICE]);
 		assert_eq!(ValidatorToChronicle::<Test>::get(VALIDATOR_1), Some(expected_data));
+		frame_system::Pallet::<Test>::assert_last_event(
+			Event::<Test>::ChronicleRegistered(ALICE, VALIDATOR_1).into(),
+		);
 
 		assert_noop!(
 			TesseractSigStorage::register_chronicle(RawOrigin::Signed(VALIDATOR_2).into(), ALICE,),

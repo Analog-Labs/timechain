@@ -104,7 +104,7 @@ pub mod pallet {
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(&who, fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
 			let master_acc = T::ProxyExtend::get_master_account(&who).unwrap();
-			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
+			T::Currency::transfer(&master_acc, &treasury, fix_fee, KeepAlive)?;
 
 			let last_key = LastKey::<T>::get();
 			let schedule_id = match last_key {
@@ -167,7 +167,7 @@ pub mod pallet {
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(&who, fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
 			let master_acc = T::ProxyExtend::get_master_account(&who).unwrap();
-			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
+			T::Currency::transfer(&master_acc, &treasury, fix_fee, KeepAlive)?;
 
 			let last_key = LastKey::<T>::get();
 			let schedule_id = match last_key {

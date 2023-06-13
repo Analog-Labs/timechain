@@ -76,6 +76,7 @@ try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://gith
 # Runtime Workers
 time-worker = { path = "../workers/time-worker" }
 time-worker-rpc = { path = "../workers/time-worker/rpc" }
+time-primitives = { path = "../primitives/time-primitives", default-features = false }
 
 event-worker = { path = "../workers/event-worker" }
 

@@ -17,7 +17,11 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, vec::Vec};
 
 /// Time key type
-pub const KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"time");
+pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
+	sp_application_crypto::KeyTypeId(*b"time");
+pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
+	sp_application_crypto::KeyTypeId(*b"psig");
+pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId = sp_application_crypto::KeyTypeId(*b"pskd");
 pub const OCW_SIG_KEY: &[u8; 20] = b"pallet_sig::offchain";
 pub const OCW_SKD_KEY: &[u8; 20] = b"pallet_skd::offchain";
 
@@ -44,7 +48,7 @@ sp_api::decl_runtime_apis! {
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
 		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError>;
-		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
+		// fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> Result<(), DispatchError>;
 		fn report_misbehavior(
 			shard_id: u64,
 			offender: TimeId,
@@ -56,7 +60,7 @@ sp_api::decl_runtime_apis! {
 
 pub mod crypto {
 	use sp_application_crypto::{app_crypto, sr25519};
-	app_crypto!(sr25519, crate::KEY_TYPE);
+	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
 }
 
 pub trait Balance:

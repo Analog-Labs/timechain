@@ -24,7 +24,7 @@ use std::{
 use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
-	KeyId, TaskSchedule, TimeApi, TimeId, KEY_TYPE, OCW_SKD_KEY,
+	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 
 use queue::Queue;
@@ -86,7 +86,7 @@ where
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
+		let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
 		if keys.is_empty() {
 			log::warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
@@ -110,27 +110,6 @@ where
 		self.sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
 		self.tasks.insert(id);
 
-		// let Some(account) = self.account_id() else {
-		// 	return Ok(false);
-		// };
-		// let Some(shard) = self
-		// 					.runtime
-		// 					.runtime_api()
-		// 					.get_shards(block_id)
-		// 					.unwrap_or(vec![])
-		// 					.into_iter()
-		// 					.find(|(s, _)| *s == shard_id)
-		// 					.map(|(_, s)| s) else {
-		// 	anyhow::bail!("failed to find shard");
-		// };
-
-		// if *shard.collector() == account {
-		// 	self.runtime
-		// 		.runtime_api()
-		// 		.update_schedule_by_key(block_id, ScheduleStatus::Completed, id)?
-		// 		.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		// }
-
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
 			self.update_schedule_ocw_storage(ScheduleStatus::Completed, id);
 		}
@@ -150,17 +129,18 @@ where
 				.runtime_api()
 				.get_task_metadat_by_key(block_id, schedule.task_id.0)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+
+			let shard_id = schedule.shard_id;
 			let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
-					self.runtime.runtime_api().update_schedule_by_key(
-						block_id,
-						ScheduleStatus::Invalid,
-						*id,
-					)?.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-					// TODO: Remove task from schedule list
+
+					if self.is_collector(block_id, shard_id).unwrap_or(false) {
+						self.update_schedule_ocw_storage(ScheduleStatus::Invalid, *id);
+					}
+
 					return Ok(());
 				};
-			let shard_id = schedule.shard_id;
+
 			let task_schedule_clone = schedule.clone();
 			match &task.function {
 				// If the task function is an Ethereum contract
@@ -299,9 +279,12 @@ where
 		}
 
 		while let Some(single_task_schedule) = queue.dequeue() {
-			let _ = self
+			if let Err(e) = self
 				.task_executor(block_id, &single_task_schedule.0, &single_task_schedule.1)
-				.await;
+				.await
+			{
+				log::error!("Error occured while executing task: {}", e);
+			};
 		}
 
 		match response.block {
@@ -327,20 +310,31 @@ where
 	fn update_schedule_ocw_storage(&mut self, schedule_status: ScheduleStatus, key: KeyId) {
 		let ocw_skd = OCWSkdData::new(schedule_status, key);
 
-		let mut ocw_storage = self.backend.offchain_storage().unwrap();
+		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+			let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY);
 
-		if let Some(mut data) = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY) {
-			let mut bytes: &[u8] = &mut data;
-			let mut inner_data: VecDeque<OCWSkdData> = Decode::decode(&mut bytes).unwrap();
-			inner_data.push_back(ocw_skd);
-			let encoded_data = Encode::encode(&inner_data);
-			ocw_storage.set(STORAGE_PREFIX, OCW_SKD_KEY, &encoded_data);
+			let mut ocw_vec = match old_value.clone() {
+				Some(mut data) => {
+					//remove this unwrap
+					let mut bytes: &[u8] = &mut data;
+					let inner_data: VecDeque<OCWSkdData> = Decode::decode(&mut bytes).unwrap();
+					inner_data
+				},
+				None => Default::default(),
+			};
+
+			ocw_vec.push_back(ocw_skd);
+			let encoded_data = Encode::encode(&ocw_vec);
+			let is_data_stored = ocw_storage.compare_and_set(
+				STORAGE_PREFIX,
+				OCW_SKD_KEY,
+				old_value.as_deref(),
+				&encoded_data,
+			);
+			log::info!("stored task data in ocw {:?}", is_data_stored);
 		} else {
-			let mut new_data = VecDeque::new();
-			new_data.push_back(ocw_skd);
-			let encoded_data = Encode::encode(&new_data);
-			ocw_storage.set(STORAGE_PREFIX, OCW_SKD_KEY, &encoded_data);
-		}
+			log::error!("cant get offchain storage");
+		};
 	}
 
 	pub async fn run(&mut self) {

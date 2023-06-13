@@ -1,24 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_core::crypto::KeyTypeId;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
 
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"pskd");
-
 pub mod crypto {
-	use super::KEY_TYPE;
+	use time_primitives::SKD_KEY_TYPE;
 	use sp_core::sr25519::Signature as Sr25519Signature;
 	use sp_runtime::{
 		app_crypto::{app_crypto, sr25519},
 		traits::Verify,
 		MultiSignature, MultiSigner,
 	};
-	app_crypto!(sr25519, KEY_TYPE);
+	app_crypto!(sr25519, SKD_KEY_TYPE);
 	pub struct SigAuthId;
 
 	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
@@ -51,7 +47,9 @@ pub mod pallet {
 
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
-	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::offchain::storage::{
+		MutateStorageError, StorageRetrievalError, StorageValueRef,
+	};
 	use sp_std::collections::vec_deque::VecDeque;
 	use time_primitives::{
 		abstraction::{
@@ -80,26 +78,43 @@ pub mod pallet {
 		fn offchain_worker(_block_number: T::BlockNumber) {
 			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
 
-			match storage_ref.get::<VecDeque<OCWSkdData>>() {
-				Ok(data) => {
-					let Some(mut skd_vec) = data else {
-						return;
-					};
+			const EMPTY_DATA: () = ();
 
-					let Some(skd_req) = skd_vec.pop_front()else{
-						log::info!("no signature request");
-						return;
-					};
-
-					if let Err(err) = Self::ocw_update_schedule_by_key(skd_req.clone()) {
-						log::error!("Error occured while submitting extrinsic {:?}", err);
-					};
-
-					storage_ref.set(&skd_req);
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<OCWSkdData>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								if let Some(skd_req) = data.pop_front() {
+									if let Err(err) =
+										Self::ocw_update_schedule_by_key(skd_req.clone())
+									{
+										log::error!(
+											"Error occured while submitting extrinsic {:?}",
+											err
+										);
+									};
+								} else {
+									break;
+								}
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
 				},
-				Err(e) => {
-					log::error!("error occured while fetching skd storage {:?}", e);
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("Task schedule OCW is empty");
 				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in SKD OCW",);
+				},
+				Ok(_) => {},
 			}
 		}
 	}

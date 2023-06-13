@@ -12,7 +12,7 @@ use sp_runtime::{traits::Block, DispatchError};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{EthTxValidation, Function, ScheduleStatus},
-	TimeApi, TimeId, KEY_TYPE,
+	TimeApi, TimeId, TIME_KEY_TYPE,
 };
 use tokio::time::sleep;
 
@@ -68,7 +68,7 @@ where
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
+		let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
 		if keys.is_empty() {
 			log::warn!(target: TW_LOG, "No time key found, please inject one.");
 			None
@@ -80,19 +80,14 @@ where
 
 	fn update_task_schedule_status(
 		&self,
-		block_id: <B as Block>::Hash,
-		status: ScheduleStatus,
-		schedule_task_id: u64,
+		_block_id: <B as Block>::Hash,
+		_status: ScheduleStatus,
+		_schedule_task_id: u64,
 	) -> Result<(), DispatchError> {
-		// this is wrong. we need to update payable schedule not normal schedule.
-		match self
-			.runtime
-			.runtime_api()
-			.update_schedule_by_key(block_id, status, schedule_task_id)
-		{
-			Ok(update) => update,
-			Err(_) => Err(DispatchError::CannotLookup),
-		}
+		// Implementation is wrong. we need to update payable schedule not normal schedule.
+		// Todo! make extrinsic for payable task update
+		// use ocw to submit the extrinsic.
+		Ok(())
 	}
 
 	fn check_if_connector(&self, shard_id: u64) -> bool {
@@ -258,7 +253,7 @@ where
 		let res_wallet = create_wallet(blockchain, network, self.connector_url.clone(), None).await;
 
 		loop {
-			let keys = self.kv.sr25519_public_keys(KEY_TYPE);
+			let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
 			if !keys.is_empty() {
 				if let Ok(at) = self.backend.blockchain().last_finalized() {
 					match &res_wallet {

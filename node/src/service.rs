@@ -205,7 +205,7 @@ pub fn new_full(
 		keystore_container
 			.local_keystore()
 			.sr25519_generate_new(
-				timechain_runtime::pallet_tesseract_sig_storage::KEY_TYPE,
+				time_primitives::SIG_KEY_TYPE,
 				Some("//Alice"),
 			)
 			.expect("Creating key with account Alice should succeed.");
@@ -213,10 +213,7 @@ pub fn new_full(
 		// adding dev acc for schedule pallet
 		keystore_container
 			.local_keystore()
-			.sr25519_generate_new(
-				timechain_runtime::task_schedule::KEY_TYPE,
-				Some("//Alice"),
-			)
+			.sr25519_generate_new(time_primitives::SKD_KEY_TYPE, Some("//Alice"))
 			.expect("Creating key with account Alice should succeed.");
 	}
 

@@ -11240,6 +11240,7 @@ dependencies = [
  "substrate-frame-rpc-system",
  "surf",
  "task-executor",
+ "time-primitives",
  "time-worker",
  "time-worker-rpc",
  "timechain-runtime",

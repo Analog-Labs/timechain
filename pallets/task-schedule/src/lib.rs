@@ -304,19 +304,6 @@ pub mod pallet {
 			Ok(data)
 		}
 
-		// pub fn update_schedule_by_key(
-		// 	status: ScheduleStatus,
-		// 	key: KeyId,
-		// ) -> Result<(), DispatchError> {
-		// 	let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-		// 		let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
-		// 		details.status = status;
-		// 		Ok(())
-		// 	});
-
-		// 	Ok(())
-		// }
-
 		pub fn get_payable_task_schedules(
 		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = PayableScheduleStorage::<T>::iter()

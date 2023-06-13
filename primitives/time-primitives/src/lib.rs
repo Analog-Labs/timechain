@@ -149,20 +149,29 @@ pub struct ProxyAccStatus<AccountId, Balance> {
 	pub proxy: AccountId,
 }
 
-pub trait ProxyExtend<AccountId> {
-	fn proxy_exist(acc: AccountId) -> bool;
-	fn get_master_account(acc: AccountId) -> Option<AccountId>;
-	fn proxy_update_token_used(acc: AccountId, amount: u32) -> bool;
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct ProxyAccInput<AccountId> {
+	pub proxy: AccountId,
+	pub max_token_usage: Option<u32>,
+	pub token_usage: u32,
+	pub max_task_execution: Option<u32>,
+	pub task_executed: u32,
 }
 
-impl<AccountId> ProxyExtend<AccountId> for () {
-	fn proxy_exist(_acc: AccountId) -> bool {
+pub trait ProxyExtend<AccountId, Balance> {
+	fn proxy_exist(acc: &AccountId) -> bool;
+	fn get_master_account(acc: &AccountId) -> Option<AccountId>;
+	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
+}
+
+impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for () {
+	fn proxy_exist(_acc: &AccountId) -> bool {
 		true
 	}
-	fn get_master_account(acc: AccountId) -> Option<AccountId> {
-		Some(acc)
+	fn get_master_account(acc: &AccountId) -> Option<AccountId> {
+		Some(acc.clone())
 	}
-	fn proxy_update_token_used(_acc: AccountId, _amount: u32) -> bool {
+	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
 		true
 	}
 }

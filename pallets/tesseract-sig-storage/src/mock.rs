@@ -99,8 +99,8 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const ExistentialDeposit: u64 = 1;
-	pub const ScheduleFee: u32 = 1;
 	pub const BlockHashCount: BlockNumber = 2400;
+	pub const ScheduleFee: Balance = 1;
 }
 pub struct MockOnTimestampSet;
 impl OnTimestampSet<Moment> for MockOnTimestampSet {

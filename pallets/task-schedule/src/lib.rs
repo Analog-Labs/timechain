@@ -7,13 +7,13 @@ mod tests;
 pub mod weights;
 
 pub mod crypto {
-	use time_primitives::SKD_KEY_TYPE;
 	use sp_core::sr25519::Signature as Sr25519Signature;
 	use sp_runtime::{
 		app_crypto::{app_crypto, sr25519},
 		traits::Verify,
 		MultiSignature, MultiSigner,
 	};
+	use time_primitives::SKD_KEY_TYPE;
 	app_crypto!(sr25519, SKD_KEY_TYPE);
 	pub struct SigAuthId;
 

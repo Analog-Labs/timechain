@@ -204,10 +204,7 @@ pub fn new_full(
 		// adding dev acc for signature pallet
 		keystore_container
 			.local_keystore()
-			.sr25519_generate_new(
-				time_primitives::SIG_KEY_TYPE,
-				Some("//Alice"),
-			)
+			.sr25519_generate_new(time_primitives::SIG_KEY_TYPE, Some("//Alice"))
 			.expect("Creating key with account Alice should succeed.");
 
 		// adding dev acc for schedule pallet

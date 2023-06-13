@@ -24,6 +24,8 @@ pub mod pallet {
 		},
 		PalletAccounts, ProxyExtend,
 	};
+	pub(crate) type BalanceOf<T> =
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
 	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub type PayableScheduleResults<AccountId> = Vec<(KeyId, PayableTaskSchedule<AccountId>)>;
@@ -41,10 +43,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ProxyExtend: ProxyExtend<Self::AccountId>;
+		type ProxyExtend: ProxyExtend<Self::AccountId, BalanceOf<Self>>;
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
-		type ScheduleFee: Get<u32>;
+		type ScheduleFee: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::storage]
@@ -95,14 +97,14 @@ pub mod pallet {
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let fix_fee = T::ScheduleFee::get();
-			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
 			let treasury = T::PalletAccounts::get_treasury();
 
-			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
+			let tokens_updated = T::ProxyExtend::proxy_update_token_used(&who, fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
-			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
-			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
+			let master_acc = T::ProxyExtend::get_master_account(&who).unwrap();
+			T::Currency::transfer(&master_acc, &treasury, fix_fee, KeepAlive)?;
 
 			let last_key = LastKey::<T>::get();
 			let schedule_id = match last_key {
@@ -136,7 +138,7 @@ pub mod pallet {
 			key: KeyId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
 			let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
@@ -158,14 +160,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let fix_fee = T::ScheduleFee::get();
-			let resp = T::ProxyExtend::proxy_exist(who.clone());
+			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
 			let treasury = T::PalletAccounts::get_treasury();
 
-			let tokens_updated = T::ProxyExtend::proxy_update_token_used(who.clone(), fix_fee);
+			let tokens_updated = T::ProxyExtend::proxy_update_token_used(&who, fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
-			let master_acc = T::ProxyExtend::get_master_account(who.clone()).unwrap();
-			T::Currency::transfer(&master_acc, &treasury, fix_fee.into(), KeepAlive)?;
+			let master_acc = T::ProxyExtend::get_master_account(&who).unwrap();
+			T::Currency::transfer(&master_acc, &treasury, fix_fee, KeepAlive)?;
 
 			let last_key = LastKey::<T>::get();
 			let schedule_id = match last_key {

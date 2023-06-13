@@ -63,6 +63,7 @@ impl pallet_proxy::Config for Test {
 impl task_metadata::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_metadata::weights::WeightInfo<Test>;
+	type Currency = ();
 	type ProxyExtend = PalletProxy;
 }
 

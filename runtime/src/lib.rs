@@ -1054,7 +1054,7 @@ parameter_types! {
 	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
-	pub const ScheduleFee: u32 = 1;
+	pub const ScheduleFee: Balance = 1;
 }
 
 pub struct SubstrateBlockNumberProvider;
@@ -1097,6 +1097,7 @@ impl pallet_treasury::Config for Runtime {
 impl task_metadata::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
+	type Currency = Balances;
 	type ProxyExtend = ();
 }
 

@@ -118,6 +118,7 @@ pub enum ScheduleStatus {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule<AccountId> {
+	// why is this not equal to Taskid type
 	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub shard_id: u64,

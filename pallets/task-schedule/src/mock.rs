@@ -139,6 +139,7 @@ impl task_schedule::Config for Test {
 	type PalletAccounts = CurrentPalletAccounts;
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
+	type ShardGetter = ();
 }
 
 // Build genesis storage according to the mock runtime.

@@ -168,6 +168,7 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
+	type ShardGetter = ();
 }
 
 impl pallet_tesseract_sig_storage::Config for Test {

@@ -22,9 +22,8 @@ pub mod pallet {
 			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
 			TaskSchedule,
 		},
-		PalletAccounts, ProxyExtend, ReportShard,
+		GetShards, KeyId, PalletAccounts, ProxyExtend, ReportShard,
 	};
-	pub type KeyId = u64;
 	pub type ShardId = u64;
 	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub type PayableScheduleResults<AccountId> = Vec<(KeyId, PayableTaskSchedule<AccountId>)>;
@@ -46,12 +45,13 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<u32>;
+		type ShardGetter: GetShards<ShardId>;
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_cannot_reach_consensus)]
-	pub type ShardCannotReachConsensus<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
+	#[pallet::getter(fn shard_tasks)]
+	pub type ShardTasks<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, Vec<KeyId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
@@ -103,7 +103,7 @@ pub mod pallet {
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(
-				ShardCannotReachConsensus::<T>::get(schedule.shard_id).is_none(),
+				T::ShardGetter::shard_can_reach_threshold(schedule.shard_id),
 				Error::<T>::ShardNotAssignable
 			);
 			let fix_fee = T::ScheduleFee::get();
@@ -122,6 +122,7 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
@@ -170,7 +171,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(
-				ShardCannotReachConsensus::<T>::get(schedule.shard_id).is_none(),
+				T::ShardGetter::shard_can_reach_threshold(schedule.shard_id),
 				Error::<T>::ShardNotAssignable
 			);
 			let fix_fee = T::ScheduleFee::get();
@@ -189,6 +190,7 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			PayableScheduleStorage::<T>::insert(
 				schedule_id,
 				PayableTaskSchedule {
@@ -208,8 +210,25 @@ pub mod pallet {
 	// TODO: no shard recovery protocol as of this impl, new shard is required
 	impl<T: Config> ReportShard<ShardId> for Pallet<T> {
 		fn report_shard(id: ShardId) -> Weight {
-			// Reported shard cannot reach threshold => cannot handle tasks
-			<ShardCannotReachConsensus<T>>::insert(id, ());
+			let shard_tasks = ShardTasks::<T>::take(id);
+			let mut next_n_available_shards =
+				T::ShardGetter::get_valid_shard_ids(shard_tasks.len() as u32);
+			// Reassign all tasks for shard to other shards
+			for key in shard_tasks.into_iter() {
+				let next_available_shard = next_n_available_shards
+					.pop()
+					.expect("get_shards returns ShardTasks number of shards for reassignment");
+				if let Some(mut schedule) = ScheduleStorage::<T>::take(&key) {
+					// reassign task to different shard
+					schedule.shard_id = next_available_shard;
+					ScheduleStorage::<T>::insert(&key, schedule);
+					continue;
+				}
+				if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(&key) {
+					payable_schedule.shard_id = next_available_shard;
+					PayableScheduleStorage::<T>::insert(&key, payable_schedule);
+				}
+			}
 			<T as frame_system::Config>::DbWeight::get().writes(1)
 		}
 	}

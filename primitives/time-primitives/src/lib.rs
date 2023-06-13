@@ -28,12 +28,23 @@ pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::Accoun
 pub type TaskId = u64;
 pub type KeyId = u64;
 
+/// Report shard as unable to reach threshold
 pub trait ReportShard<Id> {
 	fn report_shard(_id: Id) -> Weight {
 		Weight::default()
 	}
 }
 impl<Id> ReportShard<Id> for () {}
+/// Get assignable shard
+pub trait GetShards<Id> {
+	fn shard_can_reach_threshold(_id: Id) -> bool {
+		true
+	}
+	fn get_valid_shard_ids(_n: u32) -> Vec<Id> {
+		Vec::default()
+	}
+}
+impl<Id> GetShards<Id> for () {}
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.

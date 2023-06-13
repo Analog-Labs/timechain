@@ -1,4 +1,4 @@
-use crate as pallet_tesseract_sig_storage;
+use crate::{self as pallet_tesseract_sig_storage};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU16, ConstU64, OnTimestampSet},
@@ -6,9 +6,10 @@ use frame_support::{
 };
 use frame_system as system;
 use sp_core::{ConstU32, H256};
+use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
 use sp_std::cell::RefCell;
@@ -18,6 +19,7 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 /// Type used for expressing timestamp.
 type Moment = u64;
+pub type Signature = MultiSignature;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -33,6 +35,8 @@ pub const MILLICENTS: Balance = 1_000_000_000;
 pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
 pub const DOLLARS: Balance = 100 * CENTS;
 type Balance = u128;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type Index = u64;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -58,11 +62,11 @@ impl system::Config for Test {
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-	type Index = u64;
+	type Index = Index;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u128;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
@@ -95,7 +99,8 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const ExistentialDeposit: u64 = 1;
-	pub const ScheduleFee: u32 = 1;
+	pub const BlockHashCount: BlockNumber = 2400;
+	pub const ScheduleFee: Balance = 1;
 }
 pub struct MockOnTimestampSet;
 impl OnTimestampSet<Moment> for MockOnTimestampSet {
@@ -125,8 +130,8 @@ impl pallet_balances::Config for Test {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
-	type RejectOrigin = frame_system::EnsureRoot<u128>;
+	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
@@ -142,8 +147,8 @@ impl pallet_treasury::Config for Test {
 }
 
 pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<u128> for CurrentPalletAccounts {
-	fn get_treasury() -> u128 {
+impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
+	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}
 }
@@ -178,22 +183,52 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: Index,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![
-			(1, 10_000_000_000),
-			(2, 20_000_000_000),
-			//Alice account
-			(1334440654591915542993625911497130241, 20_000_000_000),
-		],
+		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }

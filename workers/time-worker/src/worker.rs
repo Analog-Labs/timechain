@@ -13,9 +13,10 @@ use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
 use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
+use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 use sp_runtime::traits::{Block, Header};
 use std::{
-	collections::HashMap,
+	collections::{HashMap, VecDeque},
 	future::Future,
 	marker::PhantomData,
 	pin::Pin,
@@ -23,7 +24,10 @@ use std::{
 	task::Poll,
 	time::{Duration, Instant},
 };
-use time_primitives::{abstraction::EthTxValidation, TimeApi, KEY_TYPE};
+use time_primitives::{
+	abstraction::{EthTxValidation, OCWSigData},
+	ForeignEventId, SignatureData, TimeApi, KEY_TYPE, OCW_SIG_KEY,
+};
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
 
@@ -211,24 +215,34 @@ where
 							return;
 						};
 						let tss_signature = tss_signature.to_bytes();
-						let at = self.backend.blockchain().last_finalized().unwrap();
+
+						//signing tss_signature with collector sskey
 						let signature = self
 							.kv
 							.sr25519_sign(KEY_TYPE, &public_key, &tss_signature)
 							.unwrap()
 							.unwrap();
-						let _ = self
-							.runtime
-							.runtime_api()
-							.store_signature(
-								at,
-								public_key.into(),
-								signature.into(),
-								tss_signature,
-								(*task_id).into(),
-							)
-							.unwrap();
-						log::info!("stored signature for task {:?}", task_id);
+
+						let event_id: ForeignEventId = (*task_id).into();
+						let sig_data: SignatureData = tss_signature;
+
+						let ocw_sig_data = OCWSigData::new(signature.into(), sig_data, event_id);
+
+						let mut ocw_storage = self.backend.offchain_storage().unwrap();
+						if let Some(mut data) = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY) {
+							let mut bytes: &[u8] = &mut data;
+							let mut inner_data: VecDeque<OCWSigData> =
+								Decode::decode(&mut bytes).unwrap();
+							inner_data.push_back(ocw_sig_data);
+							let encoded_data = Encode::encode(&inner_data);
+							ocw_storage.set(STORAGE_PREFIX, OCW_SIG_KEY, &encoded_data);
+						} else {
+							let mut new_data = VecDeque::new();
+							new_data.push_back(ocw_sig_data);
+							let encoded_data = Encode::encode(&new_data);
+							ocw_storage.set(STORAGE_PREFIX, OCW_SIG_KEY, &encoded_data);
+						}
+
 						shard.tss.event_id_map.remove(&hash);
 					}
 				},

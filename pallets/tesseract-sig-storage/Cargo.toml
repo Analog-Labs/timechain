@@ -13,6 +13,7 @@ repository = "https://github.com/Analog-Labs/testnet"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = [
 	"derive",
 ] }
@@ -27,12 +28,13 @@ sp-runtime = {  default-features = false, git = "https://github.com/paritytech/s
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 time-primitives = { path = "../../primitives/time-primitives", default-features = false }
 task-schedule = { path = "../task-schedule", default-features = false }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
+
 
 [dev-dependencies]
 pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-proxy = { version = "0.1.0", default-features = false, path = "../../pallets/pallet-proxy" }
 pallet-treasury = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-sp-core = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
@@ -50,6 +52,7 @@ std = [
 	"scale-info/std",
 	"sp-std/std",
 	"time-primitives/std",
+	"sp-core/std",
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

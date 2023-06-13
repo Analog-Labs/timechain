@@ -61,7 +61,7 @@ fn test_schedule() {
 		};
 		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output_update));
 		// check update token usage
-		let proxy_acc = PalletProxy::get_proxy_acc(account).unwrap();
+		let proxy_acc = PalletProxy::get_proxy_acc(&account).unwrap();
 		match proxy_acc {
 			Some(acc) => {
 				let token_usage = 2;

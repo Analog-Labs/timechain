@@ -12,6 +12,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	Permill,
 };
+use pallet_session::ShouldEndSession;
 /// An index to a block.
 pub type BlockNumber = u32;
 /// Change this to adjust the block time.
@@ -30,6 +31,15 @@ pub type Balance = u128;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub struct ShouldEndSessionMock();
+
+impl ShouldEndSession<u64> for ShouldEndSessionMock {
+	fn should_end_session(_now: u64) -> bool {
+		true
+	}
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -55,6 +65,7 @@ frame_support::parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const ExistentialDeposit: u64 = 1;
 	pub const ScheduleFee: Balance = 1;
+	pub const IndexerReward: Balance = 1;
 }
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -139,6 +150,8 @@ impl task_schedule::Config for Test {
 	type PalletAccounts = CurrentPalletAccounts;
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = ShouldEndSessionMock;
+	type IndexerReward = IndexerReward;
 }
 
 // Build genesis storage according to the mock runtime.

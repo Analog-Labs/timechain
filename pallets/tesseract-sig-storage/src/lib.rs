@@ -46,7 +46,8 @@ pub mod pallet {
 	use crate::shard::*;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
-		traits::Time,
+		storage::bounded_vec::BoundedVec,
+		traits::{Time, ValidatorSet},
 	};
 	use frame_system::offchain::{
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
@@ -56,7 +57,7 @@ pub mod pallet {
 	use sp_application_crypto::ByteArray;
 	use sp_runtime::offchain::storage::StorageValueRef;
 	use sp_runtime::{
-		traits::{AppVerify, Scale},
+		traits::{AppVerify, Convert, Scale},
 		Percent, SaturatedConversion, Saturating,
 	};
 	use sp_std::{
@@ -77,6 +78,7 @@ pub mod pallet {
 		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
 		fn register_shard() -> Weight;
+		fn register_chronicle() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -87,6 +89,9 @@ pub mod pallet {
 			Weight::from_parts(0, 1)
 		}
 		fn register_shard() -> Weight {
+			Weight::from_parts(0, 1)
+		}
+		fn register_chronicle() -> Weight {
 			Weight::from_parts(0, 1)
 		}
 	}
@@ -143,6 +148,9 @@ pub mod pallet {
 		type SlashingPercentageThreshold: Get<u8>;
 
 		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
+		type ValidatorSet: ValidatorSet<Self::AccountId>;
+		#[pallet::constant]
+		type MaxChronicleWorkers: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -175,6 +183,30 @@ pub mod pallet {
 	pub type CommitedOffences<T: Config> =
 		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
 
+	/// record the last block number of each chronicle worker commit valid signature
+	#[pallet::storage]
+	#[pallet::getter(fn last_committed_chronicle)]
+	pub type LastCommittedChronicle<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, T::BlockNumber, ValueQuery>;
+
+	/// record the last block number of each shard commit valid signature
+	#[pallet::storage]
+	#[pallet::getter(fn last_committed_shard)]
+	pub type LastCommittedShard<T: Config> =
+		StorageMap<_, Blake2_128Concat, u64, T::BlockNumber, ValueQuery>;
+
+	/// record the chronicle worker ids for each validator
+	#[pallet::storage]
+	#[pallet::getter(fn validator_to_chronicle)]
+	pub type ValidatorToChronicle<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<TimeId, T::MaxChronicleWorkers>>;
+
+	/// record the chronicle worker's owner or its validator account id
+	#[pallet::storage]
+	#[pallet::getter(fn chronicle_owner)]
+	pub type ChronicleOwner<T: Config> =
+		StorageMap<_, Blake2_128Concat, TimeId, T::AccountId, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -200,6 +232,11 @@ pub mod pallet {
 		/// .0 Offender TimeId
 		/// .1 Report count
 		OffenceReported(TimeId, u8),
+
+		/// Chronicle has ben registered
+		/// .0 TimeId
+		/// .1 Validator's AccountId
+		ChronicleRegistered(TimeId, T::AccountId),
 	}
 
 	#[pallet::error]
@@ -252,6 +289,24 @@ pub mod pallet {
 
 		///TSS Signature already added
 		DuplicateSignature,
+
+		/// Chronicle already registered
+		ChronicleAlreadyRegistered,
+
+		/// Failed to get validator id
+		FailedToGetValidatorId,
+
+		/// Only validator can register chronicle
+		OnlyValidatorCanRegisterChronicle,
+
+		/// Chronicle already in set
+		ChronicleAlreadyInSet,
+
+		/// Chronicle set is full
+		ChronicleSetIsFull,
+
+		/// Chronicle not registered
+		ChronicleNotRegistered,
 
 		///Offchain signed tx failed
 		OffchainSignedTxFailed,
@@ -366,6 +421,11 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::SignatureStored(event_id));
+			<LastCommittedChronicle<T>>::insert(
+				collector,
+				frame_system::Pallet::<T>::block_number(),
+			);
+			<LastCommittedShard<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
 			Ok(())
 		}
 
@@ -396,7 +456,14 @@ pub mod pallet {
 			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let shard = new_shard::<T>(members, collector_index)?;
+			// ensure each member is registered
+			for member in members.iter() {
+				ensure!(
+					ChronicleOwner::<T>::contains_key(member.clone()),
+					Error::<T>::ChronicleNotRegistered
+				);
+			}
+			let shard = new_shard::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
@@ -404,6 +471,57 @@ pub mod pallet {
 			<TssShards<T>>::insert(shard_id, shard);
 			<ShardId<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id));
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::register_chronicle())]
+		pub fn register_chronicle(origin: OriginFor<T>, member: TimeId) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+
+			// ensure chronicle is not already registered
+			ensure!(
+				!ChronicleOwner::<T>::contains_key(member.clone()),
+				Error::<T>::ChronicleAlreadyRegistered
+			);
+
+			// get current validator set
+			let validator_set = T::ValidatorSet::validators();
+
+			// convert AccountId to ValidatorId
+			let validator_id: <T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorId =
+				<T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(
+					caller.clone(),
+				)
+				.ok_or(Error::<T>::FailedToGetValidatorId)?;
+
+			// caller must be one of validators
+			ensure!(
+				validator_set.contains(&validator_id),
+				Error::<T>::OnlyValidatorCanRegisterChronicle
+			);
+
+			// update chronicle worker set for caller
+			ValidatorToChronicle::<T>::try_mutate(caller.clone(), |chronicles| match chronicles {
+				Some(ref mut node) => {
+					if node.contains(&member) {
+						return Err::<(), Error<T>>(Error::<T>::ChronicleAlreadyInSet);
+					};
+
+					node.try_insert(0, member.clone())
+						.map_err(|_| Error::<T>::ChronicleSetIsFull)?;
+					Ok(())
+				},
+				None => {
+					let mut a = BoundedVec::<TimeId, T::MaxChronicleWorkers>::default();
+					let _ = a.try_insert(0, member.clone());
+					*chronicles = Some(a);
+					Ok(())
+				},
+			})?;
+
+			ChronicleOwner::<T>::insert(&member, caller.clone());
+			Self::deposit_event(Event::ChronicleRegistered(member, caller));
 			Ok(())
 		}
 	}

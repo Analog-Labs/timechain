@@ -1033,6 +1033,7 @@ parameter_types! {
 	pub const SlashingPercentage: u8 = 5;
 	// Must be > 0 and <= 100
 	pub const SlashingPercentageThreshold: u8 = 51;
+	pub const MaxChronicleWorkers: u32 = 5;
 }
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
@@ -1044,6 +1045,8 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type MaxChronicleWorkers = MaxChronicleWorkers;
+	type ValidatorSet = Historical;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

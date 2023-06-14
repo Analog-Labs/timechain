@@ -1,7 +1,8 @@
 use crate::{self as pallet_tesseract_sig_storage};
 use frame_support::{
+	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU16, ConstU64, OnTimestampSet},
+	traits::{ConstU16, ConstU64, OnTimestampSet, ValidatorSet},
 	PalletId,
 };
 use frame_system as system;
@@ -9,11 +10,12 @@ use sp_core::{ConstU32, H256};
 use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, Convert, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
-use sp_std::cell::RefCell;
 
+use sp_std::cell::RefCell;
+use time_primitives::TimeId;
 // use pallet_randomness_collective_flip;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -35,8 +37,21 @@ pub const MILLICENTS: Balance = 1_000_000_000;
 pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
 pub const DOLLARS: Balance = 100 * CENTS;
 type Balance = u128;
+
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Index = u64;
+
+pub const VALIDATOR_1: AccountId = AccountId::new([1; 32]);
+pub const VALIDATOR_2: AccountId = AccountId::new([2; 32]);
+pub const VALIDATOR_3: AccountId = AccountId::new([3; 32]);
+pub const VALIDATOR_4: AccountId = AccountId::new([4; 32]);
+
+pub const INVALID_VALIDATOR: AccountId = AccountId::new([100; 32]);
+
+pub const ALICE: TimeId = TimeId::new([1u8; 32]);
+pub const BOB: TimeId = TimeId::new([2u8; 32]);
+pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
+pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -175,6 +190,38 @@ impl task_schedule::Config for Test {
 	type ScheduleFee = ScheduleFee;
 }
 
+pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);
+
+impl<AccountId> Convert<AccountId, Option<AccountId>> for ConvertMock<AccountId> {
+	fn convert(account_id: AccountId) -> Option<AccountId> {
+		Some(account_id)
+	}
+}
+
+pub struct ValidatorSetMock<T>(sp_std::marker::PhantomData<T>);
+
+impl<OutAccountId> ValidatorSet<OutAccountId> for ValidatorSetMock<OutAccountId>
+where
+	OutAccountId: Clone
+		+ Eq
+		+ PartialEq
+		+ Parameter
+		+ MaxEncodedLen
+		+ From<AccountId>
+		+ std::convert::From<sp_runtime::AccountId32>,
+{
+	type ValidatorId = OutAccountId;
+	type ValidatorIdOf = ConvertMock<OutAccountId>;
+
+	fn session_index() -> sp_staking::SessionIndex {
+		sp_staking::SessionIndex::default()
+	}
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		vec![VALIDATOR_1.into(), VALIDATOR_2.into(), VALIDATOR_3.into(), VALIDATOR_4.into()]
+	}
+}
+
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -183,6 +230,8 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
+	type ValidatorSet = ValidatorSetMock<AccountId>;
+	type MaxChronicleWorkers = ConstU32<3>;
 	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
 }
 
@@ -224,6 +273,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
+
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

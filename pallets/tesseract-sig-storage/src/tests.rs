@@ -59,7 +59,7 @@ fn test_signature_storage() {
 
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	let alice = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
@@ -103,7 +103,7 @@ fn test_signature_storage() {
 		};
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
 			.unwrap()
 			.unwrap();
 
@@ -134,7 +134,7 @@ fn test_recurring_signature() {
 
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	let alice = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
@@ -174,7 +174,7 @@ fn test_recurring_signature() {
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data_1.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data_1.as_ref())
 			.unwrap()
 			.unwrap();
 
@@ -186,7 +186,7 @@ fn test_recurring_signature() {
 		));
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data_2.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data_2.as_ref())
 			.unwrap()
 			.unwrap();
 
@@ -207,7 +207,7 @@ fn test_duplicate_signature() {
 
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	let alice = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
@@ -246,7 +246,7 @@ fn test_duplicate_signature() {
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
 			.unwrap()
 			.unwrap();
 
@@ -395,10 +395,10 @@ fn test_api_report_misbehavior_increments_report_count() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let bob = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -423,7 +423,7 @@ fn test_api_report_misbehavior_increments_report_count() {
 		// report 1st offence
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, CHARLIE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(
@@ -433,7 +433,7 @@ fn test_api_report_misbehavior_increments_report_count() {
 			alice_report.into(),
 		));
 		let bob_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &bob, CHARLIE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 2nd offence
@@ -453,10 +453,10 @@ fn test_api_report_misbehavior_updates_reporters() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let bob = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -481,7 +481,7 @@ fn test_api_report_misbehavior_updates_reporters() {
 		// report 1st offence
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, CHARLIE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(
@@ -491,7 +491,7 @@ fn test_api_report_misbehavior_updates_reporters() {
 			alice_report.into(),
 		));
 		let bob_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &bob, CHARLIE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 2nd offence
@@ -516,10 +516,10 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let bob = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -546,7 +546,7 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 		// report 1st offence
 
 		let alice_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &alice, CHARLIE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(
@@ -560,7 +560,7 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 		expected_committed_offences.0 += 1;
 		expected_committed_offences.1.insert(bob.into());
 		let bob_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &bob, CHARLIE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 2nd offence
@@ -584,13 +584,13 @@ fn test_api_report_misbehavior_for_group_len_5() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let charlie = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let david = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let edward = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -624,7 +624,7 @@ fn test_api_report_misbehavior_for_group_len_5() {
 		// report 1st offence
 
 		let charlie_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &charlie, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &charlie, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(
@@ -634,7 +634,7 @@ fn test_api_report_misbehavior_for_group_len_5() {
 			charlie_report.into(),
 		));
 		let david_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &david, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &david, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 2nd offence
@@ -650,7 +650,7 @@ fn test_api_report_misbehavior_for_group_len_5() {
 		expected_committed_offences.0 += 1;
 		expected_committed_offences.1.insert(edward.into());
 		let edward_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &edward, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &edward, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 3nd offence
@@ -672,22 +672,22 @@ fn test_api_report_misbehavior_for_group_len_10() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let edward = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let frank = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let greg = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let hank = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let indigo = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let jared = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -752,7 +752,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 		// report 1st offence
 
 		let edward_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &edward, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &edward, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(
@@ -762,7 +762,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 			edward_report.into(),
 		));
 		let frank_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &frank, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &frank, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 2nd offence
@@ -773,7 +773,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 			frank_report.into(),
 		));
 		let greg_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &greg, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &greg, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 3nd offence
@@ -784,7 +784,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 			greg_report.into(),
 		));
 		let hank_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &hank, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &hank, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 4th offence
@@ -800,7 +800,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 		expected_committed_offences.0 += 1;
 		expected_committed_offences.1.insert(indigo.into());
 		let indigo_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &indigo, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &indigo, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 5th offence
@@ -825,16 +825,16 @@ fn can_report_offence_if_already_committed_offender() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let bob = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let charlie = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let david = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let edward = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -866,7 +866,7 @@ fn can_report_offence_if_already_committed_offender() {
 
 		// report 1st offence
 		let bob_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &bob, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(
@@ -876,7 +876,7 @@ fn can_report_offence_if_already_committed_offender() {
 			bob_report.into(),
 		));
 		let charlie_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &charlie, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &charlie, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 2nd offence
@@ -887,7 +887,7 @@ fn can_report_offence_if_already_committed_offender() {
 			charlie_report.into(),
 		));
 		let david_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &david, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &david, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// report 3rd offence
@@ -900,7 +900,7 @@ fn can_report_offence_if_already_committed_offender() {
 		// 3 reported offences
 		assert_eq!(3, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
 		let edward_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &edward, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &edward, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		// can report offence but only updates committed offences
@@ -923,10 +923,10 @@ fn cannot_report_more_than_once_per_offender_by_member() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let bob = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let edward = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
@@ -959,7 +959,7 @@ fn cannot_report_more_than_once_per_offender_by_member() {
 
 		// report 1st offence
 		let bob_report = keystore
-			.sr25519_sign(time_primitives::KEY_TYPE, &bob, ALICE.as_ref())
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
 		assert_ok!(TesseractSigStorage::api_report_misbehavior(

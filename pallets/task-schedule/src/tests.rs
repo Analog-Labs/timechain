@@ -16,20 +16,20 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 		};
-		let account = 1;
+		let account: AccountId = acc_pub(1).into();
 		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(account).into(),
+			RawOrigin::Signed(account.clone()).into(),
 			Some(1000),
 			1,
 			Some(1),
 			1,
-			1
+			acc_pub(1).into()
 		));
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
 
 		let output = ScheduleOut {
 			task_id: ObjectId(1),
-			owner: 1,
+			owner: account.clone(),
 			shard_id: 1,
 			start_block: 0,
 			cycle: 12,
@@ -37,17 +37,19 @@ fn test_schedule() {
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 		};
-		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output));
+		let a = TaskSchedule::get_task_schedule(1 as u64);
+		let b = Some(output);
+		assert_eq!(a, b);
 		// update schedule
 		assert_ok!(TaskSchedule::update_schedule(
-			RawOrigin::Signed(account).into(),
+			RawOrigin::Signed(account.clone()).into(),
 			ScheduleStatus::Completed,
 			1
 		));
 
 		let output_update = ScheduleOut {
 			task_id: ObjectId(1),
-			owner: account,
+			owner: account.clone(),
 			shard_id: 1,
 			start_block: 0,
 			cycle: 12,
@@ -55,7 +57,9 @@ fn test_schedule() {
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
 		};
-		assert_eq!(TaskSchedule::get_task_schedule(account as u64), Some(output_update));
+		let a = TaskSchedule::get_task_schedule(1 as u64);
+		let b = Some(output_update);
+		assert_eq!(a, b);
 		// check update token usage
 		let proxy_acc = PalletProxy::get_proxy_acc(&account).unwrap();
 		match proxy_acc {
@@ -76,27 +80,30 @@ fn test_payable_schedule() {
 			task_id: ObjectId(1),
 			shard_id: 1,
 		};
-		let account = 1;
+		let account: AccountId = acc_pub(1).into();
 		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(account).into(),
+			RawOrigin::Signed(account.clone()).into(),
 			Some(1000),
 			1,
 			Some(1),
 			1,
-			1
+			account.clone()
 		));
 		assert_ok!(TaskSchedule::insert_payable_task_schedule(
-			RawOrigin::Signed(account).into(),
+			RawOrigin::Signed(account.clone()).into(),
 			input
 		));
 
 		//get payable task schedule
 		let output = PayableTaskSchedule {
 			task_id: ObjectId(1),
-			owner: 1,
+			owner: account,
 			shard_id: 1,
 			status: ScheduleStatus::Initiated,
 		};
-		assert_eq!(TaskSchedule::get_payable_task_schedule(account as u64), Some(output));
+
+		let a = TaskSchedule::get_payable_task_schedule(1 as u64);
+		let b = Some(output);
+		assert_eq!(a, b);
 	});
 }

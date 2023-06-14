@@ -30,7 +30,7 @@ use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
 	sharding::Shard,
-	SignatureData, TimeApi, KEY_TYPE as TimeKeyType,
+	SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
 
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";

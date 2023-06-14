@@ -14,6 +14,7 @@ use sp_runtime::{
 	Permill,
 };
 
+use pallet_session::ShouldEndSession;
 use sp_std::cell::RefCell;
 use time_primitives::TimeId;
 // use pallet_randomness_collective_flip;
@@ -52,6 +53,14 @@ pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
 pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
 pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
+
+pub struct ShouldEndSessionMock();
+
+impl ShouldEndSession<u64> for ShouldEndSessionMock {
+	fn should_end_session(_now: u64) -> bool {
+		true
+	}
+}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -116,6 +125,7 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 1;
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const ScheduleFee: Balance = 1;
+	pub const IndexerReward: Balance = 1;
 }
 pub struct MockOnTimestampSet;
 impl OnTimestampSet<Moment> for MockOnTimestampSet {
@@ -188,6 +198,8 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = ShouldEndSessionMock;
+	type IndexerReward = IndexerReward;
 }
 
 pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);

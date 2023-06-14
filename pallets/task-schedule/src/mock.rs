@@ -5,6 +5,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system as system;
+use pallet_session::ShouldEndSession;
 use sp_core::H256;
 use sp_runtime::{
 	app_crypto::sp_core,
@@ -12,7 +13,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	Permill,
 };
-use pallet_session::ShouldEndSession;
 /// An index to a block.
 pub type BlockNumber = u32;
 /// Change this to adjust the block time.

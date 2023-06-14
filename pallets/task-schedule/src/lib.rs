@@ -6,6 +6,32 @@ mod mock;
 mod tests;
 pub mod weights;
 
+pub mod crypto {
+	use sp_core::sr25519::Signature as Sr25519Signature;
+	use sp_runtime::{
+		app_crypto::{app_crypto, sr25519},
+		traits::Verify,
+		MultiSignature, MultiSigner,
+	};
+	use time_primitives::SKD_KEY_TYPE;
+	app_crypto!(sr25519, SKD_KEY_TYPE);
+	pub struct SigAuthId;
+
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
+		for SigAuthId
+	{
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+}
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -15,14 +41,22 @@ pub mod pallet {
 		traits::{Currency, ExistenceRequirement::KeepAlive},
 	};
 
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
+
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
+	use sp_runtime::offchain::storage::{
+		MutateStorageError, StorageRetrievalError, StorageValueRef,
+	};
+	use sp_std::collections::vec_deque::VecDeque;
 	use time_primitives::{
 		abstraction::{
-			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
-			TaskSchedule,
+			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
+			ScheduleStatus, TaskSchedule,
 		},
-		PalletAccounts, ProxyExtend,
+		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -39,8 +73,55 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<OCWSkdData>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								if let Some(skd_req) = data.pop_front() {
+									if let Err(err) =
+										Self::ocw_update_schedule_by_key(skd_req.clone())
+									{
+										log::error!(
+											"Error occured while submitting extrinsic {:?}",
+											err
+										);
+									};
+								} else {
+									break;
+								}
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("Task schedule OCW is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in SKD OCW",);
+				},
+				Ok(_) => {},
+			}
+		}
+	}
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type ProxyExtend: ProxyExtend<Self::AccountId, BalanceOf<Self>>;
@@ -88,6 +169,10 @@ pub mod pallet {
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
 		ErrorRef,
+		///Offchain signed tx failed
+		OffchainSignedTxFailed,
+		///no local account for signed tx
+		NoLocalAcctForSignedTx,
 	}
 
 	#[pallet::call]
@@ -220,19 +305,6 @@ pub mod pallet {
 			Ok(data)
 		}
 
-		pub fn update_schedule_by_key(
-			status: ScheduleStatus,
-			key: KeyId,
-		) -> Result<(), DispatchError> {
-			let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				details.status = status;
-				Ok(())
-			});
-
-			Ok(())
-		}
-
 		pub fn get_payable_task_schedules(
 		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = PayableScheduleStorage::<T>::iter()
@@ -250,6 +322,27 @@ pub mod pallet {
 				.collect::<Vec<_>>();
 
 			Ok(data)
+		}
+
+		fn ocw_update_schedule_by_key(data: OCWSkdData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::update_schedule {
+					status: data.status.clone(),
+					key: data.key,
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					log::info!("success: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
 		}
 	}
 

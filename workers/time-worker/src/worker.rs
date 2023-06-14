@@ -26,7 +26,7 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{EthTxValidation, OCWSigData},
-	ForeignEventId, SignatureData, TimeApi, KEY_TYPE, OCW_SIG_KEY,
+	ForeignEventId, SignatureData, TimeApi, OCW_SIG_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -41,7 +41,7 @@ struct TimeMessage {
 impl TimeMessage {
 	fn encode(&self, kv: &KeystorePtr) -> Vec<u8> {
 		let mut bytes = bincode::serialize(self).unwrap();
-		let sig = kv.sr25519_sign(KEY_TYPE, &self.sender, &bytes).unwrap().unwrap();
+		let sig = kv.sr25519_sign(TIME_KEY_TYPE, &self.sender, &bytes).unwrap().unwrap();
 		bytes.extend_from_slice(sig.as_ref());
 		bytes
 	}
@@ -153,7 +153,7 @@ where
 
 	/// Returns the public key for the worker if one was set.
 	fn public_key(&self) -> Option<sr25519::Public> {
-		let keys = self.kv.sr25519_public_keys(KEY_TYPE);
+		let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
 		if keys.is_empty() {
 			warn!(target: TW_LOG, "No time key found, please inject one.");
 			return None;
@@ -219,7 +219,7 @@ where
 						//signing tss_signature with collector sskey
 						let signature = self
 							.kv
-							.sr25519_sign(KEY_TYPE, &public_key, &tss_signature)
+							.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
 							.unwrap()
 							.unwrap();
 
@@ -228,27 +228,37 @@ where
 
 						let ocw_sig_data = OCWSigData::new(signature.into(), sig_data, event_id);
 
-						let mut ocw_storage = self.backend.offchain_storage().unwrap();
-						if let Some(mut data) = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY) {
-							let mut bytes: &[u8] = &mut data;
-							let mut inner_data: VecDeque<OCWSigData> =
-								Decode::decode(&mut bytes).unwrap();
-							inner_data.push_back(ocw_sig_data);
-							let encoded_data = Encode::encode(&inner_data);
-							ocw_storage.set(STORAGE_PREFIX, OCW_SIG_KEY, &encoded_data);
+						if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+							let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY);
+
+							let mut ocw_vec = match old_value.clone() {
+								Some(mut data) => {
+									let mut bytes: &[u8] = &mut data;
+									let inner_data: VecDeque<OCWSigData> =
+										Decode::decode(&mut bytes).unwrap();
+									inner_data
+								},
+								None => Default::default(),
+							};
+
+							ocw_vec.push_back(ocw_sig_data);
+							let encoded_data = Encode::encode(&ocw_vec);
+							ocw_storage.compare_and_set(
+								STORAGE_PREFIX,
+								OCW_SIG_KEY,
+								old_value.as_deref(),
+								&encoded_data,
+							);
 						} else {
-							let mut new_data = VecDeque::new();
-							new_data.push_back(ocw_sig_data);
-							let encoded_data = Encode::encode(&new_data);
-							ocw_storage.set(STORAGE_PREFIX, OCW_SIG_KEY, &encoded_data);
-						}
+							log::error!("cant get offchain storage");
+						};
 
 						shard.tss.event_id_map.remove(&hash);
 					}
 				},
 				TssAction::Report(offender, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
-					let Some(proof) = self.kv.sr25519_sign(KEY_TYPE, &public_key, &offender).unwrap() else {
+					let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
 						error!(
 							target: TW_LOG,
 							"Failed to create proof for offence report submission"

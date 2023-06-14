@@ -1163,6 +1163,10 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 	}
 }
 
+parameter_types! {
+	pub IndexerReward: Balance = ANLOG;
+}
+
 impl task_schedule::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
@@ -1170,6 +1174,8 @@ impl task_schedule::Config for Runtime {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = Babe;
+	type IndexerReward = IndexerReward;
 }
 
 impl pallet_proxy::Config for Runtime {

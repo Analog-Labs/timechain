@@ -14,9 +14,13 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement::KeepAlive},
 	};
+	use log;
+	use sp_runtime::traits::Saturating;
 
 	use frame_system::pallet_prelude::*;
+	use pallet_session::ShouldEndSession;
 	use scale_info::prelude::vec::Vec;
+
 	use time_primitives::{
 		abstraction::{
 			ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput, ScheduleStatus,
@@ -47,6 +51,8 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<BalanceOf<Self>>;
+		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
+		type IndexerReward: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::storage]
@@ -62,6 +68,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
 
+	#[pallet::storage]
+	pub(super) type AllIndexer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -74,8 +83,11 @@ pub mod pallet {
 		///Already exist case
 		AlreadyExist(KeyId),
 
-		// Payable Schedule
+		/// Payable Schedule
 		PayableScheduleStored(KeyId),
+
+		/// Reward indexer
+		RewardIndexer(T::AccountId, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -88,6 +100,34 @@ pub mod pallet {
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
 		ErrorRef,
+		/// Failed to reward indexer
+		FailedRewardIndexer,
+	}
+
+	/// reward all indexers each epoch
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			if T::ShouldEndSession::should_end_session(now) {
+				for (indexer, times) in AllIndexer::<T>::iter() {
+					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
+					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
+					if result.is_err() {
+						log::error!(
+							"Failed to reward account {:?} with {:?}.",
+							&indexer,
+							reward_amount
+						);
+					} else {
+						Self::deposit_event(Event::RewardIndexer(indexer, reward_amount));
+					}
+				}
+
+				T::BlockWeights::get().max_block
+			} else {
+				Weight::zero()
+			}
+		}
 	}
 
 	#[pallet::call]

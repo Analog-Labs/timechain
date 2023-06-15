@@ -121,6 +121,28 @@ pub mod pallet {
 				Ok(_) => {},
 			}
 		}
+
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			if T::ShouldEndSession::should_end_session(now) {
+				for (indexer, times) in AllIndexer::<T>::iter() {
+					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
+					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
+					if result.is_err() {
+						log::error!(
+							"Failed to reward account {:?} with {:?}.",
+							&indexer,
+							reward_amount
+						);
+					} else {
+						Self::deposit_event(Event::RewardIndexer(indexer, reward_amount));
+					}
+				}
+
+				T::BlockWeights::get().max_block
+			} else {
+				Weight::zero()
+			}
+		}
 	}
 
 	#[pallet::config]
@@ -187,32 +209,6 @@ pub mod pallet {
 		OffchainSignedTxFailed,
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
-	}
-
-	/// reward all indexers each epoch
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: T::BlockNumber) -> Weight {
-			if T::ShouldEndSession::should_end_session(now) {
-				for (indexer, times) in AllIndexer::<T>::iter() {
-					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
-					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
-					if result.is_err() {
-						log::error!(
-							"Failed to reward account {:?} with {:?}.",
-							&indexer,
-							reward_amount
-						);
-					} else {
-						Self::deposit_event(Event::RewardIndexer(indexer, reward_amount));
-					}
-				}
-
-				T::BlockWeights::get().max_block
-			} else {
-				Weight::zero()
-			}
-		}
 	}
 
 	#[pallet::call]

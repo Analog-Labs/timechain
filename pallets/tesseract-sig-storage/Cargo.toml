@@ -55,6 +55,7 @@ std = [
 	"scale-info/std",
 	"sp-std/std",
 	"time-primitives/std",
+	"task-schedule/std",
 	"sp-core/std",
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]

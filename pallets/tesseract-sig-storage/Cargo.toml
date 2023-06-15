@@ -55,6 +55,7 @@ std = [
 	"sp-std/std",
 	"time-primitives/std",
 	"sp-core/std",
+	"task-schedule/std",
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

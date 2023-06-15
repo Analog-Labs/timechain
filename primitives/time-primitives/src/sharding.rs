@@ -32,6 +32,10 @@ impl Shard {
 		}
 	}
 
+	pub fn is_collector(&self, id: &TimeId) -> bool {
+		self.collector() == id
+	}
+
 	/// Sets collector to a given ID if is not the same.
 	/// Returns error if `collector` is not member of this shard.
 	/// # Param
@@ -58,6 +62,15 @@ impl Shard {
 			Shard::Five(set) => set.to_vec(),
 			Shard::Ten(set) => set.to_vec(),
 		}
+	}
+
+	pub fn contains_member(&self, member: &TimeId) -> bool {
+		let members = match self {
+			Shard::Three(s) => s.to_vec(),
+			Shard::Five(s) => s.to_vec(),
+			Shard::Ten(s) => s.to_vec(),
+		};
+		members.contains(member)
 	}
 
 	/// Returns the shard threshold.

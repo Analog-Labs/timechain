@@ -51,7 +51,6 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
-	use sp_application_crypto::ByteArray;
 	use sp_runtime::offchain::storage::{
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
@@ -78,6 +77,7 @@ pub mod pallet {
 		fn submit_tss_group_key(_s: u32) -> Weight;
 		fn register_shard() -> Weight;
 		fn register_chronicle() -> Weight;
+		fn report_misbehavior() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -91,6 +91,9 @@ pub mod pallet {
 			Weight::from_parts(0, 1)
 		}
 		fn register_chronicle() -> Weight {
+			Weight::from_parts(0, 1)
+		}
+		fn report_misbehavior() -> Weight {
 			Weight::from_parts(0, 1)
 		}
 	}
@@ -272,8 +275,11 @@ pub mod pallet {
 		/// Reporter TimeId can not be converted to Public key
 		InvalidReporterId,
 
-		/// Reporter or offender not in members
-		ReporterOrOffenderNotInMembers,
+		/// Only collectors can make report
+		ReportOnlyComesFromCollector,
+
+		/// Offender not in members
+		OffenderNotInMembers,
 
 		/// Cannot set collector if they are already in that role
 		AlreadyCollector,
@@ -539,33 +545,30 @@ pub mod pallet {
 			Self::deposit_event(Event::ChronicleRegistered(member, caller));
 			Ok(())
 		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		// Getter method for runtime api storage access
-		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter().collect()
-		}
 
 		/// Method to provide misbehavior report to runtime
 		/// Is protected with proven ownership of private key to prevent spam
-		pub fn api_report_misbehavior(
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::report_misbehavior())]
+		pub fn report_misbehavior(
+			origin: OriginFor<T>,
 			shard_id: u64,
-			offender: time_primitives::TimeId,
-			reporter: TimeId,
+			offender: T::AccountId,
 			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
-			let reporter_pub =
-				Public::from_slice(reporter.as_ref()).map_err(|_| Error::<T>::InvalidReporterId)?;
+			let reporter = ensure_signed(origin)?;
+			let account_to_time_id =
+				|account_id: T::AccountId| account_id.encode()[..].try_into().unwrap();
+			let (reporter, offender) = (account_to_time_id(reporter), account_to_time_id(offender));
 			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let members = shard.members();
-			ensure!(
-				members.contains(&offender) && members.contains(&reporter),
-				Error::<T>::ReporterOrOffenderNotInMembers
-			);
+			ensure!(shard.is_collector(&reporter), Error::<T>::ReportOnlyComesFromCollector);
+			ensure!(shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
 			// verify signature
+			let raw_reporter_pub_key: [u8; 32] = (reporter.encode())[..].try_into().unwrap();
+			let reporter_public_key: Public =
+				sp_application_crypto::sr25519::Public::from_raw(raw_reporter_pub_key).into();
 			ensure!(
-				proof.verify(offender.as_ref(), &reporter_pub),
+				proof.verify(offender.as_ref(), &reporter_public_key),
 				Error::<T>::ProofVerificationFailed
 			);
 			let reported_offences_count =
@@ -574,7 +577,7 @@ pub mod pallet {
 					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
 					// check reached threshold
 					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
-						* members.len();
+						* shard.members().len();
 					let new_report_count = known_offender.0.saturating_plus_one();
 					// update known offender report count
 					known_offender.0 = new_report_count;
@@ -611,6 +614,13 @@ pub mod pallet {
 				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		// Getter method for runtime api storage access
+		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter().collect()
 		}
 
 		fn ocw_store_signature(data: OCWSigData) -> Result<(), Error<T>> {

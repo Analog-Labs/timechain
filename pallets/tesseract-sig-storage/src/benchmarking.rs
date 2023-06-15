@@ -5,7 +5,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_core::Decode;
 use sp_std::vec;
-use time_primitives::{crypto::Signature, KeyId, TimeId, ScheduleCycle};
+use time_primitives::{crypto::Signature, KeyId, ScheduleCycle, TimeId};
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);

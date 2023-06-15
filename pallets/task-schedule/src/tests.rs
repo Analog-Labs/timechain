@@ -37,7 +37,7 @@ fn test_schedule() {
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 		};
-		let a = TaskSchedule::get_task_schedule(1 as u64);
+		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output);
 		assert_eq!(a, b);
 		// update schedule
@@ -57,7 +57,7 @@ fn test_schedule() {
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
 		};
-		let a = TaskSchedule::get_task_schedule(1 as u64);
+		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output_update);
 		assert_eq!(a, b);
 		// check update token usage
@@ -102,7 +102,7 @@ fn test_payable_schedule() {
 			status: ScheduleStatus::Initiated,
 		};
 
-		let a = TaskSchedule::get_payable_task_schedule(1 as u64);
+		let a = TaskSchedule::get_payable_task_schedule(1_u64);
 		let b = Some(output);
 		assert_eq!(a, b);
 	});

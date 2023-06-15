@@ -175,7 +175,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn all_indexer)]
-	pub type AllIndexer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32>;
+	pub type AllIndexer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -314,6 +314,11 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
+		pub fn update_indexer(indexer: T::AccountId) -> Result<(), DispatchError> {
+			AllIndexer::<T>::mutate(indexer, |reward| *reward += 1);
+			Ok(())
+		}
+
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)

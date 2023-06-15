@@ -1,4 +1,4 @@
-use crate::{taskSchedule::TaskScheduler, TaskExecutorParams, TW_LOG};
+use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -242,7 +242,6 @@ where
 			.runtime_api()
 			.get_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-
 		let mut tree_map = BTreeMap::new();
 		let mut queue = Queue::new();
 
@@ -384,40 +383,18 @@ where
 	}
 
 	pub async fn run(&mut self) {
-		let registry =
-			TaskScheduler::new(self.chain_config.clone(), self.chain_client.clone()).await;
-		let block_request = BlockRequest {
-			network_identifier: self.chain_config.network(),
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
-		};
-		let response = self.chain_client.block(&block_request).await;
-
-		match response {
-			Ok(BlockResponse) => match BlockResponse.block {
-				Some(block) => {
-					registry.register_callback(block.block_identifier.index, |client: &Client| {
-						loop {
-							match self.backend.blockchain().last_finalized() {
-								Ok(at) => {
-									if let Err(e) = self.process_tasks_for_block(at).await {
-										log::error!(
-											"Failed to process tasks for block {:?}: {:?}",
-											at,
-											e
-										);
-									}
-								},
-								Err(e) => {
-									log::error!("Blockchain is empty: {}", e);
-								},
-							};
-							tokio::time::sleep(Duration::from_secs(10)).await;
-						}
-					});
+		loop {
+			match self.backend.blockchain().last_finalized() {
+				Ok(at) => {
+					if let Err(e) = self.process_tasks_for_block(at).await {
+						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
+					}
 				},
-				None => log::warn!("No BlockResponse"),
-			},
-			Err(e) => log::warn!("error on block ressponse {:?}", e),
-		};
+				Err(e) => {
+					log::error!("Blockchain is empty: {}", e);
+				},
+			};
+			tokio::time::sleep(Duration::from_secs(10)).await;
+		}
 	}
 }

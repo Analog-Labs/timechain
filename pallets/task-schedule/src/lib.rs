@@ -369,7 +369,7 @@ pub mod pallet {
 			Self::get_schedule_by_key(key)
 		}
 
-		fn get_payable_schedules_via_key(
+		fn get_payable_schedule_via_key(
 			key: u64,
 		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
 			Self::get_payable_schedule_by_key(key)

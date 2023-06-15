@@ -411,7 +411,7 @@ pub mod pallet {
 
 			let schedule_data = T::TaskScheduleHelper::get_schedule_via_key(key_id)?;
 			let payable_schedule_data =
-				T::TaskScheduleHelper::get_payable_schedules_via_key(key_id)?;
+				T::TaskScheduleHelper::get_payable_schedule_via_key(key_id)?;
 
 			let shard_id = if let Some(schedule) = schedule_data {
 				schedule.shard_id

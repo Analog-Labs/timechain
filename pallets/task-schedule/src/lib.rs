@@ -173,7 +173,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn indexer_score)]
-	pub type IndexerScore<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+	pub type IndexerScore<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

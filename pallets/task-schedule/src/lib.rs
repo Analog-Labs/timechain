@@ -124,7 +124,7 @@ pub mod pallet {
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			if T::ShouldEndSession::should_end_session(now) {
-				for (indexer, times) in AllIndexer::<T>::iter() {
+				for (indexer, times) in IndexerScore::<T>::iter() {
 					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
 					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
 					if result.is_err() {
@@ -172,8 +172,8 @@ pub mod pallet {
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn all_indexer)]
-	pub type AllIndexer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+	#[pallet::getter(fn indexer_score)]
+	pub type IndexerScore<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -313,7 +313,7 @@ pub mod pallet {
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn update_indexer(indexer: T::AccountId) -> Result<(), DispatchError> {
-			AllIndexer::<T>::mutate(indexer, |reward| *reward += 1);
+			IndexerScore::<T>::mutate(indexer, |reward| *reward += 1);
 			Ok(())
 		}
 

@@ -14,8 +14,8 @@ fn test_reward() {
 		let account_1: AccountId = acc_pub(1).into();
 		let account_2: AccountId = acc_pub(2).into();
 
-		AllIndexer::<Test>::insert(&account_1, 1);
-		AllIndexer::<Test>::insert(&account_2, 2);
+		IndexerScore::<Test>::insert(&account_1, 1);
+		IndexerScore::<Test>::insert(&account_2, 2);
 		let reward_1 = IndexerReward::get();
 		let reward_2 = IndexerReward::get() * 2;
 

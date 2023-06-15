@@ -1,4 +1,4 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::{TaskExecutorParams, TW_LOG, taskSchedule::TaskScheduler};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -384,6 +384,8 @@ where
 	}
 
 	pub async fn run(&mut self) {
+		let registry = TaskScheduler::new(self.chain_config.clone(), self.chain_client.clone()).await;
+		// registry.register_callback(block_number, cb);
 		loop {
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {

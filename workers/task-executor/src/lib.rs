@@ -8,6 +8,7 @@ use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
 
 mod worker;
+mod taskSchedule;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";

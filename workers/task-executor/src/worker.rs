@@ -107,7 +107,9 @@ where
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
-		self.sign_data_sender.clone().try_send((shard_id, schedule_id, schedule_cycle, hash))?;
+		self.sign_data_sender
+			.clone()
+			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
 		self.tasks.insert(schedule_id);
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {

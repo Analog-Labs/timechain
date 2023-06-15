@@ -26,7 +26,7 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{EthTxValidation, OCWSigData},
-	SignatureData, TimeApi, TIME_KEY_TYPE, OCW_SIG_KEY,
+	SignatureData, TimeApi, OCW_SIG_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};

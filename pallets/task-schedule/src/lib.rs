@@ -344,7 +344,7 @@ pub mod pallet {
 			log::error!("No local account available");
 			Err(Error::NoLocalAcctForSignedTx)
 		}
-		
+
 		pub fn get_payable_schedule_by_key(
 			key: u64,
 		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {

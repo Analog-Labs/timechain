@@ -290,10 +290,10 @@ fn print_valid_store_sig_args(signature_data: [u8; 64]) {
 	use sp_keystore::Keystore;
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	let account = keystore
-		.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
 	let signature = keystore
-		.sr25519_sign(time_primitives::KEY_TYPE, &account, signature_data.as_ref())
+		.sr25519_sign(time_primitives::TIME_KEY_TYPE, &account, signature_data.as_ref())
 		.unwrap()
 		.unwrap();
 	let to_32_byte_slice = |unbound: &[u8]| -> [u8; 32] { unbound[..].try_into().unwrap() };

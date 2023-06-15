@@ -107,11 +107,11 @@ where
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
-		self.sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
-		self.tasks.insert(id);
+		self.sign_data_sender.clone().try_send((shard_id, schedule_id, schedule_cycle, hash))?;
+		self.tasks.insert(schedule_id);
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			self.update_schedule_ocw_storage(ScheduleStatus::Completed, id);
+			self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
 		}
 
 		Ok(true)
@@ -135,7 +135,7 @@ where
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 
 					if self.is_collector(block_id, shard_id).unwrap_or(false) {
-						self.update_schedule_ocw_storage(ScheduleStatus::Invalid, *id);
+						self.update_schedule_ocw_storage(ScheduleStatus::Invalid, *schedule_id);
 					}
 
 					return Ok(());
@@ -150,7 +150,7 @@ where
 					input: _,
 					output: _,
 				} => {
-					log::info!("running task_id {:?}", id);
+					log::info!("running task_id {:?}", schedule_id);
 					let method = format!("{address}-{function_signature}-call");
 					let request = CallRequest {
 						network_identifier: self.chain_config.network(),

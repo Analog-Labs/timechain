@@ -53,7 +53,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
 use time_primitives::abstraction::{
-	PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule as abs_TaskSchedule,
+	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1168,6 +1168,7 @@ parameter_types! {
 }
 
 impl task_schedule::Config for Runtime {
+	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
 	type ProxyExtend = ();
@@ -1503,9 +1504,6 @@ impl_runtime_apis! {
 			TaskSchedule::get_schedules()
 		}
 
-		fn update_schedule_by_key(status: ScheduleStatus,key: KeyId,) -> DispatchResult {
-			TaskSchedule::update_schedule_by_key(status,key)
-		}
 
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
 			TaskMeta::get_payable_tasks()

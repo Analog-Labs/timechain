@@ -200,6 +200,7 @@ impl task_schedule::Config for Test {
 	type ScheduleFee = ScheduleFee;
 	type ShouldEndSession = ShouldEndSessionMock;
 	type IndexerReward = IndexerReward;
+	type AuthorityId = task_schedule::crypto::SigAuthId;
 }
 
 pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);

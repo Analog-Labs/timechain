@@ -7,12 +7,15 @@ use frame_support::{
 use frame_system as system;
 use pallet_session::ShouldEndSession;
 use sp_core::H256;
+use sp_runtime::MultiSignature;
 use sp_runtime::{
 	app_crypto::sp_core,
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
+
+pub type Signature = MultiSignature;
 /// An index to a block.
 pub type BlockNumber = u32;
 /// Change this to adjust the block time.
@@ -28,6 +31,9 @@ pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a c
 pub const DOLLARS: Balance = 100 * CENTS;
 /// Balance of an account.
 pub type Balance = u128;
+
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type Index = u64;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -74,11 +80,11 @@ impl system::Config for Test {
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-	type Index = u64;
+	type Index = Index;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u128; //AccountId;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
@@ -121,8 +127,8 @@ impl pallet_balances::Config for Test {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
-	type RejectOrigin = frame_system::EnsureRoot<u128>;
+	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
@@ -136,9 +142,40 @@ impl pallet_treasury::Config for Test {
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u128>;
 }
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: Index,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
 pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<u128> for CurrentPalletAccounts {
-	fn get_treasury() -> u128 {
+impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
+	fn get_treasury() -> AccountId {
 		Treasury::account_id()
 	}
 }
@@ -152,17 +189,22 @@ impl task_schedule::Config for Test {
 	type ScheduleFee = ScheduleFee;
 	type ShouldEndSession = ShouldEndSessionMock;
 	type IndexerReward = IndexerReward;
+	type AuthorityId = task_schedule::crypto::SigAuthId;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 10_000_000_000), (2, 20_000_000_000)],
+		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }

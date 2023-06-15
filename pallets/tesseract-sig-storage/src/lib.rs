@@ -1,23 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_core::crypto::KeyTypeId;
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
 
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"psig");
-
 pub mod crypto {
-	use super::KEY_TYPE;
 	use sp_core::sr25519::Signature as Sr25519Signature;
 	use sp_runtime::{
 		app_crypto::{app_crypto, sr25519},
 		traits::Verify,
 		MultiSignature, MultiSigner,
 	};
-	app_crypto!(sr25519, KEY_TYPE);
+	use time_primitives::SIG_KEY_TYPE;
+	app_crypto!(sr25519, SIG_KEY_TYPE);
 	pub struct SigAuthId;
 
 	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
@@ -55,7 +52,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
-	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::offchain::storage::{
+		MutateStorageError, StorageRetrievalError, StorageValueRef,
+	};
 	use sp_runtime::{
 		traits::{AppVerify, Convert, Scale},
 		Percent, SaturatedConversion, Saturating,
@@ -104,33 +103,49 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
 			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
-			let res = storage_ref.get::<VecDeque<OCWSigData>>();
-			let Ok(data) = res else {
-				log::error!("could not fetch data from storage");
-				return;
-			};
 
-			let Some(mut sig_vec) = data else {
-				return;
-			};
+			const EMPTY_DATA: () = ();
 
-			let Some(sig_req) = sig_vec.pop_front()else{
-				log::info!("no signature request");
-				return;
-			};
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<OCWSigData>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								if let Some(sig_req) = data.pop_front() {
+									if let Err(err) = Self::ocw_store_signature(sig_req.clone()) {
+										log::error!(
+											"Error occured while submitting extrinsic {:?}",
+											err
+										);
+									};
+								} else {
+									break;
+								}
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
 
-			if let Err(err) = Self::ocw_store_signature(sig_req) {
-				log::error!("Error occured while submitting extrinsic {:?}", err);
-			};
-
-			storage_ref.set(&sig_vec);
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("TSS OCW is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in TSS OCW",);
+				},
+				Ok(_) => {},
+			}
 		}
 	}
 
 	#[pallet::config]
 	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Moment: Parameter

@@ -35,7 +35,7 @@ pub struct TaskExecutor<B, BE, R, A> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
-	sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 	tasks: HashSet<u64>,
 	task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
@@ -101,8 +101,8 @@ where
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
-		task_id: u64,
-		id: u64,
+		schedule_id: u64,
+		schedule_cycle: u64,
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
@@ -120,10 +120,10 @@ where
 	async fn task_executor(
 		&mut self,
 		block_id: <B as Block>::Hash,
-		id: &u64,
+		schedule_id: &u64,
 		schedule: &TaskSchedule<A>,
 	) -> Result<()> {
-		if !self.tasks.contains(id) {
+		if !self.tasks.contains(schedule_id) {
 			let metadata = self
 				.runtime
 				.runtime_api()
@@ -141,7 +141,6 @@ where
 					return Ok(());
 				};
 
-			let task_schedule_clone = schedule.clone();
 			match &task.function {
 				// If the task function is an Ethereum contract
 				// call, call it and send for signing
@@ -164,15 +163,15 @@ where
 							block_id,
 							data.clone(),
 							shard_id,
-							task_schedule_clone.task_id.0,
-							*id,
+							*schedule_id,
+							schedule.cycle,
 						)
 						.await?
 					{
 						log::warn!("status not updated can't updated data into DB");
 						return Ok(());
 					}
-					let id: i64 = (*id).try_into().unwrap();
+					let id: i64 = (*schedule_id).try_into().unwrap();
 					let hash = task.hash.to_owned();
 					let value = match serde_json::to_value(task.clone()) {
 						Ok(value) => value,
@@ -222,11 +221,11 @@ where
 			return Ok(false);
 		};
 
-		let Some(shard) = self
-							.runtime
-							.runtime_api()
-							.get_shards(block_id)
-							.unwrap_or(vec![])
+		let available_shards = self.runtime.runtime_api().get_shards(block_id).unwrap_or(vec![]);
+		if available_shards.is_empty() {
+			anyhow::bail!("No shards available");
+		}
+		let Some(shard) = available_shards
 							.into_iter()
 							.find(|(s, _)| *s == shard_id)
 							.map(|(_, s)| s) else {
@@ -291,13 +290,16 @@ where
 			Some(block) => {
 				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
 					for recursive_task_schedule in tasks {
-						let _ = self
+						if let Err(e) = self
 							.task_executor(
 								block_id,
 								&recursive_task_schedule.0,
 								&recursive_task_schedule.1,
 							)
-							.await;
+							.await
+						{
+							log::error!("Error occured while executing task {:?}", e);
+						};
 					}
 				}
 			},

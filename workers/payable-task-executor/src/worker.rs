@@ -123,7 +123,7 @@ where
 		call_params: (&str, &str, &[String]),
 		map: &mut HashMap<u64, ()>,
 		schedule_id: u64,
-		shard_and_task_id: (u64, u64),
+		shard_id: u64,
 	) {
 		let address = call_params.0;
 		let function_signature = call_params.1;
@@ -138,8 +138,8 @@ where
 					url: self.connector_url.clone(),
 					tx_id: tx.hash,
 					contract_address: address.into(),
-					shard_id: shard_and_task_id.0,
-					task_id: shard_and_task_id.1,
+					shard_id,
+					schedule_id,
 				};
 
 				let encoded_data = eth_tx_validation.encode();
@@ -195,7 +195,7 @@ where
 															(address, function_signature, input),
 															map,
 															schedule_task.0,
-															(shard_id, schedule_task.1.task_id.0),
+															shard_id,
 														)
 														.await;
 													}

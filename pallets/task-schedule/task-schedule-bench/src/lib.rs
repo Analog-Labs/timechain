@@ -47,6 +47,7 @@ benchmarks! {
 			owner:origin.clone(),
 			shard_id: 1,
 			cycle: 12,
+			start_block: 0,
 			validity: Validity::Seconds(10),
 			hash:String::from("address"),
 			status: ScheduleStatus::Initiated,

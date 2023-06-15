@@ -7,8 +7,8 @@ use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
 
-mod worker;
 mod taskSchedule;
+mod worker;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";

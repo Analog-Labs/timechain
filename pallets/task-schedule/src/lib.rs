@@ -123,8 +123,6 @@ pub mod pallet {
 		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			log::error!("start to call");
-
 			if T::ShouldEndSession::should_end_session(now) {
 				for (indexer, times) in AllIndexer::<T>::iter() {
 					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());

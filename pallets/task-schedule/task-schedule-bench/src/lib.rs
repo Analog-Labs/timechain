@@ -40,29 +40,30 @@ benchmarks! {
 		assert!( task_schedule::ScheduleStorage::<T>::get(1).is_some());
 	}
 
-	// update_schedule {
-	// 	let origin: T::AccountId = whitelisted_caller();
-	// 	let input  = TaskScheduleInput {
-	// 		task_id: ObjectId(1),
-	// 		owner:origin.clone(),
-	// 		shard_id: 1,
-	// 		cycle: 12,
-	// 		validity: Validity::Seconds(10),
-	// 		hash:String::from("address"),
-	// 		status: ScheduleStatus::Initiated,
-	// 	};
-	// 	let proxy_acc: T::AccountId = whitelisted_caller();
+	update_schedule {
+		let origin: T::AccountId = whitelisted_caller();
+		let input  = TaskScheduleInput {
+			task_id: ObjectId(1),
+			owner:origin.clone(),
+			shard_id: 1,
+			cycle: 12,
+			start_block: 0,
+			validity: Validity::Seconds(10),
+			hash:String::from("address"),
+			status: ScheduleStatus::Initiated,
+		};
+		let proxy_acc: T::AccountId = whitelisted_caller();
 
-	// 	let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32, proxy_acc);
+		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32, proxy_acc);
 
-	// 	task_schedule::ScheduleStorage::<T>::insert(
-	// 		1,
-	// 		input
-	// 	);
-	// }: _(RawOrigin::Signed(origin), ScheduleStatus::Completed, 1)
-	// verify {
-	// 	assert!( task_schedule::ScheduleStorage::<T>::get(1).is_some());
-	// }
+		task_schedule::ScheduleStorage::<T>::insert(
+			1,
+			input
+		);
+	}: _(RawOrigin::Signed(origin), ScheduleStatus::Completed, 1)
+	verify {
+		assert!( task_schedule::ScheduleStorage::<T>::get(1).is_some());
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

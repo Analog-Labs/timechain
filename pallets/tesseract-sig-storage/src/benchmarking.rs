@@ -3,6 +3,7 @@ use super::*;
 use crate::Pallet as TesseractSigStorage;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
+use sp_keystore::Keystore;
 use sp_std::vec;
 use time_primitives::{ForeignEventId, TimeId};
 
@@ -16,16 +17,24 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 benchmarks! {
-	// store_signature {
-	// 	let s in 0..255;
-	// 	let auth_sig = [s as u8; 32];
-	// 	let signature_data = [s as u8; 64];
-	// 	// TODO: extend implementation after same todo fixed in pallet
-	// 	let id: ForeignEventId = (s as u128).into();
-	// }: _(RawOrigin::Signed(whitelisted_caller()), auth_sig.try_into().unwrap(), signature_data, id)
-	// verify {
-	// 	assert!(<SignatureStoreData<T>>::get(id).len() > 0);
-	// }
+	store_signature {
+		let s in 0..255;
+		let auth_sig = [s as u8; 64];
+		let sig_data = [s as u8; 64];
+
+		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+		let alice = keystore
+			.sr25519_generate_new(time_primitives::KEY_TYPE, None)
+			.expect("Creates authority key");
+		let signature =  keystore.sr25519_sign(time_primitives::KEY_TYPE, &alice, sig_data.as_ref())
+		.unwrap()
+		.unwrap();
+		// TODO: extend implementation after same todo fixed in pallet
+		let id: ForeignEventId = (s as u128).into();
+	}: _(RawOrigin::Signed(whitelisted_caller()), signature.into(), sig_data, id)
+	verify {
+		assert!(<SignatureStoreData<T>>::get(id).len() > 0);
+	}
 
 	submit_tss_group_key {
 		let s in 1 .. 255;

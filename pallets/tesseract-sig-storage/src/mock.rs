@@ -188,6 +188,7 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
+	type AuthorityId = task_schedule::crypto::SigAuthId;
 }
 
 pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);

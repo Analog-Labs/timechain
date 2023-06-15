@@ -8,7 +8,7 @@ use jsonrpsee::{
 };
 use log::info;
 use sp_keystore::KeystorePtr;
-use time_primitives::{rpc::SignRpcPayload, KEY_TYPE};
+use time_primitives::{rpc::SignRpcPayload, TIME_KEY_TYPE};
 
 #[derive(Debug, thiserror::Error)]
 /// Top-level error type for the RPC handler
@@ -101,7 +101,7 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 		if let Ok(message) = serde_json::from_str::<[u8; 32]>(&message) {
 			if let Ok(signature) = serde_json::from_str::<Vec<u8>>(&signature) {
 				let signature: [u8; 64] = arrayref::array_ref!(signature, 0, 64).to_owned();
-				let keys = self.kv.sr25519_public_keys(KEY_TYPE);
+				let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
 				if keys.len() != 1 {
 					return Err(Error::TimeKeyNotFound.into());
 				}

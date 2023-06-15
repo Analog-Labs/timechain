@@ -123,6 +123,8 @@ pub mod pallet {
 		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
+			log::error!("start to call");
+
 			if T::ShouldEndSession::should_end_session(now) {
 				for (indexer, times) in AllIndexer::<T>::iter() {
 					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
@@ -172,7 +174,8 @@ pub mod pallet {
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	#[pallet::storage]
-	pub(super) type AllIndexer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32>;
+	#[pallet::getter(fn all_indexer)]
+	pub type AllIndexer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

@@ -283,3 +283,22 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }
+
+/// Test/benchmarking utility to print valid arguments to store_signature
+#[allow(unused)]
+fn print_valid_store_sig_args(signature_data: [u8; 64]) {
+	use sp_keystore::Keystore;
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let account = keystore
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
+		.expect("Creates authority key");
+	let signature = keystore
+		.sr25519_sign(time_primitives::TIME_KEY_TYPE, &account, signature_data.as_ref())
+		.unwrap()
+		.unwrap();
+	let to_32_byte_slice = |unbound: &[u8]| -> [u8; 32] { unbound[..].try_into().unwrap() };
+	let to_64_byte_slice = |unbound: &[u8]| -> [u8; 64] { unbound[..].try_into().unwrap() };
+	println!("Account: {:?}", to_32_byte_slice(&account));
+	println!("Signature: {:?}", to_64_byte_slice(&signature.0));
+	println!("Signature Data: {:?}", to_64_byte_slice(&signature_data));
+}

@@ -66,7 +66,7 @@ pub mod pallet {
 	};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
-		abstraction::{OCWSigData, ObjectId, OCWReportData},
+		abstraction::{OCWReportData, OCWSigData, ObjectId},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::{EligibleShard, Shard},
@@ -596,7 +596,7 @@ pub mod pallet {
 			<TssShards<T>>::iter().collect()
 		}
 
-		fn ocw_get_sig_data(){
+		fn ocw_get_sig_data() {
 			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
 
 			const EMPTY_DATA: () = ();
@@ -611,8 +611,7 @@ pub mod pallet {
 									break;
 								};
 
-								let Ok(sig_req) = OCWSigData::decode(&mut sig_req_vec.as_slice()) else 
-								{
+								let Ok(sig_req) = OCWSigData::decode(&mut sig_req_vec.as_slice()) else {
 									continue;
 								};
 
@@ -642,7 +641,7 @@ pub mod pallet {
 			}
 		}
 
-		fn ocw_get_report_data(){
+		fn ocw_get_report_data() {
 			let storage_ref = StorageValueRef::persistent(OCW_REP_KEY);
 
 			const EMPTY_DATA: () = ();
@@ -657,8 +656,7 @@ pub mod pallet {
 									break;
 								};
 
-								let Ok(rep_req) = OCWReportData::decode(&mut rep_req_vec.as_slice()) else 
-								{
+								let Ok(rep_req) = OCWReportData::decode(&mut rep_req_vec.as_slice()) else {
 									continue;
 								};
 

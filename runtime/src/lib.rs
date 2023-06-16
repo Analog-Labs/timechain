@@ -1498,6 +1498,9 @@ impl_runtime_apis! {
 			TaskSchedule::get_schedules()
 		}
 
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
+			TaskSchedule::get_schedule_by_key(schedule_id)
+		}
 
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
 			TaskMeta::get_payable_tasks()

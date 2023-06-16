@@ -2611,6 +2611,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-blockchain",
  "sp-io",
  "sp-keystore",
  "sp-runtime",

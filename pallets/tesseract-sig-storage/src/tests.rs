@@ -6,7 +6,7 @@ use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use time_primitives::{
 	abstraction::{ObjectId, ScheduleInput, Validity},
-	ForeignEventId, TimeId,
+	TimeId,
 };
 
 #[test]
@@ -63,8 +63,8 @@ fn test_signature_storage() {
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
-		let task_id: u64 = 1;
-		let event_id: ForeignEventId = u128::from(task_id).into();
+		let id: u64 = 1;
+		let task_id = ObjectId(id);
 		let block_number = 10;
 		System::set_block_number(block_number);
 		let shard_id = 0;
@@ -95,7 +95,7 @@ fn test_signature_storage() {
 
 		// insert schedule
 		let input = ScheduleInput {
-			task_id: ObjectId(task_id),
+			task_id,
 			shard_id,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
@@ -107,96 +107,22 @@ fn test_signature_storage() {
 			.unwrap()
 			.unwrap();
 
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
 
 		assert_ok!(TesseractSigStorage::store_signature(
 			RawOrigin::Signed(ALICE).into(),
 			alice_report.into(),
 			sig_data,
-			event_id
+			id,
+			input.cycle
 		));
 
-		assert!(TesseractSigStorage::signature_storage(event_id).len() == 1);
+		assert!(TesseractSigStorage::signature_storage(id, input.cycle).is_some());
 		assert_eq!(
 			Pallet::<Test>::last_committed_chronicle(Into::<TimeId>::into(alice)),
 			block_number
 		);
 		assert_eq!(Pallet::<Test>::last_committed_shard(shard_id), block_number);
-	});
-}
-
-#[test]
-fn test_recurring_signature() {
-	let r: u8 = 123;
-	let sig_data_1: [u8; 64] = [r; 64];
-	let s = r.saturating_add(1);
-	let sig_data_2: [u8; 64] = [s; 64];
-
-	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let alice = keystore
-		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
-		.expect("Creates authority key");
-
-	new_test_ext().execute_with(|| {
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			alice.into(),
-		),);
-
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_2).into(),
-			BOB,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_3).into(),
-			CHARLIE,
-		),);
-
-		let task_id: u64 = 1;
-		let event_id: ForeignEventId = u128::from(task_id).into();
-
-		//register shard
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			vec![alice.into(), BOB, CHARLIE],
-			Some(0),
-		),);
-
-		// insert schedule
-		let input = ScheduleInput {
-			task_id: ObjectId(task_id),
-			shard_id: 0,
-			cycle: 12,
-			validity: Validity::Seconds(1000),
-			hash: String::from("address"),
-		};
-
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
-
-		let alice_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data_1.as_ref())
-			.unwrap()
-			.unwrap();
-
-		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(ALICE).into(),
-			alice_report.into(),
-			sig_data_1,
-			event_id
-		));
-
-		let alice_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data_2.as_ref())
-			.unwrap()
-			.unwrap();
-
-		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(ALICE).into(),
-			alice_report.into(),
-			sig_data_2,
-			event_id
-		));
-		assert!(TesseractSigStorage::signature_storage(event_id).len() == 2);
 	});
 }
 
@@ -211,8 +137,8 @@ fn test_duplicate_signature() {
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
-		let task_id: u64 = 1;
-		let event_id: ForeignEventId = u128::from(task_id).into();
+		let id: u64 = 1;
+		let task_id = ObjectId(id);
 
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
@@ -236,14 +162,14 @@ fn test_duplicate_signature() {
 
 		// insert schedule
 		let input = ScheduleInput {
-			task_id: ObjectId(task_id),
+			task_id,
 			shard_id: 0,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
 		};
 
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input));
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
 
 		let alice_report = keystore
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
@@ -254,7 +180,8 @@ fn test_duplicate_signature() {
 			RawOrigin::Signed(ALICE).into(),
 			alice_report.clone().into(),
 			sig_data,
-			event_id
+			id,
+			input.cycle
 		));
 
 		assert_noop!(
@@ -262,7 +189,8 @@ fn test_duplicate_signature() {
 				RawOrigin::Signed(ALICE).into(),
 				alice_report.into(),
 				sig_data,
-				event_id
+				id,
+				input.cycle
 			),
 			Error::<Test>::DuplicateSignature
 		);

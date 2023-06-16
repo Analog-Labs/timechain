@@ -2,17 +2,19 @@ use crate::{self as pallet_tesseract_sig_storage};
 use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU16, ConstU64, OnTimestampSet, ValidatorSet},
+	traits::{ConstU16, ConstU64, OnTimestampSet},
 	PalletId,
 };
 use frame_system as system;
+use pallet_staking::SessionInterface;
 use sp_core::{ConstU32, H256};
 use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, Convert, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
+use sp_staking::SessionIndex;
 
 use pallet_session::ShouldEndSession;
 use sp_std::cell::RefCell;
@@ -203,19 +205,11 @@ impl task_schedule::Config for Test {
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 }
 
-pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);
+pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);
 
-impl<AccountId> Convert<AccountId, Option<AccountId>> for ConvertMock<AccountId> {
-	fn convert(account_id: AccountId) -> Option<AccountId> {
-		Some(account_id)
-	}
-}
-
-pub struct ValidatorSetMock<T>(sp_std::marker::PhantomData<T>);
-
-impl<OutAccountId> ValidatorSet<OutAccountId> for ValidatorSetMock<OutAccountId>
+impl<AccountId> SessionInterface<AccountId> for SessionInterfaceMock<AccountId>
 where
-	OutAccountId: Clone
+	AccountId: Clone
 		+ Eq
 		+ PartialEq
 		+ Parameter
@@ -223,16 +217,13 @@ where
 		+ From<AccountId>
 		+ std::convert::From<sp_runtime::AccountId32>,
 {
-	type ValidatorId = OutAccountId;
-	type ValidatorIdOf = ConvertMock<OutAccountId>;
-
-	fn session_index() -> sp_staking::SessionIndex {
-		sp_staking::SessionIndex::default()
+	fn disable_validator(_: u32) -> bool {
+		true
 	}
-
-	fn validators() -> Vec<Self::ValidatorId> {
+	fn validators() -> Vec<AccountId> {
 		vec![VALIDATOR_1.into(), VALIDATOR_2.into(), VALIDATOR_3.into(), VALIDATOR_4.into()]
 	}
+	fn prune_historical_up_to(_: SessionIndex) {}
 }
 
 impl pallet_tesseract_sig_storage::Config for Test {
@@ -243,7 +234,7 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
-	type ValidatorSet = ValidatorSetMock<AccountId>;
+	type SessionInterface = SessionInterfaceMock<AccountId>;
 	type MaxChronicleWorkers = ConstU32<3>;
 	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
 }

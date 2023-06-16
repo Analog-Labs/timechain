@@ -1046,7 +1046,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
 	type MaxChronicleWorkers = MaxChronicleWorkers;
-	type ValidatorSet = Historical;
+	type SessionInterface = Self;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

@@ -188,7 +188,7 @@ where
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
 		let shard = self.shards.get_mut(&shard_id).unwrap();
-		let mut ocw_encoded_vec: Vec<(&[u8; 20], Vec<u8>)> = vec![];
+		let mut ocw_encoded_vec: Vec<(&[u8; 24], Vec<u8>)> = vec![];
 		while let Some(action) = shard.tss.next_action() {
 			match action {
 				TssAction::Send(payload) => {

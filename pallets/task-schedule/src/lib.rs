@@ -124,6 +124,8 @@ pub mod pallet {
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			if T::ShouldEndSession::should_end_session(now) {
+				// TODO check if we should reward the indexer once or continue reward history data
+				// otherwise we can drain all data at the end of epoch
 				for (indexer, times) in IndexerScore::<T>::iter() {
 					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
 					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
@@ -140,7 +142,7 @@ pub mod pallet {
 
 				T::BlockWeights::get().max_block
 			} else {
-				Weight::zero()
+				T::DbWeight::get().reads(1)
 			}
 		}
 	}
@@ -205,8 +207,6 @@ pub mod pallet {
 		ProxyNotUpdated,
 		/// Error getting schedule ref.
 		ErrorRef,
-		/// Failed to reward indexer
-		FailedRewardIndexer,
 		///Offchain signed tx failed
 		OffchainSignedTxFailed,
 		///no local account for signed tx
@@ -313,7 +313,7 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		pub fn update_indexer(indexer: T::AccountId) -> Result<(), DispatchError> {
+		pub fn increment_indexer_reward_count(indexer: T::AccountId) -> Result<(), DispatchError> {
 			IndexerScore::<T>::mutate(indexer, |reward| *reward += 1);
 			Ok(())
 		}

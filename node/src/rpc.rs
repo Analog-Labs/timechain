@@ -29,7 +29,7 @@ pub struct FullDeps<C, P> {
 	/// Time keyvault
 	pub kv: KeystorePtr,
 	/// Sign data sender
-	pub sign_data_sender: mpsc::Sender<(u64, u64, [u8; 32])>,
+	pub sign_data_sender: mpsc::Sender<(u64, u64, u64, [u8; 32])>,
 }
 
 /// Instantiate all full RPC extensions.

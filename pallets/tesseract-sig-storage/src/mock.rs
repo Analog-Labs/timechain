@@ -6,6 +6,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system as system;
+use pallet_staking::SessionInterface;
 use sp_core::{ConstU32, H256};
 use sp_runtime::MultiSignature;
 use sp_runtime::{
@@ -13,7 +14,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
-use pallet_staking::{SessionInterface, };
 use sp_staking::SessionIndex;
 
 use sp_std::cell::RefCell;
@@ -197,7 +197,7 @@ pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);
 
 impl<AccountId> SessionInterface<AccountId> for SessionInterfaceMock<AccountId>
 where
-AccountId: Clone
+	AccountId: Clone
 		+ Eq
 		+ PartialEq
 		+ Parameter
@@ -205,8 +205,9 @@ AccountId: Clone
 		+ From<AccountId>
 		+ std::convert::From<sp_runtime::AccountId32>,
 {
-	
-	fn disable_validator(_: u32) -> bool {true}
+	fn disable_validator(_: u32) -> bool {
+		true
+	}
 	fn validators() -> Vec<AccountId> {
 		vec![VALIDATOR_1.into(), VALIDATOR_2.into(), VALIDATOR_3.into(), VALIDATOR_4.into()]
 	}

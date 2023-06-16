@@ -44,12 +44,13 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		storage::bounded_vec::BoundedVec,
-		traits::{Time},
+		traits::Time,
 	};
 	use frame_system::offchain::{
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
+	use pallet_staking::SessionInterface;
 	use scale_info::StaticTypeInfo;
 	use sp_application_crypto::ByteArray;
 	use sp_runtime::offchain::storage::{
@@ -64,7 +65,6 @@ pub mod pallet {
 		result,
 		vec::Vec,
 	};
-	use pallet_staking::SessionInterface;
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
 		abstraction::{OCWSigData, ObjectId},
@@ -505,10 +505,7 @@ pub mod pallet {
 			let validator_set = T::SessionInterface::validators();
 
 			// caller must be one of validators
-			ensure!(
-				validator_set.contains(&caller),
-				Error::<T>::OnlyValidatorCanRegisterChronicle
-			);
+			ensure!(validator_set.contains(&caller), Error::<T>::OnlyValidatorCanRegisterChronicle);
 
 			// update chronicle worker set for caller
 			ValidatorToChronicle::<T>::try_mutate(caller.clone(), |chronicles| match chronicles {

@@ -44,7 +44,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
-use sp_runtime::{DispatchError, DispatchResult, FixedPointNumber};
+use sp_runtime::{DispatchError, FixedPointNumber};
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
@@ -1520,6 +1520,10 @@ impl_runtime_apis! {
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
 		}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8d38f66 (ocw report offense setup)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

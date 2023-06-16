@@ -66,11 +66,11 @@ pub mod pallet {
 	};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
-		abstraction::OCWSigData,
+		abstraction::{OCWSigData, ObjectId, OCWReportData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::{EligibleShard, Shard},
-		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_SIG_KEY,
+		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_SIG_KEY, OCW_REP_KEY
 	};
 
 	pub trait WeightInfo {
@@ -106,44 +106,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
-
-			const EMPTY_DATA: () = ();
-
-			let outer_res = storage_ref.mutate(
-				|res: Result<Option<VecDeque<OCWSigData>>, StorageRetrievalError>| {
-					match res {
-						Ok(Some(mut data)) => {
-							// iteration batch of 5
-							for _ in 0..5 {
-								if let Some(sig_req) = data.pop_front() {
-									if let Err(err) = Self::ocw_store_signature(sig_req.clone()) {
-										log::error!(
-											"Error occured while submitting extrinsic {:?}",
-											err
-										);
-									};
-								} else {
-									break;
-								}
-							}
-							Ok(data)
-						},
-						Ok(None) => Err(EMPTY_DATA),
-						Err(_) => Err(EMPTY_DATA),
-					}
-				},
-			);
-
-			match outer_res {
-				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
-					log::info!("TSS OCW is empty");
-				},
-				Err(MutateStorageError::ConcurrentModification(_)) => {
-					log::error!("💔 Error updating local storage in TSS OCW",);
-				},
-				Ok(_) => {},
-			}
+			Self::ocw_get_sig_data();
+			Self::ocw_get_report_data();
 		}
 	}
 
@@ -632,7 +596,122 @@ pub mod pallet {
 			<TssShards<T>>::iter().collect()
 		}
 
-		fn ocw_store_signature(data: OCWSigData) -> Result<(), Error<T>> {
+		fn ocw_get_sig_data(){
+			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								let Some(sig_req_vec) = data.pop_front() else{
+									break;
+								};
+
+								let Ok(sig_req) = OCWSigData::decode(&mut sig_req_vec.as_slice()) else 
+								{
+									continue;
+								};
+
+								if let Err(err) = Self::ocw_submit_signature(sig_req.clone()) {
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
+								};
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("TSS OCW Sig is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in TSS OCW Signature",);
+				},
+				Ok(_) => {},
+			}
+		}
+
+		fn ocw_get_report_data(){
+			let storage_ref = StorageValueRef::persistent(OCW_REP_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								let Some(rep_req_vec) = data.pop_front() else{
+									break;
+								};
+
+								let Ok(rep_req) = OCWReportData::decode(&mut rep_req_vec.as_slice()) else 
+								{
+									continue;
+								};
+
+								if let Err(err) = Self::ocw_submit_report(rep_req.clone()) {
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
+								};
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("TSS OCW Report is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in TSS OCW Report",);
+				},
+				Ok(_) => {},
+			}
+		}
+
+		fn ocw_submit_report(data: OCWReportData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			let offender_id = T::AccountId::decode(&mut data.offender.as_ref()).unwrap();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::report_misbehavior {
+					shard_id: data.shard_id,
+					offender: offender_id.clone(),
+					proof: data.proof.clone(),
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
+		}
+
+		fn ocw_submit_signature(data: OCWSigData) -> Result<(), Error<T>> {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 
 			if let Some((acc, res)) =

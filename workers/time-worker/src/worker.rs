@@ -9,7 +9,6 @@ use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
 use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
@@ -25,8 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{EthTxValidation, OCWSigData},
-	SignatureData, TimeApi, OCW_SIG_KEY, TIME_KEY_TYPE,
+	abstraction::{EthTxValidation, OCWReportData, OCWSigData},
+	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -189,6 +188,7 @@ where
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
 		let shard = self.shards.get_mut(&shard_id).unwrap();
+		let mut ocw_encoded_vec: Vec<(&[u8; 20], Vec<u8>)> = vec![];
 		while let Some(action) = shard.tss.next_action() {
 			match action {
 				TssAction::Send(payload) => {
@@ -228,56 +228,27 @@ where
 						let ocw_sig_data =
 							OCWSigData::new(signature.into(), sig_data, *key_id, *schedule_cycle);
 
-						if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-							let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY);
-
-							let mut ocw_vec = match old_value.clone() {
-								Some(mut data) => {
-									let mut bytes: &[u8] = &mut data;
-									let inner_data: VecDeque<OCWSigData> =
-										Decode::decode(&mut bytes).unwrap();
-									inner_data
-								},
-								None => Default::default(),
-							};
-
-							ocw_vec.push_back(ocw_sig_data);
-							let encoded_data = Encode::encode(&ocw_vec);
-							ocw_storage.compare_and_set(
-								STORAGE_PREFIX,
-								OCW_SIG_KEY,
-								old_value.as_deref(),
-								&encoded_data,
-							);
-						} else {
-							log::error!("cant get offchain storage");
-						};
+						ocw_encoded_vec.push((OCW_SIG_KEY, ocw_sig_data.encode()));
 
 						shard.tss.event_id_map.remove(&hash);
 					}
 				},
 				TssAction::Report(offender, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
-					let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
+
+					if shard.is_collector {
+						let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
 						error!(
 							target: TW_LOG,
 							"Failed to create proof for offence report submission"
 						);
 						return;
 					};
-					let at = self.backend.blockchain().last_finalized().unwrap();
-					if let Err(e) = self.runtime.runtime_api().report_misbehavior(
-						at,
-						shard_id,
-						offender.into(),
-						public_key.into(),
-						proof.into(),
-					) {
-						error!(
-							target: TW_LOG,
-							"Offence report runtime API submission failed with reason: {}",
-							e.to_string()
-						);
+
+						let ocw_report_data =
+							OCWReportData::new(shard_id, offender.into(), proof.into());
+
+						ocw_encoded_vec.push((OCW_REP_KEY, ocw_report_data.encode()));
 					}
 				},
 				TssAction::Timeout(timeout, hash) => {
@@ -289,6 +260,38 @@ where
 				},
 			}
 		}
+
+		if shard.is_collector {
+			for (key, data) in ocw_encoded_vec {
+				self.add_item_in_offchain_storage(data, key);
+			}
+		}
+	}
+
+	pub fn add_item_in_offchain_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
+		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
+
+			let mut ocw_vec = match old_value.clone() {
+				Some(mut data) => {
+					let mut bytes: &[u8] = &mut data;
+					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
+					inner_data
+				},
+				None => Default::default(),
+			};
+
+			ocw_vec.push_back(data);
+			let encoded_data = Encode::encode(&ocw_vec);
+			ocw_storage.compare_and_set(
+				STORAGE_PREFIX,
+				OCW_SIG_KEY,
+				old_value.as_deref(),
+				&encoded_data,
+			);
+		} else {
+			log::error!("cant get offchain storage");
+		};
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested

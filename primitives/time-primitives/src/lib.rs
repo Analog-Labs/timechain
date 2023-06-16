@@ -24,6 +24,7 @@ pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
 pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"pskd");
 pub const OCW_SIG_KEY: &[u8; 20] = b"pallet_sig::offchain";
+pub const OCW_REP_KEY: &[u8; 20] = b"pallet_rep::offchain";
 pub const OCW_SKD_KEY: &[u8; 20] = b"pallet_skd::offchain";
 
 /// The type representing a signature data

@@ -39,8 +39,8 @@ where
 pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
 where
 	B: Block,
-	A: codec::Codec + Clone + 'static,
-	R: ProvideRuntimeApi<B>,
+	A: codec::Codec + Clone + 'static + std::marker::Send,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send,
 	BE: Backend<B>,
 	R::Api: TimeApi<B, A>,
 {

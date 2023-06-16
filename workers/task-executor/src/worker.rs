@@ -1,10 +1,10 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::{taskSchedule::TaskScheduler, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
-	types::{BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
+	types::{BlockRequest, BlockResponse, CallRequest, CallResponse, PartialBlockIdentifier},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -48,8 +48,8 @@ impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
 	BE: Backend<B>,
-	R: ProvideRuntimeApi<B>,
-	A: codec::Codec + Clone,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send,
+	A: codec::Codec + Clone + std::marker::Send,
 	R::Api: TimeApi<B, A>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
@@ -110,10 +110,6 @@ where
 		self.sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
 		self.tasks.insert(id);
 
-		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			self.update_schedule_ocw_storage(ScheduleStatus::Completed, id);
-		}
-
 		Ok(true)
 	}
 
@@ -133,11 +129,9 @@ where
 			let shard_id = schedule.shard_id;
 			let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
-
 					if self.is_collector(block_id, shard_id).unwrap_or(false) {
 						self.update_schedule_ocw_storage(ScheduleStatus::Invalid, *id);
 					}
-
 					return Ok(());
 				};
 
@@ -206,8 +200,10 @@ where
 						},
 						Err(e) => log::info!("getting error on serde data {e}"),
 					};
-
 					time_db::write_feed(&mut self.db, record).await?;
+					if schedule.cycle == 1 && self.is_collector(block_id, shard_id).unwrap_or(false) {
+						self.update_schedule_ocw_storage(ScheduleStatus::Completed,  id.try_into().unwrap());
+					}
 				},
 				_ => {
 					log::warn!("error on matching task function")
@@ -234,6 +230,109 @@ where
 		};
 
 		Ok(*shard.collector() == account)
+	}
+
+	async fn process_repetative_task(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		response: BlockResponse,
+	) -> Result<()> {
+		log::info!("\n\n\n inside calling process_repetative_task\n\n");
+		let key: u64;
+		{
+			let min_key = self.task_map.keys().min();
+			key = match min_key {
+				Some(key) => *key,
+				None => 0,
+			};
+		}
+		match response.block {
+			Some(block) => {
+				let block_number = if block.block_identifier.index >= key {
+					block.block_identifier.index
+				} else {
+					key
+				};
+				if let Some(tasks) = self.task_map.remove(&block_number) {
+					for recursive_task_schedule in tasks {
+						let result = self
+							.task_executor(
+								block_id,
+								&recursive_task_schedule.0,
+								&recursive_task_schedule.1,
+							)
+							.await;
+
+						let task_scheduler = Arc::new(TaskScheduler::new(
+							self.chain_config.clone(),
+							self.chain_client.clone(),
+						)
+						.await);
+						match result {
+							Ok(()) => {
+								if recursive_task_schedule.1.cycle > 1
+									&& recursive_task_schedule.1.status == ScheduleStatus::Recurring
+								{
+									//Update Extrinsic with cycle count-1;
+
+									todo!();
+								} else if recursive_task_schedule.1.cycle > 1 {
+									//Update Extrinsic with cycle count-1 and status Recurring
+									if self.is_collector(block_id, recursive_task_schedule.1.shard_id).unwrap_or(false) {
+										self.update_schedule_ocw_storage(
+											ScheduleStatus::Recurring,
+											recursive_task_schedule.0,
+										);
+									}
+								} else {
+									//Update status = Compelete
+									if recursive_task_schedule.1.status != ScheduleStatus::Completed && self.is_collector(block_id, recursive_task_schedule.1.shard_id).unwrap_or(false) {
+										self.update_schedule_ocw_storage(
+											ScheduleStatus::Completed,
+											recursive_task_schedule.0,
+										);
+									}
+								}
+
+								if recursive_task_schedule.1.cycle > 1 {
+									// Updating HashMap key and value, because not going to retrive this task again from task schedule
+									self.task_map
+										.entry(block_number + recursive_task_schedule.1.frequency)
+										.or_insert(Vec::new())
+										.push((
+											recursive_task_schedule.0,
+											TaskSchedule {
+												task_id: recursive_task_schedule.1.task_id,
+												owner: recursive_task_schedule.1.owner,
+												shard_id: recursive_task_schedule.1.shard_id,
+												cycle: recursive_task_schedule.1.cycle - 1,
+												frequency: recursive_task_schedule.1.frequency,
+												validity: recursive_task_schedule.1.validity,
+												hash: recursive_task_schedule.1.hash,
+												start_execution_block: recursive_task_schedule
+													.1
+													.start_execution_block,
+												status: ScheduleStatus::Recurring,
+											},
+										));
+									//register call back
+									let cloned_task_scheduler = Arc::clone(&task_scheduler);
+									
+									cloned_task_scheduler.register_callback(block_number.clone() + recursive_task_schedule.1.frequency, move |client: &'a Client| {
+										// Access the `self` instance inside the closure
+										let task_scheduler = &cloned_task_scheduler;
+										self.process_repetative_task(block_id, response);
+									});
+								}
+							},
+							Err(e) => log::warn!("error on result {:?}", e),
+						}
+					}
+				}
+			},
+			None => log::info!("failed to get BlockResponse from rosetta"),
+		}
+		Ok(())
 	}
 
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
@@ -279,75 +378,8 @@ where
 				log::error!("Error occured while executing task: {}", e);
 			};
 		}
-		let key: u64;
-
-		{
-			let min_key = self.task_map.keys().min();
-			key = match min_key {
-				Some(key) => *key,
-				None => 0,
-			};
-		}
-		match response.block {
-			Some(block) => {
-				let block_number = if block.block_identifier.index >= key {
-					block.block_identifier.index
-				} else {
-					key
-				};
-				if let Some(tasks) = self.task_map.remove(&block_number) {
-					for recursive_task_schedule in tasks {
-						let result = self
-							.task_executor(
-								block_id,
-								&recursive_task_schedule.0,
-								&recursive_task_schedule.1,
-							)
-							.await;
-
-						match result {
-							Ok(()) => {
-								if recursive_task_schedule.1.cycle > 1
-									&& recursive_task_schedule.1.status == ScheduleStatus::Recurring
-								{
-									//Update Extrinsic with cycle count-1;
-									todo!();
-								} else if recursive_task_schedule.1.cycle > 1 {
-									//Update cycle count-1 and status = Recursive;
-									todo!();
-								} else {
-									//Update status = Compelete
-								}
-
-								if recursive_task_schedule.1.cycle > 1 {
-									// Updating HashMap key and value, because not going to retrive this task again from task schedule
-									self.task_map
-										.entry(block_number + recursive_task_schedule.1.frequency)
-										.or_insert(Vec::new())
-										.push((
-											recursive_task_schedule.0,
-											TaskSchedule {
-												task_id: recursive_task_schedule.1.task_id,
-												owner: recursive_task_schedule.1.owner,
-												shard_id: recursive_task_schedule.1.shard_id,
-												cycle: recursive_task_schedule.1.cycle - 1,
-												frequency: recursive_task_schedule.1.frequency,
-												validity: recursive_task_schedule.1.validity,
-												hash: recursive_task_schedule.1.hash,
-												start_execution_block: recursive_task_schedule
-													.1
-													.start_execution_block,
-												status: ScheduleStatus::Recurring,
-											},
-										));
-								}
-							},
-							Err(e) => log::warn!("error on result {:?}", e),
-						}
-					}
-				}
-			},
-			None => log::info!("failed to get BlockResponse from rosetta"),
+		if self.task_map.len() > 0 {
+			let _ = self.process_repetative_task(block_id, response).await;
 		}
 		Ok(())
 	}

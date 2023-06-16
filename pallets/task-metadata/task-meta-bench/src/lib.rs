@@ -35,7 +35,7 @@ benchmarks! {
 		let task_data = input.clone();
 		let proxy_acc: T::AccountId = whitelisted_caller();
 
-		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32 proxy_acc);
+		let _ = pallet_proxy::Pallet::<T>::set_proxy_account(RawOrigin::Signed(origin.clone()).into(), Some(10u32.into()), 10u32.into(), Some(10u32), 10u32, proxy_acc);
 	}: _(RawOrigin::Signed(origin), task_data)
 	verify {
 		assert!(task_metadata::TaskMetaStorage::<T>::get(1).is_some());

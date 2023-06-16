@@ -9,6 +9,7 @@ use rosetta_client::{create_client, types::CallRequest};
 use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as SpBackend;
 use sp_io::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
@@ -21,7 +22,7 @@ pub struct EventWorker<B: Block, A, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
-	sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	tx_data_receiver: Receiver<Vec<u8>>,
 	kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
@@ -122,13 +123,24 @@ where
 						tx_id,
 						contract_address,
 						shard_id,
-						task_id,
+						schedule_id,
 					}) = EthTxValidation::decode(&mut &data[..]) else {
 						continue;
 					};
+
+					let Ok(block_number) = self.backend.blockchain().last_finalized() else {
+						log::error!("Cannot receive event data");
+						continue;
+					};
+
+					let Ok(Ok(Some(schedule))) = self.runtime.runtime_api().get_task_schedule_by_key(block_number, schedule_id) else{
+						log::error!("cannot get task schedule for schedule {:?}", schedule_id);
+						continue;
+					};
+
 					match self.process_tx_validation_req(blockchain, network, url, tx_id, contract_address).await{
 						Ok(keccak_hash) => {
-							sign_data_sender_clone.try_send((shard_id, task_id, keccak_hash)).unwrap();
+							sign_data_sender_clone.try_send((shard_id, schedule_id, schedule.cycle, keccak_hash)).unwrap();
 							log::info!("sent data for signing");
 						}
 						Err(e) => {

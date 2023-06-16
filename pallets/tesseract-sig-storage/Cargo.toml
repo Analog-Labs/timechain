@@ -31,7 +31,6 @@ time-primitives = { path = "../../primitives/time-primitives", default-features 
 task-schedule = { path = "../task-schedule", default-features = false }
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 
-
 [dev-dependencies]
 pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-proxy = { version = "0.1.0", default-features = false, path = "../../pallets/pallet-proxy" }
@@ -42,7 +41,6 @@ sp-runtime = {  default-features = false, git = "https://github.com/paritytech/s
 sp-staking = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
-
 
 [features]
 default = ["std"]

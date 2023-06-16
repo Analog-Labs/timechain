@@ -26,6 +26,12 @@ fn test_reward() {
 
 		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1);
 		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2);
+
+		// ensure score purged and no redundant reward
+		TaskSchedule::on_initialize(2);
+
+		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1);
+		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2);
 	})
 }
 

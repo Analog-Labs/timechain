@@ -126,7 +126,7 @@ pub mod pallet {
 			if T::ShouldEndSession::should_end_session(now) {
 				// TODO check if we should reward the indexer once or continue reward history data
 				// otherwise we can drain all data at the end of epoch
-				for (indexer, times) in IndexerScore::<T>::iter() {
+				for (indexer, times) in IndexerScore::<T>::drain() {
 					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
 					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
 					if result.is_err() {

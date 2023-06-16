@@ -6068,6 +6068,7 @@ dependencies = [
  "pallet-balances",
  "pallet-proxy",
  "pallet-session",
+ "pallet-staking",
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",

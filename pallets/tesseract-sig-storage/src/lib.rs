@@ -44,7 +44,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		storage::bounded_vec::BoundedVec,
-		traits::{Time, ValidatorSet},
+		traits::{Time},
 	};
 	use frame_system::offchain::{
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
@@ -56,7 +56,7 @@ pub mod pallet {
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_runtime::{
-		traits::{AppVerify, Convert, Scale},
+		traits::{AppVerify, Scale},
 		Percent, SaturatedConversion, Saturating,
 	};
 	use sp_std::{
@@ -64,6 +64,7 @@ pub mod pallet {
 		result,
 		vec::Vec,
 	};
+	use pallet_staking::SessionInterface;
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
 		abstraction::{OCWSigData, ObjectId},
@@ -163,7 +164,7 @@ pub mod pallet {
 		type SlashingPercentageThreshold: Get<u8>;
 
 		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
-		type ValidatorSet: ValidatorSet<Self::AccountId>;
+		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
 	}
@@ -501,18 +502,11 @@ pub mod pallet {
 			);
 
 			// get current validator set
-			let validator_set = T::ValidatorSet::validators();
-
-			// convert AccountId to ValidatorId
-			let validator_id: <T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorId =
-				<T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(
-					caller.clone(),
-				)
-				.ok_or(Error::<T>::FailedToGetValidatorId)?;
+			let validator_set = T::SessionInterface::validators();
 
 			// caller must be one of validators
 			ensure!(
-				validator_set.contains(&validator_id),
+				validator_set.contains(&caller),
 				Error::<T>::OnlyValidatorCanRegisterChronicle
 			);
 

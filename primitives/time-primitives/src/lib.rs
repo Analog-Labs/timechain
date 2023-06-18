@@ -49,12 +49,6 @@ sp_api::decl_runtime_apis! {
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
 		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError>;
-		fn report_misbehavior(
-			shard_id: u64,
-			offender: TimeId,
-			reporter: TimeId,
-			proof: crate::crypto::Signature
-		) -> DispatchResult;
 	}
 }
 

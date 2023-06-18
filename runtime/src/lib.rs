@@ -1510,10 +1510,6 @@ impl_runtime_apis! {
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
 		}
-
-		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
-			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
-		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

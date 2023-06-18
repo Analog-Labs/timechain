@@ -268,6 +268,8 @@ pub mod pallet {
 		/// NOTE: supported sizes are 3, 5, and 10
 		UnsupportedMembershipSize,
 
+		DuplicateShardMembersNotAllowed,
+
 		/// Encoded account wrong length
 		EncodedAccountWrongLen,
 
@@ -477,12 +479,18 @@ pub mod pallet {
 			collector_index: Option<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			// ensure each member is registered
+			// ensure each member is registered and no repeated members
+			let mut members_dedup = Vec::new();
 			for member in members.iter() {
+				ensure!(
+					!members_dedup.contains(&member),
+					Error::<T>::DuplicateShardMembersNotAllowed
+				);
 				ensure!(
 					ChronicleOwner::<T>::contains_key(member.clone()),
 					Error::<T>::ChronicleNotRegistered
 				);
+				members_dedup.push(member);
 			}
 			let shard = new_shard::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage

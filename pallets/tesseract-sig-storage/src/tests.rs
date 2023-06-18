@@ -198,6 +198,28 @@ fn test_duplicate_signature() {
 }
 
 #[test]
+fn test_register_shard_fails_if_duplicate_members() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_noop!(
+			TesseractSigStorage::register_shard(
+				RawOrigin::Root.into(),
+				vec![ALICE, BOB, BOB],
+				Some(0),
+			),
+			Error::<Test>::DuplicateShardMembersNotAllowed
+		);
+	});
+}
+
+#[test]
 fn test_register_shard_fails_if_member_len_not_supported() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(

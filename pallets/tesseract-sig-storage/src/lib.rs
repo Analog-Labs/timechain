@@ -275,9 +275,6 @@ pub mod pallet {
 		/// Reporter TimeId can not be converted to Public key
 		InvalidReporterId,
 
-		/// Only collectors can make report
-		ReportOnlyComesFromCollector,
-
 		/// Offender not in members
 		OffenderNotInMembers,
 
@@ -556,12 +553,17 @@ pub mod pallet {
 			offender: T::AccountId,
 			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
-			let reporter = ensure_signed(origin)?;
-			let account_to_time_id =
-				|account_id: T::AccountId| account_id.encode()[..].try_into().unwrap();
-			let (reporter, offender) = (account_to_time_id(reporter), account_to_time_id(offender));
+			ensure_signed(origin)?;
 			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			ensure!(shard.is_collector(&reporter), Error::<T>::ReportOnlyComesFromCollector);
+			fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
+				account_id.encode()[..].try_into().unwrap()
+			}
+			// get reporter pubkey from shard because must be collector
+			let reporter = shard.collector().clone();
+			let (reporter, offender) = (
+				account_to_time_id::<sp_runtime::AccountId32>(reporter),
+				account_to_time_id::<T::AccountId>(offender),
+			);
 			ensure!(shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
 			// verify signature
 			let raw_reporter_pub_key: [u8; 32] = (reporter.encode())[..].try_into().unwrap();

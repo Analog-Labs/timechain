@@ -490,7 +490,10 @@ pub mod pallet {
 					ChronicleOwner::<T>::contains_key(member.clone()),
 					Error::<T>::ChronicleNotRegistered
 				);
-				members_dedup.push(member);
+				// do not push to vector for last member
+				if members_dedup.len() < members.len() - 1 {
+					members_dedup.push(member);
+				}
 			}
 			let shard = new_shard::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage

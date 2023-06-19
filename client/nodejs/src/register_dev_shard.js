@@ -1,6 +1,7 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { sha512AsU8a, keccak256AsU8a } from '@polkadot/util-crypto';
 import { stringToU8a, u8aToHex } from '@polkadot/util';
+import { Channel } from 'async-channel';
 
 const wsProvider = new WsProvider('ws://127.0.0.1:9943');
 const api = await ApiPromise.create({
@@ -36,12 +37,38 @@ const phrase = "//Alice";
 const kv = new Keyring({type: 'sr25519'});
 const pair = kv.addFromUri(phrase);
 
-const unsub = await api.tx.sudo
-  .sudo(
-    api.tx.tesseractSigStorage.registerShard([time1, time2, time3], 0)
-  )
-  .signAndSend(pair, (result) => { 
-  console.log('Result of shard creation: ', resul)  
+const chan = new Channel(0 /* default */);
+
+const validator_phrase = "//Alice//stash";
+const validator_kv = new Keyring({ type: 'sr25519' });
+const validator_pair = validator_kv.addFromUri(validator_phrase);
+
+const register_chronicle = await api.tx.tesseractSigStorage.registerChronicle(time1).signAndSend(validator_pair, ({ status, events, dispatchError }) => {
+    console.log(`Current status is ${status}`);
 });
 
-process.exit(0)
+setTimeout(async () => {
+    const register_chronicle_2 = await api.tx.tesseractSigStorage.registerChronicle(time2).signAndSend(validator_pair, ({ status, events, dispatchError }) => {
+        console.log(`Current status is ${status}`);
+    });
+}, 15000)
+
+
+setTimeout(async () => {
+    const register_chronicle_3 = await api.tx.tesseractSigStorage.registerChronicle(time3).signAndSend(validator_pair, ({ status, events, dispatchError }) => {
+        console.log(`Current status is ${status}`);
+    });
+}, 30000)
+
+
+setTimeout(async () => {
+    const register_shard = await api.tx.sudo
+        .sudo(
+            api.tx.tesseractSigStorage.registerShard([time1, time2, time3], 0)
+        )
+        .signAndSend(pair, (result) => {
+            console.log('Result of shard creation: ', result)
+        });
+}, 45000)
+
+await chan.get().then(value => console.log(value), error => console.error(error));

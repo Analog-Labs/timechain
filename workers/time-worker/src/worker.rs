@@ -179,8 +179,10 @@ where
 				.into_iter()
 				.map(|id| sr25519::Public::from_raw(id.into()))
 				.collect();
-			let state =
-				self.shard_states.entry(shard_id).or_insert_with(|| ShardMember::new(public_key));
+			let state = self
+				.shard_states
+				.entry(shard_id)
+				.or_insert_with(|| ShardMember::new(public_key));
 			state.tss.initialize(members, shard.threshold());
 			state.is_collector = *shard.collector() == public_key.into();
 			self.poll_actions(shard_id, public_key);

@@ -4,7 +4,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, ForeignEventId, KeyId, SignatureData};
+use crate::{crypto::Signature, KeyId, ScheduleCycle, SignatureData};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -209,19 +209,30 @@ pub struct EthTxValidation {
 	pub tx_id: String,
 	pub contract_address: String,
 	pub shard_id: u64,
-	pub task_id: u64,
+	pub schedule_id: u64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct OCWSigData {
 	pub auth_sig: Signature,
 	pub sig_data: SignatureData,
-	pub event_id: ForeignEventId,
+	pub key_id: KeyId,
+	pub schedule_cycle: ScheduleCycle,
 }
 
 impl OCWSigData {
-	pub fn new(auth_sig: Signature, sig_data: SignatureData, event_id: ForeignEventId) -> Self {
-		Self { auth_sig, sig_data, event_id }
+	pub fn new(
+		auth_sig: Signature,
+		sig_data: SignatureData,
+		key_id: KeyId,
+		schedule_cycle: ScheduleCycle,
+	) -> Self {
+		Self {
+			auth_sig,
+			sig_data,
+			key_id,
+			schedule_cycle,
+		}
 	}
 }
 

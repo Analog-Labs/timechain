@@ -40,13 +40,17 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement::KeepAlive},
 	};
+	use log;
+	use sp_runtime::traits::Saturating;
 
 	use frame_system::offchain::{
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 
 	use frame_system::pallet_prelude::*;
+	use pallet_session::ShouldEndSession;
 	use scale_info::prelude::vec::Vec;
+
 	use sp_runtime::offchain::storage::{
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
@@ -117,6 +121,30 @@ pub mod pallet {
 				Ok(_) => {},
 			}
 		}
+
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			if T::ShouldEndSession::should_end_session(now) {
+				// TODO check if we should reward the indexer once or continue reward history data
+				// otherwise we can drain all data at the end of epoch
+				for (indexer, times) in IndexerScore::<T>::drain() {
+					let reward_amount = T::IndexerReward::get().saturating_mul(times.into());
+					let result = T::Currency::deposit_into_existing(&indexer, reward_amount);
+					if result.is_err() {
+						log::error!(
+							"Failed to reward account {:?} with {:?}.",
+							&indexer,
+							reward_amount
+						);
+					} else {
+						Self::deposit_event(Event::RewardIndexer(indexer, reward_amount));
+					}
+				}
+
+				T::BlockWeights::get().max_block
+			} else {
+				T::DbWeight::get().reads(1)
+			}
+		}
 	}
 
 	#[pallet::config]
@@ -128,6 +156,8 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		type PalletAccounts: PalletAccounts<Self::AccountId>;
 		type ScheduleFee: Get<BalanceOf<Self>>;
+		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
+		type IndexerReward: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::storage]
@@ -143,6 +173,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn indexer_score)]
+	pub type IndexerScore<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -155,8 +190,11 @@ pub mod pallet {
 		///Already exist case
 		AlreadyExist(KeyId),
 
-		// Payable Schedule
+		/// Payable Schedule
 		PayableScheduleStored(KeyId),
+
+		/// Reward indexer
+		RewardIndexer(T::AccountId, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -275,6 +313,11 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
+		pub fn increment_indexer_reward_count(indexer: T::AccountId) -> Result<(), DispatchError> {
+			IndexerScore::<T>::mutate(indexer, |reward| *reward += 1);
+			Ok(())
+		}
+
 		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
@@ -296,6 +339,7 @@ pub mod pallet {
 
 			Ok(data_list)
 		}
+
 		pub fn get_schedule_by_key(
 			key: u64,
 		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
@@ -343,28 +387,35 @@ pub mod pallet {
 			log::error!("No local account available");
 			Err(Error::NoLocalAcctForSignedTx)
 		}
+
+		pub fn get_payable_schedule_by_key(
+			key: u64,
+		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+			let data = PayableScheduleStorage::<T>::get(key);
+
+			Ok(data)
+		}
 	}
 
 	pub trait ScheduleFetchInterface<AccountId> {
-		fn get_schedule_via_task_id(
-			key: ObjectId,
-		) -> Result<Vec<TaskSchedule<AccountId>>, DispatchError>;
-		fn get_payable_schedules_via_task_id(
-			key: ObjectId,
-		) -> Result<Vec<PayableTaskSchedule<AccountId>>, DispatchError>;
+		fn get_schedule_via_key(key: u64)
+			-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
+		fn get_payable_schedule_via_key(
+			key: u64,
+		) -> Result<Option<PayableTaskSchedule<AccountId>>, DispatchError>;
 	}
 
 	impl<T: Config> ScheduleFetchInterface<T::AccountId> for Pallet<T> {
-		fn get_schedule_via_task_id(
-			key: ObjectId,
-		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
-			Self::get_schedules_by_task_id(key)
+		fn get_schedule_via_key(
+			key: u64,
+		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_schedule_by_key(key)
 		}
 
-		fn get_payable_schedules_via_task_id(
-			key: ObjectId,
-		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
-			Self::get_payable_schedules_by_task_id(key)
+		fn get_payable_schedule_via_key(
+			key: u64,
+		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+			Self::get_payable_schedule_by_key(key)
 		}
 	}
 }

@@ -44,18 +44,19 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		storage::bounded_vec::BoundedVec,
-		traits::{Time, ValidatorSet},
+		traits::Time,
 	};
 	use frame_system::offchain::{
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
+	use pallet_staking::SessionInterface;
 	use scale_info::StaticTypeInfo;
 	use sp_runtime::offchain::storage::{
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_runtime::{
-		traits::{AppVerify, Convert, Scale},
+		traits::{AppVerify, Scale},
 		SaturatedConversion, Saturating,
 	};
 	use sp_std::{
@@ -65,11 +66,11 @@ pub mod pallet {
 	};
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
-		abstraction::{OCWSigData, ObjectId},
+		abstraction::OCWSigData,
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,
-		ForeignEventId, SignatureData, TimeId, OCW_SIG_KEY,
+		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_SIG_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -166,7 +167,7 @@ pub mod pallet {
 		type SlashingPercentageThreshold: Get<u8>;
 
 		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
-		type ValidatorSet: ValidatorSet<Self::AccountId>;
+		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
 	}
@@ -188,8 +189,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> =
-		StorageMap<_, Blake2_128Concat, ForeignEventId, BTreeSet<SignatureData>, ValueQuery>;
+	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		KeyId,
+		Blake2_128Concat,
+		ScheduleCycle,
+		SignatureData,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reported_offences)]
@@ -230,7 +238,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The event data for stored signature
 		/// the signature id that uniquely identify the signature
-		SignatureStored(ForeignEventId),
+		SignatureStored(KeyId, ScheduleCycle),
 
 		/// New group key submitted to runtime
 		/// .0 - set_id,
@@ -397,18 +405,18 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			auth_sig: Signature,
 			signature_data: SignatureData,
-			event_id: ForeignEventId,
+			key_id: KeyId,
+			schedule_cycle: ScheduleCycle,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			let task_id = ObjectId(event_id.task_id().into());
 
-			let schedule_data = T::TaskScheduleHelper::get_schedule_via_task_id(task_id)?;
+			let schedule_data = T::TaskScheduleHelper::get_schedule_via_key(key_id)?;
 			let payable_schedule_data =
-				T::TaskScheduleHelper::get_payable_schedules_via_task_id(task_id)?;
+				T::TaskScheduleHelper::get_payable_schedule_via_key(key_id)?;
 
-			let shard_id = if let Some(schedule) = schedule_data.first() {
+			let shard_id = if let Some(schedule) = schedule_data {
 				schedule.shard_id
-			} else if let Some(payable_schedule) = payable_schedule_data.first() {
+			} else if let Some(payable_schedule) = payable_schedule_data {
 				payable_schedule.shard_id
 			} else {
 				return Err(Error::<T>::TaskNotScheduled.into());
@@ -426,16 +434,14 @@ pub mod pallet {
 				Error::<T>::InvalidValidationSignature
 			);
 
-			<SignatureStoreData<T>>::try_mutate(event_id, |signature_set| -> DispatchResult {
-				ensure!(
-					signature_set.get(&signature_data).is_none(),
-					Error::<T>::DuplicateSignature
-				);
-				signature_set.insert(signature_data);
-				Ok(())
-			})?;
+			ensure!(
+				<SignatureStoreData<T>>::get(key_id, schedule_cycle).is_none(),
+				Error::<T>::DuplicateSignature
+			);
 
-			Self::deposit_event(Event::SignatureStored(event_id));
+			<SignatureStoreData<T>>::insert(key_id, schedule_cycle, signature_data);
+
+			Self::deposit_event(Event::SignatureStored(key_id, schedule_cycle));
 			<LastCommittedChronicle<T>>::insert(
 				collector,
 				frame_system::Pallet::<T>::block_number(),
@@ -501,20 +507,10 @@ pub mod pallet {
 			);
 
 			// get current validator set
-			let validator_set = T::ValidatorSet::validators();
-
-			// convert AccountId to ValidatorId
-			let validator_id: <T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorId =
-				<T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(
-					caller.clone(),
-				)
-				.ok_or(Error::<T>::FailedToGetValidatorId)?;
+			let validator_set = T::SessionInterface::validators();
 
 			// caller must be one of validators
-			ensure!(
-				validator_set.contains(&validator_id),
-				Error::<T>::OnlyValidatorCanRegisterChronicle
-			);
+			ensure!(validator_set.contains(&caller), Error::<T>::OnlyValidatorCanRegisterChronicle);
 
 			// update chronicle worker set for caller
 			ValidatorToChronicle::<T>::try_mutate(caller.clone(), |chronicles| match chronicles {
@@ -626,7 +622,8 @@ pub mod pallet {
 				signer.send_signed_transaction(|_account| Call::store_signature {
 					auth_sig: data.auth_sig.clone(),
 					signature_data: data.sig_data,
-					event_id: data.event_id,
+					key_id: data.key_id,
+					schedule_cycle: data.schedule_cycle,
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);

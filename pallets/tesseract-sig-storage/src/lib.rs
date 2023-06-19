@@ -444,21 +444,21 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			// ensure each member is registered and no repeated members
-			let mut members_dedup = Vec::new();
-			for member in members.iter() {
-				ensure!(
-					!members_dedup.contains(&member),
-					Error::<T>::DuplicateShardMembersNotAllowed
-				);
-				ensure!(
-					ChronicleOwner::<T>::contains_key(member.clone()),
-					Error::<T>::ChronicleNotRegistered
-				);
-				// do not push to vector for last member
-				if members_dedup.len() < members.len() - 1 {
-					members_dedup.push(member);
-				}
-			}
+			// let mut members_dedup = Vec::new();
+			// for member in members.iter() {
+			// 	ensure!(
+			// 		!members_dedup.contains(&member),
+			// 		Error::<T>::DuplicateShardMembersNotAllowed
+			// 	);
+			// 	ensure!(
+			// 		ChronicleOwner::<T>::contains_key(member.clone()),
+			// 		Error::<T>::ChronicleNotRegistered
+			// 	);
+			// 	// do not push to vector for last member
+			// 	if members_dedup.len() < members.len() - 1 {
+			// 		members_dedup.push(member);
+			// 	}
+			// }
 			let shard = new_shard::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();

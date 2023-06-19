@@ -13,8 +13,8 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
 use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
-use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
+use sp_runtime::{offchain::OffchainStorage, AccountId32};
 use std::{
 	collections::{BTreeMap, HashSet, VecDeque},
 	marker::PhantomData,
@@ -30,7 +30,12 @@ use time_primitives::{
 use queue::Queue;
 use std::collections::HashMap;
 
-pub struct TaskExecutor<B, BE, R, A> {
+#[derive(Clone)]
+pub struct TaskExecutor<B, BE, R, A>
+where
+	BE: Clone,
+	R: Clone,
+{
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
@@ -47,9 +52,9 @@ pub struct TaskExecutor<B, BE, R, A> {
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
-	BE: Backend<B>,
-	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send,
-	A: codec::Codec + Clone + std::marker::Send,
+	BE: Backend<B> + Clone + 'static,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + Clone + 'static,
+	A: codec::Codec + Clone + std::marker::Send + std::marker::Sync + 'static,
 	R::Api: TimeApi<B, A>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
@@ -97,31 +102,38 @@ where
 	}
 
 	async fn call_contract_and_send_for_sign(
-		&mut self,
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
+		mut tasks: HashSet<u64>,
+		sign_data_sender: Sender<(u64, u64, [u8; 32])>,
 		task_id: u64,
 		id: u64,
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
-		self.sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
-		self.tasks.insert(id);
+		sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
+		tasks.insert(id);
 
 		Ok(true)
 	}
 
 	async fn task_executor(
-		&mut self,
 		block_id: <B as Block>::Hash,
+		backend: Arc<BE>,
 		id: &u64,
 		schedule: &TaskSchedule<A>,
+		runtime: Arc<R>,
+		tasks: HashSet<u64>,
+		chain_config: BlockchainConfig,
+		chain_client: Client,
+		account: AccountId32,
+		sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+		mut db: DatabaseConnection,
 	) -> Result<()> {
-		if !self.tasks.contains(id) {
-			let metadata = self
-				.runtime
+		if !tasks.contains(id) {
+			let metadata = runtime
 				.runtime_api()
 				.get_task_metadat_by_key(block_id, schedule.task_id.0)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
@@ -129,8 +141,8 @@ where
 			let shard_id = schedule.shard_id;
 			let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
-					if self.is_collector(block_id, shard_id).unwrap_or(false) {
-						self.update_schedule_ocw_storage(ScheduleStatus::Invalid, *id);
+					if Self::is_collector(block_id, shard_id, runtime, account).unwrap_or(false) {
+						Self::update_schedule_ocw_storage(ScheduleStatus::Invalid, *id, backend);
 					}
 					return Ok(());
 				};
@@ -148,20 +160,21 @@ where
 					log::info!("running task_id {:?}", id);
 					let method = format!("{address}-{function_signature}-call");
 					let request = CallRequest {
-						network_identifier: self.chain_config.network(),
+						network_identifier: chain_config.network(),
 						method,
 						parameters: json!({}),
 					};
-					let data = self.chain_client.call(&request).await?;
-					if !self
-						.call_contract_and_send_for_sign(
-							block_id,
-							data.clone(),
-							shard_id,
-							task_schedule_clone.task_id.0,
-							*id,
-						)
-						.await?
+					let data = chain_client.call(&request).await?;
+					if !Self::call_contract_and_send_for_sign(
+						block_id,
+						data.clone(),
+						shard_id,
+						tasks,
+						sign_data_sender,
+						task_schedule_clone.task_id.0,
+						*id,
+					)
+					.await?
 					{
 						log::warn!("status not updated can't updated data into DB");
 						return Ok(());
@@ -196,16 +209,18 @@ where
 								cycle,
 								value: response,
 							};
-							let _ = time_db::write_fetch_event(&mut self.db, fetch_record).await;
+							let _ = time_db::write_fetch_event(&mut db, fetch_record).await;
 						},
 						Err(e) => log::info!("getting error on serde data {e}"),
 					};
-					time_db::write_feed(&mut self.db, record).await?;
-					if schedule.cycle == 1 && self.is_collector(block_id, shard_id).unwrap_or(false)
+					time_db::write_feed(&mut db, record).await?;
+					if schedule.cycle == 1
+						&& Self::is_collector(block_id, shard_id, runtime, account).unwrap_or(false)
 					{
-						self.update_schedule_ocw_storage(
+						Self::update_schedule_ocw_storage(
 							ScheduleStatus::Completed,
 							id.try_into().unwrap(),
+							backend,
 						);
 					}
 				},
@@ -217,13 +232,17 @@ where
 		Ok(())
 	}
 
-	fn is_collector(&self, block_id: <B as Block>::Hash, shard_id: u64) -> Result<bool> {
-		let Some(account) = self.account_id() else {
-			return Ok(false);
-		};
+	fn is_collector(
+		block_id: <B as Block>::Hash,
+		shard_id: u64,
+		runtime: Arc<R>,
+		account: AccountId32,
+	) -> Result<bool> {
+		// let Some(account) = self.account_id() else {
+		// 	return Ok(false);
+		// };
 
-		let Some(shard) = self
-							.runtime
+		let Some(shard) = runtime
 							.runtime_api()
 							.get_shards(block_id)
 							.unwrap_or(vec![])
@@ -236,15 +255,34 @@ where
 		Ok(*shard.collector() == account)
 	}
 
-	async fn process_repetative_task(
-		&mut self,
+	async fn process_repetitive_task(
 		block_id: <B as Block>::Hash,
+		backend: Arc<BE>,
 		recursive_task_schedule: (u64, TaskSchedule<A>),
 		block_number: u64,
+		account: AccountId32,
+		runtime: Arc<R>,
+		tasks: HashSet<u64>,
+		mut task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
+		chain_config: BlockchainConfig,
+		chain_client: Client,
+		sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+		db: DatabaseConnection,
 	) -> Result<()> {
-		let result = self
-			.task_executor(block_id, &recursive_task_schedule.0, &recursive_task_schedule.1)
-			.await;
+		let result = Self::task_executor(
+			block_id,
+			backend.clone(),
+			&recursive_task_schedule.0,
+			&recursive_task_schedule.1,
+			runtime.clone(),
+			tasks,
+			chain_config,
+			chain_client,
+			account.clone(),
+			sign_data_sender,
+			db,
+		)
+		.await;
 		match result {
 			Ok(()) => {
 				if recursive_task_schedule.1.cycle > 1
@@ -255,32 +293,42 @@ where
 					todo!();
 				} else if recursive_task_schedule.1.cycle > 1 {
 					//Update Extrinsic with cycle count-1 and status Recurring
-					if self
-						.is_collector(block_id, recursive_task_schedule.1.shard_id)
-						.unwrap_or(false)
+					if Self::is_collector(
+						block_id,
+						recursive_task_schedule.1.shard_id,
+						runtime,
+						account,
+					)
+					.unwrap_or(false)
 					{
-						self.update_schedule_ocw_storage(
+						Self::update_schedule_ocw_storage(
 							ScheduleStatus::Recurring,
 							recursive_task_schedule.0,
+							backend.clone(),
 						);
 					}
 				} else {
 					//Update status = Compelete
 					if recursive_task_schedule.1.status != ScheduleStatus::Completed
-						&& self
-							.is_collector(block_id, recursive_task_schedule.1.shard_id)
-							.unwrap_or(false)
+						&& Self::is_collector(
+							block_id,
+							recursive_task_schedule.1.shard_id,
+							runtime,
+							account,
+						)
+						.unwrap_or(false)
 					{
-						self.update_schedule_ocw_storage(
+						Self::update_schedule_ocw_storage(
 							ScheduleStatus::Completed,
 							recursive_task_schedule.0,
+							backend,
 						);
 					}
 				}
 
 				if recursive_task_schedule.1.cycle > 1 {
 					// Updating HashMap key and value, because not going to retrive this task again from task schedule
-					self.task_map
+					task_map
 						.entry(block_number + recursive_task_schedule.1.frequency)
 						.or_insert(Vec::new())
 						.push((
@@ -303,7 +351,6 @@ where
 			},
 			Err(e) => log::warn!("error on result {:?}", e),
 		}
-
 		Ok(())
 	}
 
@@ -343,9 +390,20 @@ where
 		}
 
 		while let Some(single_task_schedule) = queue.dequeue() {
-			if let Err(e) = self
-				.task_executor(block_id, &single_task_schedule.0, &single_task_schedule.1)
-				.await
+			if let Err(e) = Self::task_executor(
+				block_id,
+				self.backend.clone(),
+				&single_task_schedule.0,
+				&single_task_schedule.1,
+				self.runtime.clone(),
+				self.tasks.clone(),
+				self.chain_config.clone(),
+				self.chain_client.clone(),
+				self.account_id().unwrap().clone(),
+				self.sign_data_sender.clone(),
+				self.db.clone(),
+			)
+			.await
 			{
 				log::error!("Error occured while executing task: {}", e);
 			};
@@ -354,27 +412,39 @@ where
 		match response.clone().block {
 			Some(block) => {
 				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
-					for recursive_task_schedule in tasks {
+					for recursive_task_schedule in &tasks {
+						let backend = self.backend.clone();
+						let account = self.account_id().unwrap();
+						let runtime = self.runtime.clone();
+						let task_s = self.tasks.clone();
+						let task_map = self.task_map.clone();
+						let sign_data_sender = self.sign_data_sender.clone();
+						let db = self.db.clone();
+						let chain_config = self.chain_config.clone();
+						let chain_client = self.chain_client.clone();
+
 						let task_scheduler = Arc::new(
-							TaskScheduler::new(
-								self.chain_config.clone(),
-								self.chain_client.clone(),
-							)
-							.await,
+							TaskScheduler::new(chain_config.clone(), chain_client.clone()).await,
 						);
-						//register call back
 						let cloned_task_scheduler = Arc::clone(&task_scheduler);
 
+						let recursive_task_schedule_clone = recursive_task_schedule.clone();
 						cloned_task_scheduler.register_callback(
 							block.block_identifier.index + recursive_task_schedule.1.frequency,
-							move |client: &Client| {
-								// Access the `self` instance inside the closure
-								let recursive_task_schedule = recursive_task_schedule.clone(); // Clone the value
-								let task_scheduler = &cloned_task_scheduler;
-								self.process_repetative_task(
+							move |_client: &Client| {
+								let _ = Self::process_repetitive_task(
 									block_id,
-									recursive_task_schedule,
+									backend.clone(),
+									recursive_task_schedule_clone.clone(),
 									block.block_identifier.index,
+									account.clone(),
+									runtime.clone(),
+									task_s.clone(),
+									task_map.clone(),
+									chain_config.clone(),
+									chain_client.clone(),
+									sign_data_sender.clone(),
+									db.clone(),
 								);
 							},
 						);
@@ -387,13 +457,13 @@ where
 		Ok(())
 	}
 
-	fn update_schedule_ocw_storage(&mut self, schedule_status: ScheduleStatus, key: KeyId) {
+	fn update_schedule_ocw_storage(schedule_status: ScheduleStatus, key: KeyId, backend: Arc<BE>) {
 		let ocw_skd = OCWSkdData::new(schedule_status, key);
 
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+		if let Some(mut ocw_storage) = backend.offchain_storage() {
 			let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY);
 
-			let mut ocw_vec = match old_value.clone() {
+			let mut ocw_vec: VecDeque<OCWSkdData> = match old_value.clone() {
 				Some(mut data) => {
 					//remove this unwrap
 					let mut bytes: &[u8] = &mut data;

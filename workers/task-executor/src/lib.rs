@@ -14,6 +14,7 @@ mod worker;
 pub const TW_LOG: &str = "task-executor";
 
 /// Set of properties we need to run our gadget
+#[derive(Clone)]
 pub struct TaskExecutorParams<B: Block, A, R, BE>
 where
 	B: Block,
@@ -39,9 +40,9 @@ where
 pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
 where
 	B: Block,
-	A: codec::Codec + Clone + 'static + std::marker::Send,
-	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send,
-	BE: Backend<B>,
+	A: codec::Codec + Clone + 'static + std::marker::Send + std::marker::Sync,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + Clone + 'static,
+	BE: Backend<B> + Clone + 'static,
 	R::Api: TimeApi<B, A>,
 {
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");

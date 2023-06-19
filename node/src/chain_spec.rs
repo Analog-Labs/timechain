@@ -13,7 +13,6 @@ use timechain_runtime::{
 	AccountId, BalancesConfig, CouncilConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig,
 	Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, VestingConfig, WASM_BINARY,
 };
-
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
 
@@ -257,13 +256,21 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 				// Pre-funded accounts
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
+					// TODO remove the 1_000_000_000 after tokenomics issue fixed
+					(
+						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						ANLOG * 2000000 * 1_000_000_000,
+					),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),
 					(get_account_id_from_seed::<sr25519::Public>("Eve"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
+					// TODO remove the 1_000_000_000 after tokenomics issue fixed
+					(
+						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+						ANLOG * 1000000 * 1_000_000_000,
+					),
 					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),

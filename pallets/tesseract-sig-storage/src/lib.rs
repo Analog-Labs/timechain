@@ -66,7 +66,7 @@ pub mod pallet {
 	};
 	use task_schedule::ScheduleFetchInterface;
 	use time_primitives::{
-		abstraction::{OCWReportData, OCWSigData, ObjectId},
+		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::Shard,

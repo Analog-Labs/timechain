@@ -32,9 +32,9 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A>
-where
-	BE: Clone,
-	R: Clone,
+// where
+	// BE: Clone,
+	// R: Clone,
 {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
@@ -52,12 +52,12 @@ where
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
-	BE: Backend<B> + Clone + 'static,
-	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + Clone + 'static,
+	BE: Backend<B> + 'static,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + 'static,
 	A: codec::Codec + Clone + std::marker::Send + std::marker::Sync + 'static,
 	R::Api: TimeApi<B, A>,
 {
-	pub async fn new(params: Box<TaskExecutorParams<B, A, R, BE>>) -> Result<Self> {
+	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
 	
 	// let params = match Box::try_unwrap(params) {
     //     Ok(params) => {params}
@@ -73,7 +73,7 @@ where
 			connector_url,
 			connector_blockchain,
 			connector_network,
-		} = *params;
+		} = params;
 
 		let (chain_config, chain_client) =
 			create_client(connector_blockchain, connector_network, connector_url).await?;

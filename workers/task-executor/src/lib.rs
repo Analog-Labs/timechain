@@ -37,12 +37,12 @@ where
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: Box<TaskExecutorParams<B, A, R, BE>>)
+pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
 where
 	B: Block,
 	A: codec::Codec + Clone + 'static + std::marker::Send + std::marker::Sync,
-	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + Clone + 'static,
-	BE: Backend<B> + Clone + 'static,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + 'static,
+	BE: Backend<B> + 'static,
 	R::Api: TimeApi<B, A>,
 {
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");

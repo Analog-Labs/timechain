@@ -96,7 +96,6 @@ where
 		}
 	}
 
-
 	/// Encode call response and send data for tss signing process
 	async fn send_for_sign(
 		&mut self,

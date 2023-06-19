@@ -92,7 +92,6 @@ where
 		Ok(())
 	}
 
-
 	/// checks if current node is collector
 	fn check_if_collector(&self, shard_id: u64) -> bool {
 		let at = self.backend.blockchain().last_finalized();

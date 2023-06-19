@@ -11,6 +11,17 @@ pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,
 ];
 
+/// Return whether shard can be assigned work
+pub trait EligibleShard<Id> {
+	fn is_eligible_shard(id: Id) -> bool;
+}
+impl<Id> EligibleShard<Id> for () {
+	fn is_eligible_shard(_id: Id) -> bool {
+		// all shards eligible by default for testing purposes
+		true
+	}
+}
+
 /// Enum representing sizes of shards available
 /// Each shard holds accounts of it's members
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

@@ -70,7 +70,7 @@ pub mod pallet {
 		abstraction::OCWSigData,
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::Shard,
+		sharding::{EligibleShard, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_SIG_KEY,
 	};
 
@@ -545,6 +545,12 @@ pub mod pallet {
 			ChronicleOwner::<T>::insert(&member, caller.clone());
 			Self::deposit_event(Event::ChronicleRegistered(member, caller));
 			Ok(())
+		}
+	}
+
+	impl<T: Config> EligibleShard<u64> for Pallet<T> {
+		fn is_eligible_shard(id: u64) -> bool {
+			<TssShards<T>>::get(id).is_some()
 		}
 	}
 

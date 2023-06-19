@@ -190,6 +190,7 @@ impl task_schedule::Config for Test {
 	type ShouldEndSession = ShouldEndSessionMock;
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
+	type ShardEligibility = ();
 }
 
 // Build genesis storage according to the mock runtime.

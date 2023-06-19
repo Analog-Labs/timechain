@@ -1,4 +1,4 @@
-use crate::{taskSchedule::TaskScheduler, TaskExecutorParams, TW_LOG};
+use crate::{task_schedule::TaskScheduler, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -57,7 +57,12 @@ where
 	A: codec::Codec + Clone + std::marker::Send + std::marker::Sync + 'static,
 	R::Api: TimeApi<B, A>,
 {
-	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
+	pub async fn new(params: Box<TaskExecutorParams<B, A, R, BE>>) -> Result<Self> {
+	
+	// let params = match Box::try_unwrap(params) {
+    //     Ok(params) => {params}
+    //     Err(_) => panic!("Failed to unwrap Arc"),
+    // };
 		let TaskExecutorParams {
 			backend,
 			runtime,
@@ -68,7 +73,7 @@ where
 			connector_url,
 			connector_blockchain,
 			connector_network,
-		} = params;
+		} = *params;
 
 		let (chain_config, chain_client) =
 			create_client(connector_blockchain, connector_network, connector_url).await?;
@@ -102,7 +107,7 @@ where
 	}
 
 	async fn call_contract_and_send_for_sign(
-		block_id: <B as Block>::Hash,
+		_block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
 		mut tasks: HashSet<u64>,

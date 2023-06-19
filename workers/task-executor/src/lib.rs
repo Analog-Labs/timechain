@@ -7,7 +7,7 @@ use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
 
-mod taskSchedule;
+mod task_schedule;
 mod worker;
 
 /// Constant to indicate target for logging
@@ -37,7 +37,7 @@ where
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
+pub async fn start_taskexecutor_gadget<B, A, R, BE>(params: Box<TaskExecutorParams<B, A, R, BE>>)
 where
 	B: Block,
 	A: codec::Codec + Clone + 'static + std::marker::Send + std::marker::Sync,
@@ -46,6 +46,11 @@ where
 	R::Api: TimeApi<B, A>,
 {
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");
-	let mut worker = TaskExecutor::new(params).await.unwrap();
-	worker.run().await
+	// match Arc::try_unwrap(params) {
+	// 	Ok(params) => {
+			let mut worker = TaskExecutor::new(params).await.unwrap();
+			worker.run().await;
+	// 	},
+	// 	Err(_) => log::warn!("Cannot unwrap Arc: "),
+	// }
 }

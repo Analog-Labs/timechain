@@ -383,7 +383,7 @@ pub fn new_full(
 			event_worker::start_eventworker_gadget(event_params),
 		);
 
-		let taskexecutor_params = task_executor::TaskExecutorParams {
+		let taskexecutor_params = Box::new(task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
 			kv: keystore_container.keystore(),
@@ -393,7 +393,7 @@ pub fn new_full(
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),
-		};
+		});
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"task-executor",
 			None,

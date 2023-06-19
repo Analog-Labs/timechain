@@ -257,7 +257,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 				// Pre-funded accounts
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 20000000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),

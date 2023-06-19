@@ -25,6 +25,7 @@ time-primitives = { path = "../../primitives/time-primitives", default-features 
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-proxy = { version = "0.1.0", default-features = false, path = "../../pallets/pallet-proxy" }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
+pallet-session = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43"}
 
 [dev-dependencies]
 pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
@@ -36,6 +37,7 @@ std = [
   "frame-benchmarking?/std",
   "frame-system/std",
   "codec/std",
+  "pallet-session/std",
   "sp-runtime/std",
   "scale-info/std",
   "time-primitives/std",

@@ -5,6 +5,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system as system;
+use pallet_session::ShouldEndSession;
 use sp_core::H256;
 use sp_runtime::MultiSignature;
 use sp_runtime::{
@@ -36,6 +37,15 @@ pub type Index = u64;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub struct ShouldEndSessionMock();
+
+impl ShouldEndSession<u64> for ShouldEndSessionMock {
+	fn should_end_session(_now: u64) -> bool {
+		true
+	}
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -61,6 +71,7 @@ frame_support::parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const ExistentialDeposit: u64 = 1;
 	pub const ScheduleFee: Balance = 1;
+	pub const IndexerReward: Balance = 1;
 }
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -176,6 +187,8 @@ impl task_schedule::Config for Test {
 	type PalletAccounts = CurrentPalletAccounts;
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = ShouldEndSessionMock;
+	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 }
 

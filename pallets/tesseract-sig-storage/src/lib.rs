@@ -56,7 +56,7 @@ pub mod pallet {
 	};
 	use sp_runtime::{
 		traits::{AppVerify, Convert, Scale},
-		Percent, SaturatedConversion, Saturating,
+		SaturatedConversion, Saturating,
 	};
 	use sp_std::{
 		collections::{btree_set::BTreeSet, vec_deque::VecDeque},
@@ -286,9 +286,6 @@ pub mod pallet {
 
 		/// Misbehavior report proof verification failed
 		ProofVerificationFailed,
-
-		/// Do not allow more than one misbehavior report of offender by member
-		MaxOneReportPerMember,
 
 		/// ShardId generation overflowed u64 type
 		ShardIdOverflow,
@@ -575,15 +572,14 @@ pub mod pallet {
 			);
 			let reported_offences_count =
 				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
-					// do not allow more than one report per reporter
-					ensure!(known_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
-					// check reached threshold
-					let shard_th = Percent::from_percent(T::SlashingPercentageThreshold::get())
-						* shard.members().len();
+					// increment report count
 					let new_report_count = known_offender.0.saturating_plus_one();
-					// update known offender report count
+					// update offender report count
 					known_offender.0 = new_report_count;
-					if new_report_count.saturated_into::<usize>() >= shard_th {
+					// temporary report threshold while only collector can make reports
+					// => 2 reports is sufficient to lead to committed offenses
+					const REPORT_THRESHOLD: usize = 2;
+					if new_report_count.saturated_into::<usize>() >= 2 {
 						<CommitedOffences<T>>::insert(&offender, known_offender);
 						// removed ReportedOffences because moved to CommittedOffences
 						<ReportedOffences<T>>::remove(&offender);
@@ -596,8 +592,6 @@ pub mod pallet {
 					}
 					new_report_count
 				} else if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
-					// do not allow more than one report per reporter
-					ensure!(guilty_offender.1.insert(reporter), Error::<T>::MaxOneReportPerMember);
 					// do allow new reports but only write to `CommittedOffences`
 					// (better to allow additional reports than enforce only up to threshold)
 					let new_report_count = guilty_offender.0.saturating_plus_one();

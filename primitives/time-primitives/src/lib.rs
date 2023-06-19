@@ -12,7 +12,7 @@ use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
-	DispatchError, DispatchResult, MultiSignature,
+	DispatchError, MultiSignature,
 };
 use sp_std::{fmt::Debug, vec::Vec};
 

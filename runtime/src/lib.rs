@@ -1520,10 +1520,6 @@ impl_runtime_apis! {
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
 		}
-<<<<<<< HEAD
-=======
-
->>>>>>> 8d38f66 (ocw report offense setup)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

@@ -30,12 +30,7 @@ use time_primitives::{
 use queue::Queue;
 use std::collections::HashMap;
 
-#[derive(Clone)]
-pub struct TaskExecutor<B, BE, R, A>
-where
-	BE: Clone,
-	R: Clone,
-{
+pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
@@ -52,8 +47,8 @@ where
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
-	BE: Backend<B> + Clone,
-	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + Clone,
+	BE: Backend<B>,
+	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send,
 	A: codec::Codec + Clone + std::marker::Send,
 	R::Api: TimeApi<B, A>,
 {
@@ -241,7 +236,7 @@ where
 		Ok(*shard.collector() == account)
 	}
 
-	async fn process_repetitive_task(
+	async fn process_repetative_task(
 		&mut self,
 		block_id: <B as Block>::Hash,
 		recursive_task_schedule: (u64, TaskSchedule<A>),
@@ -360,35 +355,29 @@ where
 			Some(block) => {
 				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
 					for recursive_task_schedule in tasks {
-						let cloned_self = self.clone();
-						let clone_chain_client = self.chain_client.clone();
-						let clone_chain_config = self.chain_config.clone();
-						let cloned_block_number = block.block_identifier.index;
+						let task_scheduler = Arc::new(
+							TaskScheduler::new(
+								self.chain_config.clone(),
+								self.chain_client.clone(),
+							)
+							.await,
+						);
+						//register call back
+						let cloned_task_scheduler = Arc::clone(&task_scheduler);
 
-						for recursive_task_schedule in tasks {
-							let task_scheduler = Arc::new(
-								TaskScheduler::new(
-									clone_chain_config.clone(),
-									clone_chain_client.clone(),
-								)
-								.await,
-							);
-
-							// Register callback
-							let cloned_task_scheduler = Arc::clone(&task_scheduler);
-
-							cloned_task_scheduler.register_callback(
-								cloned_block_number + recursive_task_schedule.1.frequency,
-								move |client: &Client| {
-									let cloned_task_scheduler = cloned_task_scheduler.clone();
-									cloned_self.process_repetitive_task(
-										block_id,
-										recursive_task_schedule.clone(),
-										cloned_block_number,
-									);
-								},
-							);
-						}
+						cloned_task_scheduler.register_callback(
+							block.block_identifier.index + recursive_task_schedule.1.frequency,
+							move |client: &Client| {
+								// Access the `self` instance inside the closure
+								let recursive_task_schedule = recursive_task_schedule.clone(); // Clone the value
+								let task_scheduler = &cloned_task_scheduler;
+								self.process_repetative_task(
+									block_id,
+									recursive_task_schedule,
+									block.block_identifier.index,
+								);
+							},
+						);
 					}
 				}
 			},

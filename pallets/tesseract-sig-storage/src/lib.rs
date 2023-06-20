@@ -69,7 +69,7 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, Shard},
+		sharding::{EligibleShard, ReassignShardTasks, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -129,12 +129,17 @@ pub mod pallet {
 		/// Slashing threshold percentage for commiting misbehavior consensus
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
-
 		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
+		type TaskAssigner: ReassignShardTasks<u64>;
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_shards_index)]
+	/// Counter for getting (N) next available shard(s)s
+	pub type GetShardsIndex<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
@@ -603,6 +608,24 @@ pub mod pallet {
 			} else {
 				false
 			}
+		}
+		fn get_eligible_shards(n: usize) -> Vec<u64> {
+			let mut n_shards = Vec::new();
+			let mut shard_id = <GetShardsIndex<T>>::take();
+			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
+			while n_shards.len() < n {
+				if Self::is_eligible_shard(shard_id) {
+					n_shards.push(shard_id);
+				}
+				shard_id = if shard_id >= max_shard_id {
+					// saturating wrap at max shard_id registered
+					0
+				} else {
+					shard_id + 1
+				};
+			}
+			<GetShardsIndex<T>>::put(shard_id);
+			n_shards
 		}
 	}
 

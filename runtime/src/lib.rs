@@ -1047,6 +1047,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type TaskScheduleHelper = TaskSchedule;
 	type MaxChronicleWorkers = MaxChronicleWorkers;
 	type SessionInterface = Self;
+	type TaskAssigner = TaskSchedule;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

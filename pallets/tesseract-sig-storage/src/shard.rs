@@ -3,7 +3,10 @@ use crate::{Config, Error, Event, Pallet, TssShards};
 use codec::{Decode, Encode};
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
-use time_primitives::{sharding::Shard, TimeId};
+use time_primitives::{
+	sharding::{ReassignShardTasks, Shard},
+	TimeId,
+};
 
 #[derive(Copy, Clone, Encode, Decode, scale_info::TypeInfo, PartialEq)]
 pub enum ShardStatus {
@@ -39,6 +42,8 @@ impl ShardState {
 		if shard_cannot_reach_consensus && self.is_online() {
 			// set shard to offline if cannot reach consensus and status is not offline
 			self.status = ShardStatus::Offline;
+			// reassign all of this shard's tasks to other shards
+			T::TaskAssigner::reassign_shard_tasks(id);
 			Pallet::<T>::deposit_event(Event::ShardOffline(id));
 		}
 		<TssShards<T>>::insert(id, self);

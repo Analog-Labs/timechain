@@ -60,6 +60,7 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
+		sharding::EligibleShard,
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
@@ -158,6 +159,7 @@ pub mod pallet {
 		type ScheduleFee: Get<BalanceOf<Self>>;
 		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
 		type IndexerReward: Get<BalanceOf<Self>>;
+		type ShardEligibility: EligibleShard<u64>;
 	}
 
 	#[pallet::storage]
@@ -211,6 +213,8 @@ pub mod pallet {
 		OffchainSignedTxFailed,
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
+		/// Shard cannot be assigned tasks due to ineligibility
+		ShardNotEligibleForTasks,
 	}
 
 	#[pallet::call]
@@ -219,6 +223,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				T::ShardEligibility::is_eligible_shard(schedule.shard_id),
+				Error::<T>::ShardNotEligibleForTasks
+			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -282,6 +290,10 @@ pub mod pallet {
 			schedule: PayableScheduleInput,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				T::ShardEligibility::is_eligible_shard(schedule.shard_id),
+				Error::<T>::ShardNotEligibleForTasks
+			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);

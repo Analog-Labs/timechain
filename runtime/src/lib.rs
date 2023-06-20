@@ -1177,6 +1177,7 @@ impl task_schedule::Config for Runtime {
 	type ScheduleFee = ScheduleFee;
 	type ShouldEndSession = Babe;
 	type IndexerReward = IndexerReward;
+	type ShardEligibility = TesseractSigStorage;
 }
 
 impl pallet_proxy::Config for Runtime {

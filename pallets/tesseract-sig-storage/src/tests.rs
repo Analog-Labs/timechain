@@ -5,8 +5,8 @@ use frame_system::RawOrigin;
 use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use time_primitives::{
-	abstraction::{ObjectId, ScheduleInput, Validity, TaskSchedule as ScheduleOut},
-	TimeId, ScheduleStatus,
+	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
+	ScheduleStatus, TimeId,
 };
 
 #[test]

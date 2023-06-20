@@ -117,7 +117,6 @@ where
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
-
 		sign_data_sender
 			.clone()
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
@@ -336,28 +335,23 @@ where
 
 				if recursive_task_schedule.1.cycle > 1 {
 					// Updating HashMap key and value, because not going to retrive this task again from task schedule
-					task_map
-						.entry(block_number + recursive_task_schedule.1.frequency)
-						.or_insert(Vec::new())
-						.push((
-							recursive_task_schedule.0,
-							TaskSchedule {
-								task_id: recursive_task_schedule.1.task_id,
-								owner: recursive_task_schedule.1.owner,
-								shard_id: recursive_task_schedule.1.shard_id,
-								cycle: recursive_task_schedule.1.cycle - 1,
-								frequency: recursive_task_schedule.1.frequency,
-								validity: recursive_task_schedule.1.validity,
-								hash: recursive_task_schedule.1.hash,
-								start_execution_block: recursive_task_schedule
-									.1
-									.start_execution_block,
-								status: ScheduleStatus::Recurring,
-							},
-						));
+					task_map.entry(block_number + 1).or_insert(Vec::new()).push((
+						recursive_task_schedule.0,
+						TaskSchedule {
+							task_id: recursive_task_schedule.1.task_id,
+							owner: recursive_task_schedule.1.owner,
+							shard_id: recursive_task_schedule.1.shard_id,
+							cycle: recursive_task_schedule.1.cycle - 1,
+							frequency: recursive_task_schedule.1.frequency,
+							validity: recursive_task_schedule.1.validity,
+							hash: recursive_task_schedule.1.hash,
+							start_execution_block: recursive_task_schedule.1.start_execution_block,
+							status: ScheduleStatus::Recurring,
+						},
+					));
 				}
 			},
-			Err(e) => log::warn!("error on result {:?}", e),
+			Err(e) => log::warn!("error in recurring task schedule result {:?}", e),
 		}
 		Ok(())
 	}
@@ -368,9 +362,9 @@ where
 			.runtime_api()
 			.get_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
 		let mut tree_map = BTreeMap::new();
 		let mut queue = Queue::new();
-
 		for (id, schedule) in task_schedules {
 			tree_map.insert(id, schedule);
 		}
@@ -398,7 +392,7 @@ where
 		}
 
 		while let Some(single_task_schedule) = queue.dequeue() {
-			if let Err(e) = Self::task_executor(
+			match Self::task_executor(
 				block_id,
 				self.backend.clone(),
 				&single_task_schedule.0,
@@ -413,10 +407,16 @@ where
 			)
 			.await
 			{
-				log::error!("Error occured while executing task: {}", e);
-			};
+				Ok(()) => {
+					Self::update_schedule_ocw_storage(
+						ScheduleStatus::Completed,
+						single_task_schedule.0,
+						self.backend.clone(),
+					);
+				},
+				Err(e) => log::warn!("error in single task schedule result {:?}", e),
+			}
 		}
-
 		match response.clone().block {
 			Some(block) => {
 				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
@@ -431,29 +431,49 @@ where
 						let chain_config = self.chain_config.clone();
 						let chain_client = self.chain_client.clone();
 
+						let _ = Self::process_repetitive_task(
+							block_id,
+							backend.clone(),
+							recursive_task_schedule.clone(),
+							block.block_identifier.index,
+							account.clone(),
+							runtime.clone(),
+							task_s.clone(),
+							task_map.clone(),
+							chain_config.clone(),
+							chain_client.clone(),
+							sign_data_sender.clone(),
+							db.clone(),
+						)
+						.await;
+
 						let task_scheduler = Arc::new(
 							TaskScheduler::new(chain_config.clone(), chain_client.clone()).await,
 						);
 						let cloned_task_scheduler = Arc::clone(&task_scheduler);
 
 						let recursive_task_schedule_clone = recursive_task_schedule.clone();
+
 						cloned_task_scheduler.register_callback(
 							block.block_identifier.index + recursive_task_schedule.1.frequency,
 							move |_client: &Client| {
-								let _ = Self::process_repetitive_task(
-									block_id,
-									backend.clone(),
-									recursive_task_schedule_clone.clone(),
-									block.block_identifier.index,
-									account.clone(),
-									runtime.clone(),
-									task_s.clone(),
-									task_map.clone(),
-									chain_config.clone(),
-									chain_client.clone(),
-									sign_data_sender.clone(),
-									db.clone(),
-								);
+								let _ = async {
+									let _ = Self::process_repetitive_task(
+										block_id,
+										backend.clone(),
+										recursive_task_schedule_clone.clone(),
+										block.block_identifier.index,
+										account.clone(),
+										runtime.clone(),
+										task_s.clone(),
+										task_map.clone(),
+										chain_config.clone(),
+										chain_client.clone(),
+										sign_data_sender.clone(),
+										db.clone(),
+									)
+									.await;
+								};
 							},
 						);
 					}

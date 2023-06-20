@@ -69,7 +69,7 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::Shard,
+		sharding::{EligibleShard, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -550,7 +550,7 @@ pub mod pallet {
 					// temporary report threshold while only collector can make reports
 					// => 2 reports is sufficient to lead to committed offenses
 					const REPORT_THRESHOLD: usize = 2;
-					if new_report_count.saturated_into::<usize>() >= 2 {
+					if new_report_count.saturated_into::<usize>() >= REPORT_THRESHOLD {
 						<CommitedOffences<T>>::insert(&offender, known_offender);
 						// removed ReportedOffences because moved to CommittedOffences
 						<ReportedOffences<T>>::remove(&offender);
@@ -581,6 +581,12 @@ pub mod pallet {
 				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
+		}
+	}
+
+	impl<T: Config> EligibleShard<u64> for Pallet<T> {
+		fn is_eligible_shard(id: u64) -> bool {
+			<TssShards<T>>::get(id).is_some()
 		}
 	}
 

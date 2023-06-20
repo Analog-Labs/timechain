@@ -67,6 +67,7 @@ where
 		}
 	}
 
+	/// Verifies if the contract address executed is same as in transaction id
 	pub async fn process_tx_validation_req(
 		&self,
 		blockchain: Option<String>,

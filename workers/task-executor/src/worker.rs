@@ -96,7 +96,8 @@ where
 		}
 	}
 
-	async fn call_contract_and_send_for_sign(
+	/// Encode call response and send data for tss signing process
+	async fn send_for_sign(
 		&mut self,
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
@@ -119,6 +120,7 @@ where
 		Ok(true)
 	}
 
+	/// Fetches and executes contract call for a given schedule_id
 	async fn task_executor(
 		&mut self,
 		block_id: <B as Block>::Hash,
@@ -161,7 +163,7 @@ where
 					};
 					let data = self.chain_client.call(&request).await?;
 					if !self
-						.call_contract_and_send_for_sign(
+						.send_for_sign(
 							block_id,
 							data.clone(),
 							shard_id,
@@ -218,6 +220,7 @@ where
 		Ok(())
 	}
 
+	/// check if current node is collector
 	fn is_collector(&self, block_id: <B as Block>::Hash, shard_id: u64) -> Result<bool> {
 		let Some(account) = self.account_id() else {
 			return Ok(false);
@@ -311,6 +314,8 @@ where
 		Ok(())
 	}
 
+	/// Add schedule update task to offchain storage
+	/// which will be use by offchain worker to send extrinsic
 	fn update_schedule_ocw_storage(&mut self, schedule_status: ScheduleStatus, key: KeyId) {
 		let ocw_skd = OCWSkdData::new(schedule_status, key);
 

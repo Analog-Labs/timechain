@@ -1,3 +1,7 @@
+## **Task Executor**:
+This is main executor responsible for executing non payable task. So when user inserts a task we fetch inserted task in this services, executes it, update the status of task and send task data for tss process for further verification.
+
+
 __Setting up ethereum node and deploying voting contract__
 
 1. Clone this repo: https://github.com/Analog-Labs/chain-connectors

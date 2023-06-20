@@ -145,7 +145,7 @@ pub mod pallet {
 	/// Required for key generation and identification
 	#[pallet::storage]
 	#[pallet::getter(fn tss_shards)]
-	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, Shard, OptionQuery>;
+	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, ShardState, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
@@ -211,6 +211,11 @@ pub mod pallet {
 
 		/// Shard has ben registered with new Id
 		ShardRegistered(u64),
+
+		/// Shard went offline due to committed offenses preventing threshold
+		/// .0 Offender TimeId
+		/// .1 Report count
+		ShardOffline(u64),
 
 		/// Offence reported, above threshold s.t.
 		/// reports are moved from reported to committed.
@@ -388,8 +393,9 @@ pub mod pallet {
 				return Err(Error::<T>::TaskNotScheduled.into());
 			};
 
-			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let collector = shard.collector();
+			let shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let collector = shard_state.shard.collector();
 
 			let raw_public_key: &[u8; 32] = collector.as_ref();
 			let collector_public_id =
@@ -435,6 +441,7 @@ pub mod pallet {
 		/// set of IDs matching one of supported size of shard
 		/// # Param
 		/// * members - supported sized set of shard members Id
+		/// * collector - index of collector if not index 0
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register_shard())]
 		pub fn register_shard(
@@ -459,7 +466,7 @@ pub mod pallet {
 					members_dedup.push(member);
 				}
 			}
-			let shard = new_shard::<T>(members.clone(), collector_index)?;
+			let shard = ShardState::new::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
@@ -500,7 +507,7 @@ pub mod pallet {
 				},
 				None => {
 					let mut a = BoundedVec::<TimeId, T::MaxChronicleWorkers>::default();
-					let _ = a.try_insert(0, member.clone());
+					a.try_insert(0, member.clone());
 					*chronicles = Some(a);
 					Ok(())
 				},
@@ -522,17 +529,19 @@ pub mod pallet {
 			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			let shard = <TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let mut shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
 				account_id.encode()[..].try_into().unwrap()
 			}
-			// get reporter pubkey from shard because must be collector
-			let reporter = shard.collector().clone();
 			let (reporter, offender) = (
-				account_to_time_id::<sp_runtime::AccountId32>(reporter),
+				// get reporter pubkey from shard because must be collector
+				account_to_time_id::<sp_runtime::AccountId32>(
+					shard_state.shard.collector().clone(),
+				),
 				account_to_time_id::<T::AccountId>(offender),
 			);
-			ensure!(shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
+			ensure!(shard_state.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
 			// verify signature
 			let raw_reporter_pub_key: [u8; 32] = (reporter.encode())[..].try_into().unwrap();
 			let reporter_public_key: Public =
@@ -551,7 +560,8 @@ pub mod pallet {
 					// => 2 reports is sufficient to lead to committed offenses
 					const REPORT_THRESHOLD: usize = 2;
 					if new_report_count.saturated_into::<usize>() >= REPORT_THRESHOLD {
-						<CommitedOffences<T>>::insert(&offender, known_offender);
+						// increment committed offense count and update state in storage
+						shard_state.increment_committed_offense_count::<T>(shard_id);
 						// removed ReportedOffences because moved to CommittedOffences
 						<ReportedOffences<T>>::remove(&offender);
 						Self::deposit_event(Event::OffenceCommitted(
@@ -586,14 +596,18 @@ pub mod pallet {
 
 	impl<T: Config> EligibleShard<u64> for Pallet<T> {
 		fn is_eligible_shard(id: u64) -> bool {
-			<TssShards<T>>::get(id).is_some()
+			if let Some(shard_state) = <TssShards<T>>::get(id) {
+				shard_state.is_online()
+			} else {
+				false
+			}
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter().collect()
+			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
 		}
 
 		fn ocw_get_sig_data() {

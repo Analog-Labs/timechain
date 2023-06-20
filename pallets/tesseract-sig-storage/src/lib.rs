@@ -507,7 +507,7 @@ pub mod pallet {
 				},
 				None => {
 					let mut a = BoundedVec::<TimeId, T::MaxChronicleWorkers>::default();
-					a.try_insert(0, member.clone());
+					let _ = a.try_insert(0, member.clone());
 					*chronicles = Some(a);
 					Ok(())
 				},
@@ -562,6 +562,8 @@ pub mod pallet {
 					if new_report_count.saturated_into::<usize>() >= REPORT_THRESHOLD {
 						// increment committed offense count and update state in storage
 						shard_state.increment_committed_offense_count::<T>(shard_id);
+						// move ReportedOffenses to CommittedOffenses
+						<CommitedOffences<T>>::insert(&offender, known_offender);
 						// removed ReportedOffences because moved to CommittedOffences
 						<ReportedOffences<T>>::remove(&offender);
 						Self::deposit_event(Event::OffenceCommitted(

@@ -28,7 +28,7 @@ where
 	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
-	pub sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
@@ -48,8 +48,8 @@ where
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");
 	// match Arc::try_unwrap(params) {
 	// 	Ok(params) => {
-			let mut worker = TaskExecutor::new(params).await.unwrap();
-			worker.run().await;
+	let mut worker = TaskExecutor::new(params).await.unwrap();
+	worker.run().await;
 	// 	},
 	// 	Err(_) => log::warn!("Cannot unwrap Arc: "),
 	// }

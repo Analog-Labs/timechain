@@ -33,14 +33,14 @@ use std::collections::HashMap;
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A>
 // where
-	// BE: Clone,
-	// R: Clone,
+// BE: Clone,
+// R: Clone,
 {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
-	sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 	tasks: HashSet<u64>,
 	task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
@@ -58,11 +58,10 @@ where
 	R::Api: TimeApi<B, A>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
-	
-	// let params = match Box::try_unwrap(params) {
-    //     Ok(params) => {params}
-    //     Err(_) => panic!("Failed to unwrap Arc"),
-    // };
+		// let params = match Box::try_unwrap(params) {
+		//     Ok(params) => {params}
+		//     Err(_) => panic!("Failed to unwrap Arc"),
+		// };
 		let TaskExecutorParams {
 			backend,
 			runtime,
@@ -106,38 +105,42 @@ where
 		}
 	}
 
-	async fn call_contract_and_send_for_sign(
+	/// Encode call response and send data for tss signing process
+	async fn send_for_sign(
 		_block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
 		mut tasks: HashSet<u64>,
-		sign_data_sender: Sender<(u64, u64, [u8; 32])>,
-		task_id: u64,
-		id: u64,
+		sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+		schedule_id: u64,
+		schedule_cycle: u64,
 	) -> Result<bool> {
 		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
-		sign_data_sender.clone().try_send((shard_id, task_id, hash))?;
-		tasks.insert(id);
+		sign_data_sender
+			.clone()
+			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
+		tasks.insert(schedule_id);
 
 		Ok(true)
 	}
 
+	/// Fetches and executes contract call for a given schedule_id
 	async fn task_executor(
 		block_id: <B as Block>::Hash,
 		backend: Arc<BE>,
-		id: &u64,
+		schedule_id: &u64,
 		schedule: &TaskSchedule<A>,
 		runtime: Arc<R>,
 		tasks: HashSet<u64>,
 		chain_config: BlockchainConfig,
 		chain_client: Client,
 		account: AccountId32,
-		sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+		sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 		mut db: DatabaseConnection,
 	) -> Result<()> {
-		if !tasks.contains(id) {
+		if !tasks.contains(schedule_id) {
 			let metadata = runtime
 				.runtime_api()
 				.get_task_metadat_by_key(block_id, schedule.task_id.0)?
@@ -147,12 +150,11 @@ where
 			let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 					if Self::is_collector(block_id, shard_id, runtime, account).unwrap_or(false) {
-						Self::update_schedule_ocw_storage(ScheduleStatus::Invalid, *id, backend);
+						Self::update_schedule_ocw_storage(ScheduleStatus::Invalid, *schedule_id, backend);
 					}
 					return Ok(());
 				};
 
-			let task_schedule_clone = schedule.clone();
 			match &task.function {
 				// If the task function is an Ethereum contract
 				// call, call it and send for signing
@@ -162,7 +164,7 @@ where
 					input: _,
 					output: _,
 				} => {
-					log::info!("running task_id {:?}", id);
+					log::info!("running task_id {:?}", schedule_id);
 					let method = format!("{address}-{function_signature}-call");
 					let request = CallRequest {
 						network_identifier: chain_config.network(),
@@ -170,21 +172,21 @@ where
 						parameters: json!({}),
 					};
 					let data = chain_client.call(&request).await?;
-					if !Self::call_contract_and_send_for_sign(
+					if !Self::send_for_sign(
 						block_id,
 						data.clone(),
 						shard_id,
 						tasks,
 						sign_data_sender,
-						task_schedule_clone.task_id.0,
-						*id,
+						*schedule_id,
+						schedule.cycle,
 					)
 					.await?
 					{
 						log::warn!("status not updated can't updated data into DB");
 						return Ok(());
 					}
-					let id: i64 = (*id).try_into().unwrap();
+					let id: i64 = (*schedule_id).try_into().unwrap();
 					let hash = task.hash.to_owned();
 					let value = match serde_json::to_value(task.clone()) {
 						Ok(value) => value,
@@ -247,10 +249,11 @@ where
 		// 	return Ok(false);
 		// };
 
-		let Some(shard) = runtime
-							.runtime_api()
-							.get_shards(block_id)
-							.unwrap_or(vec![])
+		let available_shards = runtime.runtime_api().get_shards(block_id).unwrap_or(vec![]);
+		if available_shards.is_empty() {
+			anyhow::bail!("No shards available");
+		}
+		let Some(shard) = available_shards
 							.into_iter()
 							.find(|(s, _)| *s == shard_id)
 							.map(|(_, s)| s) else {
@@ -271,7 +274,7 @@ where
 		mut task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
 		chain_config: BlockchainConfig,
 		chain_client: Client,
-		sign_data_sender: Sender<(u64, u64, [u8; 32])>,
+		sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 		db: DatabaseConnection,
 	) -> Result<()> {
 		let result = Self::task_executor(

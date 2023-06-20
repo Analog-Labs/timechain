@@ -78,6 +78,8 @@ where
 		}
 	}
 
+	///TODO! Payable task executor was unprioritized
+	/// This needs to update task schedule status,
 	fn update_task_schedule_status(
 		&self,
 		_block_id: <B as Block>::Hash,
@@ -90,7 +92,8 @@ where
 		Ok(())
 	}
 
-	fn check_if_connector(&self, shard_id: u64) -> bool {
+	/// checks if current node is collector
+	fn check_if_collector(&self, shard_id: u64) -> bool {
 		let at = self.backend.blockchain().last_finalized();
 		match at {
 			Ok(at) => {
@@ -117,13 +120,14 @@ where
 		false
 	}
 
-	async fn create_wallet_and_tx(
+	/// Creates and send transaction for given contract call
+	async fn create_tx(
 		&self,
 		wallet: &Wallet,
 		call_params: (&str, &str, &[String]),
 		map: &mut HashMap<u64, ()>,
 		schedule_id: u64,
-		shard_and_task_id: (u64, u64),
+		shard_id: u64,
 	) {
 		let address = call_params.0;
 		let function_signature = call_params.1;
@@ -138,8 +142,8 @@ where
 					url: self.connector_url.clone(),
 					tx_id: tx.hash,
 					contract_address: address.into(),
-					shard_id: shard_and_task_id.0,
-					task_id: shard_and_task_id.1,
+					shard_id,
+					schedule_id,
 				};
 
 				let encoded_data = eth_tx_validation.encode();
@@ -153,6 +157,7 @@ where
 		}
 	}
 
+	/// Process tasks for given block
 	async fn process_tasks_for_block(
 		&self,
 		block_id: <B as Block>::Hash,
@@ -185,17 +190,17 @@ where
 													input,
 													output: _,
 												} => {
-													if self.check_if_connector(shard_id) {
+													if self.check_if_collector(shard_id) {
 														log::info!(
 															"Running task {:?}",
 															schedule_task.1.task_id.0
 														);
-														self.create_wallet_and_tx(
+														self.create_tx(
 															wallet,
 															(address, function_signature, input),
 															map,
 															schedule_task.0,
-															(shard_id, schedule_task.1.task_id.0),
+															shard_id,
 														)
 														.await;
 													}

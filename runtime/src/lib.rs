@@ -1046,7 +1046,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
 	type MaxChronicleWorkers = MaxChronicleWorkers;
-	type ValidatorSet = Historical;
+	type SessionInterface = Self;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -1163,6 +1163,10 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 	}
 }
 
+parameter_types! {
+	pub IndexerReward: Balance = ANLOG;
+}
+
 impl task_schedule::Config for Runtime {
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
@@ -1171,6 +1175,9 @@ impl task_schedule::Config for Runtime {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = Babe;
+	type IndexerReward = IndexerReward;
+	type ShardEligibility = TesseractSigStorage;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1498,6 +1505,9 @@ impl_runtime_apis! {
 			TaskSchedule::get_schedules()
 		}
 
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
+			TaskSchedule::get_schedule_by_key(schedule_id)
+		}
 
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
 			TaskMeta::get_payable_tasks()

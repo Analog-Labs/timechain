@@ -2,18 +2,21 @@ use crate::{self as pallet_tesseract_sig_storage};
 use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU16, ConstU64, OnTimestampSet, ValidatorSet},
+	traits::{ConstU16, ConstU64, OnTimestampSet},
 	PalletId,
 };
 use frame_system as system;
+use pallet_staking::SessionInterface;
 use sp_core::{ConstU32, H256};
 use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, Convert, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	Permill,
 };
+use sp_staking::SessionIndex;
 
+use pallet_session::ShouldEndSession;
 use sp_std::cell::RefCell;
 use time_primitives::TimeId;
 // use pallet_randomness_collective_flip;
@@ -52,6 +55,14 @@ pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
 pub const CHARLIE: TimeId = TimeId::new([3u8; 32]);
 pub const DJANGO: TimeId = TimeId::new([4u8; 32]);
+
+pub struct ShouldEndSessionMock();
+
+impl ShouldEndSession<u64> for ShouldEndSessionMock {
+	fn should_end_session(_now: u64) -> bool {
+		true
+	}
+}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -116,6 +127,7 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 1;
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const ScheduleFee: Balance = 1;
+	pub const IndexerReward: Balance = 1;
 }
 pub struct MockOnTimestampSet;
 impl OnTimestampSet<Moment> for MockOnTimestampSet {
@@ -188,21 +200,17 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type PalletAccounts = CurrentPalletAccounts;
 	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = ShouldEndSessionMock;
+	type IndexerReward = IndexerReward;
+	type AuthorityId = task_schedule::crypto::SigAuthId;
+	type ShardEligibility = ();
 }
 
-pub struct ConvertMock<T>(sp_std::marker::PhantomData<T>);
+pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);
 
-impl<AccountId> Convert<AccountId, Option<AccountId>> for ConvertMock<AccountId> {
-	fn convert(account_id: AccountId) -> Option<AccountId> {
-		Some(account_id)
-	}
-}
-
-pub struct ValidatorSetMock<T>(sp_std::marker::PhantomData<T>);
-
-impl<OutAccountId> ValidatorSet<OutAccountId> for ValidatorSetMock<OutAccountId>
+impl<AccountId> SessionInterface<AccountId> for SessionInterfaceMock<AccountId>
 where
-	OutAccountId: Clone
+	AccountId: Clone
 		+ Eq
 		+ PartialEq
 		+ Parameter
@@ -210,16 +218,13 @@ where
 		+ From<AccountId>
 		+ std::convert::From<sp_runtime::AccountId32>,
 {
-	type ValidatorId = OutAccountId;
-	type ValidatorIdOf = ConvertMock<OutAccountId>;
-
-	fn session_index() -> sp_staking::SessionIndex {
-		sp_staking::SessionIndex::default()
+	fn disable_validator(_: u32) -> bool {
+		true
 	}
-
-	fn validators() -> Vec<Self::ValidatorId> {
+	fn validators() -> Vec<AccountId> {
 		vec![VALIDATOR_1.into(), VALIDATOR_2.into(), VALIDATOR_3.into(), VALIDATOR_4.into()]
 	}
+	fn prune_historical_up_to(_: SessionIndex) {}
 }
 
 impl pallet_tesseract_sig_storage::Config for Test {
@@ -230,7 +235,7 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SlashingPercentage = SlashingPercentage;
 	type SlashingPercentageThreshold = SlashingPercentageThreshold;
 	type TaskScheduleHelper = TaskSchedule;
-	type ValidatorSet = ValidatorSetMock<AccountId>;
+	type SessionInterface = SessionInterfaceMock<AccountId>;
 	type MaxChronicleWorkers = ConstU32<3>;
 	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
 }
@@ -281,4 +286,23 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
+}
+
+/// Test/benchmarking utility to print valid arguments to store_signature
+#[allow(unused)]
+fn print_valid_store_sig_args(signature_data: [u8; 64]) {
+	use sp_keystore::Keystore;
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let account = keystore
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
+		.expect("Creates authority key");
+	let signature = keystore
+		.sr25519_sign(time_primitives::TIME_KEY_TYPE, &account, signature_data.as_ref())
+		.unwrap()
+		.unwrap();
+	let to_32_byte_slice = |unbound: &[u8]| -> [u8; 32] { unbound[..].try_into().unwrap() };
+	let to_64_byte_slice = |unbound: &[u8]| -> [u8; 64] { unbound[..].try_into().unwrap() };
+	println!("Account: {:?}", to_32_byte_slice(&account));
+	println!("Signature: {:?}", to_64_byte_slice(&signature.0));
+	println!("Signature Data: {:?}", to_64_byte_slice(&signature_data));
 }

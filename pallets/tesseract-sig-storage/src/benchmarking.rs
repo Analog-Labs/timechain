@@ -3,8 +3,9 @@ use super::*;
 use crate::Pallet as TesseractSigStorage;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
+use sp_core::Decode;
 use sp_std::vec;
-use time_primitives::{ForeignEventId, TimeId};
+use time_primitives::{crypto::Signature, KeyId, ScheduleCycle, TimeId};
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
@@ -17,13 +18,15 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 benchmarks! {
 	store_signature {
-		let s in 0..255;
-		let signature_data = [s as u8; 64];
-		// TODO: extend implementation after same todo fixed in pallet
-		let id: ForeignEventId = (s as u128).into();
-	}: _(RawOrigin::Signed(whitelisted_caller()), signature_data, id)
+		// generated using mock::print_valid_store_sig_args(sig_data)
+		let sig_data = [123u8; 64];
+		let raw_sig = [112, 94, 65, 50, 202, 50, 216, 57, 78, 154, 206, 43, 214, 11, 202, 162, 225, 121, 19, 154, 55, 148, 89, 59, 247, 148, 9, 142, 123, 29, 70, 33, 27, 8, 12, 97, 186, 163, 85, 132, 113, 249, 97, 164, 63, 2, 50, 122, 94, 108, 201, 154, 3, 206, 233, 161, 221, 141, 92, 237, 141, 49, 48, 139];
+		let sig = Signature::decode(&mut (&raw_sig[..])).unwrap();
+		let schedule_id: KeyId = 1;
+		let schedule_cycle: ScheduleCycle = 1;
+	}: _(RawOrigin::Signed(whitelisted_caller()), sig, sig_data, schedule_id, schedule_cycle)
 	verify {
-		assert!(<SignatureStoreData<T>>::get(id).is_some());
+		assert!(<SignatureStoreData<T>>::get(schedule_id, schedule_cycle).is_some());
 	}
 
 	submit_tss_group_key {

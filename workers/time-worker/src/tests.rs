@@ -30,7 +30,7 @@ use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
 	sharding::Shard,
-	SignatureData, TimeApi, KEY_TYPE as TimeKeyType,
+	SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
 
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
@@ -345,7 +345,7 @@ fn initialize_time_worker<API>(
 		usize,
 		&TimeKeyring,
 		API,
-		Receiver<(u64, u64, [u8; 32])>,
+		Receiver<(u64, u64, u64, [u8; 32])>,
 		Sender<Vec<u8>>,
 		Receiver<Vec<u8>>,
 	)>,
@@ -512,7 +512,7 @@ async fn time_keygen_completes() {
 	// signing some data
 	let message = [1u8; 32];
 	for sender in &mut senders {
-		assert!(sender.try_send((1, 1, message)).is_ok());
+		assert!(sender.try_send((1, 1, 1, message)).is_ok());
 	}
 	tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 	assert!(!api.runtime_api().stored_signatures.lock().is_empty());

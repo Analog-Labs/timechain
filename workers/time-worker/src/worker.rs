@@ -26,7 +26,7 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{EthTxValidation, OCWSigData},
-	ForeignEventId, SignatureData, TimeApi, OCW_SIG_KEY, TIME_KEY_TYPE,
+	SignatureData, TimeApi, OCW_SIG_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -103,7 +103,7 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: mpsc::Receiver<(u64, u64, [u8; 32])>,
+	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
 	tx_data_sender: mpsc::Sender<Vec<u8>>,
 	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
@@ -210,7 +210,7 @@ where
 					debug!(target: TW_LOG, "Storing tss signature");
 					self.timeouts.remove(&(shard_id, Some(hash)));
 					if shard.is_collector {
-						let Some(task_id) = shard.tss.event_id_map.get(&hash) else {
+						let Some((key_id, schedule_cycle)) = shard.tss.event_id_map.get(&hash) else {
 							log::error!("Failed to store signature, Task id not found for hash {:?}", hash);
 							return;
 						};
@@ -223,10 +223,10 @@ where
 							.unwrap()
 							.unwrap();
 
-						let event_id: ForeignEventId = (*task_id).into();
 						let sig_data: SignatureData = tss_signature;
 
-						let ocw_sig_data = OCWSigData::new(signature.into(), sig_data, event_id);
+						let ocw_sig_data =
+							OCWSigData::new(signature.into(), sig_data, *key_id, *schedule_cycle);
 
 						if let Some(mut ocw_storage) = self.backend.offchain_storage() {
 							let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY);
@@ -326,7 +326,7 @@ where
 					self.on_finality(notification, public_key);
 				},
 				new_sig = self.sign_data_receiver.next().fuse() => {
-					let Some((shard_id, task_id, data)) = new_sig else {
+					let Some((shard_id, key_id, schedule_cycle, data)) = new_sig else {
 						continue;
 					};
 					let Some(public_key) = self.public_key() else {
@@ -335,7 +335,7 @@ where
 					let Some(shard) = self.shards.get_mut(&shard_id) else {
 						continue;
 					};
-					shard.tss.sign(data.to_vec(), task_id);
+					shard.tss.sign(data.to_vec(), key_id, schedule_cycle);
 					self.poll_actions(shard_id, public_key);
 				},
 				gossip_data = self.gossip_data_receiver.next().fuse() => {

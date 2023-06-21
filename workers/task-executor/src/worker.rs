@@ -13,8 +13,8 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
 use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
+use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
-use sp_runtime::{offchain::OffchainStorage};
 use std::{
 	collections::{BTreeMap, HashSet, VecDeque},
 	marker::PhantomData,
@@ -213,19 +213,8 @@ where
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			match self.task_executor(
-				block_id,
-				id,
-				schedule,
-			)
-			.await
-			{
-				Ok(()) => {
-					self.update_schedule_ocw_storage(
-						ScheduleStatus::Completed,
-						*id,
-					)
-				},
+			match self.task_executor(block_id, id, schedule).await {
+				Ok(()) => self.update_schedule_ocw_storage(ScheduleStatus::Completed, *id),
 				Err(e) => log::warn!("error in single task schedule result {:?}", e),
 			}
 		}

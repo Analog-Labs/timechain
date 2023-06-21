@@ -239,7 +239,6 @@ where
 		runtime: Arc<R>,
 		account: AccountId32,
 	) -> Result<bool> {
-
 		let available_shards = runtime.runtime_api().get_shards(block_id).unwrap_or(vec![]);
 		if available_shards.is_empty() {
 			anyhow::bail!("No shards available");
@@ -278,16 +277,7 @@ where
 		let block_height = response.block.unwrap().block_identifier.index;
 
 		for (id, schedule) in tree_map.iter() {
-			if !schedule.is_repetitive_task() {
-				let _ = queue.queue((*id, schedule.clone()));
-			} else {
-				let block_height_pad = block_height + block_height % schedule.frequency;
-
-				self.repetitive_task_map
-					.entry(block_height_pad)
-					.or_insert(Vec::new())
-					.push((*id, schedule.clone()));
-			}
+			queue.queue((*id, schedule.clone()));
 		}
 
 		while let Some(single_task_schedule) = queue.dequeue() {

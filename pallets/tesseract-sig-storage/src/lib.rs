@@ -56,7 +56,7 @@ pub mod pallet {
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_runtime::{
-		traits::{AppVerify, Convert, Scale},
+		traits::{AppVerify, Scale},
 		SaturatedConversion, Saturating,
 	};
 	use sp_std::{

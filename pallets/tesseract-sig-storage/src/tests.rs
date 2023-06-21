@@ -5,8 +5,8 @@ use frame_system::RawOrigin;
 use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use time_primitives::{
-	abstraction::{ObjectId, ScheduleInput, Validity},
-	TimeId,
+	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
+	ScheduleStatus, TimeId,
 };
 
 #[test]
@@ -120,6 +120,95 @@ fn test_signature_storage() {
 		));
 
 		assert!(TesseractSigStorage::signature_storage(id, input.cycle).is_some());
+		assert_eq!(
+			Pallet::<Test>::last_committed_chronicle(Into::<TimeId>::into(alice)),
+			block_number
+		);
+		assert_eq!(Pallet::<Test>::last_committed_shard(shard_id), block_number);
+	});
+}
+
+#[test]
+fn test_signature_and_decrement_schedule_storage() {
+	let r: u8 = 123;
+	let sig_data: [u8; 64] = [r; 64];
+
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
+		.expect("Creates authority key");
+
+	new_test_ext().execute_with(|| {
+		let id: u64 = 1;
+		let task_id = ObjectId(id);
+		let block_number = 10;
+		System::set_block_number(block_number);
+		let shard_id = 0;
+
+		// check the init status before any signature is stored
+		assert_eq!(Pallet::<Test>::last_committed_chronicle(Into::<TimeId>::into(alice)), 0);
+		assert_eq!(Pallet::<Test>::last_committed_shard(shard_id), 0);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			alice.into(),
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![alice.into(), BOB, CHARLIE],
+			Some(0),
+		),);
+
+		// insert schedule
+		let input = ScheduleInput {
+			task_id,
+			shard_id,
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		let alice_report = keystore
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
+			.unwrap()
+			.unwrap();
+
+		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
+
+		assert_ok!(TesseractSigStorage::store_signature(
+			RawOrigin::Signed(ALICE).into(),
+			alice_report.into(),
+			sig_data,
+			id,
+			input.cycle
+		));
+
+		assert!(TesseractSigStorage::signature_storage(id, input.cycle).is_some());
+
+		let output = ScheduleOut {
+			task_id: ObjectId(1),
+			owner: ALICE.clone(),
+			shard_id: 0,
+			start_block: 0,
+			cycle: 11,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+			status: ScheduleStatus::Initiated,
+		};
+
+		let scheduled_task = TaskSchedule::get_task_schedule(1_u64);
+		assert_eq!(scheduled_task, Some(output));
+
 		assert_eq!(
 			Pallet::<Test>::last_committed_chronicle(Into::<TimeId>::into(alice)),
 			block_number

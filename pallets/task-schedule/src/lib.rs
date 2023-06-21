@@ -420,14 +420,14 @@ pub mod pallet {
 			let available_shards = T::ShardEligibility::get_eligible_shards(shard_tasks.len());
 			// Reassign all tasks for shard to other shards
 			for (i, key) in shard_tasks.into_iter().enumerate() {
-				let next_available_shard = available_shards[i as usize % available_shards.len()];
-				if let Some(mut schedule) = ScheduleStorage::<T>::take(&key) {
+				let next_available_shard = available_shards[i % available_shards.len()];
+				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
 					// reassign task to different shard
 					schedule.shard_id = next_available_shard;
-					ScheduleStorage::<T>::insert(&key, schedule);
-				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(&key) {
+					ScheduleStorage::<T>::insert(key, schedule);
+				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(key) {
 					payable_schedule.shard_id = next_available_shard;
-					PayableScheduleStorage::<T>::insert(&key, payable_schedule);
+					PayableScheduleStorage::<T>::insert(key, payable_schedule);
 				}
 			}
 		}

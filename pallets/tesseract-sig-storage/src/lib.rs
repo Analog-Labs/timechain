@@ -776,9 +776,4 @@ pub mod pallet {
 			Err(Error::NoLocalAcctForSignedTx)
 		}
 	}
-	impl<T: Config> EligibleShard<u64> for Pallet<T> {
-		fn is_eligible_shard(id: u64) -> bool {
-			<TssShards<T>>::get(id).is_some()
-		}
-	}
 }

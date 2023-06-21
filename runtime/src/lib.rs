@@ -44,7 +44,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
-use sp_runtime::{DispatchError, DispatchResult, FixedPointNumber};
+use sp_runtime::{DispatchError, FixedPointNumber};
 
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
@@ -1519,10 +1519,6 @@ impl_runtime_apis! {
 
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
-		}
-
-		fn report_misbehavior(shard_id: u64, ofender: time_primitives::TimeId, reporter: time_primitives::TimeId, proof: time_primitives::crypto::Signature) -> DispatchResult {
-			TesseractSigStorage::api_report_misbehavior(shard_id, ofender, reporter, proof)
 		}
 	}
 

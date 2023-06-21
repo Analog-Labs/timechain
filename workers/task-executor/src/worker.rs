@@ -1,4 +1,4 @@
-use crate::{task_schedule::TaskScheduler, TaskExecutorParams, TW_LOG};
+use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -31,22 +31,20 @@ use queue::Queue;
 use std::collections::HashMap;
 
 #[derive(Clone)]
-pub struct TaskExecutor<B, BE, R, A>
-// where
-// BE: Clone,
-// R: Clone,
-{
+pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
 	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
+	// all tasks that are scheduled
 	tasks: HashSet<u64>,
-	task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
+	// map for repetitive tasks
+	repetitive_task_map: HashMap<BlockHeight, Vec<(u64, TaskSchedule<A>)>>,
 	db: DatabaseConnection,
-	chain_config: BlockchainConfig,
-	chain_client: Client,
+	rosetta_chain_config: BlockchainConfig,
+	rosetta_client: Client,
 }
 
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
@@ -58,23 +56,20 @@ where
 	R::Api: TimeApi<B, A>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
-		// let params = match Box::try_unwrap(params) {
-		//     Ok(params) => {params}
-		//     Err(_) => panic!("Failed to unwrap Arc"),
-		// };
 		let TaskExecutorParams {
 			backend,
 			runtime,
 			sign_data_sender,
 			kv,
 			_block,
-			accountid: _,
+			account_id: _,
 			connector_url,
 			connector_blockchain,
 			connector_network,
 		} = params;
 
-		let (chain_config, chain_client) =
+		// create rosetta client and get chain configuration
+		let (rosetta_chain_config, rosetta_client) =
 			create_client(connector_blockchain, connector_network, connector_url).await?;
 
 		let db = time_db::connect().await?;
@@ -87,10 +82,10 @@ where
 			sign_data_sender,
 			kv,
 			tasks: Default::default(),
-			task_map: Default::default(),
+			repetitive_task_map: Default::default(),
 			db,
-			chain_config,
-			chain_client,
+			rosetta_chain_config,
+			rosetta_client,
 		})
 	}
 
@@ -142,7 +137,7 @@ where
 		if !tasks.contains(schedule_id) {
 			let metadata = runtime
 				.runtime_api()
-				.get_task_metadat_by_key(block_id, schedule.task_id.0)?
+				.get_task_metadata_by_key(block_id, schedule.task_id.0)?
 				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
 			let shard_id = schedule.shard_id;
@@ -244,9 +239,6 @@ where
 		runtime: Arc<R>,
 		account: AccountId32,
 	) -> Result<bool> {
-		// let Some(account) = self.account_id() else {
-		// 	return Ok(false);
-		// };
 
 		let available_shards = runtime.runtime_api().get_shards(block_id).unwrap_or(vec![]);
 		if available_shards.is_empty() {
@@ -262,132 +254,39 @@ where
 		Ok(*shard.collector() == account)
 	}
 
-	async fn process_repetitive_task(
-		block_id: <B as Block>::Hash,
-		backend: Arc<BE>,
-		recursive_task_schedule: (u64, TaskSchedule<A>),
-		block_number: u64,
-		account: AccountId32,
-		runtime: Arc<R>,
-		tasks: HashSet<u64>,
-		mut task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
-		chain_config: BlockchainConfig,
-		chain_client: Client,
-		sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
-		db: DatabaseConnection,
-	) -> Result<()> {
-		let result = Self::task_executor(
-			block_id,
-			backend.clone(),
-			&recursive_task_schedule.0,
-			&recursive_task_schedule.1,
-			runtime.clone(),
-			tasks,
-			chain_config,
-			chain_client,
-			account.clone(),
-			sign_data_sender,
-			db,
-		)
-		.await;
-		match result {
-			Ok(()) => {
-				if recursive_task_schedule.1.cycle > 1
-					&& recursive_task_schedule.1.status == ScheduleStatus::Recurring
-				{
-					//Update Extrinsic with cycle count-1;
-
-					todo!();
-				} else if recursive_task_schedule.1.cycle > 1 {
-					//Update Extrinsic with cycle count-1 and status Recurring
-					if Self::is_collector(
-						block_id,
-						recursive_task_schedule.1.shard_id,
-						runtime,
-						account,
-					)
-					.unwrap_or(false)
-					{
-						Self::update_schedule_ocw_storage(
-							ScheduleStatus::Recurring,
-							recursive_task_schedule.0,
-							backend.clone(),
-						);
-					}
-				} else {
-					//Update status = Compelete
-					if recursive_task_schedule.1.status != ScheduleStatus::Completed
-						&& Self::is_collector(
-							block_id,
-							recursive_task_schedule.1.shard_id,
-							runtime,
-							account,
-						)
-						.unwrap_or(false)
-					{
-						Self::update_schedule_ocw_storage(
-							ScheduleStatus::Completed,
-							recursive_task_schedule.0,
-							backend,
-						);
-					}
-				}
-
-				if recursive_task_schedule.1.cycle > 1 {
-					// Updating HashMap key and value, because not going to retrive this task again from task schedule
-					task_map.entry(block_number + 1).or_insert(Vec::new()).push((
-						recursive_task_schedule.0,
-						TaskSchedule {
-							task_id: recursive_task_schedule.1.task_id,
-							owner: recursive_task_schedule.1.owner,
-							shard_id: recursive_task_schedule.1.shard_id,
-							cycle: recursive_task_schedule.1.cycle - 1,
-							frequency: recursive_task_schedule.1.frequency,
-							validity: recursive_task_schedule.1.validity,
-							hash: recursive_task_schedule.1.hash,
-							start_execution_block: recursive_task_schedule.1.start_execution_block,
-							status: ScheduleStatus::Recurring,
-						},
-					));
-				}
-			},
-			Err(e) => log::warn!("error in recurring task schedule result {:?}", e),
-		}
-		Ok(())
-	}
-
+	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let task_schedules = self
 			.runtime
 			.runtime_api()
-			.get_task_schedule(block_id)?
+			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+
 		let mut tree_map = BTreeMap::new();
 		let mut queue = Queue::new();
 		for (id, schedule) in task_schedules {
 			tree_map.insert(id, schedule);
 		}
 
+		// get the latest block from rosetta
 		let block_request = BlockRequest {
-			network_identifier: self.chain_config.network(),
+			network_identifier: self.rosetta_chain_config.network(),
 			block_identifier: PartialBlockIdentifier { index: None, hash: None },
 		};
-		let response = self.chain_client.block(&block_request).await?;
+		let response = self.rosetta_client.block(&block_request).await?;
+		let block_height = response.block.unwrap().block_identifier.index;
 
 		for (id, schedule) in tree_map.iter() {
-			if schedule.cycle == 1 {
+			if !schedule.is_repetitive_task() {
 				let _ = queue.queue((*id, schedule.clone()));
 			} else {
-				match response.clone().block {
-					Some(block) => {
-						self.task_map
-							.entry(block.block_identifier.index)
-							.or_insert(Vec::new())
-							.push((*id, schedule.clone()));
-					},
-					None => log::info!("failed to get BlockResponse from rosetta"),
-				}
+				let block_height_pad = block_height + block_height % schedule.frequency;
+
+				self.repetitive_task_map
+					.entry(block_height_pad)
+					.or_insert(Vec::new())
+					.push((*id, schedule.clone()));
 			}
 		}
 
@@ -399,8 +298,8 @@ where
 				&single_task_schedule.1,
 				self.runtime.clone(),
 				self.tasks.clone(),
-				self.chain_config.clone(),
-				self.chain_client.clone(),
+				self.rosetta_chain_config.clone(),
+				self.rosetta_client.clone(),
 				self.account_id().unwrap().clone(),
 				self.sign_data_sender.clone(),
 				self.db.clone(),
@@ -416,70 +315,6 @@ where
 				},
 				Err(e) => log::warn!("error in single task schedule result {:?}", e),
 			}
-		}
-		match response.clone().block {
-			Some(block) => {
-				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
-					for recursive_task_schedule in &tasks {
-						let backend = self.backend.clone();
-						let account = self.account_id().unwrap();
-						let runtime = self.runtime.clone();
-						let task_s = self.tasks.clone();
-						let task_map = self.task_map.clone();
-						let sign_data_sender = self.sign_data_sender.clone();
-						let db = self.db.clone();
-						let chain_config = self.chain_config.clone();
-						let chain_client = self.chain_client.clone();
-
-						let _ = Self::process_repetitive_task(
-							block_id,
-							backend.clone(),
-							recursive_task_schedule.clone(),
-							block.block_identifier.index,
-							account.clone(),
-							runtime.clone(),
-							task_s.clone(),
-							task_map.clone(),
-							chain_config.clone(),
-							chain_client.clone(),
-							sign_data_sender.clone(),
-							db.clone(),
-						)
-						.await;
-
-						let task_scheduler = Arc::new(
-							TaskScheduler::new(chain_config.clone(), chain_client.clone()).await,
-						);
-						let cloned_task_scheduler = Arc::clone(&task_scheduler);
-
-						let recursive_task_schedule_clone = recursive_task_schedule.clone();
-
-						cloned_task_scheduler.register_callback(
-							block.block_identifier.index + recursive_task_schedule.1.frequency,
-							move |_client: &Client| {
-								let _ = async {
-									let _ = Self::process_repetitive_task(
-										block_id,
-										backend.clone(),
-										recursive_task_schedule_clone.clone(),
-										block.block_identifier.index,
-										account.clone(),
-										runtime.clone(),
-										task_s.clone(),
-										task_map.clone(),
-										chain_config.clone(),
-										chain_client.clone(),
-										sign_data_sender.clone(),
-										db.clone(),
-									)
-									.await;
-								};
-							},
-						);
-					}
-				}
-			},
-			None => log::info!("failed to get BlockResponse from rosetta"),
 		}
 
 		Ok(())

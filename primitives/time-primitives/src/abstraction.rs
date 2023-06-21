@@ -125,6 +125,7 @@ pub struct TaskSchedule<AccountId> {
 	pub owner: AccountId,
 	pub shard_id: u64,
 	pub cycle: u64,
+	// used to check if the task is repetitive task
 	pub frequency: u64,
 	pub validity: Validity,
 	pub hash: String,
@@ -132,6 +133,12 @@ pub struct TaskSchedule<AccountId> {
 	pub status: ScheduleStatus,
 }
 
+impl<AccountId> TaskSchedule<AccountId> {
+	// check if task is repetitive, can't use the cycle to check because it can be decreased to 1
+	pub fn is_repetitive_task(&self) -> bool {
+		self.frequency > 0
+	}
+}
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct PayableTaskSchedule<AccountId> {
 	pub task_id: ObjectId,

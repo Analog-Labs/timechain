@@ -1487,7 +1487,7 @@ impl_runtime_apis! {
 
 	impl time_primitives::TimeApi<Block, AccountId>  for Runtime {
 		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
-			Some(TesseractSigStorage::tss_shards(shard_id)?.members())
+			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
 
 		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {

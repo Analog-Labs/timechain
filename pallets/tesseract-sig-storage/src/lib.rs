@@ -64,7 +64,7 @@ pub mod pallet {
 		result,
 		vec::Vec,
 	};
-	use task_schedule::ScheduleFetchInterface;
+	use task_schedule::ScheduleInterface;
 	use time_primitives::{
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
@@ -129,7 +129,7 @@ pub mod pallet {
 		/// Slashing threshold percentage for commiting misbehavior consensus
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
-		type TaskScheduleHelper: ScheduleFetchInterface<Self::AccountId>;
+		type TaskScheduleHelper: ScheduleInterface<Self::AccountId>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
@@ -386,11 +386,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
+			let mut is_recurring = false;
 			let schedule_data = T::TaskScheduleHelper::get_schedule_via_key(key_id)?;
 			let payable_schedule_data =
 				T::TaskScheduleHelper::get_payable_schedule_via_key(key_id)?;
 
 			let shard_id = if let Some(schedule) = schedule_data {
+				is_recurring = schedule.cycle > 1;
 				schedule.shard_id
 			} else if let Some(payable_schedule) = payable_schedule_data {
 				payable_schedule.shard_id
@@ -415,6 +417,10 @@ pub mod pallet {
 				<SignatureStoreData<T>>::get(key_id, schedule_cycle).is_none(),
 				Error::<T>::DuplicateSignature
 			);
+
+			if is_recurring {
+				T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
+			}
 
 			<SignatureStoreData<T>>::insert(key_id, schedule_cycle, signature_data);
 
@@ -768,6 +774,11 @@ pub mod pallet {
 
 			log::error!("No local account available");
 			Err(Error::NoLocalAcctForSignedTx)
+		}
+	}
+	impl<T: Config> EligibleShard<u64> for Pallet<T> {
+		fn is_eligible_shard(id: u64) -> bool {
+			<TssShards<T>>::get(id).is_some()
 		}
 	}
 }

@@ -235,7 +235,6 @@ pub mod pallet {
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
 			let treasury = T::PalletAccounts::get_treasury();
-
 			let tokens_updated = T::ProxyExtend::proxy_update_token_used(&who, fix_fee);
 			ensure!(tokens_updated, Error::<T>::ProxyNotUpdated);
 			let master_acc = T::ProxyExtend::get_master_account(&who).unwrap();
@@ -276,13 +275,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
-			let _ = ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+			ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				ensure!(details.owner == who, Error::<T>::NoPermission);
 
 				details.status = status;
 				Ok(())
-			});
+			})?;
 			Self::deposit_event(Event::ScheduleUpdated(key));
 
 			Ok(())
@@ -434,15 +433,16 @@ pub mod pallet {
 		}
 	}
 
-	pub trait ScheduleFetchInterface<AccountId> {
+	pub trait ScheduleInterface<AccountId> {
 		fn get_schedule_via_key(key: u64)
 			-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
 		fn get_payable_schedule_via_key(
 			key: u64,
 		) -> Result<Option<PayableTaskSchedule<AccountId>>, DispatchError>;
+		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
 	}
 
-	impl<T: Config> ScheduleFetchInterface<T::AccountId> for Pallet<T> {
+	impl<T: Config> ScheduleInterface<T::AccountId> for Pallet<T> {
 		fn get_schedule_via_key(
 			key: u64,
 		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
@@ -453,6 +453,15 @@ pub mod pallet {
 			key: u64,
 		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
 			Self::get_payable_schedule_by_key(key)
+		}
+
+		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError> {
+			ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
+				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				details.cycle = details.cycle.saturating_sub(1);
+				Ok(())
+			})?;
+			Ok(())
 		}
 	}
 }

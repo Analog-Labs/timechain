@@ -13,7 +13,6 @@ mod worker;
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
 
-pub type BlockHeight = u64;
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
 pub struct TaskExecutorParams<B: Block, A, R, BE>

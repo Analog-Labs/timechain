@@ -70,7 +70,7 @@ pub mod pallet {
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::{EligibleShard, Shard},
-		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_SIG_KEY, OCW_REP_KEY
+		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
 	pub trait WeightInfo {

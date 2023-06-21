@@ -20,7 +20,7 @@ if ($Cargo -or -not(Test-path ../cargo.toml.tar -PathType leaf))
 
 if ($Build -or $Upload)
 {
-    docker build .. -f ./Dockerfile -t ghcr.io/analog-labs/testnet
+    docker build .. -f ./docker/Dockerfile -t ghcr.io/analog-labs/testnet
 }
 
 if ($Upload)

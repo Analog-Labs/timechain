@@ -556,7 +556,7 @@ pub mod pallet {
 					// temporary report threshold while only collector can make reports
 					// => 2 reports is sufficient to lead to committed offenses
 					const REPORT_THRESHOLD: usize = 2;
-					if new_report_count.saturated_into::<usize>() >= 2 {
+					if new_report_count.saturated_into::<usize>() >= REPORT_THRESHOLD {
 						<CommitedOffences<T>>::insert(&offender, known_offender);
 						// removed ReportedOffences because moved to CommittedOffences
 						<ReportedOffences<T>>::remove(&offender);

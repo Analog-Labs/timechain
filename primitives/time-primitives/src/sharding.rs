@@ -11,14 +11,23 @@ pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,
 ];
 
-/// Return whether shard can be assigned work
+/// Report shard as unable to reach threshold
+pub trait ReassignShardTasks<Id> {
+	fn reassign_shard_tasks(_id: Id) {}
+}
+impl<Id> ReassignShardTasks<Id> for () {}
+/// Expose shard eligibility
 pub trait EligibleShard<Id> {
 	fn is_eligible_shard(id: Id) -> bool;
+	fn get_eligible_shards(n: usize) -> Vec<Id>;
 }
 impl<Id> EligibleShard<Id> for () {
 	fn is_eligible_shard(_id: Id) -> bool {
 		// all shards eligible by default for testing purposes
 		true
+	}
+	fn get_eligible_shards(_n: usize) -> Vec<Id> {
+		Vec::default()
 	}
 }
 

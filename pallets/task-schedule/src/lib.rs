@@ -60,7 +60,7 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
-		sharding::EligibleShard,
+		sharding::{EligibleShard, ReassignShardTasks},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
@@ -163,6 +163,10 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	#[pallet::getter(fn shard_tasks)]
+	pub type ShardTasks<T: Config> = StorageMap<_, Blake2_128Concat, u64, Vec<KeyId>, ValueQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
 	pub type ScheduleStorage<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
@@ -242,6 +246,7 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
@@ -309,6 +314,7 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			PayableScheduleStorage::<T>::insert(
 				schedule_id,
 				PayableTaskSchedule {
@@ -405,6 +411,25 @@ pub mod pallet {
 			let data = PayableScheduleStorage::<T>::get(key);
 
 			Ok(data)
+		}
+	}
+
+	impl<T: Config> ReassignShardTasks<u64> for Pallet<T> {
+		fn reassign_shard_tasks(id: u64) {
+			let shard_tasks = ShardTasks::<T>::take(id);
+			let available_shards = T::ShardEligibility::get_eligible_shards(shard_tasks.len());
+			// Reassign all tasks for shard to other shards
+			for (i, key) in shard_tasks.into_iter().enumerate() {
+				let next_available_shard = available_shards[i % available_shards.len()];
+				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
+					// reassign task to different shard
+					schedule.shard_id = next_available_shard;
+					ScheduleStorage::<T>::insert(key, schedule);
+				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(key) {
+					payable_schedule.shard_id = next_available_shard;
+					PayableScheduleStorage::<T>::insert(key, payable_schedule);
+				}
+			}
 		}
 	}
 

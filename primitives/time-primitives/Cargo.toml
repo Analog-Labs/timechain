@@ -18,4 +18,4 @@ anyhow = { version = "~1.0", default-features = false }
 
 [features]
 default = ["std"]
-std = ["sp-std/std", "codec/std", "scale-info/std", "sp-api/std", "sp-runtime/std", "thiserror"]
+std = ["sp-std/std", "codec/std", "scale-info/std", "sp-api/std", "sp-runtime/std", "thiserror" ]

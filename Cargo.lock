@@ -6087,6 +6087,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-timegraph"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-timestamp"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.43#a2037bdedef0aa812017efee1d0fa63d4f5fcbae"

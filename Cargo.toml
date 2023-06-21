@@ -2,6 +2,7 @@
 members = [
     "node",
     "pallets/pallet-proxy",
+    "pallets/pallet-timegraph",
     "pallets/task-metadata",
     "pallets/task-metadata/task-meta-bench",
     "pallets/task-schedule",

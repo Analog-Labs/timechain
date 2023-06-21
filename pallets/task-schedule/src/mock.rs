@@ -1,11 +1,10 @@
-use crate::{self as task_schedule};
+use crate::*;
 use frame_support::{
 	sp_io,
 	traits::{ConstU16, ConstU32, ConstU64},
 	PalletId,
 };
 use frame_system as system;
-use pallet_session::ShouldEndSession;
 use sp_core::H256;
 use sp_runtime::MultiSignature;
 use sp_runtime::{
@@ -38,14 +37,6 @@ pub type Index = u64;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-pub struct ShouldEndSessionMock();
-
-impl ShouldEndSession<u64> for ShouldEndSessionMock {
-	fn should_end_session(_now: u64) -> bool {
-		true
-	}
-}
-
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -56,8 +47,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>},
-		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
-		TaskSchedule: task_schedule::{Pallet, Call, Storage, Event<T>},
+		PalletTimegraph: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -173,25 +163,6 @@ impl frame_system::offchain::SigningTypes for Test {
 	type Signature = Signature;
 }
 
-pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-	fn get_treasury() -> AccountId {
-		Treasury::account_id()
-	}
-}
-
-impl task_schedule::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
-	type ProxyExtend = PalletProxy;
-	type PalletAccounts = CurrentPalletAccounts;
-	type Currency = Balances;
-	type ScheduleFee = ScheduleFee;
-	type ShouldEndSession = ShouldEndSessionMock;
-	type IndexerReward = IndexerReward;
-	type AuthorityId = task_schedule::crypto::SigAuthId;
-	type ShardEligibility = ();
-}
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {

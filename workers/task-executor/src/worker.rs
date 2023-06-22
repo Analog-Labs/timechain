@@ -121,14 +121,14 @@ where
 		schedule_id: &u64,
 		schedule: &TaskSchedule<A>,
 	) -> Result<()> {
-			let metadata = self
-				.runtime
-				.runtime_api()
-				.get_task_metadata_by_key(block_id, schedule.task_id.0)?
-				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		let metadata = self
+			.runtime
+			.runtime_api()
+			.get_task_metadata_by_key(block_id, schedule.task_id.0)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
-			let shard_id = schedule.shard_id;
-			let Some(task) = metadata else {
+		let shard_id = schedule.shard_id;
+		let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 
 					if self.is_collector(block_id, shard_id).unwrap_or(false) {
@@ -138,41 +138,35 @@ where
 					return Ok(());
 				};
 
-			match &task.function {
-				// If the task function is an Ethereum contract
-				// call, call it and send for signing
-				Function::EthereumViewWithoutAbi {
-					address,
-					function_signature,
-					input: _,
-					output: _,
-				} => {
-					log::info!("running task_id {:?}", schedule_id);
-					let method = format!("{address}-{function_signature}-call");
-					let request = CallRequest {
-						network_identifier: self.rosetta_chain_config.network(),
-						method,
-						parameters: json!({}),
-					};
-					let data = self.rosetta_client.call(&request).await?;
-					if !self
-						.send_for_sign(
-							block_id,
-							data.clone(),
-							shard_id,
-							*schedule_id,
-							schedule.cycle,
-						)
-						.await?
-					{
-						log::warn!("status not updated can't updated data into DB");
-						return Ok(());
-					}
-				},
-				_ => {
-					log::warn!("error on matching task function")
-				},
-			};
+		match &task.function {
+			// If the task function is an Ethereum contract
+			// call, call it and send for signing
+			Function::EthereumViewWithoutAbi {
+				address,
+				function_signature,
+				input: _,
+				output: _,
+			} => {
+				log::info!("running task_id {:?}", schedule_id);
+				let method = format!("{address}-{function_signature}-call");
+				let request = CallRequest {
+					network_identifier: self.rosetta_chain_config.network(),
+					method,
+					parameters: json!({}),
+				};
+				let data = self.rosetta_client.call(&request).await?;
+				if !self
+					.send_for_sign(block_id, data.clone(), shard_id, *schedule_id, schedule.cycle)
+					.await?
+				{
+					log::warn!("status not updated can't updated data into DB");
+					return Ok(());
+				}
+			},
+			_ => {
+				log::warn!("error on matching task function")
+			},
+		};
 		Ok(())
 	}
 

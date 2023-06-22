@@ -254,7 +254,8 @@ pub mod pallet {
 					owner: who,
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
-					start_block: 0,
+					frequency: schedule.frequency,
+					start_execution_block: 0,
 					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,
@@ -335,13 +336,24 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+		pub fn get_one_time_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| !item.1.is_repetitive_task())
 				.collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
+
+		pub fn get_repetitive_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+			let data_list = ScheduleStorage::<T>::iter()
+				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| item.1.is_repetitive_task())
+				.collect::<Vec<_>>();
+
+			Ok(data_list)
+		}
+
 		pub fn get_schedules_by_task_id(
 			key: ObjectId,
 		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {

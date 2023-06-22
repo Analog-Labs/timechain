@@ -1498,12 +1498,16 @@ impl_runtime_apis! {
 			TaskMeta::get_tasks()
 		}
 
-		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
+		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
-			TaskSchedule::get_schedules()
+		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_one_time_schedules()
+		}
+
+		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_repetitive_schedules()
 		}
 
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {

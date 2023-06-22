@@ -100,6 +100,8 @@ fn test_signature_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 0,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -174,6 +176,8 @@ fn test_signature_and_decrement_schedule_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 0,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -197,7 +201,8 @@ fn test_signature_and_decrement_schedule_storage() {
 			task_id: ObjectId(1),
 			owner: ALICE.clone(),
 			shard_id: 0,
-			start_block: 0,
+			frequency: 0,
+			start_execution_block: 0,
 			cycle: 11,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -256,6 +261,8 @@ fn test_duplicate_signature() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 1,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
@@ -476,7 +483,7 @@ fn test_report_misbehavior_increments_report_count() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice_report.clone().into(),
+			alice_report.into(),
 		));
 		// 2 reported offences
 		assert_eq!(2, TesseractSigStorage::commited_offences(CHARLIE).unwrap().0);
@@ -530,7 +537,7 @@ fn test_report_misbehavior_updates_reporters() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice_report.clone().into(),
+			alice_report.into(),
 		));
 		// alice is only reporter
 		assert!(TesseractSigStorage::commited_offences(CHARLIE)
@@ -590,7 +597,7 @@ fn test_report_misbehavior_moves_offences_to_committed() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice_report.clone().into(),
+			alice_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(CHARLIE).is_some());
 		// remove reported_offences from storage once moved to commited_offences
@@ -664,7 +671,7 @@ fn test_report_misbehavior_for_group_len_5() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			charlie_report.clone().into(),
+			charlie_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(ALICE).is_some());
 	});
@@ -790,7 +797,7 @@ fn test_report_misbehavior_for_group_len_10() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			edward_report.clone().into(),
+			edward_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(ALICE).is_some());
 	});

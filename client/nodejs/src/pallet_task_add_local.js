@@ -43,7 +43,7 @@ const pallet_task_add = async (_keyspair, who) => {
             output: 2,
         }},
         with:['123','123'],
-        cycle:12,
+        cycle:1,
         validity:{Seconds:12},
         hash:'asdasd'
     }

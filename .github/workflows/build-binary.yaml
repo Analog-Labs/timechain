@@ -6,7 +6,7 @@ on:
       - "ci/binary/**"
 
 env:
-  DOCKER_REPO: penumbra23/analog-timechain
+  DOCKER_REPO: analoglabs/timechain
 
 jobs:
   set-tags:

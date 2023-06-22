@@ -483,7 +483,7 @@ fn test_report_misbehavior_increments_report_count() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice_report.clone().into(),
+			alice_report.into(),
 		));
 		// 2 reported offences
 		assert_eq!(2, TesseractSigStorage::commited_offences(CHARLIE).unwrap().0);
@@ -537,7 +537,7 @@ fn test_report_misbehavior_updates_reporters() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice_report.clone().into(),
+			alice_report.into(),
 		));
 		// alice is only reporter
 		assert!(TesseractSigStorage::commited_offences(CHARLIE)
@@ -597,7 +597,7 @@ fn test_report_misbehavior_moves_offences_to_committed() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice_report.clone().into(),
+			alice_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(CHARLIE).is_some());
 		// remove reported_offences from storage once moved to commited_offences
@@ -671,7 +671,7 @@ fn test_report_misbehavior_for_group_len_5() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			charlie_report.clone().into(),
+			charlie_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(ALICE).is_some());
 	});
@@ -797,7 +797,7 @@ fn test_report_misbehavior_for_group_len_10() {
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			edward_report.clone().into(),
+			edward_report.into(),
 		));
 		assert!(TesseractSigStorage::commited_offences(ALICE).is_some());
 	});

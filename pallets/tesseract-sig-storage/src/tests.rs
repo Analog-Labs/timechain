@@ -100,7 +100,7 @@ fn test_signature_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
-			frequency: 1,
+			frequency: 0,
 			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
@@ -176,6 +176,8 @@ fn test_signature_and_decrement_schedule_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 0,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -199,7 +201,8 @@ fn test_signature_and_decrement_schedule_storage() {
 			task_id: ObjectId(1),
 			owner: ALICE.clone(),
 			shard_id: 0,
-			start_block: 0,
+			frequency: 0,
+			start_execution_block: 0,
 			cycle: 11,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),

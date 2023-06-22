@@ -121,7 +121,6 @@ where
 		schedule_id: &u64,
 		schedule: &TaskSchedule<A>,
 	) -> Result<()> {
-		if !self.tasks.contains(schedule_id) {
 			let metadata = self
 				.runtime
 				.runtime_api()
@@ -174,7 +173,6 @@ where
 					log::warn!("error on matching task function")
 				},
 			};
-		}
 		Ok(())
 	}
 
@@ -209,6 +207,10 @@ where
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
+			// if task is already executed then skip
+			if self.tasks.contains(&id) {
+				continue;
+			}
 			tree_map.insert(id, schedule);
 		}
 

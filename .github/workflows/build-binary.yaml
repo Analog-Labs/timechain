@@ -1,0 +1,51 @@
+name: Build latest artifacts
+
+on:
+  push:
+    branches:
+      - "ci/binary/**"
+
+env:
+  DOCKER_REPO: penumbra23/analog-timechain
+
+jobs:
+  set-tags:
+    name: Get & set tags
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get-sha.outputs.sha }}
+      commit_hash8: ${{ steps.get-sha.outputs.sha8 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get SHA
+        id: get-sha
+        run: |
+          sha=$(git log -1 --format='%H')
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
+          echo "SHA commit:" $sha
+
+  build-binary:
+    name: Build Docker image
+    needs: ["set-tags"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
+          file: docker/Dockerfile.release

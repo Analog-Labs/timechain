@@ -11,14 +11,23 @@ pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,
 ];
 
-/// Return whether shard can be assigned work
+/// Report shard as unable to reach threshold
+pub trait ReassignShardTasks<Id> {
+	fn reassign_shard_tasks(_id: Id) {}
+}
+impl<Id> ReassignShardTasks<Id> for () {}
+/// Expose shard eligibility
 pub trait EligibleShard<Id> {
 	fn is_eligible_shard(id: Id) -> bool;
+	fn get_eligible_shards(n: usize) -> Vec<Id>;
 }
 impl<Id> EligibleShard<Id> for () {
 	fn is_eligible_shard(_id: Id) -> bool {
 		// all shards eligible by default for testing purposes
 		true
+	}
+	fn get_eligible_shards(_n: usize) -> Vec<Id> {
+		Vec::default()
 	}
 }
 
@@ -41,6 +50,10 @@ impl Shard {
 			Shard::Five(set) => &set[0],
 			Shard::Ten(set) => &set[0],
 		}
+	}
+
+	pub fn is_collector(&self, id: &TimeId) -> bool {
+		self.collector() == id
 	}
 
 	/// Sets collector to a given ID if is not the same.
@@ -69,6 +82,15 @@ impl Shard {
 			Shard::Five(set) => set.to_vec(),
 			Shard::Ten(set) => set.to_vec(),
 		}
+	}
+
+	pub fn contains_member(&self, member: &TimeId) -> bool {
+		let members = match self {
+			Shard::Three(s) => s.to_vec(),
+			Shard::Five(s) => s.to_vec(),
+			Shard::Ten(s) => s.to_vec(),
+		};
+		members.contains(member)
 	}
 
 	/// Returns the shard threshold.

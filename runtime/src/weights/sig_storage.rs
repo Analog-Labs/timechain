@@ -81,4 +81,9 @@ impl<T: frame_system::Config> pallet_tesseract_sig_storage::WeightInfo for Weigh
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	// TODO: rerun with prod machine
+	fn report_misbehavior() -> Weight {
+		T::DbWeight::get().writes(2)
+	}
 }

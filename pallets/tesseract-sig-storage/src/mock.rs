@@ -238,6 +238,7 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SessionInterface = SessionInterfaceMock<AccountId>;
 	type MaxChronicleWorkers = ConstU32<3>;
 	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
+	type TaskAssigner = ();
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

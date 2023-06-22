@@ -1,0 +1,54 @@
+name: Build runtime artifacts
+
+on:
+  push:
+    branches:
+      - "ci/runtime/**"
+
+jobs:
+  set-tags:
+    name: Get & set tags
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get-sha.outputs.sha }}
+      commit_hash8: ${{ steps.get-sha.outputs.sha8 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get SHA
+        id: get-sha
+        run: |
+          sha=$(git log -1 --format='%H')
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
+          echo "SHA commit:" $sha
+
+  build-runtime:
+    name: Build runtimes
+    needs: ["set-tags"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v3
+
+      - name: Build timechain runtime
+        id: srtool_build
+        uses: chevdor/srtool-actions@v0.7.0
+        with:
+          image: paritytech/srtool
+          chain: timechain
+          runtime_dir: "runtime"
+
+      - name: Srtool summary
+        run: |
+          echo '${{ steps.srtool_build.outputs.json }}' | jq . > timechain-srtool-digest.json
+          cat timechain-srtool-digest.json
+          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm_compressed }}"
+
+      - name: Upload timechain runtime artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: timechain-runtime
+          path: |
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
+            timechain-srtool-digest.json

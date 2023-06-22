@@ -44,9 +44,9 @@ pub struct TaskExecutor<B, BE, R, A> {
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
-	BE: Backend<B> + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
-	A: codec::Codec + Clone + 'static,
+	BE: Backend<B>,
+	R: ProvideRuntimeApi<B>,
+	A: codec::Codec + Clone,
 	R::Api: TimeApi<B, A>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {

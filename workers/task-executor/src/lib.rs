@@ -40,9 +40,9 @@ where
 pub async fn start_task_executor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
 where
 	B: Block,
-	A: codec::Codec + Clone + 'static + std::marker::Send + std::marker::Sync,
-	R: ProvideRuntimeApi<B> + std::marker::Sync + std::marker::Send + 'static,
-	BE: Backend<B> + 'static,
+	A: codec::Codec + Clone + 'static,
+	R: ProvideRuntimeApi<B>,
+	BE: Backend<B>,
 	R::Api: TimeApi<B, A>,
 {
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");

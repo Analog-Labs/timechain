@@ -292,7 +292,6 @@ where
 				.entry(align_block_height)
 				.or_insert(vec![])
 				.push((id, schedule));
-
 		}
 
 		// iterate all block height

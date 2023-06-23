@@ -248,7 +248,6 @@ where
 				.or_insert(vec![])
 				.push((id, schedule));
 
-			self.tasks.insert(id);
 		}
 
 		// iterate all block height

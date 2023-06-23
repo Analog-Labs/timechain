@@ -109,6 +109,10 @@ pub mod pallet {
 			Self::ocw_get_sig_data();
 			Self::ocw_get_report_data();
 		}
+		fn on_initialize(n: T::BlockNumber) -> Weight {
+			// go through all open tasks and check if any new time outs exist
+			Weight::default() // TODO: update
+		}
 	}
 
 	#[pallet::config]
@@ -134,6 +138,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
 		type TaskAssigner: ReassignShardTasks<u64>;
+		/// Minimum length in blocks before task is determined to be timed out
+		#[pallet::constant]
+		type TimeoutLength: Get<T::BlockNumber>;
+		/// Maximum number of task execution timeouts before shard is put offline
+		#[pallet::constant]
+		type MaxTimeouts: Get<u8>;
 	}
 
 	#[pallet::storage]
@@ -210,16 +220,20 @@ pub mod pallet {
 		SignatureStored(KeyId, ScheduleCycle),
 
 		/// New group key submitted to runtime
-		/// .0 - set_id,
+		/// .0 - ShardId
 		/// .1 - group key bytes
 		NewTssGroupKey(u64, [u8; 33]),
 
 		/// Shard has ben registered with new Id
+		/// .0 ShardId
 		ShardRegistered(u64),
 
+		/// Task execution timed out for task
+		TaskExecutionTimeout(KeyId),
+
 		/// Shard went offline due to committed offenses preventing threshold
-		/// .0 Offender TimeId
-		/// .1 Report count
+		/// or task execution timeout(s) by collector
+		/// .0 ShardId
 		ShardOffline(u64),
 
 		/// Offence reported, above threshold s.t.

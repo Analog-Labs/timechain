@@ -16,8 +16,13 @@ pub enum ShardStatus {
 
 #[derive(Clone, Encode, Decode, scale_info::TypeInfo)]
 pub struct ShardState {
+	/// Shard membership
 	pub shard: Shard,
+	/// Number of tasks timed out by the shard collector
+	pub task_timeout_count: u8,
+	/// Number of committed offenses for the shard
 	pub committed_offenses_count: u8,
+	/// Status for shard
 	pub status: ShardStatus,
 }
 
@@ -28,12 +33,25 @@ impl ShardState {
 	) -> Result<ShardState, DispatchError> {
 		Ok(ShardState {
 			shard: new_shard::<T>(members, collector_index)?,
+			task_timeout_count: 0u8,
 			committed_offenses_count: 0u8,
 			status: ShardStatus::Online,
 		})
 	}
 	pub fn is_online(&self) -> bool {
 		self.status == ShardStatus::Online
+	}
+	pub fn increment_task_timeout_count<T: Config>(&mut self, id: u64) {
+		self.task_timeout_count = self.task_timeout_count.saturating_plus_one();
+		let timeouts_above_max = self.task_timeout_count > T::MaxTimeouts::get();
+		if timeouts_above_max && self.is_online() {
+			// set shard to offline if cannot reach consensus and status is not offline
+			self.status = ShardStatus::Offline;
+			// reassign all of this shard's tasks to other shards
+			T::TaskAssigner::reassign_shard_tasks(id);
+			Pallet::<T>::deposit_event(Event::ShardOffline(id));
+		}
+		<TssShards<T>>::insert(id, self);
 	}
 	pub fn increment_committed_offense_count<T: Config>(&mut self, id: u64) {
 		self.committed_offenses_count = self.committed_offenses_count.saturating_plus_one();

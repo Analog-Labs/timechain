@@ -66,8 +66,10 @@ pub mod pallet {
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
-	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
-	pub type PayableScheduleResults<AccountId> = Vec<(KeyId, PayableTaskSchedule<AccountId>)>;
+	pub type ScheduleResults<AccountId, BlockNumber> =
+		Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>;
+	pub type PayableScheduleResults<AccountId, BlockNumber> =
+		Vec<(KeyId, PayableTaskSchedule<AccountId, BlockNumber>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
@@ -168,13 +170,23 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
-	pub type ScheduleStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
+	pub type ScheduleStorage<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		KeyId,
+		TaskSchedule<T::AccountId, T::BlockNumber>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_payable_task_schedule)]
-	pub type PayableScheduleStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, PayableTaskSchedule<T::AccountId>, OptionQuery>;
+	pub type PayableScheduleStorage<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		KeyId,
+		PayableTaskSchedule<T::AccountId, T::BlockNumber>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
@@ -255,7 +267,7 @@ pub mod pallet {
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
-					start_execution_block: 0,
+					start_execution_block: frame_system::Pallet::<T>::block_number(),
 					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,
@@ -322,6 +334,7 @@ pub mod pallet {
 					task_id: schedule.task_id,
 					owner: who,
 					shard_id: schedule.shard_id,
+					start_execution_block: frame_system::Pallet::<T>::block_number(),
 					status: ScheduleStatus::Initiated,
 				},
 			);
@@ -336,7 +349,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn get_one_time_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+		pub fn get_one_time_schedules(
+		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.filter(|item| !item.1.is_repetitive_task())
@@ -345,7 +359,8 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		pub fn get_repetitive_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+		pub fn get_repetitive_schedules(
+		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.filter(|item| item.1.is_repetitive_task())
@@ -356,7 +371,7 @@ pub mod pallet {
 
 		pub fn get_schedules_by_task_id(
 			key: ObjectId,
-		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Vec<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = ScheduleStorage::<T>::iter_values()
 				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
@@ -371,14 +386,14 @@ pub mod pallet {
 
 		pub fn get_schedule_by_key(
 			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = ScheduleStorage::<T>::get(key);
 
 			Ok(data)
 		}
 
 		pub fn get_payable_task_schedules(
-		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
+		) -> Result<PayableScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = PayableScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
@@ -388,7 +403,7 @@ pub mod pallet {
 
 		pub fn get_payable_schedules_by_task_id(
 			key: ObjectId,
-		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Vec<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = PayableScheduleStorage::<T>::iter_values()
 				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
@@ -419,7 +434,7 @@ pub mod pallet {
 
 		pub fn get_payable_schedule_by_key(
 			key: u64,
-		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = PayableScheduleStorage::<T>::get(key);
 
 			Ok(data)
@@ -445,25 +460,26 @@ pub mod pallet {
 		}
 	}
 
-	pub trait ScheduleInterface<AccountId> {
-		fn get_schedule_via_key(key: u64)
-			-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
+	pub trait ScheduleInterface<AccountId, BlockNumber> {
+		fn get_schedule_via_key(
+			key: u64,
+		) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
 		fn get_payable_schedule_via_key(
 			key: u64,
-		) -> Result<Option<PayableTaskSchedule<AccountId>>, DispatchError>;
+		) -> Result<Option<PayableTaskSchedule<AccountId, BlockNumber>>, DispatchError>;
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
 	}
 
-	impl<T: Config> ScheduleInterface<T::AccountId> for Pallet<T> {
+	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
 		fn get_schedule_via_key(
 			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			Self::get_schedule_by_key(key)
 		}
 
 		fn get_payable_schedule_via_key(
 			key: u64,
-		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			Self::get_payable_schedule_by_key(key)
 		}
 

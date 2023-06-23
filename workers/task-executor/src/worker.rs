@@ -247,7 +247,6 @@ where
 				.entry(align_block_height)
 				.or_insert(vec![])
 				.push((id, schedule));
-
 		}
 
 		// iterate all block height
@@ -339,7 +338,11 @@ where
 				Ok(at) => {
 					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
 					{
-						log::error!("Failed to process repetitive tasks for block {:?}: {:?}", at, e);
+						log::error!(
+							"Failed to process repetitive tasks for block {:?}: {:?}",
+							at,
+							e
+						);
 					}
 				},
 				Err(e) => {

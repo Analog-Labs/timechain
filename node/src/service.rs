@@ -414,7 +414,7 @@ pub fn new_full(
 			connector_network: connector_network.clone(),
 		};
 		task_manager.spawn_essential_handle().spawn_blocking(
-			"task-executor",
+			"repetitive-task-executor",
 			None,
 			task_executor::start_task_executor_gadget(task_executor_params, true),
 		);

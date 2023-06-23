@@ -227,6 +227,7 @@ where
 		block_id: <B as Block>::Hash,
 		block_height: BlockHeight,
 	) -> Result<()> {
+		// get all initialized repetitive tasks
 		let task_schedules = self
 			.runtime
 			.runtime_api()
@@ -240,15 +241,20 @@ where
 				continue;
 			}
 
+			// put the new task in repetitive task map
 			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
 			self.repetitive_tasks
 				.entry(align_block_height)
 				.or_insert(vec![])
 				.push((id, schedule));
+
+			self.tasks.insert(id);
 		}
 
+		// iterate all block height
 		for index in self.last_block_height..block_height {
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
+				// execute all task for specific task
 				for schedule in tasks {
 					match self.task_executor(block_id, &schedule.0, &schedule.1).await {
 						Ok(()) => {
@@ -256,6 +262,7 @@ where
 						},
 						Err(e) => log::warn!("error in single task schedule result {:?}", e),
 					}
+					// put the task in map for next execution
 					self.repetitive_tasks
 						.entry(index + schedule.1.frequency)
 						.or_insert(vec![])
@@ -318,26 +325,29 @@ where
 
 	pub async fn run_repetitive_task(&mut self) {
 		loop {
-			tokio::time::sleep(Duration::from_millis(100)).await;
+			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
 				continue;
 			};
 			let current_block = status.current_block_identifier.index;
+			// update last block height if never set before
 			if self.last_block_height == 0 {
 				self.last_block_height = current_block;
 			}
 
+			// get the last finalized block number
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
 					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
 					{
-						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
+						log::error!("Failed to process repetitive tasks for block {:?}: {:?}", at, e);
 					}
 				},
 				Err(e) => {
 					log::error!("Blockchain is empty: {}", e);
 				},
 			}
+			tokio::time::sleep(Duration::from_millis(100)).await;
 		}
 	}
 }

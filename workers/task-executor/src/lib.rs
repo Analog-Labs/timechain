@@ -12,7 +12,7 @@ mod worker;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
-
+pub type BlockHeight = u64;
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
 pub struct TaskExecutorParams<B: Block, A, R, BE>
@@ -37,8 +37,10 @@ where
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_task_executor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
-where
+pub async fn start_task_executor_gadget<B, A, R, BE>(
+	params: TaskExecutorParams<B, A, R, BE>,
+	repetitive: bool,
+) where
 	B: Block,
 	A: codec::Codec + Clone + 'static,
 	R: ProvideRuntimeApi<B>,
@@ -47,5 +49,9 @@ where
 {
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");
 	let mut worker = TaskExecutor::new(params).await.unwrap();
-	worker.run().await;
+	if repetitive {
+		worker.run_repetitive_task().await;
+	} else {
+		worker.run().await;
+	}
 }

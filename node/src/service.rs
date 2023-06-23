@@ -383,6 +383,25 @@ pub fn new_full(
 			event_worker::start_eventworker_gadget(event_params),
 		);
 
+		// start the executor for one-time task
+		let task_executor_params = task_executor::TaskExecutorParams {
+			runtime: client.clone(),
+			backend: backend.clone(),
+			kv: keystore_container.keystore(),
+			_block: PhantomData::default(),
+			sign_data_sender: sign_data_sender.clone(),
+			account_id: PhantomData,
+			connector_url: connector_url.clone(),
+			connector_blockchain: connector_blockchain.clone(),
+			connector_network: connector_network.clone(),
+		};
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"task-executor",
+			None,
+			task_executor::start_task_executor_gadget(task_executor_params, false),
+		);
+
+		// start the executor for repetitive task
 		let task_executor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
@@ -397,7 +416,7 @@ pub fn new_full(
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"task-executor",
 			None,
-			task_executor::start_task_executor_gadget(task_executor_params),
+			task_executor::start_task_executor_gadget(task_executor_params, true),
 		);
 
 		let payabletaskexecutor_params = payable_task_executor::PayableTaskExecutorParams {

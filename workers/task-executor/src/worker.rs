@@ -1,4 +1,4 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -16,7 +16,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
@@ -39,6 +39,8 @@ pub struct TaskExecutor<B, BE, R, A> {
 	tasks: HashSet<u64>,
 	rosetta_chain_config: BlockchainConfig,
 	rosetta_client: Client,
+	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, TaskSchedule<A>)>>,
+	last_block_height: BlockHeight,
 }
 
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
@@ -76,6 +78,8 @@ where
 			tasks: Default::default(),
 			rosetta_chain_config,
 			rosetta_client,
+			repetitive_tasks: Default::default(),
+			last_block_height: 0,
 		})
 	}
 
@@ -218,6 +222,52 @@ where
 		Ok(())
 	}
 
+	async fn process_repetitive_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		block_height: BlockHeight,
+	) -> Result<()> {
+		let task_schedules = self
+			.runtime
+			.runtime_api()
+			.get_repetitive_task_schedule(block_id)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+
+		for (id, schedule) in task_schedules {
+			// if task is already executed then skip
+			if self.tasks.contains(&id) {
+				continue;
+			}
+
+			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
+			self.repetitive_tasks
+				.entry(align_block_height)
+				.or_insert(vec![])
+				.push((id, schedule));
+		}
+
+		for index in self.last_block_height..block_height {
+			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
+				for schedule in tasks {
+					match self.task_executor(block_id, &schedule.0, &schedule.1).await {
+						Ok(()) => {
+							self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule.0)
+						},
+						Err(e) => log::warn!("error in single task schedule result {:?}", e),
+					}
+					self.repetitive_tasks
+						.entry(index + schedule.1.frequency)
+						.or_insert(vec![])
+						.push(schedule);
+				}
+			}
+			self.last_block_height = index;
+		}
+
+		Ok(())
+	}
+
 	/// Add schedule update task to offchain storage
 	/// which will be use by offchain worker to send extrinsic
 	fn update_schedule_ocw_storage(&mut self, schedule_status: ScheduleStatus, key: KeyId) {
@@ -262,7 +312,32 @@ where
 					log::error!("Blockchain is empty: {}", e);
 				},
 			};
-			tokio::time::sleep(Duration::from_secs(10)).await;
+			tokio::time::sleep(Duration::from_secs(100)).await;
+		}
+	}
+
+	pub async fn run_repetitive_task(&mut self) {
+		loop {
+			tokio::time::sleep(Duration::from_millis(100)).await;
+			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				continue;
+			};
+			let current_block = status.current_block_identifier.index;
+			if self.last_block_height == 0 {
+				self.last_block_height = current_block;
+			}
+
+			match self.backend.blockchain().last_finalized() {
+				Ok(at) => {
+					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
+					{
+						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
+					}
+				},
+				Err(e) => {
+					log::error!("Blockchain is empty: {}", e);
+				},
+			}
 		}
 	}
 }

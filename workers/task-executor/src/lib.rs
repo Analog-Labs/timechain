@@ -4,11 +4,15 @@ use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
+use time_db::DatabaseConnection;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
 
 // mod task_schedule;
 mod worker;
+
+#[cfg(test)]
+mod tests;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
@@ -32,6 +36,7 @@ where
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
+	pub db: DatabaseConnection,
 }
 
 /// Start the task Executor gadget.

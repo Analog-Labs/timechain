@@ -60,6 +60,7 @@ where
 			connector_url,
 			connector_blockchain,
 			connector_network,
+			db,
 		} = params;
 
 		// create rosetta client and get chain configuration
@@ -148,13 +149,7 @@ where
 				output: _,
 			} => {
 				log::info!("running task_id {:?}", schedule_id);
-				let method = format!("{address}-{function_signature}-call");
-				let request = CallRequest {
-					network_identifier: self.rosetta_chain_config.network(),
-					method,
-					parameters: json!({}),
-				};
-				let data = self.rosetta_client.call(&request).await?;
+				let data = self.call_eth_contract(address, function_signature, input).await?;
 				if !self
 					.send_for_sign(block_id, data.clone(), shard_id, *schedule_id, schedule.cycle)
 					.await?
@@ -168,6 +163,21 @@ where
 			},
 		};
 		Ok(())
+	}
+
+	pub(crate) async fn call_eth_contract(
+		&self,
+		address: &str,
+		function: &str,
+		input: &Vec<String>,
+	) -> Result<CallResponse> {
+		let method = format!("{address}-{function}-call");
+		let request = CallRequest {
+			network_identifier: self.chain_config.network(),
+			method,
+			parameters: json!(input),
+		};
+		Ok(self.chain_client.call(&request).await?)
 	}
 
 	/// check if current node is collector

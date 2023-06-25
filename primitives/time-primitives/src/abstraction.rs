@@ -21,7 +21,7 @@ pub enum Function {
 	EthereumViewWithoutAbi {
 		address: String,
 		function_signature: String,
-		input: Vec<Input>,
+		input: Vec<String>,
 		output: Vec<Output>,
 	},
 	EthereumTxWithoutAbi {

@@ -383,6 +383,9 @@ pub fn new_full(
 			event_worker::start_eventworker_gadget(event_params),
 		);
 
+
+		let db = time_db::connect().await?;
+		
 		let task_executor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
@@ -393,6 +396,7 @@ pub fn new_full(
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),
+			db,
 		};
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"task-executor",

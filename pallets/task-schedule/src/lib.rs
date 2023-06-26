@@ -150,6 +150,7 @@ pub mod pallet {
 					}
 				}
 			}
+			TimedOutTasks::<T>::put(timed_out_tasks);
 			if T::ShouldEndSession::should_end_session(now) {
 				// TODO check if we should reward the indexer once or continue reward history data
 				// otherwise we can drain all data at the end of epoch
@@ -481,6 +482,7 @@ pub mod pallet {
 			let shard_tasks = ShardTasks::<T>::take(id);
 			let available_shards = T::ShardEligibility::get_eligible_shards(shard_tasks.len());
 			// Reassign all tasks for shard to other shards
+			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			for (i, key) in shard_tasks.into_iter().enumerate() {
 				let next_available_shard = available_shards[i % available_shards.len()];
 				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
@@ -494,7 +496,10 @@ pub mod pallet {
 						frame_system::Pallet::<T>::block_number();
 					PayableScheduleStorage::<T>::insert(key, payable_schedule);
 				}
+				// task no longer timed out upon reassignment
+				timed_out_tasks.retain(|task| *task != key);
 			}
+			TimedOutTasks::<T>::put(timed_out_tasks);
 		}
 	}
 
@@ -540,6 +545,8 @@ pub mod pallet {
 				schedule.status = ScheduleStatus::Completed;
 				PayableScheduleStorage::<T>::insert(key, schedule);
 			}
+			// no longer timed out upon completion
+			TimedOutTasks::<T>::mutate(|tasks| tasks.retain(|t| *t != key));
 		}
 	}
 }

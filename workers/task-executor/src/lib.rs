@@ -5,7 +5,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_db::DatabaseConnection;
 use time_primitives::TimeApi;
 
 // mod task_schedule;
@@ -36,7 +35,6 @@ where
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
-	pub db: Option<DatabaseConnection>,
 }
 
 /// Start the task Executor gadget.

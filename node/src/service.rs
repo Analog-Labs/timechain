@@ -393,7 +393,6 @@ pub fn new_full(
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),
-			db: None,
 		};
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"task-executor",

@@ -60,14 +60,11 @@ where
 			connector_url,
 			connector_blockchain,
 			connector_network,
-			db,
 		} = params;
 
 		// create rosetta client and get chain configuration
 		let (rosetta_chain_config, rosetta_client) =
 			create_client(connector_blockchain, connector_network, connector_url).await?;
-
-		let db_connection = if let Some(db_con) = db { db_con } else { time_db::connect().await? };
 
 		Ok(Self {
 			_block: PhantomData,
@@ -77,7 +74,6 @@ where
 			sign_data_sender,
 			kv,
 			tasks: Default::default(),
-			db: db_connection,
 			rosetta_chain_config,
 			rosetta_client,
 		})
@@ -148,7 +144,7 @@ where
 			Function::EthereumViewWithoutAbi {
 				address,
 				function_signature,
-				input: _,
+				input,
 				output: _,
 			} => {
 				log::info!("running task_id {:?}", schedule_id);
@@ -176,11 +172,11 @@ where
 	) -> Result<CallResponse> {
 		let method = format!("{address}-{function}-call");
 		let request = CallRequest {
-			network_identifier: self.chain_config.network(),
+			network_identifier: self.rosetta_chain_config.network(),
 			method,
 			parameters: json!(input),
 		};
-		Ok(self.chain_client.call(&request).await?)
+		Ok(self.rosetta_client.call(&request).await?)
 	}
 
 	/// check if current node is collector

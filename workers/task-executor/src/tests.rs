@@ -12,7 +12,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use substrate_test_runtime_client::sc_client_db::Backend;
 use substrate_test_runtime_client::{runtime::AccountId, TestClientBuilder};
-use time_db::DatabaseConnection;
 use time_primitives::sharding::Shard;
 use time_primitives::TimeApi;
 
@@ -87,15 +86,14 @@ async fn build_worker() -> TaskExecutorType {
 		runtime: runtime_api.into(),
 		kv: keystore,
 		_block: PhantomData::default(),
-		accountid: PhantomData::default(),
+		account_id: PhantomData::default(),
 		sign_data_sender,
 		connector_url: Some("http://rosetta.analog.one:8081".into()),
 		connector_blockchain: Some("ethereum".into()),
 		connector_network: Some("dev".into()),
-		db: Some(DatabaseConnection::default()),
 	};
 
-	TaskExecutor::new(params).await.unwrap();
+	TaskExecutor::new(params).await.unwrap()
 }
 
 #[tokio::test]

@@ -95,8 +95,7 @@ async fn build_worker() -> TaskExecutorType {
 		db: Some(DatabaseConnection::default()),
 	};
 
-	let worker = TaskExecutor::new(params).await.unwrap();
-    worker 
+	TaskExecutor::new(params).await.unwrap();
 }
 
 #[tokio::test]

@@ -1,6 +1,7 @@
 //! Shard type utilities
 use crate::{Config, Error, Event, Pallet, TssShards};
 use codec::{Decode, Encode};
+use frame_support::traits::Get;
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
 use time_primitives::{

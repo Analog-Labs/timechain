@@ -1034,6 +1034,7 @@ parameter_types! {
 	// Must be > 0 and <= 100
 	pub const SlashingPercentageThreshold: u8 = 51;
 	pub const MaxChronicleWorkers: u32 = 5;
+	pub const MaxTimeouts: u8 = 2;
 }
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
@@ -1048,6 +1049,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type MaxChronicleWorkers = MaxChronicleWorkers;
 	type SessionInterface = Self;
 	type TaskAssigner = TaskSchedule;
+	type MaxTimeouts = MaxTimeouts;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -1166,6 +1168,7 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
+	pub TimeoutLength: BlockNumber = 1000;
 }
 
 impl task_schedule::Config for Runtime {
@@ -1179,6 +1182,8 @@ impl task_schedule::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type IndexerReward = IndexerReward;
 	type ShardEligibility = TesseractSigStorage;
+	type ShardTimeouts = TesseractSigStorage;
+	type TimeoutLength = TimeoutLength;
 }
 
 impl pallet_proxy::Config for Runtime {

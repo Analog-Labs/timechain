@@ -60,7 +60,7 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
-		sharding::{EligibleShard, ReassignShardTasks},
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
@@ -126,6 +126,29 @@ pub mod pallet {
 		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let current_block = frame_system::Pallet::<T>::block_number();
+			let mut timed_out_tasks = TimedOutTasks::<T>::get();
+			let timed_out_length = T::TimeoutLength::get();
+			for (task_id, schedule) in <ScheduleStorage<T>>::iter() {
+				if !timed_out_tasks.contains(&task_id) {
+					if current_block.saturating_sub(schedule.start_execution_block)
+						>= timed_out_length
+					{
+						timed_out_tasks.push(task_id);
+						T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
+					}
+				}
+			}
+			for (task_id, schedule) in <PayableScheduleStorage<T>>::iter() {
+				if !timed_out_tasks.contains(&task_id) {
+					if current_block.saturating_sub(schedule.start_execution_block)
+						>= timed_out_length
+					{
+						timed_out_tasks.push(task_id);
+						T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
+					}
+				}
+			}
 			if T::ShouldEndSession::should_end_session(now) {
 				// TODO check if we should reward the indexer once or continue reward history data
 				// otherwise we can drain all data at the end of epoch
@@ -162,7 +185,15 @@ pub mod pallet {
 		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
 		type IndexerReward: Get<BalanceOf<Self>>;
 		type ShardEligibility: EligibleShard<u64>;
+		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
+		/// Minimum length in blocks before task is determined to be timed out
+		#[pallet::constant]
+		type TimeoutLength: Get<Self::BlockNumber>;
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn timed_out_tasks)]
+	pub type TimedOutTasks<T: Config> = StorageValue<_, Vec<KeyId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_tasks)]

@@ -148,6 +148,8 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
 	type ExecutionFee = ExecutionFee;
+	type TimeoutLength = ConstU64<1000>;
+	type ShardTimeouts = ();
 }
 
 // Build genesis storage according to the mock runtime.

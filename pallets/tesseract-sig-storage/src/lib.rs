@@ -69,7 +69,7 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, ReassignShardTasks, Shard},
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -109,10 +109,6 @@ pub mod pallet {
 			Self::ocw_get_sig_data();
 			Self::ocw_get_report_data();
 		}
-		fn on_initialize(n: T::BlockNumber) -> Weight {
-			// go through all open tasks and check if any new time outs exist
-			Weight::default() // TODO: update
-		}
 	}
 
 	#[pallet::config]
@@ -133,14 +129,11 @@ pub mod pallet {
 		/// Slashing threshold percentage for commiting misbehavior consensus
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
-		type TaskScheduleHelper: ScheduleInterface<Self::AccountId>;
+		type TaskScheduleHelper: ScheduleInterface<Self::AccountId, Self::BlockNumber>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
 		type TaskAssigner: ReassignShardTasks<u64>;
-		/// Minimum length in blocks before task is determined to be timed out
-		#[pallet::constant]
-		type TimeoutLength: Get<T::BlockNumber>;
 		/// Maximum number of task execution timeouts before shard is put offline
 		#[pallet::constant]
 		type MaxTimeouts: Get<u8>;
@@ -618,6 +611,14 @@ pub mod pallet {
 				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
+		}
+	}
+
+	impl<T: Config> IncrementTaskTimeoutCount<u64> for Pallet<T> {
+		fn increment_task_timeout_count(id: u64) {
+			if let Some(mut shard_state) = TssShards::<T>::get(id) {
+				shard_state.increment_task_timeout_count::<T>(id);
+			}
 		}
 	}
 

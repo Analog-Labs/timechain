@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
-	create_client,
+	create_client, create_wallet,
 	types::{CallRequest, CallResponse},
 	BlockchainConfig, Client,
 };
@@ -213,12 +213,13 @@ where
 			.runtime_api()
 			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+		log::info!("one time task schedule {:?}\n", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
 			if self.tasks.contains(&id) {
+				log::info!("one time schedule already executed");
 				continue;
 			}
 			tree_map.insert(id, schedule);
@@ -246,7 +247,7 @@ where
 			.runtime_api()
 			.get_repetitive_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+		log::info!("Repetitive task schedule {:?}\n", task_schedules.len());
 
 		let mut last_cycle_tasks = HashSet::new();
 
@@ -339,12 +340,13 @@ where
 	}
 
 	pub async fn run_repetitive_task(&mut self) {
+		tokio::task::spawn(simulate_eth_block_production(self.rosetta_chain_config.clone()));
 		loop {
 			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
 				continue;
 			};
-			let current_block = status.current_block_identifier.index;
+			let current_block: u64 = status.current_block_identifier.index;
 			// update last block height if never set before
 			if self.last_block_height == 0 {
 				self.last_block_height = current_block;
@@ -367,6 +369,22 @@ where
 				},
 			}
 			tokio::time::sleep(Duration::from_millis(1000)).await;
+		}
+	}
+}
+
+//only for dev ethereum env since it does not increment with itself
+async fn simulate_eth_block_production(rosetta_chain_config: BlockchainConfig) {
+	if rosetta_chain_config.blockchain == "ethereum" {
+		let mut interval = tokio::time::interval(Duration::from_secs(2));
+		let blockchain = Some("ethereum".into());
+		let network = Some("dev".into());
+		let connector_url = Some("http://rosetta.analog.one:8081".into());
+		let res_wallet = create_wallet(blockchain, network, connector_url, None).await.unwrap();
+
+		loop {
+			interval.tick().await;
+			let _ = res_wallet.faucet(10000).await;
 		}
 	}
 }

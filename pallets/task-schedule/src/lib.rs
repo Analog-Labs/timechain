@@ -499,6 +499,7 @@ pub mod pallet {
 			key: u64,
 		) -> Result<Option<PayableTaskSchedule<AccountId, BlockNumber>>, DispatchError>;
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
+		fn update_completed_task(key: u64);
 	}
 
 	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
@@ -521,6 +522,17 @@ pub mod pallet {
 				Ok(())
 			})?;
 			Ok(())
+		}
+
+		fn update_completed_task(key: u64) {
+			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
+				schedule.start_execution_block = frame_system::Pallet::<T>::block_number();
+				schedule.status = ScheduleStatus::Updated;
+				ScheduleStorage::<T>::insert(key, schedule);
+			} else if let Some(mut schedule) = PayableScheduleStorage::<T>::get(key) {
+				schedule.status = ScheduleStatus::Completed;
+				PayableScheduleStorage::<T>::insert(key, schedule);
+			}
 		}
 	}
 }

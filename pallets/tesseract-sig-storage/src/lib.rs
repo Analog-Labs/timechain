@@ -425,6 +425,9 @@ pub mod pallet {
 				Error::<T>::DuplicateSignature
 			);
 
+			// Updates completed task status and start_execution_block for
+			// ongoing recurring tasks.
+			T::TaskScheduleHelper::update_completed_task(key_id);
 			if is_recurring {
 				T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
 			}

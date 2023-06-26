@@ -382,7 +382,7 @@ pub fn new_full(
 			None,
 			event_worker::start_eventworker_gadget(event_params),
 		);
-		
+
 		let task_executor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),

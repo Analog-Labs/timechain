@@ -1,7 +1,7 @@
 use crate::{worker::TaskExecutor, TaskExecutorParams};
 use futures::channel::mpsc;
 // use sc_client_api::in_mem::Backend;
-use substrate_test_runtime_client::sc_client_db::Backend;
+use crate::tests::sr25519::Public;
 use sc_keystore::LocalKeystore;
 use sc_network_test::Block;
 use sc_network_test::TestClientBuilderExt;
@@ -10,11 +10,11 @@ use sp_core::sr25519;
 use sp_core::Pair;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use substrate_test_runtime_client::sc_client_db::Backend;
 use substrate_test_runtime_client::{runtime::AccountId, TestClientBuilder};
 use time_db::DatabaseConnection;
 use time_primitives::sharding::Shard;
 use time_primitives::TimeApi;
-use crate::tests::sr25519::Public;
 
 // pub struct Public(pub [u8; 32]);
 type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public>;
@@ -101,7 +101,7 @@ async fn build_worker() -> TaskExecutorType {
 #[tokio::test]
 // Ethereum localnet contract call
 async fn task_executor_ethereum_sc_call() {
-    let worker = build_worker().await;
+	let worker = build_worker().await;
 	let address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 	let function = "function get_votes_stats() external view returns (uint, uint)";
 	let input: Vec<String> = vec![];
@@ -115,7 +115,7 @@ async fn task_executor_ethereum_sc_call() {
 #[ignore]
 //astar connector is under development will update below function if needed when its done.
 async fn task_executor_astar_sc_call() {
-    let worker = build_worker().await;
+	let worker = build_worker().await;
 	let address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
 	let function = "function get_votes_stats() external view returns (uint, uint)";
 	let input: Vec<String> = vec![];

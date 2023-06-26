@@ -482,9 +482,12 @@ pub mod pallet {
 				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
 					// reassign task to different shard
 					schedule.shard_id = next_available_shard;
+					schedule.start_execution_block = frame_system::Pallet::<T>::block_number();
 					ScheduleStorage::<T>::insert(key, schedule);
 				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(key) {
 					payable_schedule.shard_id = next_available_shard;
+					payable_schedule.start_execution_block =
+						frame_system::Pallet::<T>::block_number();
 					PayableScheduleStorage::<T>::insert(key, payable_schedule);
 				}
 			}

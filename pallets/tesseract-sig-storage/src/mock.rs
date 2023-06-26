@@ -205,7 +205,8 @@ impl task_schedule::Config for Test {
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = ();
 	type ShardTimeouts = ();
-	type TimeoutLength = ConstU64<1000>;
+	type RecurringTimeoutLength = ConstU64<2>;
+	type PayableTimeoutLength = ConstU64<1000>;
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);

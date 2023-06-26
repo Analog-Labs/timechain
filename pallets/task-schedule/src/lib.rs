@@ -128,21 +128,22 @@ pub mod pallet {
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let current_block = frame_system::Pallet::<T>::block_number();
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
-			let timed_out_length = T::TimeoutLength::get();
+			let recurring_time_out_length = T::RecurringTimeoutLength::get();
 			for (task_id, schedule) in <ScheduleStorage<T>>::iter() {
 				if !timed_out_tasks.contains(&task_id) {
 					if current_block.saturating_sub(schedule.start_execution_block)
-						>= timed_out_length
+						>= recurring_time_out_length
 					{
 						timed_out_tasks.push(task_id);
 						T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
 					}
 				}
 			}
+			let payable_time_out_length = T::PayableTimeoutLength::get();
 			for (task_id, schedule) in <PayableScheduleStorage<T>>::iter() {
 				if !timed_out_tasks.contains(&task_id) {
 					if current_block.saturating_sub(schedule.start_execution_block)
-						>= timed_out_length
+						>= payable_time_out_length
 					{
 						timed_out_tasks.push(task_id);
 						T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
@@ -186,9 +187,12 @@ pub mod pallet {
 		type IndexerReward: Get<BalanceOf<Self>>;
 		type ShardEligibility: EligibleShard<u64>;
 		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
-		/// Minimum length in blocks before task is determined to be timed out
+		/// Minimum length in blocks before recurring task is determined to be timed out
 		#[pallet::constant]
-		type TimeoutLength: Get<Self::BlockNumber>;
+		type RecurringTimeoutLength: Get<Self::BlockNumber>;
+		/// Minimum length in blocks before payable task is determined to be timed out
+		#[pallet::constant]
+		type PayableTimeoutLength: Get<Self::BlockNumber>;
 	}
 
 	#[pallet::storage]

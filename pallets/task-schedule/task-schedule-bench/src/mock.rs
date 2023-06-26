@@ -148,7 +148,8 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
 	type ExecutionFee = ExecutionFee;
-	type TimeoutLength = ConstU64<1000>;
+	type RecurringTimeoutLength = ConstU64<1000>;
+	type PayableTimeoutLength = ConstU64<1000>;
 	type ShardTimeouts = ();
 }
 

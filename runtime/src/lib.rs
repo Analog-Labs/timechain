@@ -1168,7 +1168,8 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
-	pub TimeoutLength: BlockNumber = 1000;
+	pub RecurringTimeoutLength: BlockNumber = 2;
+	pub PayableTimeoutLength: BlockNumber = 1000;
 }
 
 impl task_schedule::Config for Runtime {
@@ -1183,7 +1184,8 @@ impl task_schedule::Config for Runtime {
 	type IndexerReward = IndexerReward;
 	type ShardEligibility = TesseractSigStorage;
 	type ShardTimeouts = TesseractSigStorage;
-	type TimeoutLength = TimeoutLength;
+	type RecurringTimeoutLength = RecurringTimeoutLength;
+	type PayableTimeoutLength = PayableTimeoutLength;
 }
 
 impl pallet_proxy::Config for Runtime {

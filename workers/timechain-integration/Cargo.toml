@@ -1,0 +1,11 @@
+[package]
+name = "timechain-integration"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = { version = "0.11.5", features = ["json"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }

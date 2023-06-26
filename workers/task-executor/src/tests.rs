@@ -1,6 +1,5 @@
 use crate::{worker::TaskExecutor, TaskExecutorParams};
 use futures::channel::mpsc;
-// use sc_client_api::in_mem::Backend;
 use crate::tests::sr25519::Public;
 use sc_keystore::LocalKeystore;
 use sc_network_test::Block;
@@ -15,7 +14,6 @@ use substrate_test_runtime_client::{runtime::AccountId, TestClientBuilder};
 use time_primitives::sharding::Shard;
 use time_primitives::TimeApi;
 
-// pub struct Public(pub [u8; 32]);
 type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public>;
 
 /// Set of test accounts using [`time_primitives::crypto`] types.

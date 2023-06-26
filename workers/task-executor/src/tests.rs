@@ -1,6 +1,6 @@
+use crate::tests::sr25519::Public;
 use crate::{worker::TaskExecutor, TaskExecutorParams};
 use futures::channel::mpsc;
-use crate::tests::sr25519::Public;
 use sc_keystore::LocalKeystore;
 use sc_network_test::Block;
 use sc_network_test::TestClientBuilderExt;

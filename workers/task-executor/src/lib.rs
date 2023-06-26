@@ -36,7 +36,7 @@ where
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
-	pub db: DatabaseConnection,
+	pub db: Option<DatabaseConnection>,
 }
 
 /// Start the task Executor gadget.

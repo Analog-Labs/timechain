@@ -67,6 +67,12 @@ where
 		let (rosetta_chain_config, rosetta_client) =
 			create_client(connector_blockchain, connector_network, connector_url).await?;
 
+		let db_connection = if let Some(db_con) = db{
+			db_con
+		} else{ 
+			time_db::connect().await?
+		};
+
 		Ok(Self {
 			_block: PhantomData,
 			backend,
@@ -75,6 +81,7 @@ where
 			sign_data_sender,
 			kv,
 			tasks: Default::default(),
+			db: db_connection,
 			rosetta_chain_config,
 			rosetta_client,
 		})

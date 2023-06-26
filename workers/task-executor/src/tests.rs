@@ -106,17 +106,3 @@ async fn task_executor_ethereum_sc_call() {
 	let return_values = data.result.as_array().unwrap();
 	assert!(return_values.len() == output_len);
 }
-
-#[tokio::test]
-#[ignore]
-//astar connector is under development will update below function if needed when its done.
-async fn task_executor_astar_sc_call() {
-	let worker = build_worker().await;
-	let address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
-	let function = "function get_votes_stats() external view returns (uint, uint)";
-	let input: Vec<String> = vec![];
-	let output_len = 2;
-	let data = worker.call_eth_contract(address, function, &input).await.unwrap();
-	let return_values = data.result.as_array().unwrap();
-	assert!(return_values.len() == output_len);
-}

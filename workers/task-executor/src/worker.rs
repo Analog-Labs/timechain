@@ -176,7 +176,7 @@ where
 			method,
 			parameters: json!(input),
 		};
-		Ok(self.rosetta_client.call(&request).await?)
+		self.rosetta_client.call(&request).await
 	}
 
 	/// check if current node is collector

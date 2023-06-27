@@ -74,7 +74,6 @@ where
 			backend,
 			runtime,
 			_account_id: PhantomData,
-			_block_number: PhantomData,
 			_block_number,
 			sign_data_sender,
 			kv,

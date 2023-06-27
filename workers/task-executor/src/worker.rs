@@ -109,7 +109,6 @@ where
 		self.sign_data_sender
 			.clone()
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
-		self.tasks.insert(schedule_id);
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
 			self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
@@ -219,6 +218,7 @@ where
 				continue;
 			}
 			tree_map.insert(id, schedule);
+			self.tasks.insert(id);
 		}
 
 		for (id, schedule) in tree_map.iter() {
@@ -252,6 +252,7 @@ where
 
 			// put the new task in repetitive task map
 			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
+			self.tasks.insert(id);
 			self.repetitive_tasks
 				.entry(align_block_height)
 				.or_insert(vec![])
@@ -326,7 +327,7 @@ where
 					log::error!("Blockchain is empty: {}", e);
 				},
 			};
-			tokio::time::sleep(Duration::from_secs(100)).await;
+			tokio::time::sleep(Duration::from_secs(1000)).await;
 		}
 	}
 
@@ -358,7 +359,7 @@ where
 					log::error!("Blockchain is empty: {}", e);
 				},
 			}
-			tokio::time::sleep(Duration::from_millis(100)).await;
+			tokio::time::sleep(Duration::from_millis(1000)).await;
 		}
 	}
 }

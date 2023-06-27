@@ -10,6 +10,47 @@ use time_primitives::{
 };
 
 #[test]
+fn test_add_duplicated_chronicle() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			BOB,
+		),);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			CHARLIE,
+		),);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			DJANGO,
+		),);
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![ALICE, BOB, CHARLIE],
+			Some(0),
+		),);
+
+		assert_noop!(
+			TesseractSigStorage::register_shard(
+				RawOrigin::Root.into(),
+				vec![ALICE, BOB, DJANGO],
+				Some(0),
+			),
+			Error::<Test>::ChronicleAlreadyInOtherGroup
+		);
+	});
+}
+
+#[test]
 fn test_register_chronicle() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
@@ -346,66 +387,108 @@ fn test_register_shard_fails_if_member_len_not_supported() {
 }
 
 #[test]
-/// Currently supported sizes are 3, 5, 10
-fn test_register_shard_works_for_supported_member_lengths() {
+/// Currently testing sizes are 3, 5
+fn test_register_shard_works_for_lengths_3_5() {
 	new_test_ext().execute_with(|| {
-		let tmp_time_id = TimeId::new([5u8; 32]);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			ALICE,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			BOB,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			CHARLIE,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_2).into(),
-			DJANGO,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_2).into(),
-			tmp_time_id.clone(),
-		),);
-		let mut members = vec![ALICE, BOB, CHARLIE];
-		// supports 3
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			members.clone(),
-			Some(1),
-		));
+		let mut members = vec![];
 
-		// supports 5
-		members.push(DJANGO);
-		members.push(tmp_time_id);
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			members.clone(),
-			Some(1),
-		));
+		for i in 0..=2 {
+			let j = i * 4 + 1;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_1).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
 
-		// supports 10
-		for i in 6..=8 {
-			let tmp_time_id = TimeId::new([i as u8; 32]);
+			let j = i * 4 + 2;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_2).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
+
+			let j = i * 4 + 3;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
 			assert_ok!(TesseractSigStorage::register_chronicle(
 				RawOrigin::Signed(VALIDATOR_3).into(),
 				tmp_time_id.clone(),
 			),);
 			members.push(tmp_time_id);
-		}
 
-		for i in 9..=10 {
-			let tmp_time_id = TimeId::new([i as u8; 32]);
+			let j = i * 4 + 4;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
 			assert_ok!(TesseractSigStorage::register_chronicle(
 				RawOrigin::Signed(VALIDATOR_4).into(),
 				tmp_time_id.clone(),
 			),);
 			members.push(tmp_time_id);
 		}
-		assert_ok!(TesseractSigStorage::register_shard(RawOrigin::Root.into(), members, Some(1),));
+
+		// supports 3
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			members[0..3].to_vec(),
+			Some(1),
+		));
+
+		// supports 5
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			members[5..10].to_vec(),
+			Some(1),
+		));
+	});
+}
+
+#[test]
+/// Currently testing size is 10
+fn test_register_shard_works_for_lengths_10() {
+	new_test_ext().execute_with(|| {
+		let mut members = vec![];
+
+		for i in 0..=2 {
+			let j = i * 4 + 1;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_1).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
+
+			let j = i * 4 + 2;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_2).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
+
+			let j = i * 4 + 3;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_3).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
+
+			let j = i * 4 + 4;
+			let tmp_time_id = TimeId::new([j as u8; 32]);
+			assert_ok!(TesseractSigStorage::register_chronicle(
+				RawOrigin::Signed(VALIDATOR_4).into(),
+				tmp_time_id.clone(),
+			),);
+			members.push(tmp_time_id);
+		}
+
+		// supports 10
+
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			members[0..10].to_vec(),
+			Some(1),
+		));
 	});
 }
 

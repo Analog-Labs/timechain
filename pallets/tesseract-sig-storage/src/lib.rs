@@ -202,6 +202,11 @@ pub mod pallet {
 	pub type ChronicleOwner<T: Config> =
 		StorageMap<_, Blake2_128Concat, TimeId, T::AccountId, OptionQuery>;
 
+	/// record the chronicle worker's owner or its validator account id
+	#[pallet::storage]
+	#[pallet::getter(fn chronicle_in_tss_group)]
+	pub type ChronicleInTSSGroup<T: Config> = StorageMap<_, Blake2_128Concat, TimeId, ()>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -312,6 +317,9 @@ pub mod pallet {
 
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
+
+		/// Chronicle already registered in other TSS group
+		ChronicleAlreadyInOtherGroup,
 	}
 
 	#[pallet::inherent]
@@ -472,6 +480,12 @@ pub mod pallet {
 					ChronicleOwner::<T>::contains_key(member.clone()),
 					Error::<T>::ChronicleNotRegistered
 				);
+				ensure!(
+					!ChronicleInTSSGroup::<T>::contains_key(member.clone()),
+					Error::<T>::ChronicleAlreadyInOtherGroup,
+				);
+
+				ChronicleInTSSGroup::<T>::insert(member.clone(), ());
 				// do not push to vector for last member
 				if members_dedup.len() < members.len() - 1 {
 					members_dedup.push(member);

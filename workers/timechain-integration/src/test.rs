@@ -3,8 +3,8 @@ mod tests {
 	use crate::query::{collect_data, CollectData};
 
 	use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
-    
-    #[tokio::test]
+
+	#[tokio::test]
 	async fn test_collect_data() {
 		// Prepare the input variables
 		let variables = collect_data::Variables {
@@ -20,7 +20,7 @@ mod tests {
 
 		// Execute the GraphQL request
 		let response = reqwest::Client::new()
-			.post("http://localhost:8009/graphql") // Replace with your GraphQL endpoint URL
+			.post("http://localhost:8009/graphql")
 			.json(&request)
 			.send()
 			.await
@@ -29,12 +29,12 @@ mod tests {
 			.await
 			.expect("Failed to parse response");
 
-		 match &response.data {
+		match &response.data {
 			Some(data) => {
-                println!("{:?}",data.collect.status);
+				println!("{:?}", data.collect.status);
 
-                println!("{:?}",data.collect);
-            },
+				println!("{:?}", data.collect);
+			},
 			None => println!("no deta found"),
 		};
 	}

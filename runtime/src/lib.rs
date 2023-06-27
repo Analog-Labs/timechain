@@ -1501,6 +1501,10 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
+		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
+			TaskSchedule::shard_tasks(shard_id)
+		}
+
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
 			TaskMeta::get_tasks()
 		}

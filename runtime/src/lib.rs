@@ -1513,15 +1513,15 @@ impl_runtime_apis! {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_one_time_schedules()
 		}
 
-		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_repetitive_schedules()
 		}
 
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
 			TaskSchedule::get_schedule_by_key(schedule_id)
 		}
 
@@ -1533,7 +1533,7 @@ impl_runtime_apis! {
 			TaskMeta::get_payable_task_metadata_by_key(key)
 		}
 
-		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
 		}
 	}

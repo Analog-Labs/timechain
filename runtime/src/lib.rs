@@ -1494,16 +1494,24 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
+		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
+			TaskSchedule::shard_tasks(shard_id)
+		}
+
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
 			TaskMeta::get_tasks()
 		}
 
-		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
+		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
-			TaskSchedule::get_schedules()
+		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_one_time_schedules()
+		}
+
+		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+			TaskSchedule::get_repetitive_schedules()
 		}
 
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {

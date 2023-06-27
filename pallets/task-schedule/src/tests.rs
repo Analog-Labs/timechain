@@ -42,8 +42,10 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			shard_id: 1,
 			cycle: 12,
+			frequency: 1,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
+			status: ScheduleStatus::Initiated,
 		};
 		let account: AccountId = acc_pub(1).into();
 		assert_ok!(PalletProxy::set_proxy_account(
@@ -60,11 +62,12 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			owner: account.clone(),
 			shard_id: 1,
-			start_block: 0,
+			start_execution_block: 0,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
+			frequency: 1,
 		};
 		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output);
@@ -80,11 +83,12 @@ fn test_schedule() {
 			task_id: ObjectId(1),
 			owner: account.clone(),
 			shard_id: 1,
-			start_block: 0,
+			start_execution_block: 0,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
+			frequency: 1,
 		};
 		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output_update);

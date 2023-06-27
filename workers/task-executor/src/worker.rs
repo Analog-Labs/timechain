@@ -4,7 +4,7 @@ use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
 use rosetta_client::{
 	create_client,
-	types::{BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
+	types::{CallRequest, CallResponse},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -21,15 +21,12 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
-use time_db::{feed::Model, fetch_event::Model as FEModel, DatabaseConnection};
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
 	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 
-use queue::Queue;
-use std::collections::HashMap;
-
+#[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
@@ -37,11 +34,11 @@ pub struct TaskExecutor<B, BE, R, A> {
 	_account_id: PhantomData<A>,
 	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
+	// all tasks that are scheduled
+	// TODO need to get all completed task and remove them from it
 	tasks: HashSet<u64>,
-	task_map: HashMap<u64, Vec<(u64, TaskSchedule<A>)>>,
-	db: DatabaseConnection,
-	chain_config: BlockchainConfig,
-	chain_client: Client,
+	rosetta_chain_config: BlockchainConfig,
+	rosetta_client: Client,
 }
 
 impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
@@ -59,16 +56,15 @@ where
 			sign_data_sender,
 			kv,
 			_block,
-			accountid: _,
+			account_id: _,
 			connector_url,
 			connector_blockchain,
 			connector_network,
 		} = params;
 
-		let (chain_config, chain_client) =
+		// create rosetta client and get chain configuration
+		let (rosetta_chain_config, rosetta_client) =
 			create_client(connector_blockchain, connector_network, connector_url).await?;
-
-		let db = time_db::connect().await?;
 
 		Ok(Self {
 			_block: PhantomData,
@@ -78,10 +74,8 @@ where
 			sign_data_sender,
 			kv,
 			tasks: Default::default(),
-			task_map: Default::default(),
-			db,
-			chain_config,
-			chain_client,
+			rosetta_chain_config,
+			rosetta_client,
 		})
 	}
 
@@ -127,15 +121,14 @@ where
 		schedule_id: &u64,
 		schedule: &TaskSchedule<A>,
 	) -> Result<()> {
-		if !self.tasks.contains(schedule_id) {
-			let metadata = self
-				.runtime
-				.runtime_api()
-				.get_task_metadat_by_key(block_id, schedule.task_id.0)?
-				.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		let metadata = self
+			.runtime
+			.runtime_api()
+			.get_task_metadata_by_key(block_id, schedule.task_id.0)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
-			let shard_id = schedule.shard_id;
-			let Some(task) = metadata else {
+		let shard_id = schedule.shard_id;
+		let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 
 					if self.is_collector(block_id, shard_id).unwrap_or(false) {
@@ -145,79 +138,45 @@ where
 					return Ok(());
 				};
 
-			match &task.function {
-				// If the task function is an Ethereum contract
-				// call, call it and send for signing
-				Function::EthereumViewWithoutAbi {
-					address,
-					function_signature,
-					input: _,
-					output: _,
-				} => {
-					log::info!("running task_id {:?}", schedule_id);
-					let method = format!("{address}-{function_signature}-call");
-					let request = CallRequest {
-						network_identifier: self.chain_config.network(),
-						method,
-						parameters: json!({}),
-					};
-					let data = self.chain_client.call(&request).await?;
-					if !self
-						.send_for_sign(
-							block_id,
-							data.clone(),
-							shard_id,
-							*schedule_id,
-							schedule.cycle,
-						)
-						.await?
-					{
-						log::warn!("status not updated can't updated data into DB");
-						return Ok(());
-					}
-					let id: i64 = (*schedule_id).try_into().unwrap();
-					let hash = task.hash.to_owned();
-					let value = match serde_json::to_value(task.clone()) {
-						Ok(value) => value,
-						Err(e) => {
-							log::warn!("Error serializing task: {:?}", e);
-							serde_json::Value::Null
-						},
-					};
-					let validity = 123;
-					let cycle = Some(task.cycle.try_into().unwrap());
-					let task = value.to_string().as_bytes().to_vec();
-					let record = Model {
-						id: 1,
-						task_id: id,
-						hash,
-						task,
-						timestamp: None,
-						validity,
-						cycle,
-					};
-
-					match serde_json::to_string(&data) {
-						Ok(response) => {
-							let fetch_record = FEModel {
-								id: 1,
-								block_number: 1,
-								cycle,
-								value: response,
-							};
-							let _ = time_db::write_fetch_event(&mut self.db, fetch_record).await;
-						},
-						Err(e) => log::info!("getting error on serde data {e}"),
-					};
-
-					time_db::write_feed(&mut self.db, record).await?;
-				},
-				_ => {
-					log::warn!("error on matching task function")
-				},
-			};
-		}
+		match &task.function {
+			// If the task function is an Ethereum contract
+			// call, call it and send for signing
+			Function::EthereumViewWithoutAbi {
+				address,
+				function_signature,
+				input,
+				output: _,
+			} => {
+				log::info!("running task_id {:?}", schedule_id);
+				let data = self.call_eth_contract(address, function_signature, input).await?;
+				if !self
+					.send_for_sign(block_id, data.clone(), shard_id, *schedule_id, schedule.cycle)
+					.await?
+				{
+					log::warn!("status not updated can't updated data into DB");
+					return Ok(());
+				}
+			},
+			_ => {
+				log::warn!("error on matching task function")
+			},
+		};
 		Ok(())
+	}
+
+	pub(crate) async fn call_eth_contract(
+		&self,
+		address: &str,
+		function: &str,
+		input: &Vec<String>,
+	) -> Result<CallResponse> {
+		let method = format!("{address}-{function}-call");
+		let request = CallRequest {
+			network_identifier: self.rosetta_chain_config.network(),
+			method,
+			parameters: json!(input),
+		};
+		self.rosetta_client.call(&request).await
 	}
 
 	/// check if current node is collector
@@ -240,76 +199,30 @@ where
 		Ok(*shard.collector() == account)
 	}
 
+	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let task_schedules = self
 			.runtime
 			.runtime_api()
-			.get_task_schedule(block_id)?
+			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
-		let mut queue = Queue::new();
-
 		for (id, schedule) in task_schedules {
+			// if task is already executed then skip
+			if self.tasks.contains(&id) {
+				continue;
+			}
 			tree_map.insert(id, schedule);
 		}
 
-		let block_request = BlockRequest {
-			network_identifier: self.chain_config.network(),
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
-		};
-		let response = self.chain_client.block(&block_request).await?;
-
 		for (id, schedule) in tree_map.iter() {
-			if schedule.cycle == 1 {
-				let _ = queue.queue((*id, schedule.clone()));
-			} else if schedule.start_block == 0 {
-				match response.clone().block {
-					Some(block) => {
-						self.task_map
-							.entry(block.block_identifier.index)
-							.or_insert(Vec::new())
-							.push((*id, schedule.clone()));
-					},
-					None => log::info!("failed to get BlockResponse from rosetta"),
-				}
-			} else {
-				// If start block is not 0 than task is repetative and start_block now contians next execution
-				self.task_map
-					.entry(schedule.start_block)
-					.or_insert(Vec::new())
-					.push((*id, schedule.clone()));
+			match self.task_executor(block_id, id, schedule).await {
+				Ok(()) => self.update_schedule_ocw_storage(ScheduleStatus::Completed, *id),
+				Err(e) => log::warn!("error in single task schedule result {:?}", e),
 			}
 		}
-
-		while let Some(single_task_schedule) = queue.dequeue() {
-			if let Err(e) = self
-				.task_executor(block_id, &single_task_schedule.0, &single_task_schedule.1)
-				.await
-			{
-				log::error!("Error occured while executing task: {}", e);
-			};
-		}
-
-		match response.block {
-			Some(block) => {
-				if let Some(tasks) = self.task_map.remove(&block.block_identifier.index) {
-					for recursive_task_schedule in tasks {
-						if let Err(e) = self
-							.task_executor(
-								block_id,
-								&recursive_task_schedule.0,
-								&recursive_task_schedule.1,
-							)
-							.await
-						{
-							log::error!("Error occured while executing task {:?}", e);
-						};
-					}
-				}
-			},
-			None => log::info!("failed to get BlockResponse from rosetta"),
-		};
 
 		Ok(())
 	}

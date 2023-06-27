@@ -244,9 +244,14 @@ where
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
 
+		let mut last_cycle_tasks = HashSet::new();
+
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
 			if self.tasks.contains(&id) {
+				if schedule.cycle == 1 {
+					last_cycle_tasks.insert(id);
+				}
 				continue;
 			}
 
@@ -270,11 +275,13 @@ where
 						},
 						Err(e) => log::warn!("error in single task schedule result {:?}", e),
 					}
-					// put the task in map for next execution
-					self.repetitive_tasks
-						.entry(index + schedule.1.frequency)
-						.or_insert(vec![])
-						.push(schedule);
+					// put the task in map for next execution if cycle more than once
+					if !last_cycle_tasks.contains(&schedule.0) {
+						self.repetitive_tasks
+							.entry(index + schedule.1.frequency)
+							.or_insert(vec![])
+							.push(schedule);
+					}
 				}
 			}
 			self.last_block_height = index;

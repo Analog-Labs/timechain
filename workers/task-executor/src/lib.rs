@@ -10,6 +10,9 @@ use time_primitives::TimeApi;
 // mod task_schedule;
 mod worker;
 
+#[cfg(test)]
+mod tests;
+
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
 

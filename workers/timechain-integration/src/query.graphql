@@ -1,11 +1,5 @@
-query mutation {
-  collect(
-    collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7"
-    block: 1
-    cycle: 8
-    taskId: 1
-    data: ["1"]
-  ) {
+mutation CollectData($collection: String!, $block: Int!, $cycle: Int!, $taskId: Int!, $data: [String!]!) {
+  collect(collection: $collection, block: $block, cycle: $cycle, taskId: $taskId, data: $data) {
     status
   }
 }

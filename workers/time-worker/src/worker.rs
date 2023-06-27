@@ -93,7 +93,7 @@ fn sleep_until(deadline: Instant) -> Pin<Box<Sleep>> {
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, A, C, R, BE> {
+pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	_client: Arc<C>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
@@ -106,11 +106,12 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	tx_data_sender: mpsc::Sender<Vec<u8>>,
 	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 }
 
-impl<B, A, BN, C, R, BE> TimeWorker<B, A, C, R, BE>
+impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
 where
 	B: Block + 'static,
 	A: sp_runtime::codec::Codec + 'static,
@@ -120,7 +121,7 @@ where
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B, A, BN>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, C, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, BN, C, R, BE>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
@@ -132,6 +133,7 @@ where
 			tx_data_sender,
 			gossip_data_receiver,
 			accountid,
+			_block_number,
 		} = worker_params;
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
@@ -146,6 +148,7 @@ where
 			gossip_data_receiver,
 			tss_states: Default::default(),
 			accountid,
+			_block_number,
 			timeouts: Default::default(),
 			timeout: None,
 		}

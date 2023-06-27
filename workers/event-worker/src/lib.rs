@@ -29,6 +29,7 @@ where
 	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
+	pub _block_number: PhantomData<BN>,
 	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	pub tx_data_receiver: Receiver<Vec<u8>>,
 	pub connector_url: Option<String>,
@@ -36,11 +37,12 @@ where
 	pub connector_network: Option<String>,
 }
 
-pub(crate) struct WorkerParams<B, A, R, BE> {
+pub(crate) struct WorkerParams<B, A, BN, R, BE> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
 	accountid: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	pub tx_data_receiver: Receiver<Vec<u8>>,
 	kv: KeystorePtr,
@@ -50,7 +52,7 @@ pub(crate) struct WorkerParams<B, A, R, BE> {
 }
 
 pub async fn start_eventworker_gadget<B, A, BN, R, BE>(
-	eventworker_params: EventWorkerParams<B, A, R, BE>,
+	eventworker_params: EventWorkerParams<B, A, BN, R, BE>,
 ) where
 	B: Block,
 	A: codec::Codec + 'static,
@@ -67,7 +69,8 @@ pub async fn start_eventworker_gadget<B, A, BN, R, BE>(
 		tx_data_receiver,
 		backend,
 		_block,
-		accountid: _,
+		accountid,
+		_block_number,
 		connector_url,
 		connector_blockchain,
 		connector_network,
@@ -78,13 +81,14 @@ pub async fn start_eventworker_gadget<B, A, BN, R, BE>(
 		kv,
 		backend,
 		_block,
-		accountid: PhantomData,
+		accountid,
+		_block_number,
 		sign_data_sender,
 		tx_data_receiver,
 		connector_url,
 		connector_blockchain,
 		connector_network,
 	};
-	let mut worker = worker::EventWorker::<_, _, _, _>::new(worker_params);
+	let mut worker = worker::EventWorker::<_, _, _, _, _>::new(worker_params);
 	worker.run().await
 }

@@ -29,6 +29,7 @@ where
 	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
+	pub _block_number: PhantomData<BN>,
 	pub tx_data_sender: Sender<Vec<u8>>,
 	pub gossip_data_sender: Sender<Vec<u8>>,
 	pub connector_url: Option<String>,
@@ -36,11 +37,12 @@ where
 	pub connector_network: Option<String>,
 }
 
-pub(crate) struct WorkerParams<B, A, R, BE> {
+pub(crate) struct WorkerParams<B, A, BN, R, BE> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	_block: PhantomData<B>,
 	accountid: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	pub tx_data_sender: Sender<Vec<u8>>,
 	pub gossip_data_sender: Sender<Vec<u8>>,
 	kv: KeystorePtr,
@@ -53,7 +55,7 @@ pub(crate) struct WorkerParams<B, A, R, BE> {
 ///
 /// This is a thin shim around running and awaiting a payable task Executor.
 pub async fn start_payabletaskexecutor_gadget<B, A, BN, R, BE>(
-	payabletaskexecutor_params: PayableTaskExecutorParams<B, A, R, BE>,
+	payabletaskexecutor_params: PayableTaskExecutorParams<B, A, BN, R, BE>,
 ) where
 	B: Block,
 	A: codec::Codec + 'static,
@@ -70,7 +72,8 @@ pub async fn start_payabletaskexecutor_gadget<B, A, BN, R, BE>(
 		tx_data_sender,
 		gossip_data_sender,
 		_block,
-		accountid: _,
+		accountid,
+		_block_number,
 		connector_url,
 		connector_blockchain,
 		connector_network,
@@ -83,11 +86,12 @@ pub async fn start_payabletaskexecutor_gadget<B, A, BN, R, BE>(
 		_block,
 		tx_data_sender,
 		gossip_data_sender,
-		accountid: PhantomData,
+		accountid,
+		_block_number,
 		connector_url,
 		connector_blockchain,
 		connector_network,
 	};
-	let mut worker = worker::PayableTaskExecutor::<_, _, _, _>::new(worker_params);
+	let mut worker = worker::PayableTaskExecutor::<_, _, _, _, _>::new(worker_params);
 	worker.run().await
 }

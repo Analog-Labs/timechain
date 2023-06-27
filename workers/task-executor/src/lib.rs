@@ -32,6 +32,7 @@ where
 	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub account_id: PhantomData<A>,
+	pub _block_number: PhantomData<BN>,
 	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
@@ -41,8 +42,9 @@ where
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_task_executor_gadget<B, A, BN, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
-where
+pub async fn start_task_executor_gadget<B, A, BN, R, BE>(
+	params: TaskExecutorParams<B, A, BN, R, BE>,
+) where
 	B: Block,
 	A: codec::Codec + Clone + 'static,
 	BN: codec::Codec + Clone + 'static,

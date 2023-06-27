@@ -85,6 +85,7 @@ async fn build_worker() -> TaskExecutorType {
 		kv: keystore,
 		_block: PhantomData::default(),
 		account_id: PhantomData::default(),
+		_block_number: PhantomData::default(),
 		sign_data_sender,
 		connector_url: Some("http://rosetta.analog.one:8081".into()),
 		connector_blockchain: Some("ethereum".into()),

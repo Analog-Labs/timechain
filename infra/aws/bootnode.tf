@@ -41,8 +41,9 @@ sudo groupadd docker
 sudo usermod -aG docker $USER
 docker pull ${var.timechain_image}
 
-sudo docker run --name boot-node \
+sudo docker run --name timenode \
     --restart always \
+    -v /etc/timechain:/timechain \
     -e DATABASE_URL="postgresql://${aws_db_instance.timechain_db.address}:${aws_db_instance.timechain_db.port}/timechain?user=${var.db_user}&password=${var.db_password}" \
     -p 30333:30333 -p ${var.rpc_port}:${var.rpc_port} -p ${var.ws_port}:${var.ws_port} \
     -d ${var.timechain_image} \

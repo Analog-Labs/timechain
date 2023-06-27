@@ -45,8 +45,9 @@ sudo docker run -it \
   -e WAIT_HOSTS="${aws_eip.bootnode_ip.public_ip}:30333" \
   --entrypoint=/wait ${var.timechain_image}
 
-sudo docker run --name validator-node \
+sudo docker run --name timenode \
   --restart always \
+  -v /etc/timechain:/timechain \
   -p 30333:30333 -p ${var.rpc_port}:${var.rpc_port} -p ${var.ws_port}:${var.ws_port} \
   -e DATABASE_URL="postgresql://${aws_db_instance.timechain_db.address}:${aws_db_instance.timechain_db.port}/timechain?user=${var.db_user}&password=${var.db_password}" \
   -d ${var.timechain_image} \
@@ -64,7 +65,24 @@ EOF
 
 }
 
+# Public IP address for the bootnode
+resource "aws_eip" "validator_ips" {
+  count = length(var.validators)
+
+  tags = {
+    Name = "${terraform.workspace}-validator-${count.index+1}-ip"
+  }
+}
+
+# Associates the public IP address with the validator nodes
+resource "aws_eip_association" "validator_eip_association" {
+  count = length(var.validators)
+
+  instance_id   = aws_instance.validator_node[count.index].id
+  allocation_id = aws_eip.validator_ips[count.index].id
+}
+
 output "validators_ip" {
-  value = aws_instance.validator_node[*].public_ip
+  value = aws_eip.validator_ips[*].id
   description = "Validators"
 }

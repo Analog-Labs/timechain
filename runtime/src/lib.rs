@@ -1494,11 +1494,11 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
-		fn get_active_shards() -> Vec<(u64, sharding::Shard)> {
+		fn get_active_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::active_shards()
 		}
 
-		fn get_inactive_shards() -> Vec<(u64, sharding::Shard)> {
+		fn get_inactive_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
 			TesseractSigStorage::inactive_shards()
 		}
 

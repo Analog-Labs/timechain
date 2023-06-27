@@ -1,19 +1,9 @@
-use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
-
-// #[derive(GraphQLQuery)]
-// #[graphql(
-//     schema_path = "schema.graphql",
-//     query_path = "myQuery.graphql",
-//     response_derives = "Debug"
-// )]
-
 pub struct CollectData;
 pub mod collect_data {
 	#![allow(dead_code)]
-	use std::result::Result;
 	pub const OPERATION_NAME: &str = "CollectData";
 	pub const QUERY : & str = "mutation CollectData($collection: String!, $block: Int!, $cycle: Int!, $taskId: Int!, $data: [String!]!) {\n  collect(collection: $collection, block: $block, cycle: $cycle, taskId: $taskId, data: $data) {\n    status\n  }\n}" ;
-	use super::*;
+
 	use serde::{Deserialize, Serialize};
 	#[allow(dead_code)]
 	type Boolean = bool;
@@ -31,6 +21,9 @@ pub mod collect_data {
 		#[serde(rename = "taskId")]
 		pub task_id: Int,
 		pub data: Vec<String>,
+		pub task_counter: i64,
+		pub tss: String,
+		pub event_id: i64,
 	}
 	impl Variables {}
 	#[derive(Deserialize)]

@@ -1,2 +1,2 @@
+pub mod query;
 mod test;
-mod query;

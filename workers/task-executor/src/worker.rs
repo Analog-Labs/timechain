@@ -2,9 +2,10 @@ use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
+use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use rosetta_client::{
 	create_client,
-	types::{CallRequest, CallResponse},
+	types::{block, BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -25,6 +26,7 @@ use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
 	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
+use timechain_integration::query::{collect_data, CollectData};
 
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A> {
@@ -156,6 +158,59 @@ where
 					log::warn!("status not updated can't updated data into DB");
 					return Ok(());
 				}
+
+				let block_request = BlockRequest {
+					network_identifier: self.rosetta_chain_config.network(),
+					block_identifier: PartialBlockIdentifier { index: None, hash: None },
+				};
+				let response = self.rosetta_client.block(&block_request).await?;
+
+				let block = match response.block {
+					Some(block) => block,
+					None => block::Block::default(),
+				};
+
+				// Add data into collection (user must have Collector role)
+				// @collection: collection hashId
+				// @cycle: time-chain block number
+				// @block: target network block number
+				// @task_id: task associated with data
+				// @task_counter: for repeated task it's incremented on every run
+				// @tss: TSS signature
+				// @data: data to add into collection
+
+				let data_value = data.result.to_string();
+				let variables = collect_data::Variables {
+					collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7".to_owned(),		//hard coded
+					block: block.block_identifier.index as i64,
+					cycle: 1,																		//hard coded
+					task_counter: schedule.cycle as i64,
+					event_id: *schedule_id as i64,	
+					tss: "tss_signature".to_owned(),
+					task_id: schedule.task_id.0 as i64,
+					data: vec![data_value.to_owned()],
+				};
+
+				// Build the GraphQL request
+				let request = CollectData::build_query(variables);
+
+				// Execute the GraphQL request
+				let response = reqwest::Client::new()
+					.post("http://localhost:8009/graphql")
+					.json(&request)
+					.send()
+					.await
+					.expect("Failed to send request")
+					.json::<GraphQLResponse<collect_data::ResponseData>>()
+					.await
+					.expect("Failed to parse response");
+
+				match &response.data {
+					Some(data) => {
+						log::info!("timegraph migrate collect status {:?}", data.collect.status);
+					},
+					None => log::info!("timegraph migrate collect status fail No response"),
+				};
 			},
 			_ => {
 				log::warn!("error on matching task function")

@@ -26,14 +26,15 @@ pub use crate::communication::time_protocol_name;
 pub const TW_LOG: &str = "⌛time-worker";
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, A, C, R, BE, N, S>
+pub struct TimeWorkerParams<B: Block, A, BN, C, R, BE, N, S>
 where
 	B: Block + 'static,
 	A: sp_runtime::codec::Codec + 'static,
+	BN: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 	N: GossipNetwork<B> + Clone + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
 {
@@ -66,15 +67,16 @@ pub(crate) struct WorkerParams<B: Block, A, C, R, BE> {
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, A, C, R, BE, N, S>(
-	timeworker_params: TimeWorkerParams<B, A, C, R, BE, N, S>,
+pub async fn start_timeworker_gadget<B, A, BN, C, R, BE, N, S>(
+	timeworker_params: TimeWorkerParams<B, A, BN, C, R, BE, N, S>,
 ) where
 	B: Block + 'static,
 	A: sp_runtime::codec::Codec + 'static,
+	BN: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 	N: GossipNetwork<B> + Clone + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
 {

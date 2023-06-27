@@ -110,14 +110,15 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	timeout: Option<Pin<Box<Sleep>>>,
 }
 
-impl<B, A, C, R, BE> TimeWorker<B, A, C, R, BE>
+impl<B, A, BN, C, R, BE> TimeWorker<B, A, C, R, BE>
 where
 	B: Block + 'static,
 	A: sp_runtime::codec::Codec + 'static,
+	BN: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, A, C, R, BE>) -> Self {
 		let WorkerParams {

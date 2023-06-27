@@ -15,13 +15,14 @@ use time_primitives::TimeApi;
 pub const TW_LOG: &str = "event-worker";
 
 /// Set of properties we need to run our gadget
-pub struct EventWorkerParams<B: Block, A, R, BE>
+pub struct EventWorkerParams<B: Block, A, BN, R, BE>
 where
 	B: Block,
 	A: codec::Codec,
+	BN: codec::Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
@@ -48,14 +49,15 @@ pub(crate) struct WorkerParams<B, A, R, BE> {
 	connector_network: Option<String>,
 }
 
-pub async fn start_eventworker_gadget<B, A, R, BE>(
+pub async fn start_eventworker_gadget<B, A, BN, R, BE>(
 	eventworker_params: EventWorkerParams<B, A, R, BE>,
 ) where
 	B: Block,
 	A: codec::Codec + 'static,
+	BN: codec::Codec + 'static,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
 	debug!(target: TW_LOG, "Starting EventWorker gadget");
 	let EventWorkerParams {

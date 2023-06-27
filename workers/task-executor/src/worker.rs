@@ -41,13 +41,14 @@ pub struct TaskExecutor<B, BE, R, A> {
 	rosetta_client: Client,
 }
 
-impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
+impl<B, BE, R, A, BN> TaskExecutor<B, BE, R, A>
 where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	A: codec::Codec + Clone,
-	R::Api: TimeApi<B, A>,
+	BN: codec::Codec + Clone,
+	R::Api: TimeApi<B, A, BN>,
 {
 	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
 		let TaskExecutorParams {

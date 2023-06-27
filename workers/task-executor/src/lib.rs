@@ -18,13 +18,14 @@ pub const TW_LOG: &str = "task-executor";
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B: Block, A, R, BE>
+pub struct TaskExecutorParams<B: Block, A, BN, R, BE>
 where
 	B: Block,
 	A: codec::Codec + Clone,
+	BN: codec::Codec + Clone,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
@@ -40,13 +41,14 @@ where
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_task_executor_gadget<B, A, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
+pub async fn start_task_executor_gadget<B, A, BN, R, BE>(params: TaskExecutorParams<B, A, R, BE>)
 where
 	B: Block,
 	A: codec::Codec + Clone + 'static,
+	BN: codec::Codec + Clone + 'static,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
 	log::debug!(target: TW_LOG, "Starting task-executor gadget");
 	let mut worker = TaskExecutor::new(params).await.unwrap();

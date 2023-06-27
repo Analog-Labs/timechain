@@ -31,13 +31,14 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	connector_network: Option<String>,
 }
 
-impl<B, A, R, BE> PayableTaskExecutor<B, A, R, BE>
+impl<B, A, BN, R, BE> PayableTaskExecutor<B, A, R, BE>
 where
 	B: Block,
 	A: codec::Codec,
+	BN: codec::Codec,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
 		let WorkerParams {

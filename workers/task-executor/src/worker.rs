@@ -269,12 +269,8 @@ where
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				// execute all task for specific task
 				for schedule in tasks {
-					match self.task_executor(block_id, &schedule.0, &schedule.1).await {
-						Ok(()) => {
-							self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule.0)
-						},
-						Err(e) => log::warn!("error in single task schedule result {:?}", e),
-					}
+					self.task_executor(block_id, &schedule.0, &schedule.1).await;
+
 					// put the task in map for next execution if cycle more than once
 					if !last_cycle_tasks.contains(&schedule.0) {
 						self.repetitive_tasks

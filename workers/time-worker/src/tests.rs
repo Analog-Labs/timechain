@@ -26,7 +26,10 @@ use sp_core::{crypto::key_types::GRANDPA, sr25519, Pair};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Header as HeaderT;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
-use substrate_test_runtime_client::{runtime::AccountId, Ed25519Keyring, Keystore, LongestChain};
+use substrate_test_runtime_client::{
+	runtime::{AccountId, BlockNumber},
+	Ed25519Keyring, Keystore, LongestChain,
+};
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
 	sharding::Shard,
@@ -269,7 +272,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
-	impl TimeApi<Block, AccountId> for RuntimeApi {
+	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
 		fn get_shards(&self) -> Vec<(u64, Shard)> {
 			vec![(1, Shard::Three([
 				TimeKeyring::Alice.public().into(),
@@ -352,7 +355,7 @@ fn initialize_time_worker<API>(
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
-	API::Api: TimeApi<Block, AccountId>,
+	API::Api: TimeApi<Block, AccountId, BlockNumber>,
 {
 	let time_workers = FuturesUnordered::new();
 
@@ -379,6 +382,7 @@ where
 			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),
 			accountid: PhantomData::default(),
+			_block_number: PhantomData::default(),
 		};
 		let gadget = start_timeworker_gadget::<_, _, _, _, _, _, _>(time_params);
 

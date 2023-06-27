@@ -496,6 +496,8 @@ pub mod pallet {
 					payable_schedule.executable_since = frame_system::Pallet::<T>::block_number();
 					PayableScheduleStorage::<T>::insert(key, payable_schedule);
 				}
+				// add task to shard tasks
+				ShardTasks::<T>::mutate(next_available_shard, |tasks| tasks.push(key));
 				// task no longer timed out upon reassignment
 				timed_out_tasks.retain(|task| *task != key);
 			}

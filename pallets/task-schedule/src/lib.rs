@@ -131,7 +131,7 @@ pub mod pallet {
 			let recurring_time_out_length = T::RecurringTimeoutLength::get();
 			for (task_id, schedule) in <ScheduleStorage<T>>::iter() {
 				if !timed_out_tasks.contains(&task_id) {
-					if current_block.saturating_sub(schedule.start_execution_block)
+					if current_block.saturating_sub(schedule.executable_since)
 						>= recurring_time_out_length
 					{
 						timed_out_tasks.push(task_id);
@@ -142,7 +142,7 @@ pub mod pallet {
 			let payable_time_out_length = T::PayableTimeoutLength::get();
 			for (task_id, schedule) in <PayableScheduleStorage<T>>::iter() {
 				if !timed_out_tasks.contains(&task_id) {
-					if current_block.saturating_sub(schedule.start_execution_block)
+					if current_block.saturating_sub(schedule.executable_since)
 						>= payable_time_out_length
 					{
 						timed_out_tasks.push(task_id);
@@ -303,7 +303,8 @@ pub mod pallet {
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
-					start_execution_block: frame_system::Pallet::<T>::block_number(),
+					start_execution_block: 0,
+					executable_since: frame_system::Pallet::<T>::block_number(),
 					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,
@@ -370,7 +371,7 @@ pub mod pallet {
 					task_id: schedule.task_id,
 					owner: who,
 					shard_id: schedule.shard_id,
-					start_execution_block: frame_system::Pallet::<T>::block_number(),
+					executable_since: frame_system::Pallet::<T>::block_number(),
 					status: ScheduleStatus::Initiated,
 				},
 			);
@@ -488,12 +489,11 @@ pub mod pallet {
 				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
 					// reassign task to different shard
 					schedule.shard_id = next_available_shard;
-					schedule.start_execution_block = frame_system::Pallet::<T>::block_number();
+					schedule.executable_since = frame_system::Pallet::<T>::block_number();
 					ScheduleStorage::<T>::insert(key, schedule);
 				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(key) {
 					payable_schedule.shard_id = next_available_shard;
-					payable_schedule.start_execution_block =
-						frame_system::Pallet::<T>::block_number();
+					payable_schedule.executable_since = frame_system::Pallet::<T>::block_number();
 					PayableScheduleStorage::<T>::insert(key, payable_schedule);
 				}
 				// task no longer timed out upon reassignment
@@ -538,7 +538,7 @@ pub mod pallet {
 
 		fn update_completed_task(key: u64) {
 			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
-				schedule.start_execution_block = frame_system::Pallet::<T>::block_number();
+				schedule.executable_since = frame_system::Pallet::<T>::block_number();
 				schedule.status = ScheduleStatus::Updated;
 				ScheduleStorage::<T>::insert(key, schedule);
 			} else if let Some(mut schedule) = PayableScheduleStorage::<T>::get(key) {

@@ -1,5 +1,5 @@
-resource "aws_iam_role" "ec2_role_testnet" {
-  name = "ec2_role_testnet"
+resource "aws_iam_role" "ec2_role" {
+  name = "${terraform.workspace}-ec2_role"
 
   assume_role_policy = <<EOF
 {
@@ -17,19 +17,19 @@ resource "aws_iam_role" "ec2_role_testnet" {
 EOF
 
   tags = {
-    project = "testnet"
+    Project = "${terraform.workspace}"
   }
 }
 
 
-resource "aws_iam_instance_profile" "ec2_profile_testnet" {
-  name = "ec2_profile_testnet"
-  role = aws_iam_role.ec2_role_testnet.name
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "${terraform.workspace}-ec2_profile"
+  role = aws_iam_role.ec2_role.name
 }
 
-resource "aws_iam_role_policy" "ec2_policy_testnet" {
-  name = "ec2_policy_testnet"
-  role = aws_iam_role.ec2_role_testnet.id
+resource "aws_iam_role_policy" "ec2_policy" {
+  name = "${terraform.workspace}-ec2_policy"
+  role = aws_iam_role.ec2_role.id
 
   policy = <<EOF
 {

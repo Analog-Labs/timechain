@@ -13,6 +13,7 @@
     bootnode_ip: ""
     bootnode_key: ""
     db_url: ""
+    node_key: ""
 
   tasks:
   - name: Pull image
@@ -29,6 +30,7 @@
         restart_policy: "always"
         ports:
         - "{{ rpc_port }}:{{ rpc_port }}"
+        - 30333:30333
         env:
           DATABASE_URL: "{{ db_url }}"
         volumes:
@@ -38,6 +40,7 @@
           --base-path /timechain
           --port 30333 --rpc-port="{{ rpc_port }}"
           --chain "{{ chain }}" --"{{ hostvars[inventory_hostname].validator_id }}"
+          --node-key "{{ node_key }}"
           --connector-url http://rosetta.analog.one:8081
           --connector-blockchain ethereum
           --connector-network dev
@@ -52,6 +55,7 @@
         restart_policy: "always"
         ports:
         - "{{ rpc_port }}:{{ rpc_port }}"
+        - 30333:30333
         env:
           DATABASE_URL: "{{ db_url }}"
         volumes:

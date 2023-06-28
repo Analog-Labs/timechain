@@ -103,7 +103,7 @@ async fn build_worker() -> TaskExecutorType {
 // Ethereum localnet contract call
 async fn task_executor_ethereum_sc_call() {
 	let worker = build_worker().await;
-	let address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
+	let address = "0x3de7086ce750513ef79d14eacbd1282c4e4b0cea";
 	let function = "function get_votes_stats() external view returns (uint, uint)";
 	let input: Vec<String> = vec![];
 	let output_len = 2;

@@ -107,7 +107,8 @@ where
 		schedule_id: u64,
 		schedule_cycle: u64,
 	) -> Result<bool> {
-		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
+		let serialized_data = format!("{}-{}-{}", data.result, schedule_id, schedule_cycle);
+		let bytes = bincode::serialize(&serialized_data).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
 		self.sign_data_sender
@@ -274,14 +275,21 @@ where
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				// execute all task for specific task
 				for schedule in tasks {
-					let _ = self.task_executor(block_id, &schedule.0, &schedule.1).await;
+					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await {
+						log::error!("Error occured while executing repetitive task {:?}", e);
+					}
 
+					//decrementing here since we dont fetch from storage with decremented cycle
+					//because same task fetch from storage will be skipped due to tasks.contrains(id)
+					//flow can be improved later on, since we are short on time.
+					let mut decremented_schedule = schedule.1.clone();
+					decremented_schedule.cycle = decremented_schedule.cycle.saturating_sub(1);
 					// put the task in map for next execution if cycle more than once
 					if !last_cycle_tasks.contains(&schedule.0) {
 						self.repetitive_tasks
-							.entry(index + schedule.1.frequency)
+							.entry(index + decremented_schedule.frequency)
 							.or_insert(vec![])
-							.push(schedule);
+							.push((schedule.0, decremented_schedule));
 					}
 				}
 			}

@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Docker image tag to deploy on the network'
+        description: "Docker image tag to deploy on the network"
         required: true
         type: string
+      environment:
+        description: "Target environment where to fetch secrets and vars"
+        required: true
+        type: string
+        default: "internal-testnet"
 
 env:
   DOCKER_REPO: analoglabs/timechain
@@ -17,6 +22,7 @@ jobs:
   run-ansible:
     name: Run Ansible playbook
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3

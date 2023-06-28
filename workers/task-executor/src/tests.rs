@@ -118,7 +118,7 @@ async fn build_astar_worker() -> TaskExecutorType {
 		_block: PhantomData::default(),
 		account_id: PhantomData::default(),
 		sign_data_sender,
-		connector_url: Some("http://127.0.0.1:8083".into()),
+		connector_url: Some("http://rosetta.analog.one:8083".into()),
 		connector_blockchain: Some("astar".into()),
 		connector_network: Some("dev".into()),
 	};

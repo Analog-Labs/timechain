@@ -20,3 +20,8 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 time-db = { path = "../database" }
 time-primitives = { path = "../../primitives/time-primitives" }
 tokio = "1.28.1"
+
+[dev-dependencies]
+hex = "0.4.3"
+tokio = { version = "1.28.1", features = ["macros"] }
+surf = "2.3.0"

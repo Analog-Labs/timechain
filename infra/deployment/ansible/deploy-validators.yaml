@@ -1,0 +1,85 @@
+---
+- name: Update Docker container images
+  hosts: all
+  become: true
+  serial:
+  - 1
+  vars:
+    image: analoglabs/timechain
+    tag: ""
+    container_name: "timenode"
+    rpc_port: 9933
+    chain: ""
+    bootnode_ip: ""
+    bootnode_key: ""
+    db_url: ""
+
+  tasks:
+  - name: Pull image
+    community.docker.docker_image:
+      name: "{{ image }}:{{ tag }}"
+      source: pull
+  - name: Swap containers
+    block:
+    - name: Swap container for bootnode
+      when: "'bootnodes' in group_names"
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image }}:{{ tag }}"
+        restart_policy: "always"
+        ports:
+        - "{{ rpc_port }}:{{ rpc_port }}"
+        env:
+          DATABASE_URL: "{{ db_url }}"
+        volumes:
+        - /etc/timechain:/timechain
+        command: >
+          --validator
+          --base-path /timechain
+          --port 30333 --rpc-port="{{ rpc_port }}"
+          --chain "{{ chain }}" --"{{ hostvars[inventory_hostname].validator_id }}"
+          --connector-url http://rosetta.analog.one:8081
+          --connector-blockchain ethereum
+          --connector-network dev
+          --rpc-cors all
+          --rpc-external --rpc-methods unsafe --prometheus-external
+        state: started
+    - name: Swap container for validator
+      when: "'validators' in group_names"
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image }}:{{ tag }}"
+        restart_policy: "always"
+        ports:
+        - "{{ rpc_port }}:{{ rpc_port }}"
+        env:
+          DATABASE_URL: "{{ db_url }}"
+        volumes:
+        - /etc/timechain:/timechain
+        command: >
+          --validator
+          --base-path /timechain
+          --port 30333 --rpc-port="{{ rpc_port }}"
+          --chain "{{ chain }}" --"{{ hostvars[inventory_hostname].validator_id }}"
+          --bootnodes /ip4/"{{ bootnode_ip }}"/tcp/30333/p2p/"{{ bootnode_key }}"
+          --connector-url http://rosetta.analog.one:8081
+          --connector-blockchain ethereum
+          --connector-network dev
+          --rpc-cors all
+          --rpc-external --rpc-methods unsafe --prometheus-external
+        state: started
+    - name: Check if node running
+      shell: |
+        is_ok=1
+        count=0
+        while [ ${is_ok} != 0 ] && [ ${count} -lt 10 ]; do
+          curl -fs http://localhost:"{{ rpc_port }}"/health
+          is_ok=$?
+          count=$((count+1))
+          sleep 5;
+        done
+        exit $is_ok
+    rescue:
+    - name: Rollback container
+      debug:
+        msg: "TODO"

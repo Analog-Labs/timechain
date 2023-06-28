@@ -2603,7 +2603,7 @@ dependencies = [
  "futures",
  "log",
  "parity-scale-codec",
- "rosetta-client",
+ "rosetta-client 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-client-api",
  "sc-consensus",
  "sc-network-test",
@@ -6315,7 +6315,7 @@ dependencies = [
  "futures",
  "log",
  "parity-scale-codec",
- "rosetta-client",
+ "rosetta-client 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-client-api",
  "serde_json",
  "sp-api",
@@ -7368,6 +7368,32 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "dirs-next",
+ "fraction",
+ "futures",
+ "getrandom 0.2.10",
+ "hex",
+ "js-sys",
+ "log",
+ "rosetta-config-astar",
+ "rosetta-config-bitcoin 0.2.5",
+ "rosetta-config-ethereum 0.2.5",
+ "rosetta-config-polkadot 0.2.5",
+ "rosetta-core 0.2.5",
+ "rosetta-tx-ethereum 0.2.5",
+ "rosetta-tx-polkadot 0.2.5",
+ "serde",
+ "serde_json",
+ "surf",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "rosetta-client"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f391b640fca76b3fc06e897747f07d6591bad217ffc5bda073d51c2efd1fa1d0"
 dependencies = [
@@ -7379,17 +7405,33 @@ dependencies = [
  "hex",
  "js-sys",
  "log",
- "rosetta-config-bitcoin",
- "rosetta-config-ethereum",
- "rosetta-config-polkadot",
- "rosetta-core",
- "rosetta-tx-ethereum",
- "rosetta-tx-polkadot",
+ "rosetta-config-bitcoin 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-config-ethereum 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-config-polkadot 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-core 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-tx-ethereum 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-tx-polkadot 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "surf",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "rosetta-config-astar"
+version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.2.5",
+]
+
+[[package]]
+name = "rosetta-config-bitcoin"
+version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.2.5",
 ]
 
 [[package]]
@@ -7399,7 +7441,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f516307593c65e005f4a9d041bfa7fdee2f034ac252cd7404e8fb75bc1377c"
 dependencies = [
  "anyhow",
- "rosetta-core",
+ "rosetta-core 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "rosetta-config-ethereum"
+version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.2.5",
+ "serde",
 ]
 
 [[package]]
@@ -7409,7 +7460,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d3d83fb3d109d2909d2ca1e15d970058f388ee4e8d0e2d45133fdba2e0bf3af"
 dependencies = [
  "anyhow",
- "rosetta-core",
+ "rosetta-core 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+]
+
+[[package]]
+name = "rosetta-config-polkadot"
+version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.2.5",
  "serde",
 ]
 
@@ -7420,8 +7480,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bdbb262a035ad5ed8dde179058680ddc42c5f0c30658a1c227840af25c2d558b"
 dependencies = [
  "anyhow",
- "rosetta-core",
+ "rosetta-core 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
+]
+
+[[package]]
+name = "rosetta-core"
+version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "rosetta-crypto 0.1.0",
+ "rosetta-types 0.1.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -7432,10 +7504,33 @@ checksum = "18138fb7dc9395950a8635919850e959680ecc9f2342129187ac4a2b3756d333"
 dependencies = [
  "anyhow",
  "async-trait",
- "rosetta-crypto",
- "rosetta-types",
+ "rosetta-crypto 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-types 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "rosetta-crypto"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bech32",
+ "blake2-rfc",
+ "bs58",
+ "ecdsa 0.16.7",
+ "ed25519-dalek",
+ "hex",
+ "hmac 0.12.1",
+ "k256",
+ "p256 0.13.2",
+ "ripemd",
+ "rust-bip39",
+ "schnorrkel 0.10.2",
+ "sha2 0.10.6",
+ "sha3",
+ "ss58-registry",
+ "substrate-bip39",
 ]
 
 [[package]]
@@ -7466,16 +7561,42 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "ethabi",
+ "ethers-core",
+ "rosetta-config-ethereum 0.2.5",
+ "rosetta-core 0.2.5",
+ "serde_json",
+ "sha3",
+]
+
+[[package]]
+name = "rosetta-tx-ethereum"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "034e7c7754fd85f231872ada8d26330219769a1f25b4dbede97192a9f9b815fd"
 dependencies = [
  "anyhow",
  "ethabi",
  "ethers-core",
- "rosetta-config-ethereum",
- "rosetta-core",
+ "rosetta-config-ethereum 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-core 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json",
  "sha3",
+]
+
+[[package]]
+name = "rosetta-tx-polkadot"
+version = "0.2.5"
+dependencies = [
+ "anyhow",
+ "blake2-rfc",
+ "bs58",
+ "parity-scale-codec",
+ "rosetta-config-polkadot 0.2.5",
+ "rosetta-core 0.2.5",
+ "serde_json",
 ]
 
 [[package]]
@@ -7488,8 +7609,16 @@ dependencies = [
  "blake2-rfc",
  "bs58",
  "parity-scale-codec",
- "rosetta-config-polkadot",
- "rosetta-core",
+ "rosetta-config-polkadot 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rosetta-core 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json",
+]
+
+[[package]]
+name = "rosetta-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "serde_json",
 ]
 
@@ -10835,7 +10964,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "queue",
- "rosetta-client",
+ "rosetta-client 0.2.5",
  "sc-client-api",
  "sc-keystore",
  "sc-network-test",

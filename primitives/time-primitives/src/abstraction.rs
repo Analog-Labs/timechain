@@ -18,7 +18,7 @@ pub enum Function {
 		input: Vec<Input>,
 		output: Vec<Output>,
 	},
-	EthereumViewWithoutAbi {
+	EVMViewWithoutAbi {
 		address: String,
 		function_signature: String,
 		input: Vec<String>,

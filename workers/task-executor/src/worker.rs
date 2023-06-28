@@ -145,7 +145,7 @@ where
 		match &task.function {
 			// If the task function is an Ethereum contract
 			// call, call it and send for signing
-			Function::EthereumViewWithoutAbi {
+			Function::EVMViewWithoutAbi {
 				address,
 				function_signature,
 				input,
@@ -222,10 +222,9 @@ where
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			match self.task_executor(block_id, id, schedule).await {
-				Ok(()) => self.update_schedule_ocw_storage(ScheduleStatus::Completed, *id),
-				Err(e) => log::warn!("error in single task schedule result {:?}", e),
-			}
+			if let Err(e) = self.task_executor(block_id, id, schedule).await{
+				log::error!("Error occured while executing schedule {:?}: {}", id, e);
+			} 
 		}
 
 		Ok(())

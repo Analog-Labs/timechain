@@ -69,7 +69,7 @@ impl ProvideRuntimeApi<Block> for TestApi {
 	}
 }
 
-async fn build_worker() -> TaskExecutorType {
+async fn build_ethereum_worker() -> TaskExecutorType {
 	let (sign_data_sender, _sign_data_receiver) = mpsc::channel(400);
 	let runtime_api = TestApi::default();
 	let keystore = Arc::new(LocalKeystore::in_memory());
@@ -98,12 +98,54 @@ async fn build_worker() -> TaskExecutorType {
 	TaskExecutor::new(params).await.unwrap()
 }
 
+async fn build_astar_worker() -> TaskExecutorType {
+	let (sign_data_sender, _sign_data_receiver) = mpsc::channel(400);
+	let runtime_api = TestApi::default();
+	let keystore = Arc::new(LocalKeystore::in_memory());
+
+	// Create an observer.
+	let (_client, backend) = {
+		let builder = TestClientBuilder::with_default_backend();
+		let backend = builder.backend();
+		let (client, _) = builder.build_with_longest_chain();
+		(Arc::new(client), backend)
+	};
+
+	let params = TaskExecutorParams {
+		backend,
+		runtime: runtime_api.into(),
+		kv: keystore,
+		_block: PhantomData::default(),
+		account_id: PhantomData::default(),
+		sign_data_sender,
+		connector_url: Some("http://127.0.0.1:8083".into()),
+		connector_blockchain: Some("astar".into()),
+		connector_network: Some("dev".into()),
+	};
+
+	TaskExecutor::new(params).await.unwrap()
+}
+
 #[tokio::test]
-#[ignore]
 // Ethereum localnet contract call
 async fn task_executor_ethereum_sc_call() {
-	let worker = build_worker().await;
-	let address = "0x678ea0447843f69805146c521afcbcc07d6e28a2";
+	let worker = build_ethereum_worker().await;
+	let address = "0x3de7086ce750513ef79d14eacbd1282c4e4b0cea";
+	let function = "function get_votes_stats() external view returns (uint, uint)";
+	let input: Vec<String> = vec![];
+	let output_len = 2;
+	let data = worker.call_eth_contract(address, function, &input).await.unwrap();
+	let return_values = data.result.as_array().unwrap();
+	assert!(return_values.len() == output_len);
+}
+
+#[tokio::test]
+// Astar localnet contract call
+async fn task_executor_astar_sc_call() {
+	let worker = build_astar_worker().await;
+	
+	// replace this address with your own deployed contract address
+	let address = "0x856478e9438f00ebf88e93ac2c76b3bd4c8e768a";
 	let function = "function get_votes_stats() external view returns (uint, uint)";
 	let input: Vec<String> = vec![];
 	let output_len = 2;

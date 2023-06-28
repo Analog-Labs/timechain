@@ -36,8 +36,8 @@ const pallet_task_add = async (_keyspair, who) => {
     const input_task = {
         task_id: 1,
         schema:[1],
-        function:{EthereumViewWithoutAbi:{
-            address: stringToHex('0x678ea0447843f69805146c521afcbcc07d6e28a2'),
+        function:{EVMViewWithoutAbi:{
+            address: stringToHex('0x856478e9438f00ebf88e93ac2c76b3bd4c8e768a'),
             function_signature: "function get_votes_stats() external view returns (uint, uint)",
             input: 2,
             output: 2,
@@ -55,16 +55,16 @@ const pallet_task_add = async (_keyspair, who) => {
     const unsub = await api.tx.taskMeta.insertTask(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
-    setTimeout(async() => {
-        const unsub2 = await api.tx.taskMeta.insertTask(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-            console.log(`Current status is ${status}`);
-        });
-    },15000)
-    setTimeout(async() => {
-        const unsub3 = await api.tx.taskMeta.insertTask(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-            console.log(`Current status is ${status}`);
-        });
-    },30000)
+    // setTimeout(async() => {
+    //     const unsub2 = await api.tx.taskMeta.insertTask(input_2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    //         console.log(`Current status is ${status}`);
+    //     });
+    // },15000)
+    // setTimeout(async() => {
+    //     const unsub3 = await api.tx.taskMeta.insertTask(input_3).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    //         console.log(`Current status is ${status}`);
+    //     });
+    // },30000)
     
     await chan.get().then(value => console.log(value), error => console.error(error));
     // chan.close();

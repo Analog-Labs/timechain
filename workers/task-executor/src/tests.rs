@@ -95,6 +95,7 @@ async fn build_worker() -> TaskExecutorType {
 }
 
 #[tokio::test]
+#[ignore]
 // Ethereum localnet contract call
 async fn task_executor_ethereum_sc_call() {
 	let worker = build_worker().await;

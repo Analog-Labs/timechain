@@ -116,7 +116,11 @@ where
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
+			if schedule_cycle > 1 {
+				self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule_id);
+			} else {
+				self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
+			}
 		}
 
 		Ok(true)
@@ -250,14 +254,9 @@ where
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 		log::info!("Repetitive task schedule {:?}\n", task_schedules.len());
 
-		let mut last_cycle_tasks = HashSet::new();
-
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
 			if self.tasks.contains(&id) {
-				if schedule.cycle == 1 {
-					last_cycle_tasks.insert(id);
-				}
 				continue;
 			}
 
@@ -275,6 +274,7 @@ where
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				// execute all task for specific task
 				for schedule in tasks {
+					log::info!("Recurring task running on block {:?}", index);
 					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await {
 						log::error!("Error occured while executing repetitive task {:?}", e);
 					}
@@ -285,7 +285,7 @@ where
 					let mut decremented_schedule = schedule.1.clone();
 					decremented_schedule.cycle = decremented_schedule.cycle.saturating_sub(1);
 					// put the task in map for next execution if cycle more than once
-					if !last_cycle_tasks.contains(&schedule.0) {
+					if decremented_schedule.cycle > 0 {
 						self.repetitive_tasks
 							.entry(index + decremented_schedule.frequency)
 							.or_insert(vec![])

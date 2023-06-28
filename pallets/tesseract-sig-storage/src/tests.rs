@@ -207,7 +207,7 @@ fn test_signature_and_decrement_schedule_storage() {
 			cycle: 11,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
-			status: ScheduleStatus::Initiated,
+			status: ScheduleStatus::Updated,
 		};
 
 		let scheduled_task = TaskSchedule::get_task_schedule(1_u64);

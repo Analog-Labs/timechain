@@ -6,10 +6,14 @@ variable "private_subnets" {}
 variable "rpc_port" {}
 variable "ws_port" {}
 variable "boot_node_key" {}
-variable "validators" {}
+variable "validators" {
+  description = "List of validators to spin up"
+  type = list(object({
+    name = string
+  }))
+}
 
 variable "ssh_pub_key" {}
-variable "ghcr_token" {}
 
 variable "ubuntu_ami" {
   description = "ubuntu (ami us-east-1) Jammy 22.04 LTS amd64 hvm:ebs-ssd 20230428"
@@ -36,3 +40,38 @@ variable "ec2" {
   })
 }
 
+variable "zone_id" {
+  description = "The Route53 hosted zone where to add the DNS records"
+  type = string
+}
+
+variable "bootnode_dns" {
+  description = "DNS A record for the bootnode"
+  type = string
+}
+
+variable "timechain_image" {
+  description = "Docker image to be used for the Timechain node"
+  type = string
+}
+
+variable "db_size" {
+  description = "Storage size for DB"
+  type = number
+}
+
+variable "db_instance" {
+  description = "RDS instance to use for the DB"
+  type = string
+  default = "db.m5d.large"  # Lower posible instance for Postgres
+}
+
+variable "db_user" {
+  description = "Username for accessing the DB"
+  type = string
+}
+
+variable "db_password" {
+  description = "Password for accessing DB"
+  type = string
+}

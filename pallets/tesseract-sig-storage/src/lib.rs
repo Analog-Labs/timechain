@@ -654,6 +654,18 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn active_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter()
+				.filter(|(_, s)| s.is_online())
+				.map(|(id, state)| (id, state.shard))
+				.collect()
+		}
+		pub fn inactive_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter()
+				.filter(|(_, s)| !s.is_online())
+				.map(|(id, state)| (id, state.shard))
+				.collect()
+		}
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()

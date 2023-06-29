@@ -46,6 +46,8 @@ sp_api::decl_runtime_apis! {
 	{
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_active_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_inactive_shards() -> Vec<(u64, sharding::Shard)>;
 		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;

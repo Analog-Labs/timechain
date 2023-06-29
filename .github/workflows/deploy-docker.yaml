@@ -39,13 +39,13 @@ jobs:
           playbook: deploy-validators.yaml
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           inventory: |
-            ${{ env.INVENTORY }}
+            ${{ vars.INVENTORY }}
           options: |
             --extra-vars "tag=${{ github.event.inputs.version }}"
             --extra-vars "db_url=${{ secrets.DB_URL }}"
             --extra-vars "bootnode_key=${{ secrets.BOOTNODE_KEY }}"
-            --extra-vars "bootnode_ip=${{ env.BOOTNODE_IP }}"
-            --extra-vars "chain=${{ env.CHAIN }}"
+            --extra-vars "bootnode_ip=${{ vars.BOOTNODE_IP }}"
+            --extra-vars "chain=${{ vars.CHAIN }}"
             --extra-vars "node_key=${{ secrets.NODE_KEY }}"
             --verbose
         

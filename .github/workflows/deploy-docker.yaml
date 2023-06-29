@@ -1,0 +1,51 @@
+name: Deploy Docker images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Docker image tag to deploy on the network"
+        required: true
+        type: string
+      environment:
+        description: "Target environment where to fetch secrets and vars"
+        required: true
+        type: string
+        default: "internal-testnet"
+
+env:
+  DOCKER_REPO: analoglabs/timechain
+  CHAIN: "local"
+  BOOTNODE_IP: ""
+
+jobs:
+  run-ansible:
+    name: Run Ansible playbook
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Ansible
+        run: |
+          curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+          python3 get-pip.py
+          python3 -m pip install ansible
+          pip install docker
+      - name: Run playbook
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          directory: ./infra/deployment/ansible
+          playbook: deploy-validators.yaml
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          inventory: |
+            ${{ env.INVENTORY }}
+          options: |
+            --extra-vars "tag=${{ github.event.inputs.version }}"
+            --extra-vars "db_url=${{ secrets.DB_URL }}"
+            --extra-vars "bootnode_key=${{ secrets.BOOTNODE_KEY }}"
+            --extra-vars "bootnode_ip=${{ env.BOOTNODE_IP }}"
+            --extra-vars "chain=${{ env.CHAIN }}"
+            --extra-vars "node_key=${{ secrets.NODE_KEY }}"
+            --verbose
+        

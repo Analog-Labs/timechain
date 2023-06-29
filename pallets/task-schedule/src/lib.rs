@@ -130,24 +130,22 @@ pub mod pallet {
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			let recurring_time_out_length = T::RecurringTimeoutLength::get();
 			for (task_id, schedule) in <ScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&task_id) {
-					if current_block.saturating_sub(schedule.executable_since)
+				if !timed_out_tasks.contains(&task_id)
+					&& current_block.saturating_sub(schedule.executable_since)
 						>= recurring_time_out_length
-					{
-						timed_out_tasks.push(task_id);
-						T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
-					}
+				{
+					timed_out_tasks.push(task_id);
+					T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
 				}
 			}
 			let payable_time_out_length = T::PayableTimeoutLength::get();
 			for (task_id, schedule) in <PayableScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&task_id) {
-					if current_block.saturating_sub(schedule.executable_since)
+				if !timed_out_tasks.contains(&task_id)
+					&& current_block.saturating_sub(schedule.executable_since)
 						>= payable_time_out_length
-					{
-						timed_out_tasks.push(task_id);
-						T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
-					}
+				{
+					timed_out_tasks.push(task_id);
+					T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
 				}
 			}
 			TimedOutTasks::<T>::put(timed_out_tasks);

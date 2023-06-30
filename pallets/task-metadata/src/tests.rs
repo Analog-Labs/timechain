@@ -1,5 +1,6 @@
 use super::mock::*;
-use frame_support::assert_ok;
+use crate::Error;
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::abstraction::{
 	Collection, Function, Input, ObjectId, Output, PayableTask, Schema, Task, Validity,
@@ -37,6 +38,31 @@ fn test_insert_task_metadata_task() {
 }
 
 #[test]
+fn insert_task_should_fail_when_not_proxy_account() {
+	new_test_ext().execute_with(|| {
+		let input: Task = Task {
+			task_id: ObjectId(1),
+			schema: vec![Schema::String(String::from("schema"))],
+			function: Function::EthereumApi {
+				function: String::from("function name"),
+				input: vec![Input::HexAddress],
+				output: vec![Output::Skip],
+			},
+			cycle: 12,
+			with: vec![String::from("address")],
+			validity: Validity::Seconds(10),
+			hash: String::from("hash"),
+		};
+
+		// Attempt to insert the payable task metadata without being a proxy account
+		let result = TaskMeta::insert_task(RawOrigin::Signed(1).into(), input);
+
+		// Assert that the function call did not succeed and produced the expected error
+		assert_noop!(result, Error::<Test>::NotProxyAccount);
+	});
+}
+
+#[test]
 fn test_insert_collection_metadata() {
 	new_test_ext().execute_with(|| {
 		let input = Collection {
@@ -54,10 +80,14 @@ fn test_insert_collection_metadata() {
 			1
 		));
 
-		assert_ok!(TaskMeta::insert_collection(RawOrigin::Signed(1).into(),input.hash.clone(),input.task.clone(), input.validity.clone()));
+		assert_ok!(TaskMeta::insert_collection(
+			RawOrigin::Signed(1).into(),
+			input.hash.clone(),
+			input.task.clone(),
+			input.validity.clone()
+		));
 
-		assert_eq!(
-			TaskMeta::get_collection_metadata("collectionHash".to_string()),Some(input));
+		assert_eq!(TaskMeta::get_collection_metadata("collectionHash".to_string()), Some(input));
 	});
 }
 
@@ -85,5 +115,25 @@ fn test_payable_task() {
 		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input.clone(),));
 
 		assert_eq!(TaskMeta::get_payable_task_metadata(1), Some(input));
+	});
+}
+
+#[test]
+fn insert_payable_task_should_fail_when_not_proxy_account() {
+	new_test_ext().execute_with(|| {
+		let input: PayableTask = PayableTask {
+			task_id: ObjectId(1),
+			function: Function::EthereumApi {
+				function: String::from("function name"),
+				input: vec![Input::HexAddress],
+				output: vec![Output::Skip],
+			},
+		};
+
+		// Attempt to insert the payable task metadata without being a proxy account
+		let result = TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input);
+
+		// Assert that the function call did not succeed and produced the expected error
+		assert_noop!(result, Error::<Test>::NotProxyAccount);
 	});
 }

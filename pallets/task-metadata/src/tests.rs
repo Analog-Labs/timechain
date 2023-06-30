@@ -63,7 +63,7 @@ fn insert_task_should_fail_when_not_proxy_account() {
 }
 
 #[test]
-fn insert_task_should_fail_when_duplicate_task_id() {
+fn insert_task_check_event_duplicate_task_id() {
 	new_test_ext().execute_with(|| {
 		let input: Task = Task {
 			task_id: ObjectId(1),
@@ -195,7 +195,7 @@ fn insert_payable_task_should_fail_when_not_proxy_account() {
 }
 
 #[test]
-fn insert_payable_task_should_fail_when_duplicate_task_id() {
+fn insert_payable_task_check_event_duplicate_task_id() {
 	new_test_ext().execute_with(|| {
 		let input: PayableTask = PayableTask {
 			task_id: ObjectId(1),

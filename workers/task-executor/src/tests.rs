@@ -10,11 +10,14 @@ use sp_core::Pair;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use substrate_test_runtime_client::sc_client_db::Backend;
-use substrate_test_runtime_client::{runtime::AccountId, TestClientBuilder};
+use substrate_test_runtime_client::{
+	runtime::{AccountId, BlockNumber},
+	TestClientBuilder,
+};
 use time_primitives::sharding::Shard;
 use time_primitives::TimeApi;
 
-type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public>;
+type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public, BlockNumber>;
 
 /// Set of test accounts using [`time_primitives::crypto`] types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
@@ -45,7 +48,7 @@ impl TimeKeyring {
 pub(crate) struct RuntimeApi {}
 
 sp_api::mock_impl_runtime_apis! {
-	impl TimeApi<Block, AccountId> for RuntimeApi {
+	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
 		fn get_shards(&self) -> Vec<(u64, Shard)> {
 			vec![(1, Shard::Three([
 				TimeKeyring::Alice.public().into(),
@@ -85,6 +88,7 @@ async fn build_worker() -> TaskExecutorType {
 		kv: keystore,
 		_block: PhantomData::default(),
 		account_id: PhantomData::default(),
+		_block_number: PhantomData::default(),
 		sign_data_sender,
 		connector_url: Some("http://rosetta.analog.one:8081".into()),
 		connector_blockchain: Some("ethereum".into()),

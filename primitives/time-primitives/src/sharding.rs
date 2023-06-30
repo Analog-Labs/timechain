@@ -16,6 +16,10 @@ pub trait ReassignShardTasks<Id> {
 	fn reassign_shard_tasks(_id: Id) {}
 }
 impl<Id> ReassignShardTasks<Id> for () {}
+pub trait IncrementTaskTimeoutCount<Id> {
+	fn increment_task_timeout_count(_id: Id) {}
+}
+impl<Id> IncrementTaskTimeoutCount<Id> for () {}
 /// Expose shard eligibility
 pub trait EligibleShard<Id> {
 	fn is_eligible_shard(id: Id) -> bool;

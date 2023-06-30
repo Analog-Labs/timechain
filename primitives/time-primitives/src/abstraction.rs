@@ -120,7 +120,7 @@ pub enum ScheduleStatus {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskSchedule<AccountId> {
+pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub shard_id: u64,
@@ -130,20 +130,22 @@ pub struct TaskSchedule<AccountId> {
 	pub validity: Validity,
 	pub hash: String,
 	pub start_execution_block: u64,
+	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
 
-impl<AccountId> TaskSchedule<AccountId> {
+impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
 	// check if task is repetitive, can't use the cycle to check because it can be decreased to 1
 	pub fn is_repetitive_task(&self) -> bool {
 		self.frequency > 0
 	}
 }
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct PayableTaskSchedule<AccountId> {
+pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub shard_id: u64,
+	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
 

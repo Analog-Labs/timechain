@@ -69,7 +69,7 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, ReassignShardTasks, Shard},
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -129,11 +129,14 @@ pub mod pallet {
 		/// Slashing threshold percentage for commiting misbehavior consensus
 		#[pallet::constant]
 		type SlashingPercentageThreshold: Get<u8>;
-		type TaskScheduleHelper: ScheduleInterface<Self::AccountId>;
+		type TaskScheduleHelper: ScheduleInterface<Self::AccountId, Self::BlockNumber>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
 		type TaskAssigner: ReassignShardTasks<u64>;
+		/// Maximum number of task execution timeouts before shard is put offline
+		#[pallet::constant]
+		type MaxTimeouts: Get<u8>;
 	}
 
 	#[pallet::storage]
@@ -210,16 +213,20 @@ pub mod pallet {
 		SignatureStored(KeyId, ScheduleCycle),
 
 		/// New group key submitted to runtime
-		/// .0 - set_id,
+		/// .0 - ShardId
 		/// .1 - group key bytes
 		NewTssGroupKey(u64, [u8; 33]),
 
 		/// Shard has ben registered with new Id
+		/// .0 ShardId
 		ShardRegistered(u64),
 
+		/// Task execution timed out for task
+		TaskExecutionTimeout(KeyId),
+
 		/// Shard went offline due to committed offenses preventing threshold
-		/// .0 Offender TimeId
-		/// .1 Report count
+		/// or task execution timeout(s) by collector
+		/// .0 ShardId
 		ShardOffline(u64),
 
 		/// Offence reported, above threshold s.t.
@@ -418,6 +425,9 @@ pub mod pallet {
 				Error::<T>::DuplicateSignature
 			);
 
+			// Updates completed task status and start_execution_block for
+			// ongoing recurring tasks.
+			T::TaskScheduleHelper::update_completed_task(key_id);
 			if is_recurring {
 				T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
 			}
@@ -607,6 +617,14 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> IncrementTaskTimeoutCount<u64> for Pallet<T> {
+		fn increment_task_timeout_count(id: u64) {
+			if let Some(mut shard_state) = TssShards::<T>::get(id) {
+				shard_state.increment_task_timeout_count::<T>(id);
+			}
+		}
+	}
+
 	impl<T: Config> EligibleShard<u64> for Pallet<T> {
 		fn is_eligible_shard(id: u64) -> bool {
 			if let Some(shard_state) = <TssShards<T>>::get(id) {
@@ -636,6 +654,18 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn active_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter()
+				.filter(|(_, s)| s.is_online())
+				.map(|(id, state)| (id, state.shard))
+				.collect()
+		}
+		pub fn inactive_shards() -> Vec<(u64, Shard)> {
+			<TssShards<T>>::iter()
+				.filter(|(_, s)| !s.is_online())
+				.map(|(id, state)| (id, state.shard))
+				.collect()
+		}
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()

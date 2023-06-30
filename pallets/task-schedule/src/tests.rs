@@ -63,6 +63,7 @@ fn test_schedule() {
 			owner: account.clone(),
 			shard_id: 1,
 			start_execution_block: 0,
+			executable_since: 1,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
@@ -84,6 +85,7 @@ fn test_schedule() {
 			owner: account.clone(),
 			shard_id: 1,
 			start_execution_block: 0,
+			executable_since: 1,
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
@@ -132,6 +134,7 @@ fn test_payable_schedule() {
 			task_id: ObjectId(1),
 			owner: account,
 			shard_id: 1,
+			executable_since: 1,
 			status: ScheduleStatus::Initiated,
 		};
 

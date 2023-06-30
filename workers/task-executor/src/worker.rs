@@ -27,11 +27,12 @@ use time_primitives::{
 };
 
 #[derive(Clone)]
-pub struct TaskExecutor<B, BE, R, A> {
+pub struct TaskExecutor<B, BE, R, A, BN> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 	// all tasks that are scheduled
@@ -41,15 +42,16 @@ pub struct TaskExecutor<B, BE, R, A> {
 	rosetta_client: Client,
 }
 
-impl<B, BE, R, A> TaskExecutor<B, BE, R, A>
+impl<B, BE, R, A, BN> TaskExecutor<B, BE, R, A, BN>
 where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	A: codec::Codec + Clone,
-	R::Api: TimeApi<B, A>,
+	BN: codec::Codec + Clone,
+	R::Api: TimeApi<B, A, BN>,
 {
-	pub async fn new(params: TaskExecutorParams<B, A, R, BE>) -> Result<Self> {
+	pub async fn new(params: TaskExecutorParams<B, A, BN, R, BE>) -> Result<Self> {
 		let TaskExecutorParams {
 			backend,
 			runtime,
@@ -57,6 +59,7 @@ where
 			kv,
 			_block,
 			account_id: _,
+			_block_number,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -71,6 +74,7 @@ where
 			backend,
 			runtime,
 			_account_id: PhantomData,
+			_block_number,
 			sign_data_sender,
 			kv,
 			tasks: Default::default(),
@@ -119,7 +123,7 @@ where
 		&mut self,
 		block_id: <B as Block>::Hash,
 		schedule_id: &u64,
-		schedule: &TaskSchedule<A>,
+		schedule: &TaskSchedule<A, BN>,
 	) -> Result<()> {
 		let metadata = self
 			.runtime

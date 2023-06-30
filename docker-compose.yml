@@ -3,6 +3,10 @@ volumes:
   bootnode-volume:
   validator1-volume:
   validator2-volume:
+  ethereum-volume:
+  ethereum-connector-volume:
+  astar-volume:
+  astar-connector-volume:
 services:
   db:
     image: 'postgres'
@@ -22,7 +26,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://rosetta.analog.one:8081'
+    - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--alice'
@@ -31,6 +35,8 @@ services:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
     depends_on:
     - db
+    - ethereum-connector
+    - astar-connector
     volumes:
     - 'bootnode-volume:/data'
     ports:
@@ -46,7 +52,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://rosetta.analog.one:8081'
+    - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--bob'
@@ -57,6 +63,8 @@ services:
     depends_on:
     - db
     - bootnode
+    - ethereum-connector
+    - astar-connector
     volumes:
     - 'validator1-volume:/data'
     ports:
@@ -72,7 +80,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://rosetta.analog.one:8081'
+    - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--charlie'
@@ -83,7 +91,46 @@ services:
     depends_on:
     - db
     - bootnode
+    - ethereum-connector
+    - astar-connector
     volumes:
     - 'validator2-volume:/data'
     ports:
     - '9947:9944'
+
+  ethereum:
+    image: "ethereum/client-go:v1.10.26"
+    command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
+    expose:
+    - "8545"
+    volumes:
+    - "ethereum-volume:/root"
+
+  ethereum-connector:
+    image: "analoglabs/connector-ethereum"
+    command: "--network dev --addr 0.0.0.0:8080 --node-addr ethereum:8545 --path /data"
+    expose:
+    - "8080"
+    depends_on:
+    - ethereum
+    volumes:
+    - "ethereum-connector-volume:/data"
+
+  astar:
+    image: "staketechnologies/astar-collator:latest"
+    command: "astar-collator --chain dev --ws-port 9944 --rpc-port 9955 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    expose:
+    - "9944"
+    - "9955"
+    volumes:
+    - "astar-volume:/astar"
+
+  astar-connector:
+    image: "analoglabs/connector-astar"
+    command: "--network dev --addr 0.0.0.0:8080 --node-addr astar:9944 --path /data"
+    expose:
+    - "8080"
+    depends_on:
+    - astar
+    volumes:
+    - "astar-connector-volume:/data"

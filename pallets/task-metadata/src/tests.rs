@@ -39,9 +39,11 @@ fn test_insert_task_metadata_task() {
 #[test]
 fn test_insert_collection_metadata() {
 	new_test_ext().execute_with(|| {
-		let hash = "collectionHash".to_string();
-		let task: Vec<u8> = vec![1];
-		let validity = 1;
+		let input = Collection {
+			hash: "collectionHash".to_string(),
+			task: vec![1],
+			validity: 1,
+		};
 
 		assert_ok!(PalletProxy::set_proxy_account(
 			RawOrigin::Signed(1).into(),
@@ -52,17 +54,10 @@ fn test_insert_collection_metadata() {
 			1
 		));
 
-		assert_ok!(TaskMeta::insert_collection(
-			RawOrigin::Signed(1).into(),
-			hash.clone(),
-			task.clone(),
-			validity
-		));
+		assert_ok!(TaskMeta::insert_collection(RawOrigin::Signed(1).into(),input.hash.clone(),input.task.clone(), input.validity.clone()));
 
 		assert_eq!(
-			TaskMeta::get_collection_metadata("collectionHash".to_string()),
-			Some(Collection { hash, task, validity })
-		);
+			TaskMeta::get_collection_metadata("collectionHash".to_string()),Some(input));
 	});
 }
 

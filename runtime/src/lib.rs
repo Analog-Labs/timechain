@@ -1034,6 +1034,7 @@ parameter_types! {
 	// Must be > 0 and <= 100
 	pub const SlashingPercentageThreshold: u8 = 51;
 	pub const MaxChronicleWorkers: u32 = 5;
+	pub const MaxTimeouts: u8 = 2;
 }
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
@@ -1048,6 +1049,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type MaxChronicleWorkers = MaxChronicleWorkers;
 	type SessionInterface = Self;
 	type TaskAssigner = TaskSchedule;
+	type MaxTimeouts = MaxTimeouts;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -1166,6 +1168,8 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
+	pub RecurringTimeoutLength: BlockNumber = 2;
+	pub PayableTimeoutLength: BlockNumber = 1000;
 }
 
 impl task_schedule::Config for Runtime {
@@ -1179,6 +1183,9 @@ impl task_schedule::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type IndexerReward = IndexerReward;
 	type ShardEligibility = TesseractSigStorage;
+	type ShardTimeouts = TesseractSigStorage;
+	type RecurringTimeoutLength = RecurringTimeoutLength;
+	type PayableTimeoutLength = PayableTimeoutLength;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1485,7 +1492,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block, AccountId>  for Runtime {
+	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
 		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
@@ -1515,15 +1522,15 @@ impl_runtime_apis! {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_one_time_schedules()
 		}
 
-		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
+		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_repetitive_schedules()
 		}
 
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
 			TaskSchedule::get_schedule_by_key(schedule_id)
 		}
 
@@ -1535,7 +1542,7 @@ impl_runtime_apis! {
 			TaskMeta::get_payable_task_metadata_by_key(key)
 		}
 
-		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError> {
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
 		}
 	}

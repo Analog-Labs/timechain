@@ -18,7 +18,7 @@ use time_primitives::{abstraction::EthTxValidation, TimeApi};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct EventWorker<B: Block, A, R, BE> {
+pub struct EventWorker<B: Block, A, BN, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
@@ -26,20 +26,22 @@ pub struct EventWorker<B: Block, A, R, BE> {
 	tx_data_receiver: Receiver<Vec<u8>>,
 	kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
 }
 
-impl<B, A, R, BE> EventWorker<B, A, R, BE>
+impl<B, A, BN, R, BE> EventWorker<B, A, BN, R, BE>
 where
 	B: Block,
 	A: codec::Codec,
+	BN: codec::Codec,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, BN, R, BE>) -> Self {
 		let WorkerParams {
 			runtime,
 			sign_data_sender,
@@ -47,7 +49,8 @@ where
 			kv,
 			backend,
 			_block,
-			accountid: _,
+			accountid,
+			_block_number,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -59,8 +62,9 @@ where
 			tx_data_receiver,
 			kv,
 			backend,
-			_block: PhantomData,
-			accountid: PhantomData,
+			_block,
+			accountid,
+			_block_number,
 			connector_url,
 			connector_blockchain,
 			connector_network,

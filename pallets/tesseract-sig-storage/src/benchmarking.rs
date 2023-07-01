@@ -5,7 +5,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_core::Decode;
 use sp_std::vec;
-use time_primitives::{crypto::Signature, KeyId, ScheduleCycle, TimeId};
+use time_primitives::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, TimeId};
 
 pub const ALICE: TimeId = TimeId::new([1u8; 32]);
 pub const BOB: TimeId = TimeId::new([2u8; 32]);
@@ -37,7 +37,7 @@ benchmarks! {
 		assert_last_event::<T>(Event::<T>::NewTssGroupKey(s.into(), key).into());
 	}
 
-	register_shard { }: _(RawOrigin::Root, vec![ALICE, BOB, CHARLIE], None)
+	register_shard { }: _(RawOrigin::Root, vec![ALICE, BOB, CHARLIE], None, Network::Ethereum)
 	verify { }
 
 	impl_benchmark_test_suite!(TesseractSigStorage, crate::mock::new_test_ext(), crate::mock::Test);

@@ -60,7 +60,7 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
-		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks},
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
@@ -184,7 +184,7 @@ pub mod pallet {
 		type ScheduleFee: Get<BalanceOf<Self>>;
 		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
 		type IndexerReward: Get<BalanceOf<Self>>;
-		type ShardEligibility: EligibleShard<u64>;
+		type ShardEligibility: EligibleShard<u64, Network>;
 		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
 		/// Minimum length in blocks before recurring task is determined to be timed out
 		#[pallet::constant]
@@ -479,7 +479,7 @@ pub mod pallet {
 	impl<T: Config> ReassignShardTasks<u64> for Pallet<T> {
 		fn reassign_shard_tasks(id: u64) {
 			let shard_tasks = ShardTasks::<T>::take(id);
-			let available_shards = T::ShardEligibility::get_eligible_shards(shard_tasks.len());
+			let available_shards = T::ShardEligibility::get_eligible_shards(id, shard_tasks.len());
 			// Reassign all tasks for shard to other shards
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			for (i, key) in shard_tasks.into_iter().enumerate() {

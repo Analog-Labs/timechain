@@ -118,6 +118,8 @@ jobs:
 
       - run: |
           sudo apt-get install -y protobuf-compiler
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
           sudo apt-get install solc
 
       - name: Cargo fmt Check
@@ -209,6 +211,8 @@ jobs:
 
       - run: |
           sudo apt-get install -y protobuf-compiler
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
           sudo apt-get install solc
 
       - name: Setup llvm-cov for cargo

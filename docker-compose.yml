@@ -199,19 +199,21 @@ services:
 
   astar:
     image: "staketechnologies/astar-collator:latest"
-    command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    command: "astar-collator --chain dev --ws-port 9944 --rpc-port 9955 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /astar"
     expose:
-    - "9994"
-    - "9995"
+    - "9944"
+    - "9955"
     volumes:
     - "astar-volume:/astar"
 
   astar-connector:
     image: "analoglabs/connector-astar"
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr astar:9994 --path /data"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr astar:9944 --path /data"
     expose:
     - "8081"
     depends_on:
     - astar
     volumes:
     - "astar-connector-volume:/data"
+    # TODO: need to do a proper health check
+    restart: always

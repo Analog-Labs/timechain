@@ -89,7 +89,7 @@ fn insert_task_check_event_duplicate_task_id() {
 		));
 
 		// Insert the initial task with task ID 1
-		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(1).into(), input.clone()));
+		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(1).into(), input));
 
 		// Attempt to insert another task with the same task ID
 		let duplicate_input: Task = Task {
@@ -140,7 +140,7 @@ fn test_insert_collection_metadata() {
 			RawOrigin::Signed(1).into(),
 			input.hash.clone(),
 			input.task.clone(),
-			input.validity.clone()
+			input.validity,
 		));
 
 		assert_eq!(TaskMeta::get_collection_metadata("collectionHash".to_string()), Some(input));
@@ -215,7 +215,7 @@ fn insert_payable_task_check_event_duplicate_task_id() {
 		));
 
 		// Insert the initial payable task with task ID 1
-		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input.clone()));
+		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input));
 
 		// Attempt to insert another task with the same task ID
 		let duplicate_input: PayableTask = PayableTask {

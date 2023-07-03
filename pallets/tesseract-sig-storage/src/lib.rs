@@ -319,6 +319,9 @@ pub mod pallet {
 
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
+
+		/// Error getting schedule ref.
+		ErrorRef,
 	}
 
 	#[pallet::inherent]
@@ -453,6 +456,11 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			<TssGroupKey<T>>::insert(set_id, group_key);
+			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
+				let details = shard_state.as_mut().ok_or(Error::<T>::ErrorRef)?;
+				details.status = ShardStatus::Online;
+				Ok(())
+			})?;
 			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
 
 			Ok(().into())

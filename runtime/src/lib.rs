@@ -1509,7 +1509,6 @@ impl_runtime_apis! {
 			TesseractSigStorage::inactive_shards()
 		}
 
-
 		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
 			TaskSchedule::shard_tasks(shard_id)
 		}

@@ -116,10 +116,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: |
+      - run: sudo add-apt-repository ppa:ethereum/ethereum
+      - run: sudo apt-get update
+      - name: Install deps
+        run: |
           sudo apt-get install -y protobuf-compiler
-          sudo add-apt-repository ppa:ethereum/ethereum
-          sudo apt-get update
           sudo apt-get install solc
 
       - name: Cargo fmt Check
@@ -209,10 +210,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: |
+      - run: sudo add-apt-repository ppa:ethereum/ethereum
+      - run: sudo apt-get update
+      - name: Install deps
+        run: |
           sudo apt-get install -y protobuf-compiler
-          sudo add-apt-repository ppa:ethereum/ethereum
-          sudo apt-get update
           sudo apt-get install solc
 
       - name: Setup llvm-cov for cargo

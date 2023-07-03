@@ -64,7 +64,7 @@ setTimeout(async () => {
 setTimeout(async () => {
     const register_shard = await api.tx.sudo
         .sudo(
-            api.tx.tesseractSigStorage.registerShard([time1, time2, time3], 0)
+            api.tx.tesseractSigStorage.registerShard([time1, time2, time3], 0, 1)
         )
         .signAndSend(pair, (result) => {
             console.log('Result of shard creation: ', result)

@@ -1,7 +1,39 @@
 use super::mock::*;
 use crate::*;
 use frame_support::assert_ok;
+use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
+use time_primitives::abstraction::{
+	ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule, ScheduleStatus,
+	TaskSchedule as ScheduleOut, Validity,
+};
+
+#[test]
+fn test_reward() {
+	new_test_ext().execute_with(|| {
+		let account_1: AccountId = acc_pub(1).into();
+		let account_2: AccountId = acc_pub(2).into();
+
+		IndexerScore::<Test>::insert(&account_1, 1);
+		IndexerScore::<Test>::insert(&account_2, 2);
+		let reward_1 = IndexerReward::get();
+		let reward_2 = IndexerReward::get() * 2;
+
+		let balance_1 = Balances::free_balance(&account_1);
+		let balance_2 = Balances::free_balance(&account_2);
+
+		TaskSchedule::on_initialize(1);
+
+		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1);
+		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2);
+
+		// ensure score purged and no redundant reward
+		TaskSchedule::on_initialize(2);
+
+		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1);
+		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2);
+	})
+}
 
 #[test]
 fn test_schedule() {

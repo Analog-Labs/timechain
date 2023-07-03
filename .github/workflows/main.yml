@@ -109,8 +109,8 @@ jobs:
           key: "Flag-${{ runner.os }}-r${{env.RUSTUP_TOOLCHAIN}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - run: |
-        sudo apt-get install -y protobuf-compiler
-        sudo apt-get install solc
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Cargo fmt Check
         if: steps.cache-flag.outputs.cache-hit != 'true'
@@ -177,8 +177,8 @@ jobs:
         uses: actions/checkout@v3
 
       - run: |
-        sudo apt-get install -y protobuf-compiler
-        sudo apt-get install solc
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Cargo fmt Check
         run: cargo fmt --all --check
@@ -216,8 +216,8 @@ jobs:
         uses: actions/checkout@v3
 
       - run: |
-        sudo apt-get install -y protobuf-compiler
-        sudo apt-get install solc
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -256,8 +256,8 @@ jobs:
         uses: actions/checkout@v3
 
       - run: |
-        sudo apt-get install -y protobuf-compiler
-        sudo apt-get install solc
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -291,8 +291,8 @@ jobs:
         uses: actions/checkout@v3
 
       - run: |
-        sudo apt-get install -y protobuf-compiler
-        sudo apt-get install solc
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Set up cache
         uses: actions/cache@v3
@@ -367,8 +367,8 @@ jobs:
         uses: actions/checkout@v3
 
       - run: |
-        sudo apt-get install -y protobuf-compiler
-        sudo apt-get install solc
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov

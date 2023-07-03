@@ -39,7 +39,7 @@ const pair = kv.addFromUri(phrase);
 
 const chan = new Channel(0 /* default */);
 
-const validator_phrase = "//Alice//stash";
+const validator_phrase = "//Bob//stash";
 const validator_kv = new Keyring({ type: 'sr25519' });
 const validator_pair = validator_kv.addFromUri(validator_phrase);
 

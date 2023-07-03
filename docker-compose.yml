@@ -196,6 +196,7 @@ services:
     - ethereum
     volumes:
     - "ethereum-connector-volume:/data"
+    restart: always
 
   astar:
     image: "staketechnologies/astar-collator:latest"
@@ -215,5 +216,4 @@ services:
     - astar
     volumes:
     - "astar-connector-volume:/data"
-    # TODO: need to do a proper health check
     restart: always

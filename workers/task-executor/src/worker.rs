@@ -205,11 +205,37 @@ where
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let task_schedules = self
+		let Some(account) = self.account_id() else {
+			return Err(anyhow::anyhow!("No account id found"));
+		};
+
+		let all_schedules = self
 			.runtime
 			.runtime_api()
 			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+
+		log::info!("schedule_before_filter {:?}", all_schedules.len());
+
+		let task_schedules = all_schedules
+			.into_iter()
+			.filter_map(|schedule_data| {
+				let shard_id = schedule_data.1.shard_id;
+				let shard_members = self
+					.runtime
+					.runtime_api()
+					.get_shard_members(block_id, shard_id)
+					.unwrap_or(Some(vec![]))
+					.unwrap_or(vec![]);
+
+				if shard_members.contains(&account) {
+					Some(schedule_data)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+
 		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();

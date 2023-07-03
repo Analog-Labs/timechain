@@ -116,12 +116,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: sudo apt update
-      - run: sudo apt install snapd
-      - name: Install deps
-        run: |
-          sudo apt-get install -y protobuf-compiler
-          sudo snap install solc
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Cargo fmt Check
         if: success()
@@ -210,12 +205,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: sudo apt update
-      - run: sudo apt install snapd
-      - name: Install deps
-        run: |
-          sudo apt-get install -y protobuf-compiler
-          sudo snap install solc
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov

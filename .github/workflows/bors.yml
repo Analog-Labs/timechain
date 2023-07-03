@@ -61,9 +61,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: |
-          sudo apt-get install -y protobuf-compiler
-          sudo apt-get install solc
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Cargo fmt Check
         if: success()
@@ -164,9 +162,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: |
-          sudo apt-get install -y protobuf-compiler
-          sudo apt-get install solc
+      - run: sudo apt-get install -y protobuf-compiler
 
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov

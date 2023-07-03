@@ -95,6 +95,7 @@ async fn build_worker(url: &str, blockchain: &str, network: &str) -> TaskExecuto
 		kv: keystore,
 		_block: PhantomData::default(),
 		account_id: PhantomData::default(),
+		_block_number: PhantomData::default(),
 		sign_data_sender,
 		connector_url: Some(url.into()),
 		connector_blockchain: Some(blockchain.into()),

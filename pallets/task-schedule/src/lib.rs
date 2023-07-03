@@ -60,14 +60,16 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
-		sharding::EligibleShard,
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
-	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
-	pub type PayableScheduleResults<AccountId> = Vec<(KeyId, PayableTaskSchedule<AccountId>)>;
+	pub type ScheduleResults<AccountId, BlockNumber> =
+		Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>;
+	pub type PayableScheduleResults<AccountId, BlockNumber> =
+		Vec<(KeyId, PayableTaskSchedule<AccountId, BlockNumber>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
@@ -124,6 +126,29 @@ pub mod pallet {
 		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let current_block = frame_system::Pallet::<T>::block_number();
+			let mut timed_out_tasks = TimedOutTasks::<T>::get();
+			let recurring_time_out_length = T::RecurringTimeoutLength::get();
+			for (task_id, schedule) in <ScheduleStorage<T>>::iter() {
+				if !timed_out_tasks.contains(&task_id)
+					&& current_block.saturating_sub(schedule.executable_since)
+						>= recurring_time_out_length
+				{
+					timed_out_tasks.push(task_id);
+					T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
+				}
+			}
+			let payable_time_out_length = T::PayableTimeoutLength::get();
+			for (task_id, schedule) in <PayableScheduleStorage<T>>::iter() {
+				if !timed_out_tasks.contains(&task_id)
+					&& current_block.saturating_sub(schedule.executable_since)
+						>= payable_time_out_length
+				{
+					timed_out_tasks.push(task_id);
+					T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
+				}
+			}
+			TimedOutTasks::<T>::put(timed_out_tasks);
 			if T::ShouldEndSession::should_end_session(now) {
 				// TODO check if we should reward the indexer once or continue reward history data
 				// otherwise we can drain all data at the end of epoch
@@ -160,17 +185,42 @@ pub mod pallet {
 		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
 		type IndexerReward: Get<BalanceOf<Self>>;
 		type ShardEligibility: EligibleShard<u64>;
+		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
+		/// Minimum length in blocks before recurring task is determined to be timed out
+		#[pallet::constant]
+		type RecurringTimeoutLength: Get<Self::BlockNumber>;
+		/// Minimum length in blocks before payable task is determined to be timed out
+		#[pallet::constant]
+		type PayableTimeoutLength: Get<Self::BlockNumber>;
 	}
 
 	#[pallet::storage]
+	#[pallet::getter(fn timed_out_tasks)]
+	pub type TimedOutTasks<T: Config> = StorageValue<_, Vec<KeyId>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn shard_tasks)]
+	pub type ShardTasks<T: Config> = StorageMap<_, Blake2_128Concat, u64, Vec<KeyId>, ValueQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
-	pub type ScheduleStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
+	pub type ScheduleStorage<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		KeyId,
+		TaskSchedule<T::AccountId, T::BlockNumber>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_payable_task_schedule)]
-	pub type PayableScheduleStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, PayableTaskSchedule<T::AccountId>, OptionQuery>;
+	pub type PayableScheduleStorage<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		KeyId,
+		PayableTaskSchedule<T::AccountId, T::BlockNumber>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
@@ -242,6 +292,7 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
@@ -249,7 +300,9 @@ pub mod pallet {
 					owner: who,
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
-					start_block: 0,
+					frequency: schedule.frequency,
+					start_execution_block: 0,
+					executable_since: frame_system::Pallet::<T>::block_number(),
 					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,
@@ -309,12 +362,14 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			PayableScheduleStorage::<T>::insert(
 				schedule_id,
 				PayableTaskSchedule {
 					task_id: schedule.task_id,
 					owner: who,
 					shard_id: schedule.shard_id,
+					executable_since: frame_system::Pallet::<T>::block_number(),
 					status: ScheduleStatus::Initiated,
 				},
 			);
@@ -329,16 +384,29 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn get_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
+		pub fn get_one_time_schedules(
+		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| !item.1.is_repetitive_task())
 				.collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
+
+		pub fn get_repetitive_schedules(
+		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
+			let data_list = ScheduleStorage::<T>::iter()
+				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| item.1.is_repetitive_task())
+				.collect::<Vec<_>>();
+
+			Ok(data_list)
+		}
+
 		pub fn get_schedules_by_task_id(
 			key: ObjectId,
-		) -> Result<Vec<TaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Vec<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = ScheduleStorage::<T>::iter_values()
 				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
@@ -353,14 +421,14 @@ pub mod pallet {
 
 		pub fn get_schedule_by_key(
 			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = ScheduleStorage::<T>::get(key);
 
 			Ok(data)
 		}
 
 		pub fn get_payable_task_schedules(
-		) -> Result<PayableScheduleResults<T::AccountId>, DispatchError> {
+		) -> Result<PayableScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = PayableScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
@@ -370,7 +438,7 @@ pub mod pallet {
 
 		pub fn get_payable_schedules_by_task_id(
 			key: ObjectId,
-		) -> Result<Vec<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Vec<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = PayableScheduleStorage::<T>::iter_values()
 				.filter(|item| item.task_id == key)
 				.collect::<Vec<_>>();
@@ -401,32 +469,61 @@ pub mod pallet {
 
 		pub fn get_payable_schedule_by_key(
 			key: u64,
-		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = PayableScheduleStorage::<T>::get(key);
 
 			Ok(data)
 		}
 	}
 
-	pub trait ScheduleInterface<AccountId> {
-		fn get_schedule_via_key(key: u64)
-			-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
-		fn get_payable_schedule_via_key(
-			key: u64,
-		) -> Result<Option<PayableTaskSchedule<AccountId>>, DispatchError>;
-		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
+	impl<T: Config> ReassignShardTasks<u64> for Pallet<T> {
+		fn reassign_shard_tasks(id: u64) {
+			let shard_tasks = ShardTasks::<T>::take(id);
+			let available_shards = T::ShardEligibility::get_eligible_shards(shard_tasks.len());
+			// Reassign all tasks for shard to other shards
+			let mut timed_out_tasks = TimedOutTasks::<T>::get();
+			for (i, key) in shard_tasks.into_iter().enumerate() {
+				let next_available_shard = available_shards[i % available_shards.len()];
+				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
+					// reassign task to different shard
+					schedule.shard_id = next_available_shard;
+					schedule.executable_since = frame_system::Pallet::<T>::block_number();
+					ScheduleStorage::<T>::insert(key, schedule);
+				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(key) {
+					payable_schedule.shard_id = next_available_shard;
+					payable_schedule.executable_since = frame_system::Pallet::<T>::block_number();
+					PayableScheduleStorage::<T>::insert(key, payable_schedule);
+				}
+				// add task to shard tasks
+				ShardTasks::<T>::mutate(next_available_shard, |tasks| tasks.push(key));
+				// task no longer timed out upon reassignment
+				timed_out_tasks.retain(|task| *task != key);
+			}
+			TimedOutTasks::<T>::put(timed_out_tasks);
+		}
 	}
 
-	impl<T: Config> ScheduleInterface<T::AccountId> for Pallet<T> {
+	pub trait ScheduleInterface<AccountId, BlockNumber> {
 		fn get_schedule_via_key(
 			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
+		fn get_payable_schedule_via_key(
+			key: u64,
+		) -> Result<Option<PayableTaskSchedule<AccountId, BlockNumber>>, DispatchError>;
+		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
+		fn update_completed_task(key: u64);
+	}
+
+	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
+		fn get_schedule_via_key(
+			key: u64,
+		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			Self::get_schedule_by_key(key)
 		}
 
 		fn get_payable_schedule_via_key(
 			key: u64,
-		) -> Result<Option<PayableTaskSchedule<T::AccountId>>, DispatchError> {
+		) -> Result<Option<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			Self::get_payable_schedule_by_key(key)
 		}
 
@@ -437,6 +534,19 @@ pub mod pallet {
 				Ok(())
 			})?;
 			Ok(())
+		}
+
+		fn update_completed_task(key: u64) {
+			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
+				schedule.executable_since = frame_system::Pallet::<T>::block_number();
+				schedule.status = ScheduleStatus::Updated;
+				ScheduleStorage::<T>::insert(key, schedule);
+			} else if let Some(mut schedule) = PayableScheduleStorage::<T>::get(key) {
+				schedule.status = ScheduleStatus::Completed;
+				PayableScheduleStorage::<T>::insert(key, schedule);
+			}
+			// no longer timed out upon completion
+			TimedOutTasks::<T>::mutate(|tasks| tasks.retain(|t| *t != key));
 		}
 	}
 }

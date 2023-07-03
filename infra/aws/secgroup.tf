@@ -1,6 +1,5 @@
-
-resource "aws_security_group" "testnet_sg" {
-  vpc_id      = aws_vpc.testnet.id
+resource "aws_security_group" "sec_group" {
+  vpc_id      = aws_vpc.internal_vpc.id
   dynamic "ingress" {
     for_each = var.security_groups
     content {

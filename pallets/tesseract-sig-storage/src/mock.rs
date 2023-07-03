@@ -7,7 +7,7 @@ use frame_support::{
 };
 use frame_system as system;
 use pallet_staking::SessionInterface;
-use sp_core::{ConstU32, H256};
+use sp_core::{ConstU32, ConstU8, H256};
 use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
@@ -204,6 +204,9 @@ impl task_schedule::Config for Test {
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = ();
+	type ShardTimeouts = ();
+	type RecurringTimeoutLength = ConstU64<2>;
+	type PayableTimeoutLength = ConstU64<1000>;
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);
@@ -238,6 +241,8 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type SessionInterface = SessionInterfaceMock<AccountId>;
 	type MaxChronicleWorkers = ConstU32<3>;
 	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
+	type TaskAssigner = ();
+	type MaxTimeouts = ConstU8<100>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

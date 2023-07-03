@@ -4,7 +4,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, KeyId, ScheduleCycle, SignatureData};
+use crate::{crypto::Signature, KeyId, ScheduleCycle, SignatureData, TimeId};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -21,7 +21,7 @@ pub enum Function {
 	EthereumViewWithoutAbi {
 		address: String,
 		function_signature: String,
-		input: Vec<Input>,
+		input: Vec<String>,
 		output: Vec<Output>,
 	},
 	EthereumTxWithoutAbi {
@@ -112,6 +112,7 @@ pub struct PayableTask {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Initiated,
+	Recurring,
 	Updated,
 	Completed,
 	Invalid,
@@ -119,22 +120,32 @@ pub enum ScheduleStatus {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskSchedule<AccountId> {
+pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub shard_id: u64,
-	pub start_block: u64,
 	pub cycle: u64,
+	// used to check if the task is repetitive task
+	pub frequency: u64,
 	pub validity: Validity,
 	pub hash: String,
+	pub start_execution_block: u64,
+	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
 
+impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
+	// check if task is repetitive, can't use the cycle to check because it can be decreased to 1
+	pub fn is_repetitive_task(&self) -> bool {
+		self.frequency > 0
+	}
+}
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct PayableTaskSchedule<AccountId> {
+pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub shard_id: u64,
+	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
 
@@ -143,8 +154,10 @@ pub struct ScheduleInput {
 	pub task_id: ObjectId,
 	pub shard_id: u64,
 	pub cycle: u64,
+	pub frequency: u64,
 	pub validity: Validity,
 	pub hash: String,
+	pub status: ScheduleStatus,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -245,5 +258,18 @@ pub struct OCWSkdData {
 impl OCWSkdData {
 	pub fn new(status: ScheduleStatus, key: KeyId) -> Self {
 		Self { status, key }
+	}
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct OCWReportData {
+	pub shard_id: u64,
+	pub offender: TimeId,
+	pub proof: Signature,
+}
+
+impl OCWReportData {
+	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
+		Self { shard_id, offender, proof }
 	}
 }

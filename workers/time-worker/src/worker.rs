@@ -9,7 +9,6 @@ use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::Backend as SpBackend;
 use sp_core::{sr25519, Pair};
 use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
@@ -25,8 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{EthTxValidation, OCWSigData},
-	SignatureData, TimeApi, OCW_SIG_KEY, TIME_KEY_TYPE,
+	abstraction::{EthTxValidation, OCWReportData, OCWSigData},
+	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -63,12 +62,12 @@ impl TimeMessage {
 	}
 }
 
-struct Shard {
+struct TssState {
 	tss: Tss<sr25519::Public>,
 	is_collector: bool,
 }
 
-impl Shard {
+impl TssState {
 	fn new(public: sr25519::Public) -> Self {
 		Self {
 			tss: Tss::new(public),
@@ -94,12 +93,12 @@ fn sleep_until(deadline: Instant) -> Pin<Box<Sleep>> {
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, A, C, R, BE> {
+pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	_client: Arc<C>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	kv: KeystorePtr,
-	shards: HashMap<u64, Shard>,
+	tss_states: HashMap<u64, TssState>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
@@ -107,20 +106,22 @@ pub struct TimeWorker<B: Block, A, C, R, BE> {
 	tx_data_sender: mpsc::Sender<Vec<u8>>,
 	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 }
 
-impl<B, A, C, R, BE> TimeWorker<B, A, C, R, BE>
+impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
 where
 	B: Block + 'static,
 	A: sp_runtime::codec::Codec + 'static,
+	BN: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, C, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, BN, C, R, BE>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
@@ -132,6 +133,7 @@ where
 			tx_data_sender,
 			gossip_data_receiver,
 			accountid,
+			_block_number,
 		} = worker_params;
 		TimeWorker {
 			finality_notifications: client.finality_notification_stream(),
@@ -144,8 +146,9 @@ where
 			sign_data_receiver,
 			tx_data_sender,
 			gossip_data_receiver,
-			shards: Default::default(),
+			tss_states: Default::default(),
 			accountid,
+			_block_number,
 			timeouts: Default::default(),
 			timeout: None,
 		}
@@ -166,7 +169,7 @@ where
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for (shard_id, shard) in shards {
-			if self.shards.contains_key(&shard_id) {
+			if self.tss_states.contains_key(&shard_id) {
 				continue;
 			}
 			if !shard.members().contains(&public_key.into()) {
@@ -180,7 +183,8 @@ where
 				.into_iter()
 				.map(|id| sr25519::Public::from_raw(id.into()))
 				.collect();
-			let state = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
+			let state =
+				self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
 			state.tss.initialize(members, shard.threshold());
 			state.is_collector = *shard.collector() == public_key.into();
 			self.poll_actions(shard_id, public_key);
@@ -188,8 +192,9 @@ where
 	}
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
-		let shard = self.shards.get_mut(&shard_id).unwrap();
-		while let Some(action) = shard.tss.next_action() {
+		let tss_state = self.tss_states.get_mut(&shard_id).unwrap();
+		let mut ocw_encoded_vec: Vec<(&[u8; 24], Vec<u8>)> = vec![];
+		while let Some(action) = tss_state.tss.next_action() {
 			match action {
 				TssAction::Send(payload) => {
 					debug!(target: TW_LOG, "Sending gossip message");
@@ -209,8 +214,8 @@ where
 				TssAction::Tss(tss_signature, hash) => {
 					debug!(target: TW_LOG, "Storing tss signature");
 					self.timeouts.remove(&(shard_id, Some(hash)));
-					if shard.is_collector {
-						let Some((key_id, schedule_cycle)) = shard.tss.event_id_map.get(&hash) else {
+					if tss_state.is_collector {
+						let Some((key_id, schedule_cycle)) = tss_state.tss.event_id_map.get(&hash) else {
 							log::error!("Failed to store signature, Task id not found for hash {:?}", hash);
 							return;
 						};
@@ -228,56 +233,27 @@ where
 						let ocw_sig_data =
 							OCWSigData::new(signature.into(), sig_data, *key_id, *schedule_cycle);
 
-						if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-							let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SIG_KEY);
+						ocw_encoded_vec.push((OCW_SIG_KEY, ocw_sig_data.encode()));
 
-							let mut ocw_vec = match old_value.clone() {
-								Some(mut data) => {
-									let mut bytes: &[u8] = &mut data;
-									let inner_data: VecDeque<OCWSigData> =
-										Decode::decode(&mut bytes).unwrap();
-									inner_data
-								},
-								None => Default::default(),
-							};
-
-							ocw_vec.push_back(ocw_sig_data);
-							let encoded_data = Encode::encode(&ocw_vec);
-							ocw_storage.compare_and_set(
-								STORAGE_PREFIX,
-								OCW_SIG_KEY,
-								old_value.as_deref(),
-								&encoded_data,
-							);
-						} else {
-							log::error!("cant get offchain storage");
-						};
-
-						shard.tss.event_id_map.remove(&hash);
+						tss_state.tss.event_id_map.remove(&hash);
 					}
 				},
 				TssAction::Report(offender, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
-					let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
+
+					if tss_state.is_collector {
+						let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
 						error!(
 							target: TW_LOG,
 							"Failed to create proof for offence report submission"
 						);
 						return;
 					};
-					let at = self.backend.blockchain().last_finalized().unwrap();
-					if let Err(e) = self.runtime.runtime_api().report_misbehavior(
-						at,
-						shard_id,
-						offender.into(),
-						public_key.into(),
-						proof.into(),
-					) {
-						error!(
-							target: TW_LOG,
-							"Offence report runtime API submission failed with reason: {}",
-							e.to_string()
-						);
+
+						let ocw_report_data =
+							OCWReportData::new(shard_id, offender.into(), proof.into());
+
+						ocw_encoded_vec.push((OCW_REP_KEY, ocw_report_data.encode()));
 					}
 				},
 				TssAction::Timeout(timeout, hash) => {
@@ -289,6 +265,38 @@ where
 				},
 			}
 		}
+
+		if tss_state.is_collector {
+			for (key, data) in ocw_encoded_vec {
+				self.add_item_in_offchain_storage(data, key);
+			}
+		}
+	}
+
+	pub fn add_item_in_offchain_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
+		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
+
+			let mut ocw_vec = match old_value.clone() {
+				Some(mut data) => {
+					let mut bytes: &[u8] = &mut data;
+					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
+					inner_data
+				},
+				None => Default::default(),
+			};
+
+			ocw_vec.push_back(data);
+			let encoded_data = Encode::encode(&ocw_vec);
+			ocw_storage.compare_and_set(
+				STORAGE_PREFIX,
+				OCW_SIG_KEY,
+				old_value.as_deref(),
+				&encoded_data,
+			);
+		} else {
+			log::error!("cant get offchain storage");
+		};
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
@@ -332,10 +340,10 @@ where
 					let Some(public_key) = self.public_key() else {
 						continue;
 					};
-					let Some(shard) = self.shards.get_mut(&shard_id) else {
+					let Some(tss_state) = self.tss_states.get_mut(&shard_id) else {
 						continue;
 					};
-					shard.tss.sign(data.to_vec(), key_id, schedule_cycle);
+					tss_state.tss.sign(data.to_vec(), key_id, schedule_cycle);
 					self.poll_actions(shard_id, public_key);
 				},
 				gossip_data = self.gossip_data_receiver.next().fuse() => {
@@ -355,8 +363,8 @@ where
 					};
 					if let Ok(TimeMessage { shard_id, sender, payload }) = TimeMessage::decode(&notification.message){
 						debug!(target: TW_LOG, "received gossip message");
-						let shard = self.shards.entry(shard_id).or_insert_with(|| Shard::new(public_key));
-						shard.tss.on_message(sender, payload);
+						let tss_state = self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
+						tss_state.tss.on_message(sender, payload);
 						self.poll_actions(shard_id, public_key);
 
 					} else if let Ok(data) = EthTxValidation::decode(&mut &notification.message[..]) {
@@ -387,9 +395,9 @@ where
 					}
 					for (shard_id, hash) in fired {
 						let timeout = self.timeouts.remove(&(shard_id, hash));
-						let shard = self.shards.get_mut(&shard_id);
-						if let (Some(shard), Some(timeout)) = (shard, timeout) {
-							shard.tss.on_timeout(timeout.timeout);
+						let tss_state = self.tss_states.get_mut(&shard_id);
+						if let (Some(tss_state), Some(timeout)) = (tss_state, timeout) {
+							tss_state.tss.on_timeout(timeout.timeout);
 						}
 					}
 					if let Some(next_timeout) = next_timeout {

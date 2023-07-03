@@ -354,6 +354,7 @@ pub fn new_full(
 			tx_data_sender: tx_data_sender.clone(),
 			gossip_data_receiver,
 			accountid: PhantomData,
+			_block_number: PhantomData,
 			sync_service,
 		};
 
@@ -372,6 +373,7 @@ pub fn new_full(
 			sign_data_sender: sign_data_sender.clone(),
 			tx_data_receiver,
 			accountid: PhantomData,
+			_block_number: PhantomData,
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),
@@ -383,13 +385,14 @@ pub fn new_full(
 			event_worker::start_eventworker_gadget(event_params),
 		);
 
-		let taskexecutor_params = task_executor::TaskExecutorParams {
+		let task_executor_params = task_executor::TaskExecutorParams {
 			runtime: client.clone(),
 			backend: backend.clone(),
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
 			sign_data_sender,
-			accountid: PhantomData,
+			account_id: PhantomData,
+			_block_number: PhantomData,
 			connector_url: connector_url.clone(),
 			connector_blockchain: connector_blockchain.clone(),
 			connector_network: connector_network.clone(),
@@ -397,7 +400,7 @@ pub fn new_full(
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"task-executor",
 			None,
-			task_executor::start_taskexecutor_gadget(taskexecutor_params),
+			task_executor::start_task_executor_gadget(task_executor_params),
 		);
 
 		let payabletaskexecutor_params = payable_task_executor::PayableTaskExecutorParams {
@@ -408,6 +411,7 @@ pub fn new_full(
 			tx_data_sender,
 			gossip_data_sender,
 			accountid: PhantomData,
+			_block_number: PhantomData,
 			connector_url,
 			connector_blockchain,
 			connector_network,

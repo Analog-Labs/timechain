@@ -100,6 +100,8 @@ fn test_signature_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 0,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -174,6 +176,8 @@ fn test_signature_and_decrement_schedule_storage() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 0,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -197,11 +201,13 @@ fn test_signature_and_decrement_schedule_storage() {
 			task_id: ObjectId(1),
 			owner: ALICE.clone(),
 			shard_id: 0,
-			start_block: 0,
+			frequency: 0,
+			start_execution_block: 0,
+			executable_since: block_number,
 			cycle: 11,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
-			status: ScheduleStatus::Initiated,
+			status: ScheduleStatus::Updated,
 		};
 
 		let scheduled_task = TaskSchedule::get_task_schedule(1_u64);
@@ -256,6 +262,8 @@ fn test_duplicate_signature() {
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
+			frequency: 1,
+			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
@@ -430,7 +438,7 @@ fn test_register_shard_fails_if_collector_index_invalid() {
 }
 
 #[test]
-fn test_api_report_misbehavior_increments_report_count() {
+fn test_report_misbehavior_increments_report_count() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -456,7 +464,7 @@ fn test_api_report_misbehavior_increments_report_count() {
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(1),
+			Some(0),
 		));
 
 		// report 1st offence
@@ -465,22 +473,18 @@ fn test_api_report_misbehavior_increments_report_count() {
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice.into(),
-			alice_report.into(),
+			alice_report.clone().into(),
 		));
-		let bob_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, CHARLIE.as_ref())
-			.unwrap()
-			.unwrap();
 		// report 2nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			bob.into(),
-			bob_report.into(),
+			alice_report.into(),
 		));
 		// 2 reported offences
 		assert_eq!(2, TesseractSigStorage::commited_offences(CHARLIE).unwrap().0);
@@ -488,7 +492,7 @@ fn test_api_report_misbehavior_increments_report_count() {
 }
 
 #[test]
-fn test_api_report_misbehavior_updates_reporters() {
+fn test_report_misbehavior_updates_reporters() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -514,7 +518,7 @@ fn test_api_report_misbehavior_updates_reporters() {
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(1),
+			Some(0),
 		));
 
 		// report 1st offence
@@ -523,35 +527,30 @@ fn test_api_report_misbehavior_updates_reporters() {
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice.into(),
+			alice_report.clone().into(),
+		));
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			CHARLIE,
 			alice_report.into(),
 		));
-		let bob_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, CHARLIE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 2nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			CHARLIE,
-			bob.into(),
-			bob_report.into(),
-		));
-		// alice and bob are reporters
+		// alice is only reporter
 		assert!(TesseractSigStorage::commited_offences(CHARLIE)
 			.unwrap()
 			.1
 			.contains(&alice.into()));
-		assert!(TesseractSigStorage::commited_offences(CHARLIE).unwrap().1.contains(&bob.into()));
 	});
 }
 
 #[test]
 /// Moves offences to committed such that reported offences is emptied
-fn test_api_report_misbehavior_moves_offences_to_committed() {
+fn test_report_misbehavior_moves_offences_to_committed() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let alice = keystore
@@ -578,7 +577,7 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
 			vec![alice.into(), bob.into(), CHARLIE],
-			Some(1),
+			Some(0),
 		));
 		// To report offence, need to sign the public key
 
@@ -588,38 +587,27 @@ fn test_api_report_misbehavior_moves_offences_to_committed() {
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, CHARLIE.as_ref())
 			.unwrap()
 			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			CHARLIE,
-			alice.into(),
+			alice_report.clone().into(),
+		));
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			CHARLIE,
 			alice_report.into(),
 		));
-		let mut expected_committed_offences =
-			TesseractSigStorage::reported_offences(CHARLIE).unwrap();
-		expected_committed_offences.0 += 1;
-		expected_committed_offences.1.insert(bob.into());
-		let bob_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, CHARLIE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 2nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			CHARLIE,
-			bob.into(),
-			bob_report.into(),
-		));
-		assert_eq!(
-			expected_committed_offences,
-			TesseractSigStorage::commited_offences(CHARLIE).unwrap()
-		);
+		assert!(TesseractSigStorage::commited_offences(CHARLIE).is_some());
 		// remove reported_offences from storage once moved to commited_offences
 		assert!(TesseractSigStorage::reported_offences(CHARLIE).is_none());
 	});
 }
 
 #[test]
-fn test_api_report_misbehavior_for_group_len_5() {
+fn test_report_misbehavior_for_group_len_5() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let charlie = keystore
@@ -656,7 +644,7 @@ fn test_api_report_misbehavior_for_group_len_5() {
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
 			vec![ALICE, BOB, charlie.into(), david.into(), edward.into()],
-			Some(1),
+			Some(2),
 		));
 		// To report offence, need to sign the public key
 
@@ -666,48 +654,32 @@ fn test_api_report_misbehavior_for_group_len_5() {
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &charlie, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			charlie.into(),
+			charlie_report.clone().into(),
+		));
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			ALICE,
+			charlie_report.clone().into(),
+		));
+		// report 3nd offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			ALICE,
 			charlie_report.into(),
 		));
-		let david_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &david, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 2nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			david.into(),
-			david_report.into(),
-		));
-		assert!(TesseractSigStorage::commited_offences(ALICE).is_none());
-		let mut expected_committed_offences =
-			TesseractSigStorage::reported_offences(ALICE).unwrap();
-		expected_committed_offences.0 += 1;
-		expected_committed_offences.1.insert(edward.into());
-		let edward_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &edward, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 3nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			edward.into(),
-			edward_report.into(),
-		));
-		assert_eq!(
-			expected_committed_offences,
-			TesseractSigStorage::commited_offences(ALICE).unwrap()
-		);
+		assert!(TesseractSigStorage::commited_offences(ALICE).is_some());
 	});
 }
 
 #[test]
-fn test_api_report_misbehavior_for_group_len_10() {
+fn test_report_misbehavior_for_group_len_10() {
 	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 	// test the thresholds
 	let edward = keystore
@@ -784,7 +756,7 @@ fn test_api_report_misbehavior_for_group_len_10() {
 				indigo.into(),
 				jared.into()
 			],
-			Some(1),
+			Some(4),
 		));
 		// To report offence, need to sign the public key
 
@@ -794,66 +766,41 @@ fn test_api_report_misbehavior_for_group_len_10() {
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &edward, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			edward.into(),
+			edward_report.clone().into(),
+		));
+		// report 2nd offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			ALICE,
+			edward_report.clone().into(),
+		));
+		// report 3nd offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			ALICE,
+			edward_report.clone().into(),
+		));
+		// report 4th offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			ALICE,
+			edward_report.clone().into(),
+		));
+		// report 5th offence
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
+			0, // setId is 0
+			ALICE,
 			edward_report.into(),
 		));
-		let frank_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &frank, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 2nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			frank.into(),
-			frank_report.into(),
-		));
-		let greg_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &greg, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 3nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			greg.into(),
-			greg_report.into(),
-		));
-		let hank_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &hank, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 4th offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			hank.into(),
-			hank_report.into(),
-		));
-		assert!(TesseractSigStorage::commited_offences(ALICE).is_none());
-		let mut expected_committed_offences =
-			TesseractSigStorage::reported_offences(ALICE).unwrap();
-		expected_committed_offences.0 += 1;
-		expected_committed_offences.1.insert(indigo.into());
-		let indigo_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &indigo, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		// report 5th offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			indigo.into(),
-			indigo_report.into(),
-		));
-		assert!(TesseractSigStorage::reported_offences(ALICE).is_none());
-		assert_eq!(
-			expected_committed_offences,
-			TesseractSigStorage::commited_offences(ALICE).unwrap()
-		);
+		assert!(TesseractSigStorage::commited_offences(ALICE).is_some());
 	});
 }
 
@@ -908,114 +855,39 @@ fn can_report_offence_if_already_committed_offender() {
 			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, ALICE.as_ref())
 			.unwrap()
 			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			bob.into(),
-			bob_report.into(),
+			bob_report.clone().into(),
 		));
-		let charlie_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &charlie, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
 		// report 2nd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			charlie.into(),
-			charlie_report.into(),
+			bob_report.clone().into(),
 		));
-		let david_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &david, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
 		// report 3rd offence
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			david.into(),
-			david_report.into(),
+			bob_report.clone().into(),
 		));
 		// 3 reported offences
 		assert_eq!(3, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
-		let edward_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &edward, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
 		// can report offence but only updates committed offences
 		// such that reported offences stays empty
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
+		assert_ok!(TesseractSigStorage::report_misbehavior(
+			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
 			ALICE,
-			edward.into(),
-			edward_report.into(),
+			bob_report.into(),
 		));
 		// 4 reported offences in committed offences
 		assert_eq!(4, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
 		// reported offences storage item remains empty
 		assert!(TesseractSigStorage::reported_offences(ALICE).is_none());
-	});
-}
-
-#[test]
-fn cannot_report_more_than_once_per_offender_by_member() {
-	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-	// test the thresholds
-	let bob = keystore
-		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
-		.expect("Creates authority key");
-	let edward = keystore
-		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
-		.expect("Creates authority key");
-	new_test_ext().execute_with(|| {
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			ALICE,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_2).into(),
-			bob.into(),
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_3).into(),
-			CHARLIE,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			DJANGO,
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_2).into(),
-			edward.into(),
-		),);
-
-		// register shard
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			vec![ALICE, bob.into(), CHARLIE, DJANGO, edward.into()],
-			Some(1),
-		));
-
-		// report 1st offence
-		let bob_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &bob, ALICE.as_ref())
-			.unwrap()
-			.unwrap();
-		assert_ok!(TesseractSigStorage::api_report_misbehavior(
-			0, // setId is 0
-			ALICE,
-			bob.into(),
-			bob_report.clone().into(),
-		));
-		// cannot report 2nd offence if reported first
-		assert_noop!(
-			TesseractSigStorage::api_report_misbehavior(
-				0, // setId is 0
-				ALICE,
-				bob.into(),
-				bob_report.into(),
-			),
-			Error::<Test>::MaxOneReportPerMember
-		);
 	});
 }

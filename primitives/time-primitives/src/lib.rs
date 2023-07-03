@@ -12,7 +12,7 @@ use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, IdentifyAccount, Verify},
-	DispatchError, DispatchResult, MultiSignature,
+	DispatchError, MultiSignature,
 };
 use sp_std::{fmt::Debug, vec::Vec};
 
@@ -23,8 +23,9 @@ pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"psig");
 pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"pskd");
-pub const OCW_SIG_KEY: &[u8; 20] = b"pallet_sig::offchain";
-pub const OCW_SKD_KEY: &[u8; 20] = b"pallet_skd::offchain";
+pub const OCW_SIG_KEY: &[u8; 24] = b"pallet_sig::offchain_sig";
+pub const OCW_REP_KEY: &[u8; 24] = b"pallet_sig::offchain_rep";
+pub const OCW_SKD_KEY: &[u8; 24] = b"pallet_skd::offchain_skd";
 
 /// The type representing a signature data
 // ThresholdSignature::to_bytes()
@@ -38,25 +39,24 @@ pub type ScheduleCycle = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi<AccountId>
+	pub trait TimeApi<AccountId, BlockNumber>
 	where
 	AccountId: Codec,
+	BlockNumber: Codec,
 	{
 		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
 		fn get_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_active_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_inactive_shards() -> Vec<(u64, sharding::Shard)>;
+		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
-		fn get_task_metadat_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
-		fn get_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId>)>, DispatchError>;
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
+		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
+		fn get_one_time_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
+		fn get_repetitive_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
 		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
-		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId>)>, DispatchError>;
-		fn report_misbehavior(
-			shard_id: u64,
-			offender: TimeId,
-			reporter: TimeId,
-			proof: crate::crypto::Signature
-		) -> DispatchResult;
+		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
 	}
 }
 

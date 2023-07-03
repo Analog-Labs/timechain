@@ -18,7 +18,7 @@ use tokio::time::sleep;
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
-pub struct PayableTaskExecutor<B: Block, A, R, BE> {
+pub struct PayableTaskExecutor<B: Block, A, BN, R, BE> {
 	pub(crate) backend: Arc<BE>,
 	pub(crate) runtime: Arc<R>,
 	_block: PhantomData<B>,
@@ -26,20 +26,22 @@ pub struct PayableTaskExecutor<B: Block, A, R, BE> {
 	gossip_data_sender: Sender<Vec<u8>>,
 	kv: KeystorePtr,
 	accountid: PhantomData<A>,
+	_block_number: PhantomData<BN>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
 }
 
-impl<B, A, R, BE> PayableTaskExecutor<B, A, R, BE>
+impl<B, A, BN, R, BE> PayableTaskExecutor<B, A, BN, R, BE>
 where
 	B: Block,
 	A: codec::Codec,
+	BN: codec::Codec,
 	R: ProvideRuntimeApi<B>,
 	BE: Backend<B>,
-	R::Api: TimeApi<B, A>,
+	R::Api: TimeApi<B, A, BN>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, A, BN, R, BE>) -> Self {
 		let WorkerParams {
 			backend,
 			runtime,
@@ -47,7 +49,8 @@ where
 			gossip_data_sender,
 			kv,
 			_block,
-			accountid: _,
+			accountid,
+			_block_number,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -59,8 +62,9 @@ where
 			tx_data_sender,
 			gossip_data_sender,
 			kv,
-			_block: PhantomData,
-			accountid: PhantomData,
+			_block,
+			accountid,
+			_block_number,
 			connector_url,
 			connector_blockchain,
 			connector_network,

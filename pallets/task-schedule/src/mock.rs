@@ -162,7 +162,28 @@ impl frame_system::offchain::SigningTypes for Test {
 	type Public = <Signature as Verify>::Signer;
 	type Signature = Signature;
 }
+pub struct CurrentPalletAccounts;
+impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
+	fn get_treasury() -> AccountId {
+		Treasury::account_id()
+	}
+}
 
+impl task_schedule::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
+	type ProxyExtend = PalletProxy;
+	type PalletAccounts = CurrentPalletAccounts;
+	type Currency = Balances;
+	type ScheduleFee = ScheduleFee;
+	type ShouldEndSession = ShouldEndSessionMock;
+	type IndexerReward = IndexerReward;
+	type AuthorityId = task_schedule::crypto::SigAuthId;
+	type ShardEligibility = ();
+	type RecurringTimeoutLength = ConstU64<2>;
+	type PayableTimeoutLength = ConstU64<1000>;
+	type ShardTimeouts = ();
+}
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {

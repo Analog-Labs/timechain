@@ -5,6 +5,7 @@ use ethers_solc::artifacts::Source;
 use ethers_solc::{CompilerInput, EvmVersion, Solc};
 use futures::channel::mpsc;
 use rosetta_client::{create_wallet, EthereumExt};
+use rosetta_docker::Env;
 use sc_keystore::LocalKeystore;
 use sc_network_test::Block;
 use sc_network_test::TestClientBuilderExt;
@@ -75,36 +76,7 @@ impl ProvideRuntimeApi<Block> for TestApi {
 	}
 }
 
-async fn build_ethereum_worker(url: &str, blockchain: &str, network: &str) -> TaskExecutorType {
-	let (sign_data_sender, _sign_data_receiver) = mpsc::channel(400);
-	let runtime_api = TestApi::default();
-	let keystore = Arc::new(LocalKeystore::in_memory());
-
-	// Create an observer.
-	let (_client, backend) = {
-		let builder = TestClientBuilder::with_default_backend();
-		let backend = builder.backend();
-		let (client, _) = builder.build_with_longest_chain();
-		(Arc::new(client), backend)
-	};
-
-	let params = TaskExecutorParams {
-		backend,
-		runtime: runtime_api.into(),
-		kv: keystore,
-		_block: PhantomData::default(),
-		account_id: PhantomData::default(),
-		_block_number: PhantomData::default(),
-		sign_data_sender,
-		connector_url: Some(url.into()),
-		connector_blockchain: Some(blockchain.into()),
-		connector_network: Some(network.into()),
-	};
-
-	TaskExecutor::new(params).await.unwrap()
-}
-
-async fn build_astar_worker(url: &str, blockchain: &str, network: &str) -> TaskExecutorType {
+async fn build_worker(url: &str, blockchain: &str, network: &str) -> TaskExecutorType {
 	let (sign_data_sender, _sign_data_receiver) = mpsc::channel(400);
 	let runtime_api = TestApi::default();
 	let keystore = Arc::new(LocalKeystore::in_memory());
@@ -135,19 +107,20 @@ async fn build_astar_worker(url: &str, blockchain: &str, network: &str) -> TaskE
 #[tokio::test]
 // Ethereum localnet contract call
 async fn task_executor_ethereum_sc_call() {
-	let url = "http://rosetta.analog.one:8081";
 	let blockchain = "ethereum";
 	let network = "dev";
-	let worker = build_ethereum_worker(url, blockchain, network).await;
 
-	let contract_address = deploy_eth_testnet_contract(url, blockchain, network).await.unwrap();
+	let config = rosetta_client::create_config(blockchain, network).unwrap();
+	let env = Env::new("ethereum-sc-call", config).await.unwrap();
+	let url = env.connector_url();
+
+	let worker = build_worker(&url, blockchain, network).await;
+	let contract_address = deploy_eth_testnet_contract(&url, blockchain, network).await.unwrap();
 
 	let function = "function identity(bool a) returns (bool)";
-	let input: Vec<String> = vec!["true".into()];
+	let input = ["true".into()];
 	let data = worker.call_eth_contract(&contract_address, function, &input).await.unwrap();
-	sp_std::if_std! {
-		println!("data: {:?}", data);
-	}
+	println!("data: {:?}", data);
 	let result: Vec<String> = serde_json::from_value(data.result).unwrap();
 	assert_eq!(result[0], "true");
 }
@@ -155,17 +128,18 @@ async fn task_executor_ethereum_sc_call() {
 #[tokio::test]
 // Astar localnet contract call
 async fn task_executor_astar_sc_call() {
-	let url = "http://rosetta.analog.one:8083";
 	let blockchain = "astar";
 	let network = "dev";
-	let worker = build_astar_worker(url, blockchain, network).await;
 
-	let contract_address = deploy_eth_testnet_contract(url, blockchain, network).await.unwrap();
+	let config = rosetta_client::create_config(blockchain, network).unwrap();
+	let env = Env::new("astar-sc-call", config).await.unwrap();
+	let url = env.connector_url();
 
-	// let contract_address = "0x58728151b928349b7c69b5221ee3f9b6a0877fb3";
+	let worker = build_worker(&url, blockchain, network).await;
+	let contract_address = deploy_eth_testnet_contract(&url, blockchain, network).await.unwrap();
 
 	let function = "function identity(bool a) returns (bool)";
-	let input: Vec<String> = vec!["true".into()];
+	let input = ["true".into()];
 	let data = worker.call_eth_contract(&contract_address, function, &input).await.unwrap();
 	let result: Vec<String> = serde_json::from_value(data.result).unwrap();
 	assert_eq!(result[0], "true");
@@ -188,9 +162,7 @@ async fn deploy_eth_testnet_contract(url: &str, blockchain: &str, network: &str)
 	let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
 	let contract_address = receipt.result["contractAddress"].as_str().unwrap();
 
-	sp_std::if_std! {
-		println!("contract_address: {:?}", contract_address);
-	}
+	println!("contract_address: {:?}", contract_address);
 
 	Ok(contract_address.into())
 }

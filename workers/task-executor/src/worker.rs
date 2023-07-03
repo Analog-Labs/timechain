@@ -172,7 +172,7 @@ where
 		&self,
 		address: &str,
 		function: &str,
-		input: &Vec<String>,
+		input: &[String],
 	) -> Result<CallResponse> {
 		let method = format!("{address}-{function}-call");
 		let request = CallRequest {
@@ -222,9 +222,9 @@ where
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			if let Err(e) = self.task_executor(block_id, id, schedule).await{
+			if let Err(e) = self.task_executor(block_id, id, schedule).await {
 				log::error!("Error occured while executing schedule {:?}: {}", id, e);
-			} 
+			}
 		}
 
 		Ok(())

@@ -192,6 +192,8 @@ services:
     command: "--network dev --addr 0.0.0.0:8080 --node-addr ethereum:8545 --path /data"
     expose:
     - "8080"
+    ports:
+    - "8080:8080"
     depends_on:
     - ethereum
     volumes:
@@ -212,6 +214,8 @@ services:
     command: "--network dev --addr 0.0.0.0:8081 --node-addr astar:9944 --path /data"
     expose:
     - "8081"
+    ports:
+    - "8081:8081"
     depends_on:
     - astar
     volumes:

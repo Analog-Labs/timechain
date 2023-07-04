@@ -103,7 +103,7 @@ jobs:
 
   build-and-test:
     name: Build and Test Project
-    runs-on: self-hosted
+    runs-on: ubuntu-latest #self-hosted
     needs: conditions
     env:
       BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}

@@ -5,7 +5,7 @@ use frame_support::traits::Get;
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
 use time_primitives::{
-	sharding::{ReassignShardTasks, Shard},
+	sharding::{Network, ReassignShardTasks, Shard},
 	TimeId,
 };
 
@@ -25,18 +25,22 @@ pub struct ShardState {
 	pub committed_offenses_count: u8,
 	/// Status for shard
 	pub status: ShardStatus,
+	/// Network from which tasks assigned to this shard
+	pub net: Network,
 }
 
 impl ShardState {
 	pub fn new<T: Config>(
 		members: Vec<TimeId>,
 		collector_index: Option<u8>,
+		net: Network,
 	) -> Result<ShardState, DispatchError> {
 		Ok(ShardState {
 			shard: new_shard::<T>(members, collector_index)?,
 			task_timeout_count: 0u8,
 			committed_offenses_count: 0u8,
 			status: ShardStatus::Online,
+			net,
 		})
 	}
 	pub fn is_online(&self) -> bool {

@@ -299,7 +299,9 @@ where
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				// execute all task for specific task
 				for schedule in tasks {
-					let _ = self.task_executor(block_id, &schedule.0, &schedule.1).await;
+					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await{
+						log::error!("Error occured while executing repetitive schedule {:?}: {}", schedule.0, e);
+					};
 
 					// put the task in map for next execution if cycle more than once
 					if !last_cycle_tasks.contains(&schedule.0) {

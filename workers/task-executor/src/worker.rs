@@ -219,7 +219,7 @@ where
 			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
-		log::info!("schedule_before_filter {:?}", all_schedules.len());
+		log::info!("single_schedule_before_filter {:?}", all_schedules.len());
 
 		let task_schedules = all_schedules
 			.into_iter()
@@ -240,7 +240,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+		log::info!("\n\n single task schedule {:?}\n", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
@@ -272,7 +272,7 @@ where
 			.runtime_api()
 			.get_repetitive_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+		log::info!("\n\n Repetitive task schedule {:?}\n", task_schedules.len());
 
 		let mut last_cycle_tasks = HashSet::new();
 

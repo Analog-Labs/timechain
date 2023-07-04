@@ -5,7 +5,7 @@ async fn main() {
 	let eth_contract_address = deploy_contract("ethereum", "dev", "http://127.0.0.1:8080").await;
 	println!("Contract deployed for eth at: {}", eth_contract_address);
 	let astr_contrac_address = deploy_contract("astar", "dev", "http://127.0.0.1:8081").await;
-	println!("Contract deployed for eth at: {}", astr_contrac_address);
+	println!("Contract deployed for astar at: {}", astr_contrac_address);
 }
 
 async fn deploy_contract(blockchain: &str, network: &str, url: &str) -> String {

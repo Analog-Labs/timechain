@@ -132,6 +132,7 @@ where
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
 		let shard_id = schedule.shard_id;
+
 		let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 

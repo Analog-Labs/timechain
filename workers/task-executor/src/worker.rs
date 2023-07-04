@@ -107,7 +107,8 @@ where
 		schedule_id: u64,
 		schedule_cycle: u64,
 	) -> Result<bool> {
-		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
+		let serialized_data = format!("{}-{}-{}", data.result, schedule_id, schedule_cycle);
+		let bytes = bincode::serialize(&serialized_data).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
 		self.sign_data_sender
@@ -115,7 +116,11 @@ where
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
+			if schedule_cycle > 1 {
+				self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule_id);
+			} else {
+				self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
+			}
 		}
 
 		Ok(true)
@@ -210,7 +215,7 @@ where
 	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let Some(account) = self.account_id() else {
-			return Err(anyhow::anyhow!("No account id found"));
+			anyhow::bail!("No account id found");
 		};
 
 		let all_schedules = self
@@ -219,8 +224,7 @@ where
 			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
-		log::info!("single_schedule_before_filter {:?}", all_schedules.len());
-
+		//filter schedules for this node's shard
 		let task_schedules = all_schedules
 			.into_iter()
 			.filter_map(|schedule_data| {
@@ -240,7 +244,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!("\n\n single task schedule {:?}\n", task_schedules.len());
+		log::info!("single task schedule {:?}", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
@@ -266,22 +270,42 @@ where
 		block_id: <B as Block>::Hash,
 		block_height: BlockHeight,
 	) -> Result<()> {
+		let Some(account) = self.account_id() else {
+			anyhow::bail!("No account id found");
+		};
+
 		// get all initialized repetitive tasks
-		let task_schedules = self
+		let all_schedules = self
 			.runtime
 			.runtime_api()
 			.get_repetitive_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		log::info!("\n\n Repetitive task schedule {:?}\n", task_schedules.len());
 
-		let mut last_cycle_tasks = HashSet::new();
+		// filter schedules for this node's shard
+		let task_schedules = all_schedules
+			.into_iter()
+			.filter_map(|schedule_data| {
+				let shard_id = schedule_data.1.shard_id;
+				let shard_members = self
+					.runtime
+					.runtime_api()
+					.get_shard_members(block_id, shard_id)
+					.unwrap_or(Some(vec![]))
+					.unwrap_or(vec![]);
+
+				if shard_members.contains(&account) {
+					Some(schedule_data)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+
+		log::info!("Repetitive task schedule {:?}", task_schedules.len());
 
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
 			if self.tasks.contains(&id) {
-				if schedule.cycle == 1 {
-					last_cycle_tasks.insert(id);
-				}
 				continue;
 			}
 
@@ -297,18 +321,29 @@ where
 		// iterate all block height
 		for index in self.last_block_height..block_height {
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
+				log::info!("Recurring task running on block {:?}", index);
 				// execute all task for specific task
 				for schedule in tasks {
-					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await{
-						log::error!("Error occured while executing repetitive schedule {:?}: {}", schedule.0, e);
+					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await {
+						log::error!(
+							"Error occured while executing repetitive schedule {:?}: {}",
+							schedule.0,
+							e
+						);
 					};
 
+					//decrementing here since we dont fetch from storage with decremented cycle
+					//because same task fetch from storage will be skipped due to tasks.contrains(id)
+					//flow can be improved later on, since we are short on time.
+					let mut decremented_schedule = schedule.1.clone();
+					decremented_schedule.cycle = decremented_schedule.cycle.saturating_sub(1);
+
 					// put the task in map for next execution if cycle more than once
-					if !last_cycle_tasks.contains(&schedule.0) {
+					if decremented_schedule.cycle > 0 {
 						self.repetitive_tasks
-							.entry(index + schedule.1.frequency)
+							.entry(index + decremented_schedule.frequency)
 							.or_insert(vec![])
-							.push(schedule);
+							.push((schedule.0, decremented_schedule));
 					}
 				}
 			}
@@ -361,8 +396,8 @@ where
 				Err(e) => {
 					log::error!("Blockchain is empty: {}", e);
 				},
-			};
-			tokio::time::sleep(Duration::from_secs(1000)).await;
+			}
+			tokio::time::sleep(Duration::from_millis(1000)).await;
 		}
 	}
 

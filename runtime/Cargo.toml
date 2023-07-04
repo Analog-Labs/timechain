@@ -69,6 +69,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
 task-metadata = { version = "0.0.1", default-features = false, path = "../pallets/task-metadata" }
 task-schedule = { version = "0.0.1", default-features = false, path = "../pallets/task-schedule" }
+pallet-timegraph = { version = "0.0.1", default-features = false, path = "../pallets/pallet-timegraph" }
 pallet-proxy = { version = "0.1.0", default-features = false, path = "../pallets/pallet-proxy" }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.43" }
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
@@ -130,6 +131,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"time-primitives/std",
+	"pallet-timegraph/std",
 	"pallet-proxy/std",
 	"task-schedule/std",
 	"task-metadata/std",
@@ -146,6 +148,7 @@ runtime-benchmarks = [
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-tesseract-sig-storage/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-timegraph/runtime-benchmarks",
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
@@ -172,6 +175,7 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-proxy/try-runtime",
+	"pallet-timegraph/try-runtime",
 	"task-schedule/try-runtime",
 	"task-meta-bench/try-runtime",
 	"task-schedule-bench/try-runtime",

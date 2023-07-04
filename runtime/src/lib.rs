@@ -78,6 +78,7 @@ pub use sp_runtime::{traits::Bounded, Perbill, Permill, Perquintill};
 use static_assertions::const_assert;
 
 pub use pallet_tesseract_sig_storage;
+pub use pallet_timegraph;
 
 pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
@@ -1194,6 +1195,12 @@ impl pallet_proxy::Config for Runtime {
 	type Currency = Balances;
 }
 
+impl pallet_timegraph::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::timegraph::WeightInfo<Runtime>;
+	type Currency = Balances;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1225,6 +1232,7 @@ construct_runtime!(
 		PalletProxy: pallet_proxy,
 		TaskMeta: task_metadata,
 		TaskSchedule: task_schedule,
+		PalletTimegraph: pallet_timegraph,
 	}
 );
 

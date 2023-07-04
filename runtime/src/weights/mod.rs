@@ -4,4 +4,5 @@ pub mod balances;
 pub mod proxy;
 pub mod sig_storage;
 pub mod system;
+pub mod timegraph;
 pub mod timestamp;

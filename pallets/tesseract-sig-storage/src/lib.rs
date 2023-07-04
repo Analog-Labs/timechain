@@ -69,7 +69,7 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks, Shard},
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -469,6 +469,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			members: Vec<TimeId>,
 			collector_index: Option<u8>,
+			net: Network,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			// ensure each member is registered and no repeated members
@@ -487,7 +488,7 @@ pub mod pallet {
 					members_dedup.push(member);
 				}
 			}
-			let shard = ShardState::new::<T>(members.clone(), collector_index)?;
+			let shard = ShardState::new::<T>(members.clone(), collector_index, net)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
@@ -625,7 +626,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> EligibleShard<u64> for Pallet<T> {
+	impl<T: Config> EligibleShard<u64, Network> for Pallet<T> {
 		fn is_eligible_shard(id: u64) -> bool {
 			if let Some(shard_state) = <TssShards<T>>::get(id) {
 				shard_state.is_online()
@@ -633,12 +634,24 @@ pub mod pallet {
 				false
 			}
 		}
-		fn get_eligible_shards(n: usize) -> Vec<u64> {
+		fn is_eligible_shard_for_network(id: u64, net: Network) -> bool {
+			if let Some(shard_state) = <TssShards<T>>::get(id) {
+				shard_state.is_online() && shard_state.net == net
+			} else {
+				false
+			}
+		}
+		fn get_eligible_shards(id: u64, n: usize) -> Vec<u64> {
+			let net = if let Some(ShardState { net, .. }) = <TssShards<T>>::get(id) {
+				net
+			} else {
+				return Vec::new();
+			};
 			let mut n_shards = Vec::new();
 			let mut shard_id = <GetShardsIndex<T>>::take();
 			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
 			while n_shards.len() < n {
-				if Self::is_eligible_shard(shard_id) {
+				if Self::is_eligible_shard_for_network(shard_id, net) {
 					n_shards.push(shard_id);
 				}
 				shard_id = if shard_id >= max_shard_id {

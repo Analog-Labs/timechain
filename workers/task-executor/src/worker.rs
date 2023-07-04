@@ -132,6 +132,7 @@ where
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
 		let shard_id = schedule.shard_id;
+
 		let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 
@@ -145,7 +146,7 @@ where
 		match &task.function {
 			// If the task function is an Ethereum contract
 			// call, call it and send for signing
-			Function::EthereumViewWithoutAbi {
+			Function::EVMViewWithoutAbi {
 				address,
 				function_signature,
 				input,
@@ -172,7 +173,7 @@ where
 		&self,
 		address: &str,
 		function: &str,
-		input: &Vec<String>,
+		input: &[String],
 	) -> Result<CallResponse> {
 		let method = format!("{address}-{function}-call");
 		let request = CallRequest {
@@ -205,11 +206,37 @@ where
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let task_schedules = self
+		let Some(account) = self.account_id() else {
+			return Err(anyhow::anyhow!("No account id found"));
+		};
+
+		let all_schedules = self
 			.runtime
 			.runtime_api()
 			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+
+		log::info!("schedule_before_filter {:?}", all_schedules.len());
+
+		let task_schedules = all_schedules
+			.into_iter()
+			.filter_map(|schedule_data| {
+				let shard_id = schedule_data.1.shard_id;
+				let shard_members = self
+					.runtime
+					.runtime_api()
+					.get_shard_members(block_id, shard_id)
+					.unwrap_or(Some(vec![]))
+					.unwrap_or(vec![]);
+
+				if shard_members.contains(&account) {
+					Some(schedule_data)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+
 		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
@@ -222,9 +249,8 @@ where
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			match self.task_executor(block_id, id, schedule).await {
-				Ok(()) => self.update_schedule_ocw_storage(ScheduleStatus::Completed, *id),
-				Err(e) => log::warn!("error in single task schedule result {:?}", e),
+			if let Err(e) = self.task_executor(block_id, id, schedule).await {
+				log::error!("Error occured while executing schedule {:?}: {}", id, e);
 			}
 		}
 

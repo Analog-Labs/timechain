@@ -3,9 +3,9 @@ use rosetta_client::{create_wallet, EthereumExt};
 #[tokio::main]
 async fn main() {
 	let eth_contract_address = deploy_contract("ethereum", "dev", "http://127.0.0.1:8080").await;
-    println!("Contract deployed for eth at: {}", eth_contract_address);
-    let astr_contrac_address = deploy_contract("astar", "dev", "http://127.0.0.1:8081").await;
-    println!("Contract deployed for eth at: {}", astr_contrac_address);
+	println!("Contract deployed for eth at: {}", eth_contract_address);
+	let astr_contrac_address = deploy_contract("astar", "dev", "http://127.0.0.1:8081").await;
+	println!("Contract deployed for eth at: {}", astr_contrac_address);
 }
 
 async fn deploy_contract(blockchain: &str, network: &str, url: &str) -> String {
@@ -28,5 +28,5 @@ async fn deploy_contract(blockchain: &str, network: &str, url: &str) -> String {
 	//getting contract address
 	let tx_receipt = wallet.eth_transaction_receipt(&response.hash).await.unwrap();
 	let contract_address = tx_receipt.result["contractAddress"].clone();
-    contract_address.to_string()
+	contract_address.to_string()
 }

@@ -1,7 +1,7 @@
-use crate as task_metadata;
+use crate as pallet_timegraph;
 use frame_support::{
 	sp_io,
-	traits::{ConstU16, ConstU64},
+	traits::{ConstU16, ConstU32, ConstU64},
 };
 use frame_system as system;
 use sp_core::H256;
@@ -14,6 +14,11 @@ use sp_runtime::{
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+pub(crate) type Balance = u128;
+
+frame_support::parameter_types! {
+	pub const ExistentialDeposit: Balance = 1;
+}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -22,9 +27,9 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system,
-		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
-		TaskMeta: task_metadata::{Pallet, Call, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+		PalletTimegraph: pallet_timegraph::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -46,7 +51,7 @@ impl system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -55,16 +60,28 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_proxy::Config for Test {
+impl pallet_balances::Config for Test {
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	/// The type for recording an account's balance.
+	type Balance = Balance;
+	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
-	type Currency = ();
+	type DustRemoval = ();
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+	type HoldIdentifier = ();
+	type FreezeIdentifier = ();
+	type MaxHolds = ();
+	type MaxFreezes = ();
 }
-impl task_metadata::Config for Test {
+
+impl pallet_timegraph::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_metadata::weights::WeightInfo<Test>;
-	type Currency = ();
-	type ProxyExtend = PalletProxy;
+	type WeightInfo = pallet_timegraph::weights::WeightInfo<Test>;
+	type Currency = Balances;
 }
 
 // Build genesis storage according to the mock runtime.

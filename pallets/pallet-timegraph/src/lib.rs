@@ -5,6 +5,8 @@ mod mock;
 mod tests;
 // pub mod weights;
 
+pub mod weights;
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -12,7 +14,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive};
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::{string::String, vec::Vec};
 
 	pub type QueryId = u64;
 
@@ -20,8 +21,7 @@ pub mod pallet {
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	pub trait WeightInfo {
-		fn insert_task() -> Weight;
-		fn insert_collection() -> Weight;
+		fn pay_querying() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -37,45 +37,42 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn query_payment)]
-	pub type QueryPayment<T: Config> = StorageMap<_, Blake2_128Concat, QueryId, (T::AccountId, BalanceOf<T>), OptionQuery>;
-
+	pub type QueryPayment<T: Config> =
+		StorageMap<_, Blake2_128Concat, QueryId, (T::AccountId, BalanceOf<T>), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// the record id that uniquely identify
 		QueryFeePaid(T::AccountId, QueryId, BalanceOf<T>),
-
-		
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Query ID already used
-		QueryIdUsed	,
-	
+		QueryIdUsed,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing a signature
+		/// Extrinsic for pay querying in Timegraph
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::insert_task())]
-		pub fn insert_task(origin: OriginFor<T>, query_id: QueryId, amount: BalanceOf<T>, recipient: T::AccountId) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::pay_querying())]
+		pub fn pay_querying(
+			origin: OriginFor<T>,
+			query_id: QueryId,
+			amount: BalanceOf<T>,
+			recipient: T::AccountId,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!<QueryPayment<T>>::contains_key(query_id), Error::<T>::QueryIdUsed);
+
+			QueryPayment::<T>::insert(query_id, (who.clone(), amount));
 
 			T::Currency::transfer(&who, &recipient, amount, KeepAlive)?;
 			Self::deposit_event(Event::QueryFeePaid(who, query_id, amount));
 
 			Ok(())
 		}
-
-		
-	}
-	impl<T: Config> Pallet<T> {
-		
-
-		
 	}
 }

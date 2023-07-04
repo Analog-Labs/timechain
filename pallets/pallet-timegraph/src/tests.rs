@@ -1,64 +1,36 @@
 use super::mock::*;
-use frame_support::assert_ok;
+use crate::{Error, Event};
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use time_primitives::abstraction::{
-	Function, Input, ObjectId, Output, PayableTask, Schema, Task, Validity,
-};
 
 #[test]
 fn test_task() {
 	new_test_ext().execute_with(|| {
-		let input: Task = Task {
-			task_id: ObjectId(1),
-			schema: vec![Schema::String(String::from("schema"))],
-			function: Function::EthereumApi {
-				function: String::from("function name"),
-				input: vec![Input::HexAddress],
-				output: vec![Output::Skip],
-			},
-			cycle: 12,
-			with: vec![String::from("address")],
-			validity: Validity::Seconds(10),
-			hash: String::from("hash"),
-		};
+		let query_id = 1;
+		let balance: Balance = 2;
+		let recipient = 3;
 
-		assert_ok!(PalletProxy::set_proxy_account(
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 100));
+
+		assert_ok!(PalletTimegraph::pay_querying(
 			RawOrigin::Signed(1).into(),
-			Some(1),
-			1,
-			Some(1),
-			1,
-			1
+			query_id,
+			balance,
+			recipient
 		));
-		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(1).into(), input.clone(),));
 
-		assert_eq!(TaskMeta::get_task_metadata(1), Some(input));
-	});
-}
+		assert!(System::events().iter().any(|event| {
+			event.event == RuntimeEvent::PalletTimegraph(Event::QueryFeePaid(1, query_id, balance))
+		}));
 
-#[test]
-fn test_payable_task() {
-	new_test_ext().execute_with(|| {
-		//insert payable task metadata
-		let input: PayableTask = PayableTask {
-			task_id: ObjectId(1),
-			function: Function::EthereumApi {
-				function: String::from("function name"),
-				input: vec![Input::HexAddress],
-				output: vec![Output::Skip],
-			},
-		};
-
-		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(1).into(),
-			Some(1),
-			1,
-			Some(1),
-			1,
-			1
-		));
-		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input.clone(),));
-
-		assert_eq!(TaskMeta::get_payable_task_metadata(1), Some(input));
+		assert_noop!(
+			PalletTimegraph::pay_querying(
+				RawOrigin::Signed(1).into(),
+				query_id,
+				balance,
+				recipient
+			),
+			Error::<Test>::QueryIdUsed
+		);
 	});
 }

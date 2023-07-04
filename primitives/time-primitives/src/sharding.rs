@@ -41,6 +41,7 @@ impl<Id, Network> EligibleShard<Id, Network> for () {
 }
 
 /// Used to enforce one network per shard
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum Network {
 	Ethereum,

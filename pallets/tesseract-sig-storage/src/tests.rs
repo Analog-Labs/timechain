@@ -6,6 +6,7 @@ use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use time_primitives::{
 	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
+	sharding::Network,
 	ScheduleStatus, TimeId,
 };
 
@@ -91,6 +92,7 @@ fn test_signature_storage() {
 			RawOrigin::Root.into(),
 			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
+			Network::Ethereum,
 		),);
 
 		// insert schedule
@@ -167,6 +169,7 @@ fn test_signature_and_decrement_schedule_storage() {
 			RawOrigin::Root.into(),
 			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
+			Network::Ethereum,
 		),);
 
 		// insert schedule
@@ -253,6 +256,7 @@ fn test_duplicate_signature() {
 			RawOrigin::Root.into(),
 			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
+			Network::Ethereum,
 		),);
 
 		// insert schedule
@@ -310,6 +314,7 @@ fn test_register_shard_fails_if_duplicate_members() {
 				RawOrigin::Root.into(),
 				vec![ALICE, BOB, BOB],
 				Some(0),
+				Network::Ethereum,
 			),
 			Error::<Test>::DuplicateShardMembersNotAllowed
 		);
@@ -340,6 +345,7 @@ fn test_register_shard_fails_if_member_len_not_supported() {
 				RawOrigin::Root.into(),
 				vec![ALICE, BOB, CHARLIE, DJANGO],
 				Some(0),
+				Network::Ethereum,
 			),
 			Error::<Test>::UnsupportedMembershipSize
 		);
@@ -377,6 +383,7 @@ fn test_register_shard_works_for_supported_member_lengths() {
 			RawOrigin::Root.into(),
 			members.clone(),
 			Some(1),
+			Network::Ethereum,
 		));
 
 		// supports 5
@@ -386,6 +393,7 @@ fn test_register_shard_works_for_supported_member_lengths() {
 			RawOrigin::Root.into(),
 			members.clone(),
 			Some(1),
+			Network::Ethereum,
 		));
 
 		// supports 10
@@ -406,7 +414,12 @@ fn test_register_shard_works_for_supported_member_lengths() {
 			),);
 			members.push(tmp_time_id);
 		}
-		assert_ok!(TesseractSigStorage::register_shard(RawOrigin::Root.into(), members, Some(1),));
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			members,
+			Some(1),
+			Network::Ethereum
+		));
 	});
 }
 
@@ -431,6 +444,7 @@ fn test_register_shard_fails_if_collector_index_invalid() {
 				RawOrigin::Root.into(),
 				vec![ALICE, BOB, CHARLIE],
 				Some(4),
+				Network::Ethereum,
 			),
 			Error::<Test>::CollectorIndexBeyondMemberLen
 		);
@@ -465,6 +479,7 @@ fn test_report_misbehavior_increments_report_count() {
 			RawOrigin::Root.into(),
 			vec![alice.into(), bob.into(), CHARLIE],
 			Some(0),
+			Network::Ethereum,
 		));
 
 		// report 1st offence
@@ -519,6 +534,7 @@ fn test_report_misbehavior_updates_reporters() {
 			RawOrigin::Root.into(),
 			vec![alice.into(), bob.into(), CHARLIE],
 			Some(0),
+			Network::Ethereum,
 		));
 
 		// report 1st offence
@@ -578,6 +594,7 @@ fn test_report_misbehavior_moves_offences_to_committed() {
 			RawOrigin::Root.into(),
 			vec![alice.into(), bob.into(), CHARLIE],
 			Some(0),
+			Network::Ethereum,
 		));
 		// To report offence, need to sign the public key
 
@@ -645,6 +662,7 @@ fn test_report_misbehavior_for_group_len_5() {
 			RawOrigin::Root.into(),
 			vec![ALICE, BOB, charlie.into(), david.into(), edward.into()],
 			Some(2),
+			Network::Ethereum,
 		));
 		// To report offence, need to sign the public key
 
@@ -757,6 +775,7 @@ fn test_report_misbehavior_for_group_len_10() {
 				jared.into()
 			],
 			Some(4),
+			Network::Ethereum,
 		));
 		// To report offence, need to sign the public key
 
@@ -848,6 +867,7 @@ fn can_report_offence_if_already_committed_offender() {
 			RawOrigin::Root.into(),
 			vec![ALICE, bob.into(), charlie.into(), david.into(), edward.into()],
 			Some(1),
+			Network::Ethereum,
 		));
 
 		// report 1st offence

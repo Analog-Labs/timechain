@@ -116,6 +116,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - run: sudo apt-get update
       - run: sudo add-apt-repository ppa:ethereum/ethereum
       - run: sudo apt-get update
       - name: Install deps

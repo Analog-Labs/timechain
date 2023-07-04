@@ -211,8 +211,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: sudo apt-get install -y protobuf-compiler
-      - run: sudo apt-get install solc
+      - name: Install Dep
+        run: |
+          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install solc
 
       - name: Set up cache
         uses: actions/cache@v3

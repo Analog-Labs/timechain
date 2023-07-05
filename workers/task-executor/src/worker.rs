@@ -126,7 +126,6 @@ where
 
 		Ok(true)
 	}
-
 	/// Fetches and executes contract call for a given schedule_id
 	async fn task_executor(
 		&mut self,

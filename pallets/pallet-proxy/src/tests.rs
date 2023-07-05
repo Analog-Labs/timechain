@@ -1,5 +1,6 @@
 use super::mock::*;
-use frame_support::assert_ok;
+use crate::Error;
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{ProxyAccStatus, ProxyStatus};
 
@@ -158,5 +159,60 @@ fn test_remove_proxy_account() {
 		// Remove the proxy account
 		let _ = PalletProxy::remove_proxy_account(RawOrigin::Signed(1).into(), 1);
 		assert_eq!(PalletProxy::get_proxy_status_store(1), None);
+	});
+}
+
+#[test]
+fn test_proxy_account_not_owner() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			PalletProxy::set_proxy_account(
+				RawOrigin::Signed(1).into(),
+				Some(10),
+				10,
+				Some(100),
+				10,
+				2
+			),
+			Error::<Test>::NoPermission
+		);
+	});
+}
+
+#[test]
+fn test_proxy_account_already_exists() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PalletProxy::set_proxy_account(
+			RawOrigin::Signed(1).into(),
+			Some(10),
+			10,
+			Some(100),
+			10,
+			2
+		));
+
+		assert_noop!(
+			PalletProxy::set_proxy_account(RawOrigin::Signed(1).into(), Some(5), 5, Some(50), 5, 2),
+			Error::<Test>::ProxyAlreadyExists
+		);
+	});
+}
+
+#[test]
+fn test_proxy_account_not_exist() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			PalletProxy::update_proxy_account(
+				RawOrigin::Signed(1).into(),
+				2,
+				ProxyStatus::Suspended,
+			),
+			Error::<Test>::ProxyNotExist
+		);
+
+		assert_noop!(
+			PalletProxy::remove_proxy_account(RawOrigin::Signed(1).into(), 2),
+			Error::<Test>::ProxyNotExist
+		);
 	});
 }

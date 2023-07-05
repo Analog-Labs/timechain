@@ -1,4 +1,4 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -16,11 +16,12 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
 };
+
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
 	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
@@ -40,6 +41,8 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	tasks: HashSet<u64>,
 	rosetta_chain_config: BlockchainConfig,
 	rosetta_client: Client,
+	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, TaskSchedule<A, BN>)>>,
+	last_block_height: BlockHeight,
 }
 
 impl<B, BE, R, A, BN> TaskExecutor<B, BE, R, A, BN>
@@ -80,6 +83,8 @@ where
 			tasks: Default::default(),
 			rosetta_chain_config,
 			rosetta_client,
+			repetitive_tasks: Default::default(),
+			last_block_height: 0,
 		})
 	}
 
@@ -103,21 +108,24 @@ where
 		schedule_id: u64,
 		schedule_cycle: u64,
 	) -> Result<bool> {
-		let bytes = bincode::serialize(&data.result).context("Failed to serialize task")?;
+		let serialized_data = format!("{}-{}-{}", data.result, schedule_id, schedule_cycle);
+		let bytes = bincode::serialize(&serialized_data).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
 
 		self.sign_data_sender
 			.clone()
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
-		self.tasks.insert(schedule_id);
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
+			if schedule_cycle > 1 {
+				self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule_id);
+			} else {
+				self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
+			}
 		}
 
 		Ok(true)
 	}
-
 	/// Fetches and executes contract call for a given schedule_id
 	async fn task_executor(
 		&mut self,
@@ -132,6 +140,7 @@ where
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
 		let shard_id = schedule.shard_id;
+
 		let Some(task) = metadata else {
 					log::info!("task schedule id have no metadata, Removing task from Schedule list");
 
@@ -145,7 +154,7 @@ where
 		match &task.function {
 			// If the task function is an Ethereum contract
 			// call, call it and send for signing
-			Function::EthereumViewWithoutAbi {
+			Function::EVMViewWithoutAbi {
 				address,
 				function_signature,
 				input,
@@ -172,7 +181,7 @@ where
 		&self,
 		address: &str,
 		function: &str,
-		input: &Vec<String>,
+		input: &[String],
 	) -> Result<CallResponse> {
 		let method = format!("{address}-{function}-call");
 		let request = CallRequest {
@@ -205,12 +214,37 @@ where
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let task_schedules = self
+		let Some(account) = self.account_id() else {
+			anyhow::bail!("No account id found");
+		};
+
+		let all_schedules = self
 			.runtime
 			.runtime_api()
 			.get_one_time_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+
+		//filter schedules for this node's shard
+		let task_schedules = all_schedules
+			.into_iter()
+			.filter_map(|schedule_data| {
+				let shard_id = schedule_data.1.shard_id;
+				let shard_members = self
+					.runtime
+					.runtime_api()
+					.get_shard_members(block_id, shard_id)
+					.unwrap_or(Some(vec![]))
+					.unwrap_or(vec![]);
+
+				if shard_members.contains(&account) {
+					Some(schedule_data)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+
+		log::info!("single task schedule {:?}", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
@@ -219,13 +253,101 @@ where
 				continue;
 			}
 			tree_map.insert(id, schedule);
+			self.tasks.insert(id);
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			match self.task_executor(block_id, id, schedule).await {
-				Ok(()) => self.update_schedule_ocw_storage(ScheduleStatus::Completed, *id),
-				Err(e) => log::warn!("error in single task schedule result {:?}", e),
+			if let Err(e) = self.task_executor(block_id, id, schedule).await {
+				log::error!("Error occured while executing schedule {:?}: {}", id, e);
 			}
+		}
+
+		Ok(())
+	}
+
+	async fn process_repetitive_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		block_height: BlockHeight,
+	) -> Result<()> {
+		let Some(account) = self.account_id() else {
+			anyhow::bail!("No account id found");
+		};
+
+		// get all initialized repetitive tasks
+		let all_schedules = self
+			.runtime
+			.runtime_api()
+			.get_repetitive_task_schedule(block_id)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+
+		// filter schedules for this node's shard
+		let task_schedules = all_schedules
+			.into_iter()
+			.filter_map(|schedule_data| {
+				let shard_id = schedule_data.1.shard_id;
+				let shard_members = self
+					.runtime
+					.runtime_api()
+					.get_shard_members(block_id, shard_id)
+					.unwrap_or(Some(vec![]))
+					.unwrap_or(vec![]);
+
+				if shard_members.contains(&account) {
+					Some(schedule_data)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+
+		log::info!("Repetitive task schedule {:?}", task_schedules.len());
+
+		for (id, schedule) in task_schedules {
+			// if task is already executed then skip
+			if self.tasks.contains(&id) {
+				continue;
+			}
+
+			// put the new task in repetitive task map
+			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
+			self.tasks.insert(id);
+			self.repetitive_tasks
+				.entry(align_block_height)
+				.or_insert(vec![])
+				.push((id, schedule));
+		}
+
+		// iterate all block height
+		for index in self.last_block_height..block_height {
+			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
+				log::info!("Recurring task running on block {:?}", index);
+				// execute all task for specific task
+				for schedule in tasks {
+					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await {
+						log::error!(
+							"Error occured while executing repetitive schedule {:?}: {}",
+							schedule.0,
+							e
+						);
+					};
+
+					//decrementing here since we dont fetch from storage with decremented cycle
+					//because same task fetch from storage will be skipped due to tasks.contrains(id)
+					//flow can be improved later on, since we are short on time.
+					let mut decremented_schedule = schedule.1.clone();
+					decremented_schedule.cycle = decremented_schedule.cycle.saturating_sub(1);
+
+					// put the task in map for next execution if cycle more than once
+					if decremented_schedule.cycle > 0 {
+						self.repetitive_tasks
+							.entry(index + decremented_schedule.frequency)
+							.or_insert(vec![])
+							.push((schedule.0, decremented_schedule));
+					}
+				}
+			}
+			self.last_block_height = index;
 		}
 
 		Ok(())
@@ -274,8 +396,40 @@ where
 				Err(e) => {
 					log::error!("Blockchain is empty: {}", e);
 				},
+			}
+			tokio::time::sleep(Duration::from_millis(1000)).await;
+		}
+	}
+
+	pub async fn run_repetitive_task(&mut self) {
+		loop {
+			// get the external blockchain's block number
+			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				continue;
 			};
-			tokio::time::sleep(Duration::from_secs(10)).await;
+			let current_block = status.current_block_identifier.index;
+			// update last block height if never set before
+			if self.last_block_height == 0 {
+				self.last_block_height = current_block;
+			}
+
+			// get the last finalized block number
+			match self.backend.blockchain().last_finalized() {
+				Ok(at) => {
+					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
+					{
+						log::error!(
+							"Failed to process repetitive tasks for block {:?}: {:?}",
+							at,
+							e
+						);
+					}
+				},
+				Err(e) => {
+					log::error!("Blockchain is empty: {}", e);
+				},
+			}
+			tokio::time::sleep(Duration::from_millis(1000)).await;
 		}
 	}
 }

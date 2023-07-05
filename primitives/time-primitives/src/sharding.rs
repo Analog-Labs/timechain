@@ -20,19 +20,32 @@ pub trait IncrementTaskTimeoutCount<Id> {
 	fn increment_task_timeout_count(_id: Id) {}
 }
 impl<Id> IncrementTaskTimeoutCount<Id> for () {}
-/// Expose shard eligibility
-pub trait EligibleShard<Id> {
+/// Expose shard eligibility for specific networks
+pub trait EligibleShard<Id, Network> {
 	fn is_eligible_shard(id: Id) -> bool;
-	fn get_eligible_shards(n: usize) -> Vec<Id>;
+	fn is_eligible_shard_for_network(id: Id, net: Network) -> bool;
+	fn get_eligible_shards(id: Id, n: usize) -> Vec<Id>;
 }
-impl<Id> EligibleShard<Id> for () {
+impl<Id, Network> EligibleShard<Id, Network> for () {
 	fn is_eligible_shard(_id: Id) -> bool {
 		// all shards eligible by default for testing purposes
 		true
 	}
-	fn get_eligible_shards(_n: usize) -> Vec<Id> {
+	fn is_eligible_shard_for_network(_id: Id, _net: Network) -> bool {
+		// all shards eligible by default for testing purposes
+		true
+	}
+	fn get_eligible_shards(_id: Id, _n: usize) -> Vec<Id> {
 		Vec::default()
 	}
+}
+
+/// Used to enforce one network per shard
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub enum Network {
+	Ethereum,
+	Astar,
 }
 
 /// Enum representing sizes of shards available

@@ -4,7 +4,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, KeyId, ScheduleCycle, SignatureData, TimeId};
+use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -18,7 +18,7 @@ pub enum Function {
 		input: Vec<Input>,
 		output: Vec<Output>,
 	},
-	EthereumViewWithoutAbi {
+	EVMViewWithoutAbi {
 		address: String,
 		function_signature: String,
 		input: Vec<String>,
@@ -97,6 +97,7 @@ pub struct Task {
 	pub task_id: ObjectId,
 	pub schema: Vec<Schema>,
 	pub function: Function,
+	pub network: Network,
 	pub with: Vec<String>,
 	pub cycle: u64,
 	pub validity: Validity,

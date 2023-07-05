@@ -21,9 +21,6 @@ pub mod collect_data {
 		#[serde(rename = "taskId")]
 		pub task_id: Int,
 		pub data: Vec<String>,
-		pub task_counter: i64,
-		pub tss: String,
-		pub event_id: i64,
 	}
 	impl Variables {}
 	#[derive(Deserialize)]

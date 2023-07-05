@@ -189,12 +189,9 @@ where
 
 				let data_value = data.result.to_string();
 				let variables = collect_data::Variables {
-					collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7".to_owned(), //hard coded
+					collection: schedule.hash.to_owned(), 
 					block: block.block_identifier.index as i64,
 					cycle: 1, //hard coded
-					task_counter: schedule.cycle as i64,
-					event_id: *schedule_id as i64,
-					tss: "tss_signature".to_owned(),
 					task_id: schedule.task_id.0 as i64,
 					data: vec![data_value.to_owned()],
 				};

@@ -1,3 +1,4 @@
+use crate::TaskExecutorError;
 use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
@@ -39,6 +40,7 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	// all tasks that are scheduled
 	// TODO need to get all completed task and remove them from it
 	tasks: HashSet<u64>,
+	error_count: HashMap<u64, u64>,
 	rosetta_chain_config: BlockchainConfig,
 	rosetta_client: Client,
 	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, TaskSchedule<A, BN>)>>,
@@ -81,6 +83,7 @@ where
 			sign_data_sender,
 			kv,
 			tasks: Default::default(),
+			error_count: Default::default(),
 			rosetta_chain_config,
 			rosetta_client,
 			repetitive_tasks: Default::default(),
@@ -107,7 +110,7 @@ where
 		shard_id: u64,
 		schedule_id: u64,
 		schedule_cycle: u64,
-	) -> Result<bool> {
+	) -> Result<()> {
 		let serialized_data = format!("{}-{}-{}", data.result, schedule_id, schedule_cycle);
 		let bytes = bincode::serialize(&serialized_data).context("Failed to serialize task")?;
 		let hash = keccak_256(&bytes);
@@ -124,7 +127,7 @@ where
 			}
 		}
 
-		Ok(true)
+		Ok(())
 	}
 	/// Fetches and executes contract call for a given schedule_id
 	async fn task_executor(
@@ -132,24 +135,18 @@ where
 		block_id: <B as Block>::Hash,
 		schedule_id: &u64,
 		schedule: &TaskSchedule<A, BN>,
-	) -> Result<()> {
+	) -> Result<CallResponse, TaskExecutorError> {
 		let metadata = self
 			.runtime
 			.runtime_api()
-			.get_task_metadata_by_key(block_id, schedule.task_id.0)?
-			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-
-		let shard_id = schedule.shard_id;
+			.get_task_metadata_by_key(block_id, schedule.task_id.0)
+			.map_err(|err| TaskExecutorError::InternalError(err.to_string()))?
+			.map_err(|err| TaskExecutorError::InternalError(format!("{:?}", err)).into())?;
 
 		let Some(task) = metadata else {
-					log::info!("task schedule id have no metadata, Removing task from Schedule list");
-
-					if self.is_collector(block_id, shard_id).unwrap_or(false) {
-						self.update_schedule_ocw_storage(ScheduleStatus::Invalid, *schedule_id);
-					}
-
-					return Ok(());
-				};
+			log::info!("No task found for id {:?}", schedule.task_id.0);
+			return Err(TaskExecutorError::NoTaskFound(schedule.task_id.0).into());
+		};
 
 		match &task.function {
 			// If the task function is an Ethereum contract
@@ -161,20 +158,17 @@ where
 				output: _,
 			} => {
 				log::info!("running task_id {:?}", schedule_id);
-				let data = self.call_eth_contract(address, function_signature, input).await?;
-				if !self
-					.send_for_sign(block_id, data.clone(), shard_id, *schedule_id, schedule.cycle)
-					.await?
-				{
-					log::warn!("status not updated can't updated data into DB");
-					return Ok(());
+				match self.call_eth_contract(address, function_signature, input).await {
+					Ok(data) => {
+						return Ok(data);
+					},
+					Err(e) => return Err(TaskExecutorError::ExecutionError(e.to_string()).into()),
 				}
 			},
 			_ => {
-				log::warn!("error on matching task function")
+				return Err(TaskExecutorError::InvalidTaskFunction.into());
 			},
 		};
-		Ok(())
 	}
 
 	pub(crate) async fn call_eth_contract(
@@ -257,8 +251,20 @@ where
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			if let Err(e) = self.task_executor(block_id, id, schedule).await {
-				log::error!("Error occured while executing schedule {:?}: {}", id, e);
+			match self.task_executor(block_id, id, schedule).await {
+				Ok(data) => {
+					if let Err(e) = self
+						.send_for_sign(block_id, data, schedule.shard_id, *id, schedule.cycle)
+						.await
+					{
+						log::error!("Error occured while sending data for signing: {}", e);
+					};
+				},
+				Err(e) => {
+					//process error
+					log::error!("Error occured while executing one time schedule {:?}: {}", id, e);
+					self.report_schedule_invalid(*id, true);
+				},
 			}
 		}
 
@@ -324,26 +330,67 @@ where
 				log::info!("Recurring task running on block {:?}", index);
 				// execute all task for specific task
 				for schedule in tasks {
-					if let Err(e) = self.task_executor(block_id, &schedule.0, &schedule.1).await {
-						log::error!(
-							"Error occured while executing repetitive schedule {:?}: {}",
-							schedule.0,
-							e
-						);
-					};
+					match self.task_executor(block_id, &schedule.0, &schedule.1).await {
+						Ok(data) => {
+							//send for signing
+							if let Err(e) = self
+								.send_for_sign(
+									block_id,
+									data,
+									schedule.1.shard_id,
+									schedule.0,
+									schedule.1.cycle,
+								)
+								.await
+							{
+								log::error!("Error occured while sending data for signing: {}", e);
+							};
 
-					//decrementing here since we dont fetch from storage with decremented cycle
-					//because same task fetch from storage will be skipped due to tasks.contrains(id)
-					//flow can be improved later on, since we are short on time.
-					let mut decremented_schedule = schedule.1.clone();
-					decremented_schedule.cycle = decremented_schedule.cycle.saturating_sub(1);
+							let mut decremented_schedule = schedule.1.clone();
+							decremented_schedule.cycle =
+								decremented_schedule.cycle.saturating_sub(1);
 
-					// put the task in map for next execution if cycle more than once
-					if decremented_schedule.cycle > 0 {
-						self.repetitive_tasks
-							.entry(index + decremented_schedule.frequency)
-							.or_insert(vec![])
-							.push((schedule.0, decremented_schedule));
+							// put the task in map for next execution if cycle more than once
+							if decremented_schedule.cycle > 0 {
+								self.repetitive_tasks
+									.entry(index + decremented_schedule.frequency)
+									.or_insert(vec![])
+									.push((schedule.0, decremented_schedule));
+							}
+						},
+						Err(e) => match e {
+							TaskExecutorError::NoTaskFound(task_id) => {
+								log::error!("No repetitive task found for id {:?}", task_id);
+								self.report_schedule_invalid(schedule.0, true);
+							},
+							TaskExecutorError::InvalidTaskFunction => {
+								log::error!("Invalid task function provided");
+								self.report_schedule_invalid(schedule.0, true);
+							},
+							TaskExecutorError::ExecutionError(error) => {
+								log::error!(
+										"Error occured while executing repetitive contract call {:?}: {}",
+										schedule.0,
+										error
+									);
+
+								let is_terminated = self.report_schedule_invalid(schedule.0, false);
+
+								// if not terminated keep add task with added frequency
+								if !is_terminated {
+									self.repetitive_tasks
+										.entry(index + schedule.1.frequency)
+										.or_insert(vec![])
+										.push((schedule.0, schedule.1));
+								}
+							},
+							TaskExecutorError::InternalError(error) => {
+								log::error!(
+									"Internal error occured while processing task: {}",
+									error
+								);
+							},
+						},
 					}
 				}
 			}
@@ -383,6 +430,25 @@ where
 		} else {
 			log::error!("cant get offchain storage");
 		};
+	}
+
+	fn report_schedule_invalid(&mut self, schedule_id: u64, terminate: bool) -> bool {
+		//TODO verify if collector
+		if terminate {
+			self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+			return true;
+		}
+
+		let error_count = self.error_count.entry(schedule_id).or_insert(0);
+		*error_count += 1;
+
+		if *error_count > 2 {
+			self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+			self.error_count.remove(&schedule_id);
+			return true;
+		}
+
+		return false;
 	}
 
 	pub async fn run(&mut self) {

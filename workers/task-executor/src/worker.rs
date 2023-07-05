@@ -1,4 +1,4 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
@@ -16,7 +16,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
@@ -40,6 +40,8 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	tasks: HashSet<u64>,
 	rosetta_chain_config: BlockchainConfig,
 	rosetta_client: Client,
+	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, TaskSchedule<A, BN>)>>,
+	last_block_height: BlockHeight,
 }
 
 impl<B, BE, R, A, BN> TaskExecutor<B, BE, R, A, BN>
@@ -80,6 +82,8 @@ where
 			tasks: Default::default(),
 			rosetta_chain_config,
 			rosetta_client,
+			repetitive_tasks: Default::default(),
+			last_block_height: 0,
 		})
 	}
 
@@ -109,7 +113,6 @@ where
 		self.sign_data_sender
 			.clone()
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
-		self.tasks.insert(schedule_id);
 
 		if self.is_collector(block_id, shard_id).unwrap_or(false) {
 			self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
@@ -246,12 +249,68 @@ where
 				continue;
 			}
 			tree_map.insert(id, schedule);
+			self.tasks.insert(id);
 		}
 
 		for (id, schedule) in tree_map.iter() {
 			if let Err(e) = self.task_executor(block_id, id, schedule).await {
 				log::error!("Error occured while executing schedule {:?}: {}", id, e);
 			}
+		}
+
+		Ok(())
+	}
+
+	async fn process_repetitive_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		block_height: BlockHeight,
+	) -> Result<()> {
+		// get all initialized repetitive tasks
+		let task_schedules = self
+			.runtime
+			.runtime_api()
+			.get_repetitive_task_schedule(block_id)?
+			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
+		log::info!("\n\n task schedule {:?}\n", task_schedules.len());
+
+		let mut last_cycle_tasks = HashSet::new();
+
+		for (id, schedule) in task_schedules {
+			// if task is already executed then skip
+			if self.tasks.contains(&id) {
+				if schedule.cycle == 1 {
+					last_cycle_tasks.insert(id);
+				}
+				continue;
+			}
+
+			// put the new task in repetitive task map
+			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
+			self.tasks.insert(id);
+			self.repetitive_tasks
+				.entry(align_block_height)
+				.or_insert(vec![])
+				.push((id, schedule));
+		}
+
+		// iterate all block height
+		for index in self.last_block_height..block_height {
+			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
+				// execute all task for specific task
+				for schedule in tasks {
+					let _ = self.task_executor(block_id, &schedule.0, &schedule.1).await;
+
+					// put the task in map for next execution if cycle more than once
+					if !last_cycle_tasks.contains(&schedule.0) {
+						self.repetitive_tasks
+							.entry(index + schedule.1.frequency)
+							.or_insert(vec![])
+							.push(schedule);
+					}
+				}
+			}
+			self.last_block_height = index;
 		}
 
 		Ok(())
@@ -301,7 +360,39 @@ where
 					log::error!("Blockchain is empty: {}", e);
 				},
 			};
-			tokio::time::sleep(Duration::from_secs(10)).await;
+			tokio::time::sleep(Duration::from_secs(1000)).await;
+		}
+	}
+
+	pub async fn run_repetitive_task(&mut self) {
+		loop {
+			// get the external blockchain's block number
+			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				continue;
+			};
+			let current_block = status.current_block_identifier.index;
+			// update last block height if never set before
+			if self.last_block_height == 0 {
+				self.last_block_height = current_block;
+			}
+
+			// get the last finalized block number
+			match self.backend.blockchain().last_finalized() {
+				Ok(at) => {
+					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
+					{
+						log::error!(
+							"Failed to process repetitive tasks for block {:?}: {:?}",
+							at,
+							e
+						);
+					}
+				},
+				Err(e) => {
+					log::error!("Blockchain is empty: {}", e);
+				},
+			}
+			tokio::time::sleep(Duration::from_millis(1000)).await;
 		}
 	}
 }

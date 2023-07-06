@@ -642,7 +642,7 @@ pub mod pallet {
 			let mut n_shards = Vec::new();
 			let network =
 				if let Some(n) = Self::get_network_for_shard(id) { n } else { return n_shards };
-			// turn into map indexed by network id then return ShardNetwork::prefix_iter(net).take
+			// TODO: turn into map indexed by network id then return ShardNetwork::prefix_iter(net).take
 			// instead of current code
 			let mut shard_id = <GetShardsIndex<T>>::take();
 			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);

@@ -303,6 +303,10 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
+			// assign task if possible
+			// else insert into unassigned tasks
+			// unassigned tasks are claimable by shards of the correct network
+			// consider changing shape of unassigned tasks to make this easier
 			UnassignedTasks::<T>::mutate(|tasks| tasks.push(schedule_id));
 			ScheduleStorage::<T>::insert(
 				schedule_id,

@@ -9,7 +9,7 @@
 #                     (repo > Settings > Environments)
 #
 #########################################################
-name: Deploy to cluster
+name: Deploy to Kubernetes cluster
 
 on:
   workflow_dispatch:
@@ -38,6 +38,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+      # EKS supports only authentication via IAM roles
+      # The AWS cli tool is mandatory
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -54,6 +56,7 @@ jobs:
         rootdir: ""
         workdir: ""
 
+      # Make sure to have kubectl and the kubeconfig from the secrets
     - name: Install and configure kubectl
       run: |
         curl https://storage.googleapis.com/kubernetes-release/release/v1.27.3/bin/linux/amd64/kubectl \
@@ -64,6 +67,7 @@ jobs:
         sudo mv kubectl /usr/local/bin/
         echo '${{ secrets.KUBECONFIG }}' > kubeconfig.yaml
 
+      # Using "kubectl patch" updates validator versions one by one
     - name: Update validators
       run: |
         export KUBECONFIG=kubeconfig.yaml

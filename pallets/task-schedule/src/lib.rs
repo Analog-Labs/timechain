@@ -135,7 +135,9 @@ pub mod pallet {
 						>= recurring_time_out_length
 				{
 					timed_out_tasks.push(task_id);
-					T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
+					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(task_id) {
+						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
+					}
 				}
 			}
 			let payable_time_out_length = T::PayableTimeoutLength::get();
@@ -145,7 +147,9 @@ pub mod pallet {
 						>= payable_time_out_length
 				{
 					timed_out_tasks.push(task_id);
-					T::ShardTimeouts::increment_task_timeout_count(schedule.shard_id);
+					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(task_id) {
+						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
+					}
 				}
 			}
 			TimedOutTasks::<T>::put(timed_out_tasks);
@@ -199,8 +203,17 @@ pub mod pallet {
 	pub type TimedOutTasks<T: Config> = StorageValue<_, Vec<KeyId>, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn unassigned_tasks)]
+	pub type UnassignedTasks<T: Config> = StorageValue<_, Vec<KeyId>, ValueQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn shard_tasks)]
 	pub type ShardTasks<T: Config> = StorageMap<_, Blake2_128Concat, u64, Vec<KeyId>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn task_assigned_shard)]
+	pub type TaskAssignedShard<T: Config> =
+		StorageMap<_, Blake2_128Concat, KeyId, u64, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
@@ -265,6 +278,8 @@ pub mod pallet {
 		NoLocalAcctForSignedTx,
 		/// Shard cannot be assigned tasks due to ineligibility
 		ShardNotEligibleForTasks,
+		/// Task not assigned to any shards yet
+		TaskNotAssigned,
 	}
 
 	#[pallet::call]
@@ -273,10 +288,6 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::ShardEligibility::is_eligible_shard(schedule.shard_id),
-				Error::<T>::ShardNotEligibleForTasks
-			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -292,13 +303,13 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
-			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
+			UnassignedTasks::<T>::mutate(|tasks| tasks.push(schedule_id));
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
 					task_id: schedule.task_id,
 					owner: who,
-					shard_id: schedule.shard_id,
+					network: schedule.network,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
 					start_execution_block: 0,
@@ -342,10 +353,6 @@ pub mod pallet {
 			schedule: PayableScheduleInput,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::ShardEligibility::is_eligible_shard(schedule.shard_id),
-				Error::<T>::ShardNotEligibleForTasks
-			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -362,13 +369,12 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
-			ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
 			PayableScheduleStorage::<T>::insert(
 				schedule_id,
 				PayableTaskSchedule {
 					task_id: schedule.task_id,
 					owner: who,
-					shard_id: schedule.shard_id,
+					network: schedule.network,
 					executable_since: frame_system::Pallet::<T>::block_number(),
 					status: ScheduleStatus::Initiated,
 				},
@@ -377,6 +383,25 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		// instead of claiming it, assign it on the fly using the Network type
+		// assign it to a shard that is of that network type
+		// if none exists then put in unassigned
+		//
+		// called by shard's collector ideally using shard_id, task_id as inputs
+		// check if shard matches task network && that caller is collector
+		//
+		// fn claim_task(
+
+		// ) {
+		// 	// insert task into unassigned queue, claimable by shard of the same network type
+		// 	//ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
+		// 	// ensure!(
+		// 	// 	T::ShardEligibility::is_eligible_shard(schedule.shard_id),
+		// 	// 	Error::<T>::ShardNotEligibleForTasks
+		// 	// );
+		// 	//
+		// }
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn increment_indexer_reward_count(indexer: T::AccountId) -> Result<(), DispatchError> {
@@ -485,15 +510,14 @@ pub mod pallet {
 			for (i, key) in shard_tasks.into_iter().enumerate() {
 				let next_available_shard = available_shards[i % available_shards.len()];
 				if let Some(mut schedule) = ScheduleStorage::<T>::take(key) {
-					// reassign task to different shard
-					schedule.shard_id = next_available_shard;
 					schedule.executable_since = frame_system::Pallet::<T>::block_number();
 					ScheduleStorage::<T>::insert(key, schedule);
 				} else if let Some(mut payable_schedule) = PayableScheduleStorage::<T>::take(key) {
-					payable_schedule.shard_id = next_available_shard;
 					payable_schedule.executable_since = frame_system::Pallet::<T>::block_number();
 					PayableScheduleStorage::<T>::insert(key, payable_schedule);
 				}
+				// Assign task to next available shard
+				TaskAssignedShard::<T>::insert(key, next_available_shard);
 				// add task to shard tasks
 				ShardTasks::<T>::mutate(next_available_shard, |tasks| tasks.push(key));
 				// task no longer timed out upon reassignment
@@ -504,6 +528,7 @@ pub mod pallet {
 	}
 
 	pub trait ScheduleInterface<AccountId, BlockNumber> {
+		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError>;
 		fn get_schedule_via_key(
 			key: u64,
 		) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
@@ -515,6 +540,9 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
+		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError> {
+			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskNotAssigned.into())
+		}
 		fn get_schedule_via_key(
 			key: u64,
 		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {

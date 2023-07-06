@@ -149,6 +149,12 @@ pub mod pallet {
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+	/// Network for which shards can be assigned tasks
+	#[pallet::storage]
+	#[pallet::getter(fn shard_network)]
+	pub type ShardNetwork<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, u64, (), OptionQuery>;
+
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
 	#[pallet::storage]
@@ -393,19 +399,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			let mut is_recurring = false;
-			let schedule_data = T::TaskScheduleHelper::get_schedule_via_key(key_id)?;
-			let payable_schedule_data =
-				T::TaskScheduleHelper::get_payable_schedule_via_key(key_id)?;
-
-			let shard_id = if let Some(schedule) = schedule_data {
-				is_recurring = schedule.cycle > 1;
-				schedule.shard_id
-			} else if let Some(payable_schedule) = payable_schedule_data {
-				payable_schedule.shard_id
-			} else {
-				return Err(Error::<T>::TaskNotScheduled.into());
-			};
+			let is_recurring =
+				if let Some(schedule) = T::TaskScheduleHelper::get_schedule_via_key(key_id)? {
+					schedule.cycle > 1
+				} else {
+					false
+				};
+			let shard_id: u64 = T::TaskScheduleHelper::get_assigned_shard_for_key(key_id)?;
 
 			let shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
@@ -488,11 +488,12 @@ pub mod pallet {
 					members_dedup.push(member);
 				}
 			}
-			let shard = ShardState::new::<T>(members.clone(), collector_index, net)?;
+			let shard = ShardState::new::<T>(members.clone(), collector_index)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
+			<ShardNetwork<T>>::insert(net, shard_id, ());
 			<TssShards<T>>::insert(shard_id, shard);
 			<ShardId<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id));
@@ -634,24 +635,20 @@ pub mod pallet {
 				false
 			}
 		}
-		fn is_eligible_shard_for_network(id: u64, net: Network) -> bool {
-			if let Some(shard_state) = <TssShards<T>>::get(id) {
-				shard_state.is_online() && shard_state.net == net
-			} else {
-				false
-			}
+		fn is_eligible_shard_for_network(net: Network, id: u64) -> bool {
+			Self::is_eligible_shard(id) && ShardNetwork::<T>::get(net, id).is_some()
 		}
 		fn get_eligible_shards(id: u64, n: usize) -> Vec<u64> {
-			let net = if let Some(ShardState { net, .. }) = <TssShards<T>>::get(id) {
-				net
-			} else {
-				return Vec::new();
-			};
 			let mut n_shards = Vec::new();
+			let network =
+				if let Some(n) = Self::get_network_for_shard(id) { n } else { return n_shards };
+			// turn into map indexed by network id then return ShardNetwork::prefix_iter(net).take
+			// instead of current code
 			let mut shard_id = <GetShardsIndex<T>>::take();
 			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
 			while n_shards.len() < n {
-				if Self::is_eligible_shard_for_network(shard_id, net) {
+				// rework this to just next N the shard_ids for the network
+				if Self::is_eligible_shard_for_network(network, shard_id) {
 					n_shards.push(shard_id);
 				}
 				shard_id = if shard_id >= max_shard_id {
@@ -667,6 +664,16 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn get_network_for_shard(shard_id: u64) -> Option<Network> {
+			// TODO: get all variants from enum directly instead
+			let possible_networks = vec![Network::Ethereum, Network::Astar];
+			for network in possible_networks {
+				if ShardNetwork::<T>::get(network, shard_id).is_some() {
+					return Some(network);
+				}
+			}
+			None
+		}
 		pub fn active_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
 				.filter(|(_, s)| s.is_online())

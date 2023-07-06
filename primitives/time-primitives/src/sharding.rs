@@ -23,7 +23,7 @@ impl<Id> IncrementTaskTimeoutCount<Id> for () {}
 /// Expose shard eligibility for specific networks
 pub trait EligibleShard<Id, Network> {
 	fn is_eligible_shard(id: Id) -> bool;
-	fn is_eligible_shard_for_network(id: Id, net: Network) -> bool;
+	fn is_eligible_shard_for_network(net: Network, id: Id) -> bool;
 	fn get_eligible_shards(id: Id, n: usize) -> Vec<Id>;
 }
 impl<Id, Network> EligibleShard<Id, Network> for () {
@@ -31,7 +31,7 @@ impl<Id, Network> EligibleShard<Id, Network> for () {
 		// all shards eligible by default for testing purposes
 		true
 	}
-	fn is_eligible_shard_for_network(_id: Id, _net: Network) -> bool {
+	fn is_eligible_shard_for_network(_net: Network, _id: Id) -> bool {
 		// all shards eligible by default for testing purposes
 		true
 	}

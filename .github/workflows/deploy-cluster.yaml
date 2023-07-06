@@ -21,7 +21,7 @@ on:
       environment:
         description: "Target environment where to fetch secrets and vars"
         required: true
-        type: string
+        type: choice
         options:
           - "internal"
 

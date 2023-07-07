@@ -259,7 +259,7 @@ where
 				Err(e) => {
 					//process error
 					log::error!("Error occured while executing one time schedule {:?}: {}", id, e);
-					self.report_schedule_invalid(*id, true);
+					self.report_schedule_invalid(*id, true, block_id, schedule.shard_id);
 				},
 			}
 		}
@@ -357,11 +357,21 @@ where
 						Err(e) => match e {
 							TaskExecutorError::NoTaskFound(task_id) => {
 								log::error!("No repetitive task found for id {:?}", task_id);
-								self.report_schedule_invalid(schedule.0, true);
+								self.report_schedule_invalid(
+									schedule.0,
+									true,
+									block_id,
+									schedule.1.shard_id,
+								);
 							},
 							TaskExecutorError::InvalidTaskFunction => {
 								log::error!("Invalid task function provided");
-								self.report_schedule_invalid(schedule.0, true);
+								self.report_schedule_invalid(
+									schedule.0,
+									true,
+									block_id,
+									schedule.1.shard_id,
+								);
 							},
 							TaskExecutorError::ExecutionError(error) => {
 								log::error!(
@@ -370,7 +380,12 @@ where
 										error
 									);
 
-								let is_terminated = self.report_schedule_invalid(schedule.0, false);
+								let is_terminated = self.report_schedule_invalid(
+									schedule.0,
+									false,
+									block_id,
+									schedule.1.shard_id,
+								);
 
 								// if not terminated keep add task with added frequency
 								if !is_terminated {
@@ -428,10 +443,18 @@ where
 		};
 	}
 
-	fn report_schedule_invalid(&mut self, schedule_id: u64, terminate: bool) -> bool {
-		//TODO verify if collector
+	fn report_schedule_invalid(
+		&mut self,
+		schedule_id: u64,
+		terminate: bool,
+		blocknumber: <B as Block>::Hash,
+		shard_id: u64,
+	) -> bool {
+		let is_collector = self.is_collector(blocknumber, shard_id).unwrap_or(false);
 		if terminate {
-			self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+			if is_collector {
+				self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+			}
 			return true;
 		}
 
@@ -439,7 +462,9 @@ where
 		*error_count += 1;
 
 		if *error_count > 2 {
-			self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+			if is_collector {
+				self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+			}
 			self.error_count.remove(&schedule_id);
 			return true;
 		}

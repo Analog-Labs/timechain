@@ -60,7 +60,7 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
-		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks},
+		sharding::{EligibleShard, IncrementTaskTimeoutCount, ReassignShardTasks},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 	pub(crate) type BalanceOf<T> =
@@ -188,7 +188,7 @@ pub mod pallet {
 		type ScheduleFee: Get<BalanceOf<Self>>;
 		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
 		type IndexerReward: Get<BalanceOf<Self>>;
-		type ShardEligibility: EligibleShard<u64, Network>;
+		type ShardEligibility: EligibleShard<u64>;
 		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
 		/// Minimum length in blocks before recurring task is determined to be timed out
 		#[pallet::constant]
@@ -303,7 +303,7 @@ pub mod pallet {
 				None => 1,
 			};
 			LastKey::<T>::put(schedule_id);
-			// assign task if possible
+			// assign task if shard of network exists (1) (use counter per network)
 			// else insert into unassigned tasks
 			// unassigned tasks are claimable by shards of the correct network
 			// consider changing shape of unassigned tasks to make this easier

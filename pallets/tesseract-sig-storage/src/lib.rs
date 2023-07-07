@@ -142,7 +142,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_shards_index)]
 	/// Counter for getting (N) next available shard(s)s
-	pub type GetShardsIndex<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type GetShardsIndex<T: Config> = StorageMap<_, Blake2_128Concat, Network, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
@@ -627,7 +627,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> EligibleShard<u64, Network> for Pallet<T> {
+	impl<T: Config> EligibleShard<u64> for Pallet<T> {
 		fn is_eligible_shard(id: u64) -> bool {
 			if let Some(shard_state) = <TssShards<T>>::get(id) {
 				shard_state.is_online()
@@ -635,31 +635,19 @@ pub mod pallet {
 				false
 			}
 		}
-		fn is_eligible_shard_for_network(net: Network, id: u64) -> bool {
-			Self::is_eligible_shard(id) && ShardNetwork::<T>::get(net, id).is_some()
-		}
-		fn get_eligible_shards(id: u64, n: usize) -> Vec<u64> {
-			let mut n_shards = Vec::new();
-			let network =
-				if let Some(n) = Self::get_network_for_shard(id) { n } else { return n_shards };
-			// TODO: turn into map indexed by network id then return ShardNetwork::prefix_iter(net).take
-			// instead of current code
-			let mut shard_id = <GetShardsIndex<T>>::take();
-			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
-			while n_shards.len() < n {
-				// rework this to just next N the shard_ids for the network
-				if Self::is_eligible_shard_for_network(network, shard_id) {
-					n_shards.push(shard_id);
-				}
-				shard_id = if shard_id >= max_shard_id {
-					// saturating wrap at max shard_id registered
-					0
-				} else {
-					shard_id + 1
-				};
-			}
-			<GetShardsIndex<T>>::put(shard_id);
-			n_shards
+		fn get_eligible_shards(id: u64, number: usize) -> Vec<u64> {
+			let network = if let Some(net) = Self::get_network_for_shard(id) {
+				net
+			} else {
+				// shard has no network so cannot get shards of same
+				// network to replace it
+				return Vec::new();
+			};
+			<ShardNetwork<T>>::iter_prefix(network)
+				.filter(|(s, _)| Self::is_eligible_shard(*s))
+				.map(|(s, _)| s)
+				.take(number) // TODO: make this selection more fair
+				.collect()
 		}
 	}
 

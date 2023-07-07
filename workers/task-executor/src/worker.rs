@@ -141,11 +141,11 @@ where
 			.runtime_api()
 			.get_task_metadata_by_key(block_id, schedule.task_id.0)
 			.map_err(|err| TaskExecutorError::InternalError(err.to_string()))?
-			.map_err(|err| TaskExecutorError::InternalError(format!("{:?}", err)).into())?;
+			.map_err(|err| TaskExecutorError::InternalError(format!("{:?}", err)))?;
 
 		let Some(task) = metadata else {
 			log::info!("No task found for id {:?}", schedule.task_id.0);
-			return Err(TaskExecutorError::NoTaskFound(schedule.task_id.0).into());
+			return Err(TaskExecutorError::NoTaskFound(schedule.task_id.0));
 		};
 
 		match &task.function {
@@ -159,16 +159,12 @@ where
 			} => {
 				log::info!("running task_id {:?}", schedule_id);
 				match self.call_eth_contract(address, function_signature, input).await {
-					Ok(data) => {
-						return Ok(data);
-					},
-					Err(e) => return Err(TaskExecutorError::ExecutionError(e.to_string()).into()),
+					Ok(data) => Ok(data),
+					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),
 				}
 			},
-			_ => {
-				return Err(TaskExecutorError::InvalidTaskFunction.into());
-			},
-		};
+			_ => Err(TaskExecutorError::InvalidTaskFunction),
+		}
 	}
 
 	pub(crate) async fn call_eth_contract(
@@ -447,8 +443,7 @@ where
 			self.error_count.remove(&schedule_id);
 			return true;
 		}
-
-		return false;
+		false
 	}
 
 	pub async fn run(&mut self) {

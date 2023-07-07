@@ -1,0 +1,84 @@
+#########################################################
+#
+#     Deploy to cluster workflow uses kubectl
+#     to patch the deployment on the cluster.
+#
+#     Inputs:
+#     - version - Docker tag of the timechain image
+#     - environment - Env to use the configuration from
+#                     (repo > Settings > Environments)
+#
+#########################################################
+name: Deploy to Kubernetes cluster
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Docker image tag to deploy on the network"
+        required: true
+        type: string
+      environment:
+        description: "Target environment where to fetch secrets and vars"
+        required: true
+        type: choice
+        options:
+          - "internal"
+
+env:
+  DOCKER_REPO: analoglabs/timechain
+
+jobs:
+  deploy:
+    name: Deploy to K8s cluster
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+      # EKS supports only authentication via IAM roles
+      # The AWS cli tool is mandatory
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Install AWS CLI
+      uses: unfor19/install-aws-cli-action@v1
+      with:
+        version: 2
+        verbose: false
+        arch: amd64
+        rootdir: ""
+        workdir: ""
+
+      # Make sure to have kubectl and the kubeconfig from the secrets
+    - name: Install and configure kubectl
+      run: |
+        curl https://storage.googleapis.com/kubernetes-release/release/v1.27.3/bin/linux/amd64/kubectl \
+            --progress-bar \
+            --location \
+            --remote-name
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+        echo '${{ secrets.KUBECONFIG }}' > kubeconfig.yaml
+
+      # Using "kubectl patch" updates validator versions one by one
+    - name: Update validators
+      run: |
+        export KUBECONFIG=kubeconfig.yaml
+        IMAGE="${{ env.DOCKER_REPO }}:${{ github.event.inputs.version }}"
+        nodes=$(kubectl get sts -l app=timenode -o=jsonpath='{.items[*].metadata.name}')
+        echo "Update node version to $IMAGE";
+
+        sleep 10;
+        for node in $nodes; do
+            echo "Updating $node image to $IMAGE";
+            kubectl patch statefulset $node --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"'$IMAGE'"}]'
+            sleep 30;
+            # TODO: health check for pods would be super nice
+        done

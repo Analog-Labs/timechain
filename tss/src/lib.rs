@@ -255,6 +255,13 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		&self.peer_id
 	}
 
+	pub fn is_initialized(&self) -> bool {
+		match &self.state {
+			TssState::Initialized { .. } => true,
+			_ => false,
+		}
+	}
+
 	fn peer_to_frost(&self, peer: &P) -> Identifier {
 		*self.config.peer_to_frost.get(peer).unwrap()
 	}
@@ -309,6 +316,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 	}
 
 	pub fn on_timeout(&mut self, timeout: Timeout) {
+		log::debug!("{} on timeout {:?}", self.peer_id, timeout);
 		let mut report = vec![];
 		let mut timeout_hash = None;
 		match (&self.state, timeout.0) {
@@ -374,7 +382,9 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 	}
 
 	pub fn on_message(&mut self, peer_id: P, msg: TssMessage) {
+		log::debug!("{} on_message {} {}", self.peer_id, peer_id, msg);
 		if self.peer_id == peer_id {
+			log::debug!("{} dropping message from self", self.peer_id);
 			return;
 		}
 		if self.config.peer_to_frost.is_empty() {
@@ -383,6 +393,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 					TssState::Uninitialized { round1_packages },
 					TssMessage::DkgR1 { round1_package },
 				) => {
+					log::debug!("{} inserted_round1 package", self.peer_id);
 					round1_packages.insert(peer_id, round1_package);
 					self.actions.push_back(TssAction::Timeout(Timeout::UNINITIALIZED, None));
 				},
@@ -402,7 +413,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			log::info!("{} dropping message from {}", self.peer_id, peer_id);
 			return;
 		}
-		log::debug!("{} on_message {} {}", self.peer_id, peer_id, msg);
+		log::debug!("on_message processing started");
 		let frost_id = self.peer_to_frost(&peer_id);
 		match (&mut self.state, msg) {
 			(TssState::DkgR1 { round1_packages, .. }, TssMessage::DkgR1 { round1_package, .. }) => {
@@ -521,6 +532,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 					None,
 				) => {
 					if round1_packages.len() == self.config.total_nodes - 1 {
+						log::debug!("received all packages for dk2 processing transition");
 						let round1_packages =
 							std::mem::take(round1_packages).into_values().collect::<Vec<_>>();
 						match dkg::part2(secret_package.take().unwrap(), &round1_packages) {
@@ -541,6 +553,12 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							},
 							Err(err) => unreachable!("{err}"),
 						}
+					} else {
+						log::debug!(
+							"transition to dkg2 need packages {} got {}",
+							round1_packages.len(),
+							self.config.total_nodes - 1
+						);
 					}
 				},
 				(
@@ -552,6 +570,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 					None,
 				) => {
 					if round2_packages.len() == self.config.total_nodes - 1 {
+						log::debug!("received all packages for dk3 processing transition");
 						let round2_packages =
 							std::mem::take(round2_packages).into_values().collect::<Vec<_>>();
 						match dkg::part3(secret_package, round1_packages, &round2_packages) {
@@ -571,6 +590,12 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							},
 							Err(err) => unreachable!("{err}"),
 						}
+					} else {
+						log::debug!(
+							"transition to dkg3 need packages {} got {}",
+							round2_packages.len(),
+							self.config.total_nodes - 1
+						);
 					}
 				},
 				(

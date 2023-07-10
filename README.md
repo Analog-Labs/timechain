@@ -17,7 +17,7 @@
 This repo includes the minimum required components to start a timechain testnet node, inspired by [substrate-node-template](https://github.com/substrate-developer-hub/substrate-node-template).
 
 * Consensus related pallets: Aura & GRANDPA
-* Token vesting pallet: analog-vesting store the vesting schedule and the vesting balance of the account.
+* Token vesting pallet: analog-vesting store the vesting schedule and the vested balance of the account.
 * Account delegation pallet: pallet-proxy store the delegation relationship between master account and delegator account. Delegate account can submit the task and pay task fee from master account.
 * Task metadata storage pallet: pallet-task-metadata store the static configuration of the task.
 * Task schedule pallet: pallet-task-schedule store the task and its status. now it support the one-time task, repetitive task and payable task.

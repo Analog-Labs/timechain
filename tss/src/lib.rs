@@ -257,8 +257,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 
 	pub fn is_initialized(&self) -> bool {
 		match &self.state {
-			TssState::Initialized { .. } => true,
-			_ => false,
+			TssState::Uninitialized { .. } => false,
+			_ => true,
 		}
 	}
 

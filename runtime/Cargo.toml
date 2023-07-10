@@ -120,6 +120,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"sp-api/std",
+	"sp-arithmetic/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",

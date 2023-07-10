@@ -1,6 +1,6 @@
 use super::mock::*;
 use crate::*;
-use frame_support::{assert_noop, assert_ok, storage::bounded_vec::BoundedVec};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin, storage::bounded_vec::BoundedVec};
 use frame_system::RawOrigin;
 use sp_core::ConstU32;
 use sp_keystore::Keystore;
@@ -909,5 +909,47 @@ fn can_report_offence_if_already_committed_offender() {
 		assert_eq!(4, TesseractSigStorage::commited_offences(ALICE).unwrap().0);
 		// reported offences storage item remains empty
 		assert!(TesseractSigStorage::reported_offences(ALICE).is_none());
+	});
+}
+
+#[test]
+fn test_force_set_shard_offline() {
+	let shard_id = 0;
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			TesseractSigStorage::force_set_shard_offline(
+				RawOrigin::Signed(VALIDATOR_1).into(),
+				shard_id
+			),
+			BadOrigin
+		);
+
+		assert_noop!(
+			TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id),
+			Error::<Test>::ShardIsNotRegistered
+		);
+
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![ALICE, BOB, CHARLIE],
+			Some(0),
+			Network::Ethereum,
+		),);
+
+		assert_ok!(TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id),);
 	});
 }

@@ -951,6 +951,6 @@ fn test_force_set_shard_offline() {
 		),);
 
 		assert_ok!(TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id),);
-		assert_eq!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
+		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
 	});
 }

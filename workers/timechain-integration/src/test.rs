@@ -10,7 +10,7 @@ mod tests {
 		let variables = collect_data::Variables {
 			collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7".to_owned(),
 			block: 1,
-			cycle: 17,
+			cycle: 19,
 			task_id: 3,
 			data: vec!["1".to_owned()],
 		};

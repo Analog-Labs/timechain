@@ -182,45 +182,48 @@ where
 					Some(block) => block,
 					None => block::Block::default(),
 				};
+				log::info!("\n\n\n block number {:?},\n last_final block {:?},\n hash {:?}\n", self._block_number, self.last_block_height,block_id);
 
-				// Add data into collection (user must have Collector role)
-				// @collection: collection hashId
-				// @cycle: time-chain block number
-				// @block: target network block number
-				// @task_id: task associated with data
-				// @task_counter: for repeated task it's incremented on every run
-				// @tss: TSS signature
-				// @data: data to add into collection
+				// let client = self._block_number
 
-				let data_value = data.result.to_string();
-				let variables = collect_data::Variables {
-					collection: schedule.hash.to_owned(), 
-					block: block.block_identifier.index as i64,
-					cycle: 1, //hard coded
-					task_id: schedule.task_id.0 as i64,
-					data: vec![data_value.to_owned()],
-				};
+				// // Add data into collection (user must have Collector role)
+				// // @collection: collection hashId
+				// // @cycle: time-chain block number
+				// // @block: target network block number
+				// // @task_id: task associated with data
+				// // @task_counter: for repeated task it's incremented on every run
+				// // @tss: TSS signature
+				// // @data: data to add into collection
 
-				// Build the GraphQL request
-				let request = CollectData::build_query(variables);
+				// let data_value = data.result.to_string();
+				// let variables = collect_data::Variables {
+				// 	collection: schedule.hash.to_owned(), 
+				// 	block: block.block_identifier.index as i64,
+				// 	cycle: 1, //hard coded
+				// 	task_id: schedule.task_id.0 as i64,
+				// 	data: vec![data_value.to_owned()],
+				// };
 
-				// Execute the GraphQL request
-				let response = reqwest::Client::new()
-					.post("http://localhost:8009/graphql")
-					.json(&request)
-					.send()
-					.await
-					.expect("Failed to send request")
-					.json::<GraphQLResponse<collect_data::ResponseData>>()
-					.await
-					.expect("Failed to parse response");
+				// // Build the GraphQL request
+				// let request = CollectData::build_query(variables);
 
-				match &response.data {
-					Some(data) => {
-						log::info!("timegraph migrate collect status {:?}", data.collect.status);
-					},
-					None => log::info!("timegraph migrate collect status fail No response"),
-				};
+				// // Execute the GraphQL request
+				// let response = reqwest::Client::new()
+				// 	.post("http://localhost:8009/graphql")
+				// 	.json(&request)
+				// 	.send()
+				// 	.await
+				// 	.expect("Failed to send request")
+				// 	.json::<GraphQLResponse<collect_data::ResponseData>>()
+				// 	.await
+				// 	.expect("Failed to parse response");
+
+				// match &response.data {
+				// 	Some(data) => {
+				// 		log::info!("timegraph migrate collect status {:?}", data.collect.status);
+				// 	},
+				// 	None => log::info!("timegraph migrate collect status fail No response"),
+				// };
 			},
 			_ => {
 				log::warn!("error on matching task function")

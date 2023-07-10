@@ -16,7 +16,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	dispatch::DispatchClass,
 	traits::{EitherOfDiverse, Imbalance},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND},
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 

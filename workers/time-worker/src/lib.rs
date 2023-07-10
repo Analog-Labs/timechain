@@ -23,7 +23,7 @@ use traits::Client;
 pub use crate::communication::time_protocol_name;
 
 /// Constant to indicate target for logging
-pub const TW_LOG: &str = "⌛time-worker";
+pub const TW_LOG: &str = "time-worker";
 
 /// Set of properties we need to run our gadget
 pub struct TimeWorkerParams<B: Block, A, BN, C, R, BE, N, S>

@@ -79,6 +79,7 @@ pub mod pallet {
 		fn register_shard() -> Weight;
 		fn register_chronicle() -> Weight;
 		fn report_misbehavior() -> Weight;
+		fn force_set_shard_offline() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -95,6 +96,9 @@ pub mod pallet {
 			Weight::from_parts(0, 1)
 		}
 		fn report_misbehavior() -> Weight {
+			Weight::from_parts(0, 1)
+		}
+		fn force_set_shard_offline() -> Weight {
 			Weight::from_parts(0, 1)
 		}
 	}
@@ -325,6 +329,9 @@ pub mod pallet {
 
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
+
+		/// Shard status is offline now
+		ShardAlreadyOffline,
 	}
 
 	#[pallet::inherent]
@@ -616,6 +623,28 @@ pub mod pallet {
 				};
 			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
 			Ok(())
+		}
+
+		/// Method for root to set shard offline and reassign tasks
+		/// It is used in collector offline and for testing
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::force_set_shard_offline())]
+		pub fn force_set_shard_offline(origin: OriginFor<T>, shard_id: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			let mut on_chain_shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+
+			if on_chain_shard_state.is_online() {
+				on_chain_shard_state.status = ShardStatus::Offline;
+				<TssShards<T>>::mutate(shard_id, |shard_state| {
+					*shard_state = Some(on_chain_shard_state)
+				});
+				T::TaskAssigner::reassign_shard_tasks(shard_id);
+				Self::deposit_event(Event::ShardOffline(shard_id));
+				Ok(())
+			} else {
+				Err(Error::<T>::ShardAlreadyOffline.into())
+			}
 		}
 	}
 

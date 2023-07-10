@@ -14,17 +14,16 @@
 
 ## Features
 
-This repo includes the minimum required components to start a timechain PoA testnet node, inspired by [substrate-node-template](https://github.com/substrate-developer-hub/substrate-node-template).
+This repo includes the minimum required components to start a timechain testnet node, inspired by [substrate-node-template](https://github.com/substrate-developer-hub/substrate-node-template).
 
 * Consensus related pallets: Aura & GRANDPA
-* Governance related pallets: membership
-* Event data related pallets: transactions
-
-### Membership pallet:
-The Membership pallet allows control of membership of a set of AccountIds, useful for managing membership of a collective.
-
-### Transaction Pallet:
-The transaction pallet allows user to publish the time data event on the chain.
+* Token vesting pallet: analog-vesting store the vesting schedule and the vesting balance of the account.
+* Account delegation pallet: pallet-proxy store the delegation relationship between master account and delegator account. Delegate account can submit the task and pay task fee from master account.
+* Task metadata storage pallet: pallet-task-metadata store the static configuration of the task.
+* Task schedule pallet: pallet-task-schedule store the task and its status. now it support the one-time task, repetitive task and payable task.
+* Tesseract sig storage pallet: pallet-tesseract-sig-storage store the TSS shards and the signature collected from TSS workers.
+* Task executor worker: run the tasks on chain.
+* TSS worker: receive the data fetched from task executor, verify and sign against the data, and send the extrinsic to store the signature if reaches the threshold.
 
 **Notes:** The code is still under active development and not production ready, use it at your own risk.
 
@@ -42,7 +41,7 @@ Use the following command to build the node and run it after build successfully:
 
 ```sh
 cargo build --release
-./target/release/timechain-node --staging
+./target/release/timechain-node 
 ```
 
 ## Run Using Docker
@@ -75,12 +74,14 @@ CC_x86_64-unknown-linux-musl = "x86_64-linux-musl-gcc"
   ```shell
     ./target/release/node-template \
     --base-path /tmp/bob \
-    --chain staging \
-    --port 30334 \
+    --port 30333 \
     --ws-port 9946 \
     --rpc-port 9934 \
     --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
     --validator \
+    --connector-url=http://ethereum-connector:8080 \
+    --connector-blockchain=ethereum \
+    --connector-network=dev \
     --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWDAzWc9PWDapTfx89NmAhxuySLnVU9N62ojYS25Va7gif
   ```
 

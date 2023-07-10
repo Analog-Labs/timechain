@@ -353,6 +353,7 @@ where
 									.or_insert(vec![])
 									.push((schedule.0, decremented_schedule));
 							}
+							self.error_count.remove(&schedule.0);
 						},
 						Err(e) => match e {
 							TaskExecutorError::NoTaskFound(task_id) => {

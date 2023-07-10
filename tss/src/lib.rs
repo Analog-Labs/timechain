@@ -256,10 +256,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 	}
 
 	pub fn is_initialized(&self) -> bool {
-		match &self.state {
-			TssState::Uninitialized { .. } => false,
-			_ => true,
-		}
+		!matches!(&self.state, TssState::Uninitialized { .. })
 	}
 
 	fn peer_to_frost(&self, peer: &P) -> Identifier {

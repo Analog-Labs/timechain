@@ -11,27 +11,26 @@ pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,
 ];
 
-/// Report shard as unable to reach threshold
-pub trait ReassignShardTasks<Id> {
-	fn reassign_shard_tasks(_id: Id) {}
+pub trait HandleShardTasks<Id, Network> {
+	fn handle_shard_tasks(_id: Id, _network: Network) {}
 }
-impl<Id> ReassignShardTasks<Id> for () {}
+impl<Id, Network> HandleShardTasks<Id, Network> for () {}
 pub trait IncrementTaskTimeoutCount<Id> {
 	fn increment_task_timeout_count(_id: Id) {}
 }
 impl<Id> IncrementTaskTimeoutCount<Id> for () {}
 /// Expose shard eligibility for specific networks
-pub trait EligibleShard<Id> {
+pub trait EligibleShard<Id, Network> {
 	fn is_eligible_shard(id: Id) -> bool;
-	fn get_eligible_shards(id: Id, number: usize) -> Vec<Id>;
+	fn next_eligible_shard(network: Network) -> Option<Id>;
 }
-impl<Id> EligibleShard<Id> for () {
+impl<Id, Network> EligibleShard<Id, Network> for () {
 	fn is_eligible_shard(_id: Id) -> bool {
 		// all shards eligible by default for testing purposes
 		true
 	}
-	fn get_eligible_shards(_id: Id, _number: usize) -> Vec<Id> {
-		Vec::default()
+	fn next_eligible_shard(_network: Network) -> Option<Id> {
+		None
 	}
 }
 

@@ -25,6 +25,7 @@ sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "pol
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
+thiserror = "1.0.30"
 time-db = { path = "../database" }
 time-primitives = { path = "../../primitives/time-primitives" }
 timechain-integration = { path = "../timechain-integration" }

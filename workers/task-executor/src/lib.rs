@@ -16,6 +16,23 @@ mod tests;
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
 pub type BlockHeight = u64;
+
+#[derive(Debug, thiserror::Error)]
+pub enum TaskExecutorError {
+	/// No Task for given id found
+	#[error("No Task for given id found")]
+	NoTaskFound(u64),
+	/// Error executing contract call
+	#[error("Error executing contract call")]
+	ExecutionError(String),
+	/// Invalid task function provided
+	#[error("Invalid Task Function")]
+	InvalidTaskFunction,
+	/// Internal Api error occured
+	#[error("Internal Error Occured")]
+	InternalError(String),
+}
+
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
 pub struct TaskExecutorParams<B: Block, A, BN, R, BE>

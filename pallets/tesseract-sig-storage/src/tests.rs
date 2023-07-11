@@ -939,11 +939,14 @@ fn test_set_shard_online() {
 		),);
 
 		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
-		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), shard_id, tss_key));
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(
+			RawOrigin::None.into(),
+			shard_id,
+			tss_key
+		));
 		assert!(TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
 	});
 }
-
 
 #[test]
 fn test_force_set_shard_offline() {
@@ -984,7 +987,11 @@ fn test_force_set_shard_offline() {
 			Network::Ethereum,
 		),);
 
-		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), shard_id, tss_key));
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(
+			RawOrigin::None.into(),
+			shard_id,
+			tss_key
+		));
 		assert_ok!(TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id));
 		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
 	});

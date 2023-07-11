@@ -20,7 +20,7 @@ This repo includes the minimum required components to start a timechain testnet 
 * Token vesting pallet: analog-vesting store the vesting schedule and the vested balance of the account.
 * Account delegation pallet: pallet-proxy store the delegation relationship between master account and delegator account. Delegate account can submit the task and pay task fee from master account.
 * Task metadata storage pallet: pallet-task-metadata store the static configuration of the task.
-* Task schedule pallet: pallet-task-schedule store the task and its status. now it support the one-time task, repetitive task and payable task.
+* Task schedule pallet: pallet-task-schedule store the task schedule and its status. now it support the one-time task, repetitive task and payable task.
 * Tesseract sig storage pallet: pallet-tesseract-sig-storage store the TSS shards and the signature collected from TSS workers.
 * Task executor worker: run the tasks on chain.
 * TSS worker: receive the data fetched from task executor, verify and sign against the data, and send the extrinsic to store the signature if reaches the threshold.

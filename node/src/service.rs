@@ -7,6 +7,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_keystore::Keystore;
+use time_worker::inherents::{TimeInherentTssDataProvider};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 
@@ -284,7 +285,9 @@ pub fn new_full(
 							slot_duration,
 						);
 
-				Ok((slot, timestamp))
+				let time_inherent = TimeInherentTssDataProvider::get_instance();
+
+				Ok((slot, timestamp, time_inherent))
 			},
 			force_authoring,
 			backoff_authoring_blocks,

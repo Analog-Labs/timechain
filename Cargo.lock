@@ -11468,6 +11468,7 @@ dependencies = [
  "strum",
  "substrate-test-runtime-client",
  "surf",
+ "thiserror",
  "time-db",
  "time-primitives",
  "tokio",

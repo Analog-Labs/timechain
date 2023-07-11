@@ -203,7 +203,11 @@ where
 	}
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	async fn process_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		block_height: BlockHeight,
+	) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
 		};
@@ -243,10 +247,14 @@ where
 				continue;
 			}
 			tree_map.insert(id, schedule);
-			self.tasks.insert(id);
 		}
 
 		for (id, schedule) in tree_map.iter() {
+			log::info!("schedule height is {:?}, block height is {:?}", schedule.start_execution_block, block_height);
+			if schedule.start_execution_block > block_height {
+				continue;
+			}
+			self.tasks.insert(*id);
 			match self.task_executor(block_id, id, schedule).await {
 				Ok(data) => {
 					if let Err(e) = self
@@ -312,7 +320,11 @@ where
 			}
 
 			// put the new task in repetitive task map
-			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
+			let align_block_height = if schedule.start_execution_block < block_height {
+				block_height
+			} else {
+				schedule.start_execution_block
+			};
 			self.tasks.insert(id);
 			self.repetitive_tasks
 				.entry(align_block_height)
@@ -321,7 +333,7 @@ where
 		}
 
 		// iterate all block height
-		for index in self.last_block_height..block_height {
+		for index in self.last_block_height..=block_height {
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				log::info!("Recurring task running on block {:?}", index);
 				// execute all task for specific task
@@ -474,9 +486,14 @@ where
 
 	pub async fn run(&mut self) {
 		loop {
+			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				continue;
+			};
+			let current_block = status.current_block_identifier.index;
+
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at).await {
+					if let Err(e) = self.process_tasks_for_block(at, current_block).await {
 						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},

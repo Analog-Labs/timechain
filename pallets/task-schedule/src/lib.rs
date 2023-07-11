@@ -301,7 +301,7 @@ pub mod pallet {
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
-					start_execution_block: 0,
+					start_execution_block: schedule.start_execution_block,
 					executable_since: frame_system::Pallet::<T>::block_number(),
 					validity: schedule.validity,
 					hash: schedule.hash,

@@ -913,8 +913,42 @@ fn can_report_offence_if_already_committed_offender() {
 }
 
 #[test]
+fn test_set_shard_online() {
+	let shard_id = 0;
+	let tss_key: [u8; 33] = [0; 33];
+	new_test_ext().execute_with(|| {
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_1).into(),
+			ALICE,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_2).into(),
+			BOB,
+		),);
+		assert_ok!(TesseractSigStorage::register_chronicle(
+			RawOrigin::Signed(VALIDATOR_3).into(),
+			CHARLIE,
+		),);
+
+		//register shard
+		assert_ok!(TesseractSigStorage::register_shard(
+			RawOrigin::Root.into(),
+			vec![ALICE, BOB, CHARLIE],
+			Some(0),
+			Network::Ethereum,
+		),);
+
+		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), shard_id, tss_key));
+		assert!(TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
+	});
+}
+
+
+#[test]
 fn test_force_set_shard_offline() {
 	let shard_id = 0;
+	let tss_key: [u8; 33] = [0; 33];
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TesseractSigStorage::force_set_shard_offline(
@@ -950,7 +984,8 @@ fn test_force_set_shard_offline() {
 			Network::Ethereum,
 		),);
 
-		assert_ok!(TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id),);
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), shard_id, tss_key));
+		assert_ok!(TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id));
 		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
 	});
 }

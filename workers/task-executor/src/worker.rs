@@ -164,59 +164,6 @@ where
 					Ok(data) => Ok(data),
 					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),
 				}
-
-				let block_request = BlockRequest {
-					network_identifier: self.rosetta_chain_config.network(),
-					block_identifier: PartialBlockIdentifier { index: None, hash: None },
-				};
-				let response = self.rosetta_client.block(&block_request).await?;
-
-				let block = match response.block {
-					Some(block) => block,
-					None => block::Block::default(),
-				};
-				log::info!("\n\n\n block number {:?},\n last_final block {:?},\n hash {:?}\n", self._block_number, self.last_block_height,block_id);
-
-				// let client = self._block_number
-
-				// // Add data into collection (user must have Collector role)
-				// // @collection: collection hashId
-				// // @cycle: time-chain block number
-				// // @block: target network block number
-				// // @task_id: task associated with data
-				// // @task_counter: for repeated task it's incremented on every run
-				// // @tss: TSS signature
-				// // @data: data to add into collection
-
-				// let data_value = data.result.to_string();
-				// let variables = collect_data::Variables {
-				// 	collection: schedule.hash.to_owned(), 
-				// 	block: block.block_identifier.index as i64,
-				// 	cycle: 1, //hard coded
-				// 	task_id: schedule.task_id.0 as i64,
-				// 	data: vec![data_value.to_owned()],
-				// };
-
-				// // Build the GraphQL request
-				// let request = CollectData::build_query(variables);
-
-				// // Execute the GraphQL request
-				// let response = reqwest::Client::new()
-				// 	.post("http://localhost:8009/graphql")
-				// 	.json(&request)
-				// 	.send()
-				// 	.await
-				// 	.expect("Failed to send request")
-				// 	.json::<GraphQLResponse<collect_data::ResponseData>>()
-				// 	.await
-				// 	.expect("Failed to parse response");
-
-				// match &response.data {
-				// 	Some(data) => {
-				// 		log::info!("timegraph migrate collect status {:?}", data.collect.status);
-				// 	},
-				// 	None => log::info!("timegraph migrate collect status fail No response"),
-				// };
 			},
 			_ => Err(TaskExecutorError::InvalidTaskFunction),
 		}
@@ -255,6 +202,58 @@ where
 		};
 
 		Ok(*shard.collector() == account)
+	}
+
+	async fn send_data(&mut self, data: CallResponse, collection: String, task_id: u64) {
+		let block_request = BlockRequest {
+			network_identifier: self.rosetta_chain_config.network(),
+			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+		};
+		let response = self.rosetta_client.block(&block_request).await.unwrap();
+
+		let block = match response.block {
+			Some(block) => block,
+			None => block::Block::default(),
+		};
+
+		// Add data into collection (user must have Collector role)
+		// @collection: collection hashId
+		// @cycle: time-chain block number
+		// @block: target network block number
+		// @task_id: task associated with data
+		// @task_counter: for repeated task it's incremented on every run
+		// @tss: TSS signature
+		// @data: data to add into collection
+
+		let data_value = data.result.to_string();
+		let variables = collect_data::Variables {
+			collection,
+			block: block.block_identifier.index as i64,
+			cycle: 8, //hard coded
+			task_id: task_id as i64,
+			data: vec![data_value.to_owned()],
+		};
+
+		// Build the GraphQL request
+		let request = CollectData::build_query(variables);
+		// Execute the GraphQL request
+		let client = reqwest::Client::new();
+		let response = client
+			.post("http://127.0.0.1:8010/graphql")
+			.json(&request)
+			.send()
+			.await
+			.expect("Failed to send request")
+			.json::<GraphQLResponse<collect_data::ResponseData>>()
+			.await
+			.expect("Failed to parse response");
+
+		match &response.data {
+			Some(data) => {
+				log::info!("timegraph migrate collect status {:?}", data.collect.status);
+			},
+			None => log::info!("timegraph migrate collect status fail No response"),
+		};
 	}
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
@@ -305,11 +304,19 @@ where
 			match self.task_executor(block_id, id, schedule).await {
 				Ok(data) => {
 					if let Err(e) = self
-						.send_for_sign(block_id, data, schedule.shard_id, *id, schedule.cycle)
+						.send_for_sign(
+							block_id,
+							data.clone(),
+							schedule.shard_id,
+							*id,
+							schedule.cycle,
+						)
 						.await
 					{
 						log::error!("Error occured while sending data for signing: {}", e);
 					};
+
+					self.send_data(data, schedule.hash.to_owned(), schedule.task_id.0).await;
 				},
 				Err(e) => {
 					//process error

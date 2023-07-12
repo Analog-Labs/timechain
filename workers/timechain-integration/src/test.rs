@@ -9,10 +9,10 @@ mod tests {
 		// Prepare the input variables
 		let variables = collect_data::Variables {
 			collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7".to_owned(),
-			block: 1,
-			cycle: 19,
+			block: 2,
+			cycle: 1,
 			task_id: 3,
-			data: vec!["1".to_owned()],
+			data: vec!["1agsdgdgfsdfsfsddfgdfg".to_owned()],
 		};
 
 		// Build the GraphQL request
@@ -20,7 +20,7 @@ mod tests {
 
 		// Execute the GraphQL request
 		let response = reqwest::Client::new()
-			.post("http://localhost:8009/graphql")
+			.post("http://127.0.0.1:8010/graphql")
 			.json(&request)
 			.send()
 			.await

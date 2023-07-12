@@ -214,7 +214,7 @@ mod tests {
 
 		// Execute the GraphQL request
 		let response = reqwest::Client::new()
-			.post("http://localhost:8009/graphql")
+			.post("http://localhost:8010/graphql")
 			.json(&request)
 			.send()
 			.await

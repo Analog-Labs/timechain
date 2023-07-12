@@ -26,7 +26,7 @@ const pallet_task_add = async (_keyspair, who) => {
         task_id: 2,
         owner: 'address',
         shard_id: 1,
-        frequency: 5,
+        frequency: 10,
         cycle: 3,
         validity: { Seconds: 12 },
         hash: 'asdasd',

@@ -238,7 +238,17 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!("single task schedule {:?}", task_schedules.len());
+		//check if current shard is active
+		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
+		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
+		if task_schedules.len() > 0 {
+			log::info!("single task schedule {:?}", task_schedules.len());
+			let shard_id = task_schedules[0].0;
+			if !active_shard_id.contains(&shard_id) {
+				log::info!("shard {:?} is not active", shard_id);
+				return Ok(());
+			}
+		}
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
@@ -315,7 +325,16 @@ where
 			})
 			.collect::<Vec<_>>();
 
+		//check if current shard is active
 		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
+		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
+		if task_schedules.len() > 0 {
+			let shard_id = task_schedules[0].0;
+			if !active_shard_id.contains(&shard_id) {
+				log::info!("shard {:?} is not active", shard_id);
+				return Ok(());
+			}
+		}
 
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
@@ -345,13 +364,6 @@ where
 
 			// execute all task for specific task
 			for schedule in tasks {
-				
-				//check if shard is active
-				if !active_shard.contains(&schedule.1.shard_id) {
-					log::error!("shard is offline skipping schedule {:?}", schedule.0);
-					continue;
-				}
-
 				match self.task_executor(block_id, &schedule.0, &schedule.1).await {
 					Ok(data) => {
 						//send for signing

@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 mod communication;
-mod inherents;
+pub mod inherents;
 mod traits;
 mod worker;
 

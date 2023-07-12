@@ -103,6 +103,10 @@ pub mod pallet {
 		}
 	}
 
+	fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
+		account_id.encode()[..].try_into().unwrap()
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -137,7 +141,7 @@ pub mod pallet {
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
-		type TaskAssigner: HandleShardTasks<u64, Network>;
+		type TaskAssigner: HandleShardTasks<u64, Network, u64>;
 		/// Maximum number of task execution timeouts before shard is put offline
 		#[pallet::constant]
 		type MaxTimeouts: Get<u8>;
@@ -252,10 +256,16 @@ pub mod pallet {
 		/// .1 Report count
 		OffenceReported(TimeId, u8),
 
-		/// Chronicle has ben registered
+		/// Chronicle has been registered
 		/// .0 TimeId
 		/// .1 Validator's AccountId
 		ChronicleRegistered(TimeId, T::AccountId),
+
+		/// Task claimed for shard
+		/// .0 Network
+		/// .1 ShardId
+		/// .2 TaskId
+		TaskClaimedForShard(Network, u64, u64),
 	}
 
 	#[pallet::error]
@@ -332,8 +342,17 @@ pub mod pallet {
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
 
+		/// Shard status is not online
+		ShardNotOnline,
+
 		/// Shard status is offline now
 		ShardAlreadyOffline,
+
+		/// Caller is not shard's collector so cannot call this function
+		OnlyCallableByCollector,
+
+		/// Shard network not found
+		ShardNetworkNotFound,
 	}
 
 	#[pallet::inherent]
@@ -563,9 +582,6 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
-				account_id.encode()[..].try_into().unwrap()
-			}
 			let (reporter, offender) = (
 				// get reporter pubkey from shard because must be collector
 				account_to_time_id::<sp_runtime::AccountId32>(
@@ -650,6 +666,26 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::ShardAlreadyOffline.into())
 			}
+		}
+
+		/// Extrinsic for shard collector to claim task for shard
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::force_set_shard_offline())] // TODO: add benchmark
+		pub fn claim_task(origin: OriginFor<T>, shard_id: u64, task_id: u64) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			ensure!(shard_state.is_online(), Error::<T>::ShardNotOnline);
+			ensure!(
+				shard_state.shard.is_collector(&account_to_time_id::<T::AccountId>(caller)),
+				Error::<T>::OnlyCallableByCollector
+			);
+			let network = Pallet::<T>::get_network_for_shard(shard_id)
+				.ok_or(Error::<T>::ShardNetworkNotFound)?;
+			T::TaskAssigner::claim_task_for_shard(shard_id, network, task_id)?;
+
+			Self::deposit_event(Event::TaskClaimedForShard(network, shard_id, task_id));
+			Ok(())
 		}
 	}
 

@@ -205,11 +205,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn unassigned_tasks)]
 	pub type UnassignedTasks<T: Config> =
-		StorageMap<_, Blake2_128Concat, Network, Vec<KeyId>, ValueQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, KeyId, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_tasks)]
-	pub type ShardTasks<T: Config> = StorageMap<_, Blake2_128Concat, u64, Vec<KeyId>, ValueQuery>;
+	pub type ShardTasks<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, u64, Blake2_128Concat, KeyId, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_assigned_shard)]
@@ -281,6 +282,8 @@ pub mod pallet {
 		ShardNotEligibleForTasks,
 		/// Task not assigned to any shards yet
 		TaskNotAssigned,
+		/// Task not in unassigned queue so cannot be assigned
+		TaskNotUnassigned,
 	}
 
 	#[pallet::call]
@@ -308,10 +311,10 @@ pub mod pallet {
 			if let Some(next_shard_for_network) =
 				T::ShardEligibility::next_eligible_shard(schedule.network)
 			{
-				TaskAssignedShard::<T>::insert(schedule_id, next_shard_for_network);
+				Self::assign_task_to_shard(schedule_id, next_shard_for_network);
 			} else {
 				// place in unassigned tasks if no shards available for this network
-				UnassignedTasks::<T>::mutate(schedule.network, |tasks| tasks.push(schedule_id));
+				UnassignedTasks::<T>::insert(schedule.network, schedule_id, ());
 			}
 			ScheduleStorage::<T>::insert(
 				schedule_id,
@@ -382,10 +385,10 @@ pub mod pallet {
 			if let Some(next_shard_for_network) =
 				T::ShardEligibility::next_eligible_shard(schedule.network)
 			{
-				TaskAssignedShard::<T>::insert(schedule_id, next_shard_for_network);
+				Self::assign_task_to_shard(schedule_id, next_shard_for_network);
 			} else {
 				// place in unassigned tasks if no shards available for this network
-				UnassignedTasks::<T>::mutate(schedule.network, |tasks| tasks.push(schedule_id));
+				UnassignedTasks::<T>::insert(schedule.network, schedule_id, ());
 			}
 			PayableScheduleStorage::<T>::insert(
 				schedule_id,
@@ -402,29 +405,12 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		// instead of claiming it, assign it on the fly using the Network type
-		// assign it to a shard that is of that network type
-		// if none exists then put in unassigned
-		//
-		// called by shard's collector ideally using shard_id, task_id as inputs
-		// check if shard matches task network && that caller is collector
-		//
-		// use a DoubleMap instead, easier to get
-		// use a double map as well for ShardTasks?
-		// fn claim_task(
-
-		// ) {
-		// 	// insert task into unassigned queue, claimable by shard of the same network type
-		// 	//ShardTasks::<T>::mutate(schedule.shard_id, |x| x.push(schedule_id));
-		// 	// ensure!(
-		// 	// 	T::ShardEligibility::is_eligible_shard(schedule.shard_id),
-		// 	// 	Error::<T>::ShardNotEligibleForTasks
-		// 	// );
-		// 	//
-		// }
 	}
 	impl<T: Config> Pallet<T> {
+		fn assign_task_to_shard(task: KeyId, shard: u64) {
+			ShardTasks::<T>::insert(shard, task, ());
+			TaskAssignedShard::<T>::insert(task, shard);
+		}
 		pub fn increment_indexer_reward_count(indexer: T::AccountId) -> Result<(), DispatchError> {
 			IndexerScore::<T>::mutate(indexer, |reward| *reward += 1);
 			Ok(())
@@ -522,12 +508,24 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> HandleShardTasks<u64, Network> for Pallet<T> {
-		fn handle_shard_tasks(id: u64, network: Network) {
+	impl<T: Config> HandleShardTasks<u64, Network, KeyId> for Pallet<T> {
+		fn handle_shard_tasks(shard_id: u64, network: Network) {
 			// move shard tasks to unassigned task queue
-			UnassignedTasks::<T>::mutate(network, |tasks| {
-				tasks.append(&mut ShardTasks::<T>::take(id))
+			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task, _)| {
+				TaskAssignedShard::<T>::remove(task);
+				UnassignedTasks::<T>::insert(network, task, ())
 			});
+		}
+
+		fn claim_task_for_shard(shard_id: u64, network: Network, task_id: KeyId) -> DispatchResult {
+			// take task from unassigned task queue which takes network as input
+			ensure!(
+				UnassignedTasks::<T>::take(network, task_id).is_some(),
+				Error::<T>::TaskNotUnassigned
+			);
+			// assign to shard by also updating ShardTasks storage item
+			Self::assign_task_to_shard(task_id, shard_id);
+			Ok(())
 		}
 	}
 

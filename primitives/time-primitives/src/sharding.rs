@@ -4,6 +4,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_runtime::DispatchResult;
 use sp_std::{borrow::ToOwned, vec::Vec};
 
 pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
@@ -11,10 +12,21 @@ pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,
 ];
 
-pub trait HandleShardTasks<Id, Network> {
-	fn handle_shard_tasks(_id: Id, _network: Network) {}
+pub trait HandleShardTasks<ShardId, Network, TaskId> {
+	fn handle_shard_tasks(shard_id: ShardId, network: Network);
+	fn claim_task_for_shard(shard_id: ShardId, network: Network, task_id: TaskId)
+		-> DispatchResult;
 }
-impl<Id, Network> HandleShardTasks<Id, Network> for () {}
+impl<ShardId, Network, TaskId> HandleShardTasks<ShardId, Network, TaskId> for () {
+	fn handle_shard_tasks(_shard_id: ShardId, _network: Network) {}
+	fn claim_task_for_shard(
+		_shard_id: ShardId,
+		_network: Network,
+		_task_id: TaskId,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
 pub trait IncrementTaskTimeoutCount<Id> {
 	fn increment_task_timeout_count(_id: Id) {}
 }

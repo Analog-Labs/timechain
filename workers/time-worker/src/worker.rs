@@ -169,7 +169,8 @@ where
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for (shard_id, shard) in shards {
-			if self.tss_states.contains_key(&shard_id) {
+			if self.tss_states.get(&shard_id).filter(|val| val.tss.is_initialized()).is_some() {
+				debug!(target: TW_LOG, "Already participating in keygen for shard {}", shard_id);
 				continue;
 			}
 			if !shard.members().contains(&public_key.into()) {

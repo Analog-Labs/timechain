@@ -11927,6 +11927,7 @@ dependencies = [
  "scale-info",
  "separator",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
  "sp-consensus-babe",
  "sp-core",

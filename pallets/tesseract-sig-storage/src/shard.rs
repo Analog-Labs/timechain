@@ -5,7 +5,7 @@ use frame_support::traits::Get;
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
 use time_primitives::{
-	sharding::{HandleShardTasks, Shard},
+	sharding::{HandleShardTasks, Network, Shard},
 	TimeId,
 };
 
@@ -25,18 +25,22 @@ pub struct ShardState {
 	pub committed_offenses_count: u8,
 	/// Status for shard
 	pub status: ShardStatus,
+	/// Shard network
+	pub network: Network,
 }
 
 impl ShardState {
 	pub fn new<T: Config>(
 		members: Vec<TimeId>,
 		collector_index: Option<u8>,
+		network: Network,
 	) -> Result<ShardState, DispatchError> {
 		Ok(ShardState {
 			shard: new_shard::<T>(members, collector_index)?,
 			task_timeout_count: 0u8,
 			committed_offenses_count: 0u8,
-			status: ShardStatus::Online,
+			status: ShardStatus::Offline,
+			network,
 		})
 	}
 	pub fn is_online(&self) -> bool {
@@ -49,9 +53,7 @@ impl ShardState {
 			// set shard to offline if cannot reach consensus and status is not offline
 			self.status = ShardStatus::Offline;
 			// Handle all of this shard's tasks
-			if let Some(network) = Pallet::<T>::get_network_for_shard(id) {
-				T::TaskAssigner::handle_shard_tasks(id, network)
-			}
+			T::TaskAssigner::handle_shard_tasks(id, self.network);
 			Pallet::<T>::deposit_event(Event::ShardOffline(id));
 		}
 		<TssShards<T>>::insert(id, self);
@@ -64,9 +66,7 @@ impl ShardState {
 			// set shard to offline if cannot reach consensus and status is not offline
 			self.status = ShardStatus::Offline;
 			// Handle all of this shard's tasks
-			if let Some(network) = Pallet::<T>::get_network_for_shard(id) {
-				T::TaskAssigner::handle_shard_tasks(id, network)
-			}
+			T::TaskAssigner::handle_shard_tasks(id, self.network);
 			Pallet::<T>::deposit_event(Event::ShardOffline(id));
 		}
 		<TssShards<T>>::insert(id, self);

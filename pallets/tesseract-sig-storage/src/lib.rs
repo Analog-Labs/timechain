@@ -350,9 +350,6 @@ pub mod pallet {
 
 		/// Caller is not shard's collector so cannot call this function
 		OnlyCallableByCollector,
-
-		/// Shard network not found
-		ShardNetworkNotFound,
 	}
 
 	#[pallet::inherent]
@@ -481,6 +478,11 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			<TssGroupKey<T>>::insert(set_id, group_key);
+			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
+				let details = shard_state.as_mut().ok_or(Error::<T>::ShardIsNotRegistered)?;
+				details.status = ShardStatus::Online;
+				Ok(())
+			})?;
 			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
 
 			Ok(().into())
@@ -516,7 +518,7 @@ pub mod pallet {
 					members_dedup.push(member);
 				}
 			}
-			let shard = ShardState::new::<T>(members.clone(), collector_index)?;
+			let shard = ShardState::new::<T>(members.clone(), collector_index, net)?;
 			// get unused ShardId from storage
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
@@ -654,13 +656,9 @@ pub mod pallet {
 
 			if on_chain_shard_state.is_online() {
 				on_chain_shard_state.status = ShardStatus::Offline;
-				<TssShards<T>>::mutate(shard_id, |shard_state| {
-					*shard_state = Some(on_chain_shard_state)
-				});
 				// Handle all of this shard's tasks
-				if let Some(network) = Pallet::<T>::get_network_for_shard(shard_id) {
-					T::TaskAssigner::handle_shard_tasks(shard_id, network)
-				}
+				T::TaskAssigner::handle_shard_tasks(shard_id, on_chain_shard_state.network);
+				<TssShards<T>>::insert(shard_id, on_chain_shard_state);
 				Self::deposit_event(Event::ShardOffline(shard_id));
 				Ok(())
 			} else {
@@ -680,11 +678,9 @@ pub mod pallet {
 				shard_state.shard.is_collector(&account_to_time_id::<T::AccountId>(caller)),
 				Error::<T>::OnlyCallableByCollector
 			);
-			let network = Pallet::<T>::get_network_for_shard(shard_id)
-				.ok_or(Error::<T>::ShardNetworkNotFound)?;
-			T::TaskAssigner::claim_task_for_shard(shard_id, network, task_id)?;
+			T::TaskAssigner::claim_task_for_shard(shard_id, shard_state.network, task_id)?;
 
-			Self::deposit_event(Event::TaskClaimedForShard(network, shard_id, task_id));
+			Self::deposit_event(Event::TaskClaimedForShard(shard_state.network, shard_id, task_id));
 			Ok(())
 		}
 	}
@@ -725,16 +721,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_network_for_shard(shard_id: u64) -> Option<Network> {
-			// TODO: get all variants from enum directly instead
-			let possible_networks = vec![Network::Ethereum, Network::Astar];
-			for network in possible_networks {
-				if ShardNetwork::<T>::get(network, shard_id).is_some() {
-					return Some(network);
-				}
-			}
-			None
-		}
 		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
 				.filter(|(id, s)| s.is_online() && ShardNetwork::<T>::get(network, id).is_some())

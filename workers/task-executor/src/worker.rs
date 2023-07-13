@@ -237,9 +237,8 @@ where
 				}
 			})
 			.collect::<Vec<_>>();
-
-		log::info!("single task available are {:?}", task_schedules.len());
-
+		
+		log::debug!("single tasks in queue {:?}", task_schedules.len());
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
@@ -343,7 +342,7 @@ where
 			let Some(tasks) = self.repetitive_tasks.remove(&index) else{
 				continue;
 			};
-			
+
 			//check if current shard is active
 			if let Some(tsk_schedule) = tasks.first() {
 				if !self.is_current_shard_online(block_id, &tsk_schedule.1.shard_id)? {
@@ -354,7 +353,7 @@ where
 				}
 			}
 
-			log::info!("Recurring task running on block {:?}", index);
+			log::debug!("Recurring task running on block {:?}", index);
 
 			// execute all task for specific task
 			for schedule in tasks {
@@ -446,7 +445,7 @@ where
 	) -> Result<bool> {
 		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
 		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
-		log::info!("actice_shards {:?}", active_shard_id);
+		log::debug!("active_shards {:?}", active_shard_id);
 		Ok(active_shard_id.contains(&shard_id))
 	}
 

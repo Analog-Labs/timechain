@@ -17,7 +17,7 @@ const setup_substrate = async () => {
 };
 
 const pallet_task_add = async (_keyspair, who) => {
-    const api =  await setup_substrate();
+    const api = await setup_substrate();
     const keyring = new Keyring({ type: 'sr25519' });
     const keyspair = keyring.addFromUri('//Alice', { name: 'Alice default' });
 
@@ -26,12 +26,12 @@ const pallet_task_add = async (_keyspair, who) => {
         task_id: 1,
         owner: 'address',
         shard_id: 0,
-        frequency: 5,
-        cycle: 10,
+        frequency: 0,
+        cycle: 1,
         validity: { Seconds: 12 },
         hash: 'asdasd',
         status: 0,
-        start_execution_block: 16,
+        start_execution_block: 50,
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);

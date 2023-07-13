@@ -10,7 +10,7 @@ mod tests {
 		let variables = collect_data::Variables {
 			collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7".to_owned(),
 			block: 2,
-			cycle: 1,
+			cycle: 10,
 			task_id: 3,
 			data: vec!["1agsdgdgfsdfsfsddfgdfg".to_owned()],
 		};
@@ -35,7 +35,7 @@ mod tests {
 
 				println!("{:?}", data.collect);
 			},
-			None => println!("no deta found"),
+			None => println!("no data found"),
 		};
 	}
 }

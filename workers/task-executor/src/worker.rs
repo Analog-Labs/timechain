@@ -23,6 +23,7 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+use sp_blockchain::HeaderBackend;
 
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
@@ -229,7 +230,7 @@ where
 		let variables = collect_data::Variables {
 			collection,
 			block: block.block_identifier.index as i64,
-			cycle: 8, //hard coded
+			cycle: 11, //hard coded
 			task_id: task_id as i64,
 			data: vec![data_value.to_owned()],
 		};
@@ -239,7 +240,7 @@ where
 		// Execute the GraphQL request
 		let client = reqwest::Client::new();
 		let response = client
-			.post("http://127.0.0.1:8010/graphql")
+			.post("http://host.docker.internal:8010/graphql")
 			.json(&request)
 			.send()
 			.await
@@ -247,7 +248,6 @@ where
 			.json::<GraphQLResponse<collect_data::ResponseData>>()
 			.await
 			.expect("Failed to parse response");
-
 		match &response.data {
 			Some(data) => {
 				log::info!("timegraph migrate collect status {:?}", data.collect.status);

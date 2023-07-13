@@ -43,6 +43,8 @@ services:
     - 'bootnode-volume:/data'
     ports:
     - '9943:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   validator1:
     image: 'analoglabs/timechain-node'
@@ -70,6 +72,8 @@ services:
     - 'validator1-volume:/data'
     ports:
     - '9945:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   validator2:
     image: 'analoglabs/timechain-node'
@@ -97,6 +101,8 @@ services:
     - 'validator2-volume:/data'
     ports:
     - '9947:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   validator3:
     image: 'analoglabs/timechain-node'
@@ -124,6 +130,8 @@ services:
     - 'validator3-volume:/data'
     ports:
     - '9949:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   validator4:
     image: 'analoglabs/timechain-node'
@@ -151,6 +159,8 @@ services:
     - 'validator4-volume:/data'
     ports:
     - '9951:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   validator5:
     image: 'analoglabs/timechain-node'
@@ -178,6 +188,8 @@ services:
     - 'validator5-volume:/data'
     ports:
     - '9953:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   ethereum:
     image: "ethereum/client-go:v1.10.26"

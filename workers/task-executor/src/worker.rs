@@ -238,17 +238,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		//check if current shard is active
-		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
-		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
-		if task_schedules.len() > 0 {
-			log::info!("single task schedule {:?}", task_schedules.len());
-			let shard_id = task_schedules[0].0;
-			if !active_shard_id.contains(&shard_id) {
-				log::info!("shard {:?} is not active", shard_id);
-				return Ok(());
-			}
-		}
+		log::info!("single task available are {:?}", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {
@@ -260,11 +250,13 @@ where
 		}
 
 		for (id, schedule) in tree_map.iter() {
-			log::info!(
-				"schedule height is {:?}, block height is {:?}",
-				schedule.start_execution_block,
-				block_height
-			);
+			//check if current shard is active
+			if !self.is_current_shard_online(block_id, &schedule.shard_id)? {
+				//shard offline cant do any processing.
+				self.repetitive_tasks.clear();
+				self.tasks.clear();
+				anyhow::bail!("Shard is offline: {:?}", &schedule.shard_id);
+			}
 			if schedule.start_execution_block > block_height {
 				continue;
 			}
@@ -325,16 +317,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		//check if current shard is active
-		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
-		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
-		if task_schedules.len() > 0 {
-			let shard_id = task_schedules[0].0;
-			if !active_shard_id.contains(&shard_id) {
-				log::info!("shard {:?} is not active", shard_id);
-				return Ok(());
-			}
-		}
+		log::info!("repetitive task available are {:?}", self.repetitive_tasks.len());
 
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
@@ -360,6 +343,17 @@ where
 			let Some(tasks) = self.repetitive_tasks.remove(&index) else{
 				continue;
 			};
+			
+			//check if current shard is active
+			if let Some(tsk_schedule) = tasks.first() {
+				if !self.is_current_shard_online(block_id, &tsk_schedule.1.shard_id)? {
+					//shard offline cant do any processing.
+					self.repetitive_tasks.clear();
+					self.tasks.clear();
+					anyhow::bail!("Shard is offline: {:?}", &tsk_schedule.1.shard_id);
+				}
+			}
+
 			log::info!("Recurring task running on block {:?}", index);
 
 			// execute all task for specific task
@@ -443,6 +437,17 @@ where
 		}
 
 		Ok(())
+	}
+
+	fn is_current_shard_online(
+		&self,
+		block_id: <B as Block>::Hash,
+		shard_id: &u64,
+	) -> Result<bool> {
+		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
+		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
+		log::info!("actice_shards {:?}", active_shard_id);
+		Ok(active_shard_id.contains(&shard_id))
 	}
 
 	/// Add schedule update task to offchain storage

@@ -1514,6 +1514,10 @@ impl_runtime_apis! {
 			TaskSchedule::shard_tasks(shard_id)
 		}
 
+		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
+			TaskSchedule::get_task_shard(task_id)
+		}
+
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
 			TaskMeta::get_tasks()
 		}

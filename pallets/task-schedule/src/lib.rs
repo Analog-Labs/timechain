@@ -416,6 +416,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		pub fn get_task_shard(task: KeyId) -> Result<u64, DispatchError> {
+			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned)
+		}
+
 		pub fn get_one_time_schedules(
 		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()

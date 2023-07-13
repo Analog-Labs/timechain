@@ -172,75 +172,86 @@ where
 		let tasks_schedule = self.runtime.runtime_api().get_payable_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
-				for schedule_task in task_schedule.iter() {
-					let shard_id = schedule_task.1.shard_id;
-					if !map.contains_key(&schedule_task.0) {
-						//Get the metadata from scheduled payable task by key
-						let metadata_result = self
-							.runtime
-							.runtime_api()
-							.get_payable_task_metadata_by_key(block_id, schedule_task.1.task_id.0);
-						if let Ok(metadata_result) = metadata_result {
-							match metadata_result {
-								Ok(metadata) => {
-									match metadata {
-										Some(task) => {
-											match &task.function {
-												// If the task function is an Ethereum contract
-												// call, call it and send for signing
-												Function::EthereumTxWithoutAbi {
-													address,
-													function_signature,
-													input,
-													output: _,
-												} => {
-													if self.check_if_collector(shard_id) {
-														log::info!(
-															"Running task {:?}",
-															schedule_task.1.task_id.0
-														);
-														self.create_tx(
-															wallet,
-															(address, function_signature, input),
-															map,
-															schedule_task.0,
-															shard_id,
+				for (task_id, schedule) in task_schedule.iter() {
+					if let Ok(Ok(shard_id)) =
+						self.runtime.runtime_api().get_task_shard(block_id, *task_id)
+					{
+						if !map.contains_key(&task_id) {
+							//Get the metadata from scheduled payable task by key
+							let metadata_result = self
+								.runtime
+								.runtime_api()
+								.get_payable_task_metadata_by_key(block_id, schedule.task_id.0);
+							if let Ok(metadata_result) = metadata_result {
+								match metadata_result {
+									Ok(metadata) => {
+										match metadata {
+											Some(task) => {
+												match &task.function {
+													// If the task function is an Ethereum contract
+													// call, call it and send for signing
+													Function::EthereumTxWithoutAbi {
+														address,
+														function_signature,
+														input,
+														output: _,
+													} => {
+														if self.check_if_collector(shard_id) {
+															log::info!(
+																"Running task {:?}",
+																schedule.task_id.0
+															);
+															self.create_tx(
+																wallet,
+																(
+																	address,
+																	function_signature,
+																	input,
+																),
+																map,
+																*task_id,
+																shard_id,
+															)
+															.await;
+														}
+													},
+													_ => {
+														log::warn!(
+															"error on matching task function"
 														)
-														.await;
-													}
-												},
-												_ => {
-													log::warn!("error on matching task function")
-												},
-											};
-										},
-										None => {
-											log::info!("task schedule id have no metadata, Removing task from Schedule list");
-											match Self::update_task_schedule_status(
-												self,
-												block_id,
-												ScheduleStatus::Invalid,
-												schedule_task.0,
-											) {
-												Ok(()) => log::info!("The schedule status has been updated to Invalid"),
-												Err(e) =>
-													log::warn!("getting error on updating schedule status {:?}", e),
-											}
-											//to-do Remove task from schedule list
-										},
-									}
-								},
-								Err(e) => {
-									log::warn!(
-										"Failed to get task metadata for block {:?} {:?}",
-										block_id,
-										e
-									);
-								},
+													},
+												};
+											},
+											None => {
+												log::info!("task schedule id have no metadata, Removing task from Schedule list");
+												match Self::update_task_schedule_status(
+													self,
+													block_id,
+													ScheduleStatus::Invalid,
+													*task_id,
+												) {
+													Ok(()) => log::info!("The schedule status has been updated to Invalid"),
+													Err(e) =>
+														log::warn!("getting error on updating schedule status {:?}", e),
+												}
+												//to-do Remove task from schedule list
+											},
+										}
+									},
+									Err(e) => {
+										log::warn!(
+											"Failed to get task metadata for block {:?} {:?}",
+											block_id,
+											e
+										);
+									},
+								}
 							}
+						} else {
+							log::info!("Payable task already executed, Key {:?}.", task_id);
 						}
 					} else {
-						log::info!("Payable task already executed, Key {:?}.", schedule_task.0);
+						log::warn!("error getting shard_id assigned to task_id")
 					}
 				}
 			},

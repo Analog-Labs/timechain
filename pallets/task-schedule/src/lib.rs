@@ -407,6 +407,15 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
+		fn reset_task_execution_start_time(task: KeyId) {
+			if let Some(mut schedule) = ScheduleStorage::<T>::get(task) {
+				schedule.executable_since = frame_system::Pallet::<T>::block_number();
+				ScheduleStorage::<T>::insert(task, schedule);
+			} else if let Some(mut schedule) = PayableScheduleStorage::<T>::get(task) {
+				schedule.executable_since = frame_system::Pallet::<T>::block_number();
+				PayableScheduleStorage::<T>::insert(task, schedule);
+			}
+		}
 		fn assign_task_to_shard(task: KeyId, shard: u64) {
 			ShardTasks::<T>::insert(shard, task, ());
 			TaskAssignedShard::<T>::insert(task, shard);
@@ -417,7 +426,7 @@ pub mod pallet {
 		}
 
 		pub fn get_task_shard(task: KeyId) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned)
+			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
 
 		pub fn get_one_time_schedules(
@@ -522,12 +531,11 @@ pub mod pallet {
 		}
 
 		fn claim_task_for_shard(shard_id: u64, network: Network, task_id: KeyId) -> DispatchResult {
-			// take task from unassigned task queue which takes network as input
 			ensure!(
 				UnassignedTasks::<T>::take(network, task_id).is_some(),
 				Error::<T>::TaskNotUnassigned
 			);
-			// assign to shard by also updating ShardTasks storage item
+			Self::reset_task_execution_start_time(task_id);
 			Self::assign_task_to_shard(task_id, shard_id);
 			Ok(())
 		}

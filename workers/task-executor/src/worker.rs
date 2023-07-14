@@ -237,7 +237,7 @@ where
 				}
 			})
 			.collect::<Vec<_>>();
-		
+
 		log::debug!("single tasks in queue {:?}", task_schedules.len());
 		let mut tree_map = BTreeMap::new();
 		for (id, schedule) in task_schedules {

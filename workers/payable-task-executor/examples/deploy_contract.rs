@@ -24,7 +24,8 @@ async fn deploy_contract(blockchain: &str, network: &str, url: &str) -> String {
 	wallet.faucet(1000000000000000).await.unwrap();
 
 	let compiled_contract_str = include_str!("voting_contract.bin");
-	let compiled_contract_bin = compiled_contract_str.strip_suffix('\n').unwrap_or(compiled_contract_str);
+	let compiled_contract_bin =
+		compiled_contract_str.strip_suffix('\n').unwrap_or(compiled_contract_str);
 	let bytes = hex::decode(compiled_contract_bin).unwrap();
 
 	//deploying contract
@@ -48,7 +49,8 @@ async fn deploy_test_contract(blockchain: &str, network: &str, url: &str) -> Str
 
 	wallet.faucet(10000000000000000).await.unwrap();
 	let compiled_contract_str = include_str!("test_contract.bin");
-	let compiled_contract_bin = compiled_contract_str.strip_suffix('\n').unwrap_or(compiled_contract_str);
+	let compiled_contract_bin =
+		compiled_contract_str.strip_suffix('\n').unwrap_or(compiled_contract_str);
 	let bytes = hex::decode(compiled_contract_bin).unwrap();
 
 	//deploying contract

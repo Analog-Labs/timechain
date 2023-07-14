@@ -39,7 +39,7 @@ impl ShardState {
 			shard: new_shard::<T>(members, collector_index)?,
 			task_timeout_count: 0u8,
 			committed_offenses_count: 0u8,
-			status: ShardStatus::Online,
+			status: ShardStatus::Offline,
 			net,
 		})
 	}

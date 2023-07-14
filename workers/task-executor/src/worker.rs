@@ -316,8 +316,6 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!("repetitive task available are {:?}", self.repetitive_tasks.len());
-
 		for (id, schedule) in task_schedules {
 			// if task is already executed then skip
 			if self.tasks.contains(&id) {

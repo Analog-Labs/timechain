@@ -8,11 +8,11 @@ homepage = "https://www.analog.one/"
 repository = "https://github.com/Analog-Labs/tesseract/"
 
 [dependencies]
-blake3 = "1.3.3"
+blake3 = "1.4.1"
 frost-evm = { version = "0.1.0", git = "https://github.com/Analog-labs/frost-evm.git"}
-log = "0.4.17"
+log = "0.4.19"
 rand = "0.8"
-serde = { version = "1.0.163", features = ["derive"] }
+serde = { version = "1.0.171", features = ["derive"] }
 
 [dev-dependencies]
 env_logger = "0.10.0"

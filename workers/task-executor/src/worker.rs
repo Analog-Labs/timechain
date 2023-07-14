@@ -444,7 +444,7 @@ where
 		let active_shard = self.runtime.runtime_api().get_active_shards(block_id)?;
 		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
 		log::debug!("active_shards {:?}", active_shard_id);
-		Ok(active_shard_id.contains(&shard_id))
+		Ok(active_shard_id.contains(shard_id))
 	}
 
 	/// Add schedule update task to offchain storage

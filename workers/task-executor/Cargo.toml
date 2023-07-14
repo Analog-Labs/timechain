@@ -11,6 +11,7 @@ queue = "0.3.1"
 codec = { package = "parity-scale-codec", version = "3.5.0", default-features = false, features = [
     "derive",
 ] }
+dotenv = "0.15.0"
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.43" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.43" }
 futures = "0.3.28"

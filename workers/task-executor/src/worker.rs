@@ -2,6 +2,7 @@ use crate::TaskExecutorError;
 use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
+use dotenv::dotenv;
 use futures::channel::mpsc::Sender;
 use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use rosetta_client::{
@@ -13,24 +14,23 @@ use sc_client_api::Backend;
 use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
+use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
+use std::env;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
 };
-use sp_blockchain::HeaderBackend;
-
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
 	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 use timechain_integration::query::{collect_data, CollectData};
-
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A, BN> {
 	_block: PhantomData<B>,
@@ -204,8 +204,13 @@ where
 
 		Ok(*shard.collector() == account)
 	}
-
-	async fn send_data(&mut self, data: CallResponse, collection: String, task_id: u64) {
+	async fn send_data(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		data: CallResponse,
+		collection: String,
+		task_id: u64,
+	) {
 		let block_request = BlockRequest {
 			network_identifier: self.rosetta_chain_config.network(),
 			block_identifier: PartialBlockIdentifier { index: None, hash: None },
@@ -216,6 +221,9 @@ where
 			Some(block) => block,
 			None => block::Block::default(),
 		};
+
+		let value = self.backend.blockchain().number(block_id).unwrap().unwrap().to_string();
+		let cycle = value.parse::<i64>().unwrap();
 
 		// Add data into collection (user must have Collector role)
 		// @collection: collection hashId
@@ -230,17 +238,20 @@ where
 		let variables = collect_data::Variables {
 			collection,
 			block: block.block_identifier.index as i64,
-			cycle: 11, //hard coded
+			cycle,
 			task_id: task_id as i64,
 			data: vec![data_value.to_owned()],
 		};
-
+		dotenv::from_filename("../../.env").ok();
+		dotenv().ok();
+		let timegraph_graphql_url = env::var("TIMEGRAPH_GRAPHQL_URL")
+			.expect("TIMEGRAPH_GRAPHQL_URL is not set in the .env file");
 		// Build the GraphQL request
 		let request = CollectData::build_query(variables);
 		// Execute the GraphQL request
 		let client = reqwest::Client::new();
 		let response = client
-			.post("http://host.docker.internal:8010/graphql")
+			.post(timegraph_graphql_url)
 			.json(&request)
 			.send()
 			.await
@@ -316,7 +327,8 @@ where
 						log::error!("Error occured while sending data for signing: {}", e);
 					};
 
-					self.send_data(data, schedule.hash.to_owned(), schedule.task_id.0).await;
+					self.send_data(block_id, data, schedule.hash.to_owned(), schedule.task_id.0)
+						.await;
 				},
 				Err(e) => {
 					//process error
@@ -561,7 +573,6 @@ where
 			if self.last_block_height == 0 {
 				self.last_block_height = current_block;
 			}
-
 			// get the last finalized block number
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {

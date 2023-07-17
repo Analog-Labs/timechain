@@ -81,7 +81,7 @@ use static_assertions::const_assert;
 
 pub use pallet_tesseract_sig_storage;
 
-pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+pub type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
 pub struct StakingBenchmarkingConfig;
 
@@ -617,7 +617,6 @@ impl pallet_im_online::Config for Runtime {
 	type WeightInfo = ();
 	type MaxKeys = MaxKeys;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-	type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
 }
 
 parameter_types! {
@@ -814,11 +813,11 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type MaxUnlockingChunks = ConstU32<32>;
 	// type OnStakerSlash = NominationPools;
-	type OnStakerSlash = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
+	type EventListeners = ();
 }
 
 parameter_types! {
@@ -933,8 +932,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type HoldIdentifier = ();
 	type MaxHolds = ();
+	type RuntimeHoldReason = ();
 }
 
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<

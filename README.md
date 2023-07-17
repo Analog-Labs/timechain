@@ -31,11 +31,11 @@ This repo includes the minimum required components to start a timechain testnet 
 
 Follow the steps below to get started.
 
-### Rust Setup
+### 1. Rust Setup
 
 First, complete the [Dev Docs Installation](https://docs.substrate.io/v3/getting-started/installation/).
 
-### Build and Run
+### 1.1 Build and Run
 
 Use the following command to build the node and run it after build successfully:
 
@@ -46,20 +46,30 @@ cargo build --release
 
 ## Run Using Docker
 
-if you're on macos add the following to your `.cargo/config`:
+### MacOS
+if you're on macos, install [musl-cross](https://github.com/FiloSottile/homebrew-musl-cross) for enable musl-target cross-compilation:
+```bash
+brew install filosottile/musl-cross/musl-cross --with-aarch64
 ```
+
+add the following to your `.cargo/config`:
+```toml
 [target.x86_64-unknown-linux-musl]
 linker = "x86_64-linux-musl-gcc"
 
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+
 [env]
 CC_x86_64-unknown-linux-musl = "x86_64-linux-musl-gcc"
+CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 ```
 
+### Shared Steps
 1. Install docker, docker compose and musl using your system package manager.
-2. Install the musl target with rustup `rustup target add x86_64-unknown-linux-musl`.
-3. Build the docker image with `./build_docker.sh`.
-4. Start the timechain validators, connectors and chain nodes with `docker compose up`.
-5. Set the validator keys with `./set_keys.sh`.
+2. Build the docker image with `./build_docker.sh`.
+3. Start the timechain validators, connectors and chain nodes with `docker compose up -d`.
+4. Set the validator keys with `./set_keys.sh`.
 
 ## Run public testnet
 

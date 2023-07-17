@@ -3,6 +3,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
 use sp_std::vec::Vec;
+use sp_runtime::DispatchError;
 
 use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
 // Function defines target network endpoint
@@ -62,6 +63,12 @@ pub enum Output {
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
+
+impl ObjectId{
+	pub fn get_id(&self) -> u64 {
+		self.0
+	}
+}
 
 // Numeric value affinity. Where a digital point is.
 #[cfg_attr(feature = "std", derive(Serialize))]
@@ -274,4 +281,8 @@ impl OCWReportData {
 	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
 		Self { shard_id, offender, proof }
 	}
+}
+
+pub trait TaskMetadataInterface {
+	fn task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 }

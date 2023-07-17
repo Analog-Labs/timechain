@@ -304,7 +304,7 @@ pub mod pallet {
 					shard_id: schedule.shard_id,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
-					start_execution_block: 0,
+					start_execution_block: schedule.start_execution_block,
 					executable_since: frame_system::Pallet::<T>::block_number(),
 					validity: schedule.validity,
 					hash: schedule.hash,
@@ -400,7 +400,10 @@ pub mod pallet {
 		pub fn get_repetitive_schedules(
 		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
-				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| {
+					item.1.status == ScheduleStatus::Initiated
+						|| item.1.status == ScheduleStatus::Recurring
+				})
 				.filter(|item| item.1.is_repetitive_task())
 				.collect::<Vec<_>>();
 

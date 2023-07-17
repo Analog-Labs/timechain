@@ -52,6 +52,13 @@ if you're on macos, install [musl-cross](https://github.com/FiloSottile/homebrew
 brew install filosottile/musl-cross/musl-cross --with-aarch64
 ```
 
+### Debian/Ubuntu
+if you're on debian/ubuntu system, install [musl-tools](https://packages.debian.org/sid/musl-tools) for enable musl-target cross-compilation:
+```bash
+apt-get install musl-tools
+```
+
+### Shared Steps
 add the following to your `.cargo/config`:
 ```toml
 [target.x86_64-unknown-linux-musl]
@@ -65,7 +72,6 @@ CC_x86_64-unknown-linux-musl = "x86_64-linux-musl-gcc"
 CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 ```
 
-### Shared Steps
 1. Install docker, docker compose and musl using your system package manager.
 2. Build the docker image with `./build_docker.sh`.
 3. Start the timechain validators, connectors and chain nodes with `docker compose up -d`.

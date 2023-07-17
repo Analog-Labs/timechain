@@ -16,11 +16,6 @@ pub fn update_shared_group_key(id: u64, key: [u8; 33]) {
 	TIME_TSS_STORAGE.lock().new_group_key(id, key);
 }
 
-#[allow(unused)]
-pub fn get_time_data_provider() -> TimeInherentTssDataProvider {
-	TIME_TSS_STORAGE.lock().clone()
-}
-
 /// Our inherent data provider for runtime
 #[derive(Debug, Clone, Default)]
 pub struct TimeInherentTssDataProvider {
@@ -32,6 +27,10 @@ impl TimeInherentTssDataProvider {
 	pub fn new_group_key(&mut self, shard_id: u64, new_key: [u8; 33]) {
 		self.current_shard_id = shard_id;
 		self.group_keys.insert(shard_id, new_key);
+	}
+
+	pub fn get_instance() -> Self {
+		TIME_TSS_STORAGE.lock().clone()
 	}
 }
 

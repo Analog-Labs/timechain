@@ -16,7 +16,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	dispatch::DispatchClass,
 	traits::{EitherOfDiverse, Imbalance},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier},
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
@@ -46,6 +46,8 @@ use sp_runtime::{
 };
 use sp_runtime::{DispatchError, FixedPointNumber};
 
+use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
+
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -64,7 +66,7 @@ pub use frame_support::{
 		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
 		OnUnbalanced, Randomness, StorageInfo,
 	},
-	weights::{constants::RocksDbWeight, IdentityFee, Weight},
+	weights::{constants::RocksDbWeight, IdentityFee, Weight, WeightToFee},
 	PalletId, StorageValue,
 };
 pub use frame_system::Call as SystemCall;
@@ -79,7 +81,7 @@ use static_assertions::const_assert;
 
 pub use pallet_tesseract_sig_storage;
 
-pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+pub type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
 pub struct StakingBenchmarkingConfig;
 
@@ -615,7 +617,6 @@ impl pallet_im_online::Config for Runtime {
 	type WeightInfo = ();
 	type MaxKeys = MaxKeys;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-	type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
 }
 
 parameter_types! {
@@ -812,11 +813,11 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type MaxUnlockingChunks = ConstU32<32>;
 	// type OnStakerSlash = NominationPools;
-	type OnStakerSlash = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
+	type EventListeners = ();
 }
 
 parameter_types! {
@@ -931,8 +932,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type HoldIdentifier = ();
 	type MaxHolds = ();
+	type RuntimeHoldReason = ();
 }
 
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -1003,15 +1004,32 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 	MaximumMultiplier,
 >;
 
+// Adapted multiplier for analog transaction fee
+pub struct AnalogConstantMultiplier<T, M>(sp_std::marker::PhantomData<(T, M)>);
+
+impl<T, M> WeightToFee for AnalogConstantMultiplier<T, M>
+where
+	T: BaseArithmetic + From<u32> + Copy + Unsigned,
+	M: Get<T>,
+{
+	type Balance = T;
+	// since analog token's decimal is 8, we need to divide the weight by 100_000_000
+	// the transfer transaction fee is about 0.02 ANLOG, which total supply is 100 million.
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		Self::Balance::saturated_from(weight.ref_time()).saturating_mul(M::get())
+			/ 100_000_000_u32.into()
+	}
+}
+
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
 	// multiplier to boost the priority of operational transactions
 	type OperationalFeeMultiplier = ConstU8<5>;
 	// charged weight = WEIGHT_FEE * weight_units_recorded
-	type WeightToFee = ConstantMultiplier<Balance, ConstU128<{ WEIGHT_FEE }>>;
+	type WeightToFee = AnalogConstantMultiplier<Balance, ConstU128<{ WEIGHT_FEE }>>;
 	// length fee = TransactionByteFee * encoded_tx.len()
-	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
+	type LengthToFee = AnalogConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
 

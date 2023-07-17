@@ -95,6 +95,8 @@ fn test_signature_storage() {
 			Network::Ethereum,
 		),);
 
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
@@ -171,6 +173,8 @@ fn test_signature_and_decrement_schedule_storage() {
 			Some(0),
 			Network::Ethereum,
 		),);
+
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
 
 		// insert schedule
 		let input = ScheduleInput {
@@ -258,6 +262,8 @@ fn test_duplicate_signature() {
 			Some(0),
 			Network::Ethereum,
 		),);
+
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
 
 		// insert schedule
 		let input = ScheduleInput {

@@ -203,7 +203,7 @@ impl task_schedule::Config for Test {
 	type ShouldEndSession = ShouldEndSessionMock;
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
-	type ShardEligibility = ();
+	type ShardEligibility = TesseractSigStorage;
 	type ShardTimeouts = ();
 	type RecurringTimeoutLength = ConstU64<2>;
 	type PayableTimeoutLength = ConstU64<1000>;

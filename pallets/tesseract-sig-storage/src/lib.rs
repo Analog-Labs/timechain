@@ -723,13 +723,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
-				.filter(|(id, s)| s.is_online() && ShardNetwork::<T>::get(network, id).is_some())
+				.filter(|(_, s)| s.is_online() && s.network == network)
 				.map(|(id, s)| (id, s.shard))
 				.collect()
 		}
 		pub fn inactive_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
-				.filter(|(id, s)| !s.is_online() && ShardNetwork::<T>::get(network, id).is_some())
+				.filter(|(_, s)| !s.is_online() && s.network == network)
 				.map(|(id, s)| (id, s.shard))
 				.collect()
 		}

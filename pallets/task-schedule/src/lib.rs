@@ -400,7 +400,6 @@ pub mod pallet {
 					status: ScheduleStatus::Initiated,
 				},
 			);
-			// TODO: emit all the data above including if assigned to a shard
 			Self::deposit_event(Event::PayableScheduleStored(schedule_id));
 
 			Ok(())

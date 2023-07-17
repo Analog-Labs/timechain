@@ -6364,6 +6364,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "task-metadata",
  "task-schedule",
  "time-primitives",
 ]
@@ -11384,6 +11385,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-std",
+ "task-metadata",
  "time-primitives",
 ]
 

@@ -29,6 +29,7 @@ pallet-session = { version = "4.0.0-dev", default-features = false, git = "https
 
 [dev-dependencies]
 pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+task-metadata = { path = "../task-metadata", default-features = false }
 
 [features]
 default = ["std"]

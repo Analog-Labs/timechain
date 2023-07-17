@@ -42,6 +42,7 @@ sp-runtime = {  default-features = false, git = "https://github.com/paritytech/s
 sp-staking = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+task-metadata = { path = "../task-metadata", default-features = false }
 
 [features]
 default = ["std"]

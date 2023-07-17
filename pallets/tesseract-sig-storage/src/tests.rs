@@ -6,9 +6,9 @@ use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use sp_runtime::AccountId32;
 use time_primitives::{
-	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
+	abstraction::{ObjectId, ScheduleInput, Schema, TaskSchedule as ScheduleOut, Validity},
 	sharding::Network,
-	ScheduleStatus, TimeId,
+	ScheduleStatus, Task, TimeId,
 };
 
 #[test]
@@ -96,6 +96,24 @@ fn test_signature_storage() {
 			Network::Ethereum,
 		),);
 
+		let task_input = Task {
+			task_id,
+			schema: vec![Schema::String("".into())],
+			function: time_primitives::abstraction::Function::EVMViewWithoutAbi {
+				address: "address".to_string(),
+				function_signature: "function_signature".to_string(),
+				input: vec![],
+				output: vec![],
+			},
+			network: Network::Ethereum,
+			with: vec![],
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(ALICE).into(), task_input));
+
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
@@ -173,6 +191,24 @@ fn test_signature_and_decrement_schedule_storage() {
 			Some(0),
 			Network::Ethereum,
 		),);
+
+		let task_input = Task {
+			task_id,
+			schema: vec![Schema::String("".into())],
+			function: time_primitives::abstraction::Function::EVMViewWithoutAbi {
+				address: "address".to_string(),
+				function_signature: "function_signature".to_string(),
+				input: vec![],
+				output: vec![],
+			},
+			network: Network::Ethereum,
+			with: vec![],
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(ALICE).into(), task_input));
 
 		// insert schedule
 		let input = ScheduleInput {
@@ -261,6 +297,24 @@ fn test_duplicate_signature() {
 			Some(0),
 			Network::Ethereum,
 		),);
+
+		let task_input = Task {
+			task_id,
+			schema: vec![Schema::String("".into())],
+			function: time_primitives::abstraction::Function::EVMViewWithoutAbi {
+				address: "address".to_string(),
+				function_signature: "function_signature".to_string(),
+				input: vec![],
+				output: vec![],
+			},
+			network: Network::Ethereum,
+			with: vec![],
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(ALICE).into(), task_input));
 
 		// insert schedule
 		let input = ScheduleInput {

@@ -3,9 +3,13 @@ use crate::*;
 use frame_support::assert_ok;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
-use time_primitives::abstraction::{
-	ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule, ScheduleStatus,
-	TaskSchedule as ScheduleOut, Validity,
+use time_primitives::{
+	abstraction::{
+		ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule,
+		ScheduleStatus, Schema, TaskSchedule as ScheduleOut, Validity,
+	},
+	sharding::Network,
+	Task,
 };
 
 #[test]
@@ -38,8 +42,28 @@ fn test_reward() {
 #[test]
 fn test_schedule() {
 	new_test_ext().execute_with(|| {
+		let account: AccountId = acc_pub(1).into();
+		let task_id = ObjectId(1);
+		let task_input = Task {
+			task_id,
+			schema: vec![Schema::String("".into())],
+			function: time_primitives::abstraction::Function::EVMViewWithoutAbi {
+				address: "address".to_string(),
+				function_signature: "function_signature".to_string(),
+				input: vec![],
+				output: vec![],
+			},
+			network: Network::Ethereum,
+			with: vec![],
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(account.clone()).into(), task_input));
+
 		let input = Schedule {
-			task_id: ObjectId(1),
+			task_id,
 			shard_id: 1,
 			cycle: 12,
 			frequency: 1,
@@ -48,7 +72,6 @@ fn test_schedule() {
 			status: ScheduleStatus::Initiated,
 			start_execution_block: 0,
 		};
-		let account: AccountId = acc_pub(1).into();
 		assert_ok!(PalletProxy::set_proxy_account(
 			RawOrigin::Signed(account.clone()).into(),
 			Some(1000),
@@ -60,7 +83,7 @@ fn test_schedule() {
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
 
 		let output = ScheduleOut {
-			task_id: ObjectId(1),
+			task_id,
 			owner: account.clone(),
 			shard_id: 1,
 			start_execution_block: 0,
@@ -111,12 +134,28 @@ fn test_schedule() {
 #[test]
 fn test_payable_schedule() {
 	new_test_ext().execute_with(|| {
-		//Insert payable task schedule
-		let input: PayableScheduleInput = PayableScheduleInput {
-			task_id: ObjectId(1),
-			shard_id: 1,
-		};
 		let account: AccountId = acc_pub(1).into();
+		let task_id = ObjectId(1);
+
+		let task_input = Task {
+			task_id,
+			schema: vec![Schema::String("".into())],
+			function: time_primitives::abstraction::Function::EVMViewWithoutAbi {
+				address: "address".to_string(),
+				function_signature: "function_signature".to_string(),
+				input: vec![],
+				output: vec![],
+			},
+			network: Network::Ethereum,
+			with: vec![],
+			cycle: 12,
+			validity: Validity::Seconds(1000),
+			hash: String::from("address"),
+		};
+
+		assert_ok!(TaskMeta::insert_task(RawOrigin::Signed(account.clone()).into(), task_input));
+		//Insert payable task schedule
+		let input: PayableScheduleInput = PayableScheduleInput { task_id, shard_id: 1 };
 		assert_ok!(PalletProxy::set_proxy_account(
 			RawOrigin::Signed(account.clone()).into(),
 			Some(1000),
@@ -132,7 +171,7 @@ fn test_payable_schedule() {
 
 		//get payable task schedule
 		let output = PayableTaskSchedule {
-			task_id: ObjectId(1),
+			task_id,
 			owner: account,
 			shard_id: 1,
 			executable_since: 1,

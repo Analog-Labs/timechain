@@ -9,7 +9,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::TimeApi;
+use time_primitives::{sharding::ShardId, TimeApi};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "event-worker";
@@ -30,7 +30,7 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_sender: Sender<(ShardId, u64, u64, [u8; 32])>,
 	pub tx_data_receiver: Receiver<Vec<u8>>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
@@ -43,7 +43,7 @@ pub(crate) struct WorkerParams<B, A, BN, R, BE> {
 	_block: PhantomData<B>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
-	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_sender: Sender<(ShardId, u64, u64, [u8; 32])>,
 	pub tx_data_receiver: Receiver<Vec<u8>>,
 	kv: KeystorePtr,
 	connector_url: Option<String>,

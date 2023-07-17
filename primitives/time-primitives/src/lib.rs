@@ -7,7 +7,10 @@ pub mod rpc;
 pub mod sharding;
 pub mod slashing;
 
-pub use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
+pub use crate::abstraction::{
+	PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule,
+};
+use crate::sharding::{Shard, ShardId};
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -44,11 +47,11 @@ sp_api::decl_runtime_apis! {
 	AccountId: Codec,
 	BlockNumber: Codec,
 	{
-		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>>;
-		fn get_shards() -> Vec<(u64, sharding::Shard)>;
-		fn get_active_shards() -> Vec<(u64, sharding::Shard)>;
-		fn get_inactive_shards() -> Vec<(u64, sharding::Shard)>;
-		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId>;
+		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>>;
+		fn get_shards() -> Vec<(ShardId, Shard)>;
+		fn get_active_shards() -> Vec<(ShardId, Shard)>;
+		fn get_inactive_shards() -> Vec<(ShardId, Shard)>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<KeyId>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_one_time_task_schedule() -> Result<Vec<(u64, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;

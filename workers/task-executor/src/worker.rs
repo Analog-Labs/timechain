@@ -25,6 +25,7 @@ use std::{
 
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
+	sharding::ShardId,
 	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 
@@ -35,7 +36,7 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
 	_block_number: PhantomData<BN>,
-	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+	sign_data_sender: Sender<(ShardId, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 	// all tasks that are scheduled
 	// TODO need to get all completed task and remove them from it
@@ -107,7 +108,7 @@ where
 		&mut self,
 		block_id: <B as Block>::Hash,
 		data: CallResponse,
-		shard_id: u64,
+		shard_id: ShardId,
 		schedule_id: u64,
 		schedule_cycle: u64,
 	) -> Result<()> {
@@ -183,7 +184,7 @@ where
 	}
 
 	/// check if current node is collector
-	fn is_collector(&self, block_id: <B as Block>::Hash, shard_id: u64) -> Result<bool> {
+	fn is_collector(&self, block_id: <B as Block>::Hash, shard_id: ShardId) -> Result<bool> {
 		let Some(account) = self.account_id() else {
 			return Ok(false);
 		};
@@ -449,7 +450,7 @@ where
 		schedule_id: u64,
 		terminate: bool,
 		blocknumber: <B as Block>::Hash,
-		shard_id: u64,
+		shard_id: ShardId,
 	) -> bool {
 		let is_collector = self.is_collector(blocknumber, shard_id).unwrap_or(false);
 		if terminate {

@@ -6,6 +6,10 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{borrow::ToOwned, vec::Vec};
 
+pub type ShardId = u64;
+pub type ShardPublicKey = [u8; 33];
+pub const DEFAULT_SHARD_PUBLIC_KEY: ShardPublicKey = [0; 33];
+
 pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	194, 38, 18, 118, 204, 157, 31, 133, 152, 234, 75, 106, 116, 177, 92, 47, 87, 200, 117, 228,
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,

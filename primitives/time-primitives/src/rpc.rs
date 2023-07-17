@@ -1,4 +1,5 @@
 use crate::crypto::{Public, Signature};
+use crate::sharding::ShardId;
 use sp_application_crypto::RuntimeAppPublic;
 
 /// Payload for signing through RPC
@@ -8,7 +9,7 @@ use sp_application_crypto::RuntimeAppPublic;
 /// * signature - signature of the data done by the same Time key as current node operates used to
 ///   validate correctness of the data and prevent spam
 pub struct SignRpcPayload {
-	pub group_id: u64,
+	pub shard_id: ShardId,
 	// keccak256 hash
 	pub message: [u8; 32],
 	// signature is split to satisfy rpc macros and serde limits in serialization of arrays
@@ -18,11 +19,11 @@ pub struct SignRpcPayload {
 impl SignRpcPayload {
 	/// Constructor
 	/// # Param
-	/// * group_id - shard group Id
+	/// * shard_id - shard id
 	/// * message - keccak256 hash as bytes
 	/// * signature - sr25519 Signature done by TimeKey's Secret
-	pub fn new(group_id: u64, message: [u8; 32], signature: [u8; 64]) -> Self {
-		SignRpcPayload { group_id, message, signature }
+	pub fn new(shard_id: ShardId, message: [u8; 32], signature: [u8; 64]) -> Self {
+		Self { shard_id, message, signature }
 	}
 
 	/// Verifies this payload's signature agains given Public key

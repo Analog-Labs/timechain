@@ -6,7 +6,7 @@ use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use time_primitives::{
 	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
-	sharding::Network,
+	sharding::{Network, ShardId, DEFAULT_SHARD_PUBLIC_KEY},
 	ScheduleStatus, TimeId,
 };
 
@@ -914,8 +914,8 @@ fn can_report_offence_if_already_committed_offender() {
 
 #[test]
 fn test_set_shard_online() {
-	let shard_id = 0;
-	let tss_key: [u8; 33] = [0; 33];
+	let shard_id = ShardId::default();
+	let tss_key = DEFAULT_SHARD_PUBLIC_KEY;
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
@@ -950,8 +950,8 @@ fn test_set_shard_online() {
 
 #[test]
 fn test_force_set_shard_offline() {
-	let shard_id = 0;
-	let tss_key: [u8; 33] = [0; 33];
+	let shard_id = ShardId::default();
+	let tss_key = DEFAULT_SHARD_PUBLIC_KEY;
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TesseractSigStorage::force_set_shard_offline(

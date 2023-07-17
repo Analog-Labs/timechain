@@ -12,6 +12,7 @@ use sp_runtime::{traits::Block, DispatchError};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	abstraction::{EthTxValidation, Function, ScheduleStatus},
+	sharding::ShardId,
 	TimeApi, TimeId, TIME_KEY_TYPE,
 };
 use tokio::time::sleep;
@@ -97,7 +98,7 @@ where
 	}
 
 	/// checks if current node is collector
-	fn check_if_collector(&self, shard_id: u64) -> bool {
+	fn check_if_collector(&self, shard_id: ShardId) -> bool {
 		let at = self.backend.blockchain().last_finalized();
 		match at {
 			Ok(at) => {
@@ -131,7 +132,7 @@ where
 		call_params: (&str, &str, &[String]),
 		map: &mut HashMap<u64, ()>,
 		schedule_id: u64,
-		shard_id: u64,
+		shard_id: ShardId,
 	) {
 		let address = call_params.0;
 		let function_signature = call_params.1;

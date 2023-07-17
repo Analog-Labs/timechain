@@ -5,7 +5,7 @@ use frame_support::traits::Get;
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
 use time_primitives::{
-	sharding::{Network, ReassignShardTasks, Shard},
+	sharding::{Network, ReassignShardTasks, Shard, ShardId},
 	TimeId,
 };
 
@@ -46,7 +46,7 @@ impl ShardState {
 	pub fn is_online(&self) -> bool {
 		self.status == ShardStatus::Online
 	}
-	pub fn increment_task_timeout_count<T: Config>(&mut self, id: u64) {
+	pub fn increment_task_timeout_count<T: Config>(&mut self, id: ShardId) {
 		self.task_timeout_count = self.task_timeout_count.saturating_plus_one();
 		let timeouts_above_max = self.task_timeout_count > T::MaxTimeouts::get();
 		if timeouts_above_max && self.is_online() {
@@ -58,7 +58,7 @@ impl ShardState {
 		}
 		<TssShards<T>>::insert(id, self);
 	}
-	pub fn increment_committed_offense_count<T: Config>(&mut self, id: u64) {
+	pub fn increment_committed_offense_count<T: Config>(&mut self, id: ShardId) {
 		self.committed_offenses_count = self.committed_offenses_count.saturating_plus_one();
 		let shard_cannot_reach_consensus = self.committed_offenses_count
 			> (self.shard.members().len() as u8).saturating_sub(self.shard.threshold() as u8);

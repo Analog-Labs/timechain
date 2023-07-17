@@ -32,7 +32,7 @@ use substrate_test_runtime_client::{
 };
 use time_primitives::{
 	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
-	sharding::Shard,
+	sharding::{Shard, ShardId},
 	SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
 
@@ -218,13 +218,13 @@ impl ProvideRuntimeApi<Block> for TestApi {
 #[derive(Clone)]
 pub(crate) struct RuntimeApi {
 	pub stored_signatures: Arc<Mutex<Vec<SignatureData>>>,
-	pub group_keys: Arc<Mutex<HashMap<u64, TimeTssKey>>>,
+	pub group_keys: Arc<Mutex<HashMap<ShardId, TimeTssKey>>>,
 	test_api: TestApi,
 }
 
 sp_api::decl_runtime_apis! {
 	pub trait InherentApi {
-		fn insert_group_key(id: u64, key: TimeTssKey);
+		fn insert_group_key(id: ShardId, key: TimeTssKey);
 	}
 }
 
@@ -273,7 +273,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
-		fn get_shards(&self) -> Vec<(u64, Shard)> {
+		fn get_shards(&self) -> Vec<(ShardId, Shard)> {
 			vec![(1, Shard::Three([
 				TimeKeyring::Alice.public().into(),
 				TimeKeyring::Bob.public().into(),
@@ -284,7 +284,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl InherentApi<Block> for RuntimeApi {
-		fn insert_group_key(&self, id: u64, key: TimeTssKey) {
+		fn insert_group_key(&self, id: ShardId, key: TimeTssKey) {
 			self.group_keys.lock().insert(id, key);
 		}
 	}
@@ -348,7 +348,7 @@ fn initialize_time_worker<API>(
 		usize,
 		&TimeKeyring,
 		API,
-		Receiver<(u64, u64, u64, [u8; 32])>,
+		Receiver<(ShardId, u64, u64, [u8; 32])>,
 		Sender<Vec<u8>>,
 		Receiver<Vec<u8>>,
 	)>,

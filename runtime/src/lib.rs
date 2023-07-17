@@ -57,6 +57,7 @@ use task_metadata::KeyId;
 use time_primitives::abstraction::{
 	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
 };
+use time_primitives::sharding::{Shard, ShardId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1511,24 +1512,24 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
-		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
+		fn get_shard_members(shard_id: ShardId) -> Option<Vec<time_primitives::TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
 
-		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
+		fn get_shards() -> Vec<(ShardId, Shard)> {
 			TesseractSigStorage::api_tss_shards()
 		}
 
-		fn get_active_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
+		fn get_active_shards() -> Vec<(ShardId, Shard)> {
 			TesseractSigStorage::active_shards()
 		}
 
-		fn get_inactive_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
+		fn get_inactive_shards() -> Vec<(ShardId, Shard)> {
 			TesseractSigStorage::inactive_shards()
 		}
 
 
-		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<KeyId> {
 			TaskSchedule::shard_tasks(shard_id)
 		}
 

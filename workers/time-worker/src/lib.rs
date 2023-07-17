@@ -17,7 +17,7 @@ use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::TimeApi;
+use time_primitives::{sharding::ShardId, TimeApi};
 use traits::Client;
 
 pub use crate::communication::time_protocol_name;
@@ -46,7 +46,7 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_receiver: mpsc::Receiver<(ShardId, u64, u64, [u8; 32])>,
 	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
 	pub gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	pub sync_service: Arc<S>,
@@ -61,7 +61,7 @@ pub(crate) struct WorkerParams<B: Block, A, BN, C, R, BE> {
 	pub kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_receiver: mpsc::Receiver<(ShardId, u64, u64, [u8; 32])>,
 	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
 	pub gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 }

@@ -4,7 +4,11 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
+use crate::{
+	crypto::Signature,
+	sharding::{Network, ShardId},
+	KeyId, ScheduleCycle, SignatureData, TimeId,
+};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -124,7 +128,7 @@ pub enum ScheduleStatus {
 pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
-	pub shard_id: u64,
+	pub shard_id: ShardId,
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
@@ -145,7 +149,7 @@ impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
 pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
-	pub shard_id: u64,
+	pub shard_id: ShardId,
 	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
@@ -153,7 +157,7 @@ pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
-	pub shard_id: u64,
+	pub shard_id: ShardId,
 	pub cycle: u64,
 	pub frequency: u64,
 	pub validity: Validity,
@@ -164,7 +168,7 @@ pub struct ScheduleInput {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct PayableScheduleInput {
 	pub task_id: ObjectId,
-	pub shard_id: u64,
+	pub shard_id: ShardId,
 }
 
 // Collection value
@@ -222,7 +226,7 @@ pub struct EthTxValidation {
 	pub url: Option<String>,
 	pub tx_id: String,
 	pub contract_address: String,
-	pub shard_id: u64,
+	pub shard_id: ShardId,
 	pub schedule_id: u64,
 }
 
@@ -264,13 +268,13 @@ impl OCWSkdData {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct OCWReportData {
-	pub shard_id: u64,
+	pub shard_id: ShardId,
 	pub offender: TimeId,
 	pub proof: Signature,
 }
 
 impl OCWReportData {
-	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
+	pub fn new(shard_id: ShardId, offender: TimeId, proof: Signature) -> Self {
 		Self { shard_id, offender, proof }
 	}
 }

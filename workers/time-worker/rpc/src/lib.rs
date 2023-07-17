@@ -8,7 +8,7 @@ use jsonrpsee::{
 };
 use log::info;
 use sp_keystore::KeystorePtr;
-use time_primitives::{rpc::SignRpcPayload, TIME_KEY_TYPE};
+use time_primitives::{rpc::SignRpcPayload, sharding::ShardId, TIME_KEY_TYPE};
 
 #[derive(Debug, thiserror::Error)]
 /// Top-level error type for the RPC handler
@@ -68,7 +68,7 @@ pub trait TimeRpcApi {
 	#[method(name = "time_submitForSigning")]
 	async fn submit_for_signing(
 		&self,
-		group_id: u64,
+		shard_id: ShardId,
 		message: String,
 		schedule_id: u64,
 		schedule_cycle: u64,
@@ -78,13 +78,13 @@ pub trait TimeRpcApi {
 
 pub struct TimeRpcApiHandler {
 	// this wrapping is required by rpc boundaries
-	signer: mpsc::Sender<(u64, u64, u64, [u8; 32])>,
+	signer: mpsc::Sender<(ShardId, u64, u64, [u8; 32])>,
 	kv: KeystorePtr,
 }
 
 impl TimeRpcApiHandler {
 	/// Constructor takes channel of TSS set id and hash of the event to sign
-	pub fn new(signer: mpsc::Sender<(u64, u64, u64, [u8; 32])>, kv: KeystorePtr) -> Self {
+	pub fn new(signer: mpsc::Sender<(ShardId, u64, u64, [u8; 32])>, kv: KeystorePtr) -> Self {
 		Self { signer, kv }
 	}
 }
@@ -93,7 +93,7 @@ impl TimeRpcApiHandler {
 impl TimeRpcApiServer for TimeRpcApiHandler {
 	async fn submit_for_signing(
 		&self,
-		group_id: u64,
+		shard_id: ShardId,
 		message: String,
 		schedule_id: u64,
 		schedule_cycle: u64,
@@ -107,11 +107,11 @@ impl TimeRpcApiServer for TimeRpcApiHandler {
 				if keys.len() != 1 {
 					return Err(Error::TimeKeyNotFound.into());
 				}
-				let payload = SignRpcPayload::new(group_id, message, signature);
+				let payload = SignRpcPayload::new(shard_id, message, signature);
 				if payload.verify(keys[0].into()) {
 					self.signer
 						.clone()
-						.send((payload.group_id, schedule_id, schedule_cycle, message))
+						.send((payload.shard_id, schedule_id, schedule_cycle, message))
 						.await?;
 					Ok(())
 				} else {

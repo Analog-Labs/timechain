@@ -1,3 +1,4 @@
+use crate::sharding::{ShardId, ShardPublicKey};
 use codec::{Decode, Encode};
 use sp_inherents::{InherentIdentifier, IsFatalError};
 
@@ -6,8 +7,8 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tsskey01";
 /// TSS Public key output type
 #[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 pub struct TimeTssKey {
-	pub group_key: [u8; 33],
-	pub set_id: u64,
+	pub shard_id: ShardId,
+	pub group_key: ShardPublicKey,
 }
 
 /// Errors that can occur while checking the Time inherent.

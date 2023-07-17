@@ -69,7 +69,10 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::{Public, Signature},
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks, Shard},
+		sharding::{
+			EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks, Shard, ShardId,
+			ShardPublicKey, DEFAULT_SHARD_PUBLIC_KEY,
+		},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -137,7 +140,7 @@ pub mod pallet {
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
-		type TaskAssigner: ReassignShardTasks<u64>;
+		type TaskAssigner: ReassignShardTasks<ShardId>;
 		/// Maximum number of task execution timeouts before shard is put offline
 		#[pallet::constant]
 		type MaxTimeouts: Get<u8>;
@@ -146,22 +149,24 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_shards_index)]
 	/// Counter for getting (N) next available shard(s)s
-	pub type GetShardsIndex<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type GetShardsIndex<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_id)]
+	#[pallet::getter(fn shard_id_counter)]
 	/// Counter for creating unique shard_ids during on-chain creation
-	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
 	#[pallet::storage]
 	#[pallet::getter(fn tss_shards)]
-	pub type TssShards<T: Config> = StorageMap<_, Blake2_128Concat, u64, ShardState, OptionQuery>;
+	pub type TssShards<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, ShardState, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
-	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 33], OptionQuery>;
+	pub type TssGroupKey<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, ShardPublicKey, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn signature_storage)]
@@ -195,7 +200,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn last_committed_shard)]
 	pub type LastCommittedShard<T: Config> =
-		StorageMap<_, Blake2_128Concat, u64, T::BlockNumber, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, T::BlockNumber, ValueQuery>;
 
 	/// record the chronicle worker ids for each validator
 	#[pallet::storage]
@@ -219,11 +224,11 @@ pub mod pallet {
 		/// New group key submitted to runtime
 		/// .0 - ShardId
 		/// .1 - group key bytes
-		NewTssGroupKey(u64, [u8; 33]),
+		NewTssGroupKey(ShardId, ShardPublicKey),
 
 		/// Shard has ben registered with new Id
 		/// .0 ShardId
-		ShardRegistered(u64),
+		ShardRegistered(ShardId),
 
 		/// Task execution timed out for task
 		TaskExecutionTimeout(KeyId),
@@ -231,7 +236,7 @@ pub mod pallet {
 		/// Shard went offline due to committed offenses preventing threshold
 		/// or task execution timeout(s) by collector
 		/// .0 ShardId
-		ShardOffline(u64),
+		ShardOffline(ShardId),
 
 		/// Offence reported, above threshold s.t.
 		/// reports are moved from reported to committed.
@@ -338,13 +343,13 @@ pub mod pallet {
 			if let Ok(inherent_data) = data.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER) {
 				return match inherent_data {
 					None => None,
-					Some(inherent_data) if inherent_data.group_key != [0u8; 33] => {
+					Some(inherent_data) if inherent_data.group_key != DEFAULT_SHARD_PUBLIC_KEY => {
 						// We don't need to set the inherent data every block, it is only needed
 						// once.
-						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
+						let pubk = <TssGroupKey<T>>::get(inherent_data.shard_id);
 						if pubk.is_none() {
 							Some(Call::submit_tss_group_key {
-								set_id: inherent_data.set_id,
+								shard_id: inherent_data.shard_id,
 								group_key: inherent_data.group_key,
 							})
 						} else {
@@ -361,8 +366,8 @@ pub mod pallet {
 			call: &Self::Call,
 			data: &InherentData,
 		) -> result::Result<(), Self::Error> {
-			let (set_id, group_key) = match call {
-				Call::submit_tss_group_key { set_id, group_key } => (set_id, group_key),
+			let (shard_id, group_key) = match call {
+				Call::submit_tss_group_key { shard_id, group_key } => (shard_id, group_key),
 				_ => return Err(InherentError::WrongInherentCall),
 			};
 
@@ -371,10 +376,10 @@ pub mod pallet {
 				.expect("Inherent data is not correctly encoded")
 				.expect("Inherent data must be provided");
 
-			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
+			if &expected_data.shard_id != shard_id && &expected_data.group_key != group_key {
 				return Err(InherentError::InvalidGroupKey(TimeTssKey {
 					group_key: *group_key,
-					set_id: *set_id,
+					shard_id: *shard_id,
 				}));
 			}
 
@@ -455,17 +460,17 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
-			set_id: u64,
-			group_key: [u8; 33],
+			shard_id: ShardId,
+			group_key: ShardPublicKey,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
-			<TssGroupKey<T>>::insert(set_id, group_key);
-			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
+			<TssGroupKey<T>>::insert(shard_id, group_key);
+			<TssShards<T>>::try_mutate(shard_id, |shard_state| -> DispatchResult {
 				let details = shard_state.as_mut().ok_or(Error::<T>::ShardIsNotRegistered)?;
 				details.status = ShardStatus::Online;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
+			Self::deposit_event(Event::NewTssGroupKey(shard_id, group_key));
 
 			Ok(().into())
 		}
@@ -502,11 +507,11 @@ pub mod pallet {
 			}
 			let shard = ShardState::new::<T>(members.clone(), collector_index, net)?;
 			// get unused ShardId from storage
-			let shard_id = <ShardId<T>>::get();
+			let shard_id = <ShardIdCounter<T>>::get();
 			// compute next ShardId before putting it in storage
-			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
+			let next_shard_id = shard_id.checked_add(1).ok_or(Error::<T>::ShardIdOverflow)?;
 			<TssShards<T>>::insert(shard_id, shard);
-			<ShardId<T>>::put(next_shard_id);
+			<ShardIdCounter<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id));
 			Ok(())
 		}
@@ -558,7 +563,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::report_misbehavior())]
 		pub fn report_misbehavior(
 			origin: OriginFor<T>,
-			shard_id: u64,
+			shard_id: ShardId,
 			offender: T::AccountId,
 			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
@@ -633,7 +638,7 @@ pub mod pallet {
 		/// It is used in collector offline and for testing
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::force_set_shard_offline())]
-		pub fn force_set_shard_offline(origin: OriginFor<T>, shard_id: u64) -> DispatchResult {
+		pub fn force_set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			ensure_root(origin)?;
 			let mut on_chain_shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
@@ -652,30 +657,30 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> IncrementTaskTimeoutCount<u64> for Pallet<T> {
-		fn increment_task_timeout_count(id: u64) {
+	impl<T: Config> IncrementTaskTimeoutCount<ShardId> for Pallet<T> {
+		fn increment_task_timeout_count(id: ShardId) {
 			if let Some(mut shard_state) = TssShards::<T>::get(id) {
 				shard_state.increment_task_timeout_count::<T>(id);
 			}
 		}
 	}
 
-	impl<T: Config> EligibleShard<u64, Network> for Pallet<T> {
-		fn is_eligible_shard(id: u64) -> bool {
+	impl<T: Config> EligibleShard<ShardId, Network> for Pallet<T> {
+		fn is_eligible_shard(id: ShardId) -> bool {
 			if let Some(shard_state) = <TssShards<T>>::get(id) {
 				shard_state.is_online()
 			} else {
 				false
 			}
 		}
-		fn is_eligible_shard_for_network(id: u64, net: Network) -> bool {
+		fn is_eligible_shard_for_network(id: ShardId, net: Network) -> bool {
 			if let Some(shard_state) = <TssShards<T>>::get(id) {
 				shard_state.is_online() && shard_state.net == net
 			} else {
 				false
 			}
 		}
-		fn get_eligible_shards(id: u64, n: usize) -> Vec<u64> {
+		fn get_eligible_shards(id: ShardId, n: usize) -> Vec<ShardId> {
 			let net = if let Some(ShardState { net, .. }) = <TssShards<T>>::get(id) {
 				net
 			} else {
@@ -683,7 +688,7 @@ pub mod pallet {
 			};
 			let mut n_shards = Vec::new();
 			let mut shard_id = <GetShardsIndex<T>>::take();
-			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
+			let max_shard_id = <ShardIdCounter<T>>::get().saturating_sub(1);
 			while n_shards.len() < n {
 				if Self::is_eligible_shard_for_network(shard_id, net) {
 					n_shards.push(shard_id);
@@ -701,20 +706,20 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn active_shards() -> Vec<(u64, Shard)> {
+		pub fn active_shards() -> Vec<(ShardId, Shard)> {
 			<TssShards<T>>::iter()
 				.filter(|(_, s)| s.is_online())
 				.map(|(id, state)| (id, state.shard))
 				.collect()
 		}
-		pub fn inactive_shards() -> Vec<(u64, Shard)> {
+		pub fn inactive_shards() -> Vec<(ShardId, Shard)> {
 			<TssShards<T>>::iter()
 				.filter(|(_, s)| !s.is_online())
 				.map(|(id, state)| (id, state.shard))
 				.collect()
 		}
 		// Getter method for runtime api storage access
-		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
+		pub fn api_tss_shards() -> Vec<(ShardId, Shard)> {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
 		}
 

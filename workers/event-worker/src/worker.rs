@@ -14,7 +14,7 @@ use sp_io::hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{error::Error, marker::PhantomData, sync::Arc};
-use time_primitives::{abstraction::EthTxValidation, TimeApi};
+use time_primitives::{abstraction::EthTxValidation, sharding::ShardId, TimeApi};
 
 #[allow(unused)]
 /// Our structure, which holds refs to everything we need to operate
@@ -22,7 +22,7 @@ pub struct EventWorker<B: Block, A, BN, R, BE> {
 	pub(crate) runtime: Arc<R>,
 	pub(crate) backend: Arc<BE>,
 	_block: PhantomData<B>,
-	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+	sign_data_sender: Sender<(ShardId, u64, u64, [u8; 32])>,
 	tx_data_receiver: Receiver<Vec<u8>>,
 	kv: KeystorePtr,
 	pub accountid: PhantomData<A>,

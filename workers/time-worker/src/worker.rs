@@ -25,6 +25,7 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{EthTxValidation, OCWReportData, OCWSigData},
+	sharding::ShardId,
 	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
@@ -32,7 +33,7 @@ use tss::{Timeout, Tss, TssAction, TssMessage};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
-	shard_id: u64,
+	shard_id: ShardId,
 	sender: sr25519::Public,
 	payload: TssMessage,
 }
@@ -98,16 +99,16 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	kv: KeystorePtr,
-	tss_states: HashMap<u64, TssState>,
+	tss_states: HashMap<ShardId, TssState>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
+	sign_data_receiver: mpsc::Receiver<(ShardId, u64, u64, [u8; 32])>,
 	tx_data_sender: mpsc::Sender<Vec<u8>>,
 	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
-	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
+	timeouts: HashMap<(ShardId, Option<[u8; 32]>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 }
 
@@ -192,7 +193,7 @@ where
 		}
 	}
 
-	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
+	fn poll_actions(&mut self, shard_id: ShardId, public_key: sr25519::Public) {
 		let tss_state = self.tss_states.get_mut(&shard_id).unwrap();
 		let mut ocw_encoded_vec: Vec<(&[u8; 24], Vec<u8>)> = vec![];
 		while let Some(action) = tss_state.tss.next_action() {
@@ -210,7 +211,10 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					debug!(target: TW_LOG, "Updating tss public key");
 					self.timeouts.remove(&(shard_id, None));
-					crate::inherents::update_shared_group_key(shard_id, tss_public_key.to_bytes());
+					crate::inherents::update_shared_group_key(
+						shard_id,
+						tss_public_key.to_bytes()[..10].try_into().unwrap(),
+					);
 				},
 				TssAction::Tss(tss_signature, hash) => {
 					debug!(target: TW_LOG, "Storing tss signature");

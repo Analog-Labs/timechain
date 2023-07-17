@@ -1527,9 +1527,8 @@ impl_runtime_apis! {
 			TesseractSigStorage::inactive_shards(network)
 		}
 
-
 		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
-			TaskSchedule::shard_tasks(shard_id)
+			ShardTasks::prefix_iter(shard_id).map(|(i, _)| i).collect()
 		}
 
 		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {

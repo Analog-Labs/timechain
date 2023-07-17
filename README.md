@@ -31,11 +31,11 @@ This repo includes the minimum required components to start a timechain testnet 
 
 Follow the steps below to get started.
 
-### 1. Rust Setup
+### Rust Setup
 
 First, complete the [Dev Docs Installation](https://docs.substrate.io/v3/getting-started/installation/).
 
-### 1.1 Build and Run
+### Build and Run
 
 Use the following command to build the node and run it after build successfully:
 

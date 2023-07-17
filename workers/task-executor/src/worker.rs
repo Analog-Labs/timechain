@@ -5,6 +5,7 @@ use codec::{Decode, Encode};
 use dotenv::dotenv;
 use futures::channel::mpsc::Sender;
 use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
+use reqwest::header;
 use rosetta_client::{
 	create_client,
 	types::{block, BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
@@ -19,7 +20,6 @@ use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
-use std::env;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	marker::PhantomData,
@@ -222,7 +222,10 @@ where
 			None => block::Block::default(),
 		};
 
-		let value = self.backend.blockchain().number(block_id).unwrap().unwrap().to_string();
+		let value = match self.backend.blockchain().number(block_id).unwrap() {
+			Some(val) => val.to_string(),
+			None => "0".to_string(),
+		};
 		let cycle = value.parse::<i64>().unwrap();
 
 		// Add data into collection (user must have Collector role)
@@ -240,31 +243,43 @@ where
 			block: block.block_identifier.index as i64,
 			cycle,
 			task_id: task_id as i64,
-			data: vec![data_value.to_owned()],
+			data: vec![data_value],
 		};
-		dotenv::from_filename("../../.env").ok();
 		dotenv().ok();
-		let timegraph_graphql_url = env::var("TIMEGRAPH_GRAPHQL_URL")
-			.expect("TIMEGRAPH_GRAPHQL_URL is not set in the .env file");
+		// let timegraph_graphql_url = env::var("TIMEGRAPH_GRAPHQL_URL")
+		// 	.expect("TIMEGRAPH_GRAPHQL_URL is not set in the .env file");
 		// Build the GraphQL request
 		let request = CollectData::build_query(variables);
 		// Execute the GraphQL request
 		let client = reqwest::Client::new();
 		let response = client
-			.post(timegraph_graphql_url)
+			.post("http://host.docker.internal:8010/graphql")
 			.json(&request)
+			.header(header::AUTHORIZATION, "0;FJ9BTQbLg8DcSYpDUSdPwdGudTmGFqDokcBYRiJBYXWX;0;*;1;Xk7BGGAymUw4Cwg8p4BFpEbn5AgHmN2JjYNkcFdsT9ECJPLuRYXcy5Ct1w1F77R88uxicwGZUPkNpsib6C3gzYY")
 			.send()
-			.await
-			.expect("Failed to send request")
-			.json::<GraphQLResponse<collect_data::ResponseData>>()
-			.await
-			.expect("Failed to parse response");
-		match &response.data {
-			Some(data) => {
-				log::info!("timegraph migrate collect status {:?}", data.collect.status);
+			.await;
+
+		match response {
+			Ok(response) => {
+				let json_response =
+					response.json::<GraphQLResponse<collect_data::ResponseData>>().await;
+
+				match json_response {
+					Ok(json) => {
+						if let Some(data) = json.data {
+							log::info!(
+								"timegraph migrate collect status: {:?}",
+								data.collect.status
+							);
+						} else {
+							log::info!("timegraph migrate collect status fail: No response");
+						}
+					},
+					Err(e) => log::info!("Failed to parse response: {:?}", e),
+				};
 			},
-			None => log::info!("timegraph migrate collect status fail No response"),
-		};
+			Err(e) => log::info!("error in post request to timegraph: {:?}", e),
+		}
 	}
 
 	// entry point for task execution, triggered by each finalized block in the Timechain

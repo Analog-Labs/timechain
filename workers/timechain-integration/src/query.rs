@@ -13,7 +13,7 @@ pub mod collect_data {
 	type Int = i64;
 	#[allow(dead_code)]
 	type ID = String;
-	#[derive(Serialize)]
+	#[derive(Serialize, Debug)]
 	pub struct Variables {
 		pub collection: String,
 		pub block: Int,
@@ -23,7 +23,7 @@ pub mod collect_data {
 		pub data: Vec<String>,
 	}
 	impl Variables {}
-	#[derive(Deserialize)]
+	#[derive(Deserialize, Debug)]
 	pub struct ResponseData {
 		pub collect: CollectDataCollect,
 	}

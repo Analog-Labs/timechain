@@ -62,6 +62,7 @@ services:
     - '-ltime=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - db
     - bootnode

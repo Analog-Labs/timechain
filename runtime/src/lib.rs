@@ -1528,7 +1528,7 @@ impl_runtime_apis! {
 		}
 
 		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
-			task_schedule::ShardTasks::<Runtime>::prefix_iter(shard_id).map(|(i, _)| i).collect()
+			task_schedule::ShardTasks::<Runtime>::iter_prefix(shard_id).map(|(i, _)| i).collect()
 		}
 
 		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {

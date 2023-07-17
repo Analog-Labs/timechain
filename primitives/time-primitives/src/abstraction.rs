@@ -2,8 +2,8 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
-use sp_std::vec::Vec;
 use sp_runtime::DispatchError;
+use sp_std::vec::Vec;
 
 use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
 // Function defines target network endpoint
@@ -64,7 +64,7 @@ pub enum Output {
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
 
-impl ObjectId{
+impl ObjectId {
 	pub fn get_id(&self) -> u64 {
 		self.0
 	}

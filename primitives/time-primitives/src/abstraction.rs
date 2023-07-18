@@ -2,7 +2,6 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
-use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
 use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
@@ -284,5 +283,11 @@ impl OCWReportData {
 }
 
 pub trait TaskMetadataInterface {
-	fn task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
+	fn task_by_key(key: KeyId) -> bool;
+}
+
+impl TaskMetadataInterface for () {
+	fn task_by_key(_key: KeyId) -> bool {
+		true
+	}
 }

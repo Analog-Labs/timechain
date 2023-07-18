@@ -191,8 +191,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> TaskMetadataInterface for Pallet<T> {
-		fn task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
-			Self::get_task_by_key(key)
+		fn task_by_key(key: KeyId) -> bool {
+			TaskMetaStorage::<T>::get(key).is_some()
 		}
 	}
 }

@@ -269,7 +269,7 @@ pub mod pallet {
 		/// Shard cannot be assigned tasks due to ineligibility
 		ShardNotEligibleForTasks,
 		/// Task Metadata is not registered
-		TaskNotRegistered,
+		TaskMetadataNotRegistered,
 	}
 
 	#[pallet::call]
@@ -283,8 +283,8 @@ pub mod pallet {
 				Error::<T>::ShardNotEligibleForTasks
 			);
 			ensure!(
-				T::TaskMetadataHelper::task_by_key(schedule.task_id.get_id())?.is_some(),
-				Error::<T>::TaskNotRegistered
+				T::TaskMetadataHelper::task_by_key(schedule.task_id.get_id()) == true,
+				Error::<T>::TaskMetadataNotRegistered
 			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
@@ -356,8 +356,8 @@ pub mod pallet {
 				Error::<T>::ShardNotEligibleForTasks
 			);
 			ensure!(
-				T::TaskMetadataHelper::task_by_key(schedule.task_id.get_id())?.is_some(),
-				Error::<T>::TaskNotRegistered
+				T::TaskMetadataHelper::task_by_key(schedule.task_id.get_id()) == true,
+				Error::<T>::TaskMetadataNotRegistered
 			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);

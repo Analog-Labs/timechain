@@ -58,7 +58,6 @@ frame_support::construct_runtime!(
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>},
 		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		TaskSchedule: task_schedule::{Pallet, Call, Storage, Event<T>},
-		TaskMeta: task_metadata::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -181,12 +180,6 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 	}
 }
 
-impl task_metadata::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_metadata::weights::WeightInfo<Test>;
-	type Currency = Balances;
-	type ProxyExtend = ();
-}
 
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -202,7 +195,7 @@ impl task_schedule::Config for Test {
 	type RecurringTimeoutLength = ConstU64<2>;
 	type PayableTimeoutLength = ConstU64<1000>;
 	type ShardTimeouts = ();
-	type TaskMetadataHelper = TaskMeta;
+	type TaskMetadataHelper = ();
 }
 
 // Build genesis storage according to the mock runtime.

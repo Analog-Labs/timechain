@@ -283,11 +283,11 @@ impl OCWReportData {
 }
 
 pub trait TaskMetadataInterface {
-	fn task_by_key(key: KeyId) -> bool;
+	fn task_metadata_exists(key: KeyId) -> bool;
 }
 
 impl TaskMetadataInterface for () {
-	fn task_by_key(_key: KeyId) -> bool {
+	fn task_metadata_exists(_key: KeyId) -> bool {
 		true
 	}
 }

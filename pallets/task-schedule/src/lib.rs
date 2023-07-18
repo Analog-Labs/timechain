@@ -283,7 +283,7 @@ pub mod pallet {
 				Error::<T>::ShardNotEligibleForTasks
 			);
 			ensure!(
-				T::TaskMetadataHelper::task_by_key(schedule.task_id.get_id()) == true,
+				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
 				Error::<T>::TaskMetadataNotRegistered
 			);
 			let fix_fee = T::ScheduleFee::get();
@@ -356,7 +356,7 @@ pub mod pallet {
 				Error::<T>::ShardNotEligibleForTasks
 			);
 			ensure!(
-				T::TaskMetadataHelper::task_by_key(schedule.task_id.get_id()) == true,
+				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
 				Error::<T>::TaskMetadataNotRegistered
 			);
 			let fix_fee = T::ScheduleFee::get();

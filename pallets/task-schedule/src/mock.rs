@@ -180,7 +180,6 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 	}
 }
 
-
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;

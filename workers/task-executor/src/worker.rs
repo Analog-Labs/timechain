@@ -20,6 +20,7 @@ use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
+use std::env;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	marker::PhantomData,
@@ -246,14 +247,22 @@ where
 			data: vec![data_value],
 		};
 		dotenv().ok();
-		// let timegraph_graphql_url = env::var("TIMEGRAPH_GRAPHQL_URL")
-		// 	.expect("TIMEGRAPH_GRAPHQL_URL is not set in the .env file");
+		let timegraph_graphql_url = match env::var("TIMEGRAPH_GRAPHQL_URL") {
+			Ok(url) => url,
+			Err(e) => {
+				log::info!(
+					"Unable to get timegraph graphql url {:?}, Setting up default local url",
+					e
+				);
+				"http://0.0.0.0:8010/graphql".to_string()
+			},
+		};
 		// Build the GraphQL request
 		let request = CollectData::build_query(variables);
 		// Execute the GraphQL request
 		let client = reqwest::Client::new();
 		let response = client
-			.post("http://host.docker.internal:8010/graphql")
+			.post(timegraph_graphql_url)
 			.json(&request)
 			.header(header::AUTHORIZATION, "0;FJ9BTQbLg8DcSYpDUSdPwdGudTmGFqDokcBYRiJBYXWX;0;*;1;Xk7BGGAymUw4Cwg8p4BFpEbn5AgHmN2JjYNkcFdsT9ECJPLuRYXcy5Ct1w1F77R88uxicwGZUPkNpsib6C3gzYY")
 			.send()

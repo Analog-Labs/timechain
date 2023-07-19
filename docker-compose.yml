@@ -36,6 +36,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
     depends_on:
     - db
     - ethereum-connector
@@ -64,6 +65,7 @@ services:
     - '-ltime=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - db
@@ -94,6 +96,7 @@ services:
     - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
     depends_on:
     - db
     - bootnode
@@ -123,6 +126,7 @@ services:
     - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
     depends_on:
     - db
     - bootnode
@@ -152,6 +156,7 @@ services:
     - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
     depends_on:
     - db
     - bootnode
@@ -181,6 +186,7 @@ services:
     - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
     depends_on:
     - db
     - bootnode

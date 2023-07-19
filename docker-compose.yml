@@ -37,6 +37,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
+      SSK: ${SSK}
     depends_on:
     - db
     - ethereum-connector
@@ -66,6 +67,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
+      SSK: ${SSK}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - db
@@ -97,6 +99,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
+      SSK: ${SSK}
     depends_on:
     - db
     - bootnode
@@ -127,6 +130,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
+      SSK: ${SSK}
     depends_on:
     - db
     - bootnode
@@ -157,6 +161,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
+      SSK: ${SSK}
     depends_on:
     - db
     - bootnode
@@ -187,6 +192,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
+      SSK: ${SSK}
     depends_on:
     - db
     - bootnode

@@ -257,6 +257,14 @@ where
 				"http://0.0.0.0:8010/graphql".to_string()
 			},
 		};
+
+		let ssk = match env::var("SSK") {
+			Ok(ssk) => ssk,
+			Err(e) => {
+				log::info!("Unable to get timegraph sskey {:?}", e);
+				"".to_string()
+			},
+		};
 		// Build the GraphQL request
 		let request = CollectData::build_query(variables);
 		// Execute the GraphQL request
@@ -264,7 +272,7 @@ where
 		let response = client
 			.post(timegraph_graphql_url)
 			.json(&request)
-			.header(header::AUTHORIZATION, "0;FJ9BTQbLg8DcSYpDUSdPwdGudTmGFqDokcBYRiJBYXWX;0;*;1;Xk7BGGAymUw4Cwg8p4BFpEbn5AgHmN2JjYNkcFdsT9ECJPLuRYXcy5Ct1w1F77R88uxicwGZUPkNpsib6C3gzYY")
+			.header(header::AUTHORIZATION, ssk)
 			.send()
 			.await;
 
@@ -281,7 +289,10 @@ where
 								data.collect.status
 							);
 						} else {
-							log::info!("timegraph migrate collect status fail: No response");
+							log::info!(
+								"timegraph migrate collect status fail: No response : {:?}",
+								json.errors
+							);
 						}
 					},
 					Err(e) => log::info!("Failed to parse response: {:?}", e),

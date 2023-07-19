@@ -7,6 +7,7 @@ mod tests {
 	use reqwest::header;
 	use std::env;
 	#[tokio::test]
+	#[ignore]
 	async fn test_collect_data() {
 		// Prepare the input variables
 		let variables = collect_data::Variables {

@@ -692,17 +692,25 @@ pub mod pallet {
 		}
 		fn next_eligible_shard(network: Network) -> Option<u64> {
 			let shard_index = GetShardsIndex::<T>::get(network);
-			let max_shard_id = ShardId::<T>::get();
 			// TODO: use iter rev if shard_index > max_shard_id / 2 (optimization)
-			for (shard_id, _) in <ShardNetwork<T>>::iter_prefix(network) {
-				if shard_id >= shard_index && Self::is_eligible_shard(shard_id) {
-					let new_shard_index = if shard_index >= max_shard_id {
-						0
+			let shards_for_network: Vec<_> = <ShardNetwork<T>>::iter_prefix(network).collect();
+			let num_shards_for_net = shards_for_network.len();
+			for (i, (shard_id, _)) in shards_for_network.into_iter().enumerate() {
+				if Self::is_eligible_shard(shard_id) {
+					if shard_id < shard_index && num_shards_for_net > (i + 1) {
+						// more shards left and shard_id < shard_index so continue
+						continue;
 					} else {
-						shard_index.saturating_plus_one()
-					};
-					GetShardsIndex::<T>::insert(network, new_shard_index);
-					return Some(shard_id);
+						let new_shard_index = if (i + 1) == num_shards_for_net {
+							0
+						} else {
+							shard_index.saturating_plus_one()
+						};
+						if new_shard_index != shard_index {
+							GetShardsIndex::<T>::insert(network, new_shard_index);
+						} // else shard index does not change
+						return Some(shard_id);
+					}
 				}
 			}
 			None

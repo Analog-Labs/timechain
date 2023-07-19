@@ -14,7 +14,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{string::String, vec::Vec};
 	use time_primitives::{
-		abstraction::{Collection, PayableTask, Task},
+		abstraction::{Collection, PayableTask, Task, TaskMetadataInterface},
 		ProxyExtend,
 	};
 	pub type KeyId = u64;
@@ -187,6 +187,12 @@ pub mod pallet {
 				Some(val) => Ok(Some(val)),
 				None => Ok(None),
 			}
+		}
+	}
+
+	impl<T: Config> TaskMetadataInterface for Pallet<T> {
+		fn task_metadata_exists(key: KeyId) -> bool {
+			TaskMetaStorage::<T>::get(key).is_some()
 		}
 	}
 }

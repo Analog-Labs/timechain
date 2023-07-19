@@ -63,6 +63,12 @@ pub enum Output {
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
 
+impl ObjectId {
+	pub fn get_id(&self) -> u64 {
+		self.0
+	}
+}
+
 // Numeric value affinity. Where a digital point is.
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
@@ -272,5 +278,15 @@ pub struct OCWReportData {
 impl OCWReportData {
 	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
 		Self { shard_id, offender, proof }
+	}
+}
+
+pub trait TaskMetadataInterface {
+	fn task_metadata_exists(key: KeyId) -> bool;
+}
+
+impl TaskMetadataInterface for () {
+	fn task_metadata_exists(_key: KeyId) -> bool {
+		true
 	}
 }

@@ -55,6 +55,7 @@ pub mod pallet {
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_std::collections::vec_deque::VecDeque;
+	use time_primitives::abstraction::TaskMetadataInterface;
 	use time_primitives::{
 		abstraction::{
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
@@ -63,6 +64,7 @@ pub mod pallet {
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
+
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
@@ -196,6 +198,7 @@ pub mod pallet {
 		/// Minimum length in blocks before payable task is determined to be timed out
 		#[pallet::constant]
 		type PayableTimeoutLength: Get<Self::BlockNumber>;
+		type TaskMetadataHelper: TaskMetadataInterface;
 	}
 
 	#[pallet::storage]
@@ -284,6 +287,8 @@ pub mod pallet {
 		TaskNotAssigned,
 		/// Task not in unassigned queue so cannot be assigned
 		TaskNotUnassigned,
+		/// Task Metadata is not registered
+		TaskMetadataNotRegistered,
 	}
 
 	#[pallet::call]
@@ -292,6 +297,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
+				Error::<T>::TaskMetadataNotRegistered
+			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -365,6 +374,10 @@ pub mod pallet {
 			schedule: PayableScheduleInput,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
+				Error::<T>::TaskMetadataNotRegistered
+			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);

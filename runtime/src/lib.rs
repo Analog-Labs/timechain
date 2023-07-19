@@ -1204,6 +1204,7 @@ impl task_schedule::Config for Runtime {
 	type ShardTimeouts = TesseractSigStorage;
 	type RecurringTimeoutLength = RecurringTimeoutLength;
 	type PayableTimeoutLength = PayableTimeoutLength;
+	type TaskMetadataHelper = TaskMeta;
 }
 
 impl pallet_proxy::Config for Runtime {

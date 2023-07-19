@@ -172,9 +172,9 @@ where
 		let tasks_schedule = self.runtime.runtime_api().get_payable_task_schedule(block_id)?;
 		match tasks_schedule {
 			Ok(task_schedule) => {
-				for (task_id, schedule) in task_schedule.iter() {
+				for (schedule_id, schedule) in task_schedule.iter() {
 					if let Ok(Ok(shard_id)) =
-						self.runtime.runtime_api().get_task_shard(block_id, *task_id)
+						self.runtime.runtime_api().get_task_shard(block_id, *schedule_id)
 					{
 						if !map.contains_key(&task_id) {
 							//Get the metadata from scheduled payable task by key
@@ -209,7 +209,7 @@ where
 																	input,
 																),
 																map,
-																*task_id,
+																*schedule_id,
 																shard_id,
 															)
 															.await;

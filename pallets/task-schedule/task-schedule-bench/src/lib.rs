@@ -28,8 +28,6 @@ benchmarks! {
 			cycle: 12,
 			validity: Validity::Seconds(10),
 			hash:String::from("address"),
-			status: ScheduleStatus::Initiated,
-			start_execution_block: 0
 		};
 
 		let schedule = input.clone();

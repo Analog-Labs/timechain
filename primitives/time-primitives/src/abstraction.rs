@@ -165,7 +165,6 @@ pub struct ScheduleInput {
 	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
-	pub start_execution_block: u64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

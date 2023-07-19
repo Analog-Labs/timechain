@@ -117,7 +117,10 @@ fn test_payable_schedule() {
 		let task_id = ObjectId(1);
 
 		//Insert payable task schedule
-		let input: PayableScheduleInput = PayableScheduleInput { task_id, shard_id: 1 };
+		let input: PayableScheduleInput = PayableScheduleInput {
+			task_id,
+			network: Network::Ethereum,
+		};
 		assert_ok!(PalletProxy::set_proxy_account(
 			RawOrigin::Signed(account.clone()).into(),
 			Some(1000),

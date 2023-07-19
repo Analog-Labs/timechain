@@ -67,7 +67,7 @@ pub mod pallet {
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
 		abstraction::{OCWReportData, OCWSigData},
-		crypto::{Public, Signature},
+		crypto::Signature,
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
@@ -326,6 +326,9 @@ pub mod pallet {
 
 		/// Shard status is offline now
 		ShardAlreadyOffline,
+
+		/// Caller is not shard's collector so cannot call this function
+		OnlyCallableByCollector,
 	}
 
 	#[pallet::inherent]
@@ -368,8 +371,11 @@ pub mod pallet {
 
 			let expected_data = data
 				.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER)
-				.expect("Inherent data is not correctly encoded")
-				.expect("Inherent data must be provided");
+				.expect("Inherent data is not correctly encoded");
+
+			let Some(expected_data) = expected_data else {
+				return Ok(())
+			};
 
 			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
 				return Err(InherentError::InvalidGroupKey(TimeTssKey {
@@ -460,6 +466,11 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			<TssGroupKey<T>>::insert(set_id, group_key);
+			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
+				let details = shard_state.as_mut().ok_or(Error::<T>::ShardIsNotRegistered)?;
+				details.status = ShardStatus::Online;
+				Ok(())
+			})?;
 			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
 
 			Ok(().into())
@@ -555,30 +566,19 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			shard_id: u64,
 			offender: T::AccountId,
-			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
 				account_id.encode()[..].try_into().unwrap()
 			}
 			let (reporter, offender) = (
-				// get reporter pubkey from shard because must be collector
-				account_to_time_id::<sp_runtime::AccountId32>(
-					shard_state.shard.collector().clone(),
-				),
+				account_to_time_id::<T::AccountId>(caller),
 				account_to_time_id::<T::AccountId>(offender),
 			);
+			ensure!(shard_state.shard.is_collector(&reporter), Error::<T>::OnlyCallableByCollector);
 			ensure!(shard_state.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
-			// verify signature
-			let raw_reporter_pub_key: [u8; 32] = (reporter.encode())[..].try_into().unwrap();
-			let reporter_public_key: Public =
-				sp_application_crypto::sr25519::Public::from_raw(raw_reporter_pub_key).into();
-			ensure!(
-				proof.verify(offender.as_ref(), &reporter_public_key),
-				Error::<T>::ProofVerificationFailed
-			);
 			let reported_offences_count =
 				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
 					// increment report count
@@ -812,7 +812,6 @@ pub mod pallet {
 				signer.send_signed_transaction(|_account| Call::report_misbehavior {
 					shard_id: data.shard_id,
 					offender: offender_id.clone(),
-					proof: data.proof.clone(),
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);

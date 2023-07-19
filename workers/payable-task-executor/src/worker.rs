@@ -176,7 +176,7 @@ where
 					if let Ok(Ok(shard_id)) =
 						self.runtime.runtime_api().get_task_shard(block_id, *schedule_id)
 					{
-						if !map.contains_key(&task_id) {
+						if !map.contains_key(&schedule_id) {
 							//Get the metadata from scheduled payable task by key
 							let metadata_result = self
 								.runtime

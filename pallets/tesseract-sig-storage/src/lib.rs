@@ -342,11 +342,8 @@ pub mod pallet {
 		///no local account for signed tx
 		NoLocalAcctForSignedTx,
 
-		/// Shard status is not online
-		ShardNotOnline,
-
 		/// Shard status is offline now
-		ShardAlreadyOffline,
+		ShardOffline,
 
 		/// Caller is not shard's collector so cannot call this function
 		OnlyCallableByCollector,
@@ -651,7 +648,7 @@ pub mod pallet {
 				Self::deposit_event(Event::ShardOffline(shard_id));
 				Ok(())
 			} else {
-				Err(Error::<T>::ShardAlreadyOffline.into())
+				Err(Error::<T>::ShardOffline.into())
 			}
 		}
 
@@ -662,7 +659,7 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			ensure!(shard_state.is_online(), Error::<T>::ShardNotOnline);
+			ensure!(shard_state.is_online(), Error::<T>::ShardOffline);
 			ensure!(
 				shard_state.shard.is_collector(&account_to_time_id::<T::AccountId>(caller)),
 				Error::<T>::OnlyCallableByCollector

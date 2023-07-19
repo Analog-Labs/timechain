@@ -131,25 +131,25 @@ pub mod pallet {
 			let current_block = frame_system::Pallet::<T>::block_number();
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			let recurring_time_out_length = T::RecurringTimeoutLength::get();
-			for (task_id, schedule) in <ScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&task_id)
+			for (schedule_id, schedule) in <ScheduleStorage<T>>::iter() {
+				if !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= recurring_time_out_length
 				{
-					timed_out_tasks.push(task_id);
-					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(task_id) {
+					timed_out_tasks.push(schedule_id);
+					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
 						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
 					}
 				}
 			}
 			let payable_time_out_length = T::PayableTimeoutLength::get();
-			for (task_id, schedule) in <PayableScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&task_id)
+			for (schedule_id, schedule) in <PayableScheduleStorage<T>>::iter() {
+				if !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= payable_time_out_length
 				{
-					timed_out_tasks.push(task_id);
-					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(task_id) {
+					timed_out_tasks.push(schedule_id);
+					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
 						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
 					}
 				}
@@ -284,7 +284,7 @@ pub mod pallet {
 		/// Shard cannot be assigned tasks due to ineligibility
 		ShardNotEligibleForTasks,
 		/// Task not assigned to any shards yet
-		TaskNotAssigned,
+		TaskAssigned,
 		/// Task not in unassigned queue so cannot be assigned
 		TaskNotUnassigned,
 		/// Task Metadata is not registered
@@ -438,7 +438,7 @@ pub mod pallet {
 		}
 
 		pub fn get_task_shard(task: KeyId) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
+			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskAssigned.into())
 		}
 
 		pub fn get_one_time_schedules(
@@ -461,7 +461,7 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		pub fn get_schedules_by_task_id(
+		pub fn get_schedules_by_schedule_id(
 			key: ObjectId,
 		) -> Result<Vec<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = ScheduleStorage::<T>::iter_values()
@@ -493,7 +493,7 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		pub fn get_payable_schedules_by_task_id(
+		pub fn get_payable_schedules_by_schedule_id(
 			key: ObjectId,
 		) -> Result<Vec<PayableTaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
 			let data = PayableScheduleStorage::<T>::iter_values()
@@ -542,13 +542,17 @@ pub mod pallet {
 			});
 		}
 
-		fn claim_task_for_shard(shard_id: u64, network: Network, task_id: KeyId) -> DispatchResult {
+		fn claim_task_for_shard(
+			shard_id: u64,
+			network: Network,
+			schedule_id: KeyId,
+		) -> DispatchResult {
 			ensure!(
-				UnassignedTasks::<T>::take(network, task_id).is_some(),
+				UnassignedTasks::<T>::take(network, schedule_id).is_some(),
 				Error::<T>::TaskNotUnassigned
 			);
-			Self::reset_task_execution_start_time(task_id);
-			Self::assign_task_to_shard(task_id, shard_id);
+			Self::reset_task_execution_start_time(schedule_id);
+			Self::assign_task_to_shard(schedule_id, shard_id);
 			Ok(())
 		}
 	}
@@ -567,7 +571,7 @@ pub mod pallet {
 
 	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskNotAssigned.into())
+			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskAssigned.into())
 		}
 		fn get_schedule_via_key(
 			key: u64,

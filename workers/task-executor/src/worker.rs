@@ -157,7 +157,7 @@ where
 				input,
 				output: _,
 			} => {
-				log::info!("running task_id {:?}", schedule_id);
+				log::info!("running schedule_id {:?}", schedule_id);
 				match self.call_eth_contract(address, function_signature, input).await {
 					Ok(data) => Ok(data),
 					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),
@@ -217,9 +217,9 @@ where
 		//filter schedules for this node's shard
 		let task_schedules = all_schedules
 			.into_iter()
-			.filter_map(|(task_id, schedule)| {
+			.filter_map(|(schedule_id, schedule)| {
 				if let Ok(Ok(shard_id)) =
-					self.runtime.runtime_api().get_task_shard(block_id, task_id)
+					self.runtime.runtime_api().get_task_shard(block_id, schedule_id)
 				{
 					let shard_members = self
 						.runtime
@@ -229,7 +229,7 @@ where
 						.unwrap_or(vec![]);
 
 					if shard_members.contains(&account) {
-						Some((task_id, shard_id, schedule))
+						Some((schedule_id, shard_id, schedule))
 					} else {
 						None
 					}
@@ -242,20 +242,20 @@ where
 		log::info!("single task schedule {:?}", task_schedules.len());
 
 		let mut tree_map = BTreeMap::new();
-		for (task_id, shard_id, schedule) in task_schedules {
+		for (schedule_id, shard_id, schedule) in task_schedules {
 			// if task is already executed then skip
-			if self.tasks.contains(&task_id) {
+			if self.tasks.contains(&schedule_id) {
 				continue;
 			}
-			tree_map.insert(task_id, (shard_id, schedule));
-			self.tasks.insert(task_id);
+			tree_map.insert(schedule_id, (shard_id, schedule));
+			self.tasks.insert(schedule_id);
 		}
 
-		for (task_id, (shard_id, schedule)) in tree_map.iter() {
-			match self.task_executor(block_id, task_id, schedule).await {
+		for (schedule_id, (shard_id, schedule)) in tree_map.iter() {
+			match self.task_executor(block_id, schedule_id, schedule).await {
 				Ok(data) => {
 					if let Err(e) = self
-						.send_for_sign(block_id, data, *shard_id, *task_id, schedule.cycle)
+						.send_for_sign(block_id, data, *shard_id, *schedule_id, schedule.cycle)
 						.await
 					{
 						log::error!("Error occured while sending data for signing: {}", e);
@@ -265,10 +265,10 @@ where
 					//process error
 					log::error!(
 						"Error occured while executing one time schedule {:?}: {}",
-						task_id,
+						schedule_id,
 						e
 					);
-					self.report_schedule_invalid(*task_id, true, block_id, *shard_id);
+					self.report_schedule_invalid(*schedule_id, true, block_id, *shard_id);
 				},
 			}
 		}
@@ -295,9 +295,9 @@ where
 		// filter schedules for this node's shard
 		let task_schedules = all_schedules
 			.into_iter()
-			.filter_map(|(task_id, schedule)| {
+			.filter_map(|(schedule_id, schedule)| {
 				if let Ok(Ok(shard_id)) =
-					self.runtime.runtime_api().get_task_shard(block_id, task_id)
+					self.runtime.runtime_api().get_task_shard(block_id, schedule_id)
 				{
 					let shard_members = self
 						.runtime
@@ -307,7 +307,7 @@ where
 						.unwrap_or(vec![]);
 
 					if shard_members.contains(&account) {
-						Some((task_id, shard_id, schedule))
+						Some((schedule_id, shard_id, schedule))
 					} else {
 						None
 					}
@@ -319,19 +319,20 @@ where
 
 		log::info!("Repetitive task schedule {:?}", task_schedules.len());
 
-		for (task_id, shard_id, schedule) in task_schedules {
+		for (schedule_id, shard_id, schedule) in task_schedules {
 			// if task is already executed then skip
-			if self.tasks.contains(&task_id) {
+			if self.tasks.contains(&schedule_id) {
 				continue;
 			}
 
 			// put the new task in repetitive task map
 			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
-			self.tasks.insert(task_id);
-			self.repetitive_tasks
-				.entry(align_block_height)
-				.or_insert(vec![])
-				.push((task_id, shard_id, schedule));
+			self.tasks.insert(schedule_id);
+			self.repetitive_tasks.entry(align_block_height).or_insert(vec![]).push((
+				schedule_id,
+				shard_id,
+				schedule,
+			));
 		}
 
 		// iterate all block height
@@ -339,12 +340,18 @@ where
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				log::info!("Recurring task running on block {:?}", index);
 				// execute all task for specific task
-				for (task_id, shard_id, schedule) in tasks {
-					match self.task_executor(block_id, &task_id, &schedule).await {
+				for (schedule_id, shard_id, schedule) in tasks {
+					match self.task_executor(block_id, &schedule_id, &schedule).await {
 						Ok(data) => {
 							//send for signing
 							if let Err(e) = self
-								.send_for_sign(block_id, data, shard_id, task_id, schedule.cycle)
+								.send_for_sign(
+									block_id,
+									data,
+									shard_id,
+									schedule_id,
+									schedule.cycle,
+								)
 								.await
 							{
 								log::error!("Error occurred while sending data for signing: {}", e);
@@ -359,35 +366,39 @@ where
 								self.repetitive_tasks
 									.entry(index + decremented_schedule.frequency)
 									.or_insert(vec![])
-									.push((task_id, shard_id, decremented_schedule));
+									.push((schedule_id, shard_id, decremented_schedule));
 							}
-							self.error_count.remove(&task_id);
+							self.error_count.remove(&schedule_id);
 						},
 						Err(e) => match e {
 							TaskExecutorError::NoTaskFound(task) => {
 								log::error!("No repetitive task found for id {:?}", task);
-								self.report_schedule_invalid(task_id, true, block_id, shard_id);
+								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
 							},
 							TaskExecutorError::InvalidTaskFunction => {
 								log::error!("Invalid task function provided");
-								self.report_schedule_invalid(task_id, true, block_id, shard_id);
+								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
 							},
 							TaskExecutorError::ExecutionError(error) => {
 								log::error!(
 										"Error occured while executing repetitive contract call {:?}: {}",
-										task_id,
+										schedule_id,
 										error
 									);
 
-								let is_terminated = self
-									.report_schedule_invalid(task_id, false, block_id, shard_id);
+								let is_terminated = self.report_schedule_invalid(
+									schedule_id,
+									false,
+									block_id,
+									shard_id,
+								);
 
 								// if not terminated keep add task with added frequency
 								if !is_terminated {
 									self.repetitive_tasks
 										.entry(index + schedule.frequency)
 										.or_insert(vec![])
-										.push((task_id, shard_id, schedule));
+										.push((schedule_id, shard_id, schedule));
 								}
 							},
 							TaskExecutorError::InternalError(error) => {

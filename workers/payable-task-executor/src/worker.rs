@@ -198,21 +198,21 @@ where
 													} => {
 														if self.check_if_collector(shard_id) {
 															log::info!(
-																"Running task {:?}",
+																"Skipped running task {:?}",
 																schedule.task_id.0
 															);
-															self.create_tx(
-																wallet,
-																(
-																	address,
-																	function_signature,
-																	input,
-																),
-																map,
-																*schedule_id,
-																shard_id,
-															)
-															.await;
+															// self.create_tx(
+															// 	wallet,
+															// 	(
+															// 		address,
+															// 		function_signature,
+															// 		input,
+															// 	),
+															// 	map,
+															// 	*schedule_id,
+															// 	shard_id,
+															// )
+															// .await;
 														}
 													},
 													_ => {

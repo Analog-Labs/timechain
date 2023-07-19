@@ -247,59 +247,59 @@ where
 			data: vec![data_value],
 		};
 		dotenv().ok();
-		let timegraph_graphql_url = match env::var("TIMEGRAPH_GRAPHQL_URL") {
-			Ok(url) => url,
+		match env::var("TIMEGRAPH_GRAPHQL_URL") {
+			Ok(url) => {
+				match env::var("SSK") {
+					Ok(ssk) => {
+						// Build the GraphQL request
+						let request = CollectData::build_query(variables);
+						// Execute the GraphQL request
+						let client = reqwest::Client::new();
+						let response = client
+							.post(url)
+							.json(&request)
+							.header(header::AUTHORIZATION, ssk)
+							.send()
+							.await;
+
+						match response {
+							Ok(response) => {
+								let json_response = response
+									.json::<GraphQLResponse<collect_data::ResponseData>>()
+									.await;
+
+								match json_response {
+									Ok(json) => {
+										if let Some(data) = json.data {
+											log::info!(
+												"timegraph migrate collect status: {:?}",
+												data.collect.status
+											);
+										} else {
+											log::info!(
+										"timegraph migrate collect status fail: No response : {:?}",
+										json.errors
+									);
+										}
+									},
+									Err(e) => log::info!("Failed to parse response: {:?}", e),
+								};
+							},
+							Err(e) => log::info!("error in post request to timegraph: {:?}", e),
+						}
+					},
+					Err(e) => {
+						log::info!("Unable to get timegraph sskey {:?}", e);
+					},
+				};
+			},
 			Err(e) => {
 				log::info!(
 					"Unable to get timegraph graphql url {:?}, Setting up default local url",
 					e
 				);
-				"http://0.0.0.0:8010/graphql".to_string()
 			},
 		};
-
-		let ssk = match env::var("SSK") {
-			Ok(ssk) => ssk,
-			Err(e) => {
-				log::info!("Unable to get timegraph sskey {:?}", e);
-				"".to_string()
-			},
-		};
-		// Build the GraphQL request
-		let request = CollectData::build_query(variables);
-		// Execute the GraphQL request
-		let client = reqwest::Client::new();
-		let response = client
-			.post(timegraph_graphql_url)
-			.json(&request)
-			.header(header::AUTHORIZATION, ssk)
-			.send()
-			.await;
-
-		match response {
-			Ok(response) => {
-				let json_response =
-					response.json::<GraphQLResponse<collect_data::ResponseData>>().await;
-
-				match json_response {
-					Ok(json) => {
-						if let Some(data) = json.data {
-							log::info!(
-								"timegraph migrate collect status: {:?}",
-								data.collect.status
-							);
-						} else {
-							log::info!(
-								"timegraph migrate collect status fail: No response : {:?}",
-								json.errors
-							);
-						}
-					},
-					Err(e) => log::info!("Failed to parse response: {:?}", e),
-				};
-			},
-			Err(e) => log::info!("error in post request to timegraph: {:?}", e),
-		}
 	}
 
 	// entry point for task execution, triggered by each finalized block in the Timechain

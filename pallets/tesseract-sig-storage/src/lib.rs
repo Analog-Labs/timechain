@@ -67,7 +67,7 @@ pub mod pallet {
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
 		abstraction::{OCWReportData, OCWSigData},
-		crypto::{Public, Signature},
+		crypto::Signature,
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
@@ -579,27 +579,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			shard_id: u64,
 			offender: T::AccountId,
-			proof: time_primitives::crypto::Signature,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let (reporter, offender) = (
-				// get reporter pubkey from shard because must be collector
-				account_to_time_id::<sp_runtime::AccountId32>(
-					shard_state.shard.collector().clone(),
-				),
+				account_to_time_id::<T::AccountId>(caller),
 				account_to_time_id::<T::AccountId>(offender),
 			);
+			ensure!(shard_state.shard.is_collector(&reporter), Error::<T>::OnlyCallableByCollector);
 			ensure!(shard_state.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
-			// verify signature
-			let raw_reporter_pub_key: [u8; 32] = (reporter.encode())[..].try_into().unwrap();
-			let reporter_public_key: Public =
-				sp_application_crypto::sr25519::Public::from_raw(raw_reporter_pub_key).into();
-			ensure!(
-				proof.verify(offender.as_ref(), &reporter_public_key),
-				Error::<T>::ProofVerificationFailed
-			);
 			let reported_offences_count =
 				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
 					// increment report count
@@ -837,7 +826,6 @@ pub mod pallet {
 				signer.send_signed_transaction(|_account| Call::report_misbehavior {
 					shard_id: data.shard_id,
 					offender: offender_id.clone(),
-					proof: data.proof.clone(),
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);

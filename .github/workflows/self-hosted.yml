@@ -116,11 +116,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - run: sudo apt-get update
+      - run: sudo apt-get update -y
       - run: sudo add-apt-repository ppa:ethereum/ethereum
-      - run: sudo apt-get update
+      - run: sudo apt-get update -y
       - name: Install deps
-        run: sudo apt-get install protobuf-compiler solc
+        run: sudo apt-get install -y protobuf-compiler solc
 
       - name: Pull images
         run: ./pull_images.sh

@@ -7,6 +7,7 @@ use time_primitives::abstraction::{
 	ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule, ScheduleStatus,
 	TaskSchedule as ScheduleOut, Validity,
 };
+use time_primitives::sharding::Network;
 
 #[test]
 fn test_reward() {
@@ -40,7 +41,7 @@ fn test_schedule() {
 	new_test_ext().execute_with(|| {
 		let input = Schedule {
 			task_id: ObjectId(1),
-			shard_id: 1,
+			network: Network::Ethereum,
 			cycle: 12,
 			frequency: 1,
 			validity: Validity::Seconds(10),
@@ -61,7 +62,7 @@ fn test_schedule() {
 		let output = ScheduleOut {
 			task_id: ObjectId(1),
 			owner: account.clone(),
-			shard_id: 1,
+			network: Network::Ethereum,
 			start_execution_block: 0,
 			executable_since: 1,
 			cycle: 12,
@@ -83,7 +84,7 @@ fn test_schedule() {
 		let output_update = ScheduleOut {
 			task_id: ObjectId(1),
 			owner: account.clone(),
-			shard_id: 1,
+			network: Network::Ethereum,
 			start_execution_block: 0,
 			executable_since: 1,
 			cycle: 12,
@@ -113,7 +114,7 @@ fn test_payable_schedule() {
 		//Insert payable task schedule
 		let input: PayableScheduleInput = PayableScheduleInput {
 			task_id: ObjectId(1),
-			shard_id: 1,
+			network: Network::Ethereum,
 		};
 		let account: AccountId = acc_pub(1).into();
 		assert_ok!(PalletProxy::set_proxy_account(
@@ -133,7 +134,7 @@ fn test_payable_schedule() {
 		let output = PayableTaskSchedule {
 			task_id: ObjectId(1),
 			owner: account,
-			shard_id: 1,
+			network: Network::Ethereum,
 			executable_since: 1,
 			status: ScheduleStatus::Initiated,
 		};

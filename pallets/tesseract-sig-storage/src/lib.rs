@@ -371,11 +371,8 @@ pub mod pallet {
 
 			let expected_data = data
 				.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER)
-				.expect("Inherent data is not correctly encoded");
-
-			let Some(expected_data) = expected_data else {
-				return Ok(())
-			};
+				.expect("Inherent data is not correctly encoded")
+				.expect("Inherent data must be provided");
 
 			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
 				return Err(InherentError::InvalidGroupKey(TimeTssKey {

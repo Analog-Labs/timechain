@@ -46,7 +46,6 @@ fn test_schedule() {
 			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
-			start_execution_block: 0,
 		};
 		let account: AccountId = acc_pub(1).into();
 		assert_ok!(PalletProxy::set_proxy_account(

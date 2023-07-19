@@ -228,7 +228,7 @@ where
 													self,
 													block_id,
 													ScheduleStatus::Invalid,
-													*task_id,
+													*schedule_id,
 												) {
 													Ok(()) => log::info!("The schedule status has been updated to Invalid"),
 													Err(e) =>
@@ -248,7 +248,7 @@ where
 								}
 							}
 						} else {
-							log::info!("Payable task already executed, Key {:?}.", task_id);
+							log::info!("Payable task already executed, Key {:?}.", schedule_id);
 						}
 					} else {
 						log::warn!("error getting shard_id assigned to task_id")

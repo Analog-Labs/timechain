@@ -283,10 +283,10 @@ pub mod pallet {
 		NoLocalAcctForSignedTx,
 		/// Shard cannot be assigned tasks due to ineligibility
 		ShardNotEligibleForTasks,
-		/// Task not assigned to any shards yet
+		/// Task not assigned to any shards
+		TaskNotAssigned,
+		/// Task is assigned so cannot be reassigned
 		TaskAssigned,
-		/// Task not in unassigned queue so cannot be assigned
-		TaskNotUnassigned,
 		/// Task Metadata is not registered
 		TaskMetadataNotRegistered,
 	}
@@ -438,7 +438,7 @@ pub mod pallet {
 		}
 
 		pub fn get_task_shard(task: KeyId) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskAssigned.into())
+			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
 
 		pub fn get_one_time_schedules(
@@ -549,7 +549,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure!(
 				UnassignedTasks::<T>::take(network, schedule_id).is_some(),
-				Error::<T>::TaskNotUnassigned
+				Error::<T>::TaskAssigned
 			);
 			Self::reset_task_execution_start_time(schedule_id);
 			Self::assign_task_to_shard(schedule_id, shard_id);
@@ -571,7 +571,7 @@ pub mod pallet {
 
 	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskAssigned.into())
+			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
 		fn get_schedule_via_key(
 			key: u64,

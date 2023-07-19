@@ -55,6 +55,7 @@ pub mod pallet {
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_std::collections::vec_deque::VecDeque;
+	use time_primitives::abstraction::TaskMetadataInterface;
 	use time_primitives::{
 		abstraction::{
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
@@ -63,6 +64,7 @@ pub mod pallet {
 		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
+
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
@@ -192,6 +194,7 @@ pub mod pallet {
 		/// Minimum length in blocks before payable task is determined to be timed out
 		#[pallet::constant]
 		type PayableTimeoutLength: Get<Self::BlockNumber>;
+		type TaskMetadataHelper: TaskMetadataInterface;
 	}
 
 	#[pallet::storage]
@@ -265,6 +268,8 @@ pub mod pallet {
 		NoLocalAcctForSignedTx,
 		/// Shard cannot be assigned tasks due to ineligibility
 		ShardNotEligibleForTasks,
+		/// Task Metadata is not registered
+		TaskMetadataNotRegistered,
 	}
 
 	#[pallet::call]
@@ -276,6 +281,10 @@ pub mod pallet {
 			ensure!(
 				T::ShardEligibility::is_eligible_shard(schedule.shard_id),
 				Error::<T>::ShardNotEligibleForTasks
+			);
+			ensure!(
+				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
+				Error::<T>::TaskMetadataNotRegistered
 			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
@@ -345,6 +354,10 @@ pub mod pallet {
 			ensure!(
 				T::ShardEligibility::is_eligible_shard(schedule.shard_id),
 				Error::<T>::ShardNotEligibleForTasks
+			);
+			ensure!(
+				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
+				Error::<T>::TaskMetadataNotRegistered
 			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);

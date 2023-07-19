@@ -207,6 +207,7 @@ impl task_schedule::Config for Test {
 	type ShardTimeouts = ();
 	type RecurringTimeoutLength = ConstU64<2>;
 	type PayableTimeoutLength = ConstU64<1000>;
+	type TaskMetadataHelper = ();
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);

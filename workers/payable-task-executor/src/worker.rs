@@ -192,9 +192,9 @@ where
 													// If the task function is an Ethereum contract
 													// call, call it and send for signing
 													Function::EthereumTxWithoutAbi {
-														_address,
-														_function_signature,
-														_input,
+														address: _,
+														function_signature: _,
+														input: _,
 														output: _,
 													} => {
 														if self.check_if_collector(shard_id) {

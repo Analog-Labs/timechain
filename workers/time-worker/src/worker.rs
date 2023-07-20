@@ -166,6 +166,7 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
+		log::info!("on finality hit");
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for (shard_id, shard) in shards {
@@ -315,8 +316,10 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
+		log::info!("Time worker process running");
 		let mut gossips = self.gossip_engine.messages_for(topic::<B>());
 		loop {
+			 log::info!("Time worker loop");
 			let timeout = futures::future::poll_fn(|cx| {
 				if let Some(timeout) = self.timeout.as_mut() {
 					futures::pin_mut!(timeout);
@@ -334,6 +337,7 @@ where
 					return;
 				},
 				notification = self.finality_notifications.next().fuse() => {
+					log::info!("Time worker notification received");
 					let Some(notification) = notification else {
 						debug!(
 							target: TW_LOG,

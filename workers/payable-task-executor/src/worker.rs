@@ -125,7 +125,7 @@ where
 	}
 
 	/// Creates and send transaction for given contract call
-	#[warn(dead_code)]
+	#[allow(dead_code)]
 	async fn create_tx(
 		&self,
 		wallet: &Wallet,

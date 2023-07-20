@@ -96,10 +96,12 @@ fn test_signature_storage() {
 			Network::Ethereum,
 		),);
 
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
-			shard_id,
+			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -173,10 +175,12 @@ fn test_signature_and_decrement_schedule_storage() {
 			Network::Ethereum,
 		),);
 
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
-			shard_id,
+			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -204,7 +208,7 @@ fn test_signature_and_decrement_schedule_storage() {
 		let output = ScheduleOut {
 			task_id: ObjectId(1),
 			owner: ALICE.clone(),
-			shard_id: 0,
+			network: Network::Ethereum,
 			frequency: 0,
 			start_execution_block: 0,
 			executable_since: block_number,
@@ -260,10 +264,12 @@ fn test_duplicate_signature() {
 			Network::Ethereum,
 		),);
 
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
-			shard_id: 0,
+			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -486,7 +492,7 @@ fn test_report_misbehavior_increments_report_count() {
 		// report 1st offence
 
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.clone().into()).into(),
+			RawOrigin::Signed(alice.into()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
@@ -527,7 +533,7 @@ fn test_report_misbehavior_updates_reporters() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![alice.clone().into(), bob.into(), CHARLIE],
+			vec![alice.into(), bob.into(), CHARLIE],
 			None,
 			Network::Ethereum,
 		));
@@ -535,7 +541,7 @@ fn test_report_misbehavior_updates_reporters() {
 		// report 1st offence
 
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.clone().into()).into(),
+			RawOrigin::Signed(alice.into()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
@@ -581,7 +587,7 @@ fn test_report_misbehavior_moves_offences_to_committed() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![alice.clone().into(), bob.into(), CHARLIE],
+			vec![alice.into(), bob.into(), CHARLIE],
 			None,
 			Network::Ethereum,
 		));
@@ -590,7 +596,7 @@ fn test_report_misbehavior_moves_offences_to_committed() {
 		// report 1st offence
 
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.clone().into()).into(),
+			RawOrigin::Signed(alice.into()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
@@ -836,7 +842,7 @@ fn can_report_offence_if_already_committed_offender() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![ALICE, bob.into(), charlie.clone().into(), david.into(), edward.into()],
+			vec![ALICE, bob, charlie.clone(), david, edward],
 			None,
 			Network::Ethereum,
 		));
@@ -845,19 +851,19 @@ fn can_report_offence_if_already_committed_offender() {
 		assert_ok!(TesseractSigStorage::report_misbehavior(
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
-			charlie.clone().into(),
+			charlie.clone(),
 		));
 		// report 2nd offence
 		assert_ok!(TesseractSigStorage::report_misbehavior(
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
-			charlie.clone().into(),
+			charlie.clone(),
 		));
 		// report 3rd offence
 		assert_ok!(TesseractSigStorage::report_misbehavior(
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
-			charlie.clone().into(),
+			charlie.clone(),
 		));
 		// 3 reported offences
 		assert_eq!(3, TesseractSigStorage::commited_offences(charlie.clone()).unwrap().0);
@@ -866,7 +872,7 @@ fn can_report_offence_if_already_committed_offender() {
 		assert_ok!(TesseractSigStorage::report_misbehavior(
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
-			charlie.clone().into(),
+			charlie.clone(),
 		));
 		// 4 reported offences in committed offences
 		assert_eq!(4, TesseractSigStorage::commited_offences(charlie.clone()).unwrap().0);

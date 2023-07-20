@@ -69,7 +69,7 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData},
 		crypto::Signature,
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks, Shard},
+		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
 		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
 	};
 
@@ -101,6 +101,10 @@ pub mod pallet {
 		fn force_set_shard_offline() -> Weight {
 			Weight::from_parts(0, 1)
 		}
+	}
+
+	fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
+		account_id.encode()[..].try_into().unwrap()
 	}
 
 	#[pallet::pallet]
@@ -137,7 +141,7 @@ pub mod pallet {
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
-		type TaskAssigner: ReassignShardTasks<u64>;
+		type TaskAssigner: HandleShardTasks<u64, Network, u64>;
 		/// Maximum number of task execution timeouts before shard is put offline
 		#[pallet::constant]
 		type MaxTimeouts: Get<u8>;
@@ -145,13 +149,19 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_shards_index)]
-	/// Counter for getting (N) next available shard(s)s
-	pub type GetShardsIndex<T: Config> = StorageValue<_, u64, ValueQuery>;
+	/// Counter for getting (N) next available shard(s) after index
+	pub type GetShardsIndex<T: Config> = StorageMap<_, Blake2_128Concat, Network, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+	/// Network for which shards can be assigned tasks
+	#[pallet::storage]
+	#[pallet::getter(fn shard_network)]
+	pub type ShardNetwork<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, u64, (), OptionQuery>;
 
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
@@ -221,9 +231,11 @@ pub mod pallet {
 		/// .1 - group key bytes
 		NewTssGroupKey(u64, [u8; 33]),
 
-		/// Shard has ben registered with new Id
+		/// Active has been registered with new Id
+		/// Eligible for tasks from the Network
 		/// .0 ShardId
-		ShardRegistered(u64),
+		/// .1 Network
+		ShardRegistered(u64, Network),
 
 		/// Task execution timed out for task
 		TaskExecutionTimeout(KeyId),
@@ -244,10 +256,16 @@ pub mod pallet {
 		/// .1 Report count
 		OffenceReported(TimeId, u8),
 
-		/// Chronicle has ben registered
+		/// Chronicle has been registered
 		/// .0 TimeId
 		/// .1 Validator's AccountId
 		ChronicleRegistered(TimeId, T::AccountId),
+
+		/// Task claimed for shard
+		/// .0 Network
+		/// .1 ShardId
+		/// .2 TaskId
+		TaskClaimedForShard(Network, u64, u64),
 	}
 
 	#[pallet::error]
@@ -325,7 +343,7 @@ pub mod pallet {
 		NoLocalAcctForSignedTx,
 
 		/// Shard status is offline now
-		ShardAlreadyOffline,
+		ShardOffline,
 
 		/// Caller is not shard's collector so cannot call this function
 		OnlyCallableByCollector,
@@ -406,19 +424,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			let mut is_recurring = false;
-			let schedule_data = T::TaskScheduleHelper::get_schedule_via_key(key_id)?;
-			let payable_schedule_data =
-				T::TaskScheduleHelper::get_payable_schedule_via_key(key_id)?;
-
-			let shard_id = if let Some(schedule) = schedule_data {
-				is_recurring = schedule.cycle > 1;
-				schedule.shard_id
-			} else if let Some(payable_schedule) = payable_schedule_data {
-				payable_schedule.shard_id
-			} else {
-				return Err(Error::<T>::TaskNotScheduled.into());
-			};
+			let is_recurring =
+				if let Some(schedule) = T::TaskScheduleHelper::get_schedule_via_key(key_id)? {
+					schedule.cycle > 1
+				} else {
+					false
+				};
+			let shard_id: u64 = T::TaskScheduleHelper::get_assigned_shard_for_key(key_id)?;
 
 			let shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
@@ -511,9 +523,10 @@ pub mod pallet {
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
+			<ShardNetwork<T>>::insert(net, shard_id, ());
 			<TssShards<T>>::insert(shard_id, shard);
 			<ShardId<T>>::put(next_shard_id);
-			Self::deposit_event(Event::ShardRegistered(shard_id));
+			Self::deposit_event(Event::ShardRegistered(shard_id, net));
 			Ok(())
 		}
 
@@ -570,9 +583,6 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
-				account_id.encode()[..].try_into().unwrap()
-			}
 			let (reporter, offender) = (
 				account_to_time_id::<T::AccountId>(caller),
 				account_to_time_id::<T::AccountId>(offender),
@@ -635,15 +645,32 @@ pub mod pallet {
 
 			if on_chain_shard_state.is_online() {
 				on_chain_shard_state.status = ShardStatus::Offline;
-				<TssShards<T>>::mutate(shard_id, |shard_state| {
-					*shard_state = Some(on_chain_shard_state)
-				});
-				T::TaskAssigner::reassign_shard_tasks(shard_id);
+				// Handle all of this shard's tasks
+				T::TaskAssigner::handle_shard_tasks(shard_id, on_chain_shard_state.network);
+				<TssShards<T>>::insert(shard_id, on_chain_shard_state);
 				Self::deposit_event(Event::ShardOffline(shard_id));
 				Ok(())
 			} else {
-				Err(Error::<T>::ShardAlreadyOffline.into())
+				Err(Error::<T>::ShardOffline.into())
 			}
+		}
+
+		/// Extrinsic for shard collector to claim task for shard
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::force_set_shard_offline())] // TODO: add benchmark
+		pub fn claim_task(origin: OriginFor<T>, shard_id: u64, task_id: u64) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			ensure!(shard_state.is_online(), Error::<T>::ShardOffline);
+			ensure!(
+				shard_state.shard.is_collector(&account_to_time_id::<T::AccountId>(caller)),
+				Error::<T>::OnlyCallableByCollector
+			);
+			T::TaskAssigner::claim_task_for_shard(shard_id, shard_state.network, task_id)?;
+
+			Self::deposit_event(Event::TaskClaimedForShard(shard_state.network, shard_id, task_id));
+			Ok(())
 		}
 	}
 
@@ -663,49 +690,44 @@ pub mod pallet {
 				false
 			}
 		}
-		fn is_eligible_shard_for_network(id: u64, net: Network) -> bool {
-			if let Some(shard_state) = <TssShards<T>>::get(id) {
-				shard_state.is_online() && shard_state.net == net
-			} else {
-				false
-			}
-		}
-		fn get_eligible_shards(id: u64, n: usize) -> Vec<u64> {
-			let net = if let Some(ShardState { net, .. }) = <TssShards<T>>::get(id) {
-				net
-			} else {
-				return Vec::new();
-			};
-			let mut n_shards = Vec::new();
-			let mut shard_id = <GetShardsIndex<T>>::take();
-			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
-			while n_shards.len() < n {
-				if Self::is_eligible_shard_for_network(shard_id, net) {
-					n_shards.push(shard_id);
+		fn next_eligible_shard(network: Network) -> Option<u64> {
+			let shard_index = GetShardsIndex::<T>::get(network);
+			// TODO: use iter rev if shard_index > max_shard_id / 2 (optimization)
+			let shards_for_network: Vec<_> = <ShardNetwork<T>>::iter_prefix(network).collect();
+			let num_shards_for_net = shards_for_network.len();
+			for (i, (shard_id, _)) in shards_for_network.into_iter().enumerate() {
+				if Self::is_eligible_shard(shard_id) {
+					if shard_id < shard_index && num_shards_for_net > (i + 1) {
+						// more shards left and shard_id < shard_index so continue
+						continue;
+					} else {
+						let new_shard_index = if (i + 1) == num_shards_for_net {
+							0
+						} else {
+							shard_index.saturating_plus_one()
+						};
+						if new_shard_index != shard_index {
+							GetShardsIndex::<T>::insert(network, new_shard_index);
+						} // else shard index does not change
+						return Some(shard_id);
+					}
 				}
-				shard_id = if shard_id >= max_shard_id {
-					// saturating wrap at max shard_id registered
-					0
-				} else {
-					shard_id + 1
-				};
 			}
-			<GetShardsIndex<T>>::put(shard_id);
-			n_shards
+			None
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn active_shards() -> Vec<(u64, Shard)> {
+		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
-				.filter(|(_, s)| s.is_online())
-				.map(|(id, state)| (id, state.shard))
+				.filter(|(_, s)| s.is_online() && s.network == network)
+				.map(|(id, s)| (id, s.shard))
 				.collect()
 		}
-		pub fn inactive_shards() -> Vec<(u64, Shard)> {
+		pub fn inactive_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
-				.filter(|(_, s)| !s.is_online())
-				.map(|(id, state)| (id, state.shard))
+				.filter(|(_, s)| !s.is_online() && s.network == network)
+				.map(|(id, s)| (id, s.shard))
 				.collect()
 		}
 		// Getter method for runtime api storage access

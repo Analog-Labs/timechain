@@ -125,6 +125,7 @@ where
 	}
 
 	/// Creates and send transaction for given contract call
+	#[warn(dead_code)]
 	async fn create_tx(
 		&self,
 		wallet: &Wallet,
@@ -166,7 +167,7 @@ where
 		&self,
 		block_id: <B as Block>::Hash,
 		map: &mut HashMap<u64, ()>,
-		wallet: &Wallet,
+		_wallet: &Wallet,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Get the payable task schedule for the current block
 		let tasks_schedule = self.runtime.runtime_api().get_payable_task_schedule(block_id)?;
@@ -176,7 +177,7 @@ where
 					if let Ok(Ok(shard_id)) =
 						self.runtime.runtime_api().get_task_shard(block_id, *schedule_id)
 					{
-						if !map.contains_key(&schedule_id) {
+						if !map.contains_key(schedule_id) {
 							//Get the metadata from scheduled payable task by key
 							let metadata_result = self
 								.runtime
@@ -191,9 +192,9 @@ where
 													// If the task function is an Ethereum contract
 													// call, call it and send for signing
 													Function::EthereumTxWithoutAbi {
-														address,
-														function_signature,
-														input,
+														_address,
+														_function_signature,
+														_input,
 														output: _,
 													} => {
 														if self.check_if_collector(shard_id) {

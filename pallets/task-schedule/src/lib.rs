@@ -535,20 +535,21 @@ pub mod pallet {
 
 	impl<T: Config> HandleShardTasks<u64, Network, KeyId> for Pallet<T> {
 		fn handle_shard_tasks(shard_id: u64, network: Network) {
-			// move shard tasks to unassigned task queue
-			ShardTasks::<T>::drain_prefix(shard_id)
-				.filter(|(schedule_id, _)| {
-					if let Some(schedule) = PayableScheduleStorage::<T>::get(schedule_id) {
-						return schedule.status != ScheduleStatus::Completed;
-					} else if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
-						return schedule.status != ScheduleStatus::Completed;
-					}
-					false
-				})
-				.for_each(|(task, _)| {
-					TaskAssignedShard::<T>::remove(task);
-					UnassignedTasks::<T>::insert(network, task, ())
-				});
+			// move incomplete shard tasks to unassigned task queue
+			let move_incomplete_tasks = |status, schedule_id| {
+				if status != ScheduleStatus::Completed {
+					ShardTasks::<T>::remove(shard_id, schedule_id);
+					TaskAssignedShard::<T>::remove(schedule_id);
+					UnassignedTasks::<T>::insert(network, schedule_id, ());
+				}
+			};
+			ShardTasks::<T>::iter_prefix(shard_id).for_each(|(schedule_id, _)| {
+				if let Some(schedule) = PayableScheduleStorage::<T>::get(schedule_id) {
+					move_incomplete_tasks(schedule.status, schedule_id);
+				} else if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
+					move_incomplete_tasks(schedule.status, schedule_id);
+				}
+			});
 		}
 
 		fn claim_task_for_shard(

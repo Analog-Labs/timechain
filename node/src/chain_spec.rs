@@ -254,12 +254,20 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob"),
-				authority_keys_from_seed("Charlie"), authority_keys_from_seed("Dave"),
-				authority_keys_from_seed("Eve"), authority_keys_from_seed("Ferdie"),
-				authority_keys_from_seed("Henry"), authority_keys_from_seed("Ivan"),
-				authority_keys_from_seed("Jack"), authority_keys_from_seed("Lisa"),
-				authority_keys_from_seed("Mona"), authority_keys_from_seed("Nash")],
+				vec![
+					authority_keys_from_seed("Alice"),
+					authority_keys_from_seed("Bob"),
+					authority_keys_from_seed("Charlie"),
+					authority_keys_from_seed("Dave"),
+					authority_keys_from_seed("Eve"),
+					authority_keys_from_seed("Ferdie"),
+					authority_keys_from_seed("Henry"),
+					authority_keys_from_seed("Ivan"),
+					authority_keys_from_seed("Jack"),
+					authority_keys_from_seed("Lisa"),
+					authority_keys_from_seed("Mona"),
+					authority_keys_from_seed("Nash"),
+				],
 				// Pre-funded accounts
 				vec![
 					// TODO remove the 1_000_000_000 after tokenomics issue fixed

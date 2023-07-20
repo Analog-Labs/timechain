@@ -1520,17 +1520,20 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
-		fn get_active_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::active_shards()
+		fn get_active_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
+			TesseractSigStorage::active_shards(network)
 		}
 
-		fn get_inactive_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::inactive_shards()
+		fn get_inactive_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
+			TesseractSigStorage::inactive_shards(network)
 		}
-
 
 		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
-			TaskSchedule::shard_tasks(shard_id)
+			task_schedule::ShardTasks::<Runtime>::iter_prefix(shard_id).map(|(i, _)| i).collect()
+		}
+
+		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
+			TaskSchedule::get_task_shard(task_id)
 		}
 
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {

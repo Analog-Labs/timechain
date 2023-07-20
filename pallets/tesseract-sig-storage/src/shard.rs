@@ -5,7 +5,7 @@ use frame_support::traits::Get;
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
 use time_primitives::{
-	sharding::{Network, ReassignShardTasks, Shard},
+	sharding::{HandleShardTasks, Network, Shard},
 	TimeId,
 };
 
@@ -25,22 +25,22 @@ pub struct ShardState {
 	pub committed_offenses_count: u8,
 	/// Status for shard
 	pub status: ShardStatus,
-	/// Network from which tasks assigned to this shard
-	pub net: Network,
+	/// Shard network
+	pub network: Network,
 }
 
 impl ShardState {
 	pub fn new<T: Config>(
 		members: Vec<TimeId>,
 		collector_index: Option<u8>,
-		net: Network,
+		network: Network,
 	) -> Result<ShardState, DispatchError> {
 		Ok(ShardState {
 			shard: new_shard::<T>(members, collector_index)?,
 			task_timeout_count: 0u8,
 			committed_offenses_count: 0u8,
 			status: ShardStatus::Offline,
-			net,
+			network,
 		})
 	}
 	pub fn is_online(&self) -> bool {
@@ -52,8 +52,8 @@ impl ShardState {
 		if timeouts_above_max && self.is_online() {
 			// set shard to offline if cannot reach consensus and status is not offline
 			self.status = ShardStatus::Offline;
-			// reassign all of this shard's tasks to other shards
-			T::TaskAssigner::reassign_shard_tasks(id);
+			// Handle all of this shard's tasks
+			T::TaskAssigner::handle_shard_tasks(id, self.network);
 			Pallet::<T>::deposit_event(Event::ShardOffline(id));
 		}
 		<TssShards<T>>::insert(id, self);
@@ -65,8 +65,8 @@ impl ShardState {
 		if shard_cannot_reach_consensus && self.is_online() {
 			// set shard to offline if cannot reach consensus and status is not offline
 			self.status = ShardStatus::Offline;
-			// reassign all of this shard's tasks to other shards
-			T::TaskAssigner::reassign_shard_tasks(id);
+			// Handle all of this shard's tasks
+			T::TaskAssigner::handle_shard_tasks(id, self.network);
 			Pallet::<T>::deposit_event(Event::ShardOffline(id));
 		}
 		<TssShards<T>>::insert(id, self);

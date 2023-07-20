@@ -536,10 +536,19 @@ pub mod pallet {
 	impl<T: Config> HandleShardTasks<u64, Network, KeyId> for Pallet<T> {
 		fn handle_shard_tasks(shard_id: u64, network: Network) {
 			// move shard tasks to unassigned task queue
-			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task, _)| {
-				TaskAssignedShard::<T>::remove(task);
-				UnassignedTasks::<T>::insert(network, task, ())
-			});
+			ShardTasks::<T>::drain_prefix(shard_id)
+				.filter(|(schedule_id, _)| {
+					if let Some(schedule) = PayableScheduleStorage::<T>::get(schedule_id) {
+						return schedule.status != ScheduleStatus::Completed;
+					} else if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
+						return schedule.status != ScheduleStatus::Completed;
+					}
+					false
+				})
+				.for_each(|(task, _)| {
+					TaskAssignedShard::<T>::remove(task);
+					UnassignedTasks::<T>::insert(network, task, ())
+				});
 		}
 
 		fn claim_task_for_shard(

@@ -24,8 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{EthTxValidation, OCWReportData, OCWSigData},
-	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, TIME_KEY_TYPE,
+	abstraction::{EthTxValidation, OCWReportData, OCWSigData, OCWTSSGroupKeyData},
+	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -166,6 +166,7 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
+		log::info!("on finality hit");
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for (shard_id, shard) in shards {
@@ -208,9 +209,26 @@ where
 					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
 				},
 				TssAction::PublicKey(tss_public_key) => {
-					debug!(target: TW_LOG, "Updating tss public key");
+					let data_bytes = tss_public_key.to_bytes();
+					log::info!("New group key provided: {:?} for id: {}", data_bytes, shard_id);
 					self.timeouts.remove(&(shard_id, None));
-					crate::inherents::update_shared_group_key(shard_id, tss_public_key.to_bytes());
+					//save in offchain storage
+					if tss_state.is_collector {
+						log::info!("this is collector");
+						let signature = self
+							.kv
+							.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
+							.unwrap()
+							.unwrap();
+
+						let ocw_gk_data: OCWTSSGroupKeyData =
+							OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
+
+						ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
+						log::info!("appended in vec");
+					}
+
+					crate::inherents::update_shared_group_key(shard_id, data_bytes);
 				},
 				TssAction::Tss(tss_signature, hash) => {
 					debug!(target: TW_LOG, "Storing tss signature");
@@ -303,8 +321,10 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
+		log::info!("Time worker process running");
 		let mut gossips = self.gossip_engine.messages_for(topic::<B>());
 		loop {
+			 log::info!("Time worker loop");
 			let timeout = futures::future::poll_fn(|cx| {
 				if let Some(timeout) = self.timeout.as_mut() {
 					futures::pin_mut!(timeout);
@@ -322,6 +342,7 @@ where
 					return;
 				},
 				notification = self.finality_notifications.next().fuse() => {
+					log::info!("Time worker notification received");
 					let Some(notification) = notification else {
 						debug!(
 							target: TW_LOG,

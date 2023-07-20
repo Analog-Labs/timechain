@@ -66,11 +66,11 @@ pub mod pallet {
 	};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
-		abstraction::{OCWReportData, OCWSigData},
+		abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
 		crypto::Signature,
 		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
-		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
+		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -114,6 +114,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
+			Self::ocw_get_tss_data();
 			Self::ocw_get_sig_data();
 			Self::ocw_get_report_data();
 		}
@@ -356,25 +357,25 @@ pub mod pallet {
 		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			if let Ok(inherent_data) = data.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER) {
-				return match inherent_data {
-					None => None,
-					Some(inherent_data) if inherent_data.group_key != [0u8; 33] => {
-						// We don't need to set the inherent data every block, it is only needed
-						// once.
-						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
-						if pubk.is_none() {
-							Some(Call::submit_tss_group_key {
-								set_id: inherent_data.set_id,
-								group_key: inherent_data.group_key,
-							})
-						} else {
-							None
-						}
-					},
-					_ => None,
-				};
-			}
+			// if let Ok(inherent_data) = data.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER) {
+			// 	return match inherent_data {
+			// 		None => None,
+			// 		Some(inherent_data) if inherent_data.group_key != [0u8; 33] => {
+			// 			// We don't need to set the inherent data every block, it is only needed
+			// 			// once.
+			// 			let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
+			// 			if pubk.is_none() {
+			// 				Some(Call::submit_tss_group_key {
+			// 					set_id: inherent_data.set_id,
+			// 					group_key: inherent_data.group_key,
+			// 				})
+			// 			} else {
+			// 				None
+			// 			}
+			// 		},
+			// 		_ => None,
+			// 	};
+			// }
 			None
 		}
 
@@ -382,25 +383,26 @@ pub mod pallet {
 			call: &Self::Call,
 			data: &InherentData,
 		) -> result::Result<(), Self::Error> {
-			let (set_id, group_key) = match call {
-				Call::submit_tss_group_key { set_id, group_key } => (set_id, group_key),
-				_ => return Err(InherentError::WrongInherentCall),
-			};
+			// let (set_id, group_key) = match call {
+			// 	Call::submit_tss_group_key { set_id, group_key, .. } => (set_id, group_key),
+			// 	_ => return Err(InherentError::WrongInherentCall),
+			// };
 
-			let expected_data = data
-				.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER)
-				.expect("Inherent data is not correctly encoded");
+			// let expected_data = data
+			// 	.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER)
+			// 	.expect("Inherent data is not correctly encoded");
 
-			let Some(expected_data) = expected_data else {
-				return Ok(())
-			};
+			// let Some(expected_data) = expected_data else {
+			// 	return Ok(())
+			// };
 
-			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
-				return Err(InherentError::InvalidGroupKey(TimeTssKey {
-					group_key: *group_key,
-					set_id: *set_id,
-				}));
-			}
+			// if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
+			// 	return Err(InherentError::InvalidGroupKey(TimeTssKey {
+			// 		group_key: *group_key,
+			// 		set_id: *set_id,
+			// 		proof: [u8; 32]
+			// 	}));
+			// }
 
 			Ok(())
 		}
@@ -475,8 +477,23 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			set_id: u64,
 			group_key: [u8; 33],
+			proof: Signature
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			ensure_signed(origin)?;
+
+			let shard_state =
+				<TssShards<T>>::get(set_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let collector = shard_state.shard.collector();
+
+			let raw_public_key: &[u8; 32] = collector.as_ref();
+			let collector_public_id =
+				sp_application_crypto::sr25519::Public::from_raw(*raw_public_key);
+
+			ensure!(
+				proof.verify(proof.as_ref(), &collector_public_id.into()),
+				Error::<T>::InvalidValidationSignature
+			);
+
 			<TssGroupKey<T>>::insert(set_id, group_key);
 			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
 				let details = shard_state.as_mut().ok_or(Error::<T>::ShardIsNotRegistered)?;
@@ -735,6 +752,55 @@ pub mod pallet {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
 		}
 
+		fn ocw_get_tss_data() {
+			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								let Some(tss_req_vec) = data.pop_front() else{
+									break;
+								};
+
+								
+
+								let Ok(tss_req) = OCWTSSGroupKeyData::decode(&mut tss_req_vec.as_slice()) else {
+									continue;
+								};
+
+								log::info!("OCW TSS data for storing {:?}", tss_req);
+
+								if let Err(err) = Self::ocw_submit_tss_group_key(tss_req.clone()) {
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
+								};
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("TSS OCW tss is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in TSS OCW Signature",);
+				},
+				Ok(_) => {},
+			}
+		}
+
 		fn ocw_get_sig_data() {
 			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
 
@@ -859,6 +925,27 @@ pub mod pallet {
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
+		}
+
+		fn ocw_submit_tss_group_key(data: OCWTSSGroupKeyData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::submit_tss_group_key {
+					set_id: data.set_id,
+					group_key: data.group_key,
+					proof: data.proof.clone(),
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_tss_tx: tx sent: {:?}", acc.id);
 					return Err(Error::OffchainSignedTxFailed);
 				} else {
 					return Ok(());

@@ -281,6 +281,20 @@ impl OCWReportData {
 	}
 }
 
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct OCWTSSGroupKeyData{
+	pub set_id: u64,
+	pub group_key: [u8; 33],
+	pub proof: Signature,
+}
+
+impl OCWTSSGroupKeyData {
+	pub fn new(set_id: u64, group_key: [u8; 33], proof: Signature) -> Self {
+		Self { set_id, group_key, proof }
+	}
+}
+
 pub trait TaskMetadataInterface {
 	fn task_metadata_exists(key: KeyId) -> bool;
 }

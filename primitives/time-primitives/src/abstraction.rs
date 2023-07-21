@@ -4,7 +4,9 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
+use crate::{
+	crypto::Signature, sharding::Network, KeyId, ScheduleCycle, ShardId, SignatureData, TimeId,
+};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -200,7 +202,7 @@ impl Status {
 #[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 pub struct TimeTssKey {
 	pub group_key: [u8; 33],
-	pub set_id: u64,
+	pub shard_id: ShardId,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]

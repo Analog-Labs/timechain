@@ -287,7 +287,6 @@ where
 	}
 
 	pub fn add_item_in_offchain_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
-		log::info!("adding data in offchain storage hit");
 		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
 			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
 

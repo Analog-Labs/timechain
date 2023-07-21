@@ -290,7 +290,6 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 						ANLOG * 1000000 * 1_000_000_000,
-						        
 					),
 					(
 						// TODO remove the 1_000_000_000 after tokenomics issue fixed

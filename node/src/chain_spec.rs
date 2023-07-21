@@ -261,12 +261,14 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					authority_keys_from_seed("Dave"),
 					authority_keys_from_seed("Eve"),
 					authority_keys_from_seed("Ferdie"),
-					authority_keys_from_seed("Henry"),
-					authority_keys_from_seed("Ivan"),
-					authority_keys_from_seed("Jack"),
-					authority_keys_from_seed("Lisa"),
-					authority_keys_from_seed("Mona"),
-					authority_keys_from_seed("Nash"),
+					// Just enable six accounts for local testing
+					// Reserve following accounts for quickly create shard
+					// authority_keys_from_seed("Henry"),
+					// authority_keys_from_seed("Ivan"),
+					// authority_keys_from_seed("Jack"),
+					// authority_keys_from_seed("Lisa"),
+					// authority_keys_from_seed("Mona"),
+					// authority_keys_from_seed("Nash"),
 				],
 				// Pre-funded accounts
 				vec![

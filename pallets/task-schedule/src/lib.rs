@@ -132,7 +132,8 @@ pub mod pallet {
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			let recurring_time_out_length = T::RecurringTimeoutLength::get();
 			for (schedule_id, schedule) in <ScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&schedule_id)
+				if schedule.status.can_timeout()
+					&& !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= recurring_time_out_length
 				{
@@ -144,7 +145,8 @@ pub mod pallet {
 			}
 			let payable_time_out_length = T::PayableTimeoutLength::get();
 			for (schedule_id, schedule) in <PayableScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&schedule_id)
+				if schedule.status.can_timeout()
+					&& !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= payable_time_out_length
 				{

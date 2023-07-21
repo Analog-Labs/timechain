@@ -606,8 +606,12 @@ pub mod pallet {
 
 		fn update_completed_task(key: u64) {
 			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
-				schedule.executable_since = frame_system::Pallet::<T>::block_number();
-				schedule.status = ScheduleStatus::Updated;
+				if schedule.is_repetitive_task() {
+					schedule.executable_since = frame_system::Pallet::<T>::block_number();
+					schedule.status = ScheduleStatus::Updated;
+				} else {
+					schedule.status = ScheduleStatus::Completed;
+				}
 				ScheduleStorage::<T>::insert(key, schedule);
 			} else if let Some(mut schedule) = PayableScheduleStorage::<T>::get(key) {
 				schedule.status = ScheduleStatus::Completed;

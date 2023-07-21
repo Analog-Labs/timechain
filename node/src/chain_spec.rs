@@ -241,13 +241,12 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
-
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Local Testnet",
+		"Development",
 		// ID
-		"local_testnet",
-		ChainType::Local,
+		"dev",
+		ChainType::Development,
 		move || {
 			testnet_genesis(
 				wasm_binary,
@@ -272,45 +271,50 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				],
 				// Pre-funded accounts
 				vec![
-					// TODO remove the 1_000_000_000 after tokenomics issue fixed
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						ANLOG * 2000000 * 1_000_000_000,
-					),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash"), ANLOG * 1000000),
-					// TODO remove the 1_000_000_000 after tokenomics issue fixed
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 10000000),
 					(
-						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-						ANLOG * 1000000 * 1_000_000_000,
+						hex!["88fd77d706e168d78713a6a927c1ddfae367b081fb2829b119bbcc6db9af401d"]
+							.into(),
+						SEED_ROUND_SUPPLY,
 					),
 					(
-						// TODO remove the 1_000_000_000 after tokenomics issue fixed
-						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-						ANLOG * 1000000 * 1_000_000_000,
+						hex!["04063fc1cbba917ced6c45091bf631de6a4db584dd55c1d67431661a5d57a575"]
+							.into(),
+						INITIAL_PRIVATE_SALE,
 					),
 					(
-						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-						ANLOG * 1000000,
+						hex!["cc5245e57dcf6c8f051e012beceaa1683578ae873223d3ef4f8cbd85a62e1536"]
+							.into(),
+						PRIVATE_SALE,
 					),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash//stash"), ANLOG * 1000000),
+					(
+						hex!["2af7c08133177cc462171389578174b89758ca09c5f93235409594f15f65ac63"]
+							.into(),
+						PUBLIC_SALE,
+					),
+					(
+						hex!["f6855b0ec40cc91c49025d75aa65a1965861cde56451da99170bd4dae13dab35"]
+							.into(),
+						TEAM_SUPPLY,
+					),
+					(
+						hex!["e0dc12faf7e650b910638e934b4ef9aea1410707312bd8d80ec91123acb02747"]
+							.into(),
+						TREASURY_SUPPLY,
+					),
+					(
+						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
+							.into(),
+						COMMUNITY_SUPPLY,
+					),
+					(
+						hex!["088f0e5d722a420339685a4e6ab358a4df4e39206bfad00e30617abf1633d37a"]
+							.into(),
+						VALIDATOR_SUPPLY,
+					),
 				],
 				true,
 			)
@@ -321,8 +325,8 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		None,
 		// Protocol ID
 		None,
-		// Properties
 		None,
+		// Properties
 		Some(properties),
 		// Extensions
 		None,

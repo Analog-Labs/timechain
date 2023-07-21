@@ -61,6 +61,7 @@ pub mod pallet {
 			OCWSkdData, ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput,
 			ScheduleStatus, TaskSchedule,
 		},
+		scheduling::GetNetworkTimeout,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
@@ -130,11 +131,10 @@ pub mod pallet {
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let current_block = frame_system::Pallet::<T>::block_number();
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
-			let recurring_time_out_length = T::RecurringTimeoutLength::get();
 			for (schedule_id, schedule) in <ScheduleStorage<T>>::iter() {
 				if !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
-						>= recurring_time_out_length
+						>= T::RecurringTimeoutLength::get_network_timeout(schedule.network)
 				{
 					timed_out_tasks.push(schedule_id);
 					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
@@ -142,11 +142,10 @@ pub mod pallet {
 					}
 				}
 			}
-			let payable_time_out_length = T::PayableTimeoutLength::get();
 			for (schedule_id, schedule) in <PayableScheduleStorage<T>>::iter() {
 				if !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
-						>= payable_time_out_length
+						>= T::PayableTimeoutLength::get_network_timeout(schedule.network)
 				{
 					timed_out_tasks.push(schedule_id);
 					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
@@ -192,12 +191,8 @@ pub mod pallet {
 		type IndexerReward: Get<BalanceOf<Self>>;
 		type ShardEligibility: EligibleShard<u64, Network>;
 		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
-		/// Minimum length in blocks before recurring task is determined to be timed out
-		#[pallet::constant]
-		type RecurringTimeoutLength: Get<Self::BlockNumber>;
-		/// Minimum length in blocks before payable task is determined to be timed out
-		#[pallet::constant]
-		type PayableTimeoutLength: Get<Self::BlockNumber>;
+		type RecurringTimeoutLength: GetNetworkTimeout<Network, Self::BlockNumber>;
+		type PayableTimeoutLength: GetNetworkTimeout<Network, Self::BlockNumber>;
 		type TaskMetadataHelper: TaskMetadataInterface;
 	}
 

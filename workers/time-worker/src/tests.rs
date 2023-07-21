@@ -29,7 +29,9 @@ use substrate_test_runtime_client::{
 	runtime::{AccountId, BlockNumber},
 	Ed25519Keyring, Keystore, LongestChain,
 };
-use time_primitives::{sharding::Shard, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType, abstraction::TimeTssKey};
+use time_primitives::{
+	abstraction::TimeTssKey, sharding::Shard, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
+};
 
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
 const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);

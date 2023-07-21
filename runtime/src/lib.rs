@@ -57,6 +57,7 @@ use task_metadata::KeyId;
 use time_primitives::abstraction::{
 	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
 };
+use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1186,8 +1187,26 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
-	pub RecurringTimeoutLength: BlockNumber = 2;
-	pub PayableTimeoutLength: BlockNumber = 1000;
+}
+
+pub struct RecurringTimeoutLength;
+impl GetNetworkTimeout<Network, BlockNumber> for RecurringTimeoutLength {
+	fn get_network_timeout(network: Network) -> BlockNumber {
+		match network {
+			Network::Ethereum => 200,
+			Network::Astar => 100,
+		}
+	}
+}
+
+pub struct PayableTimeoutLength;
+impl GetNetworkTimeout<Network, BlockNumber> for PayableTimeoutLength {
+	fn get_network_timeout(network: Network) -> BlockNumber {
+		match network {
+			Network::Ethereum => 2_000,
+			Network::Astar => 1_000,
+		}
+	}
 }
 
 impl task_schedule::Config for Runtime {
@@ -1238,7 +1257,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
+		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		PalletProxy: pallet_proxy,

@@ -10,7 +10,6 @@ sp-api = { default-features = false, git = "https://github.com/paritytech/substr
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-sp-inherents = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 thiserror = { version = "1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 arrayref = "0.3.7"

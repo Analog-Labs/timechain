@@ -281,9 +281,8 @@ impl OCWReportData {
 	}
 }
 
-
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct OCWTSSGroupKeyData{
+pub struct OCWTSSGroupKeyData {
 	pub set_id: u64,
 	pub group_key: [u8; 33],
 	pub proof: Signature,

@@ -213,7 +213,6 @@ where
 					self.timeouts.remove(&(shard_id, None));
 					//save in offchain storage
 					if tss_state.is_collector {
-						log::info!("collector check hti");
 						let signature = self
 							.kv
 							.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
@@ -222,7 +221,6 @@ where
 
 						let ocw_gk_data: OCWTSSGroupKeyData =
 							OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
-						log::info!("adding data to encoded vec");
 						ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
 					}
 				},
@@ -306,7 +304,7 @@ where
 			let encoded_data = Encode::encode(&ocw_vec);
 			let is_stored = ocw_storage.compare_and_set(
 				STORAGE_PREFIX,
-				OCW_SIG_KEY,
+				ocw_key,
 				old_value.as_deref(),
 				&encoded_data,
 			);
@@ -318,11 +316,6 @@ where
 		} else {
 			log::error!("cant get offchain storage");
 		};
-		//for testing
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let val = ocw_storage.get(STORAGE_PREFIX, ocw_key);
-			log::info!("time worker ocw storage value {:?} for key {:?}", val, ocw_key);
-		}
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested

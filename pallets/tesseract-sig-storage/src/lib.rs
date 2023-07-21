@@ -426,7 +426,7 @@ pub mod pallet {
 				sp_application_crypto::sr25519::Public::from_raw(*raw_public_key);
 
 			ensure!(
-				proof.verify(proof.as_ref(), &collector_public_id.into()),
+				proof.verify(group_key.as_ref(), &collector_public_id.into()),
 				Error::<T>::InvalidValidationSignature
 			);
 
@@ -698,9 +698,8 @@ pub mod pallet {
 				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
 					match res {
 						Ok(Some(mut data)) => {
-							log::info!("\n\n data in tss ocw worker");
 							// iteration batch of 5
-							for _ in 0..5 {
+							for _ in 0..2 {
 								let Some(tss_req_vec) = data.pop_front() else{
 									break;
 								};

@@ -4,6 +4,7 @@
 pub mod abstraction;
 pub mod inherents;
 pub mod rpc;
+pub mod scheduling;
 pub mod sharding;
 pub mod slashing;
 

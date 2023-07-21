@@ -128,11 +128,7 @@ pub enum ScheduleStatus {
 
 impl ScheduleStatus {
 	pub fn can_timeout(&self) -> bool {
-		match self {
-			ScheduleStatus::Initiated => true,
-			ScheduleStatus::Recurring => true,
-			_ => false,
-		}
+		matches!(self, ScheduleStatus::Initiated | ScheduleStatus::Recurring)
 	}
 }
 

@@ -166,7 +166,6 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
-		log::info!("on finality hit");
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for (shard_id, shard) in shards {
@@ -288,6 +287,7 @@ where
 	}
 
 	pub fn add_item_in_offchain_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
+		log::info!("adding data in offchain storage hit");
 		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
 			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
 
@@ -302,24 +302,32 @@ where
 
 			ocw_vec.push_back(data);
 			let encoded_data = Encode::encode(&ocw_vec);
-			ocw_storage.compare_and_set(
+			let is_stored = ocw_storage.compare_and_set(
 				STORAGE_PREFIX,
 				ocw_key,
 				old_value.as_deref(),
 				&encoded_data,
 			);
+			if !is_stored {
+				log::error!("failed to store data in ocw");
+			} else {
+				log::info!("stored data in ocw time");
+			}
 		} else {
 			log::error!("cant get offchain storage");
 		};
+		//for testing
+		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+			let val = ocw_storage.get(STORAGE_PREFIX, ocw_key);
+			log::info!("time worker ocw storage value {:?} for key {:?}", val, ocw_key);
+		}
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
-		log::info!("Time worker process running");
 		let mut gossips = self.gossip_engine.messages_for(topic::<B>());
 		loop {
-			 log::info!("Time worker loop");
 			let timeout = futures::future::poll_fn(|cx| {
 				if let Some(timeout) = self.timeout.as_mut() {
 					futures::pin_mut!(timeout);

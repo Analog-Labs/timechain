@@ -690,6 +690,7 @@ pub mod pallet {
 		}
 
 		fn ocw_get_tss_data() {
+			log::info!("tss ocw hit");
 			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
 
 			const EMPTY_DATA: () = ();
@@ -698,6 +699,7 @@ pub mod pallet {
 				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
 					match res {
 						Ok(Some(mut data)) => {
+							log::info!("\n\n data in tss ocw worker");
 							// iteration batch of 5
 							for _ in 0..2 {
 								let Some(tss_req_vec) = data.pop_front() else{

@@ -316,11 +316,6 @@ where
 		} else {
 			log::error!("cant get offchain storage");
 		};
-		//for testing
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let val = ocw_storage.get(STORAGE_PREFIX, ocw_key);
-			log::info!("time worker ocw storage value {:?} for key {:?}", val, ocw_key);
-		}
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested

@@ -699,7 +699,6 @@ pub mod pallet {
 				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
 					match res {
 						Ok(Some(mut data)) => {
-							log::info!("\n\n data in tss ocw worker");
 							// iteration batch of 5
 							for _ in 0..2 {
 								let Some(tss_req_vec) = data.pop_front() else{

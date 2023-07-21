@@ -216,8 +216,8 @@ where
 						let signature = self
 							.kv
 							.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
-							.unwrap()
-							.unwrap();
+							.expect("Failed to sign tss key with collector key")
+							.expect("Signature returned signing tss key is null");
 
 						let ocw_gk_data: OCWTSSGroupKeyData =
 							OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
@@ -239,7 +239,7 @@ where
 							.kv
 							.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
 							.expect("Failed to sign data with collector key")
-							.expect("Signature returned signing tss key is null");
+							.expect("Signature returned signing data is null");
 
 						let sig_data: SignatureData = tss_signature;
 

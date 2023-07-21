@@ -707,7 +707,6 @@ pub mod pallet {
 									continue;
 								};
 
-
 								if let Err(err) = Self::ocw_submit_tss_group_key(tss_req.clone()) {
 									log::error!(
 										"Error occured while submitting extrinsic {:?}",

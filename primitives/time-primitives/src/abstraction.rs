@@ -63,6 +63,12 @@ pub enum Output {
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
 
+impl ObjectId {
+	pub fn get_id(&self) -> u64 {
+		self.0
+	}
+}
+
 // Numeric value affinity. Where a digital point is.
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
@@ -124,7 +130,7 @@ pub enum ScheduleStatus {
 pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
-	pub shard_id: u64,
+	pub network: Network,
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
@@ -145,7 +151,7 @@ impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
 pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
-	pub shard_id: u64,
+	pub network: Network,
 	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
@@ -153,19 +159,18 @@ pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
-	pub shard_id: u64,
+	pub network: Network,
 	pub cycle: u64,
 	pub frequency: u64,
 	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
-	pub start_execution_block: u64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct PayableScheduleInput {
 	pub task_id: ObjectId,
-	pub shard_id: u64,
+	pub network: Network,
 }
 
 // Collection value
@@ -273,5 +278,15 @@ pub struct OCWReportData {
 impl OCWReportData {
 	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
 		Self { shard_id, offender, proof }
+	}
+}
+
+pub trait TaskMetadataInterface {
+	fn task_metadata_exists(key: KeyId) -> bool;
+}
+
+impl TaskMetadataInterface for () {
+	fn task_metadata_exists(_key: KeyId) -> bool {
+		true
 	}
 }

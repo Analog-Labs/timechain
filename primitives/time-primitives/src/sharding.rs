@@ -4,6 +4,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_runtime::DispatchResult;
 use sp_std::{borrow::ToOwned, vec::Vec};
 
 pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
@@ -11,11 +12,21 @@ pub const FILTER_PALLET_KEY_BYTES: [u8; 32] = [
 	207, 247, 65, 72, 228, 98, 143, 38, 75, 151, 76, 128,
 ];
 
-/// Report shard as unable to reach threshold
-pub trait ReassignShardTasks<Id> {
-	fn reassign_shard_tasks(_id: Id) {}
+pub trait HandleShardTasks<ShardId, Network, TaskId> {
+	fn handle_shard_tasks(shard_id: ShardId, network: Network);
+	fn claim_task_for_shard(shard_id: ShardId, network: Network, task_id: TaskId)
+		-> DispatchResult;
 }
-impl<Id> ReassignShardTasks<Id> for () {}
+impl<ShardId, Network, TaskId> HandleShardTasks<ShardId, Network, TaskId> for () {
+	fn handle_shard_tasks(_shard_id: ShardId, _network: Network) {}
+	fn claim_task_for_shard(
+		_shard_id: ShardId,
+		_network: Network,
+		_task_id: TaskId,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
 pub trait IncrementTaskTimeoutCount<Id> {
 	fn increment_task_timeout_count(_id: Id) {}
 }
@@ -23,20 +34,15 @@ impl<Id> IncrementTaskTimeoutCount<Id> for () {}
 /// Expose shard eligibility for specific networks
 pub trait EligibleShard<Id, Network> {
 	fn is_eligible_shard(id: Id) -> bool;
-	fn is_eligible_shard_for_network(id: Id, net: Network) -> bool;
-	fn get_eligible_shards(id: Id, n: usize) -> Vec<Id>;
+	fn next_eligible_shard(network: Network) -> Option<Id>;
 }
 impl<Id, Network> EligibleShard<Id, Network> for () {
 	fn is_eligible_shard(_id: Id) -> bool {
 		// all shards eligible by default for testing purposes
 		true
 	}
-	fn is_eligible_shard_for_network(_id: Id, _net: Network) -> bool {
-		// all shards eligible by default for testing purposes
-		true
-	}
-	fn get_eligible_shards(_id: Id, _n: usize) -> Vec<Id> {
-		Vec::default()
+	fn next_eligible_shard(_network: Network) -> Option<Id> {
+		None
 	}
 }
 

@@ -194,6 +194,7 @@ impl task_schedule::Config for Test {
 	type RecurringTimeoutLength = ConstU64<2>;
 	type PayableTimeoutLength = ConstU64<1000>;
 	type ShardTimeouts = ();
+	type TaskMetadataHelper = ();
 }
 
 // Build genesis storage according to the mock runtime.

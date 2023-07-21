@@ -68,7 +68,8 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
 		crypto::Signature,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
-		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY,
+		KeyId, ScheduleCycle, ShardId as ShardIdType, SignatureData, TimeId, OCW_REP_KEY,
+		OCW_SIG_KEY, OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -411,14 +412,14 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
-			set_id: u64,
+			shard_id: ShardIdType,
 			group_key: [u8; 33],
 			proof: Signature,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
 			let shard_state =
-				<TssShards<T>>::get(set_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let collector = shard_state.shard.collector();
 
 			let raw_public_key: &[u8; 32] = collector.as_ref();
@@ -430,13 +431,13 @@ pub mod pallet {
 				Error::<T>::InvalidValidationSignature
 			);
 
-			<TssGroupKey<T>>::insert(set_id, group_key);
-			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
+			<TssGroupKey<T>>::insert(shard_id, group_key);
+			<TssShards<T>>::try_mutate(shard_id, |shard_state| -> DispatchResult {
 				let details = shard_state.as_mut().ok_or(Error::<T>::ShardIsNotRegistered)?;
 				details.status = ShardStatus::Online;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
+			Self::deposit_event(Event::NewTssGroupKey(shard_id, group_key));
 
 			Ok(().into())
 		}
@@ -877,7 +878,7 @@ pub mod pallet {
 
 			if let Some((acc, res)) =
 				signer.send_signed_transaction(|_account| Call::submit_tss_group_key {
-					set_id: data.set_id,
+					shard_id: data.shard_id,
 					group_key: data.group_key,
 					proof: data.proof.clone(),
 				}) {

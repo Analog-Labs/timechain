@@ -238,8 +238,8 @@ where
 						let signature = self
 							.kv
 							.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
-							.unwrap()
-							.unwrap();
+							.expect("Failed to sign data with collector key")
+							.expect("Signature returned signing tss key is null");
 
 						let sig_data: SignatureData = tss_signature;
 

@@ -23,7 +23,6 @@ use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
 use sp_core::{crypto::key_types::GRANDPA, sr25519, Pair};
-use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Header as HeaderT;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{
@@ -31,7 +30,6 @@ use substrate_test_runtime_client::{
 	Ed25519Keyring, Keystore, LongestChain,
 };
 use time_primitives::{
-	inherents::{TimeTssKey, INHERENT_IDENTIFIER},
 	sharding::Shard,
 	SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
@@ -222,31 +220,6 @@ pub(crate) struct RuntimeApi {
 	test_api: TestApi,
 }
 
-sp_api::decl_runtime_apis! {
-	pub trait InherentApi {
-		fn insert_group_key(id: u64, key: TimeTssKey);
-	}
-}
-
-#[async_trait::async_trait]
-impl InherentDataProvider for RuntimeApi {
-	async fn provide_inherent_data(
-		&self,
-		inherent_data: &mut InherentData,
-	) -> Result<(), sp_inherents::Error> {
-		let group_keys = self.group_keys.lock();
-		let group_key = group_keys.get(&1).unwrap();
-		inherent_data.put_data(INHERENT_IDENTIFIER, group_key)
-	}
-	async fn try_handle_error(
-		&self,
-		_identifier: &InherentIdentifier,
-		_error: &[u8],
-	) -> Option<Result<(), sp_inherents::Error>> {
-		None
-	}
-}
-
 sp_api::mock_impl_runtime_apis! {
 	impl GrandpaApi<Block> for RuntimeApi {
 		fn grandpa_authorities(&self) -> AuthorityList {
@@ -283,11 +256,6 @@ sp_api::mock_impl_runtime_apis! {
 
 	}
 
-	impl InherentApi<Block> for RuntimeApi {
-		fn insert_group_key(&self, id: u64, key: TimeTssKey) {
-			self.group_keys.lock().insert(id, key);
-		}
-	}
 }
 
 // Spawns grandpa voters. Returns a future to spawn on the runtime.

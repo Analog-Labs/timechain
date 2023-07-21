@@ -2,7 +2,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod abstraction;
-pub mod inherents;
 pub mod rpc;
 pub mod scheduling;
 pub mod sharding;

@@ -197,6 +197,12 @@ impl Status {
 	}
 }
 
+#[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+pub struct TimeTssKey {
+	pub group_key: [u8; 33],
+	pub set_id: u64,
+}
+
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct QueryId(pub u64);

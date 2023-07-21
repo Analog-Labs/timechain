@@ -690,7 +690,6 @@ pub mod pallet {
 		}
 
 		fn ocw_get_tss_data() {
-			log::info!("tss ocw hit");
 			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
 
 			const EMPTY_DATA: () = ();

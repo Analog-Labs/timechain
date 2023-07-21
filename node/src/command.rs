@@ -28,7 +28,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"support.anonymous.an".into()
+		"support.analog.one".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -37,9 +37,9 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"prod" => Box::new(chain_spec::analog_config()?),
-			"dev" => Box::new(chain_spec::analog_development_config()?),
-			"" | "local" => Box::new(chain_spec::analog_testnet_config()?),
+			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
+			"staging" => Box::new(chain_spec::analog_staging_config()?),
+			"" | "dev" => Box::new(chain_spec::analog_dev_config()?),
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
 			},

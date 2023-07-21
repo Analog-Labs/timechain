@@ -132,7 +132,8 @@ pub mod pallet {
 			let current_block = frame_system::Pallet::<T>::block_number();
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			for (schedule_id, schedule) in <ScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&schedule_id)
+				if schedule.status.can_timeout()
+					&& !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= T::RecurringTimeoutLength::get_network_timeout(schedule.network)
 				{
@@ -143,7 +144,8 @@ pub mod pallet {
 				}
 			}
 			for (schedule_id, schedule) in <PayableScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&schedule_id)
+				if schedule.status.can_timeout()
+					&& !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= T::PayableTimeoutLength::get_network_timeout(schedule.network)
 				{

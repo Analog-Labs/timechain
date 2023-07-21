@@ -128,6 +128,12 @@ pub enum ScheduleStatus {
 	Canceled,
 }
 
+impl ScheduleStatus {
+	pub fn can_timeout(&self) -> bool {
+		matches!(self, ScheduleStatus::Initiated | ScheduleStatus::Recurring)
+	}
+}
+
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,

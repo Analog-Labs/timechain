@@ -689,7 +689,6 @@ pub mod pallet {
 		}
 
 		fn ocw_get_tss_data() {
-			log::info!("tss ocw hit");
 			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
 
 			const EMPTY_DATA: () = ();
@@ -708,7 +707,6 @@ pub mod pallet {
 									continue;
 								};
 
-								log::info!("OCW TSS data for storing {:?}", tss_req);
 
 								if let Err(err) = Self::ocw_submit_tss_group_key(tss_req.clone()) {
 									log::error!(
@@ -716,6 +714,8 @@ pub mod pallet {
 										err
 									);
 								};
+
+								log::info!("Submitting OCW TSS key");
 							}
 							Ok(data)
 						},
@@ -761,6 +761,8 @@ pub mod pallet {
 										err
 									);
 								};
+
+								log::info!("Submitting OCW Sig Data");
 							}
 							Ok(data)
 						},
@@ -806,6 +808,7 @@ pub mod pallet {
 										err
 									);
 								};
+								log::info!("Submitting OCW Report Data");
 							}
 							Ok(data)
 						},

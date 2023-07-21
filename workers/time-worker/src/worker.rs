@@ -335,7 +335,6 @@ where
 					return;
 				},
 				notification = self.finality_notifications.next().fuse() => {
-					log::info!("Time worker notification received");
 					let Some(notification) = notification else {
 						debug!(
 							target: TW_LOG,

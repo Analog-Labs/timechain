@@ -290,6 +290,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 						ANLOG * 1000000 * 1_000_000_000,
+						        
 					),
 					(
 						// TODO remove the 1_000_000_000 after tokenomics issue fixed
@@ -300,15 +301,15 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
 						ANLOG * 1000000,
 					),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona//stash"), ANLOG * 1000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash//stash"), ANLOG * 1000),
+					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Henry//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Ivan//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Jack//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Lisa//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Mona//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Nash//stash"), ANLOG * 1000000),
 				],
 				true,
 			)

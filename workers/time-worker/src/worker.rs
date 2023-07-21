@@ -302,17 +302,12 @@ where
 
 			ocw_vec.push_back(data);
 			let encoded_data = Encode::encode(&ocw_vec);
-			let is_stored = ocw_storage.compare_and_set(
+			ocw_storage.compare_and_set(
 				STORAGE_PREFIX,
 				ocw_key,
 				old_value.as_deref(),
 				&encoded_data,
 			);
-			if !is_stored {
-				log::error!("failed to store data in ocw");
-			} else {
-				log::info!("stored data in ocw time");
-			}
 		} else {
 			log::error!("cant get offchain storage");
 		};

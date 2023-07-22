@@ -148,11 +148,6 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_shards_index)]
-	/// Counter for getting (N) next available shard(s) after index
-	pub type GetShardsIndex<T: Config> = StorageMap<_, Blake2_128Concat, Network, u64, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -645,29 +640,19 @@ pub mod pallet {
 			}
 		}
 		fn next_eligible_shard(network: Network) -> Option<u64> {
-			let shard_index = GetShardsIndex::<T>::get(network);
-			// TODO: use iter rev if shard_index > max_shard_id / 2 (optimization)
-			let shards_for_network: Vec<_> = <ShardNetwork<T>>::iter_prefix(network).collect();
-			let num_shards_for_net = shards_for_network.len();
-			for (i, (shard_id, _)) in shards_for_network.into_iter().enumerate() {
+			let mut least_assigned_shard: Option<u64> = None;
+			let mut lowest_assigned_shard_count = 10_000usize;
+			for (shard_id, _) in <ShardNetwork<T>>::iter_prefix(network) {
 				if Self::is_eligible_shard(shard_id) {
-					if shard_id < shard_index && num_shards_for_net > (i + 1) {
-						// more shards left and shard_id < shard_index so continue
-						continue;
-					} else {
-						let new_shard_index = if (i + 1) == num_shards_for_net {
-							0
-						} else {
-							shard_index.saturating_plus_one()
-						};
-						if new_shard_index != shard_index {
-							GetShardsIndex::<T>::insert(network, new_shard_index);
-						} // else shard index does not change
-						return Some(shard_id);
+					let shard_schedule_count =
+						T::TaskScheduleHelper::get_assigned_schedule_count(shard_id);
+					if lowest_assigned_shard_count > shard_schedule_count {
+						lowest_assigned_shard_count = shard_schedule_count;
+						least_assigned_shard = Some(shard_id);
 					}
 				}
 			}
-			None
+			least_assigned_shard
 		}
 	}
 

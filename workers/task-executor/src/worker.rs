@@ -24,8 +24,8 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
-	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 	sharding::Network,
+	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 
 #[derive(Clone)]

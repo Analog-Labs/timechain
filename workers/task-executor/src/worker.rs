@@ -253,7 +253,7 @@ where
 
 		for (schedule_id, (shard_id, schedule)) in tree_map.iter() {
 			//check if current shard is active
-			if !self.is_current_shard_online(block_id, &shard_id, schedule.network)? {
+			if !self.is_current_shard_online(block_id, shard_id, schedule.network)? {
 				//shard offline cant do any processing.
 				self.repetitive_tasks.clear();
 				self.tasks.clear();
@@ -350,11 +350,11 @@ where
 
 			//check if current shard is active
 			if let Some((_, shard_id, schedule)) = tasks.first() {
-				if !self.is_current_shard_online(block_id, &shard_id, schedule.network)? {
+				if !self.is_current_shard_online(block_id, shard_id, schedule.network)? {
 					//shard offline cant do any processing.
 					self.repetitive_tasks.clear();
 					self.tasks.clear();
-					anyhow::bail!("Shard is offline id: {:?}", &shard_id);
+					anyhow::bail!("Shard is offline id: {:?}", shard_id);
 				}
 			}
 

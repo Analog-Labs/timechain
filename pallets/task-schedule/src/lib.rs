@@ -132,7 +132,8 @@ pub mod pallet {
 			let current_block = frame_system::Pallet::<T>::block_number();
 			let mut timed_out_tasks = TimedOutTasks::<T>::get();
 			for (schedule_id, schedule) in <ScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&schedule_id)
+				if schedule.status.can_timeout()
+					&& !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= T::RecurringTimeoutLength::get_network_timeout(schedule.network)
 				{
@@ -143,7 +144,8 @@ pub mod pallet {
 				}
 			}
 			for (schedule_id, schedule) in <PayableScheduleStorage<T>>::iter() {
-				if !timed_out_tasks.contains(&schedule_id)
+				if schedule.status.can_timeout()
+					&& !timed_out_tasks.contains(&schedule_id)
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= T::PayableTimeoutLength::get_network_timeout(schedule.network)
 				{
@@ -601,8 +603,12 @@ pub mod pallet {
 
 		fn update_completed_task(key: u64) {
 			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
-				schedule.executable_since = frame_system::Pallet::<T>::block_number();
-				schedule.status = ScheduleStatus::Updated;
+				if schedule.is_repetitive_task() {
+					schedule.executable_since = frame_system::Pallet::<T>::block_number();
+					schedule.status = ScheduleStatus::Updated;
+				} else {
+					schedule.status = ScheduleStatus::Completed;
+				}
 				ScheduleStorage::<T>::insert(key, schedule);
 			} else if let Some(mut schedule) = PayableScheduleStorage::<T>::get(key) {
 				schedule.status = ScheduleStatus::Completed;

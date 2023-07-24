@@ -238,8 +238,7 @@ where
 		// @task_counter: for repeated task it's incremented on every run
 		// @tss: TSS signature
 		// @data: data to add into collection
-
-		let data_value = data.result.to_string();
+		let data_value = data.result.as_str().iter().map(|x| x.to_string()).collect();
 		let variables = collect_data::Variables {
 			collection,
 			block: block.block_identifier.index as i64,

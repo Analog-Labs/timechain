@@ -96,7 +96,19 @@ fn test_signature_storage() {
 			Network::Ethereum,
 		),);
 
-		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+		let tss_key = [0u8; 33];
+
+		let alice_report_tss = keystore
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, tss_key.as_ref())
+			.unwrap()
+			.unwrap();
+
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(
+			RawOrigin::Signed(ALICE).into(),
+			0,
+			tss_key,
+			alice_report_tss.into()
+		));
 
 		// insert schedule
 		let input = ScheduleInput {
@@ -175,7 +187,19 @@ fn test_signature_and_decrement_schedule_storage() {
 			Network::Ethereum,
 		),);
 
-		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+		let tss_key = [0u8; 33];
+
+		let alice_report_tss = keystore
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, tss_key.as_ref())
+			.unwrap()
+			.unwrap();
+
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(
+			RawOrigin::Signed(ALICE).into(),
+			0,
+			tss_key,
+			alice_report_tss.into()
+		));
 
 		// insert schedule
 		let input = ScheduleInput {
@@ -215,7 +239,7 @@ fn test_signature_and_decrement_schedule_storage() {
 			cycle: 11,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
-			status: ScheduleStatus::Updated,
+			status: ScheduleStatus::Completed,
 		};
 
 		let scheduled_task = TaskSchedule::get_task_schedule(1_u64);
@@ -264,7 +288,19 @@ fn test_duplicate_signature() {
 			Network::Ethereum,
 		),);
 
-		assert_ok!(TesseractSigStorage::submit_tss_group_key(RawOrigin::None.into(), 0, [0u8; 33]));
+		let tss_key = [0u8; 33];
+
+		let alice_report_tss = keystore
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, tss_key.as_ref())
+			.unwrap()
+			.unwrap();
+
+		assert_ok!(TesseractSigStorage::submit_tss_group_key(
+			RawOrigin::Signed(ALICE).into(),
+			0,
+			tss_key,
+			alice_report_tss.into()
+		));
 
 		// insert schedule
 		let input = ScheduleInput {
@@ -884,11 +920,14 @@ fn can_report_offence_if_already_committed_offender() {
 #[test]
 fn test_set_shard_online() {
 	let shard_id = 0;
-	let tss_key: [u8; 33] = [0; 33];
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
+		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
-			ALICE,
+			alice.into(),
 		),);
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_2).into(),
@@ -902,16 +941,24 @@ fn test_set_shard_online() {
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![ALICE, BOB, CHARLIE],
+			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
 			Network::Ethereum,
 		),);
 
 		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
+		let tss_key = [0u8; 33];
+
+		let alice_report_tss = keystore
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, tss_key.as_ref())
+			.unwrap()
+			.unwrap();
+
 		assert_ok!(TesseractSigStorage::submit_tss_group_key(
-			RawOrigin::None.into(),
-			shard_id,
-			tss_key
+			RawOrigin::Signed(ALICE).into(),
+			0,
+			tss_key,
+			alice_report_tss.into()
 		));
 		assert!(TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());
 	});
@@ -920,7 +967,11 @@ fn test_set_shard_online() {
 #[test]
 fn test_force_set_shard_offline() {
 	let shard_id = 0;
-	let tss_key: [u8; 33] = [0; 33];
+
+	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let alice = keystore
+		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
+		.expect("Creates authority key");
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TesseractSigStorage::force_set_shard_offline(
@@ -937,7 +988,7 @@ fn test_force_set_shard_offline() {
 
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
-			ALICE,
+			alice.into(),
 		),);
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_2).into(),
@@ -951,15 +1002,23 @@ fn test_force_set_shard_offline() {
 		//register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![ALICE, BOB, CHARLIE],
+			vec![alice.into(), BOB, CHARLIE],
 			Some(0),
 			Network::Ethereum,
 		),);
 
+		let tss_key = [0u8; 33];
+
+		let alice_report_tss = keystore
+			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, tss_key.as_ref())
+			.unwrap()
+			.unwrap();
+
 		assert_ok!(TesseractSigStorage::submit_tss_group_key(
-			RawOrigin::None.into(),
-			shard_id,
-			tss_key
+			RawOrigin::Signed(ALICE).into(),
+			0,
+			tss_key,
+			alice_report_tss.into()
 		));
 		assert_ok!(TesseractSigStorage::force_set_shard_offline(RawOrigin::Root.into(), shard_id));
 		assert!(!TesseractSigStorage::tss_shards(shard_id).unwrap().is_online());

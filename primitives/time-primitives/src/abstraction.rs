@@ -4,7 +4,9 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
+use crate::{
+	crypto::Signature, sharding::Network, KeyId, ScheduleCycle, ShardId, SignatureData, TimeId,
+};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -126,6 +128,12 @@ pub enum ScheduleStatus {
 	Canceled,
 }
 
+impl ScheduleStatus {
+	pub fn can_timeout(&self) -> bool {
+		matches!(self, ScheduleStatus::Initiated | ScheduleStatus::Recurring)
+	}
+}
+
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
@@ -195,6 +203,12 @@ impl Status {
 			Self::Untouched(id) => *id,
 		}
 	}
+}
+
+#[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+pub struct TimeTssKey {
+	pub group_key: [u8; 33],
+	pub shard_id: ShardId,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
@@ -278,6 +292,19 @@ pub struct OCWReportData {
 impl OCWReportData {
 	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
 		Self { shard_id, offender, proof }
+	}
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct OCWTSSGroupKeyData {
+	pub shard_id: ShardId,
+	pub group_key: [u8; 33],
+	pub proof: Signature,
+}
+
+impl OCWTSSGroupKeyData {
+	pub fn new(shard_id: ShardId, group_key: [u8; 33], proof: Signature) -> Self {
+		Self { shard_id, group_key, proof }
 	}
 }
 

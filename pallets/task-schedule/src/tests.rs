@@ -5,7 +5,7 @@ use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use time_primitives::abstraction::{
 	ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule, ScheduleStatus,
-	TaskSchedule as ScheduleOut, Validity,
+	TaskSchedule as ScheduleOut,
 };
 use time_primitives::sharding::Network;
 
@@ -46,7 +46,6 @@ fn test_schedule() {
 			task_id,
 			cycle: 12,
 			frequency: 1,
-			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 		};
@@ -67,7 +66,6 @@ fn test_schedule() {
 			start_execution_block: 0,
 			executable_since: 1,
 			cycle: 12,
-			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 			frequency: 1,
@@ -89,7 +87,6 @@ fn test_schedule() {
 			start_execution_block: 0,
 			executable_since: 1,
 			cycle: 12,
-			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
 			frequency: 1,

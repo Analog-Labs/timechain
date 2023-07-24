@@ -103,11 +103,8 @@ impl Schema {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Task {
 	pub task_id: ObjectId,
-	pub schema: Vec<Schema>,
 	pub function: Function,
 	pub network: Network,
-	pub with: Vec<String>,
-	pub validity: Validity,
 	pub hash: String,
 }
 
@@ -141,7 +138,6 @@ pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
-	pub validity: Validity,
 	pub hash: String,
 	pub start_execution_block: u64,
 	pub executable_since: BlockNumber,
@@ -168,7 +164,6 @@ pub struct ScheduleInput {
 	pub task_id: ObjectId,
 	pub cycle: u64,
 	pub frequency: u64,
-	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
 }
@@ -313,15 +308,12 @@ impl TaskMetadataInterface for () {
 	fn get_task_metadata(_key: KeyId) -> Option<Task> {
 		Some(Task {
 			task_id: ObjectId(1),
-			schema: sp_std::vec![Schema::String(String::from("schema"))],
 			function: Function::EthereumApi {
 				function: String::from("function name"),
 				input: sp_std::vec![Input::HexAddress],
 				output: sp_std::vec![Output::Skip],
 			},
 			network: Network::Ethereum,
-			with: sp_std::vec![String::from("address")],
-			validity: Validity::Seconds(10),
 			hash: String::from("hash"),
 		})
 	}

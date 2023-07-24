@@ -331,7 +331,6 @@ pub mod pallet {
 					frequency: schedule.frequency,
 					start_execution_block: 0,
 					executable_since: frame_system::Pallet::<T>::block_number(),
-					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,
 				},

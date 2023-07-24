@@ -6,7 +6,7 @@ use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use sp_runtime::AccountId32;
 use time_primitives::{
-	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
+	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut},
 	sharding::Network,
 	ScheduleStatus, TimeId,
 };
@@ -114,7 +114,6 @@ fn test_signature_storage() {
 		let input = ScheduleInput {
 			task_id,
 			cycle: 12,
-			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
 			frequency: 0,
 			status: time_primitives::ScheduleStatus::Initiated,
@@ -204,7 +203,6 @@ fn test_signature_and_decrement_schedule_storage() {
 		let input = ScheduleInput {
 			task_id,
 			cycle: 12,
-			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
 			frequency: 0,
 			status: time_primitives::ScheduleStatus::Initiated,
@@ -235,7 +233,6 @@ fn test_signature_and_decrement_schedule_storage() {
 			start_execution_block: 0,
 			executable_since: block_number,
 			cycle: 11,
-			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
 		};
@@ -304,7 +301,6 @@ fn test_duplicate_signature() {
 		let input = ScheduleInput {
 			task_id,
 			cycle: 12,
-			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
 			frequency: 1,
 			status: time_primitives::ScheduleStatus::Initiated,

@@ -12,7 +12,7 @@ use rosetta_client::{
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
-use serde_json::json;
+use serde_json::{json, Value};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
 use sp_blockchain::HeaderBackend;
@@ -238,13 +238,16 @@ where
 		// @task_counter: for repeated task it's incremented on every run
 		// @tss: TSS signature
 		// @data: data to add into collection
-		let data_value = data.result.as_str().iter().map(|x| x.to_string()).collect();
+		let data_value = match data.result {
+			Value::Array(val) => val.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+			v => vec![v.to_string()],
+		};
 		let variables = collect_data::Variables {
 			collection,
 			block: block.block_identifier.index as i64,
 			cycle,
 			task_id: task_id as i64,
-			data: vec![data_value],
+			data: data_value,
 		};
 		dotenv().ok();
 		match env::var("TIMEGRAPH_GRAPHQL_URL") {

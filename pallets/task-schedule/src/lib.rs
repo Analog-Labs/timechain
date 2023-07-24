@@ -566,6 +566,7 @@ pub mod pallet {
 
 	pub trait ScheduleInterface<AccountId, BlockNumber> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError>;
+		fn get_assigned_schedule_count(shard: u64) -> usize;
 		fn get_schedule_via_key(
 			key: u64,
 		) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
@@ -579,6 +580,27 @@ pub mod pallet {
 	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError> {
 			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskNotAssigned.into())
+		}
+		fn get_assigned_schedule_count(shard_id: u64) -> usize {
+			ShardTasks::<T>::iter_prefix(shard_id)
+				.filter(|(schedule_id, _)| {
+					if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
+						matches!(
+							schedule.status,
+							ScheduleStatus::Initiated
+								| ScheduleStatus::Updated | ScheduleStatus::Recurring
+						)
+					} else if let Some(schedule) = PayableScheduleStorage::<T>::get(schedule_id) {
+						matches!(
+							schedule.status,
+							ScheduleStatus::Initiated
+								| ScheduleStatus::Updated | ScheduleStatus::Recurring
+						)
+					} else {
+						false
+					}
+				})
+				.count()
 		}
 		fn get_schedule_via_key(
 			key: u64,

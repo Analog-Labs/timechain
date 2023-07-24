@@ -57,6 +57,7 @@ use task_metadata::KeyId;
 use time_primitives::abstraction::{
 	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
 };
+use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1187,8 +1188,26 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
-	pub RecurringTimeoutLength: BlockNumber = 2;
-	pub PayableTimeoutLength: BlockNumber = 1000;
+}
+
+pub struct RecurringTimeoutLength;
+impl GetNetworkTimeout<Network, BlockNumber> for RecurringTimeoutLength {
+	fn get_network_timeout(network: Network) -> BlockNumber {
+		match network {
+			Network::Ethereum => 200,
+			Network::Astar => 100,
+		}
+	}
+}
+
+pub struct PayableTimeoutLength;
+impl GetNetworkTimeout<Network, BlockNumber> for PayableTimeoutLength {
+	fn get_network_timeout(network: Network) -> BlockNumber {
+		match network {
+			Network::Ethereum => 2_000,
+			Network::Astar => 1_000,
+		}
+	}
 }
 
 impl task_schedule::Config for Runtime {
@@ -1205,6 +1224,7 @@ impl task_schedule::Config for Runtime {
 	type ShardTimeouts = TesseractSigStorage;
 	type RecurringTimeoutLength = RecurringTimeoutLength;
 	type PayableTimeoutLength = PayableTimeoutLength;
+	type TaskMetadataHelper = TaskMeta;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1244,7 +1264,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>, Inherent},
+		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		PalletProxy: pallet_proxy,
@@ -1527,17 +1547,20 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_tss_shards()
 		}
 
-		fn get_active_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::active_shards()
+		fn get_active_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
+			TesseractSigStorage::active_shards(network)
 		}
 
-		fn get_inactive_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::inactive_shards()
+		fn get_inactive_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
+			TesseractSigStorage::inactive_shards(network)
 		}
-
 
 		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
-			TaskSchedule::shard_tasks(shard_id)
+			task_schedule::ShardTasks::<Runtime>::iter_prefix(shard_id).map(|(i, _)| i).collect()
+		}
+
+		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
+			TaskSchedule::get_task_shard(task_id)
 		}
 
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {

@@ -61,16 +61,15 @@ pub mod pallet {
 	};
 	use sp_std::{
 		collections::{btree_set::BTreeSet, vec_deque::VecDeque},
-		result,
 		vec::Vec,
 	};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
-		abstraction::{OCWReportData, OCWSigData},
+		abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
 		crypto::Signature,
-		inherents::{InherentError, TimeTssKey, INHERENT_IDENTIFIER},
-		sharding::{EligibleShard, IncrementTaskTimeoutCount, Network, ReassignShardTasks, Shard},
-		KeyId, ScheduleCycle, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
+		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
+		KeyId, ScheduleCycle, ShardId as ShardIdType, SignatureData, TimeId, OCW_REP_KEY,
+		OCW_SIG_KEY, OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -103,6 +102,10 @@ pub mod pallet {
 		}
 	}
 
+	fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
+		account_id.encode()[..].try_into().unwrap()
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -110,6 +113,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
+			Self::ocw_get_tss_data();
 			Self::ocw_get_sig_data();
 			Self::ocw_get_report_data();
 		}
@@ -137,21 +141,22 @@ pub mod pallet {
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
-		type TaskAssigner: ReassignShardTasks<u64>;
+		type TaskAssigner: HandleShardTasks<u64, Network, u64>;
 		/// Maximum number of task execution timeouts before shard is put offline
 		#[pallet::constant]
 		type MaxTimeouts: Get<u8>;
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_shards_index)]
-	/// Counter for getting (N) next available shard(s)s
-	pub type GetShardsIndex<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+	/// Network for which shards can be assigned tasks
+	#[pallet::storage]
+	#[pallet::getter(fn shard_network)]
+	pub type ShardNetwork<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, u64, (), OptionQuery>;
 
 	/// Indicates precise members of each TSS set by it's u64 id
 	/// Required for key generation and identification
@@ -221,9 +226,11 @@ pub mod pallet {
 		/// .1 - group key bytes
 		NewTssGroupKey(u64, [u8; 33]),
 
-		/// Shard has ben registered with new Id
+		/// Active has been registered with new Id
+		/// Eligible for tasks from the Network
 		/// .0 ShardId
-		ShardRegistered(u64),
+		/// .1 Network
+		ShardRegistered(u64, Network),
 
 		/// Task execution timed out for task
 		TaskExecutionTimeout(KeyId),
@@ -244,10 +251,16 @@ pub mod pallet {
 		/// .1 Report count
 		OffenceReported(TimeId, u8),
 
-		/// Chronicle has ben registered
+		/// Chronicle has been registered
 		/// .0 TimeId
 		/// .1 Validator's AccountId
 		ChronicleRegistered(TimeId, T::AccountId),
+
+		/// Task claimed for shard
+		/// .0 Network
+		/// .1 ShardId
+		/// .2 TaskId
+		TaskClaimedForShard(Network, u64, u64),
 	}
 
 	#[pallet::error]
@@ -325,68 +338,10 @@ pub mod pallet {
 		NoLocalAcctForSignedTx,
 
 		/// Shard status is offline now
-		ShardAlreadyOffline,
+		ShardOffline,
 
 		/// Caller is not shard's collector so cannot call this function
 		OnlyCallableByCollector,
-	}
-
-	#[pallet::inherent]
-	impl<T: Config> ProvideInherent for Pallet<T> {
-		type Call = Call<T>;
-		type Error = InherentError;
-		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
-
-		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			if let Ok(inherent_data) = data.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER) {
-				return match inherent_data {
-					None => None,
-					Some(inherent_data) if inherent_data.group_key != [0u8; 33] => {
-						// We don't need to set the inherent data every block, it is only needed
-						// once.
-						let pubk = <TssGroupKey<T>>::get(inherent_data.set_id);
-						if pubk.is_none() {
-							Some(Call::submit_tss_group_key {
-								set_id: inherent_data.set_id,
-								group_key: inherent_data.group_key,
-							})
-						} else {
-							None
-						}
-					},
-					_ => None,
-				};
-			}
-			None
-		}
-
-		fn check_inherent(
-			call: &Self::Call,
-			data: &InherentData,
-		) -> result::Result<(), Self::Error> {
-			let (set_id, group_key) = match call {
-				Call::submit_tss_group_key { set_id, group_key } => (set_id, group_key),
-				_ => return Err(InherentError::WrongInherentCall),
-			};
-
-			let expected_data = data
-				.get_data::<TimeTssKey>(&INHERENT_IDENTIFIER)
-				.expect("Inherent data is not correctly encoded")
-				.expect("Inherent data must be provided");
-
-			if &expected_data.set_id != set_id && &expected_data.group_key != group_key {
-				return Err(InherentError::InvalidGroupKey(TimeTssKey {
-					group_key: *group_key,
-					set_id: *set_id,
-				}));
-			}
-
-			Ok(())
-		}
-
-		fn is_inherent(call: &Self::Call) -> bool {
-			matches!(call, Call::submit_tss_group_key { .. })
-		}
 	}
 
 	#[pallet::call]
@@ -403,19 +358,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			let mut is_recurring = false;
-			let schedule_data = T::TaskScheduleHelper::get_schedule_via_key(key_id)?;
-			let payable_schedule_data =
-				T::TaskScheduleHelper::get_payable_schedule_via_key(key_id)?;
-
-			let shard_id = if let Some(schedule) = schedule_data {
-				is_recurring = schedule.cycle > 1;
-				schedule.shard_id
-			} else if let Some(payable_schedule) = payable_schedule_data {
-				payable_schedule.shard_id
-			} else {
-				return Err(Error::<T>::TaskNotScheduled.into());
-			};
+			let is_recurring =
+				if let Some(schedule) = T::TaskScheduleHelper::get_schedule_via_key(key_id)? {
+					schedule.cycle > 1
+				} else {
+					false
+				};
+			let shard_id: u64 = T::TaskScheduleHelper::get_assigned_shard_for_key(key_id)?;
 
 			let shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
@@ -458,17 +407,32 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
-			set_id: u64,
+			shard_id: ShardIdType,
 			group_key: [u8; 33],
+			proof: Signature,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
-			<TssGroupKey<T>>::insert(set_id, group_key);
-			<TssShards<T>>::try_mutate(set_id, |shard_state| -> DispatchResult {
+			ensure_signed(origin)?;
+
+			let shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			let collector = shard_state.shard.collector();
+
+			let raw_public_key: &[u8; 32] = collector.as_ref();
+			let collector_public_id =
+				sp_application_crypto::sr25519::Public::from_raw(*raw_public_key);
+
+			ensure!(
+				proof.verify(group_key.as_ref(), &collector_public_id.into()),
+				Error::<T>::InvalidValidationSignature
+			);
+
+			<TssGroupKey<T>>::insert(shard_id, group_key);
+			<TssShards<T>>::try_mutate(shard_id, |shard_state| -> DispatchResult {
 				let details = shard_state.as_mut().ok_or(Error::<T>::ShardIsNotRegistered)?;
 				details.status = ShardStatus::Online;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::NewTssGroupKey(set_id, group_key));
+			Self::deposit_event(Event::NewTssGroupKey(shard_id, group_key));
 
 			Ok(().into())
 		}
@@ -508,9 +472,10 @@ pub mod pallet {
 			let shard_id = <ShardId<T>>::get();
 			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
+			<ShardNetwork<T>>::insert(net, shard_id, ());
 			<TssShards<T>>::insert(shard_id, shard);
 			<ShardId<T>>::put(next_shard_id);
-			Self::deposit_event(Event::ShardRegistered(shard_id));
+			Self::deposit_event(Event::ShardRegistered(shard_id, net));
 			Ok(())
 		}
 
@@ -567,9 +532,6 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
-				account_id.encode()[..].try_into().unwrap()
-			}
 			let (reporter, offender) = (
 				account_to_time_id::<T::AccountId>(caller),
 				account_to_time_id::<T::AccountId>(offender),
@@ -632,15 +594,32 @@ pub mod pallet {
 
 			if on_chain_shard_state.is_online() {
 				on_chain_shard_state.status = ShardStatus::Offline;
-				<TssShards<T>>::mutate(shard_id, |shard_state| {
-					*shard_state = Some(on_chain_shard_state)
-				});
-				T::TaskAssigner::reassign_shard_tasks(shard_id);
+				// Handle all of this shard's tasks
+				T::TaskAssigner::handle_shard_tasks(shard_id, on_chain_shard_state.network);
+				<TssShards<T>>::insert(shard_id, on_chain_shard_state);
 				Self::deposit_event(Event::ShardOffline(shard_id));
 				Ok(())
 			} else {
-				Err(Error::<T>::ShardAlreadyOffline.into())
+				Err(Error::<T>::ShardOffline.into())
 			}
+		}
+
+		/// Extrinsic for shard collector to claim task for shard
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::force_set_shard_offline())] // TODO: add benchmark
+		pub fn claim_task(origin: OriginFor<T>, shard_id: u64, task_id: u64) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let shard_state =
+				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
+			ensure!(shard_state.is_online(), Error::<T>::ShardOffline);
+			ensure!(
+				shard_state.shard.is_collector(&account_to_time_id::<T::AccountId>(caller)),
+				Error::<T>::OnlyCallableByCollector
+			);
+			T::TaskAssigner::claim_task_for_shard(shard_id, shard_state.network, task_id)?;
+
+			Self::deposit_event(Event::TaskClaimedForShard(shard_state.network, shard_id, task_id));
+			Ok(())
 		}
 	}
 
@@ -660,54 +639,86 @@ pub mod pallet {
 				false
 			}
 		}
-		fn is_eligible_shard_for_network(id: u64, net: Network) -> bool {
-			if let Some(shard_state) = <TssShards<T>>::get(id) {
-				shard_state.is_online() && shard_state.net == net
-			} else {
-				false
-			}
-		}
-		fn get_eligible_shards(id: u64, n: usize) -> Vec<u64> {
-			let net = if let Some(ShardState { net, .. }) = <TssShards<T>>::get(id) {
-				net
-			} else {
-				return Vec::new();
-			};
-			let mut n_shards = Vec::new();
-			let mut shard_id = <GetShardsIndex<T>>::take();
-			let max_shard_id = <ShardId<T>>::get().saturating_sub(1);
-			while n_shards.len() < n {
-				if Self::is_eligible_shard_for_network(shard_id, net) {
-					n_shards.push(shard_id);
+		fn next_eligible_shard(network: Network) -> Option<u64> {
+			let mut least_assigned_shard: Option<u64> = None;
+			let mut lowest_assigned_shard_count = 10_000usize;
+			for (shard_id, _) in <ShardNetwork<T>>::iter_prefix(network) {
+				if Self::is_eligible_shard(shard_id) {
+					let shard_schedule_count =
+						T::TaskScheduleHelper::get_assigned_schedule_count(shard_id);
+					if lowest_assigned_shard_count > shard_schedule_count {
+						lowest_assigned_shard_count = shard_schedule_count;
+						least_assigned_shard = Some(shard_id);
+					}
 				}
-				shard_id = if shard_id >= max_shard_id {
-					// saturating wrap at max shard_id registered
-					0
-				} else {
-					shard_id + 1
-				};
 			}
-			<GetShardsIndex<T>>::put(shard_id);
-			n_shards
+			least_assigned_shard
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn active_shards() -> Vec<(u64, Shard)> {
+		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
-				.filter(|(_, s)| s.is_online())
-				.map(|(id, state)| (id, state.shard))
+				.filter(|(_, s)| s.is_online() && s.network == network)
+				.map(|(id, s)| (id, s.shard))
 				.collect()
 		}
-		pub fn inactive_shards() -> Vec<(u64, Shard)> {
+		pub fn inactive_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
-				.filter(|(_, s)| !s.is_online())
-				.map(|(id, state)| (id, state.shard))
+				.filter(|(_, s)| !s.is_online() && s.network == network)
+				.map(|(id, s)| (id, s.shard))
 				.collect()
 		}
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
+		}
+
+		fn ocw_get_tss_data() {
+			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..2 {
+								let Some(tss_req_vec) = data.pop_front() else{
+									break;
+								};
+
+								let Ok(tss_req) = OCWTSSGroupKeyData::decode(&mut tss_req_vec.as_slice()) else {
+									continue;
+								};
+
+								if let Err(err) = Self::ocw_submit_tss_group_key(tss_req.clone()) {
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
+								};
+
+								log::info!("Submitting OCW TSS key");
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("TSS OCW tss is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in TSS OCW Signature",);
+				},
+				Ok(_) => {},
+			}
 		}
 
 		fn ocw_get_sig_data() {
@@ -735,6 +746,8 @@ pub mod pallet {
 										err
 									);
 								};
+
+								log::info!("Submitting OCW Sig Data");
 							}
 							Ok(data)
 						},
@@ -780,6 +793,7 @@ pub mod pallet {
 										err
 									);
 								};
+								log::info!("Submitting OCW Report Data");
 							}
 							Ok(data)
 						},
@@ -834,6 +848,27 @@ pub mod pallet {
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
+		}
+
+		fn ocw_submit_tss_group_key(data: OCWTSSGroupKeyData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::submit_tss_group_key {
+					shard_id: data.shard_id,
+					group_key: data.group_key,
+					proof: data.proof.clone(),
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_tss_tx: tx sent: {:?}", acc.id);
 					return Err(Error::OffchainSignedTxFailed);
 				} else {
 					return Ok(());

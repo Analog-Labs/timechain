@@ -59,9 +59,9 @@ services:
     - '--connector-network=dev'
     - '--bob'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '-ltime=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - db
     - bootnode
@@ -86,9 +86,9 @@ services:
     - '--connector-network=dev'
     - '--charlie'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - db
     - bootnode
@@ -113,9 +113,9 @@ services:
     - '--connector-network=dev'
     - '--dave'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - db
     - bootnode
@@ -140,9 +140,9 @@ services:
     - '--connector-network=dev'
     - '--eve'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - db
     - bootnode
@@ -167,9 +167,9 @@ services:
     - '--connector-network=dev'
     - '--ferdie'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '-lthea=trace'
     environment:
       DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - db
     - bootnode
@@ -189,6 +189,7 @@ services:
 
   ethereum-connector:
     image: "analoglabs/connector-ethereum"
+    platform: linux/amd64
     command: "--network dev --addr 0.0.0.0:8080 --node-addr ethereum:8545 --path /data"
     expose:
     - "8080"
@@ -202,6 +203,7 @@ services:
 
   astar:
     image: "staketechnologies/astar-collator:latest"
+    platform: linux/amd64
     command: "astar-collator --chain dev --ws-port 9944 --rpc-port 9955 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /astar"
     expose:
     - "9944"
@@ -211,6 +213,7 @@ services:
 
   astar-connector:
     image: "analoglabs/connector-astar"
+    platform: linux/amd64
     command: "--network dev --addr 0.0.0.0:8081 --node-addr astar:9944 --path /data"
     expose:
     - "8081"

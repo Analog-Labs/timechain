@@ -24,8 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{EthTxValidation, OCWReportData, OCWSigData},
-	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, TIME_KEY_TYPE,
+	abstraction::{EthTxValidation, OCWReportData, OCWSigData, OCWTSSGroupKeyData},
+	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -208,9 +208,21 @@ where
 					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
 				},
 				TssAction::PublicKey(tss_public_key) => {
-					debug!(target: TW_LOG, "Updating tss public key");
+					let data_bytes = tss_public_key.to_bytes();
+					log::info!("New group key provided: {:?} for id: {}", data_bytes, shard_id);
 					self.timeouts.remove(&(shard_id, None));
-					crate::inherents::update_shared_group_key(shard_id, tss_public_key.to_bytes());
+					//save in offchain storage
+					if tss_state.is_collector {
+						let signature = self
+							.kv
+							.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
+							.expect("Failed to sign tss key with collector key")
+							.expect("Signature returned signing tss key is null");
+
+						let ocw_gk_data: OCWTSSGroupKeyData =
+							OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
+						ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
+					}
 				},
 				TssAction::Tss(tss_signature, hash) => {
 					debug!(target: TW_LOG, "Storing tss signature");
@@ -226,8 +238,8 @@ where
 						let signature = self
 							.kv
 							.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
-							.unwrap()
-							.unwrap();
+							.expect("Failed to sign data with collector key")
+							.expect("Signature returned signing data is null");
 
 						let sig_data: SignatureData = tss_signature;
 
@@ -291,7 +303,7 @@ where
 			let encoded_data = Encode::encode(&ocw_vec);
 			ocw_storage.compare_and_set(
 				STORAGE_PREFIX,
-				OCW_SIG_KEY,
+				ocw_key,
 				old_value.as_deref(),
 				&encoded_data,
 			);

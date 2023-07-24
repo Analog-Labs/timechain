@@ -4,7 +4,9 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, SignatureData, TimeId};
+use crate::{
+	crypto::Signature, sharding::Network, KeyId, ScheduleCycle, ShardId, SignatureData, TimeId,
+};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -63,6 +65,12 @@ pub enum Output {
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ObjectId(pub u64);
 
+impl ObjectId {
+	pub fn get_id(&self) -> u64 {
+		self.0
+	}
+}
+
 // Numeric value affinity. Where a digital point is.
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq)]
@@ -120,11 +128,17 @@ pub enum ScheduleStatus {
 	Canceled,
 }
 
+impl ScheduleStatus {
+	pub fn can_timeout(&self) -> bool {
+		matches!(self, ScheduleStatus::Initiated | ScheduleStatus::Recurring)
+	}
+}
+
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
-	pub shard_id: u64,
+	pub network: Network,
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
@@ -145,7 +159,7 @@ impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
 pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 	pub task_id: ObjectId,
 	pub owner: AccountId,
-	pub shard_id: u64,
+	pub network: Network,
 	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
@@ -153,7 +167,7 @@ pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
-	pub shard_id: u64,
+	pub network: Network,
 	pub cycle: u64,
 	pub frequency: u64,
 	pub validity: Validity,
@@ -164,7 +178,7 @@ pub struct ScheduleInput {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct PayableScheduleInput {
 	pub task_id: ObjectId,
-	pub shard_id: u64,
+	pub network: Network,
 }
 
 // Collection value
@@ -189,6 +203,12 @@ impl Status {
 			Self::Untouched(id) => *id,
 		}
 	}
+}
+
+#[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+pub struct TimeTssKey {
+	pub group_key: [u8; 33],
+	pub shard_id: ShardId,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
@@ -272,5 +292,28 @@ pub struct OCWReportData {
 impl OCWReportData {
 	pub fn new(shard_id: u64, offender: TimeId, proof: Signature) -> Self {
 		Self { shard_id, offender, proof }
+	}
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct OCWTSSGroupKeyData {
+	pub shard_id: ShardId,
+	pub group_key: [u8; 33],
+	pub proof: Signature,
+}
+
+impl OCWTSSGroupKeyData {
+	pub fn new(shard_id: ShardId, group_key: [u8; 33], proof: Signature) -> Self {
+		Self { shard_id, group_key, proof }
+	}
+}
+
+pub trait TaskMetadataInterface {
+	fn task_metadata_exists(key: KeyId) -> bool;
+}
+
+impl TaskMetadataInterface for () {
+	fn task_metadata_exists(_key: KeyId) -> bool {
+		true
 	}
 }

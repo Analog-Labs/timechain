@@ -191,8 +191,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> TaskMetadataInterface for Pallet<T> {
-		fn task_metadata_exists(key: KeyId) -> bool {
-			TaskMetaStorage::<T>::get(key).is_some()
+		fn get_task_metadata(key: KeyId) -> Option<Task> {
+			TaskMetaStorage::<T>::get(key)
 		}
 	}
 }

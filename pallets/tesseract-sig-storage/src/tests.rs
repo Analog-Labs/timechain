@@ -113,7 +113,6 @@ fn test_signature_storage() {
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
-			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -204,7 +203,6 @@ fn test_signature_and_decrement_schedule_storage() {
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
-			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),
@@ -305,7 +303,6 @@ fn test_duplicate_signature() {
 		// insert schedule
 		let input = ScheduleInput {
 			task_id,
-			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
 			hash: String::from("address"),

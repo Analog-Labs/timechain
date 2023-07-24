@@ -107,7 +107,6 @@ pub struct Task {
 	pub function: Function,
 	pub network: Network,
 	pub with: Vec<String>,
-	pub cycle: u64,
 	pub validity: Validity,
 	pub hash: String,
 }
@@ -167,7 +166,6 @@ pub struct PayableTaskSchedule<AccountId, BlockNumber> {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
-	pub network: Network,
 	pub cycle: u64,
 	pub frequency: u64,
 	pub validity: Validity,
@@ -307,13 +305,24 @@ impl OCWTSSGroupKeyData {
 		Self { shard_id, group_key, proof }
 	}
 }
-
 pub trait TaskMetadataInterface {
-	fn task_metadata_exists(key: KeyId) -> bool;
+	fn get_task_metadata(key: KeyId) -> Option<Task>;
 }
 
 impl TaskMetadataInterface for () {
-	fn task_metadata_exists(_key: KeyId) -> bool {
-		true
+	fn get_task_metadata(_key: KeyId) -> Option<Task> {
+		Some(Task {
+			task_id: ObjectId(1),
+			schema: sp_std::vec![Schema::String(String::from("schema"))],
+			function: Function::EthereumApi {
+				function: String::from("function name"),
+				input: sp_std::vec![Input::HexAddress],
+				output: sp_std::vec![Output::Skip],
+			},
+			network: Network::Ethereum,
+			with: sp_std::vec![String::from("address")],
+			validity: Validity::Seconds(10),
+			hash: String::from("hash"),
+		})
 	}
 }

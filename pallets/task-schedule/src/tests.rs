@@ -44,7 +44,6 @@ fn test_schedule() {
 
 		let input = Schedule {
 			task_id,
-			network: Network::Ethereum,
 			cycle: 12,
 			frequency: 1,
 			validity: Validity::Seconds(10),

@@ -294,10 +294,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
-				Error::<T>::TaskMetadataNotRegistered
-			);
+			let scheduled_task =
+				T::TaskMetadataHelper::get_task_metadata(schedule.task_id.get_id())
+					.ok_or(Error::<T>::TaskMetadataNotRegistered)?;
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -315,19 +314,19 @@ pub mod pallet {
 			LastKey::<T>::put(schedule_id);
 			// assign task to next eligible shard for this network
 			if let Some(next_shard_for_network) =
-				T::ShardEligibility::next_eligible_shard(schedule.network)
+				T::ShardEligibility::next_eligible_shard(scheduled_task.network)
 			{
 				Self::assign_task_to_shard(schedule_id, next_shard_for_network);
 			} else {
 				// place in unassigned tasks if no shards available for this network
-				UnassignedTasks::<T>::insert(schedule.network, schedule_id, ());
+				UnassignedTasks::<T>::insert(scheduled_task.network, schedule_id, ());
 			}
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
 					task_id: schedule.task_id,
 					owner: who,
-					network: schedule.network,
+					network: scheduled_task.network,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
 					start_execution_block: 0,
@@ -371,10 +370,9 @@ pub mod pallet {
 			schedule: PayableScheduleInput,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
-				Error::<T>::TaskMetadataNotRegistered
-			);
+			let scheduled_task =
+				T::TaskMetadataHelper::get_task_metadata(schedule.task_id.get_id())
+					.ok_or(Error::<T>::TaskMetadataNotRegistered)?;
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -405,7 +403,7 @@ pub mod pallet {
 				PayableTaskSchedule {
 					task_id: schedule.task_id,
 					owner: who,
-					network: schedule.network,
+					network: scheduled_task.network,
 					executable_since: frame_system::Pallet::<T>::block_number(),
 					status: ScheduleStatus::Initiated,
 				},

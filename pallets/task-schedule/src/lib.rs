@@ -585,7 +585,7 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id)
 				.filter(|(schedule_id, _)| {
 					if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
-						schedule.status != ScheduleStatus::Completed
+						matches!(schedule.status, ScheduleStatus::Initiated | ScheduleStatus::Updated | ScheduleStatus::Recurring)
 					} else if let Some(schedule) = PayableScheduleStorage::<T>::get(schedule_id) {
 						schedule.status != ScheduleStatus::Completed
 					} else {

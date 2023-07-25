@@ -15,7 +15,6 @@ members = [
     "workers/database",
     "workers/database/migration",
     "workers/event-worker",
-    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/time-worker",
     "workers/time-worker/rpc",

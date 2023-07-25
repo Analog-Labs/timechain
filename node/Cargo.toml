@@ -85,9 +85,6 @@ event-worker = { path = "../workers/event-worker" }
 #Task-Executor
 task-executor = { path = "../workers/task-executor" }
 
-#Payable-Task-Executor
-payable-task-executor = { path = "../workers/payable-task-executor" }
-
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 

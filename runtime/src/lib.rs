@@ -54,9 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{
-	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
-};
+use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule};
 use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1573,18 +1571,6 @@ impl_runtime_apis! {
 
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
 			TaskSchedule::get_schedule_by_key(schedule_id)
-		}
-
-		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
-			TaskMeta::get_payable_tasks()
-		}
-
-		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError> {
-			TaskMeta::get_payable_task_metadata_by_key(key)
-		}
-
-		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_payable_task_schedules()
 		}
 	}
 

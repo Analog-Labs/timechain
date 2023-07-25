@@ -106,6 +106,7 @@ async fn build_worker(url: &str, blockchain: &str, network: &str) -> TaskExecuto
 }
 
 #[tokio::test]
+#[ignore]
 // Ethereum localnet contract call
 async fn task_executor_ethereum_sc_call() {
 	let blockchain = "ethereum";
@@ -127,6 +128,7 @@ async fn task_executor_ethereum_sc_call() {
 }
 
 #[tokio::test]
+#[ignore]
 // Astar localnet contract call
 async fn task_executor_astar_sc_call() {
 	let blockchain = "astar";

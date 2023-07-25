@@ -11,8 +11,8 @@ use scale_info::prelude::string::String;
 use task_schedule::{Call, Pallet as TaskSchedule};
 use time_primitives::abstraction::{
 	ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as TaskScheduleInput,
-	Validity,
 };
+use time_primitives::sharding::Network;
 
 pub trait Config: task_schedule::Config + pallet_proxy::Config {}
 
@@ -24,10 +24,10 @@ benchmarks! {
 		let origin: T::AccountId = whitelisted_caller();
 		let input  = Schedule {
 			task_id: ObjectId(1),
-			shard_id: 1,
 			cycle: 12,
-			validity: Validity::Seconds(10),
+			frequency: 2,
 			hash:String::from("address"),
+			status: ScheduleStatus::Initiated,
 		};
 
 		let schedule = input.clone();
@@ -42,15 +42,17 @@ benchmarks! {
 
 	update_schedule {
 		let origin: T::AccountId = whitelisted_caller();
-		let input  = TaskScheduleInput {
+		let block_num: T::BlockNumber = 10u32.into();
+		let input = TaskScheduleInput {
 			task_id: ObjectId(1),
-			owner:origin.clone(),
-			shard_id: 1,
+			owner: origin.clone(),
 			cycle: 12,
-			start_block: 0,
-			validity: Validity::Seconds(10),
-			hash:String::from("address"),
+			frequency: 2,
+			start_execution_block: 0,
+			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
+			network: Network::Ethereum,
+			executable_since: block_num,
 		};
 		let proxy_acc: T::AccountId = whitelisted_caller();
 

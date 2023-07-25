@@ -31,8 +31,10 @@ benchmarks! {
 
 	submit_tss_group_key {
 		let s in 1 .. 255;
-		let key = [s as u8; 33];
-	}: _(RawOrigin::None, s.into(), key)
+		let key = [0u8; 33];
+		let raw_sig = [76, 230, 173, 76, 70, 52, 217, 128, 141, 216, 102, 222, 110, 19, 130, 100, 54, 65, 163, 21, 241, 28, 68, 42, 155, 107, 241, 237, 67, 69, 22, 116, 107, 124, 228, 251, 108, 215, 228, 229, 131, 54, 131, 102, 119, 76, 177, 166, 14, 192, 145, 29, 122, 189, 189, 177, 143, 213, 58, 228, 76, 8, 247, 130];
+		let sig = Signature::decode(&mut (&raw_sig[..])).unwrap();
+	}: _(RawOrigin::None, s.into(), key, sig)
 	verify {
 		assert_last_event::<T>(Event::<T>::NewTssGroupKey(s.into(), key).into());
 	}

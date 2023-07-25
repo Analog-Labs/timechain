@@ -9,7 +9,8 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::{string::String, vec};
 use task_metadata::{Call, Pallet as TaskMeta};
-use time_primitives::abstraction::{Function, Input, ObjectId, Output, Schema, Task, Validity};
+use time_primitives::abstraction::{Function, Input, ObjectId, Output, Task};
+use time_primitives::sharding::Network;
 
 pub trait Config: task_metadata::Config + pallet_proxy::Config {}
 
@@ -19,15 +20,12 @@ benchmarks! {
 	insert_task {
 		let input: Task = Task {
 			task_id: ObjectId(1),
-			schema: vec![Schema::String(String::from("schema"))],
-			 function: Function::EthereumApi {
+			function: Function::EthereumApi {
 				function: String::from("function name"),
 				input: vec![Input::HexAddress],
 				output:vec![Output::Skip],
 			},
-			cycle: 12,
-			with: vec![String::from("address")],
-			validity: Validity::Seconds(10),
+			network: Network::Ethereum,
 			hash: String::from("hash"),
 		};
 

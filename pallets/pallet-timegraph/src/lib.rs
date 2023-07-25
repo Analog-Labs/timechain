@@ -61,7 +61,10 @@ pub mod pallet {
 		pub fn pay_querying(
 			origin: OriginFor<T>,
 			query_id: QueryId,
+			// To compute the publisher's earnings, store the collection id on chain
+			_collection_id: u64,
 			amount: BalanceOf<T>,
+
 			recipient: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;

@@ -9,12 +9,14 @@ fn test_task() {
 		let query_id = 1;
 		let balance: Balance = 2;
 		let recipient = 3;
+		let collection_id = 4;
 
 		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 100));
 
 		assert_ok!(PalletTimegraph::pay_querying(
 			RawOrigin::Signed(1).into(),
 			query_id,
+			collection_id,
 			balance,
 			recipient
 		));
@@ -27,6 +29,7 @@ fn test_task() {
 			PalletTimegraph::pay_querying(
 				RawOrigin::Signed(1).into(),
 				query_id,
+				collection_id,
 				balance,
 				recipient
 			),

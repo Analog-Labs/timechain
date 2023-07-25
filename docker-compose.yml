@@ -24,7 +24,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -49,7 +49,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -76,7 +76,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -103,7 +103,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -130,7 +130,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -157,7 +157,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'

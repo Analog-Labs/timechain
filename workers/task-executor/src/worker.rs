@@ -17,7 +17,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::{
-	collections::{BTreeMap, HashMap, HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
@@ -203,7 +203,11 @@ where
 	}
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	async fn process_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		block_height: u64,
+	) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
 		};
@@ -211,7 +215,7 @@ where
 		let all_schedules = self
 			.runtime
 			.runtime_api()
-			.get_one_time_task_schedule(block_id)?
+			.get_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
 		//filter schedules for this node's shard
@@ -239,92 +243,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!("single task schedule {:?}", task_schedules.len());
-
-		let mut tree_map = BTreeMap::new();
-		for (schedule_id, shard_id, schedule) in task_schedules {
-			// if task is already executed then skip
-			if self.tasks.contains(&schedule_id) {
-				continue;
-			}
-			tree_map.insert(schedule_id, (shard_id, schedule));
-			self.tasks.insert(schedule_id);
-		}
-
-		for (schedule_id, (shard_id, schedule)) in tree_map.iter() {
-			//check if current shard is active
-			if !self.is_current_shard_online(block_id, shard_id, schedule.network)? {
-				//shard offline cant do any processing.
-				self.repetitive_tasks.clear();
-				self.tasks.clear();
-				anyhow::bail!("Shard is offline id: {:?}", &shard_id);
-			}
-			match self.task_executor(block_id, schedule_id, schedule).await {
-				Ok(data) => {
-					if let Err(e) = self
-						.send_for_sign(block_id, data, *shard_id, *schedule_id, schedule.cycle)
-						.await
-					{
-						log::error!("Error occured while sending data for signing: {}", e);
-					};
-				},
-				Err(e) => {
-					//process error
-					log::error!(
-						"Error occured while executing one time schedule {:?}: {}",
-						schedule_id,
-						e
-					);
-					self.report_schedule_invalid(*schedule_id, true, block_id, *shard_id);
-				},
-			}
-		}
-
-		Ok(())
-	}
-
-	async fn process_repetitive_tasks_for_block(
-		&mut self,
-		block_id: <B as Block>::Hash,
-		block_height: BlockHeight,
-	) -> Result<()> {
-		let Some(account) = self.account_id() else {
-			anyhow::bail!("No account id found");
-		};
-
-		// get all initialized repetitive tasks
-		let all_schedules = self
-			.runtime
-			.runtime_api()
-			.get_repetitive_task_schedule(block_id)?
-			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-
-		// filter schedules for this node's shard
-		let task_schedules = all_schedules
-			.into_iter()
-			.filter_map(|(schedule_id, schedule)| {
-				if let Ok(Ok(shard_id)) =
-					self.runtime.runtime_api().get_task_shard(block_id, schedule_id)
-				{
-					let shard_members = self
-						.runtime
-						.runtime_api()
-						.get_shard_members(block_id, shard_id)
-						.unwrap_or(Some(vec![]))
-						.unwrap_or(vec![]);
-
-					if shard_members.contains(&account) {
-						Some((schedule_id, shard_id, schedule))
-					} else {
-						None
-					}
-				} else {
-					None
-				}
-			})
-			.collect::<Vec<_>>();
-
-		log::info!("Repetitive task schedule {:?}", self.repetitive_tasks.len());
+		log::info!("task schedule {:?}", task_schedules.len());
 
 		for (schedule_id, shard_id, schedule) in task_schedules {
 			// if task is already executed then skip
@@ -501,22 +420,6 @@ where
 
 	pub async fn run(&mut self) {
 		loop {
-			match self.backend.blockchain().last_finalized() {
-				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at).await {
-						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
-					}
-				},
-				Err(e) => {
-					log::error!("Blockchain is empty: {}", e);
-				},
-			}
-			tokio::time::sleep(Duration::from_millis(1000)).await;
-		}
-	}
-
-	pub async fn run_repetitive_task(&mut self) {
-		loop {
 			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
 				continue;
@@ -527,16 +430,10 @@ where
 				self.last_block_height = current_block;
 			}
 
-			// get the last finalized block number
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
-					{
-						log::error!(
-							"Failed to process repetitive tasks for block {:?}: {:?}",
-							at,
-							e
-						);
+					if let Err(e) = self.process_tasks_for_block(at, current_block).await {
+						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},
 				Err(e) => {

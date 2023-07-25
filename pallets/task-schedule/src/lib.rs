@@ -354,21 +354,10 @@ pub mod pallet {
 			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
 
-		pub fn get_one_time_schedules(
+		pub fn get_task_schedules(
 		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
-				.filter(|item| !item.1.is_repetitive_task())
-				.collect::<Vec<_>>();
-
-			Ok(data_list)
-		}
-
-		pub fn get_repetitive_schedules(
-		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
-			let data_list = ScheduleStorage::<T>::iter()
-				.filter(|item| item.1.status == ScheduleStatus::Initiated)
-				.filter(|item| item.1.is_repetitive_task())
 				.collect::<Vec<_>>();
 
 			Ok(data_list)

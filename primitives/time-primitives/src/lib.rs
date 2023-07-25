@@ -54,8 +54,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_shard(task_id: KeyId) -> Result<ShardId, DispatchError>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
-		fn get_one_time_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
-		fn get_repetitive_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
+		fn get_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
 	}
 }

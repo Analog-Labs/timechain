@@ -401,7 +401,7 @@ pub fn new_full(
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"task-executor",
 			None,
-			task_executor::start_task_executor_gadget(task_executor_params, false),
+			task_executor::start_task_executor_gadget(task_executor_params),
 		);
 	}
 

@@ -3,16 +3,11 @@ use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use futures::channel::mpsc::Sender;
-use rosetta_client::{
-	create_client,
-	types::{CallRequest, CallResponse},
-	BlockchainConfig, Client,
-};
+use rosetta_client::{create_wallet, EthereumExt, Wallet};
 use sc_client_api::Backend;
-use serde_json::json;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
-use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
+use sp_core::offchain::STORAGE_PREFIX;
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
@@ -28,7 +23,6 @@ use time_primitives::{
 	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 
-#[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A, BN> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
@@ -41,8 +35,7 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	// TODO need to get all completed task and remove them from it
 	tasks: HashSet<u64>,
 	error_count: HashMap<u64, u64>,
-	rosetta_chain_config: BlockchainConfig,
-	rosetta_client: Client,
+	rosetta_client: Wallet,
 	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, u64, TaskSchedule<A, BN>)>>,
 	last_block_height: BlockHeight,
 }
@@ -71,8 +64,8 @@ where
 		} = params;
 
 		// create rosetta client and get chain configuration
-		let (rosetta_chain_config, rosetta_client) =
-			create_client(connector_blockchain, connector_network, connector_url).await?;
+		let rosetta_client =
+			create_wallet(connector_blockchain, connector_network, connector_url, None).await?;
 
 		Ok(Self {
 			_block: PhantomData,
@@ -84,7 +77,6 @@ where
 			kv,
 			tasks: Default::default(),
 			error_count: Default::default(),
-			rosetta_chain_config,
 			rosetta_client,
 			repetitive_tasks: Default::default(),
 			last_block_height: 0,
@@ -100,86 +92,6 @@ where
 			let id = &keys[0];
 			TimeId::decode(&mut id.as_ref()).ok()
 		}
-	}
-
-	/// Encode call response and send data for tss signing process
-	async fn send_for_sign(
-		&mut self,
-		block_id: <B as Block>::Hash,
-		data: CallResponse,
-		shard_id: u64,
-		schedule_id: u64,
-		schedule_cycle: u64,
-	) -> Result<()> {
-		let serialized_data = format!("{}-{}-{}", data.result, schedule_id, schedule_cycle);
-		let bytes = bincode::serialize(&serialized_data).context("Failed to serialize task")?;
-		let hash = keccak_256(&bytes);
-
-		self.sign_data_sender
-			.clone()
-			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
-
-		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			if schedule_cycle > 1 {
-				self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule_id);
-			} else {
-				self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
-			}
-		}
-
-		Ok(())
-	}
-	/// Fetches and executes contract call for a given schedule_id
-	async fn task_executor(
-		&mut self,
-		block_id: <B as Block>::Hash,
-		schedule_id: &u64,
-		schedule: &TaskSchedule<A, BN>,
-	) -> Result<CallResponse, TaskExecutorError> {
-		let metadata = self
-			.runtime
-			.runtime_api()
-			.get_task_metadata_by_key(block_id, schedule.task_id.0)
-			.map_err(|err| TaskExecutorError::InternalError(err.to_string()))?
-			.map_err(|err| TaskExecutorError::InternalError(format!("{:?}", err)))?;
-
-		let Some(task) = metadata else {
-			log::info!("No task found for id {:?}", schedule.task_id.0);
-			return Err(TaskExecutorError::NoTaskFound(schedule.task_id.0));
-		};
-
-		match &task.function {
-			// If the task function is an Ethereum contract
-			// call, call it and send for signing
-			Function::EVMViewWithoutAbi {
-				address,
-				function_signature,
-				input,
-				output: _,
-			} => {
-				log::info!("running schedule_id {:?}", schedule_id);
-				match self.call_eth_contract(address, function_signature, input).await {
-					Ok(data) => Ok(data),
-					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),
-				}
-			},
-			_ => Err(TaskExecutorError::InvalidTaskFunction),
-		}
-	}
-
-	pub(crate) async fn call_eth_contract(
-		&self,
-		address: &str,
-		function: &str,
-		input: &[String],
-	) -> Result<CallResponse> {
-		let method = format!("{address}-{function}-call");
-		let request = CallRequest {
-			network_identifier: self.rosetta_chain_config.network(),
-			method,
-			parameters: json!(input),
-		};
-		self.rosetta_client.call(&request).await
 	}
 
 	/// check if current node is collector
@@ -200,6 +112,46 @@ where
 		};
 
 		Ok(*shard.collector() == account)
+	}
+
+	fn is_current_shard_online(
+		&self,
+		block_id: <B as Block>::Hash,
+		shard_id: &u64,
+		network: Network,
+	) -> Result<bool> {
+		let active_shard = self.runtime.runtime_api().get_active_shards(block_id, network)?;
+		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
+		log::debug!("active_shards {:?}", active_shard_id);
+		Ok(active_shard_id.contains(shard_id))
+	}
+
+	async fn execute_function(&self, function: &Function) -> Result<()> {
+		// TODO: do something with results
+		match function {
+			Function::EVMViewWithoutAbi {
+				address,
+				function_signature,
+				input,
+				output: _,
+			} => {
+				let _ =
+					self.rosetta_client.eth_view_call(address, function_signature, input).await?;
+			},
+			Function::EthereumTxWithoutAbi {
+				address,
+				function_signature,
+				input,
+				output: _,
+			} => {
+				let _ = self
+					.rosetta_client
+					.eth_send_call(address, function_signature, input, 0)
+					.await?;
+			},
+			_ => anyhow::bail!("unsupported function"),
+		}
+		Ok(())
 	}
 
 	// entry point for task execution, triggered by each finalized block in the Timechain
@@ -281,16 +233,19 @@ where
 
 			// execute all task for specific task
 			for (schedule_id, shard_id, schedule) in tasks {
-				match self.task_executor(block_id, &schedule_id, &schedule).await {
-					Ok(data) => {
-						//send for signing
-						if let Err(e) = self
-							.send_for_sign(block_id, data, shard_id, schedule_id, schedule.cycle)
-							.await
-						{
-							log::error!("Error occurred while sending data for signing: {}", e);
-						};
+				let metadata = self
+					.runtime
+					.runtime_api()
+					.get_task_metadata_by_key(block_id, schedule.task_id.0)
+					.map_err(|err| TaskExecutorError::InternalError(err.to_string()))?
+					.map_err(|err| TaskExecutorError::InternalError(format!("{:?}", err)))?;
 
+				let Some(task) = metadata else {
+                       log::info!("No task found for id {:?}", schedule.task_id.0);
+					continue;
+               };
+				match self.execute_function(&task.function).await {
+					Ok(data) => {
 						let mut decremented_schedule = schedule.clone();
 						decremented_schedule.cycle = decremented_schedule.cycle.saturating_sub(1);
 
@@ -303,40 +258,23 @@ where
 						}
 						self.error_count.remove(&schedule_id);
 					},
-					Err(e) => match e {
-						TaskExecutorError::NoTaskFound(task) => {
-							log::error!("No repetitive task found for id {:?}", task);
-							self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
-						},
-						TaskExecutorError::InvalidTaskFunction => {
-							log::error!("Invalid task function provided");
-							self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
-						},
-						TaskExecutorError::ExecutionError(error) => {
-							log::error!(
-								"Error occured while executing repetitive contract call {:?}: {}",
-								schedule_id,
-								error
-							);
+					Err(error) => {
+						log::error!(
+							"Error occured while executing task {:?}: {}",
+							schedule_id,
+							error
+						);
 
-							let is_terminated = self.report_schedule_invalid(
-								schedule_id,
-								false,
-								block_id,
-								shard_id,
-							);
+						let is_terminated =
+							self.report_schedule_invalid(schedule_id, false, block_id, shard_id);
 
-							// if not terminated keep add task with added frequency
-							if !is_terminated {
-								self.repetitive_tasks
-									.entry(index + schedule.frequency)
-									.or_insert(vec![])
-									.push((schedule_id, shard_id, schedule));
-							}
-						},
-						TaskExecutorError::InternalError(error) => {
-							log::error!("Internal error occured while processing task: {}", error);
-						},
+						// if not terminated keep add task with added frequency
+						if !is_terminated {
+							self.repetitive_tasks
+								.entry(index + schedule.frequency)
+								.or_insert(vec![])
+								.push((schedule_id, shard_id, schedule));
+						}
 					},
 				}
 			}
@@ -344,18 +282,6 @@ where
 		}
 
 		Ok(())
-	}
-
-	fn is_current_shard_online(
-		&self,
-		block_id: <B as Block>::Hash,
-		shard_id: &u64,
-		network: Network,
-	) -> Result<bool> {
-		let active_shard = self.runtime.runtime_api().get_active_shards(block_id, network)?;
-		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
-		log::debug!("active_shards {:?}", active_shard_id);
-		Ok(active_shard_id.contains(shard_id))
 	}
 
 	/// Add schedule update task to offchain storage
@@ -421,10 +347,10 @@ where
 	pub async fn run(&mut self) {
 		loop {
 			// get the external blockchain's block number
-			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+			let Ok(status) = self.rosetta_client.status().await else {
 				continue;
 			};
-			let current_block = status.current_block_identifier.index;
+			let current_block = status.index;
 			// update last block height if never set before
 			if self.last_block_height == 0 {
 				self.last_block_height = current_block;

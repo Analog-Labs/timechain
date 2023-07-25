@@ -35,7 +35,6 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         task_id: 2,
-        schema:[1],
         function:{EVMViewWithoutAbi:{
             address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
             function_signature: "function get_votes_stats() external view returns (uint, uint)",
@@ -43,9 +42,6 @@ const pallet_task_add = async (_keyspair, who) => {
             output: 2,
         }},
         network: 1,
-        with:['123','123'],
-        cycle:1,
-        validity:{Seconds:12},
         hash:'asdasd'
     }
     await api.isReady;

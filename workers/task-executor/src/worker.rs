@@ -313,28 +313,32 @@ where
 												data.collect.status
 											);
 										} else {
-											log::info!(
-										"timegraph migrate collect status fail: No response : {:?}",
-										json.errors
-									);
+											log::info!("timegraph migrate collect status fail: No response : {:?}",json.errors);
+											return Err(Error::ErrorOnSendDataToTimeGraph);
 										}
 									},
 									Err(e) => {
-										log::info!("Failed to parse response: {:?}", e)
+										log::info!("Failed to parse response: {:?}", e);
+										return Err(Error::ErrorOnSendDataToTimeGraph);
 									},
 								};
 							},
 							Err(e) => {
-								log::info!("error in post request to timegraph: {:?}", e)
+								log::info!("error in post request to timegraph: {:?}", e);
+								return Err(Error::ErrorOnSendDataToTimeGraph);
 							},
 						}
 					},
 					Err(e) => {
 						log::info!("Unable to get timegraph sskey {:?}", e);
+						return Err(Error::ErrorOnSendDataToTimeGraph);
 					},
 				};
 			},
-			Err(e) => log::warn!("error on getting response from rosetta client :{:?}", e),
+			Err(e) => {
+				log::warn!("error on getting response from rosetta client :{:?}", e);
+				return Err(Error::ErrorOnSendDataToTimeGraph);
+			},
 		};
 		Ok(())
 	}

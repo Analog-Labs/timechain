@@ -23,6 +23,7 @@ use sp_runtime::traits::Block;
 use std::env;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
+	fmt,
 	marker::PhantomData,
 	sync::Arc,
 	time::Duration,
@@ -50,6 +51,19 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	rosetta_client: Client,
 	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, u64, TaskSchedule<A, BN>)>>,
 	last_block_height: BlockHeight,
+}
+
+#[derive(Debug)]
+enum Error {
+	ErrorOnSendDataToTimeGraph,
+}
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Error::ErrorOnSendDataToTimeGraph => write!(f, "Faild to send data to Timegraph"),
+		}
+	}
 }
 
 impl<B, BE, R, A, BN> TaskExecutor<B, BE, R, A, BN>
@@ -212,7 +226,7 @@ where
 		data: CallResponse,
 		collection: String,
 		task_id: u64,
-	) {
+	) -> Result<(), Error> {
 		let block_request = BlockRequest {
 			network_identifier: self.rosetta_chain_config.network(),
 			block_identifier: PartialBlockIdentifier { index: None, hash: None },
@@ -235,12 +249,12 @@ where
 				let cycle = match value.parse::<i64>() {
 					Ok(parsed_value) if parsed_value == 0 => {
 						log::warn!("error on block number");
-						return; // Return from the function if cycle value is 0.
+						return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if cycle value is 0.
 					},
 					Ok(parsed_value) => parsed_value,
 					Err(e) => {
 						log::error!("Failed to parse value: {:?}", e);
-						return; // Return from the function if parsing fails.
+						return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if parsing fails.
 					},
 				};
 
@@ -270,7 +284,7 @@ where
 				dotenv().ok();
 				let Ok(url) = env::var("TIMEGRAPH_GRAPHQL_URL") else {
 					log::warn!("Unable to get timegraph graphql url, Setting up default local url");
-					return
+					return Err(Error::ErrorOnSendDataToTimeGraph)
 					};
 				match env::var("SSK") {
 					Ok(ssk) => {
@@ -322,6 +336,7 @@ where
 			},
 			Err(e) => log::warn!("error on getting response from rosetta client :{:?}", e),
 		};
+		Ok(())
 	}
 	// entry point for task execution, triggered by each finalized block in the Timechain
 	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
@@ -394,8 +409,13 @@ where
 					{
 						log::error!("Error occured while sending data for signing: {}", e);
 					};
-					self.send_data(block_id, data, schedule.hash.to_owned(), schedule.task_id.0)
-						.await;
+					match self
+						.send_data(block_id, data, schedule.hash.to_owned(), schedule.task_id.0)
+						.await
+					{
+						Ok(()) => log::info!("Submit to TimeGraph successful"),
+						Err(e) => log::warn!("Error on submit to TimeGraph {:?}", e),
+					};
 				},
 				Err(e) => {
 					//process error
@@ -495,7 +515,13 @@ where
 					Ok(data) => {
 						//send for signing
 						if let Err(e) = self
-							.send_for_sign(block_id, data, shard_id, schedule_id, schedule.cycle)
+							.send_for_sign(
+								block_id,
+								data.clone(),
+								shard_id,
+								schedule_id,
+								schedule.cycle,
+							)
 							.await
 						{
 							log::error!("Error occurred while sending data for signing: {}", e);
@@ -512,6 +538,13 @@ where
 								.push((schedule_id, shard_id, decremented_schedule));
 						}
 						self.error_count.remove(&schedule_id);
+						match self
+							.send_data(block_id, data, schedule.hash.to_owned(), schedule.task_id.0)
+							.await
+						{
+							Ok(()) => log::info!("Submit to TimeGraph successful"),
+							Err(e) => log::warn!("Error on submit to TimeGraph {:?}", e),
+						};
 					},
 					Err(e) => match e {
 						TaskExecutorError::NoTaskFound(task) => {

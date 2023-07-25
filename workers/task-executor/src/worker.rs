@@ -239,9 +239,15 @@ where
 		// @tss: TSS signature
 		// @data: data to add into collection
 		let data_value = match data.result {
-			Value::Array(val) => val.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
-			v => vec![v.to_string()],
-		};
+            Value::Array(val) =>{
+                val.iter()
+                .filter_map(|x| x.as_str())
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>()
+                },
+            v => vec![v.to_string()],
+        };
+log::info!("\n\n\n data_value ---> {:?}",data_value);
 		let variables = collect_data::Variables {
 			collection,
 			block: block.block_identifier.index as i64,

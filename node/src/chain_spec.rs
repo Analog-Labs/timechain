@@ -28,11 +28,12 @@ const PUBLIC_SALE: Balance = ANLOG * 1_449_275;
 const TEAM_SUPPLY: Balance = ANLOG * 17_210_160;
 const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
 const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
-const VALIDATOR_SUPPLY: Balance = ANLOG;
 
-/// TODO: Incoperat into tokenomics
-const CONTROLLER_SUPPLY: Balance = ANLOG * 100000;
+/// Tokens to take from team supply to bootstrap validators
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500000;
+const VALIDATOR_SUPPLY: Balance = 12 * PER_VALIDATOR_STASH;
+
+const CONTROLLER_SUPPLY: Balance = ANLOG * 100000;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -295,7 +296,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						hex!["62e926d7df56786c766af140cdc9da839c50e60fa0d6722488a1ad235f1c5d1a"]
 							.into(),
-						TEAM_SUPPLY,
+						TEAM_SUPPLY - CONTROLLER_SUPPLY - VALIDATOR_SUPPLY,
 					),
 					(
 						hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"]
@@ -394,11 +395,6 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
 							.into(),
 						COMMUNITY_SUPPLY,
-					),
-					(
-						hex!["088f0e5d722a420339685a4e6ab358a4df4e39206bfad00e30617abf1633d37a"]
-							.into(),
-						VALIDATOR_SUPPLY,
 					),
 				],
 			)

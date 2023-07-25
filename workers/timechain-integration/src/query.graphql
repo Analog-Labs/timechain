@@ -1,0 +1,5 @@
+mutation CollectData($collection: String!, $block: Int!, $cycle: Int!, $taskId: Int!, $data: [String!]!) {
+  collect(collection: $collection, block: $block, cycle: $cycle, taskId: $taskId, data: $data) {
+    status
+  }
+}

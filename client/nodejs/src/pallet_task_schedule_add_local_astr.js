@@ -29,8 +29,9 @@ const pallet_task_add = async (_keyspair, who) => {
         frequency: 0,
         cycle: 1,
         validity: { Seconds: 12 },
-        hash: 'asdasd',
-        status: 0
+        hash: 'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7',
+        status: 0,
+        start_execution_block: 0,
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);

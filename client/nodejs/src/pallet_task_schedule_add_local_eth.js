@@ -26,10 +26,10 @@ const pallet_task_add = async (_keyspair, who) => {
         task_id: 1,
         owner: 'address',
         network: 0,
-        frequency: 5,
-        cycle: 3,
+        frequency: 0,
+        cycle: 1,
         validity: { Seconds: 12 },
-        hash: 'asdasd',
+        hash: 'QmSbNEi9TzrAvDvL6hqU3s7VnaXAu6vWY36Hz5rN2ZVfEa',
         status: 0
     }
     await api.isReady;

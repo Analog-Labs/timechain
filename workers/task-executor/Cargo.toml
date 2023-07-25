@@ -6,10 +6,17 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 bincode = "1.3.3"
+tokio = { version = "1.29.1", features = ["macros"] }
+queue = "0.3.1"
 codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = [
     "derive",
 ] }
+dotenv = "0.15.0"
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
 futures = "0.3.28"
+graphql_client = "0.13.0"
+reqwest = "0.11.18"
 log = "0.4.19"
 rosetta-client = "0.4.0"
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
@@ -22,8 +29,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 thiserror = "1.0.43"
 time-db = { path = "../database" }
 time-primitives = { path = "../../primitives/time-primitives" }
-tokio = { version = "1.29.1", features = ["macros"] }
-queue = "0.3.1"
+timechain-integration = { path = "../timechain-integration" }
 
 [dev-dependencies]
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

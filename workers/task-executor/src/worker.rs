@@ -217,47 +217,61 @@ where
 			network_identifier: self.rosetta_chain_config.network(),
 			block_identifier: PartialBlockIdentifier { index: None, hash: None },
 		};
-		let response = self.rosetta_client.block(&block_request).await.unwrap();
+		match self.rosetta_client.block(&block_request).await {
+			Ok(response) => {
+				let block = match response.block {
+					Some(block) => block,
+					None => block::Block::default(),
+				};
 
-		let block = match response.block {
-			Some(block) => block,
-			None => block::Block::default(),
-		};
+				let value = match self.backend.blockchain().number(block_id) {
+					Ok(Some(val)) => val.to_string(),
+					Ok(None) => "0".to_string(),
+					Err(e) => {
+						log::warn!("Error occurred: {:?}", e);
+						"0".to_string()
+					},
+				};
+				let cycle = match value.parse::<i64>() {
+					Ok(parsed_value) if parsed_value == 0 => {
+						log::warn!("error on block number");
+						return; // Return from the function if cycle value is 0.
+					},
+					Ok(parsed_value) => parsed_value,
+					Err(e) => {
+						log::error!("Failed to parse value: {:?}", e);
+						return; // Return from the function if parsing fails.
+					},
+				};
 
-		let value = match self.backend.blockchain().number(block_id).unwrap() {
-			Some(val) => val.to_string(),
-			None => "0".to_string(),
-		};
-		let cycle = value.parse::<i64>().unwrap();
-
-		// Add data into collection (user must have Collector role)
-		// @collection: collection hashId
-		// @cycle: time-chain block number
-		// @block: target network block number
-		// @task_id: task associated with data
-		// @task_counter: for repeated task it's incremented on every run
-		// @tss: TSS signature
-		// @data: data to add into collection
-		let data_value = match data.result {
-            Value::Array(val) =>{
-                val.iter()
-                .filter_map(|x| x.as_str())
-                .map(|x| x.to_string())
-                .collect::<Vec<String>>()
-                },
-            v => vec![v.to_string()],
-        };
-log::info!("\n\n\n data_value ---> {:?}",data_value);
-		let variables = collect_data::Variables {
-			collection,
-			block: block.block_identifier.index as i64,
-			cycle,
-			task_id: task_id as i64,
-			data: data_value,
-		};
-		dotenv().ok();
-		match env::var("TIMEGRAPH_GRAPHQL_URL") {
-			Ok(url) => {
+				// Add data into collection (user must have Collector role)
+				// @collection: collection hashId
+				// @cycle: time-chain block number
+				// @block: target network block number
+				// @task_id: task associated with data
+				// @task_counter: for repeated task it's incremented on every run
+				// @tss: TSS signature
+				// @data: data to add into collection
+				let data_value = match data.result {
+					Value::Array(val) => val
+						.iter()
+						.filter_map(|x| x.as_str())
+						.map(|x| x.to_string())
+						.collect::<Vec<String>>(),
+					v => vec![v.to_string()],
+				};
+				let variables = collect_data::Variables {
+					collection,
+					block: block.block_identifier.index as i64,
+					cycle,
+					task_id: task_id as i64,
+					data: data_value,
+				};
+				dotenv().ok();
+				let Ok(url) = env::var("TIMEGRAPH_GRAPHQL_URL") else {
+					log::warn!("Unable to get timegraph graphql url, Setting up default local url");
+					return
+					};
 				match env::var("SSK") {
 					Ok(ssk) => {
 						// Build the GraphQL request
@@ -291,10 +305,14 @@ log::info!("\n\n\n data_value ---> {:?}",data_value);
 									);
 										}
 									},
-									Err(e) => log::info!("Failed to parse response: {:?}", e),
+									Err(e) => {
+										log::info!("Failed to parse response: {:?}", e)
+									},
 								};
 							},
-							Err(e) => log::info!("error in post request to timegraph: {:?}", e),
+							Err(e) => {
+								log::info!("error in post request to timegraph: {:?}", e)
+							},
 						}
 					},
 					Err(e) => {
@@ -302,12 +320,7 @@ log::info!("\n\n\n data_value ---> {:?}",data_value);
 					},
 				};
 			},
-			Err(e) => {
-				log::info!(
-					"Unable to get timegraph graphql url {:?}, Setting up default local url",
-					e
-				);
-			},
+			Err(e) => log::warn!("error on getting response from rosetta client :{:?}", e),
 		};
 	}
 	// entry point for task execution, triggered by each finalized block in the Timechain

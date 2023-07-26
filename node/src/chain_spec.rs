@@ -329,7 +329,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		// Bootnodes
 		vec![
 			"/dns/bootnode-1.internal.analog.one/tcp/30333/p2p/12D3KooWHRZcA2GHQYpbqwPsvk3ZEPDnu35w7cfEBxYPFfTR2bHX".parse().unwrap(),
-			"/dns/bootnode-2.internal.analog.one/tcp/30333/p2p/12D3KooWAHTG5KqRPKyerDVXAVrGEXd3g1XDK9JajbTCZP2K7xVN".parse().unwrap(),
+			"/dns/bootnode-2.internal.analog.one/tcp/30334/p2p/12D3KooWAHTG5KqRPKyerDVXAVrGEXd3g1XDK9JajbTCZP2K7xVN".parse().unwrap(),
 		],
 		// Telemetry
 		None,

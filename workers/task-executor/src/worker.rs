@@ -124,7 +124,6 @@ where
 	/// Encode call response and send data for tss signing process
 	async fn send_for_sign(
 		&mut self,
-		block_id: <B as Block>::Hash,
 		data: CallResponse,
 		shard_id: u64,
 		schedule_id: u64,
@@ -137,14 +136,6 @@ where
 		self.sign_data_sender
 			.clone()
 			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
-
-		if self.is_collector(block_id, shard_id).unwrap_or(false) {
-			if schedule_cycle > 1 {
-				self.update_schedule_ocw_storage(ScheduleStatus::Recurring, schedule_id);
-			} else {
-				self.update_schedule_ocw_storage(ScheduleStatus::Completed, schedule_id);
-			}
-		}
 
 		Ok(())
 	}
@@ -402,13 +393,7 @@ where
 			match self.task_executor(block_id, schedule_id, schedule).await {
 				Ok(data) => {
 					if let Err(e) = self
-						.send_for_sign(
-							block_id,
-							data.clone(),
-							*shard_id,
-							*schedule_id,
-							schedule.cycle,
-						)
+						.send_for_sign(data.clone(), *shard_id, *schedule_id, schedule.cycle)
 						.await
 					{
 						log::error!("Error occured while sending data for signing: {}", e);
@@ -521,13 +506,7 @@ where
 					Ok(data) => {
 						//send for signing
 						if let Err(e) = self
-							.send_for_sign(
-								block_id,
-								data.clone(),
-								shard_id,
-								schedule_id,
-								schedule.cycle,
-							)
+							.send_for_sign(data.clone(), shard_id, schedule_id, schedule.cycle)
 							.await
 						{
 							log::error!("Error occurred while sending data for signing: {}", e);

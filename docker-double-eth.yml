@@ -22,7 +22,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -47,7 +47,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -74,7 +74,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -101,7 +101,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -128,7 +128,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -155,7 +155,7 @@ services:
     command:
     - '--validator'
     - '--base-path=/data'
-    - '--chain=local'
+    - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -188,7 +188,7 @@ services:
   ethereum-connector:
     image: "analoglabs/connector-ethereum"
     platform: linux/amd64
-    command: "--network dev --addr 0.0.0.0:8080 --node-addr ethereum:8545 --path /data"
+    command: "--network dev --addr 0.0.0.0:8080 --node-addr http://ethereum:8545 --path /data"
     expose:
     - "8080"
     ports:

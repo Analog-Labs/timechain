@@ -477,7 +477,6 @@ where
 			})
 			.collect::<Vec<_>>();
 
-
 		for (schedule_id, shard_id, schedule) in task_schedules {
 			// if task is already executed then skip
 			if self.tasks.contains(&schedule_id) {

@@ -1,13 +1,17 @@
 //! Shard type utilities
 use crate::{Config, Error, Event, Pallet, TssShards};
 use codec::{Decode, Encode};
-use frame_support::traits::Get;
+use frame_support::{ensure, traits::Get};
 use sp_runtime::{traits::Saturating, DispatchError};
 use sp_std::{borrow::ToOwned, vec::Vec};
 use time_primitives::{
 	sharding::{HandleShardTasks, Network, Shard},
 	TimeId,
 };
+
+pub fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
+	account_id.encode()[..].try_into().unwrap()
+}
 
 #[derive(Copy, Clone, Encode, Decode, scale_info::TypeInfo, PartialEq)]
 pub enum ShardStatus {
@@ -46,30 +50,40 @@ impl ShardState {
 	pub fn is_online(&self) -> bool {
 		self.status == ShardStatus::Online
 	}
+	fn go_offline_and_handle_tasks<T: Config>(&mut self, id: u64) {
+		// set shard to offline if cannot reach consensus and status is not offline
+		self.status = ShardStatus::Offline;
+		// Handle all of this shard's tasks
+		T::TaskAssigner::handle_shard_tasks(id, self.network);
+		Pallet::<T>::deposit_event(Event::ShardOffline(id));
+	}
 	pub fn increment_task_timeout_count<T: Config>(&mut self, id: u64) {
 		self.task_timeout_count = self.task_timeout_count.saturating_plus_one();
 		let timeouts_above_max = self.task_timeout_count > T::MaxTimeouts::get();
 		if timeouts_above_max && self.is_online() {
-			// set shard to offline if cannot reach consensus and status is not offline
-			self.status = ShardStatus::Offline;
-			// Handle all of this shard's tasks
-			T::TaskAssigner::handle_shard_tasks(id, self.network);
-			Pallet::<T>::deposit_event(Event::ShardOffline(id));
+			self.go_offline_and_handle_tasks::<T>(id);
 		}
 		<TssShards<T>>::insert(id, self);
 	}
-	pub fn increment_committed_offense_count<T: Config>(&mut self, id: u64) {
+	pub fn increment_committed_offense_count<T: Config>(
+		&mut self,
+		caller: T::AccountId,
+		offender: T::AccountId,
+		id: u64,
+	) -> Result<(TimeId, TimeId), DispatchError> {
+		let (reporter, offender) = (
+			account_to_time_id::<T::AccountId>(caller),
+			account_to_time_id::<T::AccountId>(offender),
+		);
+		ensure!(self.shard.is_collector(&reporter), Error::<T>::OnlyCallableByCollector);
+		ensure!(self.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
 		self.committed_offenses_count = self.committed_offenses_count.saturating_plus_one();
 		let shard_cannot_reach_consensus = self.committed_offenses_count
 			> (self.shard.members().len() as u8).saturating_sub(self.shard.threshold() as u8);
 		if shard_cannot_reach_consensus && self.is_online() {
-			// set shard to offline if cannot reach consensus and status is not offline
-			self.status = ShardStatus::Offline;
-			// Handle all of this shard's tasks
-			T::TaskAssigner::handle_shard_tasks(id, self.network);
-			Pallet::<T>::deposit_event(Event::ShardOffline(id));
+			self.go_offline_and_handle_tasks::<T>(id);
 		}
-		<TssShards<T>>::insert(id, self);
+		Ok((reporter, offender))
 	}
 }
 

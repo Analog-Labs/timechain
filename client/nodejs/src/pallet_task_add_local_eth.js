@@ -37,7 +37,7 @@ const pallet_task_add = async (_keyspair, who) => {
         task_id: 1,
         schema:[1],
         function:{EVMViewWithoutAbi:{
-            address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
+            address: stringToHex('0xc124797323e2a43eb34e4f0c96c178663bc865bf'),
             function_signature: "function get_votes_stats() external view returns (uint, uint)",
             input: 2,
             output: 2,
@@ -46,7 +46,7 @@ const pallet_task_add = async (_keyspair, who) => {
         with:['123','123'],
         cycle:1,
         validity:{Seconds:12},
-        hash:'asdasd'
+        hash:'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7'
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskMeta.insertTask);

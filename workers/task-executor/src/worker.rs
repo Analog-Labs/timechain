@@ -477,7 +477,6 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!("Repetitive task schedule {:?}", self.repetitive_tasks.len());
 
 		for (schedule_id, shard_id, schedule) in task_schedules {
 			// if task is already executed then skip
@@ -495,9 +494,13 @@ where
 			));
 		}
 
+		let total_items = self.repetitive_tasks.values().clone().flatten().collect::<Vec<_>>();
+		log::info!("Repetitive task schedule {:?}", total_items.len());
+
 		// iterate all block height
 		for index in self.last_block_height..=block_height {
 			let Some(tasks) = self.repetitive_tasks.remove(&index) else {
+				self.last_block_height = index + 1;
 				continue;
 			};
 
@@ -587,7 +590,7 @@ where
 					},
 				}
 			}
-			self.last_block_height = index;
+			self.last_block_height = index + 1;
 		}
 
 		Ok(())

@@ -7,11 +7,10 @@ use frost_evm::{
 };
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// Tss state.
-enum TssState<P> {
+enum TssState<I, P> {
 	Uninitialized {
 		round1_packages: BTreeMap<P, dkg::round1::Package>,
 	},
@@ -28,11 +27,11 @@ enum TssState<P> {
 	Initialized {
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
-		signing_state: BTreeMap<[u8; 32], SigningState<P>>,
+		signing_state: BTreeMap<I, SigningState<P>>,
 	},
 }
 
-impl<P> Default for TssState<P> {
+impl<I, P> Default for TssState<I, P> {
 	fn default() -> Self {
 		Self::Uninitialized {
 			round1_packages: Default::default(),
@@ -40,7 +39,7 @@ impl<P> Default for TssState<P> {
 	}
 }
 
-impl<P> std::fmt::Display for TssState<P> {
+impl<I, P> std::fmt::Display for TssState<I, P> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Uninitialized { round1_packages } => {
@@ -88,23 +87,23 @@ impl<P> std::fmt::Display for SigningState<P> {
 }
 
 #[derive(Clone)]
-pub enum TssAction<P> {
-	Send(TssMessage),
+pub enum TssAction<I, P> {
+	Send(TssMessage<I>),
 	PublicKey(VerifyingKey),
-	Tss(Signature, [u8; 32]),
-	Report(P, Option<[u8; 32]>),
-	Timeout(Timeout, Option<[u8; 32]>),
+	Tss(Signature, I),
+	Report(P, Option<I>),
+	Timeout(Timeout<I>, Option<I>),
 }
 
 /// Tss message.
 #[derive(Clone, Deserialize, Serialize)]
-pub enum TssMessage {
+pub enum TssMessage<I> {
 	DkgR1 { round1_package: dkg::round1::Package },
 	DkgR2 { round2_package: Vec<dkg::round2::Package> },
-	Sign { hash: [u8; 32], msg: SigningMessage },
+	Sign { id: I, msg: SigningMessage },
 }
 
-impl std::fmt::Display for TssMessage {
+impl<I> std::fmt::Display for TssMessage<I> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::DkgR1 { .. } => write!(f, "dkgr1"),
@@ -130,29 +129,29 @@ impl std::fmt::Display for SigningMessage {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Timeout(TimeoutKind);
+pub struct Timeout<I>(TimeoutKind<I>);
 
-impl Timeout {
+impl<I> Timeout<I> {
 	const UNINITIALIZED: Self = Self(TimeoutKind::Uninitialized);
 	const DKGR1: Self = Self(TimeoutKind::DkgR1);
 	const DKGR2: Self = Self(TimeoutKind::DkgR2);
-	const fn precommit(hash: [u8; 32]) -> Self {
-		Self(TimeoutKind::Sign(hash, SignTimeoutKind::PreCommit))
+	const fn precommit(id: I) -> Self {
+		Self(TimeoutKind::Sign(id, SignTimeoutKind::PreCommit))
 	}
-	const fn commit(hash: [u8; 32]) -> Self {
-		Self(TimeoutKind::Sign(hash, SignTimeoutKind::Commit))
+	const fn commit(id: I) -> Self {
+		Self(TimeoutKind::Sign(id, SignTimeoutKind::Commit))
 	}
-	const fn sign(hash: [u8; 32]) -> Self {
-		Self(TimeoutKind::Sign(hash, SignTimeoutKind::Sign))
+	const fn sign(id: I) -> Self {
+		Self(TimeoutKind::Sign(id, SignTimeoutKind::Sign))
 	}
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum TimeoutKind {
+enum TimeoutKind<I> {
 	Uninitialized,
 	DkgR1,
 	DkgR2,
-	Sign([u8; 32], SignTimeoutKind),
+	Sign(I, SignTimeoutKind),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -230,16 +229,15 @@ impl<P: Clone + Ord> TssConfig<P> {
 }
 
 /// Tss state machine.
-pub struct Tss<P> {
+pub struct Tss<I, P> {
 	peer_id: P,
 	frost_id: Identifier,
 	config: TssConfig<P>,
-	state: TssState<P>,
-	actions: VecDeque<TssAction<P>>,
-	pub event_id_map: HashMap<[u8; 32], (u64, u64)>,
+	state: TssState<I, P>,
+	actions: VecDeque<TssAction<I, P>>,
 }
 
-impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
+impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display> Tss<I, P> {
 	pub fn new(peer_id: P) -> Self {
 		Self {
 			peer_id,
@@ -247,7 +245,6 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			config: Default::default(),
 			state: Default::default(),
 			actions: Default::default(),
-			event_id_map: HashMap::new(),
 		}
 	}
 
@@ -275,14 +272,14 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		self.config.threshold
 	}
 
-	fn report(&mut self, frost: Identifier, hash: Option<[u8; 32]>) {
-		if let (TssState::Initialized { signing_state, .. }, Some(hash)) = (&mut self.state, hash) {
-			signing_state.remove(&hash);
+	fn report(&mut self, frost: Identifier, id: Option<I>) {
+		if let (TssState::Initialized { signing_state, .. }, Some(id)) = (&mut self.state, id) {
+			signing_state.remove(&id);
 		} else {
 			self.state = TssState::default();
 		}
 		let peer = self.frost_to_peer(&frost);
-		self.actions.push_back(TssAction::Report(peer, hash));
+		self.actions.push_back(TssAction::Report(peer, id));
 	}
 
 	pub fn initialize(&mut self, members: BTreeSet<P>, threshold: u16) {
@@ -312,10 +309,10 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		}
 	}
 
-	pub fn on_timeout(&mut self, timeout: Timeout) {
+	pub fn on_timeout(&mut self, timeout: Timeout<I>) {
 		log::debug!("{} on timeout {:?}", self.peer_id, timeout);
 		let mut report = vec![];
-		let mut timeout_hash = None;
+		let mut timeout_id = None;
 		match (&self.state, timeout.0) {
 			(TssState::Uninitialized { round1_packages }, TimeoutKind::Uninitialized) => {
 				for (peer_id, frost_id) in &self.config.peer_to_frost {
@@ -344,9 +341,9 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 					}
 				}
 			},
-			(TssState::Initialized { signing_state, .. }, TimeoutKind::Sign(hash, timeout)) => {
-				timeout_hash = Some(hash);
-				match (signing_state.get(&hash), timeout) {
+			(TssState::Initialized { signing_state, .. }, TimeoutKind::Sign(id, timeout)) => {
+				timeout_id = Some(id);
+				match (signing_state.get(&id), timeout) {
 					(Some(SigningState::PreCommit { commitments }), SignTimeoutKind::PreCommit) => {
 						for (peer_id, frost_id) in &self.config.peer_to_frost {
 							if commitments.contains_key(peer_id) {
@@ -374,11 +371,11 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 			_ => {},
 		}
 		for report in report {
-			self.report(report, timeout_hash);
+			self.report(report, timeout_id);
 		}
 	}
 
-	pub fn on_message(&mut self, peer_id: P, msg: TssMessage) {
+	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) {
 		log::debug!("{} on_message {} {}", self.peer_id, peer_id, msg);
 		if self.peer_id == peer_id {
 			log::debug!("{} dropping message from self", self.peer_id);
@@ -448,19 +445,18 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 				};
 				self.transition(None);
 			},
-			(TssState::Initialized { signing_state, .. }, TssMessage::Sign { hash, msg }) => {
-				if !signing_state.contains_key(&hash) {
-					self.actions
-						.push_back(TssAction::Timeout(Timeout::precommit(hash), Some(hash)));
+			(TssState::Initialized { signing_state, .. }, TssMessage::Sign { id, msg }) => {
+				if !signing_state.contains_key(&id) {
+					self.actions.push_back(TssAction::Timeout(Timeout::precommit(id), Some(id)));
 				}
-				let state = signing_state.entry(hash).or_default();
+				let state = signing_state.entry(id).or_default();
 				match (state, msg) {
 					(
 						SigningState::PreCommit { commitments },
 						SigningMessage::Commit { commitment },
 					) => {
 						if commitment.identifier != frost_id {
-							self.report(frost_id, Some(hash));
+							self.report(frost_id, Some(id));
 							return;
 						}
 						commitments.insert(peer_id, commitment);
@@ -470,18 +466,18 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						SigningMessage::Commit { commitment },
 					) => {
 						if commitment.identifier != frost_id {
-							self.report(frost_id, Some(hash));
+							self.report(frost_id, Some(id));
 							return;
 						}
 						commitments.insert(peer_id, commitment);
-						self.transition(Some(hash));
+						self.transition(Some(id));
 					},
 					(
 						SigningState::Commit { signature_shares, .. },
 						SigningMessage::Sign { signature_share },
 					) => {
 						if signature_share.identifier != frost_id {
-							self.report(frost_id, Some(hash));
+							self.report(frost_id, Some(id));
 							return;
 						}
 						signature_shares.insert(peer_id, signature_share);
@@ -491,11 +487,11 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						SigningMessage::Sign { signature_share },
 					) => {
 						if signature_share.identifier != frost_id {
-							self.report(frost_id, Some(hash));
+							self.report(frost_id, Some(id));
 							return;
 						}
 						signature_shares.insert(peer_id, signature_share);
-						self.transition(Some(hash));
+						self.transition(Some(id));
 					},
 					(state, msg) => {
 						log::error!(
@@ -514,12 +510,12 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		}
 	}
 
-	fn transition(&mut self, hash: Option<[u8; 32]>) {
+	fn transition(&mut self, id: Option<I>) {
 		log::debug!("{} transition", self.peer_id);
 		let mut step = true;
 		while step {
 			step = false;
-			match (&mut self.state, hash) {
+			match (&mut self.state, id) {
 				(
 					TssState::DkgR1 {
 						secret_package,
@@ -601,8 +597,8 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						public_key_package,
 						signing_state,
 					},
-					Some(hash),
-				) => match signing_state.entry(hash).or_default() {
+					Some(id),
+				) => match signing_state.entry(id).or_default() {
 					SigningState::Commit {
 						data,
 						nonces,
@@ -614,7 +610,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							let data = std::mem::take(data);
 							let commitments =
 								std::mem::take(commitments).into_values().collect::<Vec<_>>();
-							let signing_package = SigningPackage::new(commitments, data);
+							let signing_package = SigningPackage::new(commitments, data.into());
 							let signature_share =
 								round2::sign(&signing_package, nonces, key_package)
 									.expect("valid inputs");
@@ -622,15 +618,14 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							signature_shares.insert(self.peer_id.clone(), signature_share);
 							let msg = SigningMessage::Sign { signature_share };
 							signing_state.insert(
-								hash,
+								id,
 								SigningState::Sign {
 									signing_package,
 									signature_shares,
 								},
 							);
-							self.actions
-								.push_back(TssAction::Timeout(Timeout::sign(hash), Some(hash)));
-							self.actions.push_back(TssAction::Send(TssMessage::Sign { hash, msg }));
+							self.actions.push_back(TssAction::Timeout(Timeout::sign(id), Some(id)));
+							self.actions.push_back(TssAction::Send(TssMessage::Sign { id, msg }));
 							step = true;
 						} else {
 							log::debug!(
@@ -652,12 +647,12 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 							{
 								Ok(signature) => {
 									log::info!("Aggregated signature successfully");
-									self.actions.push_back(TssAction::Tss(signature, hash));
-									signing_state.remove(&hash);
+									self.actions.push_back(TssAction::Tss(signature, id));
+									signing_state.remove(&id);
 									step = true;
 								},
 								Err(Error::InvalidSignatureShare { signer }) => {
-									self.report(signer, Some(hash));
+									self.report(signer, Some(id));
 								},
 								Err(err) => unreachable!("{err}"),
 							}
@@ -676,16 +671,14 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 		}
 	}
 
-	pub fn sign(&mut self, data: Vec<u8>, key_id: u64, schedule_cycle: u64) {
-		let hash = blake3::hash(&data).into();
-		self.event_id_map.insert(hash, (key_id, schedule_cycle));
+	pub fn sign(&mut self, id: I, data: Vec<u8>) {
 		log::debug!("{} sign", self.peer_id);
 		match &mut self.state {
 			TssState::Initialized { key_package, signing_state, .. } => {
-				let mut commitments = match signing_state.entry(hash).or_default() {
+				let mut commitments = match signing_state.entry(id).or_default() {
 					SigningState::PreCommit { commitments } => std::mem::take(commitments),
 					_ => {
-						log::warn!("Signing already in progress for hash {:?}", hash);
+						log::warn!("Signing already in progress for hash {:?}", data);
 						return;
 					},
 				};
@@ -693,7 +686,7 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 					round1::commit(self.frost_id, key_package.secret_share(), &mut OsRng);
 				commitments.insert(self.peer_id.clone(), commitment);
 				signing_state.insert(
-					hash,
+					id,
 					SigningState::Commit {
 						data,
 						nonces,
@@ -701,21 +694,21 @@ impl<P: Clone + Ord + std::fmt::Display> Tss<P> {
 						signature_shares: Default::default(),
 					},
 				);
-				self.actions.push_back(TssAction::Timeout(Timeout::commit(hash), Some(hash)));
+				self.actions.push_back(TssAction::Timeout(Timeout::commit(id), Some(id)));
 				let msg = SigningMessage::Commit { commitment };
-				self.actions.push_back(TssAction::Send(TssMessage::Sign { hash, msg }));
+				self.actions.push_back(TssAction::Send(TssMessage::Sign { id, msg }));
 			},
 			_ => panic!("invalid state"),
 		}
-		self.transition(Some(hash));
+		self.transition(Some(id));
 	}
 
-	pub fn next_action(&mut self) -> Option<TssAction<P>> {
+	pub fn next_action(&mut self) -> Option<TssAction<I, P>> {
 		self.actions.pop_front()
 	}
 }
 
-impl<P: std::fmt::Display> std::fmt::Display for Tss<P> {
+impl<I, P: std::fmt::Display> std::fmt::Display for Tss<I, P> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{} {}", self.peer_id, self.state)
 	}
@@ -730,7 +723,7 @@ mod tests {
 		pubkeys: BTreeMap<u8, VerifyingKey>,
 		signatures: BTreeMap<u8, Signature>,
 		reports: BTreeMap<u8, u8>,
-		timeouts: BTreeMap<u8, Option<Timeout>>,
+		timeouts: BTreeMap<u8, Option<Timeout<u8>>>,
 	}
 
 	impl TssEvents {
@@ -792,11 +785,11 @@ mod tests {
 		}
 	}
 
-	type FaultInjector = Box<dyn FnMut(u8, TssMessage) -> Option<TssMessage>>;
+	type FaultInjector = Box<dyn FnMut(u8, TssMessage<u8>) -> Option<TssMessage<u8>>>;
 
 	struct TssTester {
-		tss: Vec<Tss<u8>>,
-		actions: VecDeque<(u8, TssAction<u8>)>,
+		tss: Vec<Tss<u8, u8>>,
+		actions: VecDeque<(u8, TssAction<u8, u8>)>,
 		events: TssEvents,
 		fault_injector: FaultInjector,
 	}
@@ -840,24 +833,24 @@ mod tests {
 			}
 		}
 
-		pub fn sign_one(&mut self, i: usize, data: &[u8]) {
-			let tss = &mut self.tss[i];
-			tss.sign(data.to_vec(), 0, 1);
+		pub fn sign_one(&mut self, peer: usize, id: u8, data: &[u8]) {
+			let tss = &mut self.tss[peer];
+			tss.sign(id, data.to_vec());
 			while let Some(action) = tss.next_action() {
 				self.actions.push_back((*tss.peer_id(), action));
 			}
 		}
 
-		pub fn sign(&mut self, data: &[u8]) {
+		pub fn sign(&mut self, id: u8, data: &[u8]) {
 			for tss in &mut self.tss {
-				tss.sign(data.to_vec(), 0, 1);
+				tss.sign(id, data.to_vec());
 				while let Some(action) = tss.next_action() {
 					self.actions.push_back((*tss.peer_id(), action));
 				}
 			}
 		}
 
-		pub fn timeout(&mut self, timeout: Timeout) {
+		pub fn timeout(&mut self, timeout: Timeout<u8>) {
 			for tss in &mut self.tss {
 				tss.on_timeout(timeout);
 				while let Some(action) = tss.next_action() {
@@ -907,7 +900,7 @@ mod tests {
 		let mut tester = TssTester::new(n);
 		tester.initialize();
 		tester.run().assert(n, 0, 0, 0);
-		tester.sign(b"a message");
+		tester.sign(0, b"a message");
 		tester.run().assert(0, n, 0, 0);
 	}
 
@@ -952,7 +945,7 @@ mod tests {
 		);
 		tester.initialize();
 		tester.run().assert(n, 0, 0, 0);
-		tester.sign(b"message");
+		tester.sign(0, b"message");
 		let offender = tester.run().assert_reports(n - 1);
 		assert_eq!(offender, 0);
 	}
@@ -975,9 +968,9 @@ mod tests {
 		let mut tester = TssTester::new(n);
 		tester.initialize();
 		tester.run().assert(n, 0, 0, 0);
-		tester.sign_one(0, b"a message");
+		tester.sign_one(0, 0, b"a message");
 		tester.run().assert(0, 0, 0, 2);
-		tester.sign_one(1, b"a message");
+		tester.sign_one(1, 0, b"a message");
 		tester.run().assert(0, n, 0, 0);
 	}
 

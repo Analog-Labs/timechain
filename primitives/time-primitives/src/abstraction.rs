@@ -122,7 +122,6 @@ pub struct PayableTask {
 pub enum ScheduleStatus {
 	Initiated,
 	Recurring,
-	Updated,
 	Completed,
 	Invalid,
 	Canceled,

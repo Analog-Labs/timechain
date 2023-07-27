@@ -79,8 +79,8 @@ impl ShardState {
 		ensure!(self.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
 		let new_report_count = Reports::<T>::get(&offender, &reporter).saturating_plus_one();
 		Reports::<T>::insert(&offender, &reporter, new_report_count);
-		if new_report_count != 1u8 {
-			// repeated offenses by same reporter do not increase shard's committed offenses count
+		if new_report_count != T::MinReportsPerCommittedOffense::get() {
+			// return early if this is not the report which makes it a committed offense
 			return Ok((offender, reporter));
 		}
 		self.committed_offenses_count = self.committed_offenses_count.saturating_plus_one();

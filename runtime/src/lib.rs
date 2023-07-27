@@ -1048,10 +1048,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	// Must be > 0 and <= 100
-	pub const SlashingPercentage: u8 = 5;
-	// Must be > 0 and <= 100
-	pub const SlashingPercentageThreshold: u8 = 51;
+	pub const MinReportsPerCommittedOffense: u8 = 1;
 	pub const MaxChronicleWorkers: u32 = 5;
 	pub const MaxTimeouts: u8 = 2;
 }
@@ -1062,8 +1059,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
 	type Moment = u64;
 	type Timestamp = Timestamp;
-	type SlashingPercentage = SlashingPercentage;
-	type SlashingPercentageThreshold = SlashingPercentageThreshold;
+	type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
 	type TaskScheduleHelper = TaskSchedule;
 	type MaxChronicleWorkers = MaxChronicleWorkers;
 	type SessionInterface = Self;

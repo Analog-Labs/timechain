@@ -121,12 +121,9 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ StaticTypeInfo;
 		type Timestamp: Time<Moment = Self::Moment>;
-		/// Slashing percentage for commiting misbehavior
+		/// Minimum reports made by shard reporter to define committed offense
 		#[pallet::constant]
-		type SlashingPercentage: Get<u8>;
-		/// Slashing threshold percentage for commiting misbehavior consensus
-		#[pallet::constant]
-		type SlashingPercentageThreshold: Get<u8>;
+		type MinReportsPerCommittedOffense: Get<u8>;
 		type TaskScheduleHelper: ScheduleInterface<Self::AccountId, Self::BlockNumber>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]

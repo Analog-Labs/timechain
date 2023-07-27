@@ -610,7 +610,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 							let data = std::mem::take(data);
 							let commitments =
 								std::mem::take(commitments).into_values().collect::<Vec<_>>();
-							let signing_package = SigningPackage::new(commitments, data.into());
+							let signing_package = SigningPackage::new(commitments, data);
 							let signature_share =
 								round2::sign(&signing_package, nonces, key_package)
 									.expect("valid inputs");

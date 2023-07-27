@@ -358,12 +358,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			let is_recurring =
-				if let Some(schedule) = T::TaskScheduleHelper::get_schedule_via_key(key_id)? {
-					schedule.cycle > 1
-				} else {
-					false
-				};
 			let shard_id: u64 = T::TaskScheduleHelper::get_assigned_shard_for_key(key_id)?;
 
 			let shard_state =
@@ -386,10 +380,8 @@ pub mod pallet {
 
 			// Updates completed task status and start_execution_block for
 			// ongoing recurring tasks.
+			T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
 			T::TaskScheduleHelper::update_completed_task(key_id);
-			if is_recurring {
-				T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
-			}
 
 			<SignatureStoreData<T>>::insert(key_id, schedule_cycle, signature_data);
 
@@ -415,7 +407,7 @@ pub mod pallet {
 
 			let shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let collector = shard_state.shard.collector();
+			let collector: &sp_runtime::AccountId32 = shard_state.shard.collector();
 
 			let raw_public_key: &[u8; 32] = collector.as_ref();
 			let collector_public_id =

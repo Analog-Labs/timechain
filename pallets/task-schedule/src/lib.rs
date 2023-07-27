@@ -451,7 +451,10 @@ pub mod pallet {
 		pub fn get_repetitive_schedules(
 		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
-				.filter(|item| item.1.status == ScheduleStatus::Initiated)
+				.filter(|item| {
+					item.1.status == ScheduleStatus::Initiated
+						|| item.1.status == ScheduleStatus::Recurring
+				})
 				.filter(|item| item.1.is_repetitive_task())
 				.collect::<Vec<_>>();
 
@@ -587,14 +590,12 @@ pub mod pallet {
 					if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
 						matches!(
 							schedule.status,
-							ScheduleStatus::Initiated
-								| ScheduleStatus::Updated | ScheduleStatus::Recurring
+							ScheduleStatus::Initiated | ScheduleStatus::Recurring
 						)
 					} else if let Some(schedule) = PayableScheduleStorage::<T>::get(schedule_id) {
 						matches!(
 							schedule.status,
-							ScheduleStatus::Initiated
-								| ScheduleStatus::Updated | ScheduleStatus::Recurring
+							ScheduleStatus::Initiated | ScheduleStatus::Recurring
 						)
 					} else {
 						false
@@ -618,6 +619,7 @@ pub mod pallet {
 			ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
 				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
 				details.cycle = details.cycle.saturating_sub(1);
+
 				Ok(())
 			})?;
 			Ok(())
@@ -625,9 +627,9 @@ pub mod pallet {
 
 		fn update_completed_task(key: u64) {
 			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
-				if schedule.is_repetitive_task() {
+				if schedule.cycle > 0 {
 					schedule.executable_since = frame_system::Pallet::<T>::block_number();
-					schedule.status = ScheduleStatus::Updated;
+					schedule.status = ScheduleStatus::Recurring;
 				} else {
 					schedule.status = ScheduleStatus::Completed;
 				}

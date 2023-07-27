@@ -67,23 +67,28 @@ impl ShardState {
 	}
 	pub fn increment_committed_offense_count<T: Config>(
 		&mut self,
-		caller: T::AccountId,
 		offender: T::AccountId,
+		caller: T::AccountId,
 		id: u64,
 	) -> Result<(TimeId, TimeId), DispatchError> {
-		let (reporter, offender) = (
-			account_to_time_id::<T::AccountId>(caller),
+		let (offender, reporter) = (
 			account_to_time_id::<T::AccountId>(offender),
+			account_to_time_id::<T::AccountId>(caller),
 		);
 		ensure!(self.shard.is_collector(&reporter), Error::<T>::OnlyCallableByCollector);
 		ensure!(self.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
+		let new_report_count = Reports::<T>::get(&offender, &reporter).saturating_plus_one();
+		Reports::<T>::insert(&offender, &reporter, new_report_count);
+		if new_report_count != 1u8 {
+			// repeated offenses by same reporter do not increase shard's committed offenses count
+			return Ok((reporter, offender));
+		}
 		self.committed_offenses_count = self.committed_offenses_count.saturating_plus_one();
 		let shard_cannot_reach_consensus = self.committed_offenses_count
 			> (self.shard.members().len() as u8).saturating_sub(self.shard.threshold() as u8);
 		if shard_cannot_reach_consensus && self.is_online() {
 			self.go_offline_and_handle_tasks::<T>(id);
 		}
-		Reports::<T>::mutate(&reporter, &offender, |count| count.saturating_plus_one());
 		Ok((reporter, offender))
 	}
 }

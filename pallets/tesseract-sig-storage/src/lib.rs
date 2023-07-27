@@ -512,7 +512,7 @@ pub mod pallet {
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
 			let (reporter, offender) =
-				shard_state.increment_committed_offense_count::<T>(caller, offender, shard_id)?;
+				shard_state.increment_committed_offense_count::<T>(offender, caller, shard_id)?;
 			TssShards::<T>::insert(shard_id, shard_state);
 			Self::deposit_event(Event::OffenseReported(shard_id, reporter, offender));
 			Ok(())

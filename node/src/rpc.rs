@@ -4,15 +4,19 @@
 //! capabilities that are specific to this project's runtime configuration.
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
-use std::sync::Arc;
-
-use node_template_runtime::{opaque::Block, AccountId, Balance, Index};
-pub use sc_rpc_api::DenyUnsafe;
+use futures::channel::mpsc;
+use jsonrpsee::RpcModule;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_keystore::KeystorePtr;
+use std::sync::Arc;
+use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
+
+pub use sc_rpc_api::DenyUnsafe;
 
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
@@ -22,33 +26,45 @@ pub struct FullDeps<C, P> {
 	pub pool: Arc<P>,
 	/// Whether to deny unsafe calls
 	pub deny_unsafe: DenyUnsafe,
+	/// Time keyvault
+	pub kv: KeystorePtr,
+	/// Sign data sender
+	pub sign_data_sender: mpsc::Sender<(u64, u64, u64, [u8; 32])>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P>(deps: FullDeps<C, P>) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+pub fn create_full<C, P>(
+	deps: FullDeps<C, P>,
+) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-	C: ProvideRuntimeApi<Block>,
-	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
-	C: Send + Sync + 'static,
+	C: sc_client_api::BlockBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + 'static,
 {
-	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-	use substrate_frame_rpc_system::{FullSystem, SystemApi};
+	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+	use substrate_frame_rpc_system::{System, SystemApiServer};
+	use time_worker_rpc::{TimeRpcApiHandler, TimeRpcApiServer};
 
-	let mut io = jsonrpc_core::IoHandler::default();
-	let FullDeps { client, pool, deny_unsafe } = deps;
+	let mut module = RpcModule::new(());
+	let FullDeps {
+		client,
+		pool,
+		deny_unsafe,
+		kv,
+		sign_data_sender,
+	} = deps;
 
-	io.extend_with(SystemApi::to_delegate(FullSystem::new(client.clone(), pool, deny_unsafe)));
+	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+	module.merge(TransactionPayment::new(client).into_rpc())?;
+	module.merge(TimeRpcApiHandler::new(sign_data_sender, kv).into_rpc())?;
 
-	io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone())));
-
-	// Extend this RPC with a custom API by using the following syntax.
-	// `YourRpcStruct` should have a reference to a client, which is needed
-	// to call into the runtime.
-	// `io.extend_with(YourRpcTrait::to_delegate(YourRpcStruct::new(ReferenceToClient, ...)));`
-
-	io
+	Ok(module)
 }

@@ -1,0 +1,34 @@
+[package]
+name = "event-worker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures = "0.3.28"
+log = "0.4"
+serde_json = "1.0.102"
+
+codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = ["derive"] }
+sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+time-primitives = { path = "../../primitives/time-primitives" }
+surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
+rosetta-client = "0.4.0"
+
+[dev-dependencies]
+sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-tracing = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+tempfile = "*"
+serde = { version = "1.0", features = ["derive"] }
+scale-info = "2.9.0"
+strum = { version = "0.25.0", features = ["derive"] }
+arrayref = "0.3.7"
+
+[features]
+expensive_tests = []

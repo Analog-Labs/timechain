@@ -1,0 +1,234 @@
+#####
+#
+#  when PR is updated by pushing changes to the branch
+#     CI skips all jobs for Drafted PRs by default
+#     CI skips all jobs for PRs labeled with `!ci-skip`
+#
+#  Labels:
+#    !ci-draft   - runs CI for drafted PR
+#    !ci-codecov - runs Code Coverage job on every PR update
+#    !ci-audit   - runs Cargo Audit job on every PR update
+#    !ci-integration - runs Integration Tests on every PR updates
+#    !ci-skip    - skips All jobs
+#
+
+name: Self-Hosted
+on:
+  push:
+    # yes, only trying and staging
+    # merging is just a setting branch head to the succeeded staging commit
+    # so there is no reason to execute workflow again
+    branches: [ trying, staging ]
+  pull_request:
+    types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
+    paths-ignore:
+      - '**/*.md' # do not run CI on pull_request update if just MD files are changed
+
+concurrency:
+  # do not run more than once for latest push/update
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: write
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci-success:
+    name: Bors-CI
+    if: ${{ github.event_name == 'push' }}
+    needs: [ build-and-test, audit, code-coverage ]
+    runs-on: ubuntu-latest
+    steps:
+      # a filler
+      - run: true
+
+  # it calculates conditions to run following jobs
+  conditions:
+    name: Conditions
+    if: ${{
+      github.event_name != 'pull_request' || 
+      ( 
+        ( github.event.action != 'labeled' && 
+          github.event.action != 'unlabeled' &&
+          ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+            github.event.pull_request.draft == false )
+        )||
+        ( github.event.action == 'labeled' &&
+          ( github.event.label.name == '!ci-draft' ||
+            contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+            github.event.pull_request.draft == false ) &&
+          ( github.event.label.name == '!ci-codecov' ||
+            github.event.label.name == '!ci-audit'||
+            github.event.label.name == '!ci-integration' ||
+            github.event.label.name == '!ci-draft' ) 
+        )||
+        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+      ) && 
+      ( !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
+        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+      )
+      }}
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          Get-Content .github/config.txt | Out-File $env:GITHUB_OUTPUT
+        id: values
+        shell: pwsh
+    outputs:
+      build-opts: ${{ steps.values.outputs.build-opts }}
+      target: ${{ steps.values.outputs.target }}
+      toolchain: ${{ steps.values.outputs.toolchain }}
+      clippy-opts: ${{ steps.values.outputs.clippy-opts }}
+      exclude-tests: ${{ steps.values.outputs.exclude-tests}}
+      codecov: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-codecov')
+        }}
+      integration: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-integration') 
+        }}
+      audit: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-audit') 
+        }}
+
+  build-and-test:
+    name: Build and Test Project
+    runs-on: self-hosted
+    needs: conditions
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
+      CLIPPY_OPTS: ${{needs.conditions.outputs.clippy-opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - run: sudo apt-get update -y
+      - run: sudo add-apt-repository ppa:ethereum/ethereum
+      - run: sudo apt-get update -y
+      - name: Install deps
+        run: sudo apt-get install -y protobuf-compiler solc
+
+      - name: Pull images
+        run: ./pull_images.sh
+
+      - name: Cargo fmt Check
+        if: success()
+        run: cargo fmt --all -- --check
+
+      - name: Fetch Deps
+        run: |
+          cargo fetch --locked
+
+      - name: Build default target
+        env:
+          CARGO_NET_OFFLINE: true
+        run: |
+          cargo build $BUILD_OPTS
+
+      - name: Run Unit tests
+        env:
+          CARGO_NET_OFFLINE: true
+        run: |
+          cargo test --lib --workspace --locked $BUILD_OPTS \
+            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
+
+      - name: Run Examples
+        env:
+          CARGO_NET_OFFLINE: true
+        run: |
+          cargo test --examples --workspace --locked $BUILD_OPTS
+
+      - name: Clippy
+        uses: actions-rs/clippy-check@v1
+        env:
+          CARGO_NET_OFFLINE: true
+        with:
+          token: ${{secrets.GITHUB_TOKEN}}
+          # `--no-deps` does not check dependencies out of workspace
+          args: --all-targets --workspace ${{env.BUILD_OPTS}} -- --no-deps ${{env.CLIPPY_OPTS}}
+          name: Clippy Report
+
+      - name: Run Integration/Heavy Test
+        if: ${{ needs.conditions.outputs.integration == 'true' }}
+        env:
+          CARGO_NET_OFFLINE: true
+        run: |
+          cargo test --test '*' --workspace --locked $BUILD_OPTS
+
+  audit:
+    name: Cargo Audit
+    needs: [conditions]
+    runs-on: self-hosted
+    if: ${{ needs.conditions.outputs.audit == 'true' }}
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
+      CLIPPY_OPTS: ${{needs.conditions.outputs.clippy-opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - run: cargo install cargo-audit --locked 
+
+      - name: Audit
+        run: |
+          $r = (cargo audit -q --json | ConvertFrom-Json)
+          $e = $?
+          $r.vulnerabilities.list | Select-Object -ExpandProperty Advisory
+          if (!$e) { exit 1 }
+        shell: pwsh
+
+  code-coverage:
+    name: Report Code Coverage
+    # we can need to update code coverage stats on the default branch
+    if: ${{ needs.conditions.outputs.codecov == 'true' }}
+    needs: [conditions]
+    runs-on: self-hosted
+    env:
+      BUILD_OPTS: ${{needs.conditions.outputs.build-opts}}
+      CLIPPY_OPTS: ${{needs.conditions.outputs.clippy-opts}}
+      TARGET: ${{needs.conditions.outputs.target}}
+      WASM_BUILD_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      RUSTUP_TOOLCHAIN: ${{needs.conditions.outputs.toolchain}}
+      EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - run: sudo apt-get install -y protobuf-compiler
+
+      - name: Setup llvm-cov for cargo
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Unit Tests
+        # use --tests to measure coverage with all tests
+        # use --test '*' to measure coverage with integration-tests
+        # use --lib to measure coverage with unit-tests
+        run: |
+          cargo llvm-cov test --lib --locked --workspace \
+            --lcov --output-path lcov.info  $BUILD_OPTS \
+            $(for i in $EXCLUDE_TESTS; do echo "--exclude $i"; done )
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true

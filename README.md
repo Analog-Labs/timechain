@@ -1,235 +1,113 @@
-# Substrate Node Template
+<div align="center">
 
-[![Try on playground](https://img.shields.io/badge/Playground-Node_Template-brightgreen?logo=Parity%20Substrate)](https://docs.substrate.io/playground/) [![Matrix](https://img.shields.io/matrix/substrate-technical:matrix.org)](https://matrix.to/#/#substrate-technical:matrix.org)
+  <h1><code>Timechain Node</code></h1>
 
-A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
+  <strong>This repo is for the timechain node, which is part of the analog network. <a href="https://github.com/analog-labs">Analog</a>.</strong>
+
+  <h3>
+    <a href="https://analog.one/">Docs</a>
+    <span> | </span>
+    <a href="mailto:hello@analog.one">Support</a>
+  </h3>
+
+</div>
+
+## Features
+
+This repo includes the minimum required components to start a timechain testnet node, inspired by [substrate-node-template](https://github.com/substrate-developer-hub/substrate-node-template).
+
+* Consensus related pallets: Aura & GRANDPA
+* Token vesting pallet: analog-vesting store the vesting schedule and the vested balance of the account.
+* Account delegation pallet: pallet-proxy store the delegation relationship between master account and delegator account. Delegate account can submit the task and pay task fee from master account.
+* Task metadata storage pallet: pallet-task-metadata store the static configuration of the task.
+* Task schedule pallet: pallet-task-schedule store the task schedule and its status. now it support the one-time task, repetitive task and payable task.
+* Tesseract sig storage pallet: pallet-tesseract-sig-storage store the TSS shards and the signature collected from TSS workers.
+* Task executor worker: run the tasks on chain.
+* TSS worker: receive the data fetched from task executor, verify and sign against the data, and send the extrinsic to store the signature if reaches the threshold.
+
+**Notes:** The code is still under active development and not production ready, use it at your own risk.
 
 ## Getting Started
 
-Follow the steps below to get started with the Node Template, or get it up and running right from
-your browser in just a few clicks using
-the [Substrate Playground](https://docs.substrate.io/playground/) :hammer_and_wrench:
-
-### Using Nix
-
-Install [nix](https://nixos.org/) and optionally [direnv](https://github.com/direnv/direnv) and
-[lorri](https://github.com/target/lorri) for a fully plug and play experience while setting up the
-development environment. To get all the correct dependencies activate direnv `direnv allow` and
-lorri `lorri shell`.
+Follow the steps below to get started.
 
 ### Rust Setup
 
-First, complete the [basic Rust setup instructions](./docs/rust-setup.md).
+First, complete the [Dev Docs Installation](https://docs.substrate.io/v3/getting-started/installation/).
 
-### Run
+### Build and Run
 
-Use Rust's native `cargo` command to build and launch the template node:
-
-```sh
-cargo run --release -- --dev
-```
-
-### Build
-
-The `cargo run` command will perform an initial build. Use the following command to build the node
-without launching it:
+Use the following command to build the node and run it after build successfully:
 
 ```sh
 cargo build --release
+./target/release/timechain-node 
 ```
 
-### Embedded Docs
+## Run Using Docker
 
-Once the project has been built, the following command can be used to explore all parameters and
-subcommands:
-
-```sh
-./target/release/node-template -h
-```
-
-## Run
-
-The provided `cargo run` command will launch a temporary node and its state will be discarded after
-you terminate the process. After the project has been built, there are other ways to launch the
-node.
-
-### Single-Node Development Chain
-
-This command will start the single-node development chain with non-persistent state:
-
+### MacOS
+if you're on macos, install [musl-cross](https://github.com/FiloSottile/homebrew-musl-cross) for enable musl-target cross-compilation:
 ```bash
-./target/release/node-template --dev
+brew install filosottile/musl-cross/musl-cross --with-aarch64
 ```
 
-Purge the development chain's state:
-
+### Debian/Ubuntu
+if you're on debian/ubuntu system, install [musl-tools](https://packages.debian.org/sid/musl-tools) for enable musl-target cross-compilation:
 ```bash
-./target/release/node-template purge-chain --dev
+apt-get install musl-tools
 ```
 
-Start the development chain with detailed logging:
+### Shared Steps
+add the following to your `.cargo/config`:
+```toml
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
 
-```bash
-RUST_BACKTRACE=1 ./target/release/node-template -ldebug --dev
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+
+[env]
+CC_x86_64-unknown-linux-musl = "x86_64-linux-musl-gcc"
+CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 ```
 
-> Development chain means that the state of our chain will be in a tmp folder while the nodes are
-> running. Also, **alice** account will be authority and sudo account as declared in the
-> [genesis state](https://github.com/substrate-developer-hub/substrate-node-template/blob/main/node/src/chain_spec.rs#L49).
-> At the same time the following accounts will be pre-funded:
-> - Alice
-> - Bob
-> - Alice//stash
-> - Bob//stash
+1. Install docker, docker compose and musl using your system package manager.
+2. Build the docker image with `./build_docker.sh`.
+3. Start the timechain validators, connectors and chain nodes with `docker compose up -d`.
+4. Set the validator keys with `./set_keys.sh`.
 
-In case of being interested in maintaining the chain' state between runs a base path must be added
-so the db can be stored in the provided folder instead of a temporal one. We could use this folder
-to store different chain databases, as a different folder will be created per different chain that
-is ran. The following commands shows how to use a newly created folder as our db base path.
+## Run public testnet
 
-```bash
-// Create a folder to use as the db base path
-$ mkdir my-chain-state
+* Start your bootnodes, node key can be generate with command `./target/release/timechain-node key generate-node-key`.
+  ```shell
+      ./target/release/timechnode --base-path /tmp/bootnode01 --chain ./timechain-staging.json --port 30333 --ws-port 9945 --rpc-port 9933 --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" --validator --rpc-methods Unsafe --name BootNode01
+  ```
+  
+* [Insert session keys](https://substrate.dev/docs/en/tutorials/start-a-private-network/customchain#add-keys-to-keystore)
 
-// Use of that folder to store the chain state
-$ ./target/release/node-template --dev --base-path ./my-chain-state/
+* Start your initial validators,
+  ```shell
+    ./target/release/node-template \
+    --base-path /tmp/bob \
+    --port 30333 \
+    --ws-port 9946 \
+    --rpc-port 9934 \
+    --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+    --validator \
+    --connector-url=http://ethereum-connector:8080 \
+    --connector-blockchain=ethereum \
+    --connector-network=dev \
+    --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWDAzWc9PWDapTfx89NmAhxuySLnVU9N62ojYS25Va7gif
+  ```
 
-// Check the folder structure created inside the base path after running the chain
-$ ls ./my-chain-state
-chains
-$ ls ./my-chain-state/chains/
-dev
-$ ls ./my-chain-state/chains/dev
-db keystore network
-```
 
+## Upcoming features
+* Update the time-chain with Proof of time consensus protocol.
+* Attract enough validators from community.
+* Enable governance, and remove sudo.
+* Enable transfer and other functions.
+* Add XCEDT for cross-chain event data transfer.
+* Smart Contact SDK.
+* Update the time-chain to give proper support to publisher and subscriber so that a user can easily publish time data on chain and use it by subscribing the chain data.
 
-### Connect with Polkadot-JS Apps Front-end
-
-Once the node template is running locally, you can connect it with **Polkadot-JS Apps** front-end
-to interact with your chain. [Click
-here](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944) connecting the Apps to your
-local node template.
-
-### Multi-Node Local Testnet
-
-If you want to see the multi-node consensus algorithm in action, refer to our
-[Start a Private Network tutorial](https://docs.substrate.io/tutorials/v3/private-network).
-
-## Template Structure
-
-A Substrate project such as this consists of a number of components that are spread across a few
-directories.
-
-### Node
-
-A blockchain node is an application that allows users to participate in a blockchain network.
-Substrate-based blockchain nodes expose a number of capabilities:
-
-- Networking: Substrate nodes use the [`libp2p`](https://libp2p.io/) networking stack to allow the
-  nodes in the network to communicate with one another.
-- Consensus: Blockchains must have a way to come to
-  [consensus](https://docs.substrate.io/v3/advanced/consensus) on the state of the
-  network. Substrate makes it possible to supply custom consensus engines and also ships with
-  several consensus mechanisms that have been built on top of
-  [Web3 Foundation research](https://research.web3.foundation/en/latest/polkadot/NPoS/index.html).
-- RPC Server: A remote procedure call (RPC) server is used to interact with Substrate nodes.
-
-There are several files in the `node` directory - take special note of the following:
-
-- [`chain_spec.rs`](./node/src/chain_spec.rs): A
-  [chain specification](https://docs.substrate.io/v3/runtime/chain-specs) is a
-  source code file that defines a Substrate chain's initial (genesis) state. Chain specifications
-  are useful for development and testing, and critical when architecting the launch of a
-  production chain. Take note of the `development_config` and `testnet_genesis` functions, which
-  are used to define the genesis state for the local development chain configuration. These
-  functions identify some
-  [well-known accounts](https://docs.substrate.io/v3/tools/subkey#well-known-keys)
-  and use them to configure the blockchain's initial state.
-- [`service.rs`](./node/src/service.rs): This file defines the node implementation. Take note of
-  the libraries that this file imports and the names of the functions it invokes. In particular,
-  there are references to consensus-related topics, such as the
-  [longest chain rule](https://docs.substrate.io/v3/advanced/consensus#longest-chain-rule),
-  the [Aura](https://docs.substrate.io/v3/advanced/consensus#aura) block authoring
-  mechanism and the
-  [GRANDPA](https://docs.substrate.io/v3/advanced/consensus#grandpa) finality
-  gadget.
-
-After the node has been [built](#build), refer to the embedded documentation to learn more about the
-capabilities and configuration parameters that it exposes:
-
-```shell
-./target/release/node-template --help
-```
-
-### Runtime
-
-In Substrate, the terms
-"[runtime](https://docs.substrate.io/v3/getting-started/glossary#runtime)" and
-"[state transition function](https://docs.substrate.io/v3/getting-started/glossary#state-transition-function-stf)"
-are analogous - they refer to the core logic of the blockchain that is responsible for validating
-blocks and executing the state changes they define. The Substrate project in this repository uses
-the [FRAME](https://docs.substrate.io/v3/runtime/frame) framework to construct a
-blockchain runtime. FRAME allows runtime developers to declare domain-specific logic in modules
-called "pallets". At the heart of FRAME is a helpful
-[macro language](https://docs.substrate.io/v3/runtime/macros) that makes it easy to
-create pallets and flexibly compose them to create blockchains that can address
-[a variety of needs](https://www.substrate.io/substrate-users/).
-
-Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this template and note
-the following:
-
-- This file configures several pallets to include in the runtime. Each pallet configuration is
-  defined by a code block that begins with `impl $PALLET_NAME::Config for Runtime`.
-- The pallets are composed into a single runtime by way of the
-  [`construct_runtime!`](https://crates.parity.io/frame_support/macro.construct_runtime.html)
-  macro, which is part of the core
-  [FRAME Support](https://docs.substrate.io/v3/runtime/frame#support-crate)
-  library.
-
-### Pallets
-
-The runtime in this project is constructed using many FRAME pallets that ship with the
-[core Substrate repository](https://github.com/paritytech/substrate/tree/master/frame) and a
-template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
-
-A FRAME pallet is compromised of a number of blockchain primitives:
-
-- Storage: FRAME defines a rich set of powerful
-  [storage abstractions](https://docs.substrate.io/v3/runtime/storage) that makes
-  it easy to use Substrate's efficient key-value database to manage the evolving state of a
-  blockchain.
-- Dispatchables: FRAME pallets define special types of functions that can be invoked (dispatched)
-  from outside of the runtime in order to update its state.
-- Events: Substrate uses [events and errors](https://docs.substrate.io/v3/runtime/events-and-errors)
-  to notify users of important changes in the runtime.
-- Errors: When a dispatchable fails, it returns an error.
-- Config: The `Config` configuration interface is used to define the types and parameters upon
-  which a FRAME pallet depends.
-
-### Run in Docker
-
-First, install [Docker](https://docs.docker.com/get-docker/) and
-[Docker Compose](https://docs.docker.com/compose/install/).
-
-Then run the following command to start a single node development chain.
-
-```bash
-./scripts/docker_run.sh
-```
-
-This command will firstly compile your code, and then start a local development network. You can
-also replace the default command
-(`cargo build --release && ./target/release/node-template --dev --ws-external`)
-by appending your own. A few useful ones are as follow.
-
-```bash
-# Run Substrate node without re-compiling
-./scripts/docker_run.sh ./target/release/node-template --dev --ws-external
-
-# Purge the local dev chain
-./scripts/docker_run.sh ./target/release/node-template purge-chain --dev
-
-# Check whether the code is compilable
-./scripts/docker_run.sh cargo check
-```

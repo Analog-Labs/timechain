@@ -1,0 +1,34 @@
+[package]
+name = "task-meta-bench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = ["max-encoded-len"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.171", optional = true }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+time-primitives = { path = "../../../primitives/time-primitives", default-features = false }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+pallet-proxy = { version = "0.1.0", default-features = false, path = "../../../pallets/pallet-proxy" }
+task-metadata = { version = "0.0.1", default-features = false, path = "../../task-metadata" }
+
+[features]
+default = ["std"]
+std = [
+  "frame-support/std",
+  "frame-benchmarking?/std",
+  "frame-system/std",
+  "codec/std",
+  "sp-runtime/std",
+  "scale-info/std",
+  "task-metadata/std",
+   "pallet-proxy/std",
+]
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks", "task-metadata/runtime-benchmarks","pallet-proxy/runtime-benchmarks"]
+try-runtime = ["frame-support/try-runtime",  "task-metadata/try-runtime", "pallet-proxy/try-runtime"]

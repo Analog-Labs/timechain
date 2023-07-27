@@ -14,3 +14,14 @@
 
 # direnv cache
 .direnv
+
+# CLion / InteliJ ide settings
+.idea
+
+# Cargo.lock
+
+infra/aws/.terraform
+infra/aws/.*.hcl
+infra/aws/*.tfstate*
+infra/aws/*plan.out
+

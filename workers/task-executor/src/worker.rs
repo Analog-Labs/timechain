@@ -219,11 +219,6 @@ where
 		collection: String,
 		task_id: u64,
 	) -> Result<(), Error> {
-		let block_request = BlockRequest {
-			network_identifier: self.rosetta_chain_config.network(),
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
-		};
-
 		let value = match self.backend.blockchain().number(block_id) {
 			Ok(Some(val)) => val.to_string(),
 			Ok(None) => "0".to_string(),
@@ -651,8 +646,8 @@ where
 
 	pub async fn run(&mut self) {
 		loop {
-			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				log::warn!("Error occurred getting rosetta client status to get target block number");
 				continue;
 			};
 			let target_block_number = status.current_block_identifier.index;

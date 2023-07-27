@@ -81,7 +81,7 @@ impl ShardState {
 		Reports::<T>::insert(&offender, &reporter, new_report_count);
 		if new_report_count != 1u8 {
 			// repeated offenses by same reporter do not increase shard's committed offenses count
-			return Ok((reporter, offender));
+			return Ok((offender, reporter));
 		}
 		self.committed_offenses_count = self.committed_offenses_count.saturating_plus_one();
 		let shard_cannot_reach_consensus = self.committed_offenses_count

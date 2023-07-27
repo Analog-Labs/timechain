@@ -8,7 +8,7 @@ use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use reqwest::header;
 use rosetta_client::{
 	create_client,
-	types::{block, BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
+	types::{CallRequest, CallResponse},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -214,7 +214,7 @@ where
 	async fn send_data(
 		&mut self,
 		block_id: <B as Block>::Hash,
-		target_block_number: u64,
+		target_block_number: BlockHeight,
 		data: CallResponse,
 		collection: String,
 		task_id: u64,
@@ -319,7 +319,7 @@ where
 	async fn process_tasks_for_block(
 		&mut self,
 		block_id: <B as Block>::Hash,
-		target_block_number: u64,
+		target_block_number: BlockHeight,
 	) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
@@ -670,6 +670,7 @@ where
 		loop {
 			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				log::warn!("Error occurred getting rosetta client status to get target block number");
 				continue;
 			};
 			let current_block = status.current_block_identifier.index;

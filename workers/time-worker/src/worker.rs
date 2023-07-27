@@ -30,11 +30,13 @@ use time_primitives::{
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
 
+type TssId = (u64, u64);
+
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
 	shard_id: u64,
 	sender: sr25519::Public,
-	payload: TssMessage,
+	payload: TssMessage<TssId>,
 }
 
 impl TimeMessage {
@@ -63,7 +65,7 @@ impl TimeMessage {
 }
 
 struct TssState {
-	tss: Tss<sr25519::Public>,
+	tss: Tss<TssId, sr25519::Public>,
 	is_collector: bool,
 }
 
@@ -77,12 +79,12 @@ impl TssState {
 }
 
 struct TssTimeout {
-	timeout: Timeout,
+	timeout: Timeout<TssId>,
 	deadline: Instant,
 }
 
 impl TssTimeout {
-	fn new(timeout: Timeout) -> Self {
+	fn new(timeout: Timeout<TssId>) -> Self {
 		let deadline = Instant::now() + Duration::from_secs(30);
 		Self { timeout, deadline }
 	}
@@ -107,7 +109,7 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
-	timeouts: HashMap<(u64, Option<[u8; 32]>), TssTimeout>,
+	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 }
 
@@ -224,14 +226,10 @@ where
 						ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
 					}
 				},
-				TssAction::Tss(tss_signature, hash) => {
+				TssAction::Tss(tss_signature, (key_id, schedule_cycle)) => {
 					debug!(target: TW_LOG, "Storing tss signature");
-					self.timeouts.remove(&(shard_id, Some(hash)));
+					self.timeouts.remove(&(shard_id, Some((key_id, schedule_cycle))));
 					if tss_state.is_collector {
-						let Some((key_id, schedule_cycle)) = tss_state.tss.event_id_map.get(&hash) else {
-							log::error!("Failed to store signature, Task id not found for hash {:?}", hash);
-							return;
-						};
 						let tss_signature = tss_signature.to_bytes();
 
 						//signing tss_signature with collector sskey
@@ -244,11 +242,9 @@ where
 						let sig_data: SignatureData = tss_signature;
 
 						let ocw_sig_data =
-							OCWSigData::new(signature.into(), sig_data, *key_id, *schedule_cycle);
+							OCWSigData::new(signature.into(), sig_data, key_id, schedule_cycle);
 
 						ocw_encoded_vec.push((OCW_SIG_KEY, ocw_sig_data.encode()));
-
-						tss_state.tss.event_id_map.remove(&hash);
 					}
 				},
 				TssAction::Report(offender, hash) => {
@@ -356,7 +352,7 @@ where
 					let Some(tss_state) = self.tss_states.get_mut(&shard_id) else {
 						continue;
 					};
-					tss_state.tss.sign(data.to_vec(), key_id, schedule_cycle);
+					tss_state.tss.sign((key_id, schedule_cycle), data.to_vec());
 					self.poll_actions(shard_id, public_key);
 				},
 				gossip_data = self.gossip_data_receiver.next().fuse() => {

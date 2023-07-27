@@ -504,10 +504,11 @@ fn test_report_misbehavior_increments_report_count() {
 	let bob = keystore
 		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
+	let alice_as_time_id: TimeId = alice.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
-			alice.into(),
+			alice_as_time_id.clone(),
 		),);
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_2).into(),
@@ -520,7 +521,7 @@ fn test_report_misbehavior_increments_report_count() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![alice.into(), bob.into(), CHARLIE],
+			vec![alice_as_time_id.clone(), bob.into(), CHARLIE],
 			None,
 			Network::Ethereum,
 		));
@@ -528,18 +529,21 @@ fn test_report_misbehavior_increments_report_count() {
 		// report 1st offence
 
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.into()).into(),
+			RawOrigin::Signed(alice_as_time_id.clone()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
 		// report 2nd offence
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.into()).into(),
+			RawOrigin::Signed(alice_as_time_id.clone()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
-		// 2 reported offences
-		assert_eq!(2, TesseractSigStorage::commited_offences(CHARLIE).unwrap().0);
+		// 2 reported offenses
+		assert_eq!(
+			2,
+			TesseractSigStorage::get_offense_count_for_reporter(&CHARLIE, &alice_as_time_id)
+		);
 	});
 }
 
@@ -553,10 +557,11 @@ fn test_report_misbehavior_updates_reporters() {
 	let bob = keystore
 		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
 		.expect("Creates authority key");
+	let alice_as_time_id: TimeId = alice.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
-			alice.into(),
+			alice_as_time_id.clone(),
 		),);
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_2).into(),
@@ -569,82 +574,26 @@ fn test_report_misbehavior_updates_reporters() {
 		// register shard
 		assert_ok!(TesseractSigStorage::register_shard(
 			RawOrigin::Root.into(),
-			vec![alice.into(), bob.into(), CHARLIE],
+			vec![alice_as_time_id.clone(), bob.into(), CHARLIE],
 			None,
 			Network::Ethereum,
 		));
-
 		// report 1st offence
-
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.into()).into(),
+			RawOrigin::Signed(alice_as_time_id.clone()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
 		// report 2nd offence
 		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.into()).into(),
+			RawOrigin::Signed(alice_as_time_id.clone()).into(),
 			0, // setId is 0
 			CHARLIE,
 		));
-		// alice is only reporter
-		assert!(TesseractSigStorage::commited_offences(CHARLIE)
-			.unwrap()
-			.1
-			.contains(&alice.into()));
-	});
-}
-
-#[test]
-/// Moves offences to committed such that reported offences is emptied
-fn test_report_misbehavior_moves_offences_to_committed() {
-	let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-	// test the thresholds
-	let alice = keystore
-		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
-		.expect("Creates authority key");
-	let bob = keystore
-		.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
-		.expect("Creates authority key");
-	new_test_ext().execute_with(|| {
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_1).into(),
-			alice.into(),
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_2).into(),
-			bob.into(),
-		),);
-		assert_ok!(TesseractSigStorage::register_chronicle(
-			RawOrigin::Signed(VALIDATOR_3).into(),
-			CHARLIE,
-		),);
-
-		// register shard
-		assert_ok!(TesseractSigStorage::register_shard(
-			RawOrigin::Root.into(),
-			vec![alice.into(), bob.into(), CHARLIE],
-			None,
-			Network::Ethereum,
-		));
-		// To report offence, need to sign the public key
-
-		// report 1st offence
-
-		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.into()).into(),
-			0, // setId is 0
-			CHARLIE,
-		));
-		// report 2nd offence
-		assert_ok!(TesseractSigStorage::report_misbehavior(
-			RawOrigin::Signed(alice.into()).into(),
-			0, // setId is 0
-			CHARLIE,
-		));
-		assert!(TesseractSigStorage::commited_offences(CHARLIE).is_some());
-		// remove reported_offences from storage once moved to commited_offences
-		assert!(TesseractSigStorage::reported_offences(CHARLIE).is_none());
+		assert_eq!(
+			2,
+			TesseractSigStorage::get_offense_count_for_reporter(&CHARLIE, &alice_as_time_id)
+		);
 	});
 }
 
@@ -689,10 +638,7 @@ fn test_report_misbehavior_for_group_len_5() {
 			None,
 			Network::Ethereum,
 		));
-		// To report offence, need to sign the public key
-
 		// report 1st offence
-
 		assert_ok!(TesseractSigStorage::report_misbehavior(
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
@@ -710,7 +656,7 @@ fn test_report_misbehavior_for_group_len_5() {
 			0, // setId is 0
 			BOB,
 		));
-		assert!(TesseractSigStorage::commited_offences(BOB).is_some());
+		assert_eq!(3, TesseractSigStorage::get_offense_count_for_reporter(&BOB, &ALICE));
 	});
 }
 
@@ -795,10 +741,8 @@ fn test_report_misbehavior_for_group_len_10() {
 			None,
 			Network::Ethereum,
 		));
-		// To report offence, need to sign the public key
 
 		// report 1st offence
-
 		assert_ok!(TesseractSigStorage::report_misbehavior(
 			RawOrigin::Signed(ALICE).into(),
 			0, // setId is 0
@@ -828,7 +772,7 @@ fn test_report_misbehavior_for_group_len_10() {
 			0, // setId is 0
 			BOB,
 		));
-		assert!(TesseractSigStorage::commited_offences(BOB).is_some());
+		assert_eq!(5, TesseractSigStorage::get_offense_count_for_reporter(&BOB, &ALICE));
 	});
 }
 
@@ -902,7 +846,7 @@ fn can_report_offence_if_already_committed_offender() {
 			charlie.clone(),
 		));
 		// 3 reported offences
-		assert_eq!(3, TesseractSigStorage::commited_offences(charlie.clone()).unwrap().0);
+		assert_eq!(3, TesseractSigStorage::get_offense_count_for_reporter(&charlie, &ALICE));
 		// can report offence but only updates committed offences
 		// such that reported offences stays empty
 		assert_ok!(TesseractSigStorage::report_misbehavior(
@@ -911,9 +855,7 @@ fn can_report_offence_if_already_committed_offender() {
 			charlie.clone(),
 		));
 		// 4 reported offences in committed offences
-		assert_eq!(4, TesseractSigStorage::commited_offences(charlie.clone()).unwrap().0);
-		// reported offences storage item remains empty
-		assert!(TesseractSigStorage::reported_offences(charlie).is_none());
+		assert_eq!(4, TesseractSigStorage::get_offense_count_for_reporter(&charlie, &ALICE));
 	});
 }
 

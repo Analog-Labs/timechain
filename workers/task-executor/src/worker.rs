@@ -515,6 +515,7 @@ where
 							match self
 								.send_data(
 									block_id,
+									block_height,
 									data,
 									schedule.hash.to_owned(),
 									schedule.task_id.0,

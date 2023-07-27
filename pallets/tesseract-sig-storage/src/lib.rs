@@ -225,10 +225,10 @@ pub mod pallet {
 		/// .0 ShardId
 		ShardOffline(u64),
 
-		/// Offense reported
+		/// Offense reported by reporter
 		/// .0 ShardId
-		/// .1 Reporter (collector of Shard)
-		/// .2 Offender
+		/// .1 Offender
+		/// .2 Reporter
 		OffenseReported(u64, TimeId, TimeId),
 
 		/// Chronicle has been registered
@@ -511,10 +511,10 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let (reporter, offender) =
+			let (offender, reporter) =
 				shard_state.increment_committed_offense_count::<T>(offender, caller, shard_id)?;
 			TssShards::<T>::insert(shard_id, shard_state);
-			Self::deposit_event(Event::OffenseReported(shard_id, reporter, offender));
+			Self::deposit_event(Event::OffenseReported(shard_id, offender, reporter));
 			Ok(())
 		}
 

@@ -89,7 +89,7 @@ impl ShardState {
 		if shard_cannot_reach_consensus && self.is_online() {
 			self.go_offline_and_handle_tasks::<T>(id);
 		}
-		Ok((reporter, offender))
+		Ok((offender, reporter))
 	}
 }
 

@@ -37,7 +37,7 @@ const pallet_task_add = async (_keyspair, who) => {
         task_id: 1,
         schema:[1],
         function:{EVMViewWithoutAbi:{
-            address: stringToHex('0xc124797323e2a43eb34e4f0c96c178663bc865bf'),
+            address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
             function_signature: "function get_votes_stats() external view returns (uint, uint)",
             input: 2,
             output: 2,

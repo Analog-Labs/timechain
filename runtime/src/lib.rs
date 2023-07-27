@@ -57,7 +57,7 @@ use task_metadata::KeyId;
 use time_primitives::abstraction::{
 	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
 };
-use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network};
+use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1531,7 +1531,7 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
-		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
+		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
 
@@ -1585,6 +1585,13 @@ impl_runtime_apis! {
 
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
+		}
+
+		fn get_offense_count(offender: &TimeId) -> u8 {
+			TesseractSigStorage::get_offense_count(offender)
+		}
+		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
+			TesseractSigStorage::get_offense_count_for_reporter(offender, reporter)
 		}
 	}
 

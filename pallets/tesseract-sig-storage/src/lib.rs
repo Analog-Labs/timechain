@@ -173,7 +173,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn reports)]
 	pub type Reports<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, TimeId, Blake2_128Concat, TimeId, (), OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, TimeId, Blake2_128Concat, TimeId, u8, ValueQuery>;
 
 	/// record the last block number of each chronicle worker commit valid signature
 	#[pallet::storage]
@@ -514,7 +514,6 @@ pub mod pallet {
 			let (reporter, offender) =
 				shard_state.increment_committed_offense_count::<T>(caller, offender, shard_id)?;
 			TssShards::<T>::insert(shard_id, shard_state);
-			Reports::<T>::insert(&reporter, &offender, ());
 			Self::deposit_event(Event::OffenseReported(shard_id, reporter, offender));
 			Ok(())
 		}
@@ -593,6 +592,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn get_offense_count(offender: &TimeId) -> u8 {
+			Reports::<T>::iter_prefix(offender)
+				.fold(0u8, |acc, (_, count)| acc.saturating_add(count))
+		}
+		pub fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
+			Reports::<T>::get(offender, reporter)
+		}
 		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
 				.filter(|(_, s)| s.is_online() && s.network == network)

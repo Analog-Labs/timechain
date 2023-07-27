@@ -1,5 +1,5 @@
 //! Shard type utilities
-use crate::{Config, Error, Event, Pallet, TssShards};
+use crate::{Config, Error, Event, Pallet, Reports, TssShards};
 use codec::{Decode, Encode};
 use frame_support::{ensure, traits::Get};
 use sp_runtime::{traits::Saturating, DispatchError};
@@ -83,6 +83,7 @@ impl ShardState {
 		if shard_cannot_reach_consensus && self.is_online() {
 			self.go_offline_and_handle_tasks::<T>(id);
 		}
+		Reports::<T>::mutate(&reporter, &offender, |count| count.saturating_plus_one());
 		Ok((reporter, offender))
 	}
 }

@@ -113,10 +113,7 @@ thread_local! {
 }
 
 parameter_types! {
-	// Must be > 0 and <= 100
-	pub const SlashingPercentage: u8 = 5;
-	// Must be > 0 and <= 100
-	pub const SlashingPercentageThreshold: u8 = 51;
+	pub const MinReportsPerCommittedOffense: u8 = 1;
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = DOLLARS;
@@ -236,8 +233,7 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type WeightInfo = ();
 	type Moment = Moment;
 	type Timestamp = Timestamp;
-	type SlashingPercentage = SlashingPercentage;
-	type SlashingPercentageThreshold = SlashingPercentageThreshold;
+	type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
 	type TaskScheduleHelper = TaskSchedule;
 	type SessionInterface = SessionInterfaceMock<AccountId>;
 	type MaxChronicleWorkers = ConstU32<3>;

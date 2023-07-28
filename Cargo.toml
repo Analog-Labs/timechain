@@ -31,3 +31,7 @@ opt-level = "z"
 [profile.release-codecov]
 inherits = "release"
 strip = false
+
+[patch.crates-io]
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-docker = { git = "https://github.com/analog-labs/chain-connectors" }

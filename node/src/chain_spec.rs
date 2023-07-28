@@ -28,11 +28,15 @@ const PUBLIC_SALE: Balance = ANLOG * 1_449_275;
 const TEAM_SUPPLY: Balance = ANLOG * 17_210_160;
 const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
 const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
-const VALIDATOR_SUPPLY: Balance = ANLOG;
 
-/// TODO: Incoperat into tokenomics
-const CONTROLLER_SUPPLY: Balance = ANLOG * 100000;
+/// Tokens to take from team supply to bootstrap validators
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500000;
+const VALIDATOR_SUPPLY: Balance = 12 * PER_VALIDATOR_STASH;
+
+const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 50000;
+
+const SUDO_SUPPLY: Balance = ANLOG * 50000;
+const CONTROLLER_SUPPLY: Balance = ANLOG * 50000;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -202,6 +206,13 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				],
 				// Pre-funded accounts
 				vec![
+					// Sudo stashes
+					(
+						hex!["1260c29b59a365f07ac449e109cdf8f95905296af0707db9f3da0254e5db5741"]
+							.into(),
+						SUDO_SUPPLY
+					),
+
 					// Controller stashes
 					(
 						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"]
@@ -295,7 +306,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						hex!["62e926d7df56786c766af140cdc9da839c50e60fa0d6722488a1ad235f1c5d1a"]
 							.into(),
-						TEAM_SUPPLY,
+						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - VALIDATOR_SUPPLY,
 					),
 					(
 						hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"]
@@ -318,7 +329,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		// Bootnodes
 		vec![
 			"/dns/bootnode-1.internal.analog.one/tcp/30333/p2p/12D3KooWHRZcA2GHQYpbqwPsvk3ZEPDnu35w7cfEBxYPFfTR2bHX".parse().unwrap(),
-			"/dns/bootnode-2.internal.analog.one/tcp/30333/p2p/12D3KooWAHTG5KqRPKyerDVXAVrGEXd3g1XDK9JajbTCZP2K7xVN".parse().unwrap(),
+			"/dns/bootnode-2.internal.analog.one/tcp/30334/p2p/12D3KooWAHTG5KqRPKyerDVXAVrGEXd3g1XDK9JajbTCZP2K7xVN".parse().unwrap(),
 		],
 		// Telemetry
 		None,
@@ -394,11 +405,6 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 						hex!["685a09abdd4c4fe57730fb4eb5fbe6e18e9cca90a2124c5e60ad927278cfd36c"]
 							.into(),
 						COMMUNITY_SUPPLY,
-					),
-					(
-						hex!["088f0e5d722a420339685a4e6ab358a4df4e39206bfad00e30617abf1633d37a"]
-							.into(),
-						VALIDATOR_SUPPLY,
 					),
 				],
 			)
@@ -532,17 +538,17 @@ fn generate_analog_genesis(
 		serde_json::from_slice(vesting_accounts_json)
 			.expect("The file vesting_test.json is not exist or not having valid data.");
 	let initial_nominators: Vec<AccountId> = vec![];
-	let stash = ANLOG * 500000;
+	let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
 	let stakers = initial_authorities
 		.iter()
-		.map(|x| (x.1.clone(), x.0.clone(), stash, StakerStatus::<AccountId>::Validator))
+		.map(|x| (x.1.clone(), x.0.clone(), locked, StakerStatus::<AccountId>::Validator))
 		.chain(initial_nominators.iter().map(|x| {
 			let nominations = initial_authorities
 				.as_slice()
 				.iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			(x.clone(), x.clone(), stash, StakerStatus::<AccountId>::Nominator(nominations))
+			(x.clone(), x.clone(), locked, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
 

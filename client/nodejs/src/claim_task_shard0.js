@@ -1,5 +1,4 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
-import { Keypair } from '@solana/web3.js';
 import { Channel } from 'async-channel';
 import { dirname} from 'path';
 import { fileURLToPath } from 'url';
@@ -20,20 +19,19 @@ const setup_substrate = async () => {
 const pallet_task_add = async (_keyspair, who) => {
     const api =  await setup_substrate();
     const keyring = new Keyring({ type: 'sr25519' });
-    const keyspair = keyring.addFromUri("owner word vocal dose decline sunset battle example forget excite gentle waste//4//time", { name: 'CollectorShard1' });
+    const keyspair = keyring.addFromUri("owner word vocal dose decline sunset battle example forget excite gentle waste//1//time", { name: 'CollectorShard1' });
     const alice = keyring.addFromUri("//Alice", { name: 'Alice' });
     await api.isReady;
-    //5CkJ4tBMgREW3mTwiG9CQZA5fEHW8RzLjX1fFv91BTuMVqqy
+    //5EnwecXcNiC79wCoDPvqcdWmFgQXBMpybPbKGUQPgGgfPfsn
     console.log(keyspair.address);
 
     //faucet before claiming
-    const unsub1 = await api.tx.balances.transfer(keyspair.address, 100000000000).signAndSend(alice, ({ status, events, dispatchError }) => {
+    const unsub1 = await api.tx.balances.transfer(keyspair.address, 2000000000000).signAndSend(alice, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
-    console.log("faucet done");
 
     //update task id before claiming
-    const unsub = await api.tx.tesseractSigStorage.claimTask(1, 2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    const unsub = await api.tx.tesseractSigStorage.claimTask(0, 2).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
 };

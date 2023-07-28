@@ -57,7 +57,7 @@ use task_metadata::KeyId;
 use time_primitives::abstraction::{
 	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
 };
-use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network};
+use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1049,10 +1049,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	// Must be > 0 and <= 100
-	pub const SlashingPercentage: u8 = 5;
-	// Must be > 0 and <= 100
-	pub const SlashingPercentageThreshold: u8 = 51;
+	pub const MinReportsPerCommittedOffense: u8 = 1;
 	pub const MaxChronicleWorkers: u32 = 5;
 	pub const MaxTimeouts: u8 = 2;
 }
@@ -1063,8 +1060,7 @@ impl pallet_tesseract_sig_storage::Config for Runtime {
 	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
 	type Moment = u64;
 	type Timestamp = Timestamp;
-	type SlashingPercentage = SlashingPercentage;
-	type SlashingPercentageThreshold = SlashingPercentageThreshold;
+	type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
 	type TaskScheduleHelper = TaskSchedule;
 	type MaxChronicleWorkers = MaxChronicleWorkers;
 	type SessionInterface = Self;
@@ -1539,7 +1535,7 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
-		fn get_shard_members(shard_id: u64) -> Option<Vec<time_primitives::TimeId>> {
+		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
 
@@ -1593,6 +1589,13 @@ impl_runtime_apis! {
 
 		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
 			TaskSchedule::get_payable_task_schedules()
+		}
+
+		fn get_offense_count(offender: &TimeId) -> u8 {
+			TesseractSigStorage::get_offense_count(offender)
+		}
+		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
+			TesseractSigStorage::get_offense_count_for_reporter(offender, reporter)
 		}
 	}
 

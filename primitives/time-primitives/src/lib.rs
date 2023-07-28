@@ -60,6 +60,8 @@ sp_api::decl_runtime_apis! {
 		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
 		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
 		fn get_payable_task_schedule() -> Result<Vec<(KeyId, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
+		fn get_offense_count(offender: &TimeId) -> u8;
+		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8;
 	}
 }
 

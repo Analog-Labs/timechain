@@ -46,7 +46,7 @@ const pallet_task_add = async (_keyspair, who) => {
         with:['123','123'],
         cycle:1,
         validity:{Seconds:12},
-        hash:'asdasd'
+        hash:'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7'
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskMeta.insertTask);

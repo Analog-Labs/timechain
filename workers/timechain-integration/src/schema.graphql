@@ -1,0 +1,13 @@
+type Mutation {
+  collect(
+    collection: String!
+    block: Int!
+    cycle: Int!
+    taskId: Int!
+    data: [String!]!
+  ): CollectResult!
+}
+
+type CollectResult {
+  status: String!
+}

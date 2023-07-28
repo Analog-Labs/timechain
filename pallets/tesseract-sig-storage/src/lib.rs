@@ -55,14 +55,8 @@ pub mod pallet {
 	use sp_runtime::offchain::storage::{
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
-	use sp_runtime::{
-		traits::{AppVerify, Scale},
-		SaturatedConversion, Saturating,
-	};
-	use sp_std::{
-		collections::{btree_set::BTreeSet, vec_deque::VecDeque},
-		vec::Vec,
-	};
+	use sp_runtime::traits::{AppVerify, Scale};
+	use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
 		abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
@@ -102,10 +96,6 @@ pub mod pallet {
 		}
 	}
 
-	fn account_to_time_id<A: Encode>(account_id: A) -> TimeId {
-		account_id.encode()[..].try_into().unwrap()
-	}
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -131,12 +121,9 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ StaticTypeInfo;
 		type Timestamp: Time<Moment = Self::Moment>;
-		/// Slashing percentage for commiting misbehavior
+		/// Minimum reports made by shard reporter to define committed offense
 		#[pallet::constant]
-		type SlashingPercentage: Get<u8>;
-		/// Slashing threshold percentage for commiting misbehavior consensus
-		#[pallet::constant]
-		type SlashingPercentageThreshold: Get<u8>;
+		type MinReportsPerCommittedOffense: Get<u8>;
 		type TaskScheduleHelper: ScheduleInterface<Self::AccountId, Self::BlockNumber>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
@@ -181,14 +168,9 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn reported_offences)]
-	pub type ReportedOffences<T: Config> =
-		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn commited_offences)]
-	pub type CommitedOffences<T: Config> =
-		StorageMap<_, Blake2_128Concat, TimeId, (u8, BTreeSet<TimeId>), OptionQuery>;
+	#[pallet::getter(fn reports)]
+	pub type Reports<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, TimeId, Blake2_128Concat, TimeId, u8, ValueQuery>;
 
 	/// record the last block number of each chronicle worker commit valid signature
 	#[pallet::storage]
@@ -240,16 +222,11 @@ pub mod pallet {
 		/// .0 ShardId
 		ShardOffline(u64),
 
-		/// Offence reported, above threshold s.t.
-		/// reports are moved from reported to committed.
-		/// .0 Offender TimeId
-		/// .1 Report count
-		OffenceCommitted(TimeId, u8),
-
-		/// Offence reported
-		/// .0 Offender TimeId
-		/// .1 Report count
-		OffenceReported(TimeId, u8),
+		/// Offense reported by reporter
+		/// .0 ShardId
+		/// .1 Offender
+		/// .2 Reporter
+		OffenseReported(u64, TimeId, TimeId),
 
 		/// Chronicle has been registered
 		/// .0 TimeId
@@ -358,12 +335,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			let is_recurring =
-				if let Some(schedule) = T::TaskScheduleHelper::get_schedule_via_key(key_id)? {
-					schedule.cycle > 1
-				} else {
-					false
-				};
 			let shard_id: u64 = T::TaskScheduleHelper::get_assigned_shard_for_key(key_id)?;
 
 			let shard_state =
@@ -386,10 +357,8 @@ pub mod pallet {
 
 			// Updates completed task status and start_execution_block for
 			// ongoing recurring tasks.
+			T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
 			T::TaskScheduleHelper::update_completed_task(key_id);
-			if is_recurring {
-				T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
-			}
 
 			<SignatureStoreData<T>>::insert(key_id, schedule_cycle, signature_data);
 
@@ -415,7 +384,7 @@ pub mod pallet {
 
 			let shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let collector = shard_state.shard.collector();
+			let collector: &sp_runtime::AccountId32 = shard_state.shard.collector();
 
 			let raw_public_key: &[u8; 32] = collector.as_ref();
 			let collector_public_id =
@@ -520,8 +489,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Method to provide misbehavior report to runtime
-		/// Is protected with proven ownership of private key to prevent spam
+		/// Collector-only can report shard members for not submitting signatures
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::report_misbehavior())]
 		pub fn report_misbehavior(
@@ -532,54 +500,10 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let mut shard_state =
 				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let (reporter, offender) = (
-				account_to_time_id::<T::AccountId>(caller),
-				account_to_time_id::<T::AccountId>(offender),
-			);
-			ensure!(shard_state.shard.is_collector(&reporter), Error::<T>::OnlyCallableByCollector);
-			ensure!(shard_state.shard.contains_member(&offender), Error::<T>::OffenderNotInMembers);
-			let reported_offences_count =
-				if let Some(mut known_offender) = <ReportedOffences<T>>::get(&offender) {
-					// increment report count
-					let new_report_count = known_offender.0.saturating_plus_one();
-					// update offender report count
-					known_offender.0 = new_report_count;
-					// temporary report threshold while only collector can make reports
-					// => 2 reports is sufficient to lead to committed offenses
-					const REPORT_THRESHOLD: usize = 2;
-					if new_report_count.saturated_into::<usize>() >= REPORT_THRESHOLD {
-						// increment committed offense count and update state in storage
-						shard_state.increment_committed_offense_count::<T>(shard_id);
-						// move ReportedOffenses to CommittedOffenses
-						<CommitedOffences<T>>::insert(&offender, known_offender);
-						// removed ReportedOffences because moved to CommittedOffences
-						<ReportedOffences<T>>::remove(&offender);
-						Self::deposit_event(Event::OffenceCommitted(
-							offender.clone(),
-							new_report_count,
-						));
-					} else {
-						<ReportedOffences<T>>::insert(&offender, known_offender);
-					}
-					new_report_count
-				} else if let Some(mut guilty_offender) = <CommitedOffences<T>>::get(&offender) {
-					// do allow new reports but only write to `CommittedOffences`
-					// (better to allow additional reports than enforce only up to threshold)
-					let new_report_count = guilty_offender.0.saturating_plus_one();
-					// update known offender report count
-					guilty_offender.0 = new_report_count;
-					<CommitedOffences<T>>::insert(&offender, guilty_offender);
-					new_report_count
-				} else {
-					// else write first first report ever to ReportedOffences
-					let mut new_reports = BTreeSet::new();
-					new_reports.insert(reporter);
-					let new_report_count = 1u8;
-					// insert new report
-					<ReportedOffences<T>>::insert(&offender, (new_report_count, new_reports));
-					new_report_count
-				};
-			Self::deposit_event(Event::OffenceReported(offender, reported_offences_count));
+			let (offender, reporter) =
+				shard_state.increment_committed_offense_count::<T>(offender, caller, shard_id)?;
+			TssShards::<T>::insert(shard_id, shard_state);
+			Self::deposit_event(Event::OffenseReported(shard_id, offender, reporter));
 			Ok(())
 		}
 
@@ -657,6 +581,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn get_offense_count(offender: &TimeId) -> u8 {
+			Reports::<T>::iter_prefix(offender)
+				.fold(0u8, |acc, (_, count)| acc.saturating_add(count))
+		}
+		pub fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
+			Reports::<T>::get(offender, reporter)
+		}
 		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter()
 				.filter(|(_, s)| s.is_online() && s.network == network)

@@ -912,7 +912,6 @@ dependencies = [
  "cc",
  "cfg-if",
  "constant_time_eq 0.3.0",
- "digest 0.10.7",
 ]
 
 [[package]]
@@ -11624,7 +11623,6 @@ checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 name = "tesseract-tss"
 version = "0.0.1"
 dependencies = [
- "blake3",
  "env_logger",
  "frost-evm",
  "log",

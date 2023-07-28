@@ -8,7 +8,7 @@ use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use reqwest::header;
 use rosetta_client::{
 	create_client,
-	types::{block, BlockRequest, CallRequest, CallResponse, PartialBlockIdentifier},
+	types::{CallRequest, CallResponse},
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
@@ -214,127 +214,113 @@ where
 	async fn send_data(
 		&mut self,
 		block_id: <B as Block>::Hash,
+		target_block_number: BlockHeight,
 		data: CallResponse,
 		collection: String,
 		task_id: u64,
 	) -> Result<(), Error> {
-		let block_request = BlockRequest {
-			network_identifier: self.rosetta_chain_config.network(),
-			block_identifier: PartialBlockIdentifier { index: None, hash: None },
+		let value = match self.backend.blockchain().number(block_id) {
+			Ok(Some(val)) => val.to_string(),
+			Ok(None) => "0".to_string(),
+			Err(e) => {
+				log::warn!("Error occurred: {:?}", e);
+				"0".to_string()
+			},
 		};
-		match self.rosetta_client.block(&block_request).await {
-			Ok(response) => {
-				let block = match response.block {
-					Some(block) => block,
-					None => block::Block::default(),
-				};
+		let cycle = match value.parse::<i64>() {
+			Ok(parsed_value) if parsed_value == 0 => {
+				log::warn!("error on block number");
+				return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if cycle value is 0.
+			},
+			Ok(parsed_value) => parsed_value,
+			Err(e) => {
+				log::error!("Failed to parse value: {:?}", e);
+				return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if parsing fails.
+			},
+		};
 
-				let value = match self.backend.blockchain().number(block_id) {
-					Ok(Some(val)) => val.to_string(),
-					Ok(None) => "0".to_string(),
-					Err(e) => {
-						log::warn!("Error occurred: {:?}", e);
-						"0".to_string()
-					},
-				};
-				let cycle = match value.parse::<i64>() {
-					Ok(parsed_value) if parsed_value == 0 => {
-						log::warn!("error on block number");
-						return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if cycle value is 0.
-					},
-					Ok(parsed_value) => parsed_value,
-					Err(e) => {
-						log::error!("Failed to parse value: {:?}", e);
-						return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if parsing fails.
-					},
-				};
+		// Add data into collection (user must have Collector role)
+		// @collection: collection hashId
+		// @cycle: time-chain block number
+		// @block: target network block number
+		// @task_id: task associated with data
+		// @task_counter: for repeated task it's incremented on every run
+		// @tss: TSS signature
+		// @data: data to add into collection
+		let data_value = match data.result {
+			Value::Array(val) => val
+				.iter()
+				.filter_map(|x| x.as_str())
+				.map(|x| x.to_string())
+				.collect::<Vec<String>>(),
+			v => vec![v.to_string()],
+		};
+		let variables = collect_data::Variables {
+			collection,
+			block: target_block_number as i64,
+			cycle,
+			task_id: task_id as i64,
+			data: data_value,
+		};
+		dotenv().ok();
+		let Ok(url) = env::var("TIMEGRAPH_GRAPHQL_URL") else {
+			log::warn!("Unable to get timegraph graphql url, Setting up default local url");
+			return Err(Error::ErrorOnSendDataToTimeGraph)
+			};
+		match env::var("SSK") {
+			Ok(ssk) => {
+				// Build the GraphQL request
+				let request = CollectData::build_query(variables);
+				// Execute the GraphQL request
+				let client = reqwest::Client::new();
+				let response =
+					client.post(url).json(&request).header(header::AUTHORIZATION, ssk).send().await;
 
-				// Add data into collection (user must have Collector role)
-				// @collection: collection hashId
-				// @cycle: time-chain block number
-				// @block: target network block number
-				// @task_id: task associated with data
-				// @task_counter: for repeated task it's incremented on every run
-				// @tss: TSS signature
-				// @data: data to add into collection
-				let data_value = match data.result {
-					Value::Array(val) => val
-						.iter()
-						.filter_map(|x| x.as_str())
-						.map(|x| x.to_string())
-						.collect::<Vec<String>>(),
-					v => vec![v.to_string()],
-				};
-				let variables = collect_data::Variables {
-					collection,
-					block: block.block_identifier.index as i64,
-					cycle,
-					task_id: task_id as i64,
-					data: data_value,
-				};
-				dotenv().ok();
-				let Ok(url) = env::var("TIMEGRAPH_GRAPHQL_URL") else {
-					log::warn!("Unable to get timegraph graphql url, Setting up default local url");
-					return Err(Error::ErrorOnSendDataToTimeGraph)
-					};
-				match env::var("SSK") {
-					Ok(ssk) => {
-						// Build the GraphQL request
-						let request = CollectData::build_query(variables);
-						// Execute the GraphQL request
-						let client = reqwest::Client::new();
-						let response = client
-							.post(url)
-							.json(&request)
-							.header(header::AUTHORIZATION, ssk)
-							.send()
-							.await;
+				match response {
+					Ok(response) => {
+						let json_response =
+							response.json::<GraphQLResponse<collect_data::ResponseData>>().await;
 
-						match response {
-							Ok(response) => {
-								let json_response = response
-									.json::<GraphQLResponse<collect_data::ResponseData>>()
-									.await;
-
-								match json_response {
-									Ok(json) => {
-										if let Some(data) = json.data {
-											log::info!(
-												"timegraph migrate collect status: {:?}",
-												data.collect.status
-											);
-										} else {
-											log::info!("timegraph migrate collect status fail: No response : {:?}",json.errors);
-											return Err(Error::ErrorOnSendDataToTimeGraph);
-										}
-									},
-									Err(e) => {
-										log::info!("Failed to parse response: {:?}", e);
-										return Err(Error::ErrorOnSendDataToTimeGraph);
-									},
-								};
+						match json_response {
+							Ok(json) => {
+								if let Some(data) = json.data {
+									log::info!(
+										"timegraph migrate collect status: {:?}",
+										data.collect.status
+									);
+								} else {
+									log::info!(
+										"timegraph migrate collect status fail: No response : {:?}",
+										json.errors
+									);
+									return Err(Error::ErrorOnSendDataToTimeGraph);
+								}
 							},
 							Err(e) => {
-								log::info!("error in post request to timegraph: {:?}", e);
+								log::info!("Failed to parse response: {:?}", e);
 								return Err(Error::ErrorOnSendDataToTimeGraph);
 							},
-						}
+						};
 					},
 					Err(e) => {
-						log::info!("Unable to get timegraph sskey {:?}", e);
+						log::info!("error in post request to timegraph: {:?}", e);
 						return Err(Error::ErrorOnSendDataToTimeGraph);
 					},
-				};
+				}
 			},
 			Err(e) => {
-				log::warn!("error on getting response from rosetta client :{:?}", e);
+				log::info!("Unable to get timegraph sskey {:?}", e);
 				return Err(Error::ErrorOnSendDataToTimeGraph);
 			},
 		};
 		Ok(())
 	}
 	// entry point for task execution, triggered by each finalized block in the Timechain
-	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	async fn process_tasks_for_block(
+		&mut self,
+		block_id: <B as Block>::Hash,
+		target_block_number: BlockHeight,
+	) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
 		};
@@ -399,7 +385,13 @@ where
 						log::error!("Error occured while sending data for signing: {}", e);
 					};
 					match self
-						.send_data(block_id, data, schedule.hash.to_owned(), schedule.task_id.0)
+						.send_data(
+							block_id,
+							target_block_number,
+							data,
+							schedule.hash.to_owned(),
+							schedule.task_id.0,
+						)
 						.await
 					{
 						Ok(()) => log::info!("Submit to TimeGraph successful"),
@@ -523,6 +515,7 @@ where
 							match self
 								.send_data(
 									block_id,
+									block_height,
 									data,
 									schedule.hash.to_owned(),
 									schedule.task_id.0,
@@ -654,9 +647,14 @@ where
 
 	pub async fn run(&mut self) {
 		loop {
+			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				log::warn!("Error occurred getting rosetta client status to get target block number");
+				continue;
+			};
+			let target_block_number = status.current_block_identifier.index;
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at).await {
+					if let Err(e) = self.process_tasks_for_block(at, target_block_number).await {
 						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},
@@ -672,6 +670,7 @@ where
 		loop {
 			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
+				log::warn!("Error occurred getting rosetta client status to get target block number");
 				continue;
 			};
 			let current_block = status.current_block_identifier.index;

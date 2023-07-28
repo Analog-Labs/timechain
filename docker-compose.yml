@@ -214,7 +214,7 @@ services:
   ethereum-connector:
     image: "analoglabs/connector-ethereum"
     platform: linux/amd64
-    command: "--network dev --addr 0.0.0.0:8080 --node-addr http://ethereum:8545 --path /data"
+    command: "--network dev --addr 0.0.0.0:8080 --node-addr http://ethereum:8545"
     expose:
     - "8080"
     ports:
@@ -228,17 +228,16 @@ services:
   astar:
     image: "staketechnologies/astar-collator:latest"
     platform: linux/amd64
-    command: "astar-collator --chain dev --ws-port 9944 --rpc-port 9955 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /astar"
+    command: "astar-collator --chain dev --rpc-port 9944 --rpc-cors all --rpc-external --alice --enable-evm-rpc --base-path /astar"
     expose:
     - "9944"
-    - "9955"
     volumes:
     - "astar-volume:/astar"
 
   astar-connector:
     image: "analoglabs/connector-astar"
     platform: linux/amd64
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr http://astar:9944 --path /data"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr ws://astar:9944"
     expose:
     - "8081"
     ports:

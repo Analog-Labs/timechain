@@ -298,6 +298,9 @@ where
 					log::error!("Blockchain is empty");
 				}
 				sleep(delay).await;
+			} else {
+				log::error!("No keys found");
+				break;
 			}
 		}
 	}

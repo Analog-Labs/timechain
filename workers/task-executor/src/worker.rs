@@ -28,6 +28,7 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+use frame_support::sp_tracing::error;
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
 	sharding::Network,
@@ -227,7 +228,7 @@ where
 				"0".to_string()
 			},
 		};
-		let cycle = match value.parse::<i64>() {
+		let timechain_block_number = match value.parse::<i64>() {
 			Ok(parsed_value) if parsed_value == 0 => {
 				log::warn!("error on block number");
 				return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if cycle value is 0.
@@ -247,18 +248,24 @@ where
 		// @task_counter: for repeated task it's incremented on every run
 		// @tss: TSS signature
 		// @data: data to add into collection
+
+		log::info!("DATA to collect {:#?}",data.result);
+
 		let data_value = match data.result {
 			Value::Array(val) => val
 				.iter()
-				.filter_map(|x| x.as_str())
 				.map(|x| x.to_string())
-				.collect::<Vec<String>>(),
-			v => vec![v.to_string()],
+				.collect::<Vec<_>>(),
+			v => {
+				log::warn!("expected array of values as a rosetta result");
+				vec![v.to_string()]
+			},
 		};
+
 		let variables = collect_data::Variables {
 			collection,
 			block: target_block_number as i64,
-			cycle,
+			cycle: timechain_block_number,
 			task_id: task_id as i64,
 			data: data_value,
 		};
@@ -272,7 +279,13 @@ where
 				// Build the GraphQL request
 				let request = CollectData::build_query(variables);
 				// Execute the GraphQL request
-				let client = reqwest::Client::new();
+				let client = reqwest::Client::builder()
+					.danger_accept_invalid_certs(true)
+					.build().map_err(|e| {
+						log::error!("timegraph http client failed to build: {e}");
+						Error::ErrorOnSendDataToTimeGraph
+					})?; // TODO: do we really need to handle this?
+
 				let response =
 					client.post(url).json(&request).header(header::AUTHORIZATION, ssk).send().await;
 

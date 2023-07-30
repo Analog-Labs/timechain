@@ -39,5 +39,5 @@ substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 ethers-solc = "2.0.7"
-rosetta-docker = "0.4.1"
+rosetta-docker = { git = "https://github.com/analog-labs/chain-connectors" }
 

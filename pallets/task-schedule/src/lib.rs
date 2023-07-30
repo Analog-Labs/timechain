@@ -150,6 +150,7 @@ pub mod pallet {
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= T::PayableTimeoutLength::get_network_timeout(schedule.network)
 				{
+					timed_out_tasks.push(schedule_id);
 					Self::update_schedule_status(schedule_id, ScheduleStatus::TimedOut, true);
 					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
 						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);

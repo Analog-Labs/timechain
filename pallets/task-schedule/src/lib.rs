@@ -138,6 +138,7 @@ pub mod pallet {
 						>= T::RecurringTimeoutLength::get_network_timeout(schedule.network)
 				{
 					timed_out_tasks.push(schedule_id);
+					Self::update_schedule_status(schedule_id, ScheduleStatus::TimedOut, false);
 					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
 						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
 					}
@@ -149,7 +150,7 @@ pub mod pallet {
 					&& current_block.saturating_sub(schedule.executable_since)
 						>= T::PayableTimeoutLength::get_network_timeout(schedule.network)
 				{
-					timed_out_tasks.push(schedule_id);
+					Self::update_schedule_status(schedule_id, ScheduleStatus::TimedOut, true);
 					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
 						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
 					}
@@ -428,6 +429,23 @@ pub mod pallet {
 			ShardTasks::<T>::insert(shard, task, ());
 			TaskAssignedShard::<T>::insert(task, shard);
 		}
+
+		fn update_schedule_status(schedule_id: KeyId, status: ScheduleStatus, payable: bool) {
+			if payable {
+				PayableScheduleStorage::<T>::mutate(schedule_id, |schedule| {
+					if let Some(schedule) = schedule {
+						schedule.status = status
+					}
+				});
+			} else {
+				ScheduleStorage::<T>::mutate(schedule_id, |schedule| {
+					if let Some(schedule) = schedule {
+						schedule.status = status
+					}
+				});
+			}
+		}
+
 		pub fn increment_indexer_reward_count(indexer: T::AccountId) -> Result<(), DispatchError> {
 			IndexerScore::<T>::mutate(indexer, |reward| *reward += 1);
 			Ok(())

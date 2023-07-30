@@ -124,7 +124,7 @@ pub enum ScheduleStatus {
 	Recurring,
 	Completed,
 	Invalid,
-	Canceled,
+	TimedOut,
 }
 
 impl ScheduleStatus {

@@ -1547,6 +1547,10 @@ impl_runtime_apis! {
 			task_schedule::ShardTasks::<Runtime>::iter_prefix(shard_id).map(|(i, _)| i).collect()
 		}
 
+		fn get_unassigned_tasks(network: time_primitives::sharding::Network) -> Vec<KeyId> {
+			TaskSchedule::get_unassigned_tasks(network)
+		}
+
 		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
 			TaskSchedule::get_task_shard(task_id)
 		}

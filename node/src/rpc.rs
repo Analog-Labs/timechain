@@ -6,13 +6,11 @@
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
 
-use futures::channel::mpsc;
 use jsonrpsee::RpcModule;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_keystore::KeystorePtr;
 use std::sync::Arc;
 use timechain_runtime::{opaque::Block, AccountId, Balance, Index};
 
@@ -26,10 +24,6 @@ pub struct FullDeps<C, P> {
 	pub pool: Arc<P>,
 	/// Whether to deny unsafe calls
 	pub deny_unsafe: DenyUnsafe,
-	/// Time keyvault
-	pub kv: KeystorePtr,
-	/// Sign data sender
-	pub sign_data_sender: mpsc::Sender<(u64, u64, u64, [u8; 32])>,
 }
 
 /// Instantiate all full RPC extensions.
@@ -51,20 +45,12 @@ where
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
-	use time_worker_rpc::{TimeRpcApiHandler, TimeRpcApiServer};
 
 	let mut module = RpcModule::new(());
-	let FullDeps {
-		client,
-		pool,
-		deny_unsafe,
-		kv,
-		sign_data_sender,
-	} = deps;
+	let FullDeps { client, pool, deny_unsafe } = deps;
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
-	module.merge(TimeRpcApiHandler::new(sign_data_sender, kv).into_rpc())?;
 
 	Ok(module)
 }

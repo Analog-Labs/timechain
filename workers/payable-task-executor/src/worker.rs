@@ -297,8 +297,8 @@ where
 				} else {
 					log::error!("Blockchain is empty");
 				}
-				sleep(delay).await;
 			}
+			sleep(delay).await;
 		}
 	}
 }

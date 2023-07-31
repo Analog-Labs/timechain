@@ -348,19 +348,18 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			status: ScheduleStatus,
 			key: KeyId,
+			// proof: Signature, TODO: add proof to authenticate
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let resp = T::ProxyExtend::proxy_exist(&who);
-			ensure!(resp, Error::<T>::NotProxyAccount);
-			ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				ensure!(details.owner == who, Error::<T>::NoPermission);
-
-				details.status = status;
-				Ok(())
-			})?;
+			ensure_signed(origin)?;
+			// TODO: check that proof is shard collector signing status, key
+			// let resp = T::ProxyExtend::proxy_exist(&who);
+			// ensure!(resp, Error::<T>::NotProxyAccount);
+			ScheduleStorage::<T>::mutate(key, |schedule| {
+				if let Some(schedule) = schedule {
+					schedule.status = status
+				}
+			});
 			Self::deposit_event(Event::ScheduleUpdated(key));
-
 			Ok(())
 		}
 

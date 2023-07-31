@@ -13,6 +13,7 @@ FROM ubuntu:22.04
 
 ## TODO: change repo name to timechain
 ## TODO: add a documentation label
+RUN apt update && apt install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 LABEL description="Multistage Dockerfile for building Analog Timechain" \
 	one.analog.image.type="builder" \

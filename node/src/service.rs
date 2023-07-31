@@ -386,44 +386,6 @@ pub fn new_full(
 			None,
 			task_executor::start_task_executor_gadget(task_executor_params, false),
 		);
-
-		// start the executor for repetitive task
-		let task_executor_params = task_executor::TaskExecutorParams {
-			runtime: client.clone(),
-			backend: backend.clone(),
-			kv: keystore_container.keystore(),
-			_block: PhantomData::default(),
-			sign_data_sender,
-			account_id: PhantomData,
-			_block_number: PhantomData,
-			connector_url: connector_url.clone(),
-			connector_blockchain: connector_blockchain.clone(),
-			connector_network: connector_network.clone(),
-		};
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"repetitive-task-executor",
-			None,
-			task_executor::start_task_executor_gadget(task_executor_params, true),
-		);
-
-		let payabletaskexecutor_params = payable_task_executor::PayableTaskExecutorParams {
-			runtime: client,
-			backend,
-			kv: keystore_container.keystore(),
-			_block: PhantomData::default(),
-			tx_data_sender,
-			gossip_data_sender,
-			accountid: PhantomData,
-			_block_number: PhantomData,
-			connector_url,
-			connector_blockchain,
-			connector_network,
-		};
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"payable-task-executor",
-			None,
-			payable_task_executor::start_payabletaskexecutor_gadget(payabletaskexecutor_params),
-		)
 	}
 
 	network_starter.start_network();

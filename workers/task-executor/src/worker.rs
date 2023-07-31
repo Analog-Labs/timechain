@@ -315,105 +315,8 @@ where
 		};
 		Ok(())
 	}
-	// entry point for task execution, triggered by each finalized block in the Timechain
+
 	async fn process_tasks_for_block(
-		&mut self,
-		block_id: <B as Block>::Hash,
-		target_block_number: BlockHeight,
-	) -> Result<()> {
-		let Some(account) = self.account_id() else {
-			anyhow::bail!("No account id found");
-		};
-
-		let all_schedules = self
-			.runtime
-			.runtime_api()
-			.get_one_time_task_schedule(block_id)?
-			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-
-		//filter schedules for this node's shard
-		let task_schedules = all_schedules
-			.into_iter()
-			.filter_map(|(schedule_id, schedule)| {
-				if let Ok(Ok(shard_id)) =
-					self.runtime.runtime_api().get_task_shard(block_id, schedule_id)
-				{
-					let shard_members = self
-						.runtime
-						.runtime_api()
-						.get_shard_members(block_id, shard_id)
-						.unwrap_or(Some(vec![]))
-						.unwrap_or(vec![]);
-
-					if shard_members.contains(&account) {
-						Some((schedule_id, shard_id, schedule))
-					} else {
-						None
-					}
-				} else {
-					None
-				}
-			})
-			.collect::<Vec<_>>();
-
-		log::info!("single task schedule {:?}", task_schedules.len());
-
-		let mut tree_map = BTreeMap::new();
-		for (schedule_id, shard_id, schedule) in task_schedules {
-			// if task is already executed then skip
-			if self.tasks.contains(&schedule_id) {
-				continue;
-			}
-			tree_map.insert(schedule_id, (shard_id, schedule));
-			self.tasks.insert(schedule_id);
-		}
-
-		for (schedule_id, (shard_id, schedule)) in tree_map.iter() {
-			//check if current shard is active
-			if !self.is_current_shard_online(block_id, shard_id, schedule.network)? {
-				//shard offline cant do any processing.
-				self.repetitive_tasks.clear();
-				self.tasks.clear();
-				anyhow::bail!("Shard is offline id: {:?}", &shard_id);
-			}
-			match self.task_executor(block_id, schedule_id, schedule).await {
-				Ok(data) => {
-					if let Err(e) = self
-						.send_for_sign(data.clone(), *shard_id, *schedule_id, schedule.cycle)
-						.await
-					{
-						log::error!("Error occured while sending data for signing: {}", e);
-					};
-					match self
-						.send_data(
-							block_id,
-							target_block_number,
-							data,
-							schedule.hash.to_owned(),
-							schedule.task_id.0,
-						)
-						.await
-					{
-						Ok(()) => log::info!("Submit to TimeGraph successful"),
-						Err(e) => log::warn!("Error on submit to TimeGraph {:?}", e),
-					};
-				},
-				Err(e) => {
-					//process error
-					log::error!(
-						"Error occured while executing one time schedule {:?}: {}",
-						schedule_id,
-						e
-					);
-					self.report_schedule_invalid(*schedule_id, true, block_id, *shard_id);
-				},
-			}
-		}
-
-		Ok(())
-	}
-
-	async fn process_repetitive_tasks_for_block(
 		&mut self,
 		block_id: <B as Block>::Hash,
 		block_height: BlockHeight,
@@ -426,7 +329,7 @@ where
 		let all_schedules = self
 			.runtime
 			.runtime_api()
-			.get_repetitive_task_schedule(block_id)?
+			.get_task_schedule(block_id)?
 			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
 
 		// filter schedules for this node's shard
@@ -647,27 +550,6 @@ where
 
 	pub async fn run(&mut self) {
 		loop {
-			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
-				log::warn!("Error occurred getting rosetta client status to get target block number");
-				continue;
-			};
-			let target_block_number = status.current_block_identifier.index;
-			match self.backend.blockchain().last_finalized() {
-				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at, target_block_number).await {
-						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
-					}
-				},
-				Err(e) => {
-					log::error!("Blockchain is empty: {}", e);
-				},
-			}
-			tokio::time::sleep(Duration::from_millis(1000)).await;
-		}
-	}
-
-	pub async fn run_repetitive_task(&mut self) {
-		loop {
 			// get the external blockchain's block number
 			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
 				log::warn!("Error occurred getting rosetta client status to get target block number");
@@ -681,8 +563,7 @@ where
 			// get the last finalized block number
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
-					if let Err(e) = self.process_repetitive_tasks_for_block(at, current_block).await
-					{
+					if let Err(e) = self.process_tasks_for_block(at, current_block).await {
 						log::error!(
 							"Failed to process repetitive tasks for block {:?}: {:?}",
 							at,

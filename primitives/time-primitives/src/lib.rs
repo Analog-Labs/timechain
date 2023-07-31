@@ -2,12 +2,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod abstraction;
-pub mod rpc;
 pub mod scheduling;
 pub mod sharding;
-pub mod slashing;
 
-pub use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
+pub use abstraction::{ScheduleStatus, Task};
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -34,10 +32,10 @@ pub type SignatureData = [u8; 64];
 
 pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
-pub type TaskId = u64;
-pub type KeyId = u64;
 pub type ShardId = u64;
+pub type TaskId = u64;
 pub type ScheduleCycle = u64;
+pub type KeyId = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
@@ -46,22 +44,10 @@ sp_api::decl_runtime_apis! {
 	AccountId: Codec,
 	BlockNumber: Codec,
 	{
+		fn get_shards(time_id: TimeId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>>;
-		fn get_shards() -> Vec<(ShardId, sharding::Shard)>;
-		fn get_active_shards(network: sharding::Network) -> Vec<(ShardId, sharding::Shard)>;
-		fn get_inactive_shards(network: sharding::Network) -> Vec<(ShardId, sharding::Shard)>;
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<KeyId>;
-		fn get_task_shard(task_id: KeyId) -> Result<ShardId, DispatchError>;
-		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
-		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
-		fn get_one_time_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
-		fn get_repetitive_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
-		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
-		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
-		fn get_payable_task_schedule() -> Result<Vec<(KeyId, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
-		fn get_offense_count(offender: &TimeId) -> u8;
-		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
+		fn get_task(task_id: TaskId) -> Result<Option<Task<AccountId, BlockNumber>>, DispatchError>;
 	}
 }
 

@@ -53,11 +53,9 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use task_metadata::KeyId;
-use time_primitives::abstraction::{
-	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
-};
-use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, TimeId};
+use time_primitives::scheduling::GetNetworkTimeout;
+use time_primitives::sharding::Network;
+use time_primitives::{ShardId, Task, TaskId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1167,12 +1165,6 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
-impl task_metadata::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
-	type Currency = Balances;
-	type ProxyExtend = ();
-}
 
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
@@ -1219,7 +1211,6 @@ impl task_schedule::Config for Runtime {
 	type ShardTimeouts = TesseractSigStorage;
 	type RecurringTimeoutLength = RecurringTimeoutLength;
 	type PayableTimeoutLength = PayableTimeoutLength;
-	type TaskMetadataHelper = TaskMeta;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1257,7 +1248,6 @@ construct_runtime!(
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		PalletProxy: pallet_proxy,
-		TaskMeta: task_metadata,
 		TaskSchedule: task_schedule,
 	}
 );
@@ -1308,7 +1298,6 @@ mod benches {
 		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
-		[task_metadata, MetaDataBenchmarks::<Runtime>]
 	);
 }
 
@@ -1527,67 +1516,20 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
-		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>> {
+		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
+			TesseractSigStorage::api_tss_shards(time_id)
+		}
+
+		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
 
-		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::api_tss_shards()
-		}
-
-		fn get_active_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::active_shards(network)
-		}
-
-		fn get_inactive_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::inactive_shards(network)
-		}
-
-		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
 			task_schedule::ShardTasks::<Runtime>::iter_prefix(shard_id).map(|(i, _)| i).collect()
 		}
 
-		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
-			TaskSchedule::get_task_shard(task_id)
-		}
-
-		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
-			TaskMeta::get_tasks()
-		}
-
-		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
-			TaskMeta::get_task_by_key(key)
-		}
-
-		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_one_time_schedules()
-		}
-
-		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_repetitive_schedules()
-		}
-
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
-			TaskSchedule::get_schedule_by_key(schedule_id)
-		}
-
-		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
-			TaskMeta::get_payable_tasks()
-		}
-
-		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError> {
-			TaskMeta::get_payable_task_metadata_by_key(key)
-		}
-
-		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_payable_task_schedules()
-		}
-
-		fn get_offense_count(offender: &TimeId) -> u8 {
-			TesseractSigStorage::get_offense_count(offender)
-		}
-		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
-			TesseractSigStorage::get_offense_count_for_reporter(offender, reporter)
+		fn get_task(task_id: TaskId) -> Result<Option<Task<AccountId, BlockNumber>>, DispatchError> {
+			TaskSchedule::get_schedule_by_key(task_id)
 		}
 	}
 

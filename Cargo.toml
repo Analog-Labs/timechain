@@ -2,8 +2,6 @@
 members = [
     "node",
     "pallets/pallet-proxy",
-    "pallets/task-metadata",
-    "pallets/task-metadata/task-meta-bench",
     "pallets/task-schedule",
     "pallets/task-schedule/task-schedule-bench",
     "pallets/tesseract-sig-storage",
@@ -13,7 +11,6 @@ members = [
     "runtime/common",
     "tss",
     "workers/event-worker",
-    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/timechain-integration",
     "workers/time-worker",

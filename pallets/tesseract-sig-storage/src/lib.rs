@@ -62,8 +62,8 @@ pub mod pallet {
 		abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
 		crypto::Signature,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
-		KeyId, ScheduleCycle, ShardId as ShardIdType, SignatureData, TimeId, OCW_REP_KEY,
-		OCW_SIG_KEY, OCW_TSS_KEY,
+		KeyId, ScheduleCycle, ShardId, SignatureData, TimeId, OCW_REP_KEY, OCW_SIG_KEY,
+		OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -137,7 +137,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
 	/// Counter for creating unique shard_ids during on-chain creation
-	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type ShardIdCtr<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// Network for which shards can be assigned tasks
 	#[pallet::storage]
@@ -376,7 +376,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
-			shard_id: ShardIdType,
+			shard_id: ShardId,
 			group_key: [u8; 33],
 			proof: Signature,
 		) -> DispatchResultWithPostInfo {
@@ -438,12 +438,12 @@ pub mod pallet {
 			}
 			let shard = ShardState::new::<T>(members.clone(), collector_index, net)?;
 			// get unused ShardId from storage
-			let shard_id = <ShardId<T>>::get();
+			let shard_id = <ShardIdCtr<T>>::get();
 			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
 			<ShardNetwork<T>>::insert(net, shard_id, ());
 			<TssShards<T>>::insert(shard_id, shard);
-			<ShardId<T>>::put(next_shard_id);
+			<ShardIdCtr<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id, net));
 			Ok(())
 		}
@@ -601,8 +601,18 @@ pub mod pallet {
 				.collect()
 		}
 		// Getter method for runtime api storage access
-		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
+		pub fn api_tss_shards(time_id: TimeId) -> Vec<ShardId> {
+			<TssShards<T>>::iter()
+				.filter_map(
+					|(id, state)| {
+						if state.shard.members().contains(&time_id) {
+							Some(id)
+						} else {
+							None
+						}
+					},
+				)
+				.collect()
 		}
 
 		fn ocw_get_tss_data() {

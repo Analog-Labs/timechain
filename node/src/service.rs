@@ -215,16 +215,12 @@ pub fn new_full(
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
-		let keystore = keystore.clone();
-		let sign_data_sender = sign_data_sender.clone();
 
 		Box::new(move |deny_unsafe, _| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
-				kv: keystore.clone(),
-				sign_data_sender: sign_data_sender.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})

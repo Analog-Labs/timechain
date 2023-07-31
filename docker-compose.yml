@@ -11,14 +11,6 @@ volumes:
   astar-volume:
   astar-connector-volume:
 services:
-  db:
-    image: 'postgres'
-    environment:
-      POSTGRES_DB: timechain
-      POSTGRES_PASSWORD: postgres
-    ports:
-    - '5432:5432'
-
   bootnode:
     image: 'analoglabs/timechain-node'
     command:
@@ -35,11 +27,9 @@ services:
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     environment:
-      DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       SSK: ${SSK}
     depends_on:
-    - db
     - ethereum-connector
     volumes:
     - 'bootnode-volume:/data'
@@ -64,12 +54,10 @@ services:
     - '--bob'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       SSK: ${SSK}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
-    - db
     - bootnode
     - ethereum-connector
     volumes:
@@ -95,12 +83,10 @@ services:
     - '--charlie'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       SSK: ${SSK}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
-    - db
     - bootnode
     - ethereum-connector
     volumes:
@@ -126,12 +112,10 @@ services:
     - '--dave'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       SSK: ${SSK}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
-    - db
     - bootnode
     - astar-connector
     volumes:
@@ -157,12 +141,10 @@ services:
     - '--eve'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       SSK: ${SSK}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
-    - db
     - bootnode
     - astar-connector
     volumes:
@@ -188,12 +170,10 @@ services:
     - '--ferdie'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      DATABASE_URL: 'postgresql://db/timechain?user=postgres&password=postgres'
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
       SSK: ${SSK}
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
-    - db
     - bootnode
     - astar-connector
     volumes:

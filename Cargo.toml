@@ -17,7 +17,6 @@ members = [
     "workers/task-executor",
     "workers/timechain-integration",
     "workers/time-worker",
-    "workers/time-worker/rpc",
 ]
 resolver = "2"
 

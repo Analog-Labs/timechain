@@ -12414,27 +12414,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "time-worker-rpc"
-version = "0.1.0"
-dependencies = [
- "arrayref",
- "futures",
- "hex",
- "jsonrpsee",
- "log",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "serde",
- "serde_json",
- "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-keystore 0.27.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "thiserror",
- "time-primitives",
- "tokio",
-]
-
-[[package]]
 name = "timechain-integration"
 version = "0.1.0"
 dependencies = [
@@ -12503,7 +12482,6 @@ dependencies = [
  "task-executor",
  "time-primitives",
  "time-worker",
- "time-worker-rpc",
  "timechain-runtime",
  "tokio",
  "try-runtime-cli",

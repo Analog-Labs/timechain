@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use futures::channel::mpsc;
 use sc_client_api::BlockBackend;
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
@@ -209,9 +208,6 @@ pub fn new_full(
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.keystore();
 
-	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
-	let (tx_data_sender, tx_data_receiver) = mpsc::channel(400);
-	let (gossip_data_sender, gossip_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -333,58 +329,18 @@ pub fn new_full(
 			gossip_network: network,
 			kv: keystore_container.keystore(),
 			_block: PhantomData::default(),
-			sign_data_receiver,
-			tx_data_sender: tx_data_sender.clone(),
-			gossip_data_receiver,
 			accountid: PhantomData,
 			_block_number: PhantomData,
 			sync_service,
+			connector_url,
+			connector_blockchain,
+			connector_network,
 		};
 
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"time-worker",
 			None,
 			time_worker::start_timeworker_gadget(time_params),
-		);
-
-		//Injecting event worker
-		let event_params = event_worker::EventWorkerParams {
-			runtime: client.clone(),
-			backend: backend.clone(),
-			kv: keystore_container.keystore(),
-			_block: PhantomData::default(),
-			sign_data_sender: sign_data_sender.clone(),
-			tx_data_receiver,
-			accountid: PhantomData,
-			_block_number: PhantomData,
-			connector_url: connector_url.clone(),
-			connector_blockchain: connector_blockchain.clone(),
-			connector_network: connector_network.clone(),
-		};
-
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"event-worker",
-			None,
-			event_worker::start_eventworker_gadget(event_params),
-		);
-
-		// start the executor for one-time task
-		let task_executor_params = task_executor::TaskExecutorParams {
-			runtime: client.clone(),
-			backend: backend.clone(),
-			kv: keystore_container.keystore(),
-			_block: PhantomData::default(),
-			sign_data_sender: sign_data_sender.clone(),
-			account_id: PhantomData,
-			_block_number: PhantomData,
-			connector_url: connector_url.clone(),
-			connector_blockchain: connector_blockchain.clone(),
-			connector_network: connector_network.clone(),
-		};
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"task-executor",
-			None,
-			task_executor::start_task_executor_gadget(task_executor_params, false),
 		);
 	}
 

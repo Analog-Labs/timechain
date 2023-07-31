@@ -31,7 +31,7 @@ use std::{
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
 	sharding::Network,
-	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
+	KeyId, Task, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 use timechain_integration::query::{collect_data, CollectData};
 #[derive(Clone)]

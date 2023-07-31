@@ -1,14 +1,17 @@
 #![allow(clippy::type_complexity)]
 use crate::{
 	communication::validator::{topic, GossipValidator},
-	Client, WorkerParams, TW_LOG,
+	time_protocol_name::gossip_protocol_name,
+	Client, TimeWorkerParams, TW_LOG,
 };
-use futures::{channel::mpsc, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt};
 use log::{debug, error, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
-use sc_network_gossip::GossipEngine;
+use rosetta_client::{create_wallet, Wallet};
+use sc_client_api::{Backend, FinalityNotifications};
+use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
+use sp_consensus::SyncOracle;
 use sp_core::{sr25519, Pair};
 use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
@@ -24,7 +27,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{EthTxValidation, OCWReportData, OCWSigData, OCWTSSGroupKeyData},
+	abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
 	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
@@ -104,13 +107,11 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
-	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
-	tx_data_sender: mpsc::Sender<Vec<u8>>,
-	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
+	wallet: Wallet,
 }
 
 impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
@@ -123,21 +124,37 @@ where
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B, A, BN>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, BN, C, R, BE>) -> Self {
-		let WorkerParams {
+	pub async fn new<N, S>(params: TimeWorkerParams<B, A, BN, C, R, BE, N, S>) -> Self
+	where
+		N: GossipNetwork<B> + Clone + Send + Sync + 'static,
+		S: GossipSyncing<B> + SyncOracle + 'static,
+	{
+		let TimeWorkerParams {
 			client,
 			backend,
 			runtime,
-			gossip_engine,
-			gossip_validator,
 			kv,
-			sign_data_receiver,
-			tx_data_sender,
-			gossip_data_receiver,
 			accountid,
+			_block,
 			_block_number,
-		} = worker_params;
-		TimeWorker {
+			sync_service,
+			gossip_network,
+			connector_url,
+			connector_blockchain,
+			connector_network,
+		} = params;
+		let gossip_validator = Arc::new(GossipValidator::new());
+		let gossip_engine = GossipEngine::new(
+			gossip_network,
+			sync_service,
+			gossip_protocol_name(),
+			gossip_validator.clone(),
+			None,
+		);
+		let wallet = create_wallet(connector_blockchain, connector_network, connector_url, None)
+			.await
+			.unwrap();
+		Self {
 			finality_notifications: client.finality_notification_stream(),
 			_client: client,
 			backend,
@@ -145,14 +162,12 @@ where
 			gossip_engine,
 			_gossip_validator: gossip_validator,
 			kv,
-			sign_data_receiver,
-			tx_data_sender,
-			gossip_data_receiver,
 			tss_states: Default::default(),
 			accountid,
 			_block_number,
 			timeouts: Default::default(),
 			timeout: None,
+			wallet,
 		}
 	}
 
@@ -167,29 +182,26 @@ where
 	}
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
-	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
-		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
+	fn on_finality(&mut self, hash: B::Hash, public_key: sr25519::Public) {
+		let shards = self.runtime.runtime_api().get_shards(hash, public_key.into()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
-		for (shard_id, shard) in shards {
+		for shard_id in shards {
 			if self.tss_states.get(&shard_id).filter(|val| val.tss.is_initialized()).is_some() {
 				debug!(target: TW_LOG, "Already participating in keygen for shard {}", shard_id);
 				continue;
 			}
-			if !shard.members().contains(&public_key.into()) {
-				debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
-				continue;
-			}
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 
-			let members = shard
-				.members()
-				.into_iter()
-				.map(|id| sr25519::Public::from_raw(id.into()))
-				.collect();
+			let Some(members) = self.runtime.runtime_api().get_shard_members(hash, shard_id).unwrap() else {
+				continue;
+			};
+			let threshold = members.len();
 			let state =
 				self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
-			state.tss.initialize(members, shard.threshold());
-			state.is_collector = *shard.collector() == public_key.into();
+			state.is_collector = members[0] == public_key.into();
+			let members =
+				members.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();
+			state.tss.initialize(members, threshold as _);
 			self.poll_actions(shard_id, public_key);
 		}
 	}
@@ -340,9 +352,9 @@ where
 					let Some(public_key) = self.public_key() else {
 						continue;
 					};
-					self.on_finality(notification, public_key);
+					self.on_finality(notification.header.hash(), public_key);
 				},
-				new_sig = self.sign_data_receiver.next().fuse() => {
+				/*new_sig = self.sign_data_receiver.next().fuse() => {
 					let Some((shard_id, key_id, schedule_cycle, data)) = new_sig else {
 						continue;
 					};
@@ -354,14 +366,7 @@ where
 					};
 					tss_state.tss.sign((key_id, schedule_cycle), data.to_vec());
 					self.poll_actions(shard_id, public_key);
-				},
-				gossip_data = self.gossip_data_receiver.next().fuse() => {
-					let Some(bytes) = gossip_data else{
-						continue;
-					};
-					log::info!("got tx data for verifying, sending to network",);
-					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
-				},
+				},*/
 				gossip = gossips.next().fuse() => {
 					let Some(notification) = gossip else {
 						debug!(target: TW_LOG, "no new gossip");
@@ -375,14 +380,7 @@ where
 						let tss_state = self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
 						tss_state.tss.on_message(sender, payload);
 						self.poll_actions(shard_id, public_key);
-
-					} else if let Ok(data) = EthTxValidation::decode(&mut &notification.message[..]) {
-						debug!(target: TW_LOG, "received gossip message for ethereum transaction validation");
-						self.tx_data_sender.clone().try_send(data.encode()).unwrap_or_else(|e| {
-							warn!(target: TW_LOG, "Failed to send tx data: {}", e);
-						});
-
-					}else{
+					} else {
 						debug!(target: TW_LOG, "received invalid message");
 						continue;
 					}

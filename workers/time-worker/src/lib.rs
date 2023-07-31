@@ -6,11 +6,9 @@ mod worker;
 #[cfg(test)]
 mod tests;
 
-use crate::communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator};
-use futures::channel::mpsc;
 use log::*;
 use sc_client_api::Backend;
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
+use sc_network_gossip::{Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
@@ -45,31 +43,17 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
-	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
-	pub gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	pub sync_service: Arc<S>,
-}
-
-pub(crate) struct WorkerParams<B: Block, A, BN, C, R, BE> {
-	pub client: Arc<C>,
-	pub backend: Arc<BE>,
-	pub runtime: Arc<R>,
-	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
-	pub kv: KeystorePtr,
-	pub accountid: PhantomData<A>,
-	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
-	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
-	pub gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
+	pub connector_url: Option<String>,
+	pub connector_blockchain: Option<String>,
+	pub connector_network: Option<String>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
 pub async fn start_timeworker_gadget<B, A, BN, C, R, BE, N, S>(
-	timeworker_params: TimeWorkerParams<B, A, BN, C, R, BE, N, S>,
+	params: TimeWorkerParams<B, A, BN, C, R, BE, N, S>,
 ) where
 	B: Block + 'static,
 	A: sp_runtime::codec::Codec + 'static,
@@ -82,42 +66,6 @@ pub async fn start_timeworker_gadget<B, A, BN, C, R, BE, N, S>(
 	S: GossipSyncing<B> + SyncOracle + 'static,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
-	let TimeWorkerParams {
-		client,
-		backend,
-		runtime,
-		gossip_network,
-		kv,
-		_block,
-		sign_data_receiver,
-		tx_data_sender,
-		gossip_data_receiver,
-		accountid,
-		_block_number,
-		sync_service,
-	} = timeworker_params;
-	let gossip_validator = Arc::new(GossipValidator::new());
-	let gossip_engine = GossipEngine::new(
-		gossip_network,
-		sync_service,
-		gossip_protocol_name(),
-		gossip_validator.clone(),
-		None,
-	);
-
-	let worker_params = WorkerParams {
-		client,
-		backend,
-		runtime,
-		gossip_validator,
-		gossip_engine,
-		kv,
-		sign_data_receiver,
-		tx_data_sender,
-		gossip_data_receiver,
-		accountid,
-		_block_number,
-	};
-	let mut worker = worker::TimeWorker::<_, _, _, _, _, _>::new(worker_params);
+	let mut worker = worker::TimeWorker::new(params).await;
 	worker.run().await
 }

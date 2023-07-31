@@ -10,9 +10,6 @@ members = [
     "runtime",
     "runtime/common",
     "tss",
-    "workers/event-worker",
-    "workers/task-executor",
-    "workers/timechain-integration",
     "workers/time-worker",
 ]
 resolver = "2"

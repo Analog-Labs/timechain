@@ -25,6 +25,7 @@ sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", br
 sp-core = { features = ["full_crypto", "std"], git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+rosetta-client = "0.4.0"
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = ["derive"] }

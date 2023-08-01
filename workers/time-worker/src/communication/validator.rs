@@ -36,6 +36,6 @@ where
 		_sender: &PeerId,
 		_data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		ValidationResult::ProcessAndDiscard(self.topic)
+		ValidationResult::ProcessAndKeep(self.topic)
 	}
 }

@@ -442,9 +442,9 @@ where
 							},
 							TaskExecutorError::ExecutionError(error) => {
 								log::error!(
-								"Error occured while executing contract call {:?}: {}",
-								schedule_id,
-								error
+									"Error occured while executing contract call {:?}: {}",
+									schedule_id,
+									error
 								);
 
 								if schedule.is_repetitive_task() {
@@ -576,11 +576,7 @@ where
 			match self.backend.blockchain().last_finalized() {
 				Ok(at) => {
 					if let Err(e) = self.process_tasks_for_block(at, current_block).await {
-						log::error!(
-							"Failed to process tasks for block {:?}: {:?}",
-							at,
-							e
-						);
+						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
 					}
 				},
 				Err(e) => {

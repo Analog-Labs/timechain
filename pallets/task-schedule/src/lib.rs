@@ -290,8 +290,6 @@ pub mod pallet {
 					owner: who,
 					network: schedule.network,
 					function: schedule.function,
-					with: schedule.with,
-					schema: schedule.schema,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
 					start_execution_block: 0,

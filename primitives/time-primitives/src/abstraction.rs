@@ -117,9 +117,7 @@ impl ScheduleStatus {
 pub struct TaskSchedule<AccountId, BlockNumber> {
 	pub owner: AccountId,
 	pub network: Network,
-	pub schema: Vec<Schema>,
 	pub function: Function,
-	pub with: Vec<String>,
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
@@ -145,9 +143,7 @@ pub struct ScheduleInput {
 	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
-	pub schema: Vec<Schema>,
 	pub function: Function,
-	pub with: Vec<String>,
 }
 
 // Collection value

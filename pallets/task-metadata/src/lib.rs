@@ -14,7 +14,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{string::String, vec::Vec};
 	use time_primitives::{
-		abstraction::{Collection, PayableTask, Task, TaskMetadataInterface},
+		abstraction::{Collection, Task, TaskMetadataInterface},
 		ProxyExtend,
 	};
 	pub type KeyId = u64;
@@ -43,11 +43,6 @@ pub mod pallet {
 	pub type TaskMetaStorage<T: Config> = StorageMap<_, Blake2_128Concat, KeyId, Task, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_payable_task_metadata)]
-	pub type PayableTaskMetaStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, PayableTask, OptionQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn get_collection_metadata)]
 	pub type CollectionMeta<T: Config> =
 		StorageMap<_, Blake2_128Concat, String, Collection, OptionQuery>;
@@ -66,11 +61,6 @@ pub mod pallet {
 
 		///Already exist case
 		ColAlreadyExist(String),
-
-		// Payable Task Meta
-		PayableTaskMetaStorage(KeyId),
-
-		PayableTaskMetaAlreadyExist(KeyId),
 	}
 
 	#[pallet::error]
@@ -133,26 +123,6 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::insert_task())]
-		pub fn insert_payable_task(origin: OriginFor<T>, task: PayableTask) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let resp = T::ProxyExtend::proxy_exist(&who);
-			ensure!(resp, Error::<T>::NotProxyAccount);
-			let data_list = PayableTaskMetaStorage::<T>::get(task.task_id.0);
-			match data_list {
-				Some(val) => {
-					Self::deposit_event(Event::PayableTaskMetaAlreadyExist(val.task_id.0));
-				},
-				None => {
-					PayableTaskMetaStorage::<T>::insert(task.task_id.0, task.clone());
-					Self::deposit_event(Event::PayableTaskMetaStorage(task.task_id.0));
-				},
-			}
-
-			Ok(())
-		}
 	}
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
@@ -170,23 +140,6 @@ pub mod pallet {
 			let data_list = TaskMetaStorage::<T>::iter_keys().collect::<Vec<_>>();
 
 			Ok(data_list)
-		}
-
-		pub fn get_payable_tasks() -> Result<Vec<PayableTask>, DispatchError> {
-			let data_list = PayableTaskMetaStorage::<T>::iter_values().collect::<Vec<_>>();
-
-			Ok(data_list)
-		}
-
-		pub fn get_payable_task_metadata_by_key(
-			key: KeyId,
-		) -> Result<Option<PayableTask>, DispatchError> {
-			let data_list = PayableTaskMetaStorage::<T>::get(key);
-
-			match data_list {
-				Some(val) => Ok(Some(val)),
-				None => Ok(None),
-			}
 		}
 	}
 

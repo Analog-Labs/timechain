@@ -3,7 +3,7 @@ use crate::{mock, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::abstraction::{
-	Collection, Function, Input, ObjectId, Output, PayableTask, Schema, Task, Validity,
+	Collection, Function, Input, ObjectId, Output, Schema, Task, Validity,
 };
 
 #[test]
@@ -148,97 +148,5 @@ fn test_insert_collection_metadata() {
 		));
 
 		assert_eq!(TaskMeta::get_collection_metadata("collectionHash".to_string()), Some(input));
-	});
-}
-
-#[test]
-fn test_payable_task() {
-	new_test_ext().execute_with(|| {
-		//insert payable task metadata
-		let input: PayableTask = PayableTask {
-			task_id: ObjectId(1),
-			function: Function::EthereumApi {
-				function: String::from("function name"),
-				input: vec![Input::HexAddress],
-				output: vec![Output::Skip],
-			},
-		};
-
-		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(1).into(),
-			Some(1),
-			1,
-			Some(1),
-			1,
-			1
-		));
-		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input.clone(),));
-
-		assert_eq!(TaskMeta::get_payable_task_metadata(1), Some(input));
-	});
-}
-
-#[test]
-fn insert_payable_task_should_fail_when_not_proxy_account() {
-	new_test_ext().execute_with(|| {
-		let input: PayableTask = PayableTask {
-			task_id: ObjectId(1),
-			function: Function::EthereumApi {
-				function: String::from("function name"),
-				input: vec![Input::HexAddress],
-				output: vec![Output::Skip],
-			},
-		};
-
-		// Attempt to insert the payable task metadata without being a proxy account
-		let result = TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input);
-
-		// Assert that the function call did not succeed and produced the expected error
-		assert_noop!(result, Error::<Test>::NotProxyAccount);
-	});
-}
-
-#[test]
-fn insert_payable_task_check_event_duplicate_task_id() {
-	new_test_ext().execute_with(|| {
-		let input: PayableTask = PayableTask {
-			task_id: ObjectId(1),
-			function: Function::EthereumApi {
-				function: String::from("function name"),
-				input: vec![Input::HexAddress],
-				output: vec![Output::Skip],
-			},
-		};
-		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(1).into(),
-			Some(1),
-			1,
-			Some(1),
-			1,
-			1
-		));
-
-		// Insert the initial payable task with task ID 1
-		assert_ok!(TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), input));
-
-		// Attempt to insert another task with the same task ID
-		let duplicate_input: PayableTask = PayableTask {
-			task_id: ObjectId(1),
-			function: Function::EthereumApi {
-				function: String::from("function name"),
-				input: vec![Input::HexAddress],
-				output: vec![Output::Skip],
-			},
-		};
-
-		let result = TaskMeta::insert_payable_task(RawOrigin::Signed(1).into(), duplicate_input);
-
-		// Assert that the function call succeeded
-		assert_ok!(result);
-
-		// Assert that the `Event::PayableTaskMetaAlreadyExist` event was emitted with the correct task ID
-		assert!(System::events().iter().any(|event| {
-			event.event == mock::RuntimeEvent::TaskMeta(Event::PayableTaskMetaAlreadyExist(1))
-		}));
 	});
 }

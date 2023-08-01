@@ -24,7 +24,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{EthTxValidation, OCWReportData, OCWSigData, OCWTSSGroupKeyData},
+	abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
 	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
@@ -105,8 +105,6 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	gossip_engine: GossipEngine<B>,
 	_gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
-	tx_data_sender: mpsc::Sender<Vec<u8>>,
-	gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
@@ -132,8 +130,6 @@ where
 			gossip_validator,
 			kv,
 			sign_data_receiver,
-			tx_data_sender,
-			gossip_data_receiver,
 			accountid,
 			_block_number,
 		} = worker_params;
@@ -146,8 +142,6 @@ where
 			_gossip_validator: gossip_validator,
 			kv,
 			sign_data_receiver,
-			tx_data_sender,
-			gossip_data_receiver,
 			tss_states: Default::default(),
 			accountid,
 			_block_number,
@@ -355,13 +349,6 @@ where
 					tss_state.tss.sign((key_id, schedule_cycle), data.to_vec());
 					self.poll_actions(shard_id, public_key);
 				},
-				gossip_data = self.gossip_data_receiver.next().fuse() => {
-					let Some(bytes) = gossip_data else{
-						continue;
-					};
-					log::info!("got tx data for verifying, sending to network",);
-					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
-				},
 				gossip = gossips.next().fuse() => {
 					let Some(notification) = gossip else {
 						debug!(target: TW_LOG, "no new gossip");
@@ -375,14 +362,7 @@ where
 						let tss_state = self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
 						tss_state.tss.on_message(sender, payload);
 						self.poll_actions(shard_id, public_key);
-
-					} else if let Ok(data) = EthTxValidation::decode(&mut &notification.message[..]) {
-						debug!(target: TW_LOG, "received gossip message for ethereum transaction validation");
-						self.tx_data_sender.clone().try_send(data.encode()).unwrap_or_else(|e| {
-							warn!(target: TW_LOG, "Failed to send tx data: {}", e);
-						});
-
-					}else{
+					} else {
 						debug!(target: TW_LOG, "received invalid message");
 						continue;
 					}

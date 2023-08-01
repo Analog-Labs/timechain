@@ -5,7 +5,7 @@ pub mod abstraction;
 pub mod scheduling;
 pub mod sharding;
 
-pub use abstraction::{ScheduleStatus, Task, TaskSchedule};
+pub use abstraction::{ScheduleStatus, TaskSchedule};
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -50,8 +50,6 @@ sp_api::decl_runtime_apis! {
 		fn get_inactive_shards(network: sharding::Network) -> Vec<(ShardId, sharding::Shard)>;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<KeyId>;
 		fn get_task_shard(task_id: KeyId) -> Result<ShardId, DispatchError>;
-		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
-		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
 		fn get_offense_count(offender: &TimeId) -> u8;

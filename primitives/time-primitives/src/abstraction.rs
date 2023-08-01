@@ -98,20 +98,6 @@ impl Schema {
 	}
 }
 
-// Defines how to update collection
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct Task {
-	pub task_id: ObjectId,
-	pub schema: Vec<Schema>,
-	pub function: Function,
-	pub network: Network,
-	pub with: Vec<String>,
-	pub cycle: u64,
-	pub validity: Validity,
-	pub hash: String,
-}
-
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Initiated,
@@ -129,9 +115,11 @@ impl ScheduleStatus {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule<AccountId, BlockNumber> {
-	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub network: Network,
+	pub schema: Vec<Schema>,
+	pub function: Function,
+	pub with: Vec<String>,
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
@@ -157,6 +145,9 @@ pub struct ScheduleInput {
 	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
+	pub schema: Vec<Schema>,
+	pub function: Function,
+	pub with: Vec<String>,
 }
 
 // Collection value

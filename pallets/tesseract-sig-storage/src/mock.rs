@@ -203,7 +203,6 @@ impl task_schedule::Config for Test {
 	type ShardEligibility = TesseractSigStorage;
 	type ShardTimeouts = ();
 	type TimeoutLength = ();
-	type TaskMetadataHelper = ();
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);

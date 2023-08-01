@@ -55,9 +55,8 @@ pub mod pallet {
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_std::collections::vec_deque::VecDeque;
-	use time_primitives::abstraction::TaskMetadataInterface;
 	use time_primitives::{
-		abstraction::{OCWSkdData, ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule},
+		abstraction::{OCWSkdData, ScheduleInput, ScheduleStatus, TaskSchedule},
 		scheduling::GetNetworkTimeout,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
@@ -176,7 +175,6 @@ pub mod pallet {
 		type ShardEligibility: EligibleShard<u64, Network>;
 		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
 		type TimeoutLength: GetNetworkTimeout<Network, Self::BlockNumber>;
-		type TaskMetadataHelper: TaskMetadataInterface;
 	}
 
 	#[pallet::storage]
@@ -262,10 +260,6 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
-				Error::<T>::TaskMetadataNotRegistered
-			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -293,9 +287,11 @@ pub mod pallet {
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
-					task_id: schedule.task_id,
 					owner: who,
 					network: schedule.network,
+					function: schedule.function,
+					with: schedule.with,
+					schema: schedule.schema,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
 					start_execution_block: 0,
@@ -360,15 +356,6 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		pub fn get_schedules_by_schedule_id(
-			key: ObjectId,
-		) -> Result<Vec<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
-			let data = ScheduleStorage::<T>::iter_values()
-				.filter(|item| item.task_id == key)
-				.collect::<Vec<_>>();
-
-			Ok(data)
-		}
 		pub fn get_schedules_keys() -> Result<Vec<u64>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
 

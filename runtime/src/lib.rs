@@ -53,9 +53,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use task_metadata::KeyId;
-use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule};
-use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, TimeId};
+use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
+use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, KeyId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1165,12 +1164,6 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
-impl task_metadata::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
-	type Currency = Balances;
-	type ProxyExtend = ();
-}
 
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
@@ -1206,7 +1199,6 @@ impl task_schedule::Config for Runtime {
 	type ShardEligibility = TesseractSigStorage;
 	type ShardTimeouts = TesseractSigStorage;
 	type TimeoutLength = TimeoutLength;
-	type TaskMetadataHelper = TaskMeta;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1244,7 +1236,6 @@ construct_runtime!(
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		PalletProxy: pallet_proxy,
-		TaskMeta: task_metadata,
 		TaskSchedule: task_schedule,
 	}
 );
@@ -1295,7 +1286,6 @@ mod benches {
 		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
-		[task_metadata, MetaDataBenchmarks::<Runtime>]
 	);
 }
 
@@ -1536,14 +1526,6 @@ impl_runtime_apis! {
 
 		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
 			TaskSchedule::get_task_shard(task_id)
-		}
-
-		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
-			TaskMeta::get_tasks()
-		}
-
-		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
-			TaskMeta::get_task_by_key(key)
 		}
 
 		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {

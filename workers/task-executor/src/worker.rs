@@ -142,23 +142,10 @@ where
 	/// Fetches and executes contract call for a given schedule_id
 	async fn task_executor(
 		&mut self,
-		block_id: <B as Block>::Hash,
 		schedule_id: &u64,
 		schedule: &TaskSchedule<A, BN>,
 	) -> Result<CallResponse, TaskExecutorError> {
-		let metadata = self
-			.runtime
-			.runtime_api()
-			.get_task_metadata_by_key(block_id, schedule.task_id.0)
-			.map_err(|err| TaskExecutorError::InternalError(err.to_string()))?
-			.map_err(|err| TaskExecutorError::InternalError(format!("{:?}", err)))?;
-
-		let Some(task) = metadata else {
-			log::info!("No task found for id {:?}", schedule.task_id.0);
-			return Err(TaskExecutorError::NoTaskFound(schedule.task_id.0));
-		};
-
-		match &task.function {
+		match &schedule.function {
 			// If the task function is an Ethereum contract
 			// call, call it and send for signing
 			Function::EVMViewWithoutAbi {
@@ -217,7 +204,6 @@ where
 		target_block_number: BlockHeight,
 		data: CallResponse,
 		collection: String,
-		task_id: u64,
 	) -> Result<(), Error> {
 		let value = match self.backend.blockchain().number(block_id) {
 			Ok(Some(val)) => val.to_string(),
@@ -259,7 +245,8 @@ where
 			collection,
 			block: target_block_number as i64,
 			cycle,
-			task_id: task_id as i64,
+			// unused field
+			task_id: 0,
 			data: data_value,
 		};
 		dotenv().ok();
@@ -395,7 +382,7 @@ where
 
 				// execute all task for specific task
 				for (schedule_id, shard_id, schedule) in tasks {
-					match self.task_executor(block_id, &schedule_id, &schedule).await {
+					match self.task_executor(&schedule_id, &schedule).await {
 						Ok(data) => {
 							//send for signing
 							if let Err(e) = self
@@ -418,13 +405,7 @@ where
 							}
 							self.error_count.remove(&schedule_id);
 							match self
-								.send_data(
-									block_id,
-									block_height,
-									data,
-									schedule.hash.to_owned(),
-									schedule.task_id.0,
-								)
+								.send_data(block_id, block_height, data, schedule.hash.to_owned())
 								.await
 							{
 								Ok(()) => log::info!("Submit to TimeGraph successful"),

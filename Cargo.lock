@@ -11927,39 +11927,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-meta-bench"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-proxy",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "task-metadata",
- "time-primitives",
-]
-
-[[package]]
-name = "task-metadata"
-version = "0.0.1"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-proxy",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "time-primitives",
-]
-
-[[package]]
 name = "task-schedule"
 version = "0.0.1"
 dependencies = [
@@ -12384,8 +12351,6 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
- "task-meta-bench",
- "task-metadata",
  "task-schedule",
  "task-schedule-bench",
  "time-primitives",

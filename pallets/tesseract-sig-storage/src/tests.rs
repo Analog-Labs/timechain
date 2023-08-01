@@ -6,7 +6,7 @@ use sp_core::ConstU32;
 use sp_keystore::Keystore;
 use sp_runtime::AccountId32;
 use time_primitives::{
-	abstraction::{ObjectId, ScheduleInput, TaskSchedule as ScheduleOut, Validity},
+	abstraction::{ScheduleInput, TaskSchedule as ScheduleOut, Validity},
 	sharding::Network,
 	ScheduleStatus, TimeId,
 };
@@ -56,6 +56,7 @@ fn test_register_chronicle() {
 
 #[test]
 fn test_signature_storage() {
+	let id = 1;
 	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
 
@@ -65,8 +66,6 @@ fn test_signature_storage() {
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
-		let id: u64 = 1;
-		let task_id = ObjectId(id);
 		let block_number = 10;
 		System::set_block_number(block_number);
 		let shard_id = 0;
@@ -112,7 +111,6 @@ fn test_signature_storage() {
 
 		// insert schedule
 		let input = ScheduleInput {
-			task_id,
 			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
@@ -147,6 +145,7 @@ fn test_signature_storage() {
 
 #[test]
 fn test_signature_and_decrement_schedule_storage() {
+	let id = 1;
 	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
 
@@ -156,8 +155,6 @@ fn test_signature_and_decrement_schedule_storage() {
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
-		let id: u64 = 1;
-		let task_id = ObjectId(id);
 		let block_number = 10;
 		System::set_block_number(block_number);
 		let shard_id = 0;
@@ -203,7 +200,6 @@ fn test_signature_and_decrement_schedule_storage() {
 
 		// insert schedule
 		let input = ScheduleInput {
-			task_id,
 			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),
@@ -230,7 +226,6 @@ fn test_signature_and_decrement_schedule_storage() {
 		assert!(TesseractSigStorage::signature_storage(id, input.cycle).is_some());
 
 		let output = ScheduleOut {
-			task_id: ObjectId(1),
 			owner: ALICE.clone(),
 			network: Network::Ethereum,
 			frequency: 0,
@@ -255,6 +250,7 @@ fn test_signature_and_decrement_schedule_storage() {
 
 #[test]
 fn test_duplicate_signature() {
+	let id = 1;
 	let r: u8 = 123;
 	let sig_data: [u8; 64] = [r; 64];
 
@@ -264,9 +260,6 @@ fn test_duplicate_signature() {
 		.expect("Creates authority key");
 
 	new_test_ext().execute_with(|| {
-		let id: u64 = 1;
-		let task_id = ObjectId(id);
-
 		assert_ok!(TesseractSigStorage::register_chronicle(
 			RawOrigin::Signed(VALIDATOR_1).into(),
 			alice.into(),
@@ -304,7 +297,6 @@ fn test_duplicate_signature() {
 
 		// insert schedule
 		let input = ScheduleInput {
-			task_id,
 			network: Network::Ethereum,
 			cycle: 12,
 			validity: Validity::Seconds(1000),

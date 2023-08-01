@@ -244,20 +244,22 @@ where
 				TssAction::Report(offender, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
 
-					if tss_state.is_collector {
-						let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
-						error!(
-							target: TW_LOG,
-							"Failed to create proof for offence report submission"
-						);
-						return;
-					};
+					// Removed until misbehavior reporting is either implemented via CLI
+					// or re-implemented for OCW
+					// if tss_state.is_collector {
+					// 	let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
+					// 	error!(
+					// 		target: TW_LOG,
+					// 		"Failed to create proof for offence report submission"
+					// 	);
+					// 	return;
+					// };
 
-						let ocw_report_data =
-							OCWReportData::new(shard_id, offender.into(), proof.into());
+					// 	let ocw_report_data =
+					// 		OCWReportData::new(shard_id, offender.into(), proof.into());
 
-						ocw_encoded_vec.push((OCW_REP_KEY, ocw_report_data.encode()));
-					}
+					// 	ocw_encoded_vec.push((OCW_REP_KEY, ocw_report_data.encode()));
+					// }
 				},
 				TssAction::Timeout(timeout, hash) => {
 					let timeout = TssTimeout::new(timeout);

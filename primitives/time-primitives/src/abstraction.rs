@@ -129,7 +129,6 @@ impl ScheduleStatus {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule<AccountId, BlockNumber> {
-	pub task_id: ObjectId,
 	pub owner: AccountId,
 	pub network: Network,
 	pub cycle: u64,

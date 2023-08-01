@@ -325,7 +325,7 @@ where
 			anyhow::bail!("No account id found");
 		};
 
-		// get all initialized repetitive tasks
+		// get all initialized tasks
 		let all_schedules = self
 			.runtime
 			.runtime_api()
@@ -364,7 +364,8 @@ where
 			}
 
 			// put the new task in repetitive task map
-			let align_block_height = (block_height / schedule.frequency + 1) * schedule.frequency;
+			let align_block_height = block_height + schedule.frequency;
+			log::info!("Aligned height {:?} for schedule {:?}", align_block_height, schedule_id);
 			self.tasks.insert(schedule_id);
 			self.repetitive_tasks.entry(align_block_height).or_insert(vec![]).push((
 				schedule_id,
@@ -374,10 +375,11 @@ where
 		}
 
 		let total_items = self.repetitive_tasks.values().clone().flatten().collect::<Vec<_>>();
-		log::info!("Repetitive task schedule {:?}", total_items.len());
+		log::info!("Available schedules {:?}", total_items.len());
 
 		// iterate all block height
-		for index in self.last_block_height..=block_height {
+		for index in self.last_block_height..block_height {
+			log::debug!("Iterating index {:?}", index);
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
 				//check if current shard is active
 				if let Some((_, shard_id, schedule)) = tasks.first() {
@@ -389,7 +391,7 @@ where
 					}
 				}
 
-				log::debug!("Recurring task running on block {:?}", index);
+				log::debug!("Task running on block {:?}", index);
 
 				// execute all task for specific task
 				for (schedule_id, shard_id, schedule) in tasks {
@@ -431,7 +433,7 @@ where
 						},
 						Err(e) => match e {
 							TaskExecutorError::NoTaskFound(task) => {
-								log::error!("No repetitive task found for id {:?}", task);
+								log::error!("No task found for id {:?}", task);
 								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
 							},
 							TaskExecutorError::InvalidTaskFunction => {
@@ -440,24 +442,33 @@ where
 							},
 							TaskExecutorError::ExecutionError(error) => {
 								log::error!(
-								"Error occured while executing repetitive contract call {:?}: {}",
+								"Error occured while executing contract call {:?}: {}",
 								schedule_id,
 								error
 								);
 
-								let is_terminated = self.report_schedule_invalid(
-									schedule_id,
-									false,
-									block_id,
-									shard_id,
-								);
+								if schedule.is_repetitive_task() {
+									let is_terminated = self.report_schedule_invalid(
+										schedule_id,
+										false,
+										block_id,
+										shard_id,
+									);
 
-								// if not terminated keep add task with added frequency
-								if !is_terminated {
-									self.repetitive_tasks
-										.entry(index + schedule.frequency)
-										.or_insert(vec![])
-										.push((schedule_id, shard_id, schedule));
+									// if not terminated keep add task with added frequency
+									if !is_terminated {
+										self.repetitive_tasks
+											.entry(index + schedule.frequency)
+											.or_insert(vec![])
+											.push((schedule_id, shard_id, schedule));
+									}
+								} else {
+									self.report_schedule_invalid(
+										schedule_id,
+										true,
+										block_id,
+										shard_id,
+									);
 								}
 							},
 							TaskExecutorError::InternalError(error) => {
@@ -465,6 +476,7 @@ where
 									"Internal error occured while processing task: {}",
 									error
 								);
+								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
 							},
 						},
 					}
@@ -565,7 +577,7 @@ where
 				Ok(at) => {
 					if let Err(e) = self.process_tasks_for_block(at, current_block).await {
 						log::error!(
-							"Failed to process repetitive tasks for block {:?}: {:?}",
+							"Failed to process tasks for block {:?}: {:?}",
 							at,
 							e
 						);

@@ -191,8 +191,7 @@ impl task_schedule::Config for Test {
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = ();
-	type RecurringTimeoutLength = ();
-	type PayableTimeoutLength = ();
+	type TimeoutLength = ();
 	type ShardTimeouts = ();
 	type TaskMetadataHelper = ();
 }

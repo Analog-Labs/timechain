@@ -12,8 +12,6 @@ members = [
     "runtime",
     "runtime/common",
     "tss",
-    "workers/event-worker",
-    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/timechain-integration",
     "workers/time-worker",

@@ -1,8 +1,5 @@
 #![allow(clippy::type_complexity)]
-use crate::{
-	communication::validator::{topic, GossipValidator},
-	Client, WorkerParams, TW_LOG,
-};
+use crate::{communication::validator::topic, Client, WorkerParams, TW_LOG};
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use log::{debug, error, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
@@ -103,12 +100,12 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	tss_states: HashMap<u64, TssState>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
-	_gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
+	message_queue: VecDeque<TimeMessage>,
 }
 
 impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
@@ -127,7 +124,6 @@ where
 			backend,
 			runtime,
 			gossip_engine,
-			gossip_validator,
 			kv,
 			sign_data_receiver,
 			accountid,
@@ -139,7 +135,6 @@ where
 			backend,
 			runtime,
 			gossip_engine,
-			_gossip_validator: gossip_validator,
 			kv,
 			sign_data_receiver,
 			tss_states: Default::default(),
@@ -147,6 +142,7 @@ where
 			_block_number,
 			timeouts: Default::default(),
 			timeout: None,
+			message_queue: Default::default(),
 		}
 	}
 
@@ -185,6 +181,12 @@ where
 			state.tss.initialize(members, shard.threshold());
 			state.is_collector = *shard.collector() == public_key.into();
 			self.poll_actions(shard_id, public_key);
+		}
+		while let Some(TimeMessage { shard_id, sender, payload }) = self.message_queue.pop_front() {
+			if let Some(tss_state) = self.tss_states.get_mut(&shard_id) {
+				tss_state.tss.on_message(sender, payload);
+				self.poll_actions(shard_id, public_key);
+			}
 		}
 	}
 
@@ -359,9 +361,12 @@ where
 					};
 					if let Ok(TimeMessage { shard_id, sender, payload }) = TimeMessage::decode(&notification.message){
 						debug!(target: TW_LOG, "received gossip message");
-						let tss_state = self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
-						tss_state.tss.on_message(sender, payload);
-						self.poll_actions(shard_id, public_key);
+						if let Some(tss_state) = self.tss_states.get_mut(&shard_id) {
+							tss_state.tss.on_message(sender, payload);
+							self.poll_actions(shard_id, public_key);
+						} else {
+							self.message_queue.push_back(TimeMessage { shard_id, sender, payload });
+						}
 					} else {
 						debug!(target: TW_LOG, "received invalid message");
 						continue;

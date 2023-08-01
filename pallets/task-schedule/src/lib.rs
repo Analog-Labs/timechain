@@ -222,9 +222,6 @@ pub mod pallet {
 		/// Updated Schedule
 		ScheduleUpdated(TaskId),
 
-		///Already exist case
-		AlreadyExist(TaskId),
-
 		/// Reward indexer
 		RewardIndexer(T::AccountId, BalanceOf<T>),
 	}

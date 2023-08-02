@@ -4,6 +4,7 @@ members = [
     "pallets/task-schedule",
     "pallets/task-schedule/task-schedule-bench",
     "pallets/tesseract-sig-storage",
+    "pallets/vesting",
     "primitives/time-primitives",
     "runtime",
     "runtime/common",

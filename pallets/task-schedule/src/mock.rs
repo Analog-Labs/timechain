@@ -191,9 +191,6 @@ impl task_schedule::Config for Test {
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = ();
-	type TimeoutLength = ();
-	type ShardTimeouts = ();
-	type TaskMetadataHelper = ();
 }
 
 // Build genesis storage according to the mock runtime.

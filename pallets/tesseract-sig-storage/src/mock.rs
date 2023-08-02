@@ -201,8 +201,6 @@ impl task_schedule::Config for Test {
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = TesseractSigStorage;
-	type ShardTimeouts = ();
-	type TimeoutLength = ();
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);

@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "node",
-    "pallets/pallet-proxy",
     "pallets/task-schedule",
     "pallets/task-schedule/task-schedule-bench",
     "pallets/tesseract-sig-storage",

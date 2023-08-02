@@ -34,7 +34,6 @@ sp-core = { default-features = false, git = "https://github.com/paritytech/subst
 
 [dev-dependencies]
 pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-pallet-proxy = { version = "0.1.0", default-features = false, path = "../../pallets/pallet-proxy" }
 pallet-session = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-treasury = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-io = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

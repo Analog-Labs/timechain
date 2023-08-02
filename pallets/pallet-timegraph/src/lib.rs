@@ -16,6 +16,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	pub type QueryId = u64;
+	pub type CollectionId = u64;
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -40,6 +41,11 @@ pub mod pallet {
 	pub type QueryPayment<T: Config> =
 		StorageMap<_, Blake2_128Concat, QueryId, (T::AccountId, BalanceOf<T>), OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn collection_earnings)]
+	pub type CollectionEarnings<T: Config> =
+		StorageMap<_, Blake2_128Concat, CollectionId, BalanceOf<T>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -61,18 +67,17 @@ pub mod pallet {
 		pub fn pay_querying(
 			origin: OriginFor<T>,
 			query_id: QueryId,
-			// To compute the publisher's earnings, store the collection id on chain
-			_collection_id: u64,
+			collection_id: CollectionId,
 			amount: BalanceOf<T>,
-
 			recipient: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!<QueryPayment<T>>::contains_key(query_id), Error::<T>::QueryIdUsed);
+			T::Currency::transfer(&who, &recipient, amount, KeepAlive)?;
 
 			QueryPayment::<T>::insert(query_id, (who.clone(), amount));
+			CollectionEarnings::<T>::mutate(collection_id, |value| *value += amount);
 
-			T::Currency::transfer(&who, &recipient, amount, KeepAlive)?;
 			Self::deposit_event(Event::QueryFeePaid(who, query_id, amount));
 
 			Ok(())

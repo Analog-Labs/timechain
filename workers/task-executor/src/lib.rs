@@ -22,7 +22,7 @@ pub type BlockHeight = u64;
 pub enum TaskExecutorError {
 	/// No Task for given id found
 	#[error("No Task for given id found")]
-	NoTaskFound(u64),
+	NoTaskFound,
 	/// Error executing contract call
 	#[error("Error executing contract call")]
 	ExecutionError(String),

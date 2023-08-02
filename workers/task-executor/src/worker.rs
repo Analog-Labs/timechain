@@ -138,7 +138,8 @@ where
 				tx,
 			})
 			.await?;
-		rx.await??;
+		//TODO wait for res and return it
+		// rx.await??;
 		Ok(())
 	}
 	/// Fetches and executes contract call for a given schedule_id
@@ -194,6 +195,7 @@ where
 		// @task_counter: for repeated task it's incremented on every run
 		// @tss: TSS signature
 		// @data: data to add into collection
+
 		let data_value = match data.result {
 			Value::Array(val) => val
 				.iter()
@@ -205,7 +207,8 @@ where
 		let variables = collect_data::Variables {
 			collection,
 			block: target_block_number as i64,
-			cycle,
+			//Todo add cycle here
+			cycle: 0,
 			// unused field
 			task_id: 0,
 			data: data_value,
@@ -303,31 +306,30 @@ where
 				log::debug!("Task running on block {:?}", index);
 
 				// execute all task for specific task
-				for (schedule_id, shard_id, schedule) in tasks {
-					match self.task_executor(&schedule_id, &schedule).await {
+				for (task_id, shard_id, task) in tasks {
+					match self.task_executor(&task_id, &task).await {
 						Ok(data) => {
 							//send for signing
 							if let Err(e) = self
-								.send_for_sign(schedule_id, schedule.cycle, shard_id, data.clone())
+								.send_for_sign(data.clone(), shard_id, task_id, task.cycle)
 								.await
 							{
 								log::error!("Error occurred while sending data for signing: {}", e);
 							};
 
-							let mut decremented_schedule = schedule.clone();
-							decremented_schedule.cycle =
-								decremented_schedule.cycle.saturating_sub(1);
+							let mut decremented_task = task.clone();
+							decremented_task.cycle = decremented_task.cycle.saturating_sub(1);
 
 							// put the task in map for next execution if cycle more than once
-							if decremented_schedule.cycle > 0 {
+							if decremented_task.cycle > 0 {
 								self.repetitive_tasks
-									.entry(index + decremented_schedule.frequency)
+									.entry(index + decremented_task.frequency)
 									.or_insert(vec![])
-									.push((schedule_id, shard_id, decremented_schedule));
+									.push((task_id, shard_id, decremented_task));
 							}
-							self.error_count.remove(&schedule_id);
+							self.error_count.remove(&task_id);
 							match self
-								.send_data(block_id, block_height, data, schedule.hash.to_owned())
+								.send_data(block_id, block_height, data, task.hash.to_owned())
 								.await
 							{
 								Ok(()) => log::info!("Submit to TimeGraph successful"),
@@ -335,42 +337,40 @@ where
 							};
 						},
 						Err(e) => match e {
-							TaskExecutorError::NoTaskFound(task) => {
-								log::error!("No task found for id {:?}", task);
-								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
+							TaskExecutorError::NoTaskFound => {
+								log::error!("No task found for id {:?}", task_id);
+								self.report_schedule_invalid(
+									task_id, task.cycle, true, block_id, shard_id,
+								);
 							},
 							TaskExecutorError::InvalidTaskFunction => {
 								log::error!("Invalid task function provided");
-								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
+								self.report_schedule_invalid(
+									task_id, task.cycle, true, block_id, shard_id,
+								);
 							},
 							TaskExecutorError::ExecutionError(error) => {
 								log::error!(
 									"Error occured while executing contract call {:?}: {}",
-									schedule_id,
+									task_id,
 									error
 								);
 
-								if schedule.is_repetitive_task() {
+								if task.is_repetitive_task() {
 									let is_terminated = self.report_schedule_invalid(
-										schedule_id,
-										false,
-										block_id,
-										shard_id,
+										task_id, task.cycle, false, block_id, shard_id,
 									);
 
 									// if not terminated keep add task with added frequency
 									if !is_terminated {
 										self.repetitive_tasks
-											.entry(index + schedule.frequency)
+											.entry(index + task.frequency)
 											.or_insert(vec![])
-											.push((schedule_id, shard_id, schedule));
+											.push((task_id, shard_id, task));
 									}
 								} else {
 									self.report_schedule_invalid(
-										schedule_id,
-										true,
-										block_id,
-										shard_id,
+										task_id, task.cycle, true, block_id, shard_id,
 									);
 								}
 							},
@@ -379,7 +379,9 @@ where
 									"Internal error occured while processing task: {}",
 									error
 								);
-								self.report_schedule_invalid(schedule_id, true, block_id, shard_id);
+								self.report_schedule_invalid(
+									task_id, task.cycle, true, block_id, shard_id,
+								);
 							},
 						},
 					}
@@ -445,14 +447,14 @@ where
 			return true;
 		}
 
-		let error_count = self.error_count.entry(schedule_id).or_insert(0);
+		let error_count = self.error_count.entry(task_id).or_insert(0);
 		*error_count += 1;
 
 		if *error_count > 2 {
 			if is_collector {
 				self.update_schedule_ocw_storage(task_id, cycle, ScheduleStatus::Invalid);
 			}
-			self.error_count.remove(&schedule_id);
+			self.error_count.remove(&task_id);
 			return true;
 		}
 		false

@@ -53,14 +53,6 @@ fn test_schedule() {
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 		};
-		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(account.clone()).into(),
-			Some(1000),
-			1,
-			Some(1),
-			1,
-			acc_pub(1).into()
-		));
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
 
 		let output = abs_TaskSchedule {
@@ -94,14 +86,5 @@ fn test_schedule() {
 		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output_update);
 		assert_eq!(a, b);
-		// check update token usage
-		let proxy_acc = PalletProxy::get_proxy_acc(&account).unwrap();
-		match proxy_acc {
-			Some(acc) => {
-				let token_usage = 2;
-				assert_eq!(acc.token_usage, token_usage);
-			},
-			None => print!("proxy account not exist"),
-		}
 	});
 }

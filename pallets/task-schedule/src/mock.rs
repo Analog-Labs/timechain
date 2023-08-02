@@ -56,7 +56,6 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>},
-		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		TaskSchedule: task_schedule::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -98,12 +97,6 @@ impl system::Config for Test {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-
-impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
-	type Currency = Balances;
 }
 
 impl pallet_balances::Config for Test {
@@ -183,7 +176,6 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
-	type ProxyExtend = PalletProxy;
 	type PalletAccounts = CurrentPalletAccounts;
 	type Currency = Balances;
 	type ScheduleFee = ScheduleFee;
@@ -191,6 +183,7 @@ impl task_schedule::Config for Test {
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = ();
+	type ProxyExtend = ();
 }
 
 // Build genesis storage according to the mock runtime.

@@ -53,9 +53,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use task_metadata::KeyId;
-use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule};
-use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, TimeId};
+use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
+use time_primitives::{KeyId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1165,12 +1164,6 @@ impl pallet_treasury::Config for Runtime {
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
-impl task_metadata::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_metadata::weights::WeightInfo<Runtime>;
-	type Currency = Balances;
-	type ProxyExtend = ();
-}
 
 pub struct CurrentPalletAccounts;
 impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
@@ -1181,16 +1174,6 @@ impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
 
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
-}
-
-pub struct TimeoutLength;
-impl GetNetworkTimeout<Network, BlockNumber> for TimeoutLength {
-	fn get_network_timeout(network: Network) -> BlockNumber {
-		match network {
-			Network::Ethereum => 200,
-			Network::Astar => 100,
-		}
-	}
 }
 
 impl task_schedule::Config for Runtime {
@@ -1204,15 +1187,6 @@ impl task_schedule::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type IndexerReward = IndexerReward;
 	type ShardEligibility = TesseractSigStorage;
-	type ShardTimeouts = TesseractSigStorage;
-	type TimeoutLength = TimeoutLength;
-	type TaskMetadataHelper = TaskMeta;
-}
-
-impl pallet_proxy::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::proxy::WeightInfo<Runtime>;
-	type Currency = Balances;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1243,8 +1217,6 @@ construct_runtime!(
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
-		PalletProxy: pallet_proxy,
-		TaskMeta: task_metadata,
 		TaskSchedule: task_schedule,
 	}
 );
@@ -1292,10 +1264,8 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_proxy, PalletProxy]
 		[pallet_tesseract_sig_storage, TesseractSigStorage]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
-		[task_metadata, MetaDataBenchmarks::<Runtime>]
 	);
 }
 
@@ -1538,19 +1508,11 @@ impl_runtime_apis! {
 			TaskSchedule::get_task_shard(task_id)
 		}
 
-		fn get_task_metadata() -> Result<Vec<Task>, DispatchError> {
-			TaskMeta::get_tasks()
-		}
-
-		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError> {
-			TaskMeta::get_task_by_key(key)
-		}
-
-		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
+		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_task_schedules()
 		}
 
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
 			TaskSchedule::get_schedule_by_key(schedule_id)
 		}
 
@@ -1576,7 +1538,6 @@ impl_runtime_apis! {
 			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
-			list_benchmark!(list, extra, pallet_proxy, PalletProxy);
 			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
 			list_benchmarks!(list, extra);
 
@@ -1605,7 +1566,6 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			add_benchmark!(params, batches, pallet_proxy, PalletProxy);
 			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
 			add_benchmarks!(params, batches);
 

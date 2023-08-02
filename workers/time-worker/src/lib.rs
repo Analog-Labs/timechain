@@ -46,8 +46,6 @@ where
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
 	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
-	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
-	pub gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 	pub sync_service: Arc<S>,
 }
 
@@ -56,13 +54,10 @@ pub(crate) struct WorkerParams<B: Block, A, BN, C, R, BE> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
 	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
-	pub tx_data_sender: mpsc::Sender<Vec<u8>>,
-	pub gossip_data_receiver: mpsc::Receiver<Vec<u8>>,
 }
 
 /// Start the Timeworker gadget.
@@ -90,18 +85,15 @@ pub async fn start_timeworker_gadget<B, A, BN, C, R, BE, N, S>(
 		kv,
 		_block,
 		sign_data_receiver,
-		tx_data_sender,
-		gossip_data_receiver,
 		accountid,
 		_block_number,
 		sync_service,
 	} = timeworker_params;
-	let gossip_validator = Arc::new(GossipValidator::new());
 	let gossip_engine = GossipEngine::new(
 		gossip_network,
 		sync_service,
 		gossip_protocol_name(),
-		gossip_validator.clone(),
+		Arc::new(GossipValidator::new()),
 		None,
 	);
 
@@ -109,12 +101,9 @@ pub async fn start_timeworker_gadget<B, A, BN, C, R, BE, N, S>(
 		client,
 		backend,
 		runtime,
-		gossip_validator,
 		gossip_engine,
 		kv,
 		sign_data_receiver,
-		tx_data_sender,
-		gossip_data_receiver,
 		accountid,
 		_block_number,
 	};

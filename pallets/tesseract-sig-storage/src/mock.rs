@@ -74,7 +74,6 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp,
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		PalletProxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Event<T>},
 		TaskSchedule: task_schedule::{Pallet, Call, Storage, Event<T>},
 		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
@@ -184,12 +183,6 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
-impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_proxy::weights::WeightInfo<Test>;
-	type Currency = ();
-}
-
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
@@ -201,10 +194,6 @@ impl task_schedule::Config for Test {
 	type IndexerReward = IndexerReward;
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = TesseractSigStorage;
-	type ShardTimeouts = ();
-	type RecurringTimeoutLength = ();
-	type PayableTimeoutLength = ();
-	type TaskMetadataHelper = ();
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);

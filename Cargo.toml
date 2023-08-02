@@ -1,9 +1,6 @@
 [workspace]
 members = [
     "node",
-    "pallets/pallet-proxy",
-    "pallets/task-metadata",
-    "pallets/task-metadata/task-meta-bench",
     "pallets/task-schedule",
     "pallets/task-schedule/task-schedule-bench",
     "pallets/tesseract-sig-storage",
@@ -12,14 +9,9 @@ members = [
     "runtime",
     "runtime/common",
     "tss",
-    "workers/database",
-    "workers/database/migration",
-    "workers/event-worker",
-    "workers/payable-task-executor",
     "workers/task-executor",
     "workers/timechain-integration",
     "workers/time-worker",
-    "workers/time-worker/rpc",
 ]
 resolver = "2"
 

@@ -70,14 +70,11 @@ frame-system-benchmarking = { default-features = false, git = "https://github.co
 
 # Local Dependencies
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
-task-metadata = { version = "0.0.1", default-features = false, path = "../pallets/task-metadata" }
 task-schedule = { version = "0.0.1", default-features = false, path = "../pallets/task-schedule" }
-pallet-proxy = { version = "0.1.0", default-features = false, path = "../pallets/pallet-proxy" }
 pallet-treasury = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
-task-meta-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-metadata/task-meta-bench", optional = true }
 task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench", optional = true }
 
 [dev-dependencies]
@@ -134,10 +131,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"time-primitives/std",
-	"pallet-proxy/std",
 	"task-schedule/std",
-	"task-metadata/std",
-	"task-meta-bench/std",
 	"task-schedule-bench/std",
 ]
 runtime-benchmarks = [
@@ -153,9 +147,7 @@ runtime-benchmarks = [
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"task-schedule/runtime-benchmarks",
-	"task-meta-bench/runtime-benchmarks",
 	"task-schedule-bench/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 ]
@@ -175,8 +167,6 @@ try-runtime = [
 	"analog-vesting/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-proxy/try-runtime",
 	"task-schedule/try-runtime",
-	"task-meta-bench/try-runtime",
 	"task-schedule-bench/try-runtime",
 ]

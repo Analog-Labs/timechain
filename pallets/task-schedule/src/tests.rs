@@ -4,8 +4,7 @@ use frame_support::assert_ok;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use time_primitives::abstraction::{
-	ObjectId, PayableScheduleInput, PayableTaskSchedule, ScheduleInput as Schedule, ScheduleStatus,
-	TaskSchedule as ScheduleOut, Validity,
+	ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
 };
 use time_primitives::sharding::Network;
 
@@ -107,44 +106,5 @@ fn test_schedule() {
 			},
 			None => print!("proxy account not exist"),
 		}
-	});
-}
-
-#[test]
-fn test_payable_schedule() {
-	new_test_ext().execute_with(|| {
-		let account: AccountId = acc_pub(1).into();
-		let task_id = ObjectId(1);
-
-		//Insert payable task schedule
-		let input: PayableScheduleInput = PayableScheduleInput {
-			task_id,
-			network: Network::Ethereum,
-		};
-		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(account.clone()).into(),
-			Some(1000),
-			1,
-			Some(1),
-			1,
-			account.clone()
-		));
-		assert_ok!(TaskSchedule::insert_payable_task_schedule(
-			RawOrigin::Signed(account.clone()).into(),
-			input
-		));
-
-		//get payable task schedule
-		let output = PayableTaskSchedule {
-			task_id,
-			owner: account,
-			network: Network::Ethereum,
-			executable_since: 1,
-			status: ScheduleStatus::Initiated,
-		};
-
-		let a = TaskSchedule::get_payable_task_schedule(1_u64);
-		let b = Some(output);
-		assert_eq!(a, b);
 	});
 }

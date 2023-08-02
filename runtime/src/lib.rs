@@ -54,9 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use task_metadata::KeyId;
-use time_primitives::abstraction::{
-	PayableTask, PayableTaskSchedule, Task, TaskSchedule as abs_TaskSchedule,
-};
+use time_primitives::abstraction::{Task, TaskSchedule as abs_TaskSchedule};
 use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1186,22 +1184,12 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-pub struct RecurringTimeoutLength;
-impl GetNetworkTimeout<Network, BlockNumber> for RecurringTimeoutLength {
+pub struct TimeoutLength;
+impl GetNetworkTimeout<Network, BlockNumber> for TimeoutLength {
 	fn get_network_timeout(network: Network) -> BlockNumber {
 		match network {
 			Network::Ethereum => 200,
 			Network::Astar => 100,
-		}
-	}
-}
-
-pub struct PayableTimeoutLength;
-impl GetNetworkTimeout<Network, BlockNumber> for PayableTimeoutLength {
-	fn get_network_timeout(network: Network) -> BlockNumber {
-		match network {
-			Network::Ethereum => 2_000,
-			Network::Astar => 1_000,
 		}
 	}
 }
@@ -1218,8 +1206,7 @@ impl task_schedule::Config for Runtime {
 	type IndexerReward = IndexerReward;
 	type ShardEligibility = TesseractSigStorage;
 	type ShardTimeouts = TesseractSigStorage;
-	type RecurringTimeoutLength = RecurringTimeoutLength;
-	type PayableTimeoutLength = PayableTimeoutLength;
+	type TimeoutLength = TimeoutLength;
 	type TaskMetadataHelper = TaskMeta;
 }
 
@@ -1567,28 +1554,12 @@ impl_runtime_apis! {
 			TaskMeta::get_task_by_key(key)
 		}
 
-		fn get_one_time_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_one_time_schedules()
-		}
-
-		fn get_repetitive_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_repetitive_schedules()
+		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
+			TaskSchedule::get_task_schedules()
 		}
 
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
 			TaskSchedule::get_schedule_by_key(schedule_id)
-		}
-
-		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError> {
-			TaskMeta::get_payable_tasks()
-		}
-
-		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError> {
-			TaskMeta::get_payable_task_metadata_by_key(key)
-		}
-
-		fn get_payable_task_schedule() -> Result<Vec<(u64, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
-			TaskSchedule::get_payable_task_schedules()
 		}
 
 		fn get_offense_count(offender: &TimeId) -> u8 {

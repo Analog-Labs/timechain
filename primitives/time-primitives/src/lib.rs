@@ -2,12 +2,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod abstraction;
-pub mod rpc;
 pub mod scheduling;
 pub mod sharding;
-pub mod slashing;
 
-pub use abstraction::{PayableTask, PayableTaskSchedule, ScheduleStatus, Task, TaskSchedule};
+pub use abstraction::{ScheduleStatus, Task, TaskSchedule};
 use codec::{Codec, Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -54,12 +52,8 @@ sp_api::decl_runtime_apis! {
 		fn get_task_shard(task_id: KeyId) -> Result<ShardId, DispatchError>;
 		fn get_task_metadata() -> Result<Vec<Task>, DispatchError>;
 		fn get_task_metadata_by_key(key: KeyId) -> Result<Option<Task>, DispatchError>;
-		fn get_one_time_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
-		fn get_repetitive_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
+		fn get_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
-		fn get_payable_task_metadata() -> Result<Vec<PayableTask>, DispatchError>;
-		fn get_payable_task_metadata_by_key(key: KeyId) -> Result<Option<PayableTask>, DispatchError>;
-		fn get_payable_task_schedule() -> Result<Vec<(KeyId, PayableTaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
 		fn get_offense_count(offender: &TimeId) -> u8;
 		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8;
 	}

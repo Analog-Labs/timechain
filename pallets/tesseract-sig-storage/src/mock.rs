@@ -202,8 +202,7 @@ impl task_schedule::Config for Test {
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type ShardEligibility = TesseractSigStorage;
 	type ShardTimeouts = ();
-	type RecurringTimeoutLength = ();
-	type PayableTimeoutLength = ();
+	type TimeoutLength = ();
 	type TaskMetadataHelper = ();
 }
 

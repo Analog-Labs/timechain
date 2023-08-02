@@ -113,12 +113,6 @@ pub struct Task {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct PayableTask {
-	pub task_id: ObjectId,
-	pub function: Function,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Initiated,
 	Recurring,
@@ -155,15 +149,6 @@ impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
 	}
 }
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct PayableTaskSchedule<AccountId, BlockNumber> {
-	pub task_id: ObjectId,
-	pub owner: AccountId,
-	pub network: Network,
-	pub executable_since: BlockNumber,
-	pub status: ScheduleStatus,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
 	pub task_id: ObjectId,
 	pub network: Network,
@@ -172,12 +157,6 @@ pub struct ScheduleInput {
 	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct PayableScheduleInput {
-	pub task_id: ObjectId,
-	pub network: Network,
 }
 
 // Collection value

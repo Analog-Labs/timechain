@@ -1,8 +1,5 @@
 #![allow(clippy::type_complexity)]
-use crate::{
-	communication::validator::{topic, GossipValidator},
-	Client, WorkerParams, TW_LOG,
-};
+use crate::{communication::validator::topic, Client, WorkerParams, TW_LOG};
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use log::{debug, error, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
@@ -24,8 +21,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
-	SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
+	abstraction::{OCWSigData, OCWTSSGroupKeyData},
+	ShardId, SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -103,12 +100,12 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	tss_states: HashMap<u64, TssState>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
-	_gossip_validator: Arc<GossipValidator<B>>,
 	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
+	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
 }
 
 impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
@@ -127,7 +124,6 @@ where
 			backend,
 			runtime,
 			gossip_engine,
-			gossip_validator,
 			kv,
 			sign_data_receiver,
 			accountid,
@@ -139,7 +135,6 @@ where
 			backend,
 			runtime,
 			gossip_engine,
-			_gossip_validator: gossip_validator,
 			kv,
 			sign_data_receiver,
 			tss_states: Default::default(),
@@ -147,6 +142,7 @@ where
 			_block_number,
 			timeouts: Default::default(),
 			timeout: None,
+			message_map: Default::default(),
 		}
 	}
 
@@ -162,8 +158,10 @@ where
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
+		log::info!("finality notification for {}", notification.header.hash());
 		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
+		let mut assigned_shards = vec![];
 		for (shard_id, shard) in shards {
 			if self.tss_states.get(&shard_id).filter(|val| val.tss.is_initialized()).is_some() {
 				debug!(target: TW_LOG, "Already participating in keygen for shard {}", shard_id);
@@ -171,6 +169,8 @@ where
 			}
 			if !shard.members().contains(&public_key.into()) {
 				debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
+				log::info!("removing message map with shard_id {:?}", shard_id);
+				self.message_map.remove(&shard_id);
 				continue;
 			}
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
@@ -185,6 +185,20 @@ where
 			state.tss.initialize(members, shard.threshold());
 			state.is_collector = *shard.collector() == public_key.into();
 			self.poll_actions(shard_id, public_key);
+
+			assigned_shards.push(shard_id);
+		}
+
+		for shard_id in assigned_shards {
+			let Some(msg_queue) = self.message_map.remove(&shard_id) else {
+				continue;
+			};
+			for msg in msg_queue {
+				//wont fail since in first loop we already create a state and iterating that shard_id
+				let tss_state = self.tss_states.get_mut(&shard_id).unwrap();
+				tss_state.tss.on_message(msg.sender, msg.payload);
+				self.poll_actions(shard_id, public_key);
+			}
 		}
 	}
 
@@ -360,10 +374,14 @@ where
 						continue;
 					};
 					if let Ok(TimeMessage { shard_id, sender, payload }) = TimeMessage::decode(&notification.message){
-						debug!(target: TW_LOG, "received gossip message");
-						let tss_state = self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
-						tss_state.tss.on_message(sender, payload);
-						self.poll_actions(shard_id, public_key);
+						debug!(target: TW_LOG, "received gossip message {}", payload);
+						if let Some(tss_state) = self.tss_states.get_mut(&shard_id) {
+							tss_state.tss.on_message(sender, payload);
+							self.poll_actions(shard_id, public_key);
+						} else {
+							log::info!("state not found, adding message in map with id {:?}", shard_id);
+							self.message_map.entry(shard_id).or_default().push_back(TimeMessage { shard_id, sender, payload });
+						}
 					} else {
 						debug!(target: TW_LOG, "received invalid message");
 						continue;

@@ -50,7 +50,7 @@ fn test_schedule() {
 			function: function.clone(),
 			cycle: 12,
 			frequency: 1,
-			hash: String::from("address")
+			hash: String::from("address"),
 		};
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
 

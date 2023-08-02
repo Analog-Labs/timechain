@@ -20,6 +20,7 @@ use time_primitives::TimeApi;
 use traits::Client;
 
 pub use crate::communication::time_protocol_name;
+pub use crate::worker::{TssId, TssRequest};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
@@ -45,7 +46,7 @@ where
 	pub _block: PhantomData<B>,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_receiver: mpsc::Receiver<TssRequest>,
 	pub sync_service: Arc<S>,
 }
 
@@ -57,7 +58,7 @@ pub(crate) struct WorkerParams<B: Block, A, BN, C, R, BE> {
 	pub kv: KeystorePtr,
 	pub accountid: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_receiver: mpsc::Receiver<TssRequest>,
 }
 
 /// Start the Timeworker gadget.

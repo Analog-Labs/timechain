@@ -6,6 +6,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
+use time_worker::TssRequest;
 
 // mod task_schedule;
 mod worker;
@@ -50,7 +51,7 @@ where
 	pub _block: PhantomData<B>,
 	pub account_id: PhantomData<A>,
 	pub _block_number: PhantomData<BN>,
-	pub sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+	pub sign_data_sender: Sender<TssRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,

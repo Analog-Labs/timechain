@@ -3,7 +3,8 @@ use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
 use dotenv::dotenv;
-use futures::channel::mpsc::Sender;
+use futures::channel::{mpsc, oneshot};
+use futures::SinkExt;
 use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use reqwest::header;
 use rosetta_client::{
@@ -15,10 +16,7 @@ use sc_client_api::Backend;
 use serde_json::{json, Value};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
-use sp_blockchain::HeaderBackend;
-use sp_core::{hashing::keccak_256, offchain::STORAGE_PREFIX};
 use sp_keystore::KeystorePtr;
-use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::env;
 use std::{
@@ -30,10 +28,11 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{Function, OCWSkdData, ScheduleStatus},
-	sharding::Network,
-	KeyId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
+	ScheduleCycle, TaskId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
+use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
+
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A, BN> {
 	_block: PhantomData<B>,
@@ -41,7 +40,7 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	runtime: Arc<R>,
 	_account_id: PhantomData<A>,
 	_block_number: PhantomData<BN>,
-	sign_data_sender: Sender<(u64, u64, u64, [u8; 32])>,
+	sign_data_sender: mpsc::Sender<TssRequest>,
 	kv: KeystorePtr,
 	// all tasks that are scheduled
 	// TODO need to get all completed task and remove them from it
@@ -126,17 +125,20 @@ where
 		&mut self,
 		data: CallResponse,
 		shard_id: u64,
-		schedule_id: u64,
-		schedule_cycle: u64,
+		task_id: u64,
+		cycle: u64,
 	) -> Result<()> {
-		let serialized_data = format!("{}-{}-{}", data.result, schedule_id, schedule_cycle);
-		let bytes = bincode::serialize(&serialized_data).context("Failed to serialize task")?;
-		let hash = keccak_256(&bytes);
-
+		let data = bincode::serialize(&data).context("Failed to serialize task")?;
+		let (tx, rx) = oneshot::channel();
 		self.sign_data_sender
-			.clone()
-			.try_send((shard_id, schedule_id, schedule_cycle, hash))?;
-
+			.send(TssRequest {
+				request_id: (task_id, cycle),
+				shard_id,
+				data,
+				tx,
+			})
+			.await?;
+		rx.await??;
 		Ok(())
 	}
 	/// Fetches and executes contract call for a given schedule_id
@@ -177,25 +179,6 @@ where
 		self.rosetta_client.call(&request).await
 	}
 
-	/// check if current node is collector
-	fn is_collector(&self, block_id: <B as Block>::Hash, shard_id: u64) -> Result<bool> {
-		let Some(account) = self.account_id() else {
-			return Ok(false);
-		};
-
-		let available_shards = self.runtime.runtime_api().get_shards(block_id).unwrap_or(vec![]);
-		if available_shards.is_empty() {
-			anyhow::bail!("No shards available");
-		}
-		let Some(shard) = available_shards
-							.into_iter()
-							.find(|(s, _)| *s == shard_id)
-							.map(|(_, s)| s) else {
-			anyhow::bail!("failed to find shard");
-		};
-
-		Ok(*shard.collector() == account)
-	}
 	async fn send_data(
 		&mut self,
 		block_id: <B as Block>::Hash,
@@ -203,26 +186,6 @@ where
 		data: CallResponse,
 		collection: String,
 	) -> Result<(), Error> {
-		let value = match self.backend.blockchain().number(block_id) {
-			Ok(Some(val)) => val.to_string(),
-			Ok(None) => "0".to_string(),
-			Err(e) => {
-				log::warn!("Error occurred: {:?}", e);
-				"0".to_string()
-			},
-		};
-		let cycle = match value.parse::<i64>() {
-			Ok(parsed_value) if parsed_value == 0 => {
-				log::warn!("error on block number");
-				return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if cycle value is 0.
-			},
-			Ok(parsed_value) => parsed_value,
-			Err(e) => {
-				log::error!("Failed to parse value: {:?}", e);
-				return Err(Error::ErrorOnSendDataToTimeGraph); // Return from the function if parsing fails.
-			},
-		};
-
 		// Add data into collection (user must have Collector role)
 		// @collection: collection hashId
 		// @cycle: time-chain block number
@@ -310,53 +273,24 @@ where
 			anyhow::bail!("No account id found");
 		};
 
-		// get all initialized tasks
-		let all_schedules = self
-			.runtime
-			.runtime_api()
-			.get_task_schedule(block_id)?
-			.map_err(|err| anyhow::anyhow!("{:?}", err))?;
-
-		// filter schedules for this node's shard
-		let task_schedules = all_schedules
-			.into_iter()
-			.filter_map(|(schedule_id, schedule)| {
-				if let Ok(Ok(shard_id)) =
-					self.runtime.runtime_api().get_task_shard(block_id, schedule_id)
-				{
-					let shard_members = self
-						.runtime
-						.runtime_api()
-						.get_shard_members(block_id, shard_id)
-						.unwrap_or(Some(vec![]))
-						.unwrap_or(vec![]);
-
-					if shard_members.contains(&account) {
-						Some((schedule_id, shard_id, schedule))
-					} else {
-						None
-					}
-				} else {
-					None
+		let shards = self.runtime.runtime_api().get_shards(block_id, account).unwrap();
+		for shard_id in shards {
+			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
+			for task_id in tasks {
+				if self.tasks.contains(&task_id) {
+					continue;
 				}
-			})
-			.collect::<Vec<_>>();
+				let task = self.runtime.runtime_api().get_task(block_id, task_id).unwrap().unwrap();
 
-		for (schedule_id, shard_id, schedule) in task_schedules {
-			// if task is already executed then skip
-			if self.tasks.contains(&schedule_id) {
-				continue;
+				// put the new task in repetitive task map
+				let align_block_height = block_height + task.frequency;
+				log::info!("Aligned height {:?} for schedule {:?}", align_block_height, task_id);
+				self.tasks.insert(task_id);
+				self.repetitive_tasks
+					.entry(align_block_height)
+					.or_insert(vec![])
+					.push((task_id, shard_id, task));
 			}
-
-			// put the new task in repetitive task map
-			let align_block_height = block_height + schedule.frequency;
-			log::info!("Aligned height {:?} for schedule {:?}", align_block_height, schedule_id);
-			self.tasks.insert(schedule_id);
-			self.repetitive_tasks.entry(align_block_height).or_insert(vec![]).push((
-				schedule_id,
-				shard_id,
-				schedule,
-			));
 		}
 
 		let total_items = self.repetitive_tasks.values().clone().flatten().collect::<Vec<_>>();
@@ -366,16 +300,6 @@ where
 		for index in self.last_block_height..block_height {
 			log::debug!("Iterating index {:?}", index);
 			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
-				//check if current shard is active
-				if let Some((_, shard_id, schedule)) = tasks.first() {
-					if !self.is_current_shard_online(block_id, shard_id, schedule.network)? {
-						//shard offline cant do any processing.
-						self.repetitive_tasks.clear();
-						self.tasks.clear();
-						anyhow::bail!("Shard is offline id: {:?}", shard_id);
-					}
-				}
-
 				log::debug!("Task running on block {:?}", index);
 
 				// execute all task for specific task
@@ -384,7 +308,7 @@ where
 						Ok(data) => {
 							//send for signing
 							if let Err(e) = self
-								.send_for_sign(data.clone(), shard_id, schedule_id, schedule.cycle)
+								.send_for_sign(schedule_id, schedule.cycle, shard_id, data.clone())
 								.await
 							{
 								log::error!("Error occurred while sending data for signing: {}", e);
@@ -467,22 +391,16 @@ where
 		Ok(())
 	}
 
-	fn is_current_shard_online(
-		&self,
-		block_id: <B as Block>::Hash,
-		shard_id: &u64,
-		network: Network,
-	) -> Result<bool> {
-		let active_shard = self.runtime.runtime_api().get_active_shards(block_id, network)?;
-		let active_shard_id = active_shard.into_iter().map(|(id, _)| id).collect::<HashSet<_>>();
-		log::debug!("active_shards {:?}", active_shard_id);
-		Ok(active_shard_id.contains(shard_id))
-	}
-
 	/// Add schedule update task to offchain storage
 	/// which will be use by offchain worker to send extrinsic
-	fn update_schedule_ocw_storage(&mut self, schedule_status: ScheduleStatus, key: KeyId) {
-		let ocw_skd = OCWSkdData::new(schedule_status, key);
+	fn update_schedule_ocw_storage(
+		&mut self,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		status: ScheduleStatus,
+	) {
+		// TODO
+		/*let ocw_skd = OCWSkdData::new(task_id, );
 
 		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
 			let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY);
@@ -508,20 +426,21 @@ where
 			log::info!("stored task data in ocw {:?}", is_data_stored);
 		} else {
 			log::error!("cant get offchain storage");
-		};
+		};*/
 	}
 
 	fn report_schedule_invalid(
 		&mut self,
-		schedule_id: u64,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
 		terminate: bool,
 		blocknumber: <B as Block>::Hash,
 		shard_id: u64,
 	) -> bool {
-		let is_collector = self.is_collector(blocknumber, shard_id).unwrap_or(false);
+		let is_collector = false; //self.is_collector(blocknumber, shard_id).unwrap_or(false);
 		if terminate {
 			if is_collector {
-				self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+				self.update_schedule_ocw_storage(task_id, cycle, ScheduleStatus::Invalid);
 			}
 			return true;
 		}
@@ -531,7 +450,7 @@ where
 
 		if *error_count > 2 {
 			if is_collector {
-				self.update_schedule_ocw_storage(ScheduleStatus::Invalid, schedule_id);
+				self.update_schedule_ocw_storage(task_id, cycle, ScheduleStatus::Invalid);
 			}
 			self.error_count.remove(&schedule_id);
 			return true;

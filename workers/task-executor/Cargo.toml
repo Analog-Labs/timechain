@@ -12,8 +12,8 @@ codec = { package = "parity-scale-codec", version = "3.6.3", default-features = 
     "derive",
 ] }
 dotenv = "0.15.0"
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , features = ["std"], branch = "polkadot-v1.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , features = ["std"], branch = "polkadot-v1.0.0" }
 futures = "0.3.28"
 graphql_client = "0.13.0"
 reqwest = "0.11.18"
@@ -28,6 +28,7 @@ sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polka
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 thiserror = "1.0.43"
 time-primitives = { path = "../../primitives/time-primitives" }
+time-worker = { path = "../time-worker" }
 timechain-integration = { path = "../timechain-integration" }
 
 [dev-dependencies]

@@ -45,6 +45,7 @@ sp_api::decl_runtime_apis! {
 		fn get_active_shards(network: sharding::Network) -> Vec<(ShardId, sharding::Shard)>;
 		fn get_inactive_shards(network: sharding::Network) -> Vec<(ShardId, sharding::Shard)>;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<KeyId>;
+		fn get_unassigned_tasks(network: sharding::Network) -> Vec<KeyId>;
 		fn get_task_shard(task_id: KeyId) -> Result<ShardId, DispatchError>;
 		fn get_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId>)>, DispatchError>;
 		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId>>, DispatchError>;

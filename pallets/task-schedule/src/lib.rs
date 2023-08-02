@@ -304,6 +304,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		pub fn get_unassigned_tasks(network: Network) -> Vec<u64> {
+			UnassignedTasks::<T>::iter_prefix(network).map(|(t, _)| t).collect()
+		}
+
 		pub fn get_task_shard(task: KeyId) -> Result<u64, DispatchError> {
 			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
 		}

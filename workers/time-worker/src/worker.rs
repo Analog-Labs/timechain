@@ -22,7 +22,7 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{OCWSigData, OCWTSSGroupKeyData},
-	ShardId, SignatureData, TimeApi, OCW_REP_KEY, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
+	ShardId, SignatureData, TimeApi, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};

@@ -55,19 +55,16 @@ pub mod pallet {
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
 	};
 	use sp_std::collections::vec_deque::VecDeque;
-	use time_primitives::abstraction::TaskMetadataInterface;
 	use time_primitives::{
-		abstraction::{OCWSkdData, ObjectId, ScheduleInput, ScheduleStatus, TaskSchedule},
-		scheduling::GetNetworkTimeout,
-		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network},
+		abstraction::{OCWSkdData, ScheduleInput, ScheduleStatus, TaskSchedule},
+		sharding::{EligibleShard, HandleShardTasks, Network},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type KeyId = u64;
-	pub type ScheduleResults<AccountId, BlockNumber> =
-		Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>;
+	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
@@ -123,21 +120,6 @@ pub mod pallet {
 		}
 
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let current_block = frame_system::Pallet::<T>::block_number();
-			let mut timed_out_tasks = TimedOutTasks::<T>::get();
-			for (schedule_id, schedule) in <ScheduleStorage<T>>::iter() {
-				if schedule.status.can_timeout()
-					&& !timed_out_tasks.contains(&schedule_id)
-					&& current_block.saturating_sub(schedule.executable_since)
-						>= T::TimeoutLength::get_network_timeout(schedule.network)
-				{
-					timed_out_tasks.push(schedule_id);
-					if let Some(assigned_shard) = TaskAssignedShard::<T>::get(schedule_id) {
-						T::ShardTimeouts::increment_task_timeout_count(assigned_shard);
-					}
-				}
-			}
-			TimedOutTasks::<T>::put(timed_out_tasks);
 			if T::ShouldEndSession::should_end_session(now) {
 				// TODO check if we should reward the indexer once or continue reward history data
 				// otherwise we can drain all data at the end of epoch
@@ -174,14 +156,7 @@ pub mod pallet {
 		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
 		type IndexerReward: Get<BalanceOf<Self>>;
 		type ShardEligibility: EligibleShard<u64, Network>;
-		type ShardTimeouts: IncrementTaskTimeoutCount<u64>;
-		type TimeoutLength: GetNetworkTimeout<Network, Self::BlockNumber>;
-		type TaskMetadataHelper: TaskMetadataInterface;
 	}
-
-	#[pallet::storage]
-	#[pallet::getter(fn timed_out_tasks)]
-	pub type TimedOutTasks<T: Config> = StorageValue<_, Vec<KeyId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn unassigned_tasks)]
@@ -200,13 +175,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
-	pub type ScheduleStorage<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		KeyId,
-		TaskSchedule<T::AccountId, T::BlockNumber>,
-		OptionQuery,
-	>;
+	pub type ScheduleStorage<T: Config> =
+		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
@@ -262,10 +232,6 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::insert_schedule())]
 		pub fn insert_schedule(origin: OriginFor<T>, schedule: ScheduleInput) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::TaskMetadataHelper::task_metadata_exists(schedule.task_id.get_id()),
-				Error::<T>::TaskMetadataNotRegistered
-			);
 			let fix_fee = T::ScheduleFee::get();
 			let resp = T::ProxyExtend::proxy_exist(&who);
 			ensure!(resp, Error::<T>::NotProxyAccount);
@@ -293,14 +259,11 @@ pub mod pallet {
 			ScheduleStorage::<T>::insert(
 				schedule_id,
 				TaskSchedule {
-					task_id: schedule.task_id,
 					owner: who,
 					network: schedule.network,
+					function: schedule.function,
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
-					start_execution_block: 0,
-					executable_since: frame_system::Pallet::<T>::block_number(),
-					validity: schedule.validity,
 					hash: schedule.hash,
 					status: ScheduleStatus::Initiated,
 				},
@@ -332,12 +295,6 @@ pub mod pallet {
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		fn reset_task_execution_start_time(task: KeyId) {
-			if let Some(mut schedule) = ScheduleStorage::<T>::get(task) {
-				schedule.executable_since = frame_system::Pallet::<T>::block_number();
-				ScheduleStorage::<T>::insert(task, schedule);
-			}
-		}
 		fn assign_task_to_shard(task: KeyId, shard: u64) {
 			ShardTasks::<T>::insert(shard, task, ());
 			TaskAssignedShard::<T>::insert(task, shard);
@@ -351,8 +308,7 @@ pub mod pallet {
 			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
 
-		pub fn get_task_schedules(
-		) -> Result<ScheduleResults<T::AccountId, T::BlockNumber>, DispatchError> {
+		pub fn get_task_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter()
 				.filter(|item| item.1.status == ScheduleStatus::Initiated)
 				.collect::<Vec<_>>();
@@ -360,15 +316,6 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		pub fn get_schedules_by_schedule_id(
-			key: ObjectId,
-		) -> Result<Vec<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
-			let data = ScheduleStorage::<T>::iter_values()
-				.filter(|item| item.task_id == key)
-				.collect::<Vec<_>>();
-
-			Ok(data)
-		}
 		pub fn get_schedules_keys() -> Result<Vec<u64>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
 
@@ -377,7 +324,7 @@ pub mod pallet {
 
 		pub fn get_schedule_by_key(
 			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
+		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
 			let data = ScheduleStorage::<T>::get(key);
 
 			Ok(data)
@@ -431,23 +378,21 @@ pub mod pallet {
 				UnassignedTasks::<T>::take(network, schedule_id).is_some(),
 				Error::<T>::TaskAssigned
 			);
-			Self::reset_task_execution_start_time(schedule_id);
 			Self::assign_task_to_shard(schedule_id, shard_id);
 			Ok(())
 		}
 	}
 
-	pub trait ScheduleInterface<AccountId, BlockNumber> {
+	pub trait ScheduleInterface<AccountId> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError>;
 		fn get_assigned_schedule_count(shard: u64) -> usize;
-		fn get_schedule_via_key(
-			key: u64,
-		) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
+		fn get_schedule_via_key(key: u64)
+			-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
 		fn update_completed_task(key: u64);
 	}
 
-	impl<T: Config> ScheduleInterface<T::AccountId, T::BlockNumber> for Pallet<T> {
+	impl<T: Config> ScheduleInterface<T::AccountId> for Pallet<T> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError> {
 			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
@@ -467,7 +412,7 @@ pub mod pallet {
 		}
 		fn get_schedule_via_key(
 			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId, T::BlockNumber>>, DispatchError> {
+		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
 			Self::get_schedule_by_key(key)
 		}
 
@@ -484,15 +429,12 @@ pub mod pallet {
 		fn update_completed_task(key: u64) {
 			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
 				if schedule.cycle > 0 {
-					schedule.executable_since = frame_system::Pallet::<T>::block_number();
 					schedule.status = ScheduleStatus::Recurring;
 				} else {
 					schedule.status = ScheduleStatus::Completed;
 				}
 				ScheduleStorage::<T>::insert(key, schedule);
 			}
-			// no longer timed out upon completion
-			TimedOutTasks::<T>::mutate(|tasks| tasks.retain(|t| *t != key));
 		}
 	}
 }

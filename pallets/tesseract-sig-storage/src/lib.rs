@@ -124,7 +124,7 @@ pub mod pallet {
 		/// Minimum reports made by shard reporter to define committed offense
 		#[pallet::constant]
 		type MinReportsPerCommittedOffense: Get<u8>;
-		type TaskScheduleHelper: ScheduleInterface<Self::AccountId, Self::BlockNumber>;
+		type TaskScheduleHelper: ScheduleInterface<Self::AccountId>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;

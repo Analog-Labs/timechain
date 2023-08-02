@@ -6563,22 +6563,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-proxy"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "time-primitives",
-]
-
-[[package]]
 name = "pallet-session"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0#6d28d2eb6fa1589105e970ff1b97555d91a1495b"
@@ -6656,7 +6640,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-proxy",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
@@ -11927,39 +11910,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-meta-bench"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-proxy",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "task-metadata",
- "time-primitives",
-]
-
-[[package]]
-name = "task-metadata"
-version = "0.0.1"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-proxy",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "time-primitives",
-]
-
-[[package]]
 name = "task-schedule"
 version = "0.0.1"
 dependencies = [
@@ -11968,7 +11918,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-proxy",
  "pallet-session",
  "pallet-treasury",
  "parity-scale-codec",
@@ -11988,7 +11937,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-proxy",
  "pallet-treasury",
  "parity-scale-codec",
  "scale-info",
@@ -12352,7 +12300,6 @@ dependencies = [
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-offences",
- "pallet-proxy",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -12384,8 +12331,6 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
- "task-meta-bench",
- "task-metadata",
  "task-schedule",
  "task-schedule-bench",
  "time-primitives",

@@ -121,7 +121,6 @@ fn test_signature_storage() {
 			cycle: 12,
 			hash: String::from("address"),
 			frequency: 0,
-			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -215,7 +214,6 @@ fn test_signature_and_decrement_schedule_storage() {
 			cycle: 12,
 			hash: String::from("address"),
 			frequency: 0,
-			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		let alice_report = keystore
@@ -315,7 +313,6 @@ fn test_duplicate_signature() {
 			cycle: 12,
 			hash: String::from("address"),
 			frequency: 1,
-			status: time_primitives::ScheduleStatus::Initiated,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));

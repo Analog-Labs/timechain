@@ -55,7 +55,6 @@ pub struct ScheduleInput {
 	pub cycle: u64,
 	pub frequency: u64,
 	pub hash: String,
-	pub status: ScheduleStatus,
 	pub function: Function,
 }
 

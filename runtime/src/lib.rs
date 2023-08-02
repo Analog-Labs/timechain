@@ -54,7 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::{scheduling::GetNetworkTimeout, sharding::Network, KeyId, TimeId};
+use time_primitives::{KeyId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1176,16 +1176,6 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-pub struct TimeoutLength;
-impl GetNetworkTimeout<Network, BlockNumber> for TimeoutLength {
-	fn get_network_timeout(network: Network) -> BlockNumber {
-		match network {
-			Network::Ethereum => 200,
-			Network::Astar => 100,
-		}
-	}
-}
-
 impl task_schedule::Config for Runtime {
 	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
@@ -1197,8 +1187,6 @@ impl task_schedule::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type IndexerReward = IndexerReward;
 	type ShardEligibility = TesseractSigStorage;
-	type ShardTimeouts = TesseractSigStorage;
-	type TimeoutLength = TimeoutLength;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1528,11 +1516,11 @@ impl_runtime_apis! {
 			TaskSchedule::get_task_shard(task_id)
 		}
 
-		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId, BlockNumber>)>, DispatchError> {
+		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
 			TaskSchedule::get_task_schedules()
 		}
 
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId, BlockNumber>>, DispatchError> {
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
 			TaskSchedule::get_schedule_by_key(schedule_id)
 		}
 

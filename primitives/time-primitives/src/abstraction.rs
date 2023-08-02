@@ -114,21 +114,18 @@ impl ScheduleStatus {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskSchedule<AccountId, BlockNumber> {
+pub struct TaskSchedule<AccountId> {
 	pub owner: AccountId,
 	pub network: Network,
 	pub function: Function,
 	pub cycle: u64,
 	// used to check if the task is repetitive task
 	pub frequency: u64,
-	pub validity: Validity,
 	pub hash: String,
-	pub start_execution_block: u64,
-	pub executable_since: BlockNumber,
 	pub status: ScheduleStatus,
 }
 
-impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
+impl<AccountId> TaskSchedule<AccountId> {
 	// check if task is repetitive, can't use the cycle to check because it can be decreased to 1
 	pub fn is_repetitive_task(&self) -> bool {
 		self.frequency > 0
@@ -136,11 +133,9 @@ impl<AccountId, BlockNumber> TaskSchedule<AccountId, BlockNumber> {
 }
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleInput {
-	pub task_id: ObjectId,
 	pub network: Network,
 	pub cycle: u64,
 	pub frequency: u64,
-	pub validity: Validity,
 	pub hash: String,
 	pub status: ScheduleStatus,
 	pub function: Function,

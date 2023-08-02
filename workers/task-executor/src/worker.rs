@@ -49,7 +49,7 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	error_count: HashMap<u64, u64>,
 	rosetta_chain_config: BlockchainConfig,
 	rosetta_client: Client,
-	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, u64, TaskSchedule<A, BN>)>>,
+	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, u64, TaskSchedule<A>)>>,
 	last_block_height: BlockHeight,
 }
 
@@ -143,7 +143,7 @@ where
 	async fn task_executor(
 		&mut self,
 		schedule_id: &u64,
-		schedule: &TaskSchedule<A, BN>,
+		schedule: &TaskSchedule<A>,
 	) -> Result<CallResponse, TaskExecutorError> {
 		match &schedule.function {
 			// If the task function is an Ethereum contract

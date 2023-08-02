@@ -2,7 +2,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod abstraction;
-pub mod scheduling;
 pub mod sharding;
 
 pub use abstraction::{ScheduleStatus, TaskSchedule};
@@ -50,8 +49,8 @@ sp_api::decl_runtime_apis! {
 		fn get_inactive_shards(network: sharding::Network) -> Vec<(ShardId, sharding::Shard)>;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<KeyId>;
 		fn get_task_shard(task_id: KeyId) -> Result<ShardId, DispatchError>;
-		fn get_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId, BlockNumber>)>, DispatchError>;
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId, BlockNumber>>, DispatchError>;
+		fn get_task_schedule() -> Result<Vec<(KeyId, TaskSchedule<AccountId>)>, DispatchError>;
+		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
 		fn get_offense_count(offender: &TimeId) -> u8;
 		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8;
 	}

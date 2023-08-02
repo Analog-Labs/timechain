@@ -152,7 +152,6 @@ where
 				address,
 				function_signature,
 				input,
-				output: _,
 			} => {
 				log::info!("running schedule_id {:?}", schedule_id);
 				match self.call_eth_contract(address, function_signature, input).await {
@@ -160,7 +159,6 @@ where
 					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),
 				}
 			},
-			_ => Err(TaskExecutorError::InvalidTaskFunction),
 		}
 	}
 

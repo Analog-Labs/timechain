@@ -1499,14 +1499,6 @@ impl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule<AccountId>>{
 			TaskSchedule::get_task_via_id(task_id)
 		}
-
-
-		// fn get_offense_count(offender: &TimeId) -> u8 {
-		// 	TesseractSigStorage::get_offense_count(offender)
-		// }
-		// fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
-		// 	TesseractSigStorage::get_offense_count_for_reporter(offender, reporter)
-		// }
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

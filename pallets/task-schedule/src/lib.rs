@@ -279,7 +279,7 @@ pub mod pallet {
 		pub fn update_schedule(
 			origin: OriginFor<T>,
 			status: ScheduleStatus,
-			key: KeyId,
+			key: TaskId,
 			// proof: Signature, TODO: add proof to authenticate
 		) -> DispatchResult {
 			ensure_signed(origin)?;
@@ -316,7 +316,7 @@ pub mod pallet {
 		}
 
 		pub fn api_get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
-			ShardTasks::<T>::iter_prefix(shard_id).map(|(id, val)| id).collect::<Vec<_>>()
+			ShardTasks::<T>::iter_prefix(shard_id).map(|(id, _)| id).collect::<Vec<_>>()
 		}
 
 		fn ocw_update_schedule_by_key(data: OCWSkdData) -> Result<(), Error<T>> {
@@ -325,7 +325,7 @@ pub mod pallet {
 			if let Some((acc, res)) =
 				signer.send_signed_transaction(|_account| Call::update_schedule {
 					status: data.status.clone(),
-					key: data.key,
+					key: data.task_id,
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);

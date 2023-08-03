@@ -25,6 +25,7 @@ use std::{
 };
 use time_primitives::{
 	abstraction::{OCWReportData, OCWTSSGroupKeyData},
+	crypto::Signature,
 	ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi, OCW_REP_KEY, OCW_TSS_KEY,
 	TIME_KEY_TYPE,
 };
@@ -37,7 +38,7 @@ pub struct TssRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<Option<SignatureData>>,
+	pub tx: oneshot::Sender<Option<(Signature, SignatureData)>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -117,7 +118,7 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
-	requests: HashMap<TssId, oneshot::Sender<Option<SignatureData>>>,
+	requests: HashMap<TssId, oneshot::Sender<Option<(Signature, SignatureData)>>>,
 }
 
 impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
@@ -247,8 +248,21 @@ where
 				TssAction::Tss(tss_signature, request_id) => {
 					debug!(target: TW_LOG, "Storing tss signature");
 					self.timeouts.remove(&(shard_id, Some(request_id)));
-					let response =
-						if tss_state.is_collector { Some(tss_signature.to_bytes()) } else { None };
+					let tss_signature = tss_signature.to_bytes();
+
+					//signing tss_signature node's sskey
+					let signature = self
+						.kv
+						.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
+						.expect("Failed to sign data with collector key")
+						.expect("Signature returned signing data is null");
+
+					let response = if tss_state.is_collector {
+						Some((signature.into(), tss_signature))
+					} else {
+						None
+					};
+
 					if let Some(tx) = self.requests.remove(&request_id) {
 						tx.send(response).ok();
 					}

@@ -13,10 +13,13 @@ use rosetta_client::{
 	BlockchainConfig, Client,
 };
 use sc_client_api::Backend;
+use sc_client_api::HeaderBackend;
 use serde_json::{json, Value};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
+use sp_core::offchain::STORAGE_PREFIX;
 use sp_keystore::KeystorePtr;
+use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::env;
 use std::{
@@ -26,13 +29,15 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+use time_primitives::crypto::Signature;
+use time_primitives::ShardId;
 use time_primitives::{
-	abstraction::{Function, OCWSkdData, ScheduleStatus},
-	ScheduleCycle, TaskId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY, TIME_KEY_TYPE,
+	abstraction::{Function, OCWSigData, OCWSkdData, ScheduleStatus},
+	ScheduleCycle, SignatureData, TaskId, TaskSchedule, TimeApi, TimeId, OCW_SIG_KEY, OCW_SKD_KEY,
+	TIME_KEY_TYPE,
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
-use time_primitives::SignatureData;
 
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A, BN> {
@@ -125,12 +130,12 @@ where
 	async fn send_for_sign(
 		&mut self,
 		data: CallResponse,
-		shard_id: u64,
-		task_id: u64,
-		cycle: u64,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
 	) -> Result<()> {
 		let data = bincode::serialize(&data).context("Failed to serialize task")?;
-		let (tx, rx) = oneshot::channel::<Option<SignatureData>>();
+		let (tx, rx) = oneshot::channel::<Option<(Signature, SignatureData)>>();
 		self.sign_data_sender
 			.send(TssRequest {
 				request_id: (task_id, cycle),
@@ -140,10 +145,11 @@ where
 			})
 			.await?;
 
-		
-		let signature_data = rx.await?.ok_or(anyhow::anyhow!("Node not collector to process information"))?;
+		let (proof, signature_data) =
+			rx.await?.ok_or(anyhow::anyhow!("Node not collector to process information"))?;
 		//send signature_data to ocw
 		println!("received signature from tss {:?}", signature_data);
+		self.update_signature_ocw(proof, signature_data, task_id, cycle);
 		Ok(())
 	}
 	/// Fetches and executes contract call for a given schedule_id
@@ -200,6 +206,16 @@ where
 		// @tss: TSS signature
 		// @data: data to add into collection
 
+		let local_block_number: i64 = match self.backend.blockchain().number(block_id) {
+			//will not fail since block number is u32
+			Ok(Some(val)) => val.to_string().parse().unwrap(),
+			Ok(None) => 0.into(),
+			Err(e) => {
+				log::warn!("Error occurred: {:?}", e);
+				0.into()
+			},
+		};
+
 		let data_value = match data.result {
 			Value::Array(val) => val
 				.iter()
@@ -211,8 +227,7 @@ where
 		let variables = collect_data::Variables {
 			collection,
 			block: target_block_number as i64,
-			//Todo add cycle here
-			cycle: 0,
+			cycle: local_block_number,
 			// unused field
 			task_id: 0,
 			data: data_value,
@@ -343,15 +358,11 @@ where
 						Err(e) => match e {
 							TaskExecutorError::NoTaskFound => {
 								log::error!("No task found for id {:?}", task_id);
-								self.report_schedule_invalid(
-									task_id, task.cycle, true, block_id, shard_id,
-								);
+								self.report_schedule_invalid(task_id, task.cycle, true);
 							},
 							TaskExecutorError::InvalidTaskFunction => {
 								log::error!("Invalid task function provided");
-								self.report_schedule_invalid(
-									task_id, task.cycle, true, block_id, shard_id,
-								);
+								self.report_schedule_invalid(task_id, task.cycle, true);
 							},
 							TaskExecutorError::ExecutionError(error) => {
 								log::error!(
@@ -361,9 +372,8 @@ where
 								);
 
 								if task.is_repetitive_task() {
-									let is_terminated = self.report_schedule_invalid(
-										task_id, task.cycle, false, block_id, shard_id,
-									);
+									let is_terminated =
+										self.report_schedule_invalid(task_id, task.cycle, false);
 
 									// if not terminated keep add task with added frequency
 									if !is_terminated {
@@ -373,9 +383,7 @@ where
 											.push((task_id, shard_id, task));
 									}
 								} else {
-									self.report_schedule_invalid(
-										task_id, task.cycle, true, block_id, shard_id,
-									);
+									self.report_schedule_invalid(task_id, task.cycle, true);
 								}
 							},
 							TaskExecutorError::InternalError(error) => {
@@ -383,9 +391,7 @@ where
 									"Internal error occured while processing task: {}",
 									error
 								);
-								self.report_schedule_invalid(
-									task_id, task.cycle, true, block_id, shard_id,
-								);
+								self.report_schedule_invalid(task_id, task.cycle, true);
 							},
 						},
 					}
@@ -397,42 +403,55 @@ where
 		Ok(())
 	}
 
+	fn update_schedule_ocw(
+		&mut self,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		status: ScheduleStatus,
+	) {
+		let skd_data = OCWSkdData::new(task_id, cycle, status);
+		self.update_ocw_storage(skd_data.encode(), OCW_SKD_KEY);
+	}
+
+	fn update_signature_ocw(
+		&mut self,
+		proof: Signature,
+		sig: SignatureData,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+	) {
+		let sig_data = OCWSigData::new(proof, sig, task_id, cycle);
+		self.update_ocw_storage(sig_data.encode(), OCW_SIG_KEY);
+	}
+
 	/// Add schedule update task to offchain storage
 	/// which will be use by offchain worker to send extrinsic
-	fn update_schedule_ocw_storage(
-		&mut self,
-		_task_id: TaskId,
-		_cycle: ScheduleCycle,
-		_status: ScheduleStatus,
-	) {
-		// TODO
-		/*let ocw_skd = OCWSkdData::new(task_id, );
-
+	fn update_ocw_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
 		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY);
+			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
 
 			let mut ocw_vec = match old_value.clone() {
 				Some(mut data) => {
 					//remove this unwrap
 					let mut bytes: &[u8] = &mut data;
-					let inner_data: VecDeque<OCWSkdData> = Decode::decode(&mut bytes).unwrap();
+					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
 					inner_data
 				},
 				None => Default::default(),
 			};
 
-			ocw_vec.push_back(ocw_skd);
+			ocw_vec.push_back(data);
 			let encoded_data = Encode::encode(&ocw_vec);
 			let is_data_stored = ocw_storage.compare_and_set(
 				STORAGE_PREFIX,
-				OCW_SKD_KEY,
+				ocw_key,
 				old_value.as_deref(),
 				&encoded_data,
 			);
 			log::info!("stored task data in ocw {:?}", is_data_stored);
 		} else {
 			log::error!("cant get offchain storage");
-		};*/
+		};
 	}
 
 	fn report_schedule_invalid(
@@ -440,14 +459,9 @@ where
 		task_id: TaskId,
 		cycle: ScheduleCycle,
 		terminate: bool,
-		_blocknumber: <B as Block>::Hash,
-		_shard_id: u64,
 	) -> bool {
-		let is_collector = false; //self.is_collector(blocknumber, shard_id).unwrap_or(false);
 		if terminate {
-			if is_collector {
-				self.update_schedule_ocw_storage(task_id, cycle, ScheduleStatus::Invalid);
-			}
+			self.update_schedule_ocw(task_id, cycle, ScheduleStatus::Invalid);
 			return true;
 		}
 
@@ -455,9 +469,7 @@ where
 		*error_count += 1;
 
 		if *error_count > 2 {
-			if is_collector {
-				self.update_schedule_ocw_storage(task_id, cycle, ScheduleStatus::Invalid);
-			}
+			self.update_schedule_ocw(task_id, cycle, ScheduleStatus::Invalid);
 			self.error_count.remove(&task_id);
 			return true;
 		}

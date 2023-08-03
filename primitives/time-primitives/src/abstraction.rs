@@ -4,7 +4,10 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{crypto::Signature, sharding::Network, KeyId, ScheduleCycle, ShardId, SignatureData};
+use crate::{
+	crypto::Signature, sharding::Network, ScheduleCycle, ShardId, SignatureData, TaskId,
+	TimeId,
+};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 
@@ -66,7 +69,7 @@ pub struct TimeTssKey {
 pub struct OCWSigData {
 	pub auth_sig: Signature,
 	pub sig_data: SignatureData,
-	pub key_id: KeyId,
+	pub task_id: TaskId,
 	pub schedule_cycle: ScheduleCycle,
 }
 
@@ -74,13 +77,13 @@ impl OCWSigData {
 	pub fn new(
 		auth_sig: Signature,
 		sig_data: SignatureData,
-		key_id: KeyId,
+		task_id: TaskId,
 		schedule_cycle: ScheduleCycle,
 	) -> Self {
 		Self {
 			auth_sig,
 			sig_data,
-			key_id,
+			task_id,
 			schedule_cycle,
 		}
 	}
@@ -88,13 +91,14 @@ impl OCWSigData {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct OCWSkdData {
+	pub task_id: TaskId,
+	pub cycle: ScheduleCycle,
 	pub status: ScheduleStatus,
-	pub key: KeyId,
 }
 
 impl OCWSkdData {
-	pub fn new(status: ScheduleStatus, key: KeyId) -> Self {
-		Self { status, key }
+	pub fn new(task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) -> Self {
+		Self { task_id, cycle, status }
 	}
 }
 

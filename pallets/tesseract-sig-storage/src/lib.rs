@@ -103,6 +103,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
+			//check if collector
 			Self::ocw_get_tss_data();
 			Self::ocw_get_sig_data();
 		}
@@ -702,7 +703,7 @@ pub mod pallet {
 				signer.send_signed_transaction(|_account| Call::store_signature {
 					auth_sig: data.auth_sig.clone(),
 					signature_data: data.sig_data,
-					key_id: data.key_id,
+					key_id: data.task_id,
 					schedule_cycle: data.schedule_cycle,
 				}) {
 				if res.is_err() {

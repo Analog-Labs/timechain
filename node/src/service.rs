@@ -325,45 +325,45 @@ pub fn new_full(
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 		if with_chronicle {
-		// injecting our Worker
-		let time_params = time_worker::TimeWorkerParams {
-			runtime: client.clone(),
-			client: client.clone(),
-			backend: backend.clone(),
-			gossip_network: network,
-			kv: keystore_container.keystore(),
-			_block: PhantomData::default(),
-			sign_data_receiver,
-			accountid: PhantomData,
-			_block_number: PhantomData,
-			sync_service,
-		};
+			// injecting our Worker
+			let time_params = time_worker::TimeWorkerParams {
+				runtime: client.clone(),
+				client: client.clone(),
+				backend: backend.clone(),
+				gossip_network: network,
+				kv: keystore_container.keystore(),
+				_block: PhantomData::default(),
+				sign_data_receiver,
+				accountid: PhantomData,
+				_block_number: PhantomData,
+				sync_service,
+			};
 
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"time-worker",
-			None,
-			time_worker::start_timeworker_gadget(time_params),
-		);
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"time-worker",
+				None,
+				time_worker::start_timeworker_gadget(time_params),
+			);
 
-		// start the executor for one-time task
-		let task_executor_params = task_executor::TaskExecutorParams {
-			runtime: client.clone(),
-			backend: backend.clone(),
-			kv: keystore_container.keystore(),
-			_block: PhantomData::default(),
-			sign_data_sender: sign_data_sender.clone(),
-			account_id: PhantomData,
-			_block_number: PhantomData,
-			connector_url: connector_url.clone(),
-			connector_blockchain: connector_blockchain.clone(),
-			connector_network: connector_network.clone(),
-		};
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"task-executor",
-			None,
-			task_executor::start_task_executor_gadget(task_executor_params),
-		);
-	}
+			// start the executor for one-time task
+			let task_executor_params = task_executor::TaskExecutorParams {
+				runtime: client.clone(),
+				backend: backend.clone(),
+				kv: keystore_container.keystore(),
+				_block: PhantomData::default(),
+				sign_data_sender: sign_data_sender.clone(),
+				account_id: PhantomData,
+				_block_number: PhantomData,
+				connector_url: connector_url.clone(),
+				connector_blockchain: connector_blockchain.clone(),
+				connector_network: connector_network.clone(),
+			};
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"task-executor",
+				None,
+				task_executor::start_task_executor_gadget(task_executor_params),
+			);
+		}
 	}
 
 	network_starter.start_network();

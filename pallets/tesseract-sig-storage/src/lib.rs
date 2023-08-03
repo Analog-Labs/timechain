@@ -59,15 +59,13 @@ pub mod pallet {
 	use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
-		abstraction::{OCWSigData, OCWTSSGroupKeyData},
+		abstraction::OCWTSSGroupKeyData,
 		crypto::Signature,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
-		KeyId, ScheduleCycle, ShardId as ShardIdType, SignatureData, TimeId, OCW_SIG_KEY,
-		OCW_TSS_KEY,
+		KeyId, ScheduleCycle, ShardId as ShardIdType, TimeId, OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
-		fn store_signature(_s: u32) -> Weight;
 		fn submit_tss_group_key(_s: u32) -> Weight;
 		fn register_shard() -> Weight;
 		fn register_chronicle() -> Weight;
@@ -76,9 +74,6 @@ pub mod pallet {
 	}
 
 	impl WeightInfo for () {
-		fn store_signature(_s: u32) -> Weight {
-			Weight::from_parts(0, 1)
-		}
 		fn submit_tss_group_key(_s: u32) -> Weight {
 			Weight::from_parts(0, 1)
 		}
@@ -105,7 +100,6 @@ pub mod pallet {
 		fn offchain_worker(_block_number: T::BlockNumber) {
 			//check if collector
 			Self::ocw_get_tss_data();
-			Self::ocw_get_sig_data();
 		}
 	}
 
@@ -154,18 +148,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn tss_group_key)]
 	pub type TssGroupKey<T: Config> = StorageMap<_, Blake2_128Concat, u64, [u8; 33], OptionQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn signature_storage)]
-	pub type SignatureStoreData<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		KeyId,
-		Blake2_128Concat,
-		ScheduleCycle,
-		SignatureData,
-		OptionQuery,
-	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reports)]
@@ -323,54 +305,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Extrinsic for storing a signature
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::store_signature(1))]
-		pub fn store_signature(
-			origin: OriginFor<T>,
-			auth_sig: Signature,
-			signature_data: SignatureData,
-			key_id: KeyId,
-			schedule_cycle: ScheduleCycle,
-		) -> DispatchResult {
-			ensure_signed(origin)?;
-
-			let shard_id: u64 = T::TaskScheduleHelper::get_assigned_shard_for_key(key_id)?;
-
-			let shard_state =
-				<TssShards<T>>::get(shard_id).ok_or(Error::<T>::ShardIsNotRegistered)?;
-			let collector = shard_state.shard.collector();
-
-			let raw_public_key: &[u8; 32] = collector.as_ref();
-			let collector_public_id =
-				sp_application_crypto::sr25519::Public::from_raw(*raw_public_key);
-
-			ensure!(
-				auth_sig.verify(signature_data.as_ref(), &collector_public_id.into()),
-				Error::<T>::InvalidValidationSignature
-			);
-
-			ensure!(
-				<SignatureStoreData<T>>::get(key_id, schedule_cycle).is_none(),
-				Error::<T>::DuplicateSignature
-			);
-
-			// Updates completed task status and start_execution_block for
-			// ongoing recurring tasks.
-			T::TaskScheduleHelper::decrement_schedule_cycle(key_id)?;
-			T::TaskScheduleHelper::update_completed_task(key_id);
-
-			<SignatureStoreData<T>>::insert(key_id, schedule_cycle, signature_data);
-
-			Self::deposit_event(Event::SignatureStored(key_id, schedule_cycle));
-			<LastCommittedChronicle<T>>::insert(
-				collector,
-				frame_system::Pallet::<T>::block_number(),
-			);
-			<LastCommittedShard<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
-			Ok(())
-		}
-
 		/// Submits TSS group key to runtime
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
@@ -647,75 +581,6 @@ pub mod pallet {
 				},
 				Ok(_) => {},
 			}
-		}
-
-		fn ocw_get_sig_data() {
-			let storage_ref = StorageValueRef::persistent(OCW_SIG_KEY);
-
-			const EMPTY_DATA: () = ();
-
-			let outer_res = storage_ref.mutate(
-				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
-					match res {
-						Ok(Some(mut data)) => {
-							// iteration batch of 5
-							for _ in 0..5 {
-								let Some(sig_req_vec) = data.pop_front() else{
-									break;
-								};
-
-								let Ok(sig_req) = OCWSigData::decode(&mut sig_req_vec.as_slice()) else {
-									continue;
-								};
-
-								if let Err(err) = Self::ocw_submit_signature(sig_req.clone()) {
-									log::error!(
-										"Error occured while submitting extrinsic {:?}",
-										err
-									);
-								};
-
-								log::info!("Submitting OCW Sig Data");
-							}
-							Ok(data)
-						},
-						Ok(None) => Err(EMPTY_DATA),
-						Err(_) => Err(EMPTY_DATA),
-					}
-				},
-			);
-
-			match outer_res {
-				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
-					log::info!("TSS OCW Sig is empty");
-				},
-				Err(MutateStorageError::ConcurrentModification(_)) => {
-					log::error!("💔 Error updating local storage in TSS OCW Signature",);
-				},
-				Ok(_) => {},
-			}
-		}
-
-		fn ocw_submit_signature(data: OCWSigData) -> Result<(), Error<T>> {
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-
-			if let Some((acc, res)) =
-				signer.send_signed_transaction(|_account| Call::store_signature {
-					auth_sig: data.auth_sig.clone(),
-					signature_data: data.sig_data,
-					key_id: data.task_id,
-					schedule_cycle: data.schedule_cycle,
-				}) {
-				if res.is_err() {
-					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
-					return Err(Error::OffchainSignedTxFailed);
-				} else {
-					return Ok(());
-				}
-			}
-
-			log::error!("No local account available");
-			Err(Error::NoLocalAcctForSignedTx)
 		}
 
 		fn ocw_submit_tss_group_key(data: OCWTSSGroupKeyData) -> Result<(), Error<T>> {

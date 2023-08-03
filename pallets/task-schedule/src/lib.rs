@@ -58,14 +58,11 @@ pub mod pallet {
 	use time_primitives::{
 		abstraction::{OCWSkdData, ScheduleInput, ScheduleStatus, TaskSchedule},
 		sharding::{EligibleShard, HandleShardTasks, Network},
-		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
+		PalletAccounts, ProxyExtend, ScheduleCycle, ShardId, TaskId, OCW_SKD_KEY,
 	};
-	use time_primitives::{ShardId, TaskId};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-	pub type KeyId = u64;
-	pub type ScheduleResults<AccountId> = Vec<(KeyId, TaskSchedule<AccountId>)>;
 	pub trait WeightInfo {
 		fn insert_schedule() -> Weight;
 		fn update_schedule() -> Weight;
@@ -165,22 +162,34 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn unassigned_tasks)]
 	pub type UnassignedTasks<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, KeyId, (), OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_tasks)]
 	pub type ShardTasks<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, u64, Blake2_128Concat, KeyId, (), OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_assigned_shard)]
 	pub type TaskAssignedShard<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
 	pub type ScheduleStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, KeyId, TaskSchedule<T::AccountId>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TaskId, TaskSchedule<T::AccountId>, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_task_result)]
+	pub type TaskResults<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		Blake2_128Concat,
+		ScheduleCycle,
+		ScheduleStatus,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub(super) type LastKey<T: Config> = StorageValue<_, u64, OptionQuery>;
@@ -194,13 +203,13 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// the record id that uniquely identify
-		ScheduleStored(KeyId),
+		ScheduleStored(TaskId),
 
 		/// Updated Schedule
-		ScheduleUpdated(KeyId),
+		ScheduleUpdated(TaskId, ScheduleCycle),
 
 		///Already exist case
-		AlreadyExist(KeyId),
+		AlreadyExist(TaskId),
 
 		/// Reward indexer
 		RewardIndexer(T::AccountId, BalanceOf<T>),
@@ -269,7 +278,6 @@ pub mod pallet {
 					cycle: schedule.cycle,
 					frequency: schedule.frequency,
 					hash: schedule.hash,
-					status: ScheduleStatus::Initiated,
 				},
 			);
 			Self::deposit_event(Event::ScheduleStored(schedule_id));
@@ -281,25 +289,19 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_schedule())]
 		pub fn update_schedule(
 			origin: OriginFor<T>,
+			task_id: TaskId,
+			cycle: ScheduleCycle,
 			status: ScheduleStatus,
-			key: TaskId,
 			// proof: Signature, TODO: add proof to authenticate
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			// TODO: check that proof is shard collector signing status, key
-			// let resp = T::ProxyExtend::proxy_exist(&who);
-			// ensure!(resp, Error::<T>::NotProxyAccount);
-			ScheduleStorage::<T>::mutate(key, |schedule| {
-				if let Some(schedule) = schedule {
-					schedule.status = status
-				}
-			});
-			Self::deposit_event(Event::ScheduleUpdated(key));
+			TaskResults::<T>::insert(task_id, cycle, status);
+			Self::deposit_event(Event::ScheduleUpdated(task_id, cycle));
 			Ok(())
 		}
 	}
 	impl<T: Config> Pallet<T> {
-		fn assign_task_to_shard(task: KeyId, shard: u64) {
+		fn assign_task_to_shard(task: TaskId, shard: u64) {
 			ShardTasks::<T>::insert(shard, task, ());
 			TaskAssignedShard::<T>::insert(task, shard);
 		}
@@ -327,8 +329,9 @@ pub mod pallet {
 
 			if let Some((acc, res)) =
 				signer.send_signed_transaction(|_account| Call::update_schedule {
+					task_id: data.task_id,
+					cycle: data.cycle,
 					status: data.status.clone(),
-					key: data.task_id,
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
@@ -342,84 +345,52 @@ pub mod pallet {
 			log::error!("No local account available");
 			Err(Error::NoLocalAcctForSignedTx)
 		}
+
+		fn is_task_complete(task_id: TaskId) -> bool {
+			if let Some(task) = ScheduleStorage::<T>::get(task_id) {
+				TaskResults::<T>::contains_key(task_id, task.cycle)
+			} else {
+				true
+			}
+		}
 	}
 
-	impl<T: Config> HandleShardTasks<u64, Network, KeyId> for Pallet<T> {
-		fn handle_shard_tasks(shard_id: u64, network: Network) {
-			// move incomplete shard tasks to unassigned task queue
-			let move_incomplete_tasks = |status, schedule_id| {
-				if status != ScheduleStatus::Completed {
-					ShardTasks::<T>::remove(shard_id, schedule_id);
-					TaskAssignedShard::<T>::remove(schedule_id);
-					UnassignedTasks::<T>::insert(network, schedule_id, ());
-				}
-			};
-			ShardTasks::<T>::iter_prefix(shard_id).for_each(|(schedule_id, _)| {
-				if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
-					move_incomplete_tasks(schedule.status, schedule_id);
+	impl<T: Config> HandleShardTasks<ShardId, Network, TaskId> for Pallet<T> {
+		fn handle_shard_tasks(shard_id: ShardId, network: Network) {
+			ShardTasks::<T>::iter_prefix(shard_id).for_each(|(task_id, _)| {
+				ShardTasks::<T>::remove(shard_id, task_id);
+				TaskAssignedShard::<T>::remove(task_id);
+				if !Self::is_task_complete(task_id) {
+					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
 		}
 
 		fn claim_task_for_shard(
-			shard_id: u64,
+			shard_id: ShardId,
 			network: Network,
-			schedule_id: KeyId,
+			task_id: TaskId,
 		) -> DispatchResult {
 			ensure!(
-				UnassignedTasks::<T>::take(network, schedule_id).is_some(),
+				UnassignedTasks::<T>::take(network, task_id).is_some(),
 				Error::<T>::TaskAssigned
 			);
-			Self::assign_task_to_shard(schedule_id, shard_id);
+			Self::assign_task_to_shard(task_id, shard_id);
 			Ok(())
 		}
 	}
 
 	pub trait ScheduleInterface<AccountId> {
-		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError>;
-		fn get_assigned_schedule_count(shard: u64) -> usize;
-		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
-		fn update_completed_task(key: u64);
+		fn get_assigned_shard_for_key(task_id: TaskId) -> Result<ShardId, DispatchError>;
+		fn get_assigned_schedule_count(shard: ShardId) -> usize;
 	}
 
 	impl<T: Config> ScheduleInterface<T::AccountId> for Pallet<T> {
-		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(key).ok_or(Error::<T>::TaskNotAssigned.into())
+		fn get_assigned_shard_for_key(task_id: TaskId) -> Result<ShardId, DispatchError> {
+			TaskAssignedShard::<T>::get(task_id).ok_or(Error::<T>::TaskNotAssigned.into())
 		}
-		fn get_assigned_schedule_count(shard_id: u64) -> usize {
-			ShardTasks::<T>::iter_prefix(shard_id)
-				.filter(|(schedule_id, _)| {
-					if let Some(schedule) = ScheduleStorage::<T>::get(schedule_id) {
-						matches!(
-							schedule.status,
-							ScheduleStatus::Initiated | ScheduleStatus::Recurring
-						)
-					} else {
-						false
-					}
-				})
-				.count()
-		}
-
-		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError> {
-			ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {
-				let details = schedule.as_mut().ok_or(Error::<T>::ErrorRef)?;
-				details.cycle = details.cycle.saturating_sub(1);
-
-				Ok(())
-			})?;
-			Ok(())
-		}
-
-		fn update_completed_task(key: u64) {
-			if let Some(mut schedule) = ScheduleStorage::<T>::get(key) {
-				if schedule.cycle > 0 {
-					schedule.status = ScheduleStatus::Recurring;
-				} else {
-					schedule.status = ScheduleStatus::Completed;
-				}
-				ScheduleStorage::<T>::insert(key, schedule);
-			}
+		fn get_assigned_schedule_count(shard_id: ShardId) -> usize {
+			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
 	}
 }

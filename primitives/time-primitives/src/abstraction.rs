@@ -38,7 +38,6 @@ pub struct TaskSchedule<AccountId> {
 	// used to check if the task is repetitive task
 	pub frequency: u64,
 	pub hash: String,
-	pub status: ScheduleStatus,
 }
 
 impl<AccountId> TaskSchedule<AccountId> {

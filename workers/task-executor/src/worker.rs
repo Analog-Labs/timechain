@@ -166,7 +166,8 @@ where
 			.expect("Failed to sign data with collector key")
 			.expect("Signature returned signing data is null");
 		//send signature_data to ocw
-		println!("received signature from tss {:?}", signature_data);
+
+		log::info!("saving signature in ocw");
 		self.update_signature_ocw(proof.into(), signature_data, task_id, cycle);
 		Ok(())
 	}

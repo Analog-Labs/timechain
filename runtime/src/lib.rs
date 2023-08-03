@@ -32,6 +32,7 @@ pub use runtime_common::{
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_runtime::FixedPointNumber;
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -44,7 +45,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
-use sp_runtime::FixedPointNumber;
 
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 

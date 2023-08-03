@@ -4,9 +4,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
-use crate::{
-	crypto::Signature, sharding::Network, ScheduleCycle, ShardId, SignatureData, TaskId,
-};
+use crate::{crypto::Signature, sharding::Network, ScheduleCycle, ShardId, SignatureData, TaskId};
 // Function defines target network endpoint
 // It can be smart contract or native network API.
 

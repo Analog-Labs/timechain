@@ -24,10 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::OCWTSSGroupKeyData,
-	crypto::Signature,
-	ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi, OCW_TSS_KEY,
-	TIME_KEY_TYPE,
+	abstraction::OCWTSSGroupKeyData, crypto::Signature, ScheduleCycle, ShardId, SignatureData,
+	TaskId, TimeApi, OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};

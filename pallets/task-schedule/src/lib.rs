@@ -96,8 +96,7 @@ pub mod pallet {
 									continue;
 								};
 
-								if let Err(err) =
-									Self::ocw_update_schedule_by_key(skd_req.clone())
+								if let Err(err) = Self::ocw_update_schedule_by_key(skd_req.clone())
 								{
 									log::error!(
 										"Error occured while submitting extrinsic {:?}",

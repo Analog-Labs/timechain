@@ -6,7 +6,6 @@ use sp_std::vec::Vec;
 
 use crate::{
 	crypto::Signature, sharding::Network, ScheduleCycle, ShardId, SignatureData, TaskId,
-	TimeId,
 };
 // Function defines target network endpoint
 // It can be smart contract or native network API.

@@ -24,9 +24,9 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{OCWReportData, OCWTSSGroupKeyData},
+	abstraction::OCWTSSGroupKeyData,
 	crypto::Signature,
-	ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi, OCW_REP_KEY, OCW_TSS_KEY,
+	ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi, OCW_TSS_KEY,
 	TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
@@ -267,7 +267,7 @@ where
 						tx.send(response).ok();
 					}
 				},
-				TssAction::Report(offender, hash) => {
+				TssAction::Report(_, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
 
 					// Removed until misbehavior reporting is either implemented via CLI

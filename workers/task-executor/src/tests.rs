@@ -11,7 +11,6 @@ use sc_network_test::Block;
 use sc_network_test::TestClientBuilderExt;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_core::sr25519;
-use sp_core::Pair;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::path::Path;
@@ -21,47 +20,17 @@ use substrate_test_runtime_client::{
 	runtime::{AccountId, BlockNumber},
 	TestClientBuilder,
 };
-use time_primitives::sharding::Shard;
-use time_primitives::TimeApi;
+use time_primitives::{ShardId, TimeApi, TimeId};
 
 type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public, BlockNumber>;
-
-/// Set of test accounts using [`time_primitives::crypto`] types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
-enum TimeKeyring {
-	Alice,
-	Bob,
-	Charlie,
-}
-
-impl TimeKeyring {
-	/// Return key pair.
-	pub fn pair(self) -> sr25519::Pair {
-		sr25519::Pair::from_string(self.to_seed().as_str(), None).unwrap()
-	}
-
-	/// Return public key.
-	pub fn public(self) -> sr25519::Public {
-		self.pair().public()
-	}
-
-	/// Return seed string.
-	pub fn to_seed(self) -> String {
-		format!("//{self}")
-	}
-}
 
 #[derive(Clone)]
 pub(crate) struct RuntimeApi {}
 
 sp_api::mock_impl_runtime_apis! {
 	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
-		fn get_shards(&self) -> Vec<(u64, Shard)> {
-			vec![(1, Shard::Three([
-				TimeKeyring::Alice.public().into(),
-				TimeKeyring::Bob.public().into(),
-				TimeKeyring::Charlie.public().into(),
-			]))]
+		fn get_shards(&self, _time_id: TimeId) -> Vec<ShardId> {
+			vec![1]
 		}
 	}
 }

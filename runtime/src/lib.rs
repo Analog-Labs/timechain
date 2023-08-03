@@ -32,6 +32,7 @@ pub use runtime_common::{
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_runtime::FixedPointNumber;
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -44,7 +45,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
-use sp_runtime::{DispatchError, FixedPointNumber};
 
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 
@@ -54,7 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::{KeyId, TimeId};
+use time_primitives::{ShardId, TaskId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1484,47 +1484,20 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
-		fn get_shard_members(shard_id: u64) -> Option<Vec<TimeId>> {
+		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
 
-		fn get_shards() -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::api_tss_shards()
+		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
+			TesseractSigStorage::api_get_shards(time_id)
 		}
 
-		fn get_active_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::active_shards(network)
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+			TaskSchedule::api_get_shard_tasks(shard_id)
 		}
 
-		fn get_inactive_shards(network: time_primitives::sharding::Network) -> Vec<(u64, time_primitives::sharding::Shard)> {
-			TesseractSigStorage::inactive_shards(network)
-		}
-
-		fn get_shard_tasks(shard_id: u64) -> Vec<KeyId> {
-			task_schedule::ShardTasks::<Runtime>::iter_prefix(shard_id).map(|(i, _)| i).collect()
-		}
-
-		fn get_unassigned_tasks(network: time_primitives::sharding::Network) -> Vec<KeyId> {
-			TaskSchedule::get_unassigned_tasks(network)
-		}
-
-		fn get_task_shard(task_id: KeyId) -> Result<u64, DispatchError> {
-			TaskSchedule::get_task_shard(task_id)
-		}
-
-		fn get_task_schedule() -> Result<Vec<(u64, abs_TaskSchedule<AccountId>)>, DispatchError> {
-			TaskSchedule::get_task_schedules()
-		}
-
-		fn get_task_schedule_by_key(schedule_id: KeyId) -> Result<Option<abs_TaskSchedule<AccountId>>, DispatchError> {
-			TaskSchedule::get_schedule_by_key(schedule_id)
-		}
-
-		fn get_offense_count(offender: &TimeId) -> u8 {
-			TesseractSigStorage::get_offense_count(offender)
-		}
-		fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
-			TesseractSigStorage::get_offense_count_for_reporter(offender, reporter)
+		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule<AccountId>>{
+			TaskSchedule::get_task_via_id(task_id)
 		}
 	}
 

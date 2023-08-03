@@ -60,6 +60,7 @@ pub mod pallet {
 		sharding::{EligibleShard, HandleShardTasks, Network},
 		PalletAccounts, ProxyExtend, OCW_SKD_KEY,
 	};
+	use time_primitives::{ShardId, TaskId};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -82,22 +83,25 @@ pub mod pallet {
 			const EMPTY_DATA: () = ();
 
 			let outer_res = storage_ref.mutate(
-				|res: Result<Option<VecDeque<OCWSkdData>>, StorageRetrievalError>| {
+				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
 					match res {
 						Ok(Some(mut data)) => {
 							// iteration batch of 5
 							for _ in 0..5 {
-								if let Some(skd_req) = data.pop_front() {
-									if let Err(err) =
-										Self::ocw_update_schedule_by_key(skd_req.clone())
-									{
-										log::error!(
-											"Error occured while submitting extrinsic {:?}",
-											err
-										);
-									};
-								} else {
+								let Some(data_vec) = data.pop_front() else {
 									break;
+								};
+
+								let Ok(skd_req) = OCWSkdData::decode(&mut data_vec.as_slice()) else {
+									continue;
+								};
+
+								if let Err(err) = Self::ocw_update_schedule_by_key(skd_req.clone())
+								{
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
 								}
 							}
 							Ok(data)
@@ -278,7 +282,7 @@ pub mod pallet {
 		pub fn update_schedule(
 			origin: OriginFor<T>,
 			status: ScheduleStatus,
-			key: KeyId,
+			key: TaskId,
 			// proof: Signature, TODO: add proof to authenticate
 		) -> DispatchResult {
 			ensure_signed(origin)?;
@@ -304,34 +308,18 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn get_unassigned_tasks(network: Network) -> Vec<u64> {
-			UnassignedTasks::<T>::iter_prefix(network).map(|(t, _)| t).collect()
-		}
-
-		pub fn get_task_shard(task: KeyId) -> Result<u64, DispatchError> {
-			TaskAssignedShard::<T>::get(task).ok_or(Error::<T>::TaskNotAssigned.into())
-		}
-
-		pub fn get_task_schedules() -> Result<ScheduleResults<T::AccountId>, DispatchError> {
-			let data_list = ScheduleStorage::<T>::iter()
-				.filter(|item| item.1.status == ScheduleStatus::Initiated)
-				.collect::<Vec<_>>();
-
-			Ok(data_list)
-		}
-
 		pub fn get_schedules_keys() -> Result<Vec<u64>, DispatchError> {
 			let data_list = ScheduleStorage::<T>::iter_keys().collect::<Vec<_>>();
 
 			Ok(data_list)
 		}
 
-		pub fn get_schedule_by_key(
-			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
-			let data = ScheduleStorage::<T>::get(key);
+		pub fn get_task_via_id(task_id: TaskId) -> Option<TaskSchedule<T::AccountId>> {
+			ScheduleStorage::<T>::get(task_id)
+		}
 
-			Ok(data)
+		pub fn api_get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+			ShardTasks::<T>::iter_prefix(shard_id).map(|(id, _)| id).collect::<Vec<_>>()
 		}
 
 		fn ocw_update_schedule_by_key(data: OCWSkdData) -> Result<(), Error<T>> {
@@ -340,7 +328,7 @@ pub mod pallet {
 			if let Some((acc, res)) =
 				signer.send_signed_transaction(|_account| Call::update_schedule {
 					status: data.status.clone(),
-					key: data.key,
+					key: data.task_id,
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
@@ -390,8 +378,6 @@ pub mod pallet {
 	pub trait ScheduleInterface<AccountId> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError>;
 		fn get_assigned_schedule_count(shard: u64) -> usize;
-		fn get_schedule_via_key(key: u64)
-			-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
 		fn update_completed_task(key: u64);
 	}
@@ -413,11 +399,6 @@ pub mod pallet {
 					}
 				})
 				.count()
-		}
-		fn get_schedule_via_key(
-			key: u64,
-		) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
-			Self::get_schedule_by_key(key)
 		}
 
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError> {

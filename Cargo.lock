@@ -11905,6 +11905,7 @@ dependencies = [
  "surf",
  "thiserror",
  "time-primitives",
+ "time-worker",
  "timechain-integration",
  "tokio",
 ]

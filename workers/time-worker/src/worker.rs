@@ -1,6 +1,9 @@
 #![allow(clippy::type_complexity)]
 use crate::{communication::validator::topic, Client, WorkerParams, TW_LOG};
-use futures::{channel::mpsc, FutureExt, StreamExt};
+use futures::{
+	channel::{mpsc, oneshot},
+	FutureExt, StreamExt,
+};
 use log::{debug, error, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
 use sc_network_gossip::GossipEngine;
@@ -21,17 +24,24 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::{OCWSigData, OCWTSSGroupKeyData},
-	ShardId, SignatureData, TimeApi, OCW_SIG_KEY, OCW_TSS_KEY, TIME_KEY_TYPE,
+	abstraction::OCWTSSGroupKeyData, ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi,
+	OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
 
-type TssId = (u64, u64);
+pub type TssId = (TaskId, ScheduleCycle);
+
+pub struct TssRequest {
+	pub request_id: TssId,
+	pub shard_id: ShardId,
+	pub data: Vec<u8>,
+	pub tx: oneshot::Sender<Option<SignatureData>>,
+}
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
-	shard_id: u64,
+	shard_id: ShardId,
 	sender: sr25519::Public,
 	payload: TssMessage<TssId>,
 }
@@ -100,12 +110,13 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	tss_states: HashMap<u64, TssState>,
 	finality_notifications: FinalityNotifications<B>,
 	gossip_engine: GossipEngine<B>,
-	sign_data_receiver: mpsc::Receiver<(u64, u64, u64, [u8; 32])>,
+	sign_data_receiver: mpsc::Receiver<TssRequest>,
 	accountid: PhantomData<A>,
 	_block_number: PhantomData<BN>,
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
+	requests: HashMap<TssId, oneshot::Sender<Option<SignatureData>>>,
 }
 
 impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
@@ -143,6 +154,7 @@ where
 			timeouts: Default::default(),
 			timeout: None,
 			message_map: Default::default(),
+			requests: Default::default(),
 		}
 	}
 
@@ -159,37 +171,34 @@ where
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
 	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
 		log::info!("finality notification for {}", notification.header.hash());
-		let shards = self.runtime.runtime_api().get_shards(notification.header.hash()).unwrap();
+		let shards = self
+			.runtime
+			.runtime_api()
+			.get_shards(notification.header.hash(), public_key.into())
+			.unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
-		let mut assigned_shards = vec![];
-		for (shard_id, shard) in shards {
+		for shard_id in shards {
 			if self.tss_states.get(&shard_id).filter(|val| val.tss.is_initialized()).is_some() {
 				debug!(target: TW_LOG, "Already participating in keygen for shard {}", shard_id);
 				continue;
 			}
-			if !shard.members().contains(&public_key.into()) {
-				debug!(target: TW_LOG, "Not a member of shard {}", shard_id);
-				log::info!("removing message map with shard_id {:?}", shard_id);
-				self.message_map.remove(&shard_id);
-				continue;
-			}
+			let members = self
+				.runtime
+				.runtime_api()
+				.get_shard_members(notification.header.hash(), shard_id)
+				.unwrap()
+				.unwrap();
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
-
-			let members = shard
-				.members()
-				.into_iter()
-				.map(|id| sr25519::Public::from_raw(id.into()))
-				.collect();
+			let is_collector = &members[0] == &public_key.into();
+			let threshold = members.len() as _;
+			let members =
+				members.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();
 			let state =
 				self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
-			state.tss.initialize(members, shard.threshold());
-			state.is_collector = *shard.collector() == public_key.into();
+			state.tss.initialize(members, threshold);
+			state.is_collector = is_collector;
 			self.poll_actions(shard_id, public_key);
 
-			assigned_shards.push(shard_id);
-		}
-
-		for shard_id in assigned_shards {
 			let Some(msg_queue) = self.message_map.remove(&shard_id) else {
 				continue;
 			};
@@ -234,28 +243,18 @@ where
 						ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
 					}
 				},
-				TssAction::Tss(tss_signature, (key_id, schedule_cycle)) => {
+				TssAction::Tss(tss_signature, request_id) => {
 					debug!(target: TW_LOG, "Storing tss signature");
-					self.timeouts.remove(&(shard_id, Some((key_id, schedule_cycle))));
-					if tss_state.is_collector {
-						let tss_signature = tss_signature.to_bytes();
+					self.timeouts.remove(&(shard_id, Some(request_id)));
+					let tss_signature = tss_signature.to_bytes();
 
-						//signing tss_signature with collector sskey
-						let signature = self
-							.kv
-							.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
-							.expect("Failed to sign data with collector key")
-							.expect("Signature returned signing data is null");
+					let response = if tss_state.is_collector { Some(tss_signature) } else { None };
 
-						let sig_data: SignatureData = tss_signature;
-
-						let ocw_sig_data =
-							OCWSigData::new(signature.into(), sig_data, key_id, schedule_cycle);
-
-						ocw_encoded_vec.push((OCW_SIG_KEY, ocw_sig_data.encode()));
+					if let Some(tx) = self.requests.remove(&request_id) {
+						tx.send(response).ok();
 					}
 				},
-				TssAction::Report(offender, hash) => {
+				TssAction::Report(_, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
 
 					// Removed until misbehavior reporting is either implemented via CLI
@@ -353,7 +352,7 @@ where
 					self.on_finality(notification, public_key);
 				},
 				new_sig = self.sign_data_receiver.next().fuse() => {
-					let Some((shard_id, key_id, schedule_cycle, data)) = new_sig else {
+					let Some(TssRequest { request_id, shard_id, data, tx }) = new_sig else {
 						continue;
 					};
 					let Some(public_key) = self.public_key() else {
@@ -362,7 +361,8 @@ where
 					let Some(tss_state) = self.tss_states.get_mut(&shard_id) else {
 						continue;
 					};
-					tss_state.tss.sign((key_id, schedule_cycle), data.to_vec());
+					self.requests.insert(request_id, tx);
+					tss_state.tss.sign(request_id, data.to_vec());
 					self.poll_actions(shard_id, public_key);
 				},
 				gossip = gossips.next().fuse() => {

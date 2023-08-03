@@ -117,14 +117,10 @@ where
 	}
 
 	fn account_id(&self) -> Option<TimeId> {
-		let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
-		if keys.is_empty() {
-			log::warn!(target: TW_LOG, "No time key found, please inject one.");
-			None
-		} else {
-			let id = &keys[0];
-			TimeId::decode(&mut id.as_ref()).ok()
-		}
+		let Some(id) = self.public_key() else {
+			return None;
+		};
+		TimeId::decode(&mut id.as_ref()).ok()
 	}
 
 	/// Returns the public key for the worker if one was set.

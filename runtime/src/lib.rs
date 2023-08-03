@@ -54,7 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::{KeyId, ShardId, TaskId, TimeId};
+use time_primitives::{KeyId, TimeId, ShardId, TaskId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1499,6 +1499,14 @@ impl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule<AccountId>>{
 			TaskSchedule::get_task_via_id(task_id)
 		}
+
+
+		// fn get_offense_count(offender: &TimeId) -> u8 {
+		// 	TesseractSigStorage::get_offense_count(offender)
+		// }
+		// fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
+		// 	TesseractSigStorage::get_offense_count_for_reporter(offender, reporter)
+		// }
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

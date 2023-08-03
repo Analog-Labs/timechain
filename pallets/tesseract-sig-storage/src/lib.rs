@@ -580,6 +580,14 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn get_offense_count(offender: &TimeId) -> u8 {
+			Reports::<T>::iter_prefix(offender)
+				.fold(0u8, |acc, (_, count)| acc.saturating_add(count))
+		}
+
+		pub fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
+			Reports::<T>::get(offender, reporter)
+		}
 
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {

@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::Backend as _;
 use sp_core::offchain::STORAGE_PREFIX;
+use sp_core::sr25519;
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
@@ -126,6 +127,16 @@ where
 		}
 	}
 
+	/// Returns the public key for the worker if one was set.
+	fn public_key(&self) -> Option<sr25519::Public> {
+		let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
+		if keys.is_empty() {
+			log::warn!(target: TW_LOG, "No time key found, please inject one.");
+			return None;
+		}
+		Some(keys[0])
+	}
+
 	/// Encode call response and send data for tss signing process
 	async fn send_for_sign(
 		&mut self,
@@ -135,7 +146,7 @@ where
 		cycle: ScheduleCycle,
 	) -> Result<()> {
 		let data = bincode::serialize(&data).context("Failed to serialize task")?;
-		let (tx, rx) = oneshot::channel::<Option<(Signature, SignatureData)>>();
+		let (tx, rx) = oneshot::channel::<Option<SignatureData>>();
 		self.sign_data_sender
 			.send(TssRequest {
 				request_id: (task_id, cycle),
@@ -145,11 +156,18 @@ where
 			})
 			.await?;
 
-		let (proof, signature_data) =
+		let signature_data =
 			rx.await?.ok_or(anyhow::anyhow!("Node not collector to process information"))?;
+
+		let public_key = self.public_key().expect("No account id found");
+		let proof = self
+			.kv
+			.sr25519_sign(TIME_KEY_TYPE, &public_key, &signature_data)
+			.expect("Failed to sign data with collector key")
+			.expect("Signature returned signing data is null");
 		//send signature_data to ocw
 		println!("received signature from tss {:?}", signature_data);
-		self.update_signature_ocw(proof, signature_data, task_id, cycle);
+		self.update_signature_ocw(proof.into(), signature_data, task_id, cycle);
 		Ok(())
 	}
 	/// Fetches and executes contract call for a given schedule_id

@@ -24,8 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::OCWTSSGroupKeyData, crypto::Signature, ScheduleCycle, ShardId, SignatureData,
-	TaskId, TimeApi, OCW_TSS_KEY, TIME_KEY_TYPE,
+	abstraction::OCWTSSGroupKeyData, ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi,
+	OCW_TSS_KEY, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -36,7 +36,7 @@ pub struct TssRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<Option<(Signature, SignatureData)>>,
+	pub tx: oneshot::Sender<Option<SignatureData>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -116,7 +116,7 @@ pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
 	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
-	requests: HashMap<TssId, oneshot::Sender<Option<(Signature, SignatureData)>>>,
+	requests: HashMap<TssId, oneshot::Sender<Option<SignatureData>>>,
 }
 
 impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
@@ -248,18 +248,7 @@ where
 					self.timeouts.remove(&(shard_id, Some(request_id)));
 					let tss_signature = tss_signature.to_bytes();
 
-					//signing tss_signature node's sskey
-					let signature = self
-						.kv
-						.sr25519_sign(TIME_KEY_TYPE, &public_key, &tss_signature)
-						.expect("Failed to sign data with collector key")
-						.expect("Signature returned signing data is null");
-
-					let response = if tss_state.is_collector {
-						Some((signature.into(), tss_signature))
-					} else {
-						None
-					};
+					let response = if tss_state.is_collector { Some(tss_signature) } else { None };
 
 					if let Some(tx) = self.requests.remove(&request_id) {
 						tx.send(response).ok();

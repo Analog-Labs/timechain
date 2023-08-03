@@ -5,6 +5,7 @@ use crate::{
 use futures::{
 	channel::mpsc::Receiver, future, stream::FuturesUnordered, Future, FutureExt, StreamExt,
 };
+use futures::channel::oneshot;
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
 use sc_consensus_grandpa::{
@@ -21,16 +22,18 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, SetId,
 };
-use sp_core::{crypto::key_types::GRANDPA, sr25519, Pair};
+use sp_core::crypto::key_types::GRANDPA;
 use sp_runtime::traits::Header as HeaderT;
+use time_primitives::{ShardId, TimeId};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{
 	runtime::{AccountId, BlockNumber},
 	Ed25519Keyring, Keystore, LongestChain,
 };
 use time_primitives::{
-	abstraction::TimeTssKey, sharding::Shard, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
+	abstraction::TimeTssKey, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
+use crate::TssRequest;
 
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
 const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
@@ -64,14 +67,14 @@ enum TimeKeyring {
 
 impl TimeKeyring {
 	/// Return key pair.
-	pub fn pair(self) -> sr25519::Pair {
-		sr25519::Pair::from_string(self.to_seed().as_str(), None).unwrap()
-	}
+	// pub fn pair(self) -> sr25519::Pair {
+	// 	sr25519::Pair::from_string(self.to_seed().as_str(), None).unwrap()
+	// }
 
-	/// Return public key.
-	pub fn public(self) -> sr25519::Public {
-		self.pair().public()
-	}
+	// /// Return public key.
+	// pub fn _public(self) -> sr25519::Public {
+	// 	self.pair().public()
+	// }
 
 	/// Return seed string.
 	pub fn to_seed(self) -> String {
@@ -244,12 +247,8 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
-		fn get_shards(&self) -> Vec<(u64, Shard)> {
-			vec![(1, Shard::Three([
-				TimeKeyring::Alice.public().into(),
-				TimeKeyring::Bob.public().into(),
-				TimeKeyring::Charlie.public().into(),
-			]))]
+		fn get_shards(&self, _time_id: TimeId) -> Vec<ShardId> {
+			vec![1]
 		}
 
 	}
@@ -310,7 +309,7 @@ fn initialize_grandpa(net: &mut TimeTestNet) -> impl Future<Output = ()> {
 // Spawns time workers. Returns a future to spawn on the runtime.
 fn initialize_time_worker<API>(
 	net: &mut TimeTestNet,
-	peers: Vec<(usize, &TimeKeyring, API, Receiver<(u64, u64, u64, [u8; 32])>)>,
+	peers: Vec<(usize, &TimeKeyring, API, Receiver<TssRequest>)>,
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
@@ -454,7 +453,13 @@ async fn time_keygen_completes() {
 	// signing some data
 	let message = [1u8; 32];
 	for sender in &mut senders {
-		assert!(sender.try_send((1, 1, 1, message)).is_ok());
+		let (tx, _rx) = oneshot::channel();
+		assert!(sender.try_send(TssRequest{
+			request_id: (1, 1),
+			shard_id: 1,
+			data: message.to_vec(),
+			tx,
+		 }).is_ok());
 	}
 	tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 	assert!(!api.runtime_api().stored_signatures.lock().is_empty());

@@ -378,8 +378,6 @@ pub mod pallet {
 	pub trait ScheduleInterface<AccountId> {
 		fn get_assigned_shard_for_key(key: u64) -> Result<u64, DispatchError>;
 		fn get_assigned_schedule_count(shard: u64) -> usize;
-		// fn get_schedule_via_key(key: u64)
-		// 	-> Result<Option<TaskSchedule<AccountId>>, DispatchError>;
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError>;
 		fn update_completed_task(key: u64);
 	}
@@ -402,11 +400,6 @@ pub mod pallet {
 				})
 				.count()
 		}
-		// fn get_schedule_via_key(
-		// 	key: u64,
-		// ) -> Result<Option<TaskSchedule<T::AccountId>>, DispatchError> {
-		// 	Self::get_task_via_id(key)
-		// }
 
 		fn decrement_schedule_cycle(key: u64) -> Result<(), DispatchError> {
 			ScheduleStorage::<T>::try_mutate(key, |schedule| -> DispatchResult {

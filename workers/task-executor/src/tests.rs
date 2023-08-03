@@ -20,7 +20,7 @@ use substrate_test_runtime_client::{
 	runtime::{AccountId, BlockNumber},
 	TestClientBuilder,
 };
-use time_primitives::{TimeApi,TimeId,ShardId};
+use time_primitives::{ShardId, TimeApi, TimeId};
 
 type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public, BlockNumber>;
 

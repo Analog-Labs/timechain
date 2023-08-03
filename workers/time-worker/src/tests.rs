@@ -1,11 +1,12 @@
+use crate::TssRequest;
 use crate::{
 	communication::time_protocol_name::gossip_protocol_name, start_timeworker_gadget,
 	TimeWorkerParams,
 };
+use futures::channel::oneshot;
 use futures::{
 	channel::mpsc::Receiver, future, stream::FuturesUnordered, Future, FutureExt, StreamExt,
 };
-use futures::channel::oneshot;
 use parking_lot::{Mutex, RwLock};
 use sc_consensus::BoxJustificationImport;
 use sc_consensus_grandpa::{
@@ -24,7 +25,6 @@ use sp_consensus_grandpa::{
 };
 use sp_core::crypto::key_types::GRANDPA;
 use sp_runtime::traits::Header as HeaderT;
-use time_primitives::{ShardId, TimeId};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{
 	runtime::{AccountId, BlockNumber},
@@ -33,7 +33,7 @@ use substrate_test_runtime_client::{
 use time_primitives::{
 	abstraction::TimeTssKey, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
-use crate::TssRequest;
+use time_primitives::{ShardId, TimeId};
 
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
 const TEST_GOSSIP_DURATION: Duration = Duration::from_millis(500);
@@ -454,12 +454,14 @@ async fn time_keygen_completes() {
 	let message = [1u8; 32];
 	for sender in &mut senders {
 		let (tx, _rx) = oneshot::channel();
-		assert!(sender.try_send(TssRequest{
-			request_id: (1, 1),
-			shard_id: 1,
-			data: message.to_vec(),
-			tx,
-		 }).is_ok());
+		assert!(sender
+			.try_send(TssRequest {
+				request_id: (1, 1),
+				shard_id: 1,
+				data: message.to_vec(),
+				tx,
+			})
+			.is_ok());
 	}
 	tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 	assert!(!api.runtime_api().stored_signatures.lock().is_empty());

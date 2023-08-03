@@ -23,7 +23,6 @@ pub struct RunCmd {
 	pub connector_network: Option<String>,
 	/// The node run TSS and task executor.
 	#[clap(long)]
-	#[arg(default_value_t = true)]
 	pub with_chronicle: bool,
 }
 

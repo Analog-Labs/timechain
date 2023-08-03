@@ -54,7 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::ShardId, TaskId, TimeId;
+use time_primitives::{ShardId, TaskId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,

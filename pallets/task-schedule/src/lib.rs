@@ -83,22 +83,26 @@ pub mod pallet {
 			const EMPTY_DATA: () = ();
 
 			let outer_res = storage_ref.mutate(
-				|res: Result<Option<VecDeque<OCWSkdData>>, StorageRetrievalError>| {
+				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
 					match res {
 						Ok(Some(mut data)) => {
 							// iteration batch of 5
 							for _ in 0..5 {
-								if let Some(skd_req) = data.pop_front() {
-									if let Err(err) =
-										Self::ocw_update_schedule_by_key(skd_req.clone())
-									{
-										log::error!(
-											"Error occured while submitting extrinsic {:?}",
-											err
-										);
-									};
-								} else {
+								let Some(data_vec) = data.pop_front() else {
 									break;
+								};
+
+								let Ok(skd_req) = OCWSkdData::decode(&mut data_vec.as_slice()) else {
+									continue;
+								};
+
+								if let Err(err) =
+									Self::ocw_update_schedule_by_key(skd_req.clone())
+								{
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
 								}
 							}
 							Ok(data)

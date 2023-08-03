@@ -146,6 +146,7 @@ pub fn new_full(
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
+	with_chronicle: bool,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -323,6 +324,7 @@ pub fn new_full(
 			None,
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
+		if with_chronicle {
 		// injecting our Worker
 		let time_params = time_worker::TimeWorkerParams {
 			runtime: client.clone(),
@@ -361,6 +363,7 @@ pub fn new_full(
 			None,
 			task_executor::start_task_executor_gadget(task_executor_params),
 		);
+	}
 	}
 
 	network_starter.start_network();

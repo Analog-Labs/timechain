@@ -32,6 +32,7 @@ use time_primitives::{
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
+use time_primitives::SignatureData;
 
 #[derive(Clone)]
 pub struct TaskExecutor<B, BE, R, A, BN> {
@@ -129,7 +130,7 @@ where
 		cycle: u64,
 	) -> Result<()> {
 		let data = bincode::serialize(&data).context("Failed to serialize task")?;
-		let (tx, rx) = oneshot::channel();
+		let (tx, rx) = oneshot::channel::<Option<SignatureData>>();
 		self.sign_data_sender
 			.send(TssRequest {
 				request_id: (task_id, cycle),
@@ -138,8 +139,11 @@ where
 				tx,
 			})
 			.await?;
-		//TODO wait for res and return it
-		// rx.await??;
+
+		
+		let signature_data = rx.await?.ok_or(anyhow::anyhow!("Unable to compute signature"))?;
+		//send signature_data to ocw
+		println!("received signature from tss {:?}", signature_data);
 		Ok(())
 	}
 	/// Fetches and executes contract call for a given schedule_id
@@ -397,9 +401,9 @@ where
 	/// which will be use by offchain worker to send extrinsic
 	fn update_schedule_ocw_storage(
 		&mut self,
-		task_id: TaskId,
-		cycle: ScheduleCycle,
-		status: ScheduleStatus,
+		_task_id: TaskId,
+		_cycle: ScheduleCycle,
+		_status: ScheduleStatus,
 	) {
 		// TODO
 		/*let ocw_skd = OCWSkdData::new(task_id, );
@@ -436,8 +440,8 @@ where
 		task_id: TaskId,
 		cycle: ScheduleCycle,
 		terminate: bool,
-		blocknumber: <B as Block>::Hash,
-		shard_id: u64,
+		_blocknumber: <B as Block>::Hash,
+		_shard_id: u64,
 	) -> bool {
 		let is_collector = false; //self.is_collector(blocknumber, shard_id).unwrap_or(false);
 		if terminate {

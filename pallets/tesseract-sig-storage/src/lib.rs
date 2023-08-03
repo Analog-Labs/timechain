@@ -584,24 +584,21 @@ pub mod pallet {
 			Reports::<T>::iter_prefix(offender)
 				.fold(0u8, |acc, (_, count)| acc.saturating_add(count))
 		}
+
 		pub fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
 			Reports::<T>::get(offender, reporter)
 		}
-		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter()
-				.filter(|(_, s)| s.is_online() && s.network == network)
-				.map(|(id, s)| (id, s.shard))
-				.collect()
-		}
-		pub fn inactive_shards(network: Network) -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter()
-				.filter(|(_, s)| !s.is_online() && s.network == network)
-				.map(|(id, s)| (id, s.shard))
-				.collect()
-		}
+
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
+		}
+
+		pub fn api_get_shards(time_id: TimeId) -> Vec<time_primitives::ShardId> {
+			<TssShards<T>>::iter()
+				.filter(|(_, state)| state.shard.members().contains(&time_id))
+				.map(|(id, _)| id)
+				.collect()
 		}
 
 		fn ocw_get_tss_data() {

@@ -141,7 +141,7 @@ where
 			.await?;
 
 		
-		let signature_data = rx.await?.ok_or(anyhow::anyhow!("Unable to compute signature"))?;
+		let signature_data = rx.await?.ok_or(anyhow::anyhow!("Node not collector to process information"))?;
 		//send signature_data to ocw
 		println!("received signature from tss {:?}", signature_data);
 		Ok(())
@@ -160,7 +160,7 @@ where
 				function_signature,
 				input,
 			} => {
-				log::info!("running schedule_id {:?}", schedule_id);
+				log::info!("running schedule_id {:?} cycle {:?}", schedule_id, schedule.cycle);
 				match self.call_eth_contract(address, function_signature, input).await {
 					Ok(data) => Ok(data),
 					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),

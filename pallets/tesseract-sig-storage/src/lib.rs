@@ -27,7 +27,9 @@ pub mod pallet {
 	use time_primitives::OCWTSSGroupKeyData;
 	use time_primitives::ShardInterface;
 	use time_primitives::OCW_TSS_KEY;
-	use time_primitives::{crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey};
+	use time_primitives::{
+		crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey,
+	};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;

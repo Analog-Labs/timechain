@@ -21,16 +21,16 @@ pub mod pallet {
 	use sp_runtime::traits::AppVerify;
 	use sp_std::collections::vec_deque::VecDeque;
 	use sp_std::vec::Vec;
+	use time_primitives::crypto::Signature;
 	use time_primitives::OCWPayload;
 	use time_primitives::OCWSkdData;
 	use time_primitives::ShardInterface;
-	use time_primitives::OCW_SKD_KEY;
 	use time_primitives::SkdMsg;
-use time_primitives::{
+	use time_primitives::OCW_SKD_KEY;
+	use time_primitives::{
 		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
 		TaskSchedule,
 	};
-	use time_primitives::crypto::Signature;
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
@@ -145,7 +145,7 @@ use time_primitives::{
 			task_id: TaskId,
 			cycle: ScheduleCycle,
 			status: ScheduleStatus,
-			proof: Signature
+			proof: Signature,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
@@ -208,7 +208,12 @@ use time_primitives::{
 			}
 		}
 
-		fn is_collector_and_signed(proof: Signature, task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) -> bool {
+		fn is_collector_and_signed(
+			proof: Signature,
+			task_id: TaskId,
+			cycle: ScheduleCycle,
+			status: ScheduleStatus,
+		) -> bool {
 			let msg = SkdMsg::new(task_id, cycle, status.clone()).encode();
 			let msg_bytes: &[u8] = &msg;
 			let Some(collector) = T::ShardHelper::get_collector(*status.shard_id()) else{

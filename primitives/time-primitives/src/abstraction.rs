@@ -25,8 +25,8 @@ pub enum ScheduleStatus {
 	Err(ShardId, String),
 }
 
-impl ScheduleStatus{
-	pub fn shard_id(&self) -> &ShardId{
+impl ScheduleStatus {
+	pub fn shard_id(&self) -> &ShardId {
 		match self {
 			Self::Ok(shard_id, _) => shard_id,
 			Self::Err(shard_id, _) => shard_id,
@@ -76,7 +76,12 @@ pub struct OCWSkdData {
 }
 
 impl OCWSkdData {
-	pub fn new(task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus, proof: Signature) -> Self {
+	pub fn new(
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		status: ScheduleStatus,
+		proof: Signature,
+	) -> Self {
 		Self { task_id, cycle, status, proof }
 	}
 }

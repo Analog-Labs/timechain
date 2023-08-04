@@ -15,18 +15,17 @@ use sp_core::sr25519;
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
-use time_primitives::ShardId;
 use std::env;
 use std::{
 	collections::{HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 };
-use time_primitives::abstraction::{OCWPayload, OCW_MAX_TRY, SkdMsg};
+use time_primitives::abstraction::{OCWPayload, SkdMsg, OCW_MAX_TRY};
+use time_primitives::ShardId;
 use time_primitives::{
-	Function, FunctionResult, OCWSkdData, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
-	TimeApi, TimeId, TssSignature, OCW_SKD_KEY, TIME_KEY_TYPE,
-	crypto::Signature
+	crypto::Signature, Function, FunctionResult, OCWSkdData, ScheduleCycle, ScheduleStatus, TaskId,
+	TaskSchedule, TimeApi, TimeId, TssSignature, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
@@ -247,14 +246,14 @@ where
 							Err(e) => ScheduleStatus::Err(shard_id, e.to_string()),
 						};
 
-							let msg = SkdMsg::new(task_id, cycle, status.clone()).encode();
+						let msg = SkdMsg::new(task_id, cycle, status.clone()).encode();
 
-							let sig = kv_store
-								.sr25519_sign(TIME_KEY_TYPE, &public_key, &msg)
-								.expect("Failed to sign schedule with collector key")
-								.expect("Signature returned signing tss key is null");
+						let sig = kv_store
+							.sr25519_sign(TIME_KEY_TYPE, &public_key, &msg)
+							.expect("Failed to sign schedule with collector key")
+							.expect("Signature returned signing tss key is null");
 
-							update_schedule_ocw(task_id, cycle, status, sig.into(), ocw_storage);
+						update_schedule_ocw(task_id, cycle, status, sig.into(), ocw_storage);
 					});
 				}
 			}

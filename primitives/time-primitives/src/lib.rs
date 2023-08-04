@@ -11,17 +11,15 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
-mod abstraction;
+pub mod abstraction;
 
 pub use crate::abstraction::*;
 
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
-pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"psig");
-pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"pskd");
+pub const OCW_KEY_TYPE: sp_application_crypto::KeyTypeId =
+	sp_application_crypto::KeyTypeId(*b"ocwk");
 pub const OCW_TSS_KEY: &[u8; 24] = b"pallet_sig::offchain_tss";
 pub const OCW_SKD_KEY: &[u8; 24] = b"pallet_skd::offchain_skd";
 
@@ -48,6 +46,30 @@ sp_api::decl_runtime_apis! {
 pub mod crypto {
 	use sp_application_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
+}
+
+pub mod crypto_ocw {
+	use sp_core::sr25519::Signature as Sr25519Signature;
+	use sp_runtime::{
+		app_crypto::{app_crypto, sr25519},
+		traits::Verify,
+		MultiSignature, MultiSigner,
+	};
+	app_crypto!(sr25519, crate::OCW_KEY_TYPE);
+	pub struct SigAuthId;
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
+		for SigAuthId
+	{
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
 }
 
 /// Used to enforce one network per shard

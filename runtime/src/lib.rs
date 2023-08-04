@@ -1050,6 +1050,7 @@ parameter_types! {
 }
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
+	type AuthorityId = time_primitives::crypto_ocw::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
 	type TaskScheduler = TaskSchedule;
@@ -1161,6 +1162,7 @@ parameter_types! {
 }
 
 impl task_schedule::Config for Runtime {
+	type AuthorityId = time_primitives::crypto_ocw::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
 }

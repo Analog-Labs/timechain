@@ -12,10 +12,22 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
+	use sp_runtime::offchain::storage::StorageValueRef;
 	use time_primitives::{
 		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
 		TaskSchedule,
 	};
+	use sp_std::collections::vec_deque::VecDeque;
+	use time_primitives::OCW_SKD_KEY;
+	use time_primitives::OCWSkdData;
+	use time_primitives::OCWPayload;
+	use sp_runtime::offchain::storage::StorageRetrievalError;
+	use sp_runtime::offchain::storage::MutateStorageError;
+	use frame_system::offchain::Signer;
+	use frame_system::offchain::CreateSignedTransaction;
+	use frame_system::offchain::AppCrypto;
+	use frame_system::offchain::SendSignedTransaction;
+
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
@@ -34,7 +46,8 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = sp_runtime::AccountId32> {
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 	}
@@ -88,6 +101,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Invalid cycle
 		InvalidCycle,
+		// Failed to send offchain transaction
+		OffchainTxFailed,
 	}
 
 	#[pallet::call]
@@ -183,6 +198,7 @@ pub mod pallet {
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
+		}
 		fn ocw_get_skd_data() {
 			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
 
@@ -226,12 +242,9 @@ pub mod pallet {
 				Ok(_) => {},
 			}
 
-			for tx in tx_requests{
+			for tx in tx_requests {
 				if let Err(err) = Self::ocw_update_schedule_by_key(tx) {
-					log::error!(
-						"Error occured while submitting extrinsic {:?}",
-						err
-					);
+					log::error!("Error occured while submitting extrinsic {:?}", err);
 				}
 			}
 		}
@@ -240,19 +253,19 @@ pub mod pallet {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 
 			if let Some((acc, res)) =
-				signer.send_signed_transaction(|_account| Call::update_schedule {
+				signer.send_signed_transaction(|_account| Call::submit_result {
 					task_id: data.task_id,
 					cycle: data.cycle,
 					status: data.status.clone(),
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
-					return Err(Error::OffchainSignedTxFailed);
+					return Err(Error::OffchainTxFailed);
 				} else {
 					log::info!("success: offchain_signed_tx: tx sent: {:?}", acc.id);
-					return Ok(());
 				}
 			}
+			return Ok(());
 		}
 	}
 

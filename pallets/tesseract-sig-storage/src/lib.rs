@@ -12,12 +12,21 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_system::offchain::AppCrypto;
+	use frame_system::offchain::CreateSignedTransaction;
+	use frame_system::offchain::SendSignedTransaction;
+	use frame_system::offchain::Signer;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::offchain::storage::MutateStorageError;
+	use sp_runtime::offchain::storage::StorageRetrievalError;
+	use sp_runtime::offchain::storage::StorageValueRef;
 	use sp_runtime::traits::AppVerify;
+	use sp_std::collections::vec_deque::VecDeque;
 	use sp_std::vec::Vec;
-	use time_primitives::{
-		crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey,
-	};
+	use time_primitives::OCWPayload;
+	use time_primitives::OCWTSSGroupKeyData;
+	use time_primitives::OCW_TSS_KEY;
+	use time_primitives::{crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
@@ -28,8 +37,16 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			Self::ocw_get_tss_data();
+		}
+	}
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: ScheduleInterface;
@@ -76,6 +93,10 @@ pub mod pallet {
 		InvalidNumberOfShardMembers,
 		/// Invalid validation signature
 		InvalidValidationSignature,
+		/// offchain tx failed
+		OffchainTxFailed,
+		// no account for ocw found
+		NoLocalAcctForSignedTx,
 	}
 
 	#[pallet::call]
@@ -208,12 +229,12 @@ pub mod pallet {
 			if let Some((acc, res)) =
 				signer.send_signed_transaction(|_account| Call::submit_tss_group_key {
 					shard_id: data.shard_id,
-					group_key: data.group_key,
+					public_key: data.group_key,
 					proof: data.proof.clone(),
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_tss_tx: tx sent: {:?}", acc.id);
-					return Err(Error::OffchainSignedTxFailed);
+					return Err(Error::OffchainTxFailed);
 				} else {
 					return Ok(());
 				}

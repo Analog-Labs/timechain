@@ -54,7 +54,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::{ShardId, TaskId, TimeId};
+use time_primitives::{ScheduleCycle, ShardId, TaskId, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1483,7 +1483,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
+	impl time_primitives::TimeApi<Block>  for Runtime {
 		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>> {
 			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
 		}
@@ -1492,11 +1492,11 @@ impl_runtime_apis! {
 			TesseractSigStorage::api_get_shards(time_id)
 		}
 
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
 			TaskSchedule::api_get_shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule<AccountId>>{
+		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule>{
 			TaskSchedule::get_task_via_id(task_id)
 		}
 	}

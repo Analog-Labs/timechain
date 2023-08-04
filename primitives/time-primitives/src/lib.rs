@@ -5,7 +5,6 @@ pub mod abstraction;
 pub mod sharding;
 
 pub use abstraction::{ScheduleStatus, TaskSchedule};
-use codec::Codec;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	MultiSignature,
@@ -19,7 +18,6 @@ pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"psig");
 pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"pskd");
-pub const OCW_SIG_KEY: &[u8; 24] = b"pallet_sig::offchain_sig";
 pub const OCW_TSS_KEY: &[u8; 24] = b"pallet_sig::offchain_tss";
 pub const OCW_SKD_KEY: &[u8; 24] = b"pallet_skd::offchain_skd";
 
@@ -29,21 +27,16 @@ pub type SignatureData = [u8; 64];
 pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type TaskId = u64;
-pub type KeyId = u64;
 pub type ShardId = u64;
 pub type ScheduleCycle = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi<AccountId, BlockNumber>
-	where
-	AccountId: Codec,
-	BlockNumber: Codec,
-	{
+	pub trait TimeApi {
 		fn get_shards(time_id: TimeId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>>;
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
-		fn get_task(task_id: TaskId) -> Option<TaskSchedule<AccountId>>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)>;
+		fn get_task(task_id: TaskId) -> Option<TaskSchedule>;
 	}
 }
 

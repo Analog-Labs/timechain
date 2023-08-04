@@ -327,15 +327,12 @@ pub fn new_full(
 		if !without_chronicle {
 			// injecting our Worker
 			let time_params = time_worker::TimeWorkerParams {
+				_block: PhantomData,
 				runtime: client.clone(),
-				client: client.clone(),
 				backend: backend.clone(),
 				gossip_network: network,
 				kv: keystore_container.keystore(),
-				_block: PhantomData::default(),
 				sign_data_receiver,
-				accountid: PhantomData,
-				_block_number: PhantomData,
 				sync_service,
 			};
 
@@ -347,13 +344,11 @@ pub fn new_full(
 
 			// start the executor for one-time task
 			let task_executor_params = task_executor::TaskExecutorParams {
+				_block: PhantomData,
 				runtime: client,
 				backend,
 				kv: keystore_container.keystore(),
-				_block: PhantomData::default(),
 				sign_data_sender,
-				account_id: PhantomData,
-				_block_number: PhantomData,
 				connector_url,
 				connector_blockchain,
 				connector_network,

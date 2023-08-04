@@ -146,7 +146,10 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>>
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+	{
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
@@ -177,7 +180,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_schedule)]
 	pub type ScheduleStorage<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, TaskSchedule<T::AccountId>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TaskId, TaskSchedule, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_task_cycle)]
+	pub type TaskCycle<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, ScheduleCycle, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_task_result)]
@@ -237,6 +245,8 @@ pub mod pallet {
 		TaskAssigned,
 		/// Task Metadata is not registered
 		TaskMetadataNotRegistered,
+		/// Invalid cycle
+		InvalidCycle,
 	}
 
 	#[pallet::call]
@@ -276,7 +286,8 @@ pub mod pallet {
 					network: schedule.network,
 					function: schedule.function,
 					cycle: schedule.cycle,
-					frequency: schedule.frequency,
+					start: schedule.start,
+					period: schedule.period,
 					hash: schedule.hash,
 				},
 			);
@@ -295,6 +306,8 @@ pub mod pallet {
 			// proof: Signature, TODO: add proof to authenticate
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
+			TaskCycle::<T>::insert(task_id, cycle + 1);
 			TaskResults::<T>::insert(task_id, cycle, status);
 			Self::deposit_event(Event::ScheduleUpdated(task_id, cycle));
 			Ok(())
@@ -316,12 +329,14 @@ pub mod pallet {
 			Ok(data_list)
 		}
 
-		pub fn get_task_via_id(task_id: TaskId) -> Option<TaskSchedule<T::AccountId>> {
+		pub fn get_task_via_id(task_id: TaskId) -> Option<TaskSchedule> {
 			ScheduleStorage::<T>::get(task_id)
 		}
 
-		pub fn api_get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
-			ShardTasks::<T>::iter_prefix(shard_id).map(|(id, _)| id).collect::<Vec<_>>()
+		pub fn api_get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
+			ShardTasks::<T>::iter_prefix(shard_id)
+				.map(|(id, _)| (id, TaskCycle::<T>::get(id)))
+				.collect::<Vec<_>>()
 		}
 
 		fn ocw_update_schedule_by_key(data: OCWSkdData) -> Result<(), Error<T>> {

@@ -1,11 +1,11 @@
 #![allow(clippy::type_complexity)]
-use crate::{communication::validator::topic, Client, WorkerParams, TW_LOG};
+use crate::{communication::validator::topic, TW_LOG};
 use futures::{
 	channel::{mpsc, oneshot},
 	FutureExt, StreamExt,
 };
 use log::{debug, error, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_client_api::{Backend, BlockchainEvents};
 use sc_network_gossip::GossipEngine;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
@@ -36,7 +36,7 @@ pub struct TssRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<Option<SignatureData>>,
+	pub tx: oneshot::Sender<SignatureData>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -73,15 +73,11 @@ impl TimeMessage {
 
 struct TssState {
 	tss: Tss<TssId, sr25519::Public>,
-	is_collector: bool,
 }
 
 impl TssState {
 	fn new(public: sr25519::Public) -> Self {
-		Self {
-			tss: Tss::new(public),
-			is_collector: false,
-		}
+		Self { tss: Tss::new(public) }
 	}
 }
 
@@ -101,56 +97,54 @@ fn sleep_until(deadline: Instant) -> Pin<Box<Sleep>> {
 	Box::pin(tokio::time::sleep_until(deadline.into()))
 }
 
-/// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, A, BN, C, R, BE> {
-	_client: Arc<C>,
-	backend: Arc<BE>,
-	runtime: Arc<R>,
-	kv: KeystorePtr,
-	tss_states: HashMap<u64, TssState>,
-	finality_notifications: FinalityNotifications<B>,
-	gossip_engine: GossipEngine<B>,
-	sign_data_receiver: mpsc::Receiver<TssRequest>,
-	accountid: PhantomData<A>,
-	_block_number: PhantomData<BN>,
-	timeouts: HashMap<(u64, Option<TssId>), TssTimeout>,
-	timeout: Option<Pin<Box<Sleep>>>,
-	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
-	requests: HashMap<TssId, oneshot::Sender<Option<SignatureData>>>,
+pub struct WorkerParams<B: Block, BE, R> {
+	pub _block: PhantomData<B>,
+	pub backend: Arc<BE>,
+	pub runtime: Arc<R>,
+	pub gossip_engine: GossipEngine<B>,
+	pub kv: KeystorePtr,
+	pub sign_data_receiver: mpsc::Receiver<TssRequest>,
 }
 
-impl<B, A, BN, C, R, BE> TimeWorker<B, A, BN, C, R, BE>
+/// Our structure, which holds refs to everything we need to operate
+pub struct TimeWorker<B: Block, BE, R> {
+	_block: PhantomData<B>,
+	backend: Arc<BE>,
+	runtime: Arc<R>,
+	gossip_engine: GossipEngine<B>,
+	kv: KeystorePtr,
+	sign_data_receiver: mpsc::Receiver<TssRequest>,
+	tss_states: HashMap<ShardId, TssState>,
+	timeouts: HashMap<(ShardId, Option<TssId>), TssTimeout>,
+	timeout: Option<Pin<Box<Sleep>>>,
+	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
+	requests: HashMap<TssId, oneshot::Sender<SignatureData>>,
+}
+
+impl<B, BE, R> TimeWorker<B, BE, R>
 where
 	B: Block + 'static,
-	A: sp_runtime::codec::Codec + 'static,
-	BN: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
-	C: Client<B, BE> + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A, BN>,
+	R: BlockchainEvents<B> + ProvideRuntimeApi<B> + 'static,
+	R::Api: TimeApi<B>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, A, BN, C, R, BE>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, BE, R>) -> Self {
 		let WorkerParams {
-			client,
+			_block,
 			backend,
 			runtime,
 			gossip_engine,
 			kv,
 			sign_data_receiver,
-			accountid,
-			_block_number,
 		} = worker_params;
 		TimeWorker {
-			finality_notifications: client.finality_notification_stream(),
-			_client: client,
+			_block,
 			backend,
 			runtime,
 			gossip_engine,
 			kv,
 			sign_data_receiver,
 			tss_states: Default::default(),
-			accountid,
-			_block_number,
 			timeouts: Default::default(),
 			timeout: None,
 			message_map: Default::default(),
@@ -169,34 +163,24 @@ where
 	}
 
 	/// On each grandpa finality we're initiating gossip to all other authorities to acknowledge
-	fn on_finality(&mut self, notification: FinalityNotification<B>, public_key: sr25519::Public) {
-		log::info!("finality notification for {}", notification.header.hash());
-		let shards = self
-			.runtime
-			.runtime_api()
-			.get_shards(notification.header.hash(), public_key.into())
-			.unwrap();
+	fn on_finality(&mut self, block: <B as Block>::Hash, public_key: sr25519::Public) {
+		log::info!("finality notification for {}", block);
+		let shards = self.runtime.runtime_api().get_shards(block, public_key.into()).unwrap();
 		debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for shard_id in shards {
 			if self.tss_states.get(&shard_id).filter(|val| val.tss.is_initialized()).is_some() {
 				debug!(target: TW_LOG, "Already participating in keygen for shard {}", shard_id);
 				continue;
 			}
-			let members = self
-				.runtime
-				.runtime_api()
-				.get_shard_members(notification.header.hash(), shard_id)
-				.unwrap()
-				.unwrap();
+			let members =
+				self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap().unwrap();
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
-			let is_collector = members[0] == public_key.into();
 			let threshold = members.len() as _;
 			let members =
 				members.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();
 			let state =
 				self.tss_states.entry(shard_id).or_insert_with(|| TssState::new(public_key));
 			state.tss.initialize(members, threshold);
-			state.is_collector = is_collector;
 			self.poll_actions(shard_id, public_key);
 
 			let Some(msg_queue) = self.message_map.remove(&shard_id) else {
@@ -231,48 +215,26 @@ where
 					log::info!("New group key provided: {:?} for id: {}", data_bytes, shard_id);
 					self.timeouts.remove(&(shard_id, None));
 					//save in offchain storage
-					if tss_state.is_collector {
-						let signature = self
-							.kv
-							.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
-							.expect("Failed to sign tss key with collector key")
-							.expect("Signature returned signing tss key is null");
+					let signature = self
+						.kv
+						.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
+						.expect("Failed to sign tss key with collector key")
+						.expect("Signature returned signing tss key is null");
 
-						let ocw_gk_data: OCWTSSGroupKeyData =
-							OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
-						ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
-					}
+					let ocw_gk_data: OCWTSSGroupKeyData =
+						OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
+					ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
 				},
 				TssAction::Tss(tss_signature, request_id) => {
 					debug!(target: TW_LOG, "Storing tss signature");
 					self.timeouts.remove(&(shard_id, Some(request_id)));
 					let tss_signature = tss_signature.to_bytes();
-
-					let response = if tss_state.is_collector { Some(tss_signature) } else { None };
-
 					if let Some(tx) = self.requests.remove(&request_id) {
-						tx.send(response).ok();
+						tx.send(tss_signature).ok();
 					}
 				},
 				TssAction::Report(_, hash) => {
 					self.timeouts.remove(&(shard_id, hash));
-
-					// Removed until misbehavior reporting is either implemented via CLI
-					// or re-implemented for OCW
-					// if tss_state.is_collector {
-					// 	let Some(proof) = self.kv.sr25519_sign(TIME_KEY_TYPE, &public_key, &offender).unwrap() else {
-					// 	error!(
-					// 		target: TW_LOG,
-					// 		"Failed to create proof for offence report submission"
-					// 	);
-					// 	return;
-					// };
-
-					// 	let ocw_report_data =
-					// 		OCWReportData::new(shard_id, offender.into(), proof.into());
-
-					// 	ocw_encoded_vec.push((OCW_REP_KEY, ocw_report_data.encode()));
-					// }
 				},
 				TssAction::Timeout(timeout, hash) => {
 					let timeout = TssTimeout::new(timeout);
@@ -284,10 +246,8 @@ where
 			}
 		}
 
-		if tss_state.is_collector {
-			for (key, data) in ocw_encoded_vec {
-				self.add_item_in_offchain_storage(data, key);
-			}
+		for (key, data) in ocw_encoded_vec {
+			self.add_item_in_offchain_storage(data, key);
 		}
 	}
 
@@ -321,6 +281,7 @@ where
 	/// topics
 	pub(crate) async fn run(&mut self) {
 		let mut gossips = self.gossip_engine.messages_for(topic::<B>());
+		let mut finality_notifications = self.runtime.finality_notification_stream();
 		loop {
 			let timeout = futures::future::poll_fn(|cx| {
 				if let Some(timeout) = self.timeout.as_mut() {
@@ -338,7 +299,7 @@ where
 					);
 					return;
 				},
-				notification = self.finality_notifications.next().fuse() => {
+				notification = finality_notifications.next().fuse() => {
 					let Some(notification) = notification else {
 						debug!(
 							target: TW_LOG,
@@ -349,7 +310,7 @@ where
 					let Some(public_key) = self.public_key() else {
 						continue;
 					};
-					self.on_finality(notification, public_key);
+					self.on_finality(notification.header.hash(), public_key);
 				},
 				new_sig = self.sign_data_receiver.next().fuse() => {
 					let Some(TssRequest { request_id, shard_id, data, tx }) = new_sig else {

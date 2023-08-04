@@ -62,7 +62,7 @@ pub mod pallet {
 		abstraction::OCWTSSGroupKeyData,
 		crypto::Signature,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
-		KeyId, ScheduleCycle, ShardId as ShardIdType, TimeId, OCW_TSS_KEY,
+		ShardId, TaskId, TimeId, OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -131,7 +131,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn shard_id)]
 	/// Counter for creating unique shard_ids during on-chain creation
-	pub type ShardId<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type ShardIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// Network for which shards can be assigned tasks
 	#[pallet::storage]
@@ -181,45 +181,30 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The event data for stored signature
-		/// the signature id that uniquely identify the signature
-		SignatureStored(KeyId, ScheduleCycle),
-
 		/// New group key submitted to runtime
 		/// .0 - ShardId
 		/// .1 - group key bytes
-		NewTssGroupKey(u64, [u8; 33]),
+		NewTssGroupKey(ShardId, [u8; 33]),
 
 		/// Active has been registered with new Id
 		/// Eligible for tasks from the Network
-		/// .0 ShardId
-		/// .1 Network
-		ShardRegistered(u64, Network),
-
-		/// Task execution timed out for task
-		TaskExecutionTimeout(KeyId),
+		ShardRegistered(ShardId, Network),
 
 		/// Shard went offline due to committed offenses preventing threshold
 		/// or task execution timeout(s) by collector
-		/// .0 ShardId
-		ShardOffline(u64),
+		ShardOffline(ShardId),
 
 		/// Offense reported by reporter
 		/// .0 ShardId
 		/// .1 Offender
 		/// .2 Reporter
-		OffenseReported(u64, TimeId, TimeId),
+		OffenseReported(ShardId, TimeId, TimeId),
 
 		/// Chronicle has been registered
-		/// .0 TimeId
-		/// .1 Validator's AccountId
 		ChronicleRegistered(TimeId, T::AccountId),
 
 		/// Task claimed for shard
-		/// .0 Network
-		/// .1 ShardId
-		/// .2 TaskId
-		TaskClaimedForShard(Network, u64, u64),
+		TaskClaimedForShard(Network, ShardId, TaskId),
 	}
 
 	#[pallet::error]
@@ -310,7 +295,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
 		pub fn submit_tss_group_key(
 			origin: OriginFor<T>,
-			shard_id: ShardIdType,
+			shard_id: ShardId,
 			group_key: [u8; 33],
 			proof: Signature,
 		) -> DispatchResultWithPostInfo {
@@ -372,12 +357,12 @@ pub mod pallet {
 			}
 			let shard = ShardState::new::<T>(members.clone(), collector_index, net)?;
 			// get unused ShardId from storage
-			let shard_id = <ShardId<T>>::get();
+			let shard_id = <ShardIdCounter<T>>::get();
 			// compute next ShardId before putting it in storage
 			let next_shard_id = shard_id.checked_add(1u64).ok_or(Error::<T>::ShardIdOverflow)?;
 			<ShardNetwork<T>>::insert(net, shard_id, ());
 			<TssShards<T>>::insert(shard_id, shard);
-			<ShardId<T>>::put(next_shard_id);
+			<ShardIdCounter<T>>::put(next_shard_id);
 			Self::deposit_event(Event::ShardRegistered(shard_id, net));
 			Ok(())
 		}
@@ -529,7 +514,7 @@ pub mod pallet {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
 		}
 
-		pub fn api_get_shards(time_id: TimeId) -> Vec<time_primitives::ShardId> {
+		pub fn api_get_shards(time_id: TimeId) -> Vec<ShardId> {
 			<TssShards<T>>::iter()
 				.filter(|(_, state)| state.shard.members().contains(&time_id))
 				.map(|(id, _)| id)

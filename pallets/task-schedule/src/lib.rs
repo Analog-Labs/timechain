@@ -13,7 +13,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, ScheduleCycle, ScheduleInput, ScheduleStatus, ShardId, TaskId, TaskSchedule,
+		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
+		TaskSchedule,
 	};
 
 	pub trait WeightInfo {
@@ -32,34 +33,31 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn unassigned_tasks)]
 	pub type UnassignedTasks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_tasks)]
 	pub type ShardTasks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_task_id_counter)]
+	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type NetworkShards<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, ShardId, (), OptionQuery>;
+
+	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_task_definition)]
 	pub type Tasks<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, TaskSchedule, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_task_cycle)]
 	pub type TaskCycle<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, ScheduleCycle, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn task_shard)]
-	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn get_task_result)]
 	pub type TaskResults<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -107,7 +105,7 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id + 1);
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_tasks();
+			Self::schedule_tasks(schedule.network);
 			Ok(())
 		}
 
@@ -124,6 +122,12 @@ pub mod pallet {
 			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycle::<T>::insert(task_id, cycle + 1);
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
+			if Self::is_complete(task_id) {
+				if let Some(shard_id) = TaskShard::<T>::get(task_id) {
+					ShardTasks::<T>::remove(shard_id, task_id);
+				}
+				TaskShard::<T>::remove(task_id);
+			}
 			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
 			Ok(())
 		}
@@ -150,8 +154,47 @@ pub mod pallet {
 			}
 		}
 
-		fn schedule_tasks() {
-			todo!()
+		fn shard_task_count(shard_id: ShardId) -> usize {
+			ShardTasks::<T>::iter_prefix(shard_id).count()
+		}
+
+		fn schedule_tasks(network: Network) {
+			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
+				let shard = NetworkShards::<T>::iter_prefix(network)
+					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
+					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
+						if task_count < task_count2 {
+							(shard_id, task_count)
+						} else {
+							(shard_id2, task_count2)
+						}
+					});
+				let Some((shard_id, _)) = shard else {
+					break;
+				};
+				ShardTasks::<T>::insert(shard_id, task_id, ());
+				TaskShard::<T>::insert(task_id, shard_id);
+				UnassignedTasks::<T>::remove(network, task_id);
+			}
+		}
+	}
+
+	impl<T: Config> ScheduleInterface for Pallet<T> {
+		fn shard_online(shard_id: ShardId, network: Network) {
+			NetworkShards::<T>::insert(network, shard_id, ());
+			Self::schedule_tasks(network);
+		}
+
+		fn shard_offline(shard_id: ShardId, network: Network) {
+			NetworkShards::<T>::remove(network, shard_id);
+			ShardTasks::<T>::iter_prefix(shard_id).for_each(|(task_id, _)| {
+				ShardTasks::<T>::remove(shard_id, task_id);
+				TaskShard::<T>::remove(task_id);
+				if !Self::is_complete(task_id) {
+					UnassignedTasks::<T>::insert(network, task_id, ());
+				}
+			});
+			Self::schedule_tasks(network);
 		}
 	}
 }

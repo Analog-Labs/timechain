@@ -1052,6 +1052,7 @@ parameter_types! {
 impl pallet_tesseract_sig_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
+	type TaskScheduler = TaskSchedule;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

@@ -57,3 +57,8 @@ pub enum Network {
 	Ethereum,
 	Astar,
 }
+
+pub trait ScheduleInterface {
+	fn shard_online(shard_id: ShardId, network: Network);
+	fn shard_offline(shard_id: ShardId, network: Network);
+}

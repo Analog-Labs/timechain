@@ -23,9 +23,8 @@ use std::{
 };
 use time_primitives::ShardId;
 use time_primitives::{
-	abstraction::{Function, FunctionResult, OCWSkdData, ScheduleStatus},
-	ScheduleCycle, SignatureData, TaskId, TaskSchedule, TimeApi, TimeId, OCW_SKD_KEY,
-	TIME_KEY_TYPE,
+	Function, FunctionResult, OCWSkdData, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
+	TimeApi, TimeId, TssSignature, OCW_SKD_KEY, TIME_KEY_TYPE,
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
@@ -71,7 +70,7 @@ impl Task {
 		task_id: TaskId,
 		cycle: ScheduleCycle,
 		result: &FunctionResult,
-	) -> Result<SignatureData> {
+	) -> Result<TssSignature> {
 		let data = bincode::serialize(&result).context("Failed to serialize task")?;
 		let (tx, rx) = oneshot::channel();
 		self.tss
@@ -144,7 +143,7 @@ impl Task {
 		task_id: TaskId,
 		cycle: ScheduleCycle,
 		task: TaskSchedule,
-	) -> Result<SignatureData> {
+	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
 		self.submit_to_timegraph(target_block, &result, task.hash.clone()).await?;

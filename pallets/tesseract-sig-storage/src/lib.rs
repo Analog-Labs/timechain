@@ -15,7 +15,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::AppVerify;
 	use sp_std::vec::Vec;
-	use time_primitives::{crypto::Signature, Network, ShardId, TimeId};
+	use time_primitives::{crypto::Signature, Network, ScheduleInterface, ShardId, TimeId};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
@@ -30,6 +30,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type TaskScheduler: ScheduleInterface;
 	}
 
 	#[pallet::storage]
@@ -113,6 +114,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let collector = ShardCollector::<T>::get(shard_id).ok_or(Error::<T>::InvalidShardId)?;
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::InvalidShardId)?;
 			ensure!(
 				ShardPublicKey::<T>::get(shard_id).is_none(),
 				Error::<T>::PublicKeyAlreadyRegistered
@@ -124,6 +126,7 @@ pub mod pallet {
 			);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			Self::deposit_event(Event::ShardPublicKey(shard_id, public_key));
+			T::TaskScheduler::shard_online(shard_id, network);
 			Ok(())
 		}
 	}

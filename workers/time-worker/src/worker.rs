@@ -189,7 +189,7 @@ where
 				.unwrap()
 				.unwrap();
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
-			let is_collector = &members[0] == &public_key.into();
+			let is_collector = members[0] == public_key.into();
 			let threshold = members.len() as _;
 			let members =
 				members.into_iter().map(|id| sr25519::Public::from_raw(id.into())).collect();

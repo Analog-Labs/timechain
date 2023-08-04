@@ -59,7 +59,7 @@ where
 pub async fn start_task_executor_gadget<B, BE, R>(params: TaskExecutorParams<B, BE, R>)
 where
 	B: Block,
-	BE: Backend<B>,
+	BE: Backend<B> + 'static,
 	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 {

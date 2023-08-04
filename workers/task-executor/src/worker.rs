@@ -7,7 +7,7 @@ use futures::{SinkExt, StreamExt};
 use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use reqwest::header;
 use rosetta_client::{create_wallet, EthereumExt, Wallet};
-use sc_client_api::{Backend, BlockchainEvents, backend};
+use sc_client_api::{backend, Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_core::offchain::STORAGE_PREFIX;
@@ -15,13 +15,13 @@ use sp_core::sr25519;
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
-use time_primitives::abstraction::{OCWPayload, OCW_MAX_TRY};
 use std::env;
 use std::{
 	collections::{HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 };
+use time_primitives::abstraction::{OCWPayload, OCW_MAX_TRY};
 use time_primitives::ShardId;
 use time_primitives::{
 	Function, FunctionResult, OCWSkdData, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
@@ -165,7 +165,7 @@ pub struct TaskExecutor<B: Block, BE, R> {
 impl<B, BE, R> TaskExecutor<B, BE, R>
 where
 	B: Block,
-	BE: Backend<B>,
+	BE: Backend<B> + 'static,
 	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 {
@@ -211,57 +211,11 @@ where
 		Some(keys[0])
 	}
 
-	fn update_schedule_ocw(&self, task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) {
-		let skd_data = OCWSkdData::new(task_id, cycle, status);
-		let payload = OCWPayload::OCWSkd(skd_data);
-		self.update_ocw_storage(OCW_SKD_KEY, payload, 0);
-	}	
-
-	fn update_ocw_storage(&self, ocw_key: &[u8], payload: OCWPayload, retry_num: u8) {
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
-
-			let mut ocw_vec = match old_value.clone() {
-				Some(mut data) => {
-					//remove this unwrap
-					let mut bytes: &[u8] = &mut data;
-					let inner_data: VecDeque<OCWPayload> = Decode::decode(&mut bytes).unwrap();
-					inner_data
-				},
-				None => Default::default(),
-			};
-
-			ocw_vec.push_back(payload.clone());
-			let encoded_data = Encode::encode(&ocw_vec);
-
-			let is_data_stored = ocw_storage.compare_and_set(
-				STORAGE_PREFIX,
-				ocw_key,
-				old_value.as_deref(),
-				&encoded_data,
-			);
-
-			if !is_data_stored{
-				if retry_num < OCW_MAX_TRY{
-				let retry_num = retry_num + 1;
-				self.update_ocw_storage(ocw_key, payload, retry_num)
-				}else{
-					log::error!("Failed to store data in ocw_storage");
-				}
-			}else{
-				log::info!("tss key stored in ocw");
-			}
-		} else {
-			log::error!("cant get offchain storage");
-		};
-	}
-
 	async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
 		};
 
-		
 		let status = self.wallet.status().await?;
 		let block_height = status.index;
 
@@ -277,7 +231,10 @@ where
 				if block_height >= task_descr.trigger(cycle) {
 					self.running_tasks.insert(task_id);
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
+					let backend = self.backend.clone();
 					tokio::task::spawn(async move {
+						let ocw_storage = backend.offchain_storage();
+
 						let status = match task
 							.execute(block_height, shard_id, task_id, cycle, task_descr)
 							.await
@@ -285,9 +242,10 @@ where
 							Ok(signature) => ScheduleStatus::Ok(shard_id, signature),
 							Err(e) => ScheduleStatus::Err(e.to_string()),
 						};
-						// self.update_schedule_ocw(task_id, cycle, status);
+
+						update_schedule_ocw(task_id, cycle, status, ocw_storage);
 					});
-					self.update_schedule_ocw(1, 1, ScheduleStatus::Ok(1, [0u8; 64]));
+					// self.update_schedule_ocw(1, 1, ScheduleStatus::Ok(1, [0u8; 64]));
 				}
 			}
 		}
@@ -301,5 +259,57 @@ where
 				log::error!("error processing tasks: {}", err);
 			}
 		}
+	}
+}
+
+fn update_schedule_ocw<B>(
+	task_id: TaskId,
+	cycle: ScheduleCycle,
+	status: ScheduleStatus,
+	storage: Option<B>,
+) where
+	B: OffchainStorage,
+{
+	let skd_data = OCWSkdData::new(task_id, cycle, status);
+	let payload = OCWPayload::OCWSkd(skd_data);
+	update_ocw_storage(OCW_SKD_KEY, payload, 0, storage);
+}
+
+fn update_ocw_storage<B>(ocw_key: &[u8], payload: OCWPayload, retry_num: u8, ocw_storage: Option<B>)
+where
+	B: OffchainStorage,
+{
+	let Some(mut ocw_storage) = ocw_storage else{
+			log::error!("cant get offchain storage");
+			return;
+		};
+	// if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+	let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
+
+	let mut ocw_vec = match old_value.clone() {
+		Some(mut data) => {
+			//remove this unwrap
+			let mut bytes: &[u8] = &mut data;
+			let inner_data: VecDeque<OCWPayload> = Decode::decode(&mut bytes).unwrap();
+			inner_data
+		},
+		None => Default::default(),
+	};
+
+	ocw_vec.push_back(payload.clone());
+	let encoded_data = Encode::encode(&ocw_vec);
+
+	let is_data_stored =
+		ocw_storage.compare_and_set(STORAGE_PREFIX, ocw_key, old_value.as_deref(), &encoded_data);
+
+	if !is_data_stored {
+		if retry_num < OCW_MAX_TRY {
+			let retry_num = retry_num + 1;
+			update_ocw_storage(ocw_key, payload, retry_num, Some(ocw_storage));
+		} else {
+			log::error!("Failed to store data in ocw_storage");
+		}
+	} else {
+		log::info!("tss key stored in ocw");
 	}
 }

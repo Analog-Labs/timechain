@@ -59,11 +59,11 @@ pub mod pallet {
 	use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 	use task_schedule::ScheduleInterface;
 	use time_primitives::{
-		abstraction::{OCWReportData, OCWSigData, OCWTSSGroupKeyData},
+		abstraction::{OCWSigData, OCWTSSGroupKeyData},
 		crypto::Signature,
 		sharding::{EligibleShard, HandleShardTasks, IncrementTaskTimeoutCount, Network, Shard},
-		KeyId, ScheduleCycle, ShardId as ShardIdType, SignatureData, TimeId, OCW_REP_KEY,
-		OCW_SIG_KEY, OCW_TSS_KEY,
+		KeyId, ScheduleCycle, ShardId as ShardIdType, SignatureData, TimeId, OCW_SIG_KEY,
+		OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {
@@ -103,9 +103,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
+			//check if collector
 			Self::ocw_get_tss_data();
 			Self::ocw_get_sig_data();
-			Self::ocw_get_report_data();
 		}
 	}
 
@@ -124,7 +124,7 @@ pub mod pallet {
 		/// Minimum reports made by shard reporter to define committed offense
 		#[pallet::constant]
 		type MinReportsPerCommittedOffense: Get<u8>;
-		type TaskScheduleHelper: ScheduleInterface<Self::AccountId, Self::BlockNumber>;
+		type TaskScheduleHelper: ScheduleInterface<Self::AccountId>;
 		type SessionInterface: SessionInterface<Self::AccountId>;
 		#[pallet::constant]
 		type MaxChronicleWorkers: Get<u32>;
@@ -585,24 +585,21 @@ pub mod pallet {
 			Reports::<T>::iter_prefix(offender)
 				.fold(0u8, |acc, (_, count)| acc.saturating_add(count))
 		}
+
 		pub fn get_offense_count_for_reporter(offender: &TimeId, reporter: &TimeId) -> u8 {
 			Reports::<T>::get(offender, reporter)
 		}
-		pub fn active_shards(network: Network) -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter()
-				.filter(|(_, s)| s.is_online() && s.network == network)
-				.map(|(id, s)| (id, s.shard))
-				.collect()
-		}
-		pub fn inactive_shards(network: Network) -> Vec<(u64, Shard)> {
-			<TssShards<T>>::iter()
-				.filter(|(_, s)| !s.is_online() && s.network == network)
-				.map(|(id, s)| (id, s.shard))
-				.collect()
-		}
+
 		// Getter method for runtime api storage access
 		pub fn api_tss_shards() -> Vec<(u64, Shard)> {
 			<TssShards<T>>::iter().map(|(id, state)| (id, state.shard)).collect()
+		}
+
+		pub fn api_get_shards(time_id: TimeId) -> Vec<time_primitives::ShardId> {
+			<TssShards<T>>::iter()
+				.filter(|(_, state)| state.shard.members().contains(&time_id))
+				.map(|(id, _)| id)
+				.collect()
 		}
 
 		fn ocw_get_tss_data() {
@@ -699,74 +696,6 @@ pub mod pallet {
 			}
 		}
 
-		fn ocw_get_report_data() {
-			let storage_ref = StorageValueRef::persistent(OCW_REP_KEY);
-
-			const EMPTY_DATA: () = ();
-
-			let outer_res = storage_ref.mutate(
-				|res: Result<Option<VecDeque<Vec<u8>>>, StorageRetrievalError>| {
-					match res {
-						Ok(Some(mut data)) => {
-							// iteration batch of 5
-							for _ in 0..5 {
-								let Some(rep_req_vec) = data.pop_front() else{
-									break;
-								};
-
-								let Ok(rep_req) = OCWReportData::decode(&mut rep_req_vec.as_slice()) else {
-									continue;
-								};
-
-								if let Err(err) = Self::ocw_submit_report(rep_req.clone()) {
-									log::error!(
-										"Error occured while submitting extrinsic {:?}",
-										err
-									);
-								};
-								log::info!("Submitting OCW Report Data");
-							}
-							Ok(data)
-						},
-						Ok(None) => Err(EMPTY_DATA),
-						Err(_) => Err(EMPTY_DATA),
-					}
-				},
-			);
-
-			match outer_res {
-				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
-					log::info!("TSS OCW Report is empty");
-				},
-				Err(MutateStorageError::ConcurrentModification(_)) => {
-					log::error!("💔 Error updating local storage in TSS OCW Report",);
-				},
-				Ok(_) => {},
-			}
-		}
-
-		fn ocw_submit_report(data: OCWReportData) -> Result<(), Error<T>> {
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-
-			let offender_id = T::AccountId::decode(&mut data.offender.as_ref()).unwrap();
-
-			if let Some((acc, res)) =
-				signer.send_signed_transaction(|_account| Call::report_misbehavior {
-					shard_id: data.shard_id,
-					offender: offender_id.clone(),
-				}) {
-				if res.is_err() {
-					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
-					return Err(Error::OffchainSignedTxFailed);
-				} else {
-					return Ok(());
-				}
-			}
-
-			log::error!("No local account available");
-			Err(Error::NoLocalAcctForSignedTx)
-		}
-
 		fn ocw_submit_signature(data: OCWSigData) -> Result<(), Error<T>> {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 
@@ -774,7 +703,7 @@ pub mod pallet {
 				signer.send_signed_transaction(|_account| Call::store_signature {
 					auth_sig: data.auth_sig.clone(),
 					signature_data: data.sig_data,
-					key_id: data.key_id,
+					key_id: data.task_id,
 					schedule_cycle: data.schedule_cycle,
 				}) {
 				if res.is_err() {

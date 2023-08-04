@@ -6,6 +6,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const node_address = 'ws://127.0.0.1:9943';
 
+const stringToHex = (str) => {
+    return '0x' + str.split('').map((char) => char.charCodeAt(0).toString(16)).join('');
+};
+
 const setup_substrate = async () => {
     const wsProvider = new WsProvider(node_address);
     // const custom_types = await get_custom_types();
@@ -23,14 +27,18 @@ const pallet_task_add = async (_keyspair, who) => {
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        task_id: 1,
-        owner: 'address',
         network: 0,
-        frequency: 0,
         cycle: 1,
-        validity: { Seconds: 12 },
-        hash: 'QmSbNEi9TzrAvDvL6hqU3s7VnaXAu6vWY36Hz5rN2ZVfEa',
-        status: 0
+        frequency: 0,
+        hash: 'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7',
+        status: 0,
+        function: {
+            EVMViewWithoutAbi: {
+                address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
+                function_signature: "function get_votes_stats() external view returns (uint, uint)",
+                input: 2,
+            }
+        },
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);

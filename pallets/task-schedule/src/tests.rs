@@ -4,7 +4,7 @@ use frame_support::assert_ok;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use time_primitives::abstraction::{
-	ObjectId, ScheduleInput as Schedule, ScheduleStatus, TaskSchedule as ScheduleOut, Validity,
+	Function, ScheduleInput, ScheduleStatus, TaskSchedule as abs_TaskSchedule,
 };
 use time_primitives::sharding::Network;
 
@@ -39,35 +39,26 @@ fn test_reward() {
 fn test_schedule() {
 	new_test_ext().execute_with(|| {
 		let account: AccountId = acc_pub(1).into();
-		let task_id = ObjectId(1);
+		let function = Function::EVMViewWithoutAbi {
+			address: Default::default(),
+			function_signature: Default::default(),
+			input: Default::default(),
+		};
 
-		let input = Schedule {
-			task_id,
+		let input = ScheduleInput {
 			network: Network::Ethereum,
+			function: function.clone(),
 			cycle: 12,
 			frequency: 1,
-			validity: Validity::Seconds(10),
 			hash: String::from("address"),
-			status: ScheduleStatus::Initiated,
 		};
-		assert_ok!(PalletProxy::set_proxy_account(
-			RawOrigin::Signed(account.clone()).into(),
-			Some(1000),
-			1,
-			Some(1),
-			1,
-			acc_pub(1).into()
-		));
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
 
-		let output = ScheduleOut {
-			task_id,
+		let output = abs_TaskSchedule {
 			owner: account.clone(),
+			function: function.clone(),
 			network: Network::Ethereum,
-			start_execution_block: 0,
-			executable_since: 1,
 			cycle: 12,
-			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Initiated,
 			frequency: 1,
@@ -82,14 +73,11 @@ fn test_schedule() {
 			1
 		));
 
-		let output_update = ScheduleOut {
-			task_id: ObjectId(1),
-			owner: account.clone(),
+		let output_update = abs_TaskSchedule {
+			owner: account,
+			function,
 			network: Network::Ethereum,
-			start_execution_block: 0,
-			executable_since: 1,
 			cycle: 12,
-			validity: Validity::Seconds(10),
 			hash: String::from("address"),
 			status: ScheduleStatus::Completed,
 			frequency: 1,
@@ -97,14 +85,5 @@ fn test_schedule() {
 		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output_update);
 		assert_eq!(a, b);
-		// check update token usage
-		let proxy_acc = PalletProxy::get_proxy_acc(&account).unwrap();
-		match proxy_acc {
-			Some(acc) => {
-				let token_usage = 2;
-				assert_eq!(acc.token_usage, token_usage);
-			},
-			None => print!("proxy account not exist"),
-		}
 	});
 }

@@ -7,18 +7,7 @@ insert_key() {
     \"id\": 1,
     \"method\": \"author_insertKey\",
     \"params\": [
-      \"psig\",
-      \"//Alice\",
-      \"$3\"
-    ]
-  }"
-  printf "\n"
-  curl "http://localhost:$2" -H "Content-Type:application/json;charset=utf-8" -d "{
-    \"jsonrpc\": \"2.0\",
-    \"id\": 1,
-    \"method\": \"author_insertKey\",
-    \"params\": [
-      \"pskd\",
+      \"ocwk\",
       \"//Alice\",
       \"$3\"
     ]

@@ -21,6 +21,9 @@ pub struct RunCmd {
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
 	pub connector_network: Option<String>,
+	/// The node not run TSS and task executor.
+	#[clap(long)]
+	pub without_chronicle: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]

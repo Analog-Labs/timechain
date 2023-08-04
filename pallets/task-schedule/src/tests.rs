@@ -74,7 +74,7 @@ fn test_schedule() {
 		));
 
 		let output_update = abs_TaskSchedule {
-			owner: account.clone(),
+			owner: account,
 			function,
 			network: Network::Ethereum,
 			cycle: 12,

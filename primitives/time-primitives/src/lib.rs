@@ -1,15 +1,19 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod abstraction;
-pub mod sharding;
-
-pub use abstraction::{ScheduleStatus, TaskSchedule};
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+#[cfg(feature = "std")]
+use serde::Serialize;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	MultiSignature,
 };
 use sp_std::vec::Vec;
+
+mod abstraction;
+
+pub use crate::abstraction::*;
 
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
@@ -23,7 +27,8 @@ pub const OCW_SKD_KEY: &[u8; 24] = b"pallet_skd::offchain_skd";
 
 /// The type representing a signature data
 // ThresholdSignature::to_bytes()
-pub type SignatureData = [u8; 64];
+pub type TssPublicKey = [u8; 33];
+pub type TssSignature = [u8; 64];
 pub type TimeSignature = MultiSignature;
 pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type TaskId = u64;
@@ -34,7 +39,7 @@ sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
 		fn get_shards(time_id: TimeId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>>;
+		fn get_shard_members(shard_id: ShardId) -> Vec<TimeId>;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)>;
 		fn get_task(task_id: TaskId) -> Option<TaskSchedule>;
 	}
@@ -45,24 +50,10 @@ pub mod crypto {
 	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
 }
 
-pub trait ProxyExtend<AccountId, Balance> {
-	fn proxy_exist(acc: &AccountId) -> bool;
-	fn get_master_account(acc: &AccountId) -> Option<AccountId>;
-	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
-}
-
-impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for () {
-	fn proxy_exist(_acc: &AccountId) -> bool {
-		true
-	}
-	fn get_master_account(acc: &AccountId) -> Option<AccountId> {
-		Some(acc.clone())
-	}
-	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
-		true
-	}
-}
-
-pub trait PalletAccounts<AccountId> {
-	fn get_treasury() -> AccountId;
+/// Used to enforce one network per shard
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub enum Network {
+	Ethereum,
+	Astar,
 }

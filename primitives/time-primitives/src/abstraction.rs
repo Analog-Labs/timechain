@@ -1,6 +1,4 @@
-use crate::{
-	crypto::Signature, sharding::Network, ScheduleCycle, ShardId, SignatureData, TaskId, TimeId,
-};
+use crate::{crypto::Signature, Network, ScheduleCycle, ShardId, TaskId, TimeId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -21,7 +19,7 @@ pub enum FunctionResult {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
-	Ok(ShardId, SignatureData),
+	Ok(ShardId, TssSignature),
 	Err(String),
 }
 

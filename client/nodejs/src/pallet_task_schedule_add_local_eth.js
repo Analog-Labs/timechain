@@ -28,8 +28,8 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         network: 0,
-        cycle: 5,
-        frequency: 2,
+        cycle: 1,
+        frequency: 0,
         hash: 'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7',
         status: 0,
         function: {

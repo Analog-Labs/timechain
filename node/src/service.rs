@@ -348,15 +348,15 @@ pub fn new_full(
 			// start the executor for one-time task
 			let task_executor_params = task_executor::TaskExecutorParams {
 				runtime: client,
-				backend: backend,
+				backend,
 				kv: keystore_container.keystore(),
 				_block: PhantomData::default(),
-				sign_data_sender: sign_data_sender,
+				sign_data_sender,
 				account_id: PhantomData,
 				_block_number: PhantomData,
-				connector_url: connector_url,
-				connector_blockchain: connector_blockchain,
-				connector_network: connector_network,
+				connector_url,
+				connector_blockchain,
+				connector_network,
 			};
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"task-executor",

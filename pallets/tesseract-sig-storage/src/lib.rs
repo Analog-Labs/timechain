@@ -15,7 +15,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::AppVerify;
 	use sp_std::vec::Vec;
-	use time_primitives::{crypto::Signature, Network, ScheduleInterface, ShardId, TimeId};
+	use time_primitives::{
+		crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey,
+	};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
@@ -47,7 +49,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn shard_public_key)]
 	pub type ShardPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, [u8; 33], OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_collector)]
@@ -69,7 +71,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		InvalidShardId,
+		UnknownShard,
 		PublicKeyAlreadyRegistered,
 		InvalidNumberOfShardMembers,
 		/// Invalid validation signature
@@ -113,8 +115,8 @@ pub mod pallet {
 			proof: Signature,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			let collector = ShardCollector::<T>::get(shard_id).ok_or(Error::<T>::InvalidShardId)?;
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::InvalidShardId)?;
+			let collector = ShardCollector::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			ensure!(
 				ShardPublicKey::<T>::get(shard_id).is_none(),
 				Error::<T>::PublicKeyAlreadyRegistered

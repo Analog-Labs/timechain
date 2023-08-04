@@ -24,8 +24,8 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	abstraction::OCWTSSGroupKeyData, ScheduleCycle, ShardId, SignatureData, TaskId, TimeApi,
-	OCW_TSS_KEY, TIME_KEY_TYPE,
+	OCWTSSGroupKeyData, ScheduleCycle, ShardId, TaskId, TimeApi, TssSignature, OCW_TSS_KEY,
+	TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -36,7 +36,7 @@ pub struct TssRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<SignatureData>,
+	pub tx: oneshot::Sender<TssSignature>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -118,7 +118,7 @@ pub struct TimeWorker<B: Block, BE, R> {
 	timeouts: HashMap<(ShardId, Option<TssId>), TssTimeout>,
 	timeout: Option<Pin<Box<Sleep>>>,
 	message_map: HashMap<ShardId, VecDeque<TimeMessage>>,
-	requests: HashMap<TssId, oneshot::Sender<SignatureData>>,
+	requests: HashMap<TssId, oneshot::Sender<TssSignature>>,
 }
 
 impl<B, BE, R> TimeWorker<B, BE, R>
@@ -172,8 +172,7 @@ where
 				debug!(target: TW_LOG, "Already participating in keygen for shard {}", shard_id);
 				continue;
 			}
-			let members =
-				self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap().unwrap();
+			let members = self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap();
 			debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 			let threshold = members.len() as _;
 			let members =

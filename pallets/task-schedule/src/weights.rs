@@ -36,7 +36,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	/// Proof Skipped: TaskSchedule LastKey (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: TaskSchedule ScheduleStorage (r:0 w:1)
 	/// Proof Skipped: TaskSchedule ScheduleStorage (max_values: None, max_size: None, mode: Measured)
-	fn insert_schedule() -> Weight {
+	fn create_task() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `335`
 		//  Estimated: `5955`
@@ -48,7 +48,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: TaskSchedule ScheduleStorage (r:1 w:1)
 	/// Proof Skipped: TaskSchedule ScheduleStorage (max_values: None, max_size: None, mode: Measured)
-	fn update_schedule() -> Weight {
+	fn submit_result() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `130`
 		//  Estimated: `3595`

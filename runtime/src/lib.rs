@@ -53,8 +53,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::{ScheduleCycle, ShardId, TaskId, TimeId};
+use time_primitives::{ScheduleCycle, ShardId, TaskId, TaskSchedule as abs_TaskSchedule, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1051,17 +1050,9 @@ parameter_types! {
 }
 
 impl pallet_tesseract_sig_storage::Config for Runtime {
-	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
-	type Moment = u64;
-	type Timestamp = Timestamp;
-	type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
-	type TaskScheduleHelper = TaskSchedule;
-	type MaxChronicleWorkers = MaxChronicleWorkers;
-	type SessionInterface = Self;
-	type TaskAssigner = TaskSchedule;
-	type MaxTimeouts = MaxTimeouts;
+	type TaskScheduler = TaskSchedule;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -1165,28 +1156,13 @@ impl pallet_treasury::Config for Runtime {
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
 
-pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-	fn get_treasury() -> AccountId {
-		Treasury::account_id()
-	}
-}
-
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
 impl task_schedule::Config for Runtime {
-	type AuthorityId = task_schedule::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
-	type ProxyExtend = ();
-	type Currency = Balances;
-	type PalletAccounts = CurrentPalletAccounts;
-	type ScheduleFee = ScheduleFee;
-	type ShouldEndSession = Babe;
-	type IndexerReward = IndexerReward;
-	type ShardEligibility = TesseractSigStorage;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1484,20 +1460,20 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block>  for Runtime {
-		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>> {
-			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
+		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
+			TesseractSigStorage::get_shards(time_id)
 		}
 
-		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
-			TesseractSigStorage::api_get_shards(time_id)
+		fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
+			TesseractSigStorage::get_shard_members(shard_id)
 		}
 
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
-			TaskSchedule::api_get_shard_tasks(shard_id)
+			TaskSchedule::get_shard_tasks(shard_id)
 		}
 
 		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule>{
-			TaskSchedule::get_task_via_id(task_id)
+			TaskSchedule::get_task(task_id)
 		}
 	}
 

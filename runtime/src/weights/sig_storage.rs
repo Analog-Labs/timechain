@@ -58,23 +58,4 @@ impl<T: frame_system::Config> pallet_tesseract_sig_storage::WeightInfo for Weigh
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-
-	/// will re run it in correctly configured environment
-	fn register_chronicle() -> Weight {
-		
-		Weight::from_parts(17_389_000, 0)
-			.saturating_add(Weight::from_parts(0, 1491))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-
-	// TODO: rerun with prod machine
-	fn report_misbehavior() -> Weight {
-		T::DbWeight::get().writes(2)
-	}
-
-	// TODO: rerun with prod machine
-	fn force_set_shard_offline() -> Weight {
-		T::DbWeight::get().writes(2)
-	}
 }

@@ -1,4 +1,3 @@
-use crate::TaskExecutorError;
 use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use codec::{Decode, Encode};
@@ -33,7 +32,7 @@ use std::{
 use time_primitives::crypto::Signature;
 use time_primitives::ShardId;
 use time_primitives::{
-	abstraction::{Function, OCWSigData, OCWSkdData, ScheduleStatus},
+	abstraction::{Function, FunctionResult, OCWSigData, OCWSkdData, ScheduleStatus},
 	ScheduleCycle, SignatureData, TaskId, TaskSchedule, TimeApi, TimeId, OCW_SIG_KEY, OCW_SKD_KEY,
 	TIME_KEY_TYPE,
 };
@@ -49,27 +48,10 @@ pub struct TaskExecutor<B, BE, R, A, BN> {
 	_block_number: PhantomData<BN>,
 	sign_data_sender: mpsc::Sender<TssRequest>,
 	kv: KeystorePtr,
-	// all tasks that are scheduled
-	// TODO need to get all completed task and remove them from it
-	tasks: HashSet<u64>,
-	error_count: HashMap<u64, u64>,
 	rosetta_chain_config: BlockchainConfig,
 	rosetta_client: Client,
-	repetitive_tasks: HashMap<BlockHeight, Vec<(u64, u64, TaskSchedule<A>)>>,
 	last_block_height: BlockHeight,
-}
-
-#[derive(Debug)]
-enum Error {
-	ErrorOnSendDataToTimeGraph,
-}
-
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Error::ErrorOnSendDataToTimeGraph => write!(f, "Faild to send data to Timegraph"),
-		}
-	}
+	running_tasks: HashSet<(TaskId, ScheduleCycle)>,
 }
 
 impl<B, BE, R, A, BN> TaskExecutor<B, BE, R, A, BN>
@@ -107,12 +89,10 @@ where
 			_block_number,
 			sign_data_sender,
 			kv,
-			tasks: Default::default(),
-			error_count: Default::default(),
 			rosetta_chain_config,
 			rosetta_client,
-			repetitive_tasks: Default::default(),
 			last_block_height: 0,
+			running_tasks: Default::default(),
 		})
 	}
 
@@ -133,16 +113,46 @@ where
 		Some(keys[0])
 	}
 
+	/// Fetches and executes contract call for a given schedule_id
+	async fn execute_function(&self, function: &Function) -> Result<FunctionResult> {
+		match function {
+			// If the task function is an Ethereum contract
+			// call, call it and send for signing
+			Function::EVMViewWithoutAbi {
+				address,
+				function_signature,
+				input,
+			} => {
+				let method = format!("{address}-{function_signature}-call");
+				let request = CallRequest {
+					network_identifier: self.rosetta_chain_config.network(),
+					method,
+					parameters: json!(input),
+				};
+				let data = self.rosetta_client.call(&request).await?;
+				let result = match data.result {
+					Value::Array(val) => val
+						.iter()
+						.filter_map(|x| x.as_str())
+						.map(|x| x.to_string())
+						.collect::<Vec<String>>(),
+					v => vec![v.to_string()],
+				};
+				Ok(FunctionResult::EVMViewWithoutAbi { result })
+			},
+		}
+	}
+
 	/// Encode call response and send data for tss signing process
-	async fn send_for_sign(
-		&mut self,
-		data: CallResponse,
+	async fn tss_sign(
+		&self,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: ScheduleCycle,
-	) -> Result<()> {
-		let data = bincode::serialize(&data).context("Failed to serialize task")?;
-		let (tx, rx) = oneshot::channel::<Option<SignatureData>>();
+		result: &FunctionResult,
+	) -> Result<SignatureData> {
+		let data = bincode::serialize(&result).context("Failed to serialize task")?;
+		let (tx, rx) = oneshot::channel();
 		self.sign_data_sender
 			.send(TssRequest {
 				request_id: (task_id, cycle),
@@ -151,67 +161,45 @@ where
 				tx,
 			})
 			.await?;
-
-		let signature_data =
-			rx.await?.ok_or(anyhow::anyhow!("Node not collector to process information"))?;
-
-		let public_key = self.public_key().expect("No account id found");
-		let proof = self
-			.kv
-			.sr25519_sign(TIME_KEY_TYPE, &public_key, &signature_data)
-			.expect("Failed to sign data with collector key")
-			.expect("Signature returned signing data is null");
-		//send signature_data to ocw
-
-		log::info!("saving signature in ocw");
-		self.update_signature_ocw(proof.into(), signature_data, task_id, cycle);
-		Ok(())
-	}
-	/// Fetches and executes contract call for a given schedule_id
-	async fn task_executor(
-		&mut self,
-		schedule_id: &u64,
-		schedule: &TaskSchedule<A>,
-	) -> Result<CallResponse, TaskExecutorError> {
-		match &schedule.function {
-			// If the task function is an Ethereum contract
-			// call, call it and send for signing
-			Function::EVMViewWithoutAbi {
-				address,
-				function_signature,
-				input,
-			} => {
-				log::info!("running schedule_id {:?} cycle {:?}", schedule_id, schedule.cycle);
-				match self.call_eth_contract(address, function_signature, input).await {
-					Ok(data) => Ok(data),
-					Err(e) => Err(TaskExecutorError::ExecutionError(e.to_string())),
-				}
-			},
-		}
+		Ok(rx.await?)
 	}
 
-	pub(crate) async fn call_eth_contract(
-		&self,
-		address: &str,
-		function: &str,
-		input: &[String],
-	) -> Result<CallResponse> {
-		let method = format!("{address}-{function}-call");
-		let request = CallRequest {
-			network_identifier: self.rosetta_chain_config.network(),
-			method,
-			parameters: json!(input),
+	fn update_schedule_ocw(&self, task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) {
+		let skd_data = OCWSkdData::new(task_id, cycle, status);
+		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
+			let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY);
+
+			let mut ocw_vec = match old_value.clone() {
+				Some(mut data) => {
+					//remove this unwrap
+					let mut bytes: &[u8] = &mut data;
+					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
+					inner_data
+				},
+				None => Default::default(),
+			};
+
+			ocw_vec.push_back(skd_data.encode());
+			let encoded_data = Encode::encode(&ocw_vec);
+			let is_data_stored = ocw_storage.compare_and_set(
+				STORAGE_PREFIX,
+				OCW_SKD_KEY,
+				old_value.as_deref(),
+				&encoded_data,
+			);
+			log::info!("stored task data in ocw {:?}", is_data_stored);
+		} else {
+			log::error!("cant get offchain storage");
 		};
-		self.rosetta_client.call(&request).await
 	}
 
-	async fn send_data(
-		&mut self,
+	async fn submit_to_timegraph(
+		&self,
 		block_id: <B as Block>::Hash,
 		target_block_number: BlockHeight,
-		data: CallResponse,
+		result: &FunctionResult,
 		collection: String,
-	) -> Result<(), Error> {
+	) -> Result<()> {
 		// Add data into collection (user must have Collector role)
 		// @collection: collection hashId
 		// @cycle: time-chain block number
@@ -231,290 +219,90 @@ where
 			},
 		};
 
-		let data_value = match data.result {
-			Value::Array(val) => val
-				.iter()
-				.filter_map(|x| x.as_str())
-				.map(|x| x.to_string())
-				.collect::<Vec<String>>(),
-			v => vec![v.to_string()],
-		};
+		let FunctionResult::EVMViewWithoutAbi { result } = result;
 		let variables = collect_data::Variables {
 			collection,
 			block: target_block_number as i64,
 			cycle: local_block_number,
 			// unused field
 			task_id: 0,
-			data: data_value,
+			data: result.clone(),
 		};
 		dotenv().ok();
-		let Ok(url) = env::var("TIMEGRAPH_GRAPHQL_URL") else {
-			log::warn!("Unable to get timegraph graphql url, Setting up default local url");
-			return Err(Error::ErrorOnSendDataToTimeGraph)
-			};
-		match env::var("SSK") {
-			Ok(ssk) => {
-				// Build the GraphQL request
-				let request = CollectData::build_query(variables);
-				// Execute the GraphQL request
-				let client = reqwest::Client::new();
-				let response =
-					client.post(url).json(&request).header(header::AUTHORIZATION, ssk).send().await;
+		let url =
+			env::var("TIMEGRAPH_GRAPHQL_URL").context("Unable to get timegraph graphql url")?;
+		let ssk = env::var("SSK").context("Unable to get timegraph ssk")?;
 
-				match response {
-					Ok(response) => {
-						let json_response =
-							response.json::<GraphQLResponse<collect_data::ResponseData>>().await;
-
-						match json_response {
-							Ok(json) => {
-								if let Some(data) = json.data {
-									log::info!(
-										"timegraph migrate collect status: {:?}",
-										data.collect.status
-									);
-								} else {
-									log::info!(
-										"timegraph migrate collect status fail: No response : {:?}",
-										json.errors
-									);
-									return Err(Error::ErrorOnSendDataToTimeGraph);
-								}
-							},
-							Err(e) => {
-								log::info!("Failed to parse response: {:?}", e);
-								return Err(Error::ErrorOnSendDataToTimeGraph);
-							},
-						};
-					},
-					Err(e) => {
-						log::info!("error in post request to timegraph: {:?}", e);
-						return Err(Error::ErrorOnSendDataToTimeGraph);
-					},
-				}
-			},
-			Err(e) => {
-				log::info!("Unable to get timegraph sskey {:?}", e);
-				return Err(Error::ErrorOnSendDataToTimeGraph);
-			},
-		};
+		// Build the GraphQL request
+		let request = CollectData::build_query(variables);
+		// Execute the GraphQL request
+		let client = reqwest::Client::new();
+		let response = client
+			.post(url)
+			.json(&request)
+			.header(header::AUTHORIZATION, ssk)
+			.send()
+			.await
+			.context("error in post request to timegraph")?;
+		let data = response
+			.json::<GraphQLResponse<collect_data::ResponseData>>()
+			.await
+			.context("Failed to parse timegraph response")?
+			.data
+			.context("timegraph migrate collect status fail: No reponse")?;
+		log::info!("timegraph migrate collect status: {:?}", data.collect.status);
 		Ok(())
 	}
 
-	async fn process_tasks_for_block(
-		&mut self,
-		block_id: <B as Block>::Hash,
-		block_height: BlockHeight,
-	) -> Result<()> {
+	async fn execute_task(
+		&self,
+		task_block: <B as Block>::Hash,
+		target_block: BlockHeight,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		task: &TaskSchedule<A>,
+	) -> Result<SignatureData> {
+		let result = self.execute_function(&task.function).await?;
+		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
+		self.submit_to_timegraph(task_block, target_block, &result, task.hash.clone())
+			.await?;
+		Ok(signature)
+	}
+
+	async fn process_tasks_for_block(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
 		};
+		let status =
+			self.rosetta_client.network_status(self.rosetta_chain_config.network()).await?;
+		let block_height = status.current_block_identifier.index;
 
 		let shards = self.runtime.runtime_api().get_shards(block_id, account).unwrap();
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
-			for task_id in tasks {
-				if self.tasks.contains(&task_id) {
+			for (task_id, cycle) in tasks {
+				if self.running_tasks.contains(&(task_id, cycle)) {
 					continue;
 				}
 				let task = self.runtime.runtime_api().get_task(block_id, task_id).unwrap().unwrap();
-
-				// put the new task in repetitive task map
-				let align_block_height = block_height + task.frequency;
-				log::info!("Aligned height {:?} for schedule {:?}", align_block_height, task_id);
-				self.tasks.insert(task_id);
-				self.repetitive_tasks
-					.entry(align_block_height)
-					.or_insert(vec![])
-					.push((task_id, shard_id, task));
-			}
-		}
-
-		let total_items = self.repetitive_tasks.values().clone().flatten().collect::<Vec<_>>();
-		log::info!("Available schedules {:?}", total_items.len());
-
-		// iterate all block height
-		for index in self.last_block_height..block_height {
-			log::debug!("Iterating index {:?}", index);
-			if let Some(tasks) = self.repetitive_tasks.remove(&index) {
-				log::debug!("Task running on block {:?}", index);
-
-				// execute all task for specific task
-				for (task_id, shard_id, task) in tasks {
-					match self.task_executor(&task_id, &task).await {
-						Ok(data) => {
-							//send for signing
-							if let Err(e) = self
-								.send_for_sign(data.clone(), shard_id, task_id, task.cycle)
-								.await
-							{
-								log::error!("Error occurred while sending data for signing: {}", e);
-							};
-
-							let mut decremented_task = task.clone();
-							decremented_task.cycle = decremented_task.cycle.saturating_sub(1);
-
-							// put the task in map for next execution if cycle more than once
-							if decremented_task.cycle > 0 {
-								self.repetitive_tasks
-									.entry(index + decremented_task.frequency)
-									.or_insert(vec![])
-									.push((task_id, shard_id, decremented_task));
-							}
-							self.error_count.remove(&task_id);
-							match self
-								.send_data(block_id, block_height, data, task.hash.to_owned())
-								.await
-							{
-								Ok(()) => log::info!("Submit to TimeGraph successful"),
-								Err(e) => log::warn!("Error on submit to TimeGraph {:?}", e),
-							};
-						},
-						Err(e) => match e {
-							TaskExecutorError::NoTaskFound => {
-								log::error!("No task found for id {:?}", task_id);
-								self.report_schedule_invalid(task_id, task.cycle, true);
-							},
-							TaskExecutorError::InvalidTaskFunction => {
-								log::error!("Invalid task function provided");
-								self.report_schedule_invalid(task_id, task.cycle, true);
-							},
-							TaskExecutorError::ExecutionError(error) => {
-								log::error!(
-									"Error occured while executing contract call {:?}: {}",
-									task_id,
-									error
-								);
-
-								if task.is_repetitive_task() {
-									let is_terminated =
-										self.report_schedule_invalid(task_id, task.cycle, false);
-
-									// if not terminated keep add task with added frequency
-									if !is_terminated {
-										self.repetitive_tasks
-											.entry(index + task.frequency)
-											.or_insert(vec![])
-											.push((task_id, shard_id, task));
-									}
-								} else {
-									self.report_schedule_invalid(task_id, task.cycle, true);
-								}
-							},
-							TaskExecutorError::InternalError(error) => {
-								log::error!(
-									"Internal error occured while processing task: {}",
-									error
-								);
-								self.report_schedule_invalid(task_id, task.cycle, true);
-							},
-						},
-					}
+				if task.is_triggered(block_height) {
+					self.running_tasks.insert(task_id);
+					tokio::task::spawn(async move {
+						let status = match self
+							.execute_task(block_id, block_height, shard_id, task_id, cycle, &task)
+							.await
+						{
+							Ok(signature) => ScheduleStatus::Ok(shard_id, signature),
+							Err(e) => ScheduleStatus::Err(e.to_string()),
+						};
+						self.update_schedule_ocw(task_id, cycle, status);
+					});
 				}
 			}
-			self.last_block_height = index + 1;
 		}
-
 		Ok(())
 	}
 
-	fn update_schedule_ocw(
-		&mut self,
-		task_id: TaskId,
-		cycle: ScheduleCycle,
-		status: ScheduleStatus,
-	) {
-		let skd_data = OCWSkdData::new(task_id, cycle, status);
-		self.update_ocw_storage(skd_data.encode(), OCW_SKD_KEY);
-	}
-
-	fn update_signature_ocw(
-		&mut self,
-		proof: Signature,
-		sig: SignatureData,
-		task_id: TaskId,
-		cycle: ScheduleCycle,
-	) {
-		let sig_data = OCWSigData::new(proof, sig, task_id, cycle);
-		self.update_ocw_storage(sig_data.encode(), OCW_SIG_KEY);
-	}
-
-	/// Add schedule update task to offchain storage
-	/// which will be use by offchain worker to send extrinsic
-	fn update_ocw_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
-
-			let mut ocw_vec = match old_value.clone() {
-				Some(mut data) => {
-					//remove this unwrap
-					let mut bytes: &[u8] = &mut data;
-					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
-					inner_data
-				},
-				None => Default::default(),
-			};
-
-			ocw_vec.push_back(data);
-			let encoded_data = Encode::encode(&ocw_vec);
-			let is_data_stored = ocw_storage.compare_and_set(
-				STORAGE_PREFIX,
-				ocw_key,
-				old_value.as_deref(),
-				&encoded_data,
-			);
-			log::info!("stored task data in ocw {:?}", is_data_stored);
-		} else {
-			log::error!("cant get offchain storage");
-		};
-	}
-
-	fn report_schedule_invalid(
-		&mut self,
-		task_id: TaskId,
-		cycle: ScheduleCycle,
-		terminate: bool,
-	) -> bool {
-		if terminate {
-			self.update_schedule_ocw(task_id, cycle, ScheduleStatus::Invalid);
-			return true;
-		}
-
-		let error_count = self.error_count.entry(task_id).or_insert(0);
-		*error_count += 1;
-
-		if *error_count > 2 {
-			self.update_schedule_ocw(task_id, cycle, ScheduleStatus::Invalid);
-			self.error_count.remove(&task_id);
-			return true;
-		}
-		false
-	}
-
-	pub async fn run(&mut self) {
-		loop {
-			// get the external blockchain's block number
-			let Ok(status) = self.rosetta_client.network_status(self.rosetta_chain_config.network()).await else {
-				log::warn!("Error occurred getting rosetta client status to get target block number");
-				continue;
-			};
-			let current_block = status.current_block_identifier.index;
-			// update last block height if never set before
-			if self.last_block_height == 0 {
-				self.last_block_height = current_block;
-			}
-			// get the last finalized block number
-			match self.backend.blockchain().last_finalized() {
-				Ok(at) => {
-					if let Err(e) = self.process_tasks_for_block(at, current_block).await {
-						log::error!("Failed to process tasks for block {:?}: {:?}", at, e);
-					}
-				},
-				Err(e) => {
-					log::error!("Blockchain is empty: {}", e);
-				},
-			}
-			tokio::time::sleep(Duration::from_millis(1000)).await;
-		}
-	}
+	pub async fn run(&mut self) {}
 }

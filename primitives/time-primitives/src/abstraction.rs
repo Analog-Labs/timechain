@@ -14,19 +14,16 @@ pub enum Function {
 	EVMViewWithoutAbi { address: String, function_signature: String, input: Vec<String> },
 }
 
+#[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub enum ScheduleStatus {
-	Initiated,
-	Recurring,
-	Completed,
-	Invalid,
-	Canceled,
+pub enum FunctionResult {
+	EVMViewWithoutAbi { result: Vec<String> },
 }
 
-impl ScheduleStatus {
-	pub fn can_timeout(&self) -> bool {
-		matches!(self, ScheduleStatus::Initiated | ScheduleStatus::Recurring)
-	}
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub enum ScheduleStatus {
+	Ok(ShardId, SignatureData),
+	Err(String),
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

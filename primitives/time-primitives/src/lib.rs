@@ -84,3 +84,7 @@ pub trait ScheduleInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
 }
+
+pub trait ShardInterface {
+	fn get_collector(shard_id: ShardId) -> Option<TimeId>;
+}

@@ -1165,6 +1165,7 @@ impl task_schedule::Config for Runtime {
 	type AuthorityId = time_primitives::crypto_ocw::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
+	type ShardHelper = TesseractSigStorage;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

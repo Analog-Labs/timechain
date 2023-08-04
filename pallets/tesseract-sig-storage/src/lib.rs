@@ -25,6 +25,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::OCWPayload;
 	use time_primitives::OCWTSSGroupKeyData;
+	use time_primitives::ShardInterface;
 	use time_primitives::OCW_TSS_KEY;
 	use time_primitives::{crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey};
 
@@ -137,15 +138,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let collector = ShardCollector::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
-			);
 			let collector = sp_application_crypto::sr25519::Public::from_raw(collector.into());
 			ensure!(
 				proof.verify(public_key.as_ref(), &collector.into()),
 				Error::<T>::InvalidValidationSignature
+			);
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(
+				ShardPublicKey::<T>::get(shard_id).is_none(),
+				Error::<T>::PublicKeyAlreadyRegistered
 			);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			Self::deposit_event(Event::ShardPublicKey(shard_id, public_key));
@@ -172,6 +173,15 @@ pub mod pallet {
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
+
+		fn is_collector_and_signed(shard_id: ShardId, proof: Signature, msg: &[u8]) -> bool {
+			let Some(collector) = ShardCollector::<T>::get(shard_id) else{
+				return false;
+			};
+			let collector = sp_application_crypto::sr25519::Public::from_raw(collector.into());
+			proof.verify(msg, &collector.into())
+		}
+
 		fn ocw_get_tss_data() {
 			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
 
@@ -214,7 +224,11 @@ pub mod pallet {
 			}
 
 			for tx in tx_requests {
-				//check for collector
+				if !Self::is_collector_and_signed(tx.shard_id, tx.proof.clone(), &tx.group_key) {
+					log::warn!("Node not collector to send data");
+					continue;
+				};
+
 				if let Err(err) = Self::ocw_submit_tss_group_key(tx) {
 					log::error!("Error occured while submitting extrinsic {:?}", err);
 				};
@@ -242,6 +256,12 @@ pub mod pallet {
 
 			log::error!("No local account available");
 			Err(Error::NoLocalAcctForSignedTx)
+		}
+	}
+
+	impl<T: Config> ShardInterface for Pallet<T> {
+		fn get_collector(shard_id: ShardId) -> Option<TimeId> {
+			ShardCollector::<T>::get(shard_id)
 		}
 	}
 }

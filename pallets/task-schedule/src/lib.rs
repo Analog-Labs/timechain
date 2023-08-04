@@ -10,24 +10,26 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use frame_system::offchain::AppCrypto;
+	use frame_system::offchain::CreateSignedTransaction;
+	use frame_system::offchain::SendSignedTransaction;
+	use frame_system::offchain::Signer;
 	use frame_system::pallet_prelude::*;
-	use sp_std::vec::Vec;
+	use sp_runtime::offchain::storage::MutateStorageError;
+	use sp_runtime::offchain::storage::StorageRetrievalError;
 	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::traits::AppVerify;
+	use sp_std::collections::vec_deque::VecDeque;
+	use sp_std::vec::Vec;
+	use time_primitives::OCWPayload;
+	use time_primitives::OCWSkdData;
+	use time_primitives::ShardInterface;
+	use time_primitives::OCW_SKD_KEY;
 	use time_primitives::{
 		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
 		TaskSchedule,
 	};
-	use sp_std::collections::vec_deque::VecDeque;
-	use time_primitives::OCW_SKD_KEY;
-	use time_primitives::OCWSkdData;
-	use time_primitives::OCWPayload;
-	use sp_runtime::offchain::storage::StorageRetrievalError;
-	use sp_runtime::offchain::storage::MutateStorageError;
-	use frame_system::offchain::Signer;
-	use frame_system::offchain::CreateSignedTransaction;
-	use frame_system::offchain::AppCrypto;
-	use frame_system::offchain::SendSignedTransaction;
-
+	use time_primitives::crypto::Signature;
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
@@ -46,10 +48,14 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>>
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+	{
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type ShardHelper: ShardInterface;
 	}
 
 	#[pallet::storage]
@@ -199,6 +205,15 @@ pub mod pallet {
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
 		}
+
+		fn is_collector_and_signed(shard_id: ShardId, proof: Signature, msg: &[u8]) -> bool {
+			let Some(collector) = T::ShardHelper::get_collector(shard_id) else{
+				return false;
+			};
+			let collector = sp_application_crypto::sr25519::Public::from_raw(collector.into());
+			proof.verify(msg, &collector.into())
+		}
+
 		fn ocw_get_skd_data() {
 			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
 
@@ -243,6 +258,7 @@ pub mod pallet {
 			}
 
 			for tx in tx_requests {
+				//check for collector
 				if let Err(err) = Self::ocw_update_schedule_by_key(tx) {
 					log::error!("Error occured while submitting extrinsic {:?}", err);
 				}

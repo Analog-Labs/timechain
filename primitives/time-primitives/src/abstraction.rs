@@ -85,7 +85,7 @@ impl OCWTSSGroupKeyData {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub enum OCWPayload{
+pub enum OCWPayload {
 	OCWSkd(OCWSkdData),
 	OCWTSSGroupKey(OCWTSSGroupKeyData),
 }

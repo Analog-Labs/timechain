@@ -156,6 +156,8 @@ pub mod pallet {
 
 			const EMPTY_DATA: () = ();
 
+			let mut tx_requests: VecDeque<OCWTSSGroupKeyData> = Default::default();
+
 			let outer_res = storage_ref.mutate(
 				|res: Result<Option<VecDeque<OCWPayload>>, StorageRetrievalError>| {
 					match res {
@@ -170,14 +172,7 @@ pub mod pallet {
 									continue;
 								};
 
-								if let Err(err) = Self::ocw_submit_tss_group_key(tss_req) {
-									log::error!(
-										"Error occured while submitting extrinsic {:?}",
-										err
-									);
-								};
-
-								log::info!("Submitting OCW TSS key");
+								tx_requests.push_back(tss_req);
 							}
 							Ok(data)
 						},
@@ -195,6 +190,15 @@ pub mod pallet {
 					log::error!("💔 Error updating local storage in TSS OCW Signature",);
 				},
 				Ok(_) => {},
+			}
+
+			for tx in tx_requests {
+				//check for collector
+				if let Err(err) = Self::ocw_submit_tss_group_key(tx) {
+					log::error!("Error occured while submitting extrinsic {:?}", err);
+				};
+
+				log::info!("Submitting OCW TSS key");
 			}
 		}
 

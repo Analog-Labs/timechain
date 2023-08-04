@@ -7,7 +7,7 @@ use futures::{SinkExt, StreamExt};
 use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
 use reqwest::header;
 use rosetta_client::{create_wallet, EthereumExt, Wallet};
-use sc_client_api::{backend, Backend, BlockchainEvents};
+use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_core::offchain::STORAGE_PREFIX;

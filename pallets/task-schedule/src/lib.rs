@@ -29,51 +29,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
-
-			const EMPTY_DATA: () = ();
-
-			let outer_res = storage_ref.mutate(
-				|res: Result<Option<VecDeque<OCWPayload>>, StorageRetrievalError>| {
-					match res {
-						Ok(Some(mut data)) => {
-							// iteration batch of 5
-							for _ in 0..5 {
-								let Some(data_vec) = data.pop_front() else {
-									break;
-								};
-
-								let OCWPayload::OCWSkd(skd_req) = data_vec else {
-									continue;
-								};
-
-								if let Err(err) = Self::ocw_update_schedule_by_key(skd_req)
-								{
-									log::error!(
-										"Error occured while submitting extrinsic {:?}",
-										err
-									);
-								}
-							}
-							Ok(data)
-						},
-						Ok(None) => Err(EMPTY_DATA),
-						Err(_) => Err(EMPTY_DATA),
-					}
-				},
-			);
-
-			log::info!("updated value after skd submission {:?}", outer_res);
-
-			match outer_res {
-				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
-					log::info!("Task schedule OCW is empty");
-				},
-				Err(MutateStorageError::ConcurrentModification(_)) => {
-					log::error!("💔 Error updating local storage in SKD OCW",);
-				},
-				Ok(_) => {},
-			}
+			Self::ocw_get_skd_data();
 		}
 	}
 
@@ -226,6 +182,76 @@ pub mod pallet {
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
+			}
+		fn ocw_get_skd_data() {
+			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let mut tx_requests: VecDeque<OCWSkdData> = Default::default();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<OCWPayload>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								let Some(data_vec) = data.pop_front() else {
+									break;
+								};
+
+								let OCWPayload::OCWSkd(skd_req) = data_vec else {
+									continue;
+								};
+
+								tx_requests.push_back(skd_req.clone());
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			log::info!("updated value after skd submission {:?}", outer_res);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("Task schedule OCW is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in SKD OCW",);
+				},
+				Ok(_) => {},
+			}
+
+			for tx in tx_requests{
+				if let Err(err) = Self::ocw_update_schedule_by_key(tx) {
+					log::error!(
+						"Error occured while submitting extrinsic {:?}",
+						err
+					);
+				}
+			}
+		}
+
+		fn ocw_update_schedule_by_key(data: OCWSkdData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::update_schedule {
+					task_id: data.task_id,
+					cycle: data.cycle,
+					status: data.status.clone(),
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					log::info!("success: offchain_signed_tx: tx sent: {:?}", acc.id);
+					return Ok(());
+				}
 			}
 		}
 	}

@@ -151,5 +151,72 @@ pub mod pallet {
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
+		fn ocw_get_tss_data() {
+			let storage_ref = StorageValueRef::persistent(OCW_TSS_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<OCWPayload>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..2 {
+								let Some(tss_req_data) = data.pop_front() else{
+									break;
+								};
+
+								let OCWPayload::OCWTSSGroupKey(tss_req) = tss_req_data else{
+									continue;
+								};
+
+								if let Err(err) = Self::ocw_submit_tss_group_key(tss_req) {
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
+								};
+
+								log::info!("Submitting OCW TSS key");
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("TSS OCW tss is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in TSS OCW Signature",);
+				},
+				Ok(_) => {},
+			}
+		}
+
+		fn ocw_submit_tss_group_key(data: OCWTSSGroupKeyData) -> Result<(), Error<T>> {
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			if let Some((acc, res)) =
+				signer.send_signed_transaction(|_account| Call::submit_tss_group_key {
+					shard_id: data.shard_id,
+					group_key: data.group_key,
+					proof: data.proof.clone(),
+				}) {
+				if res.is_err() {
+					log::error!("failure: offchain_tss_tx: tx sent: {:?}", acc.id);
+					return Err(Error::OffchainSignedTxFailed);
+				} else {
+					return Ok(());
+				}
+			}
+
+			log::error!("No local account available");
+			Err(Error::NoLocalAcctForSignedTx)
+		}
 	}
 }

@@ -196,7 +196,7 @@ where
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
 		let tss_state = self.tss_states.get_mut(&shard_id).unwrap();
-		let mut ocw_encoded_vec: Vec<(&[u8; 24], Vec<u8>)> = vec![];
+		let mut ocw_encoded_vec: Vec<(&[u8; 24], OCWPayload)> = vec![];
 		while let Some(action) = tss_state.tss.next_action() {
 			match action {
 				TssAction::Send(payload) => {
@@ -222,7 +222,8 @@ where
 
 					let ocw_gk_data: OCWTSSGroupKeyData =
 						OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
-					ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
+					let payload = OCWPayload::OCWTSSGroupKey(ocw_gk_data);
+					ocw_encoded_vec.push((OCW_TSS_KEY, payload));
 				},
 				TssAction::Tss(tss_signature, request_id) => {
 					debug!(target: TW_LOG, "Storing tss signature");
@@ -246,31 +247,47 @@ where
 		}
 
 		for (key, data) in ocw_encoded_vec {
-			self.add_item_in_offchain_storage(data, key);
+			self.add_item_in_offchain_storage(key, data, 0);
 		}
 	}
 
-	pub fn add_item_in_offchain_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
+	pub fn add_item_in_offchain_storage(
+		&mut self,
+		ocw_key: &[u8],
+		payload: OCWPayload,
+		retry_num: u8,
+	) {
 		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
 			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
 
 			let mut ocw_vec = match old_value.clone() {
 				Some(mut data) => {
 					let mut bytes: &[u8] = &mut data;
-					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
+					let inner_data: VecDeque<OCWPayload> = Decode::decode(&mut bytes).unwrap();
 					inner_data
 				},
 				None => Default::default(),
 			};
 
-			ocw_vec.push_back(data);
+			ocw_vec.push_back(payload.clone());
 			let encoded_data = Encode::encode(&ocw_vec);
-			ocw_storage.compare_and_set(
+			let is_data_stored = ocw_storage.compare_and_set(
 				STORAGE_PREFIX,
 				ocw_key,
 				old_value.as_deref(),
 				&encoded_data,
 			);
+
+			if !is_data_stored {
+				if retry_num < OCW_MAX_TRY {
+					let retry_num = retry_num + 1;
+					self.add_item_in_offchain_storage(ocw_key, payload, retry_num)
+				} else {
+					log::error!("Failed to store data in ocw_storage");
+				}
+			} else {
+				log::info!("tss key stored in ocw");
+			}
 		} else {
 			log::error!("cant get offchain storage");
 		};

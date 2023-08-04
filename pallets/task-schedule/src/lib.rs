@@ -26,6 +26,57 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			let storage_ref = StorageValueRef::persistent(OCW_SKD_KEY);
+
+			const EMPTY_DATA: () = ();
+
+			let outer_res = storage_ref.mutate(
+				|res: Result<Option<VecDeque<OCWPayload>>, StorageRetrievalError>| {
+					match res {
+						Ok(Some(mut data)) => {
+							// iteration batch of 5
+							for _ in 0..5 {
+								let Some(data_vec) = data.pop_front() else {
+									break;
+								};
+
+								let OCWPayload::OCWSkd(skd_req) = data_vec else {
+									continue;
+								};
+
+								if let Err(err) = Self::ocw_update_schedule_by_key(skd_req)
+								{
+									log::error!(
+										"Error occured while submitting extrinsic {:?}",
+										err
+									);
+								}
+							}
+							Ok(data)
+						},
+						Ok(None) => Err(EMPTY_DATA),
+						Err(_) => Err(EMPTY_DATA),
+					}
+				},
+			);
+
+			log::info!("updated value after skd submission {:?}", outer_res);
+
+			match outer_res {
+				Err(MutateStorageError::ValueFunctionFailed(EMPTY_DATA)) => {
+					log::info!("Task schedule OCW is empty");
+				},
+				Err(MutateStorageError::ConcurrentModification(_)) => {
+					log::error!("💔 Error updating local storage in SKD OCW",);
+				},
+				Ok(_) => {},
+			}
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;

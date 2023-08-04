@@ -5,6 +5,8 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::Serialize;
 use sp_std::vec::Vec;
 
+pub const OCW_MAX_TRY: u8 = 5;
+
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
@@ -80,4 +82,10 @@ impl OCWTSSGroupKeyData {
 	pub fn new(shard_id: ShardId, group_key: [u8; 33], proof: Signature) -> Self {
 		Self { shard_id, group_key, proof }
 	}
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub enum OCWPayload{
+	OCWSkd(OCWSkdData),
+	OCWTSSGroupKey(OCWTSSGroupKeyData),
 }

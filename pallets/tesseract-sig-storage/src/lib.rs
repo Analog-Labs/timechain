@@ -12,23 +12,19 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
-	use frame_system::offchain::AppCrypto;
-	use frame_system::offchain::CreateSignedTransaction;
-	use frame_system::offchain::SendSignedTransaction;
-	use frame_system::offchain::Signer;
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::offchain::storage::MutateStorageError;
-	use sp_runtime::offchain::storage::StorageRetrievalError;
-	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::offchain::storage::{
+		MutateStorageError, StorageRetrievalError, StorageValueRef,
+	};
 	use sp_runtime::traits::AppVerify;
 	use sp_std::collections::vec_deque::VecDeque;
 	use sp_std::vec::Vec;
-	use time_primitives::OCWPayload;
-	use time_primitives::OCWTSSGroupKeyData;
-	use time_primitives::ShardInterface;
-	use time_primitives::OCW_TSS_KEY;
 	use time_primitives::{
-		crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey,
+		crypto::Signature, Network, OCWPayload, OCWTSSGroupKeyData, ScheduleInterface, ShardId,
+		ShardInterface, TimeId, TssPublicKey, OCW_TSS_KEY,
 	};
 
 	pub trait WeightInfo {

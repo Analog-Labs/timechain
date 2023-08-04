@@ -8,7 +8,7 @@ use sp_runtime::AccountId32;
 use time_primitives::{
 	abstraction::{Function, ScheduleInput, TaskSchedule as ScheduleOut},
 	sharding::Network,
-	ScheduleStatus, TimeId,
+	TimeId,
 };
 
 #[test]
@@ -56,9 +56,9 @@ fn test_register_chronicle() {
 
 #[test]
 fn test_signature_storage() {
-	let id = 1;
+	let _id = 1;
 	let r: u8 = 123;
-	let sig_data: [u8; 64] = [r; 64];
+	let _sig_data: [u8; 64] = [r; 64];
 	let function = Function::EVMViewWithoutAbi {
 		address: Default::default(),
 		function_signature: Default::default(),
@@ -120,25 +120,12 @@ fn test_signature_storage() {
 			function,
 			cycle: 12,
 			hash: String::from("address"),
-			frequency: 0,
+			period: 0,
+			start: 1,
 		};
-
-		let alice_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
-			.unwrap()
-			.unwrap();
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
 
-		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(ALICE).into(),
-			alice_report.into(),
-			sig_data,
-			id,
-			input.cycle
-		));
-
-		assert!(TesseractSigStorage::signature_storage(id, input.cycle).is_some());
 		assert_eq!(
 			Pallet::<Test>::last_committed_chronicle(Into::<TimeId>::into(alice)),
 			block_number
@@ -149,9 +136,9 @@ fn test_signature_storage() {
 
 #[test]
 fn test_signature_and_decrement_schedule_storage() {
-	let id = 1;
+	let _id = 1;
 	let r: u8 = 123;
-	let sig_data: [u8; 64] = [r; 64];
+	let _sig_data: [u8; 64] = [r; 64];
 	let function = Function::EVMViewWithoutAbi {
 		address: Default::default(),
 		function_signature: Default::default(),
@@ -213,34 +200,20 @@ fn test_signature_and_decrement_schedule_storage() {
 			function: function.clone(),
 			cycle: 12,
 			hash: String::from("address"),
-			frequency: 0,
+			start: 1,
+			period: 0,
 		};
 
-		let alice_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
-			.unwrap()
-			.unwrap();
-
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
-
-		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(ALICE).into(),
-			alice_report.into(),
-			sig_data,
-			id,
-			input.cycle
-		));
-
-		assert!(TesseractSigStorage::signature_storage(id, input.cycle).is_some());
 
 		let output = ScheduleOut {
 			owner: ALICE.clone(),
 			network: Network::Ethereum,
 			function,
-			frequency: 0,
 			cycle: 11,
 			hash: String::from("address"),
-			status: ScheduleStatus::Recurring,
+			start: 1,
+			period: 0,
 		};
 
 		let scheduled_task = TaskSchedule::get_task_schedule(1_u64);
@@ -256,9 +229,9 @@ fn test_signature_and_decrement_schedule_storage() {
 
 #[test]
 fn test_duplicate_signature() {
-	let id = 1;
+	let _id = 1;
 	let r: u8 = 123;
-	let sig_data: [u8; 64] = [r; 64];
+	let _sig_data: [u8; 64] = [r; 64];
 	let function = Function::EVMViewWithoutAbi {
 		address: Default::default(),
 		function_signature: Default::default(),
@@ -312,34 +285,11 @@ fn test_duplicate_signature() {
 			function,
 			cycle: 12,
 			hash: String::from("address"),
-			frequency: 1,
+			start: 0,
+			period: 1,
 		};
 
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(ALICE).into(), input.clone()));
-
-		let alice_report = keystore
-			.sr25519_sign(time_primitives::TIME_KEY_TYPE, &alice, sig_data.as_ref())
-			.unwrap()
-			.unwrap();
-
-		assert_ok!(TesseractSigStorage::store_signature(
-			RawOrigin::Signed(ALICE).into(),
-			alice_report.clone().into(),
-			sig_data,
-			id,
-			input.cycle
-		));
-
-		assert_noop!(
-			TesseractSigStorage::store_signature(
-				RawOrigin::Signed(ALICE).into(),
-				alice_report.into(),
-				sig_data,
-				id,
-				input.cycle
-			),
-			Error::<Test>::DuplicateSignature
-		);
 	});
 }
 

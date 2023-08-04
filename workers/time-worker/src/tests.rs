@@ -26,10 +26,7 @@ use sp_consensus_grandpa::{
 use sp_core::crypto::key_types::GRANDPA;
 use sp_runtime::traits::Header as HeaderT;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
-use substrate_test_runtime_client::{
-	runtime::{AccountId, BlockNumber},
-	Ed25519Keyring, Keystore, LongestChain,
-};
+use substrate_test_runtime_client::{Ed25519Keyring, Keystore, LongestChain};
 use time_primitives::{
 	abstraction::TimeTssKey, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
 };
@@ -246,7 +243,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
-	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
+	impl TimeApi<Block> for RuntimeApi {
 		fn get_shards(&self, _time_id: TimeId) -> Vec<ShardId> {
 			vec![1]
 		}
@@ -313,7 +310,7 @@ fn initialize_time_worker<API>(
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Send + Sync + Default + 'static,
-	API::Api: TimeApi<Block, AccountId, BlockNumber>,
+	API::Api: TimeApi<Block>,
 {
 	let time_workers = FuturesUnordered::new();
 
@@ -327,7 +324,6 @@ where
 			.expect("Creates authority key");
 
 		let time_params = TimeWorkerParams {
-			client: peer.client().as_client(),
 			backend: peer.client().as_backend(),
 			runtime: api.into(),
 			gossip_network: peer.network_service().clone(),
@@ -335,10 +331,8 @@ where
 			sign_data_receiver,
 			sync_service: peer.sync_service().clone(),
 			_block: PhantomData::default(),
-			accountid: PhantomData::default(),
-			_block_number: PhantomData::default(),
 		};
-		let gadget = start_timeworker_gadget::<_, _, _, _, _, _, _, _>(time_params);
+		let gadget = start_timeworker_gadget::<_, _, _, _, _>(time_params);
 
 		fn assert_send<T: Send>(_: &T) {}
 		assert_send(&gadget);

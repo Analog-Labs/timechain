@@ -49,8 +49,9 @@ fn test_schedule() {
 			network: Network::Ethereum,
 			function: function.clone(),
 			cycle: 12,
-			frequency: 1,
 			hash: String::from("address"),
+			start: 1,
+			period: 1,
 		};
 		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
 
@@ -60,8 +61,8 @@ fn test_schedule() {
 			network: Network::Ethereum,
 			cycle: 12,
 			hash: String::from("address"),
-			status: ScheduleStatus::Initiated,
-			frequency: 1,
+			period: 1,
+			start: 1,
 		};
 		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output);
@@ -69,8 +70,9 @@ fn test_schedule() {
 		// update schedule
 		assert_ok!(TaskSchedule::update_schedule(
 			RawOrigin::Signed(account.clone()).into(),
-			ScheduleStatus::Completed,
-			1
+			1,
+			1,
+			ScheduleStatus::Ok(1, output),
 		));
 
 		let output_update = abs_TaskSchedule {
@@ -79,8 +81,8 @@ fn test_schedule() {
 			network: Network::Ethereum,
 			cycle: 12,
 			hash: String::from("address"),
-			status: ScheduleStatus::Completed,
-			frequency: 1,
+			start: 1,
+			period: 1,
 		};
 		let a = TaskSchedule::get_task_schedule(1_u64);
 		let b = Some(output_update);

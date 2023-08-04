@@ -1,4 +1,3 @@
-use crate::tests::sr25519::Public;
 use crate::{worker::TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use ethers_solc::artifacts::Source;
@@ -10,25 +9,21 @@ use sc_keystore::LocalKeystore;
 use sc_network_test::Block;
 use sc_network_test::TestClientBuilderExt;
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_core::sr25519;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::Arc;
 use substrate_test_runtime_client::sc_client_db::Backend;
-use substrate_test_runtime_client::{
-	runtime::{AccountId, BlockNumber},
-	TestClientBuilder,
-};
+use substrate_test_runtime_client::TestClientBuilder;
 use time_primitives::{ShardId, TimeApi, TimeId};
 
-type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public, BlockNumber>;
+type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi>;
 
 #[derive(Clone)]
 pub(crate) struct RuntimeApi {}
 
 sp_api::mock_impl_runtime_apis! {
-	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
+	impl TimeApi<Block> for RuntimeApi {
 		fn get_shards(&self, _time_id: TimeId) -> Vec<ShardId> {
 			vec![1]
 		}
@@ -63,8 +58,6 @@ async fn build_worker(url: &str, blockchain: &str, network: &str) -> TaskExecuto
 		runtime: runtime_api.into(),
 		kv: keystore,
 		_block: PhantomData::default(),
-		account_id: PhantomData::default(),
-		_block_number: PhantomData::default(),
 		sign_data_sender,
 		connector_url: Some(url.into()),
 		connector_blockchain: Some(blockchain.into()),

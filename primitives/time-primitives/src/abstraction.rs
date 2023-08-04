@@ -22,7 +22,16 @@ pub enum FunctionResult {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum ScheduleStatus {
 	Ok(ShardId, TssSignature),
-	Err(String),
+	Err(ShardId, String),
+}
+
+impl ScheduleStatus{
+	pub fn shard_id(&self) -> &ShardId{
+		match self {
+			Self::Ok(shard_id, _) => shard_id,
+			Self::Err(shard_id, _) => shard_id,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -63,11 +72,12 @@ pub struct OCWSkdData {
 	pub task_id: TaskId,
 	pub cycle: ScheduleCycle,
 	pub status: ScheduleStatus,
+	pub proof: Signature,
 }
 
 impl OCWSkdData {
-	pub fn new(task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) -> Self {
-		Self { task_id, cycle, status }
+	pub fn new(task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus, proof: Signature) -> Self {
+		Self { task_id, cycle, status, proof }
 	}
 }
 
@@ -88,4 +98,17 @@ impl OCWTSSGroupKeyData {
 pub enum OCWPayload {
 	OCWSkd(OCWSkdData),
 	OCWTSSGroupKey(OCWTSSGroupKeyData),
+}
+
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub struct SkdMsg {
+	task_id: TaskId,
+	cycle: ScheduleCycle,
+	status: ScheduleStatus,
+}
+
+impl SkdMsg {
+	pub fn new(task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) -> Self {
+		Self { task_id, cycle, status }
+	}
 }

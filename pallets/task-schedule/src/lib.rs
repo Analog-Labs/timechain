@@ -25,7 +25,8 @@ pub mod pallet {
 	use time_primitives::OCWSkdData;
 	use time_primitives::ShardInterface;
 	use time_primitives::OCW_SKD_KEY;
-	use time_primitives::{
+	use time_primitives::SkdMsg;
+use time_primitives::{
 		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
 		TaskSchedule,
 	};
@@ -144,10 +145,11 @@ pub mod pallet {
 			task_id: TaskId,
 			cycle: ScheduleCycle,
 			status: ScheduleStatus,
-			// proof: Signature, TODO: add proof to authenticate
+			proof: Signature
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
+			Self::is_collector_and_signed(proof, task_id, cycle, status.clone());
 			TaskCycle::<T>::insert(task_id, cycle + 1);
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
 			if Self::is_complete(task_id) {
@@ -206,12 +208,14 @@ pub mod pallet {
 			}
 		}
 
-		fn is_collector_and_signed(shard_id: ShardId, proof: Signature, msg: &[u8]) -> bool {
-			let Some(collector) = T::ShardHelper::get_collector(shard_id) else{
+		fn is_collector_and_signed(proof: Signature, task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) -> bool {
+			let msg = SkdMsg::new(task_id, cycle, status.clone()).encode();
+			let msg_bytes: &[u8] = &msg;
+			let Some(collector) = T::ShardHelper::get_collector(*status.shard_id()) else{
 				return false;
 			};
 			let collector = sp_application_crypto::sr25519::Public::from_raw(collector.into());
-			proof.verify(msg, &collector.into())
+			proof.verify(msg_bytes, &collector.into())
 		}
 
 		fn ocw_get_skd_data() {
@@ -273,6 +277,7 @@ pub mod pallet {
 					task_id: data.task_id,
 					cycle: data.cycle,
 					status: data.status.clone(),
+					proof: data.proof.clone(),
 				}) {
 				if res.is_err() {
 					log::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);

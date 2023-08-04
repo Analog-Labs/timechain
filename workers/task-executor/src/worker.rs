@@ -15,17 +15,18 @@ use sp_core::sr25519;
 use sp_keystore::KeystorePtr;
 use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
+use time_primitives::ShardId;
 use std::env;
 use std::{
 	collections::{HashSet, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
 };
-use time_primitives::abstraction::{OCWPayload, OCW_MAX_TRY};
-use time_primitives::ShardId;
+use time_primitives::abstraction::{OCWPayload, OCW_MAX_TRY, SkdMsg};
 use time_primitives::{
 	Function, FunctionResult, OCWSkdData, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
 	TimeApi, TimeId, TssSignature, OCW_SKD_KEY, TIME_KEY_TYPE,
+	crypto::Signature
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
@@ -232,6 +233,9 @@ where
 					self.running_tasks.insert(task_id);
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
 					let backend = self.backend.clone();
+					let kv_store = self.kv.clone();
+					//cant fail since check already in start of function
+					let public_key = self.public_key().clone().unwrap();
 					tokio::task::spawn(async move {
 						let ocw_storage = backend.offchain_storage();
 
@@ -240,12 +244,18 @@ where
 							.await
 						{
 							Ok(signature) => ScheduleStatus::Ok(shard_id, signature),
-							Err(e) => ScheduleStatus::Err(e.to_string()),
+							Err(e) => ScheduleStatus::Err(shard_id, e.to_string()),
 						};
 
-						update_schedule_ocw(task_id, cycle, status, ocw_storage);
+							let msg = SkdMsg::new(task_id, cycle, status.clone()).encode();
+
+							let sig = kv_store
+								.sr25519_sign(TIME_KEY_TYPE, &public_key, &msg)
+								.expect("Failed to sign schedule with collector key")
+								.expect("Signature returned signing tss key is null");
+
+							update_schedule_ocw(task_id, cycle, status, sig.into(), ocw_storage);
 					});
-					// self.update_schedule_ocw(1, 1, ScheduleStatus::Ok(1, [0u8; 64]));
 				}
 			}
 		}
@@ -266,11 +276,12 @@ fn update_schedule_ocw<B>(
 	task_id: TaskId,
 	cycle: ScheduleCycle,
 	status: ScheduleStatus,
+	proof: Signature,
 	storage: Option<B>,
 ) where
 	B: OffchainStorage,
 {
-	let skd_data = OCWSkdData::new(task_id, cycle, status);
+	let skd_data = OCWSkdData::new(task_id, cycle, status, proof);
 	let payload = OCWPayload::OCWSkd(skd_data);
 	update_ocw_storage(OCW_SKD_KEY, payload, 0, storage);
 }

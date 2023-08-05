@@ -22,13 +22,13 @@ use substrate_test_runtime_client::{
 };
 use time_primitives::{ShardId, TimeApi, TimeId};
 
-type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi, Public, BlockNumber>;
+type TaskExecutorType = TaskExecutor<Block, Backend<Block>, TestApi>;
 
 #[derive(Clone)]
 pub(crate) struct RuntimeApi {}
 
 sp_api::mock_impl_runtime_apis! {
-	impl TimeApi<Block, AccountId, BlockNumber> for RuntimeApi {
+	impl TimeApi<Block> for RuntimeApi {
 		fn get_shards(&self, _time_id: TimeId) -> Vec<ShardId> {
 			vec![1]
 		}

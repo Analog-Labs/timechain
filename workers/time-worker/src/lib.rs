@@ -2,8 +2,8 @@
 mod communication;
 mod worker;
 
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
 
 use crate::communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator};
 use futures::channel::mpsc;

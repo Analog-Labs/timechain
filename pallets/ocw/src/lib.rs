@@ -94,10 +94,11 @@ pub mod pallet {
 		}
 
 		fn submit_tx(payload: OcwPayload) {
-			let Some(collector) = T::Shards::collector(payload.shard_id()) else {
+			let Some(_collector) = T::Shards::collector(payload.shard_id()) else {
 				return;
 			};
-			let signer = Signer::<T, T::AuthorityId>::with_filter(vec![collector]);
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+			//.with_filter(vec![collector]);
 			let call_res = match payload {
 				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
 					.send_signed_transaction(|_| Call::submit_tss_public_key {
@@ -108,7 +109,7 @@ pub mod pallet {
 					.send_signed_transaction(|_| Call::submit_task_result {
 						task_id,
 						cycle,
-						status,
+						status: status.clone(),
 					}),
 			};
 			let Some((_, res)) = call_res else {

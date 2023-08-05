@@ -74,7 +74,6 @@ pub mod pallet {
 		UnknownShard,
 		PublicKeyAlreadyRegistered,
 		InvalidNumberOfShardMembers,
-		NotSignedByCollector,
 	}
 
 	#[pallet::call]

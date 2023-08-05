@@ -82,8 +82,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Invalid cycle
 		InvalidCycle,
-		/// Result not submitted by collector
-		ResultNotSubmittedByCollector,
 	}
 
 	#[pallet::call]

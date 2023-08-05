@@ -17,10 +17,12 @@ pub enum FunctionResult {
 	EVMViewWithoutAbi { result: Vec<String> },
 }
 
+pub type ScheduleResult = Result<TssSignature, String>;
+
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub enum ScheduleStatus {
-	Ok(ShardId, TssSignature),
-	Err(String),
+pub struct ScheduleStatus {
+	pub shard_id: ShardId,
+	pub result: ScheduleResult,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

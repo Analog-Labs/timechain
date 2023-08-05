@@ -1161,6 +1161,7 @@ parameter_types! {
 impl task_schedule::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
+	type Shards = Shards;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

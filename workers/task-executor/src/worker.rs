@@ -259,13 +259,11 @@ where
 					self.running_tasks.insert(task_id);
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
 					tokio::task::spawn(async move {
-						let status = match task
+						let result = task
 							.execute(block_height, shard_id, task_id, cycle, task_descr)
 							.await
-						{
-							Ok(signature) => ScheduleStatus::Ok(shard_id, signature),
-							Err(e) => ScheduleStatus::Err(e.to_string()),
-						};
+							.map_err(|e| e.to_string());
+						let status = ScheduleStatus { shard_id, result };
 						//self.update_schedule_ocw(task_id, cycle, status);
 					});
 				}

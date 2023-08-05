@@ -15,7 +15,9 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
-	use time_primitives::{Network, ScheduleInterface, ShardId, TimeId, TssPublicKey};
+	use time_primitives::{
+		Network, ScheduleInterface, ShardId, ShardInterface, TimeId, TssPublicKey,
+	};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
@@ -143,6 +145,12 @@ pub mod pallet {
 
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
+		}
+	}
+
+	impl<T: Config> ShardInterface for Pallet<T> {
+		fn collector(shard_id: ShardId) -> Option<TimeId> {
+			ShardCollector::<T>::get(shard_id)
 		}
 	}
 }

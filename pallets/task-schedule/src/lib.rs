@@ -13,8 +13,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
-		TaskSchedule,
+		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId,
+		ShardInterface, TaskId, TaskSchedule,
 	};
 
 	pub trait WeightInfo {
@@ -30,6 +30,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type Shards: ShardInterface;
 	}
 
 	#[pallet::storage]
@@ -81,6 +82,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Invalid cycle
 		InvalidCycle,
+		/// Result not submitted by collector
+		ResultNotSubmittedByCollector,
 	}
 
 	#[pallet::call]
@@ -116,10 +119,13 @@ pub mod pallet {
 			task_id: TaskId,
 			cycle: ScheduleCycle,
 			status: ScheduleStatus,
-			// proof: Signature, TODO: add proof to authenticate
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let account_id = ensure_signed(origin)?;
 			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
+			ensure!(
+				Some(account_id) == T::Shards::collector(status.shard_id),
+				Error::<T>::ResultNotSubmittedByCollector
+			);
 			TaskCycle::<T>::insert(task_id, cycle + 1);
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
 			if Self::is_complete(task_id) {

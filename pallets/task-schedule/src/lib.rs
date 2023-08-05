@@ -10,15 +10,20 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
-	use frame_system::offchain::{AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer};
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef};
+	use sp_runtime::offchain::storage::{
+		MutateStorageError, StorageRetrievalError, StorageValueRef,
+	};
 	use sp_runtime::traits::AppVerify;
 	use sp_std::collections::vec_deque::VecDeque;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
-		TaskSchedule, crypto::Signature, OCWPayload, OCWSkdData, ShardInterface, SkdMsg, OCW_SKD_KEY
+		crypto::Signature, Network, OCWPayload, OCWSkdData, ScheduleCycle, ScheduleInput,
+		ScheduleInterface, ScheduleStatus, ShardId, ShardInterface, SkdMsg, TaskId, TaskSchedule,
+		OCW_SKD_KEY,
 	};
 
 	pub trait WeightInfo {

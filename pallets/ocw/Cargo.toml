@@ -21,7 +21,7 @@ frame-benchmarking = { default-features = false, optional = true, git = "https:/
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-shards = { default-features = false, path = "../shards" }
-pallet-tasks = { default-features = false, path = "../task-schedule" }
+pallet-tasks = { default-features = false, path = "../tasks" }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

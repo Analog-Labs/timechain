@@ -3,8 +3,6 @@ name = "task-schedule-bench"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = ["max-encoded-len"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
@@ -15,7 +13,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
 time-primitives = { path = "../../../primitives/time-primitives", default-features = false }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-pallet-tasks = { version = "0.0.1", default-features = false, path = "../../task-schedule" }
+pallet-tasks = { version = "0.0.1", default-features = false, path = ".." }
 pallet-treasury = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 

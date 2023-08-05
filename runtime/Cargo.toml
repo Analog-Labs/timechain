@@ -70,13 +70,13 @@ frame-system-benchmarking = { default-features = false, git = "https://github.co
 
 # Local Dependencies
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
-pallet-tasks = { version = "0.0.1", default-features = false, path = "../pallets/task-schedule" }
+pallet-tasks = { version = "0.0.1", default-features = false, path = "../pallets/tasks" }
 pallet-treasury = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-shards = { version = "4.0.0-dev", default-features = false, path = "../pallets/shards" }
 pallet-ocw = { version = "4.0.0-dev", default-features = false, path = "../pallets/ocw" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
-task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench", optional = true }
+task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/tasks/task-schedule-bench", optional = true }
 
 [dev-dependencies]
 separator = "0.4.1"

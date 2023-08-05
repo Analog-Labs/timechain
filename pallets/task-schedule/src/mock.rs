@@ -10,8 +10,9 @@ use sp_runtime::{
 	app_crypto::sp_core,
 	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	DispatchResult,
 };
-use time_primitives::{ShardId, ShardInterface, TimeId};
+use time_primitives::{ShardId, ShardInterface, TimeId, TssPublicKey};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -23,6 +24,9 @@ pub struct MockShards;
 impl ShardInterface for MockShards {
 	fn collector(_: ShardId) -> Option<TimeId> {
 		None
+	}
+	fn submit_tss_public_key(_: ShardId, _: TssPublicKey) -> DispatchResult {
+		Ok(())
 	}
 }
 

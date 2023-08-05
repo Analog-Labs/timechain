@@ -6,8 +6,9 @@ use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	DispatchResult,
 };
-use time_primitives::{Network, ScheduleInterface, ShardId};
+use time_primitives::{Network, ScheduleCycle, ScheduleInterface, ScheduleStatus, ShardId, TaskId};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -19,6 +20,9 @@ pub struct MockTaskScheduler;
 impl ScheduleInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: Network) {}
 	fn shard_offline(_: ShardId, _: Network) {}
+	fn submit_task_result(_: TaskId, _: ScheduleCycle, _: ScheduleStatus) -> DispatchResult {
+		Ok(())
+	}
 }
 
 frame_support::construct_runtime!(

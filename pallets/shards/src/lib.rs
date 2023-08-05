@@ -6,6 +6,7 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 pub use pallet::*;
 
@@ -13,15 +14,12 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::AppVerify;
 	use sp_std::vec::Vec;
-	use time_primitives::{
-		crypto::Signature, Network, ScheduleInterface, ShardId, TimeId, TssPublicKey,
-	};
+	use time_primitives::{Network, ScheduleInterface, ShardId, TimeId, TssPublicKey};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
-		fn submit_tss_group_key(_s: u32) -> Weight;
+		fn submit_tss_public_key() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -29,7 +27,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: ScheduleInterface;
@@ -64,9 +62,10 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// New shard was created
 		ShardCreated(ShardId, Network),
-		/// New group key submitted to runtime
-		ShardPublicKey(ShardId, [u8; 33]),
+		/// Shard completed dkg and submitted public key to runtime
+		ShardOnline(ShardId, TssPublicKey),
 	}
 
 	#[pallet::error]
@@ -74,8 +73,7 @@ pub mod pallet {
 		UnknownShard,
 		PublicKeyAlreadyRegistered,
 		InvalidNumberOfShardMembers,
-		/// Invalid validation signature
-		InvalidValidationSignature,
+		NotSignedByCollector,
 	}
 
 	#[pallet::call]
@@ -107,27 +105,22 @@ pub mod pallet {
 
 		/// Submits TSS group key to runtime
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::submit_tss_group_key(1))]
-		pub fn submit_tss_group_key(
+		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
+		pub fn submit_tss_public_key(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
-			public_key: [u8; 33],
-			proof: Signature,
+			public_key: TssPublicKey,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let account_id = ensure_signed(origin)?;
 			let collector = ShardCollector::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			ensure!(
 				ShardPublicKey::<T>::get(shard_id).is_none(),
 				Error::<T>::PublicKeyAlreadyRegistered
 			);
-			let collector = sp_application_crypto::sr25519::Public::from_raw(collector.into());
-			ensure!(
-				proof.verify(public_key.as_ref(), &collector.into()),
-				Error::<T>::InvalidValidationSignature
-			);
+			ensure!(account_id == collector, Error::<T>::NotSignedByCollector);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			Self::deposit_event(Event::ShardPublicKey(shard_id, public_key));
+			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
 			T::TaskScheduler::shard_online(shard_id, network);
 			Ok(())
 		}

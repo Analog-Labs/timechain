@@ -72,7 +72,7 @@ frame-system-benchmarking = { default-features = false, git = "https://github.co
 analog-vesting = { version = "4.0.0-dev", default-features = false, path = "../pallets/vesting" }
 task-schedule = { version = "0.0.1", default-features = false, path = "../pallets/task-schedule" }
 pallet-treasury = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-pallet-tesseract-sig-storage= { version = "4.0.0-dev", default-features = false, path = "../pallets/tesseract-sig-storage" }
+pallet-shards = { version = "4.0.0-dev", default-features = false, path = "../pallets/shards" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
 task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/task-schedule/task-schedule-bench", optional = true }
@@ -111,7 +111,7 @@ std = [
 	"pallet-collective/std",
 	"analog-vesting/std",
 	"pallet-utility/std",
-	"pallet-tesseract-sig-storage/std",
+	"pallet-shards/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -142,7 +142,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
-	"pallet-tesseract-sig-storage/runtime-benchmarks",
+	"pallet-shards/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"analog-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -161,7 +161,7 @@ try-runtime = [
 	"pallet-grandpa/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-sudo/try-runtime",
-	"pallet-tesseract-sig-storage/try-runtime",
+	"pallet-shards/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"analog-vesting/try-runtime",

@@ -3,7 +3,7 @@ members = [
     "node",
     "pallets/task-schedule",
     "pallets/task-schedule/task-schedule-bench",
-    "pallets/tesseract-sig-storage",
+    "pallets/shards",
     "pallets/vesting",
     "primitives/time-primitives",
     "runtime",

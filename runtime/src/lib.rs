@@ -76,8 +76,6 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{traits::Bounded, Perbill, Permill, Perquintill};
 use static_assertions::const_assert;
 
-pub use pallet_tesseract_sig_storage;
-
 pub type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
 pub struct StakingBenchmarkingConfig;
@@ -1049,9 +1047,9 @@ parameter_types! {
 	pub const MaxTimeouts: u8 = 2;
 }
 
-impl pallet_tesseract_sig_storage::Config for Runtime {
+impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
+	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
 	type TaskScheduler = TaskSchedule;
 }
 
@@ -1190,7 +1188,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		TaskSchedule: task_schedule,
@@ -1240,7 +1238,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_tesseract_sig_storage, TesseractSigStorage]
+		[pallet_shards, Shards]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
 	);
 }
@@ -1461,11 +1459,11 @@ impl_runtime_apis! {
 
 	impl time_primitives::TimeApi<Block>  for Runtime {
 		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
-			TesseractSigStorage::get_shards(time_id)
+			Shards::get_shards(time_id)
 		}
 
 		fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
-			TesseractSigStorage::get_shard_members(shard_id)
+			Shards::get_shard_members(shard_id)
 		}
 
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
@@ -1491,7 +1489,7 @@ impl_runtime_apis! {
 			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
-			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
+			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1519,7 +1517,7 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
+			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

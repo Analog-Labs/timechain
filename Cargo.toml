@@ -1,9 +1,10 @@
 [workspace]
 members = [
     "node",
+    "pallets/ocw",
+    "pallets/shards",
     "pallets/task-schedule",
     "pallets/task-schedule/task-schedule-bench",
-    "pallets/shards",
     "pallets/vesting",
     "primitives/time-primitives",
     "runtime",

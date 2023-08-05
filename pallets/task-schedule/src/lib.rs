@@ -111,32 +111,6 @@ pub mod pallet {
 			Self::schedule_tasks(schedule.network);
 			Ok(())
 		}
-
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::submit_result())]
-		pub fn submit_result(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-			cycle: ScheduleCycle,
-			status: ScheduleStatus,
-		) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			ensure!(
-				Some(account_id) == T::Shards::collector(status.shard_id),
-				Error::<T>::ResultNotSubmittedByCollector
-			);
-			TaskCycle::<T>::insert(task_id, cycle + 1);
-			TaskResults::<T>::insert(task_id, cycle, status.clone());
-			if Self::is_complete(task_id) {
-				if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-					ShardTasks::<T>::remove(shard_id, task_id);
-				}
-				TaskShard::<T>::remove(task_id);
-			}
-			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
-			Ok(())
-		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -201,6 +175,24 @@ pub mod pallet {
 				}
 			});
 			Self::schedule_tasks(network);
+		}
+
+		fn submit_task_result(
+			task_id: TaskId,
+			cycle: ScheduleCycle,
+			status: ScheduleStatus,
+		) -> DispatchResult {
+			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
+			TaskCycle::<T>::insert(task_id, cycle + 1);
+			TaskResults::<T>::insert(task_id, cycle, status.clone());
+			if Self::is_complete(task_id) {
+				if let Some(shard_id) = TaskShard::<T>::get(task_id) {
+					ShardTasks::<T>::remove(shard_id, task_id);
+				}
+				TaskShard::<T>::remove(task_id);
+			}
+			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
+			Ok(())
 		}
 	}
 }

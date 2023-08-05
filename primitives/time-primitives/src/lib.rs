@@ -7,7 +7,7 @@ use scale_info::TypeInfo;
 use serde::Serialize;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	MultiSignature,
+	DispatchResult, MultiSignature,
 };
 use sp_std::vec::Vec;
 
@@ -42,8 +42,29 @@ sp_api::decl_runtime_apis! {
 }
 
 pub mod crypto {
-	use sp_application_crypto::{app_crypto, sr25519};
+	use sp_core::sr25519::Signature as Sr25519Signature;
+	use sp_runtime::{
+		app_crypto::{app_crypto, sr25519},
+		traits::Verify,
+		MultiSignature, MultiSigner,
+	};
 	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
+
+	pub struct SigAuthId;
+
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SigAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
+		for SigAuthId
+	{
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
 }
 
 /// Used to enforce one network per shard
@@ -57,8 +78,14 @@ pub enum Network {
 pub trait ScheduleInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
+	fn submit_task_result(
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		status: ScheduleStatus,
+	) -> DispatchResult;
 }
 
 pub trait ShardInterface {
 	fn collector(shard_id: ShardId) -> Option<TimeId>;
+	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
 }

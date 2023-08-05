@@ -53,7 +53,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use time_primitives::{ScheduleCycle, ShardId, TaskId, TaskSchedule as abs_TaskSchedule, TimeId};
+use time_primitives::{ScheduleCycle, ShardId, TaskId, TaskSchedule, TimeId};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -1050,7 +1050,7 @@ parameter_types! {
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
-	type TaskScheduler = TaskSchedule;
+	type TaskScheduler = Tasks;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -1158,9 +1158,9 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-impl task_schedule::Config for Runtime {
+impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
+	type WeightInfo = pallet_tasks::weights::WeightInfo<Runtime>;
 	type Shards = Shards;
 }
 
@@ -1192,7 +1192,7 @@ construct_runtime!(
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
-		TaskSchedule: task_schedule,
+		Tasks: pallet_tasks,
 	}
 );
 
@@ -1468,11 +1468,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
-			TaskSchedule::get_shard_tasks(shard_id)
+			Tasks::get_shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule>{
-			TaskSchedule::get_task(task_id)
+		fn get_task(task_id: TaskId) -> Option<TaskSchedule>{
+			Tasks::get_task(task_id)
 		}
 	}
 

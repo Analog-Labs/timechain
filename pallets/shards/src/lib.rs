@@ -21,7 +21,6 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
-		fn submit_tss_public_key() -> Weight;
 	}
 
 	#[pallet::pallet]
@@ -104,28 +103,6 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			Ok(())
 		}
-
-		/// Submits TSS group key to runtime
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
-		pub fn submit_tss_public_key(
-			origin: OriginFor<T>,
-			shard_id: ShardId,
-			public_key: TssPublicKey,
-		) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			let collector = ShardCollector::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
-			);
-			ensure!(account_id == collector, Error::<T>::NotSignedByCollector);
-			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
-			Ok(())
-		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -151,6 +128,18 @@ pub mod pallet {
 	impl<T: Config> ShardInterface for Pallet<T> {
 		fn collector(shard_id: ShardId) -> Option<TimeId> {
 			ShardCollector::<T>::get(shard_id)
+		}
+
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(
+				ShardPublicKey::<T>::get(shard_id).is_none(),
+				Error::<T>::PublicKeyAlreadyRegistered
+			);
+			<ShardPublicKey<T>>::insert(shard_id, public_key);
+			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
+			T::TaskScheduler::shard_online(shard_id, network);
+			Ok(())
 		}
 	}
 }

@@ -1,7 +1,7 @@
 [package]
-name = "pallet-tasks"
-version = "0.0.1"
-description = "A pallet for storing task(s) schedule info."
+name = "pallet-ocw"
+version = "4.0.0-dev"
+description = "A pallet for submitting transactions from workers."
 authors = ["Analog Devs <https://github.com/analog-labs>"]
 homepage = "https://analog.one"
 edition = "2021"
@@ -9,14 +9,21 @@ license = "Unlicense"
 publish = false
 repository = "https://github.com/Analog-Labs/testnet"
 
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
 [dependencies]
 log = { version = "0.4.19", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = ["max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = [
+	"derive",
+] }
 frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+pallet-shards = { default-features = false, path = "../shards" }
+pallet-tasks = { default-features = false, path = "../task-schedule" }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v1.0.0" }
+sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 time-primitives = { path = "../../primitives/time-primitives", default-features = false }
 
@@ -27,15 +34,16 @@ sp-core = { default-features = false, git = "https://github.com/paritytech/subst
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-benchmarking?/std",
-  "frame-support/std",
-  "frame-system/std",
-  "scale-info/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "time-primitives/std",
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-shards/std",
+	"pallet-tasks/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"time-primitives/std",
 ]
-
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

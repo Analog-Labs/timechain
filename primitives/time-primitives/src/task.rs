@@ -1,4 +1,4 @@
-use crate::{crypto::Signature, Network, ScheduleCycle, ShardId, TaskId, TimeId, TssSignature};
+use crate::{Network, ScheduleCycle, ShardId, TimeId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]

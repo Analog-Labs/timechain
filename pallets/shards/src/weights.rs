@@ -33,18 +33,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_tesseract_sig_storage`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
-	/// Storage: TesseractSigStorage TssGroupKey (r:0 w:1)
-	/// Proof Skipped: TesseractSigStorage TssGroupKey (max_values: None, max_size: None, mode: Measured)
-	/// The range of component `s` is `[1, 255]`.
-	fn submit_tss_public_key() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 12_532_000 picoseconds.
-		Weight::from_parts(13_309_273, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: TesseractSigStorage ShardId (r:1 w:1)
 	/// Proof Skipped: TesseractSigStorage ShardId (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: TesseractSigStorage TssShards (r:0 w:1)

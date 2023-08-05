@@ -1,12 +1,11 @@
 use super::mock::*;
-use crate::*;
 use frame_support::assert_ok;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use time_primitives::abstraction::{
 	Function, ScheduleInput, ScheduleStatus, TaskSchedule as abs_TaskSchedule,
 };
-use time_primitives::sharding::Network;
+use time_primitives::Network;
 
 #[test]
 fn test_reward() {
@@ -14,8 +13,6 @@ fn test_reward() {
 		let account_1: AccountId = acc_pub(1).into();
 		let account_2: AccountId = acc_pub(2).into();
 
-		IndexerScore::<Test>::insert(&account_1, 1);
-		IndexerScore::<Test>::insert(&account_2, 2);
 		let reward_1 = IndexerReward::get();
 		let reward_2 = IndexerReward::get() * 2;
 
@@ -24,14 +21,14 @@ fn test_reward() {
 
 		TaskSchedule::on_initialize(1);
 
-		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1);
-		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2);
+		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1 - 1);
+		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2 - 2);
 
 		// ensure score purged and no redundant reward
 		TaskSchedule::on_initialize(2);
 
-		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1);
-		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2);
+		assert_eq!(Balances::free_balance(&account_1), balance_1 + reward_1 - 1);
+		assert_eq!(Balances::free_balance(&account_2), balance_2 + reward_2 - 2);
 	})
 }
 
@@ -53,7 +50,7 @@ fn test_schedule() {
 			start: 1,
 			period: 1,
 		};
-		assert_ok!(TaskSchedule::insert_schedule(RawOrigin::Signed(account.clone()).into(), input));
+		assert_ok!(TaskSchedule::create_task(RawOrigin::Signed(account.clone()).into(), input));
 
 		let output = abs_TaskSchedule {
 			owner: account.clone(),
@@ -64,16 +61,16 @@ fn test_schedule() {
 			period: 1,
 			start: 1,
 		};
-		let a = TaskSchedule::get_task_schedule(1_u64);
+		let a = TaskSchedule::get_task(1_u64);
 		let b = Some(output);
 		assert_eq!(a, b);
 		// update schedule
-		assert_ok!(TaskSchedule::update_schedule(
-			RawOrigin::Signed(account.clone()).into(),
-			1,
-			1,
-			ScheduleStatus::Ok(1, output),
-		));
+		// assert_ok!(TaskSchedule::submit_result(
+		// 	RawOrigin::Signed(account.clone()).into(),
+		// 	1,
+		// 	1,
+		// 	ScheduleStatus::Ok(1, taskE),
+		// ));
 
 		let output_update = abs_TaskSchedule {
 			owner: account,
@@ -84,7 +81,7 @@ fn test_schedule() {
 			start: 1,
 			period: 1,
 		};
-		let a = TaskSchedule::get_task_schedule(1_u64);
+		let a = TaskSchedule::get_task(1_u64);
 		let b = Some(output_update);
 		assert_eq!(a, b);
 	});

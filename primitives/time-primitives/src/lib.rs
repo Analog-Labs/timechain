@@ -11,7 +11,7 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
-mod abstraction;
+pub mod abstraction;
 
 pub use crate::abstraction::*;
 

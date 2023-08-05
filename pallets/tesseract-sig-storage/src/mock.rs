@@ -7,7 +7,7 @@ use frame_support::{
 };
 use frame_system as system;
 use pallet_staking::SessionInterface;
-use sp_core::{ConstU32, ConstU8, H256};
+use sp_core::{ConstU32, H256};
 use sp_runtime::MultiSignature;
 use sp_runtime::{
 	testing::Header,
@@ -169,13 +169,6 @@ impl pallet_treasury::Config for Test {
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u128>;
 }
 
-pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-	fn get_treasury() -> AccountId {
-		Treasury::account_id()
-	}
-}
-
 impl pallet_timestamp::Config for Test {
 	type Moment = Moment;
 	type OnTimestampSet = MockOnTimestampSet;
@@ -186,14 +179,6 @@ impl pallet_timestamp::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
-	type ProxyExtend = ();
-	type Currency = Balances;
-	type PalletAccounts = CurrentPalletAccounts;
-	type ScheduleFee = ScheduleFee;
-	type ShouldEndSession = ShouldEndSessionMock;
-	type IndexerReward = IndexerReward;
-	type AuthorityId = task_schedule::crypto::SigAuthId;
-	type ShardEligibility = TesseractSigStorage;
 }
 
 pub struct SessionInterfaceMock<T>(sp_std::marker::PhantomData<T>);
@@ -219,16 +204,17 @@ where
 
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	type Moment = Moment;
-	type Timestamp = Timestamp;
-	type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
-	type TaskScheduleHelper = TaskSchedule;
-	type SessionInterface = SessionInterfaceMock<AccountId>;
-	type MaxChronicleWorkers = ConstU32<3>;
-	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
-	type TaskAssigner = ();
-	type MaxTimeouts = ConstU8<100>;
+	type WeightInfo = pallet_tesseract_sig_storage::WeightInfo;
+	type TaskScheduler = TaskSchedule;
+	// type Moment = Moment;
+	// type Timestamp = Timestamp;
+	// type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
+	// type TaskScheduleHelper = TaskSchedule;
+	// type SessionInterface = SessionInterfaceMock<AccountId>;
+	// type MaxChronicleWorkers = ConstU32<3>;
+	// type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
+	// type TaskAssigner = ();
+	// type MaxTimeouts = ConstU8<100>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

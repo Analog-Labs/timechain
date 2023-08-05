@@ -27,9 +27,7 @@ use sp_core::crypto::key_types::GRANDPA;
 use sp_runtime::traits::Header as HeaderT;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, task::Poll, time::Duration};
 use substrate_test_runtime_client::{Ed25519Keyring, Keystore, LongestChain};
-use time_primitives::{
-	abstraction::TimeTssKey, SignatureData, TimeApi, TIME_KEY_TYPE as TimeKeyType,
-};
+use time_primitives::{abstraction::TimeTssKey, TimeApi, TIME_KEY_TYPE as TimeKeyType};
 use time_primitives::{ShardId, TimeId};
 
 const GRANDPA_PROTOCOL_NAME: &str = "/grandpa/1";
@@ -203,7 +201,6 @@ impl ProvideRuntimeApi<Block> for TestApi {
 	fn runtime_api(&self) -> ApiRef<Self::Api> {
 		RuntimeApi {
 			group_keys: Arc::new(Mutex::new(HashMap::new())),
-			stored_signatures: Arc::new(Mutex::new(vec![])),
 			test_api: self.clone(),
 		}
 		.into()
@@ -213,7 +210,6 @@ impl ProvideRuntimeApi<Block> for TestApi {
 // compiler gets confused and warns us about unused test_api
 #[derive(Clone)]
 pub(crate) struct RuntimeApi {
-	pub stored_signatures: Arc<Mutex<Vec<SignatureData>>>,
 	pub group_keys: Arc<Mutex<HashMap<u64, TimeTssKey>>>,
 	test_api: TestApi,
 }
@@ -458,5 +454,4 @@ async fn time_keygen_completes() {
 			.is_ok());
 	}
 	tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-	assert!(!api.runtime_api().stored_signatures.lock().is_empty());
 }

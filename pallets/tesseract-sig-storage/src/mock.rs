@@ -204,7 +204,7 @@ where
 
 impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_tesseract_sig_storage::WeightInfo;
+	type WeightInfo = ();
 	type TaskScheduler = TaskSchedule;
 }
 

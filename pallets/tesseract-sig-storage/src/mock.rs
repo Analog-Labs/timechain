@@ -206,15 +206,6 @@ impl pallet_tesseract_sig_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_tesseract_sig_storage::WeightInfo;
 	type TaskScheduler = TaskSchedule;
-	// type Moment = Moment;
-	// type Timestamp = Timestamp;
-	// type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
-	// type TaskScheduleHelper = TaskSchedule;
-	// type SessionInterface = SessionInterfaceMock<AccountId>;
-	// type MaxChronicleWorkers = ConstU32<3>;
-	// type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
-	// type TaskAssigner = ();
-	// type MaxTimeouts = ConstU8<100>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

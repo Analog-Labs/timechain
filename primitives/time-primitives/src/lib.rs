@@ -11,20 +11,15 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
-mod abstraction;
 mod ocw;
+mod task;
 
-pub use crate::abstraction::*;
+pub use crate::ocw::*;
+pub use crate::task::*;
 
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
-pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"psig");
-pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"pskd");
-pub const OCW_TSS_KEY: &[u8; 24] = b"pallet_sig::offchain_tss";
-pub const OCW_SKD_KEY: &[u8; 24] = b"pallet_skd::offchain_skd";
 
 /// The type representing a signature data
 // ThresholdSignature::to_bytes()

@@ -10,21 +10,15 @@ use rosetta_client::{create_wallet, EthereumExt, Wallet};
 use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
-use sp_core::offchain::STORAGE_PREFIX;
 use sp_core::sr25519;
 use sp_keystore::KeystorePtr;
-use sp_runtime::offchain::OffchainStorage;
 use sp_runtime::traits::Block;
 use std::env;
-use std::{
-	collections::{HashSet, VecDeque},
-	marker::PhantomData,
-	sync::Arc,
-};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 use time_primitives::ShardId;
 use time_primitives::{
-	Function, FunctionResult, OCWSkdData, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
-	TimeApi, TimeId, TssSignature, OCW_SKD_KEY, TIME_KEY_TYPE,
+	Function, FunctionResult, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule, TimeApi, TimeId,
+	TssSignature, TIME_KEY_TYPE,
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
@@ -210,35 +204,6 @@ where
 		Some(keys[0])
 	}
 
-	fn update_schedule_ocw(&self, task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) {
-		let skd_data = OCWSkdData::new(task_id, cycle, status);
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let old_value = ocw_storage.get(STORAGE_PREFIX, OCW_SKD_KEY);
-
-			let mut ocw_vec = match old_value.clone() {
-				Some(mut data) => {
-					//remove this unwrap
-					let mut bytes: &[u8] = &mut data;
-					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
-					inner_data
-				},
-				None => Default::default(),
-			};
-
-			ocw_vec.push_back(skd_data.encode());
-			let encoded_data = Encode::encode(&ocw_vec);
-			let is_data_stored = ocw_storage.compare_and_set(
-				STORAGE_PREFIX,
-				OCW_SKD_KEY,
-				old_value.as_deref(),
-				&encoded_data,
-			);
-			log::info!("stored task data in ocw {:?}", is_data_stored);
-		} else {
-			log::error!("cant get offchain storage");
-		};
-	}
-
 	async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let Some(account) = self.account_id() else {
 			anyhow::bail!("No account id found");
@@ -264,7 +229,7 @@ where
 							.await
 							.map_err(|e| e.to_string());
 						let status = ScheduleStatus { shard_id, result };
-						//self.update_schedule_ocw(task_id, cycle, status);
+						todo!("submit task result");
 					});
 				}
 			}

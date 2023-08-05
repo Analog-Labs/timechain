@@ -51,35 +51,3 @@ pub struct ScheduleInput {
 	pub hash: String,
 	pub function: Function,
 }
-
-#[derive(Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
-pub struct TimeTssKey {
-	pub group_key: [u8; 33],
-	pub shard_id: ShardId,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct OCWSkdData {
-	pub task_id: TaskId,
-	pub cycle: ScheduleCycle,
-	pub status: ScheduleStatus,
-}
-
-impl OCWSkdData {
-	pub fn new(task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus) -> Self {
-		Self { task_id, cycle, status }
-	}
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct OCWTSSGroupKeyData {
-	pub shard_id: ShardId,
-	pub group_key: [u8; 33],
-	pub proof: Signature,
-}
-
-impl OCWTSSGroupKeyData {
-	pub fn new(shard_id: ShardId, group_key: [u8; 33], proof: Signature) -> Self {
-		Self { shard_id, group_key, proof }
-	}
-}

@@ -10,9 +10,7 @@ use sc_network_gossip::GossipEngine;
 use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_core::{sr25519, Pair};
-use sp_core::{Decode, Encode};
 use sp_keystore::KeystorePtr;
-use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::{HashMap, VecDeque},
@@ -24,8 +22,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	OCWTSSGroupKeyData, ScheduleCycle, ShardId, TaskId, TimeApi, TssSignature, OCW_TSS_KEY,
-	TIME_KEY_TYPE,
+	ScheduleCycle, ShardId, TaskId, TimeApi, TssPublicKey, TssSignature, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -196,7 +193,6 @@ where
 
 	fn poll_actions(&mut self, shard_id: u64, public_key: sr25519::Public) {
 		let tss_state = self.tss_states.get_mut(&shard_id).unwrap();
-		let mut ocw_encoded_vec: Vec<(&[u8; 24], Vec<u8>)> = vec![];
 		while let Some(action) = tss_state.tss.next_action() {
 			match action {
 				TssAction::Send(payload) => {
@@ -213,16 +209,7 @@ where
 					let data_bytes = tss_public_key.to_bytes();
 					log::info!("New group key provided: {:?} for id: {}", data_bytes, shard_id);
 					self.timeouts.remove(&(shard_id, None));
-					//save in offchain storage
-					let signature = self
-						.kv
-						.sr25519_sign(TIME_KEY_TYPE, &public_key, &data_bytes)
-						.expect("Failed to sign tss key with collector key")
-						.expect("Signature returned signing tss key is null");
-
-					let ocw_gk_data: OCWTSSGroupKeyData =
-						OCWTSSGroupKeyData::new(shard_id, data_bytes, signature.into());
-					ocw_encoded_vec.push((OCW_TSS_KEY, ocw_gk_data.encode()));
+					todo!("submit public key");
 				},
 				TssAction::Tss(tss_signature, request_id) => {
 					debug!(target: TW_LOG, "Storing tss signature");
@@ -244,36 +231,6 @@ where
 				},
 			}
 		}
-
-		for (key, data) in ocw_encoded_vec {
-			self.add_item_in_offchain_storage(data, key);
-		}
-	}
-
-	pub fn add_item_in_offchain_storage(&mut self, data: Vec<u8>, ocw_key: &[u8]) {
-		if let Some(mut ocw_storage) = self.backend.offchain_storage() {
-			let old_value = ocw_storage.get(STORAGE_PREFIX, ocw_key);
-
-			let mut ocw_vec = match old_value.clone() {
-				Some(mut data) => {
-					let mut bytes: &[u8] = &mut data;
-					let inner_data: VecDeque<Vec<u8>> = Decode::decode(&mut bytes).unwrap();
-					inner_data
-				},
-				None => Default::default(),
-			};
-
-			ocw_vec.push_back(data);
-			let encoded_data = Encode::encode(&ocw_vec);
-			ocw_storage.compare_and_set(
-				STORAGE_PREFIX,
-				ocw_key,
-				old_value.as_deref(),
-				&encoded_data,
-			);
-		} else {
-			log::error!("cant get offchain storage");
-		};
 	}
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested

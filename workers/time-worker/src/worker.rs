@@ -22,7 +22,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use time_primitives::{
-	ScheduleCycle, ShardId, TaskId, TimeApi, TssPublicKey, TssSignature, TIME_KEY_TYPE,
+	OcwPayload, ScheduleCycle, ShardId, TaskId, TimeApi, TssSignature, TIME_KEY_TYPE,
 };
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
@@ -206,10 +206,13 @@ where
 					self.gossip_engine.gossip_message(topic::<B>(), bytes, false);
 				},
 				TssAction::PublicKey(tss_public_key) => {
-					let data_bytes = tss_public_key.to_bytes();
-					log::info!("New group key provided: {:?} for id: {}", data_bytes, shard_id);
+					let public_key = tss_public_key.to_bytes();
+					log::info!("New group key provided: {:?} for id: {}", public_key, shard_id);
 					self.timeouts.remove(&(shard_id, None));
-					todo!("submit public key");
+					time_primitives::write_message(
+						self.backend.offchain_storage().unwrap(),
+						&OcwPayload::SubmitTssPublicKey { shard_id, public_key },
+					);
 				},
 				TssAction::Tss(tss_signature, request_id) => {
 					debug!(target: TW_LOG, "Storing tss signature");

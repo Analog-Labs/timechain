@@ -1,6 +1,6 @@
 use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
-use codec::{Decode, Encode};
+use codec::Decode;
 use dotenv::dotenv;
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, StreamExt};
@@ -17,8 +17,8 @@ use std::env;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 use time_primitives::ShardId;
 use time_primitives::{
-	Function, FunctionResult, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule, TimeApi, TimeId,
-	TssSignature, TIME_KEY_TYPE,
+	Function, FunctionResult, OcwPayload, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
+	TimeApi, TimeId, TssSignature, TIME_KEY_TYPE,
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
@@ -158,7 +158,7 @@ pub struct TaskExecutor<B: Block, BE, R> {
 impl<B, BE, R> TaskExecutor<B, BE, R>
 where
 	B: Block,
-	BE: Backend<B>,
+	BE: Backend<B> + 'static,
 	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 {
@@ -223,13 +223,17 @@ where
 				if block_height >= task_descr.trigger(cycle) {
 					self.running_tasks.insert(task_id);
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
+					let storage = self.backend.offchain_storage().unwrap();
 					tokio::task::spawn(async move {
 						let result = task
 							.execute(block_height, shard_id, task_id, cycle, task_descr)
 							.await
 							.map_err(|e| e.to_string());
 						let status = ScheduleStatus { shard_id, result };
-						todo!("submit task result");
+						time_primitives::write_message(
+							storage,
+							&OcwPayload::SubmitTaskResult { task_id, cycle, status },
+						);
 					});
 				}
 			}

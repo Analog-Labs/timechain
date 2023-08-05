@@ -12306,6 +12306,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-grandpa",
  "pallet-im-online",
+ "pallet-ocw",
  "pallet-offences",
  "pallet-session",
  "pallet-shards",

@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
+pub mod weights;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -8,9 +10,10 @@ pub mod pallet {
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::offchain::storage::StorageValueRef;
 	use time_primitives::{
-		OcwPayload, ScheduleCycle, ScheduleInterface, ScheduleStatus, ShardId, ShardInterface,
-		TaskId, TssPublicKey,
+		msg_key, OcwPayload, ScheduleCycle, ScheduleInterface, ScheduleStatus, ShardId,
+		ShardInterface, TaskId, TssPublicKey, OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -44,7 +47,6 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {}
 
 	#[pallet::error]
@@ -90,7 +92,21 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn read_message() -> Option<OcwPayload> {
-			None
+			let read_id_storage = StorageValueRef::persistent(OCW_READ_ID);
+			let write_id_storage = StorageValueRef::persistent(OCW_WRITE_ID);
+			let read_id = read_id_storage.get::<u64>().unwrap().unwrap_or_default();
+			let write_id = write_id_storage.get::<u64>().unwrap().unwrap_or_default();
+			if read_id >= write_id {
+				return None;
+			}
+			let msg_key = msg_key(read_id);
+			let mut msg_storage = StorageValueRef::persistent(&msg_key);
+			let msg = msg_storage.get::<OcwPayload>().unwrap().unwrap();
+			read_id_storage
+				.mutate::<u64, _, _>(|res| Ok::<_, ()>(res.unwrap().unwrap_or_default() + 1))
+				.unwrap();
+			msg_storage.clear();
+			Some(msg)
 		}
 
 		fn submit_tx(payload: OcwPayload) {
@@ -105,7 +121,7 @@ pub mod pallet {
 						shard_id,
 						public_key,
 					}),
-				OcwPayload::SubmitResult { task_id, cycle, status } => signer
+				OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
 					.send_signed_transaction(|_| Call::submit_task_result {
 						task_id,
 						cycle,

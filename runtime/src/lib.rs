@@ -1164,6 +1164,14 @@ impl pallet_tasks::Config for Runtime {
 	type Shards = Shards;
 }
 
+impl pallet_ocw::Config for Runtime {
+	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_ocw::weights::WeightInfo<Runtime>;
+	type Shards = Shards;
+	type Tasks = Tasks;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1193,6 +1201,7 @@ construct_runtime!(
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		Tasks: pallet_tasks,
+		Ocw: pallet_ocw,
 	}
 );
 

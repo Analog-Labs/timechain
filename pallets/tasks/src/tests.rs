@@ -3,7 +3,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use time_primitives::{
 	Function, Network, OcwSubmitTaskResult, ScheduleCycle, ScheduleInput, ScheduleInterface,
-	ScheduleStatus, ShardId, TimeId,
+	ScheduleStatus, ShardId,
 };
 
 fn mock_task(network: Network, cycle: ScheduleCycle) -> ScheduleInput {
@@ -29,7 +29,7 @@ fn mock_result_ok(shard_id: ShardId) -> ScheduleStatus {
 fn test_create_task() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed(TimeId::new([0; 32])).into(),
+			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
 		Tasks::shard_online(1, Network::Ethereum);

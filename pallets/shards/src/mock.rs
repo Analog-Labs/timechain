@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	MultiSignature,
 };
-use time_primitives::{Network, ScheduleInterface, ShardCreated, ShardId, TimeId};
+use time_primitives::{Network, PublicKey, ScheduleInterface, ShardCreated, ShardId};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -15,7 +15,7 @@ pub type Signature = MultiSignature;
 pub struct MockOcw;
 
 impl ShardCreated for MockOcw {
-	fn shard_created(_: ShardId, _: Vec<TimeId>) {}
+	fn shard_created(_: ShardId, _: PublicKey) {}
 }
 
 pub struct MockTaskScheduler;

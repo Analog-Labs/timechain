@@ -1,14 +1,18 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{Network, OcwSubmitTssPublicKey, TimeId};
+use time_primitives::{Network, OcwSubmitTssPublicKey, PeerId, PublicKey};
 
-const A: TimeId = TimeId::new([1u8; 32]);
-const B: TimeId = TimeId::new([2u8; 32]);
-const C: TimeId = TimeId::new([3u8; 32]);
-const D: TimeId = TimeId::new([4u8; 32]);
-const E: TimeId = TimeId::new([5u8; 32]);
-const F: TimeId = TimeId::new([6u8; 32]);
+const A: PeerId = [1u8; 32];
+const B: PeerId = [2u8; 32];
+const C: PeerId = [3u8; 32];
+const D: PeerId = [4u8; 32];
+const E: PeerId = [5u8; 32];
+const F: PeerId = [6u8; 32];
+
+fn collector() -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([42; 32]))
+}
 
 #[test]
 fn test_register_shard() {
@@ -17,8 +21,9 @@ fn test_register_shard() {
 		for shard in &shards {
 			assert_ok!(Shards::register_shard(
 				RawOrigin::Root.into(),
-				shard.to_vec(),
 				Network::Ethereum,
+				shard.to_vec(),
+				collector(),
 			),);
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {

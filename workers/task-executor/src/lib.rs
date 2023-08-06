@@ -2,7 +2,6 @@ use crate::worker::TaskExecutor;
 use futures::channel::mpsc::Sender;
 use sc_client_api::{Backend, BlockchainEvents};
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::TimeApi;
@@ -44,7 +43,6 @@ where
 {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
-	pub kv: KeystorePtr,
 	pub _block: PhantomData<B>,
 	pub sign_data_sender: Sender<TssRequest>,
 	pub connector_url: Option<String>,

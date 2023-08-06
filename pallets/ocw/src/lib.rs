@@ -15,9 +15,11 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::traits::IdentifyAccount;
+	use sp_std::vec;
 	use time_primitives::{
-		msg_key, OcwPayload, OcwSubmitTaskResult, OcwSubmitTssPublicKey, ScheduleCycle,
-		ScheduleStatus, ShardCreated, ShardId, TaskId, TimeId, TssPublicKey, OCW_READ_ID,
+		msg_key, AccountId, OcwPayload, OcwSubmitTaskResult, OcwSubmitTssPublicKey, PublicKey,
+		ScheduleCycle, ScheduleStatus, ShardCreated, ShardId, TaskId, TssPublicKey, OCW_READ_ID,
 		OCW_WRITE_ID,
 	};
 
@@ -43,8 +45,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		CreateSignedTransaction<Call<Self>>
-		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+		CreateSignedTransaction<Call<Self>, Public = PublicKey>
+		+ frame_system::Config<AccountId = AccountId>
 	{
 		type WeightInfo: WeightInfo;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -55,7 +57,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ShardCollector<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, TimeId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
 
 	#[pallet::event]
 	pub enum Event<T: Config> {}
@@ -75,11 +77,7 @@ pub mod pallet {
 			shard_id: ShardId,
 			public_key: TssPublicKey,
 		) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			ensure!(
-				Some(account_id) == ShardCollector::<T>::get(shard_id),
-				Error::<T>::NotSignedByCollector
-			);
+			Self::ensure_signed_by_collector(origin, shard_id)?;
 			T::Shards::submit_tss_public_key(shard_id, public_key)
 		}
 
@@ -92,16 +90,21 @@ pub mod pallet {
 			cycle: ScheduleCycle,
 			status: ScheduleStatus,
 		) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			ensure!(
-				Some(account_id) == ShardCollector::<T>::get(status.shard_id),
-				Error::<T>::NotSignedByCollector
-			);
+			Self::ensure_signed_by_collector(origin, status.shard_id)?;
 			T::Tasks::submit_task_result(task_id, cycle, status)
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn ensure_signed_by_collector(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			let account_id = ensure_signed(origin)?;
+			let Some(collector) = ShardCollector::<T>::get(shard_id) else {
+				return Err(Error::<T>::NotSignedByCollector.into());
+			};
+			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
+			Ok(())
+		}
+
 		pub(crate) fn read_message() -> Option<OcwPayload> {
 			let read_id_storage = StorageValueRef::persistent(OCW_READ_ID);
 			let write_id_storage = StorageValueRef::persistent(OCW_WRITE_ID);
@@ -121,11 +124,10 @@ pub mod pallet {
 		}
 
 		pub(crate) fn submit_tx(payload: OcwPayload) {
-			let Some(_collector) = ShardCollector::<T>::get(payload.shard_id()) else {
+			let Some(collector) = ShardCollector::<T>::get(payload.shard_id()) else {
 				return;
 			};
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-			//.with_filter(vec![collector]);
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
 			let call_res = match payload {
 				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
 					.send_signed_transaction(|_| Call::submit_tss_public_key {
@@ -150,8 +152,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ShardCreated for Pallet<T> {
-		fn shard_created(shard_id: ShardId, members: sp_std::vec::Vec<TimeId>) {
-			ShardCollector::<T>::insert(shard_id, members[0].clone());
+		fn shard_created(shard_id: ShardId, collector: PublicKey) {
+			ShardCollector::<T>::insert(shard_id, collector);
 		}
 	}
 }

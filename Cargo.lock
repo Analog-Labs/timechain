@@ -12169,6 +12169,8 @@ dependencies = [
 name = "time-worker"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-channel",
  "async-trait",
  "bincode",
  "futures",
@@ -12181,7 +12183,6 @@ dependencies = [
  "sc-consensus-grandpa",
  "sc-keystore",
  "sc-network",
- "sc-network-gossip",
  "sc-network-test",
  "serde",
  "sp-api",
@@ -12216,6 +12217,7 @@ dependencies = [
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
+ "async-channel",
  "clap 4.3.12",
  "frame-benchmarking",
  "frame-benchmarking-cli",

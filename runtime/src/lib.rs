@@ -40,10 +40,10 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
-		IdentifyAccount, NumberFor, OpaqueKeys, Verify,
+		NumberFor, OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
+	ApplyExtrinsicResult, Percent, SaturatedConversion,
 };
 
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
@@ -53,7 +53,9 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use time_primitives::{ScheduleCycle, ShardId, TaskId, TaskSchedule, TimeId};
+pub use time_primitives::{
+	AccountId, PeerId, PublicKey, ScheduleCycle, ShardId, Signature, TaskId, TaskSchedule,
+};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -306,13 +308,6 @@ const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO
 
 /// An index to a block.
 pub type BlockNumber = u32;
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
 pub type Balance = u128;
@@ -1053,7 +1048,7 @@ where
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: RuntimeCall,
-		public: <Signature as Verify>::Signer,
+		public: PublicKey,
 		account: AccountId,
 		nonce: Index,
 	) -> Option<(
@@ -1093,7 +1088,7 @@ where
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
-	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Public = PublicKey;
 	type Signature = Signature;
 }
 
@@ -1468,11 +1463,11 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block>  for Runtime {
-		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
-			Shards::get_shards(time_id)
+		fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
+			Shards::get_shards(peer_id)
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
+		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			Shards::get_shard_members(shard_id)
 		}
 

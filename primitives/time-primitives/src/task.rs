@@ -1,4 +1,4 @@
-use crate::{Network, ScheduleCycle, ShardId, TimeId, TssSignature};
+use crate::{AccountId, Network, ScheduleCycle, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -27,7 +27,7 @@ pub struct ScheduleStatus {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskSchedule {
-	pub owner: TimeId,
+	pub owner: AccountId,
 	pub network: Network,
 	pub function: Function,
 	pub cycle: ScheduleCycle,

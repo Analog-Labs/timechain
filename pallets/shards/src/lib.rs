@@ -16,8 +16,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwSubmitTssPublicKey, ScheduleInterface, ShardCreated, ShardId, TimeId,
-		TssPublicKey,
+		Network, OcwSubmitTssPublicKey, PeerId, PublicKey, ScheduleInterface, ShardCreated,
+		ShardId, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -51,7 +51,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ShardMembers<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TimeId, (), OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, PeerId, (), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -80,8 +80,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::register_shard())]
 		pub fn register_shard(
 			origin: OriginFor<T>,
-			members: Vec<TimeId>,
 			network: Network,
+			members: Vec<PeerId>,
+			collector: PublicKey,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(members.len() == 3, Error::<T>::InvalidNumberOfShardMembers);
@@ -92,17 +93,17 @@ pub mod pallet {
 				<ShardMembers<T>>::insert(shard_id, member.clone(), ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			T::ShardCreated::shard_created(shard_id, members);
+			T::ShardCreated::shard_created(shard_id, collector);
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_shards(time_id: TimeId) -> Vec<ShardId> {
+		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
 					|(shard_id, member, _)| {
-						if member == time_id {
+						if member == peer_id {
 							Some(shard_id)
 						} else {
 							None
@@ -112,7 +113,7 @@ pub mod pallet {
 				.collect()
 		}
 
-		pub fn get_shard_members(shard_id: ShardId) -> Vec<TimeId> {
+		pub fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 	}

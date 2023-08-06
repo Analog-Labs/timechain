@@ -1,6 +1,5 @@
 use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
-use codec::Decode;
 use dotenv::dotenv;
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, StreamExt};
@@ -10,15 +9,13 @@ use rosetta_client::{create_wallet, EthereumExt, Wallet};
 use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
-use sp_core::sr25519;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::env;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 use time_primitives::ShardId;
 use time_primitives::{
-	Function, FunctionResult, OcwPayload, ScheduleCycle, ScheduleStatus, TaskId, TaskSchedule,
-	TimeApi, TimeId, TssSignature, TIME_KEY_TYPE,
+	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleStatus, TaskId,
+	TaskSchedule, TimeApi, TssSignature,
 };
 use time_worker::TssRequest;
 use timechain_integration::query::{collect_data, CollectData};
@@ -126,7 +123,7 @@ impl Task {
 			.context("Failed to parse timegraph response")?
 			.data
 			.context("timegraph migrate collect status fail: No reponse")?;
-		log::info!("timegraph migrate collect status: {:?}", data.collect.status);
+		log::info!(target: TW_LOG, "timegraph migrate collect status: {:?}", data.collect.status);
 		Ok(())
 	}
 
@@ -150,7 +147,6 @@ pub struct TaskExecutor<B: Block, BE, R> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	sign_data_sender: mpsc::Sender<TssRequest>,
-	kv: KeystorePtr,
 	wallet: Arc<Wallet>,
 	running_tasks: HashSet<TaskId>,
 }
@@ -168,7 +164,6 @@ where
 			backend,
 			runtime,
 			sign_data_sender,
-			kv,
 			connector_url,
 			connector_blockchain,
 			connector_network,
@@ -181,37 +176,15 @@ where
 			backend,
 			runtime,
 			sign_data_sender,
-			kv,
 			wallet: Arc::new(wallet),
 			running_tasks: Default::default(),
 		})
 	}
 
-	fn account_id(&self) -> Option<TimeId> {
-		let Some(id) = self.public_key() else {
-			return None;
-		};
-		TimeId::decode(&mut id.as_ref()).ok()
-	}
-
-	/// Returns the public key for the worker if one was set.
-	fn public_key(&self) -> Option<sr25519::Public> {
-		let keys = self.kv.sr25519_public_keys(TIME_KEY_TYPE);
-		if keys.is_empty() {
-			log::warn!(target: TW_LOG, "No time key found, please inject one.");
-			return None;
-		}
-		Some(keys[0])
-	}
-
-	async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let Some(account) = self.account_id() else {
-			anyhow::bail!("No account id found");
-		};
+	async fn start_tasks(&mut self, block_id: <B as Block>::Hash, peer_id: PeerId) -> Result<()> {
 		let status = self.wallet.status().await?;
 		let block_height = status.index;
-
-		let shards = self.runtime.runtime_api().get_shards(block_id, account).unwrap();
+		let shards = self.runtime.runtime_api().get_shards(block_id, peer_id).unwrap();
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
 			for (task_id, cycle) in tasks {
@@ -242,9 +215,10 @@ where
 	}
 
 	pub async fn run(&mut self) {
+		let peer_id: PeerId = Default::default();
 		let mut finality_notifications = self.runtime.finality_notification_stream();
 		while let Some(notification) = finality_notifications.next().await {
-			if let Err(err) = self.start_tasks(notification.header.hash()).await {
+			if let Err(err) = self.start_tasks(notification.header.hash(), peer_id).await {
 				log::error!("error processing tasks: {}", err);
 			}
 		}

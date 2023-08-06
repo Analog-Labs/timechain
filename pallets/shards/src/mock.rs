@@ -1,12 +1,9 @@
 use crate::{self as pallet_shards};
-use frame_support::traits::{ConstU16, ConstU64};
-use frame_system as system;
-use sp_core::{ConstU32, H256};
-use sp_runtime::MultiSignature;
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	DispatchResult,
+	DispatchResult, MultiSignature,
 };
 use time_primitives::{Network, ScheduleCycle, ScheduleInterface, ScheduleStatus, ShardId, TaskId};
 
@@ -33,11 +30,11 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		TesseractSigStorage: pallet_shards::{Pallet, Call, Storage, Event<T>},
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
-impl system::Config for Test {
+impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -71,7 +68,7 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ();
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 	type RuntimeHoldReason = ();
@@ -84,4 +81,21 @@ impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_shards::weights::WeightInfo<Test>;
 	type TaskScheduler = MockTaskScheduler;
+}
+
+// Build genesis storage according to the mock runtime.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
+	let mut ext: sp_io::TestExternalities = storage.into();
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }

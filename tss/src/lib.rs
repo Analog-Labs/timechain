@@ -88,7 +88,7 @@ impl<P> std::fmt::Display for SigningState<P> {
 
 #[derive(Clone)]
 pub enum TssAction<I, P> {
-	Send(TssMessage<I>),
+	Send(P, TssMessage<I>),
 	PublicKey(VerifyingKey),
 	Tss(Signature, I),
 	Report(P, Option<I>),
@@ -99,7 +99,7 @@ pub enum TssAction<I, P> {
 #[derive(Clone, Deserialize, Serialize)]
 pub enum TssMessage<I> {
 	DkgR1 { round1_package: dkg::round1::Package },
-	DkgR2 { round2_package: Vec<dkg::round2::Package> },
+	DkgR2 { round2_package: dkg::round2::Package },
 	Sign { id: I, msg: SigningMessage },
 }
 
@@ -159,31 +159,6 @@ enum SignTimeoutKind {
 	PreCommit,
 	Commit,
 	Sign,
-}
-
-fn validate_dkg_round2_package<P>(
-	sender_identifier: Identifier,
-	self_identifier: &Identifier,
-	receivers: &BTreeMap<Identifier, P>,
-	round2_package: Vec<dkg::round2::Package>,
-) -> Result<dkg::round2::Package, ()> {
-	let mut packages = BTreeMap::new();
-	for round2_package in round2_package {
-		if round2_package.sender_identifier != sender_identifier {
-			return Err(());
-		}
-		if round2_package.receiver_identifier == sender_identifier {
-			return Err(());
-		}
-		if !receivers.contains_key(&round2_package.receiver_identifier) {
-			return Err(());
-		}
-		packages.insert(round2_package.receiver_identifier, round2_package);
-	}
-	if packages.len() != receivers.len() - 1 {
-		return Err(());
-	}
-	Ok(packages.remove(self_identifier).unwrap())
 }
 
 struct TssConfig<P> {
@@ -303,7 +278,14 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			round2_packages: Default::default(),
 		};
 		self.actions.push_back(TssAction::Timeout(Timeout::DKGR1, None));
-		self.actions.push_back(TssAction::Send(TssMessage::DkgR1 { round1_package }));
+		for peer in self.config.peer_to_frost.keys() {
+			self.actions.push_back(TssAction::Send(
+				peer.clone(),
+				TssMessage::DkgR1 {
+					round1_package: round1_package.clone(),
+				},
+			));
+		}
 		for (peer_id, round1_package) in round1_packages_preinit {
 			self.on_message(peer_id, TssMessage::DkgR1 { round1_package });
 		}
@@ -419,30 +401,26 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				self.transition(None);
 			},
 			(TssState::DkgR1 { round2_packages, .. }, TssMessage::DkgR2 { round2_package, .. }) => {
-				match validate_dkg_round2_package(
-					frost_id,
-					&self.frost_id,
-					&self.config.frost_to_peer,
-					round2_package,
-				) {
-					Ok(round2_package) => {
-						round2_packages.insert(peer_id, round2_package);
-					},
-					Err(()) => self.report(frost_id, None),
-				};
+				if round2_package.sender_identifier != frost_id {
+					self.report(frost_id, None);
+					return;
+				}
+				if round2_package.receiver_identifier != self.frost_id {
+					self.report(frost_id, None);
+					return;
+				}
+				round2_packages.insert(peer_id, round2_package);
 			},
 			(TssState::DkgR2 { round2_packages, .. }, TssMessage::DkgR2 { round2_package, .. }) => {
-				match validate_dkg_round2_package(
-					frost_id,
-					&self.frost_id,
-					&self.config.frost_to_peer,
-					round2_package,
-				) {
-					Ok(round2_package) => {
-						round2_packages.insert(peer_id, round2_package);
-					},
-					Err(()) => self.report(frost_id, None),
-				};
+				if round2_package.sender_identifier != frost_id {
+					self.report(frost_id, None);
+					return;
+				}
+				if round2_package.receiver_identifier != self.frost_id {
+					self.report(frost_id, None);
+					return;
+				}
+				round2_packages.insert(peer_id, round2_package);
 				self.transition(None);
 			},
 			(TssState::Initialized { signing_state, .. }, TssMessage::Sign { id, msg }) => {
@@ -536,9 +514,13 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 									round2_packages: std::mem::take(round2_packages),
 								};
 								self.actions.push_back(TssAction::Timeout(Timeout::DKGR2, None));
-								self.actions.push_back(TssAction::Send(TssMessage::DkgR2 {
-									round2_package,
-								}));
+								for package in round2_package {
+									let peer = self.frost_to_peer(&package.receiver_identifier);
+									self.actions.push_back(TssAction::Send(
+										peer,
+										TssMessage::DkgR2 { round2_package: package },
+									));
+								}
 								step = true;
 							},
 							Err(Error::InvalidProofOfKnowledge { sender }) => {
@@ -625,7 +607,12 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 								},
 							);
 							self.actions.push_back(TssAction::Timeout(Timeout::sign(id), Some(id)));
-							self.actions.push_back(TssAction::Send(TssMessage::Sign { id, msg }));
+							for peer in self.config.peer_to_frost.keys() {
+								self.actions.push_back(TssAction::Send(
+									peer.clone(),
+									TssMessage::Sign { id, msg: msg.clone() },
+								));
+							}
 							step = true;
 						} else {
 							log::debug!(
@@ -696,7 +683,12 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				);
 				self.actions.push_back(TssAction::Timeout(Timeout::commit(id), Some(id)));
 				let msg = SigningMessage::Commit { commitment };
-				self.actions.push_back(TssAction::Send(TssMessage::Sign { id, msg }));
+				for peer in self.config.peer_to_frost.keys() {
+					self.actions.push_back(TssAction::Send(
+						peer.clone(),
+						TssMessage::Sign { id, msg: msg.clone() },
+					));
+				}
 			},
 			_ => panic!("invalid state"),
 		}
@@ -862,13 +854,12 @@ mod tests {
 		pub fn run(&mut self) -> TssEvents {
 			while let Some((peer_id, action)) = self.actions.pop_front() {
 				match action {
-					TssAction::Send(msg) => {
+					TssAction::Send(peer, msg) => {
 						if let Some(msg) = (self.fault_injector)(peer_id, msg) {
-							for tss in &mut self.tss {
-								tss.on_message(peer_id, msg.clone());
-								while let Some(action) = tss.next_action() {
-									self.actions.push_back((*tss.peer_id(), action));
-								}
+							let tss = &mut self.tss[peer as usize];
+							tss.on_message(peer_id, msg.clone());
+							while let Some(action) = tss.next_action() {
+								self.actions.push_back((*tss.peer_id(), action));
 							}
 						}
 					},
@@ -910,10 +901,11 @@ mod tests {
 		let n = 5;
 		let mut tester = TssTester::new_with_fault_injector(
 			n,
-			Box::new(|peer_id, mut msg| {
+			Box::new(|peer_id, msg| {
 				if peer_id == 0 {
-					if let TssMessage::DkgR2 { round2_package } = &mut msg {
-						round2_package.pop();
+					if let TssMessage::DkgR2 { mut round2_package } = msg {
+						round2_package.receiver_identifier = Identifier::try_from(1).unwrap();
+						return Some(TssMessage::DkgR2 { round2_package });
 					}
 				}
 				Some(msg)

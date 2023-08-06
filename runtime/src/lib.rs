@@ -1047,12 +1047,6 @@ parameter_types! {
 	pub const MaxTimeouts: u8 = 2;
 }
 
-impl pallet_shards::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
-	type TaskScheduler = Tasks;
-}
-
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
@@ -1158,16 +1152,21 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+impl pallet_shards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
+	type TaskScheduler = Tasks;
+}
+
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_tasks::weights::WeightInfo<Runtime>;
-	type Shards = Shards;
 }
 
 impl pallet_ocw::Config for Runtime {
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_ocw::weights::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type Tasks = Tasks;
 }

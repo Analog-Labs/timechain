@@ -1,34 +1,16 @@
 use crate::{self as task_schedule};
-use frame_support::{
-	sp_io,
-	traits::{ConstU16, ConstU32, ConstU64},
-};
-use frame_system as system;
-use sp_core::H256;
-use sp_runtime::MultiSignature;
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
 	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	DispatchResult,
+	MultiSignature,
 };
-use time_primitives::{ShardId, ShardInterface, TimeId, TssPublicKey};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
-
-pub struct MockShards;
-
-impl ShardInterface for MockShards {
-	fn collector(_: ShardId) -> Option<TimeId> {
-		None
-	}
-	fn submit_tss_public_key(_: ShardId, _: TssPublicKey) -> DispatchResult {
-		Ok(())
-	}
-}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -39,11 +21,11 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		TaskSchedule: task_schedule::{Pallet, Call, Storage, Event<T>},
+		Tasks: task_schedule::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
-impl system::Config for Test {
+impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -74,12 +56,10 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	/// The type for recording an account's balance.
 	type Balance = u128;
-	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ();
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 	type RuntimeHoldReason = ();
@@ -91,7 +71,6 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
-	type Shards = MockShards;
 }
 
 // Build genesis storage according to the mock runtime.

@@ -13,8 +13,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId,
-		ShardInterface, TaskId, TaskSchedule,
+		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
+		TaskSchedule,
 	};
 
 	pub trait WeightInfo {
@@ -30,7 +30,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type Shards: ShardInterface;
 	}
 
 	#[pallet::storage]

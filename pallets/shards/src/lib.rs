@@ -85,7 +85,7 @@ pub mod pallet {
 			collector: PublicKey,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(members.len() == 3, Error::<T>::InvalidNumberOfShardMembers);
+			ensure!(members.len() >= 3, Error::<T>::InvalidNumberOfShardMembers);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);

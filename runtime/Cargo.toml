@@ -76,7 +76,6 @@ pallet-shards = { version = "4.0.0-dev", default-features = false, path = "../pa
 pallet-ocw = { version = "4.0.0-dev", default-features = false, path = "../pallets/ocw" }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives/time-primitives", default-features = false }
-task-schedule-bench = { version = "0.1.0",default-features = false, path = "../pallets/tasks/task-schedule-bench", optional = true }
 
 [dev-dependencies]
 separator = "0.4.1"
@@ -133,7 +132,6 @@ std = [
 	"sp-version/std",
 	"time-primitives/std",
 	"pallet-tasks/std",
-	"task-schedule-bench/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -149,7 +147,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
-	"task-schedule-bench/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 ]
 try-runtime = [
@@ -169,5 +166,4 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-tasks/try-runtime",
-	"task-schedule-bench/try-runtime",
 ]

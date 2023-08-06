@@ -4,7 +4,6 @@ members = [
     "pallets/ocw",
     "pallets/shards",
     "pallets/tasks",
-    "pallets/tasks/task-schedule-bench",
     "pallets/vesting",
     "primitives/time-primitives",
     "runtime",

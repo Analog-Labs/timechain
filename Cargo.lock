@@ -6557,6 +6557,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
+ "sp-io 23.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "time-primitives",
@@ -11937,24 +11938,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-schedule-bench"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-tasks",
- "pallet-treasury",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "time-primitives",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12340,7 +12323,6 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
- "task-schedule-bench",
  "time-primitives",
 ]
 

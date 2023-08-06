@@ -13,7 +13,7 @@ pub fn msg_key(id: u64) -> [u8; 14] {
 	key
 }
 
-#[derive(Clone, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Decode, Encode)]
 pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
 	SubmitTaskResult { task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus },
@@ -28,23 +28,26 @@ impl OcwPayload {
 	}
 }
 
-pub fn write_message<B: OffchainStorage>(mut storage: B, payload: &OcwPayload) {
+pub fn write_message_with_prefix<B: OffchainStorage>(
+	mut storage: B,
+	prefix: &[u8],
+	payload: &OcwPayload,
+) {
 	let payload = payload.encode();
 	loop {
-		let raw_id = storage.get(STORAGE_PREFIX, OCW_WRITE_ID);
+		let raw_id = storage.get(prefix, OCW_WRITE_ID);
 		let id = raw_id
 			.as_deref()
-			.map(|id| u64::from_be_bytes(id.try_into().unwrap()))
+			.map(|id| u64::decode(&mut id.as_ref()).unwrap())
 			.unwrap_or_default();
-		if !storage.compare_and_set(
-			STORAGE_PREFIX,
-			OCW_WRITE_ID,
-			raw_id.as_deref(),
-			&(id + 1).to_be_bytes(),
-		) {
+		if !storage.compare_and_set(prefix, OCW_WRITE_ID, raw_id.as_deref(), &(id + 1).encode()) {
 			continue;
 		}
-		storage.set(STORAGE_PREFIX, &msg_key(id), &payload);
+		storage.set(prefix, &msg_key(id), &payload);
 		break;
 	}
+}
+
+pub fn write_message<B: OffchainStorage>(storage: B, payload: &OcwPayload) {
+	write_message_with_prefix(storage, STORAGE_PREFIX, payload);
 }

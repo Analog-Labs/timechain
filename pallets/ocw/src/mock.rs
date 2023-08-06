@@ -5,20 +5,27 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	DispatchResult, MultiSignature,
 };
+use std::collections::HashMap;
+use std::sync::Mutex;
 use time_primitives::{
 	OcwSubmitTaskResult, OcwSubmitTssPublicKey, ScheduleCycle, ScheduleStatus, ShardId, TaskId,
 	TssPublicKey,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
+
+lazy_static::lazy_static! {
+	pub static ref SHARD_PUBLIC_KEYS: Mutex<HashMap<ShardId, TssPublicKey>> = Default::default();
+}
 
 pub struct MockShards;
 
 impl OcwSubmitTssPublicKey for MockShards {
-	fn submit_tss_public_key(_: ShardId, _: TssPublicKey) -> DispatchResult {
+	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
+		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
 	}
 }

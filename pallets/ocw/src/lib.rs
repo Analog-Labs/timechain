@@ -33,7 +33,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_block_number: T::BlockNumber) {
+			log::info!("running offchain worker");
 			while let Some(msg) = Self::read_message() {
+				log::info!("received ocw message {:?}", msg);
 				Self::submit_tx(msg);
 			}
 		}
@@ -100,7 +102,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn read_message() -> Option<OcwPayload> {
+		pub(crate) fn read_message() -> Option<OcwPayload> {
 			let read_id_storage = StorageValueRef::persistent(OCW_READ_ID);
 			let write_id_storage = StorageValueRef::persistent(OCW_WRITE_ID);
 			let read_id = read_id_storage.get::<u64>().unwrap().unwrap_or_default();
@@ -118,7 +120,7 @@ pub mod pallet {
 			Some(msg)
 		}
 
-		fn submit_tx(payload: OcwPayload) {
+		pub(crate) fn submit_tx(payload: OcwPayload) {
 			let Some(_collector) = ShardCollector::<T>::get(payload.shard_id()) else {
 				return;
 			};
@@ -138,7 +140,7 @@ pub mod pallet {
 					}),
 			};
 			let Some((_, res)) = call_res else {
-				log::error!("send signed transaction returned none");
+				log::info!("send signed transaction returned none");
 				return;
 			};
 			if let Err(e) = res {

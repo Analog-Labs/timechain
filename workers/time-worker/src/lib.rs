@@ -12,7 +12,7 @@ use sc_network::NetworkRequest;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use time_primitives::TimeApi;
+use time_primitives::{PeerId, TimeApi};
 
 pub use crate::worker::{TssId, TssRequest};
 
@@ -46,6 +46,7 @@ where
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub network: N,
+	pub peer_id: PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
 }
@@ -67,6 +68,7 @@ where
 		backend,
 		runtime,
 		network,
+		peer_id,
 		tss_request,
 		protocol_request,
 	} = timeworker_params;
@@ -75,6 +77,7 @@ where
 		backend,
 		runtime,
 		network,
+		peer_id,
 		tss_request,
 		protocol_request,
 	};

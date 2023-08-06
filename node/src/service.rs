@@ -148,6 +148,16 @@ pub fn new_full(
 	connector_network: Option<String>,
 	without_chronicle: bool,
 ) -> Result<TaskManager, ServiceError> {
+	let peer_id = config
+		.network
+		.node_key
+		.clone()
+		.into_keypair()
+		.unwrap()
+		.public()
+		.try_into_ed25519()
+		.unwrap()
+		.to_bytes();
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -330,6 +340,7 @@ pub fn new_full(
 				runtime: client.clone(),
 				backend: backend.clone(),
 				network,
+				peer_id,
 				tss_request: sign_data_receiver,
 				protocol_request: protocol_rx,
 			};
@@ -345,6 +356,7 @@ pub fn new_full(
 				_block: PhantomData,
 				runtime: client,
 				backend,
+				peer_id,
 				sign_data_sender,
 				connector_url,
 				connector_blockchain,

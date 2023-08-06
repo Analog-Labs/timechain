@@ -76,6 +76,7 @@ pub struct WorkerParams<B: Block, BE, R, N> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub network: N,
+	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
 }
@@ -86,6 +87,7 @@ pub struct TimeWorker<B: Block, BE, R, N> {
 	backend: Arc<BE>,
 	runtime: Arc<R>,
 	network: N,
+	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
 	tss_states: HashMap<ShardId, Tss<TssId, PeerId>>,
@@ -109,6 +111,7 @@ where
 			backend,
 			runtime,
 			network,
+			peer_id,
 			tss_request,
 			protocol_request,
 		} = worker_params;
@@ -117,6 +120,7 @@ where
 			backend,
 			runtime,
 			network,
+			peer_id,
 			tss_request,
 			protocol_request,
 			tss_states: Default::default(),
@@ -127,9 +131,9 @@ where
 		}
 	}
 
-	fn on_finality(&mut self, block: <B as Block>::Hash, peer_id: time_primitives::PeerId) {
+	fn on_finality(&mut self, block: <B as Block>::Hash) {
 		log::info!("finality notification for {}", block);
-		let shards = self.runtime.runtime_api().get_shards(block, peer_id).unwrap();
+		let shards = self.runtime.runtime_api().get_shards(block, self.peer_id).unwrap();
 		log::debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for shard_id in shards {
 			if self.tss_states.get(&shard_id).filter(|tss| tss.is_initialized()).is_some() {
@@ -144,8 +148,10 @@ where
 			log::debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
 			let threshold = members.len() as _;
 			let members = members.into_iter().map(to_peer_id).collect();
-			let tss =
-				self.tss_states.entry(shard_id).or_insert_with(|| Tss::new(to_peer_id(peer_id)));
+			let tss = self
+				.tss_states
+				.entry(shard_id)
+				.or_insert_with(|| Tss::new(to_peer_id(self.peer_id)));
 			tss.initialize(members, threshold);
 			self.poll_actions(shard_id);
 
@@ -217,7 +223,6 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
-		let peer_id: time_primitives::PeerId = Default::default();
 		let mut finality_notifications = self.runtime.finality_notification_stream();
 		loop {
 			let timeout = futures::future::poll_fn(|cx| {
@@ -237,7 +242,7 @@ where
 						);
 						continue;
 					};
-					self.on_finality(notification.header.hash(), peer_id);
+					self.on_finality(notification.header.hash());
 				},
 				tss_request = self.tss_request.next().fuse() => {
 					let Some(TssRequest { request_id, shard_id, data, tx }) = tss_request else {

@@ -1,4 +1,4 @@
-use crate::{BlockHeight, TaskExecutorParams, TW_LOG};
+use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{Context, Result};
 use dotenv::dotenv;
 use futures::channel::{mpsc, oneshot};
@@ -78,7 +78,7 @@ impl Task {
 
 	async fn submit_to_timegraph(
 		&self,
-		target_block_number: BlockHeight,
+		target_block_number: u64,
 		result: &FunctionResult,
 		collection: String,
 	) -> Result<()> {
@@ -129,7 +129,7 @@ impl Task {
 
 	async fn execute(
 		self,
-		target_block: BlockHeight,
+		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: ScheduleCycle,
@@ -146,6 +146,7 @@ pub struct TaskExecutor<B: Block, BE, R> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
 	runtime: Arc<R>,
+	peer_id: PeerId,
 	sign_data_sender: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
 	running_tasks: HashSet<TaskId>,
@@ -163,6 +164,7 @@ where
 			_block,
 			backend,
 			runtime,
+			peer_id,
 			sign_data_sender,
 			connector_url,
 			connector_blockchain,
@@ -175,16 +177,17 @@ where
 			_block,
 			backend,
 			runtime,
+			peer_id,
 			sign_data_sender,
 			wallet: Arc::new(wallet),
 			running_tasks: Default::default(),
 		})
 	}
 
-	async fn start_tasks(&mut self, block_id: <B as Block>::Hash, peer_id: PeerId) -> Result<()> {
+	async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let status = self.wallet.status().await?;
 		let block_height = status.index;
-		let shards = self.runtime.runtime_api().get_shards(block_id, peer_id).unwrap();
+		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id).unwrap();
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
 			for (task_id, cycle) in tasks {
@@ -215,10 +218,9 @@ where
 	}
 
 	pub async fn run(&mut self) {
-		let peer_id: PeerId = Default::default();
 		let mut finality_notifications = self.runtime.finality_notification_stream();
 		while let Some(notification) = finality_notifications.next().await {
-			if let Err(err) = self.start_tasks(notification.header.hash(), peer_id).await {
+			if let Err(err) = self.start_tasks(notification.header.hash()).await {
 				log::error!("error processing tasks: {}", err);
 			}
 		}

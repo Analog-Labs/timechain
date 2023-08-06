@@ -13,8 +13,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId, TaskId,
-		TaskSchedule,
+		Network, OcwSubmitTaskResult, ScheduleCycle, ScheduleInput, ScheduleInterface,
+		ScheduleStatus, ShardId, TaskId, TaskSchedule,
 	};
 
 	pub trait WeightInfo {
@@ -173,7 +173,9 @@ pub mod pallet {
 			});
 			Self::schedule_tasks(network);
 		}
+	}
 
+	impl<T: Config> OcwSubmitTaskResult for Pallet<T> {
 		fn submit_task_result(
 			task_id: TaskId,
 			cycle: ScheduleCycle,

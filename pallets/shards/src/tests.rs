@@ -1,7 +1,7 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{Network, ShardInterface, TimeId};
+use time_primitives::{Network, OcwSubmitTssPublicKey, TimeId};
 
 const A: TimeId = TimeId::new([1u8; 32]);
 const B: TimeId = TimeId::new([2u8; 32]);
@@ -24,8 +24,6 @@ fn test_register_shard() {
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let members = Shards::get_shard_members(shard_id as _);
 			assert_eq!(members.len(), shard.len());
-			let collector = Shards::collector(shard_id as _);
-			assert_eq!(collector, Some(shard[0].clone()));
 		}
 		for member in [A, B, C] {
 			let shards = Shards::get_shards(member);

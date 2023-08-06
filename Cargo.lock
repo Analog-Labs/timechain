@@ -6554,8 +6554,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-shards",
- "pallet-tasks",
  "parity-scale-codec",
  "scale-info",
  "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",

@@ -12,8 +12,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::offchain::storage::StorageValueRef;
 	use time_primitives::{
-		msg_key, OcwPayload, ScheduleCycle, ScheduleInterface, ScheduleStatus, ShardId,
-		ShardInterface, TaskId, TssPublicKey, OCW_READ_ID, OCW_WRITE_ID,
+		msg_key, OcwPayload, OcwSubmitTaskResult, OcwSubmitTssPublicKey, ScheduleCycle,
+		ScheduleStatus, ShardCreated, ShardId, TaskId, TimeId, TssPublicKey, OCW_READ_ID,
+		OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -42,9 +43,13 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Shards: ShardInterface;
-		type Tasks: ScheduleInterface;
+		type Shards: OcwSubmitTssPublicKey;
+		type Tasks: OcwSubmitTaskResult;
 	}
+
+	#[pallet::storage]
+	pub type ShardCollector<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, TimeId, OptionQuery>;
 
 	#[pallet::event]
 	pub enum Event<T: Config> {}
@@ -66,7 +71,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
 			ensure!(
-				Some(account_id) == T::Shards::collector(shard_id),
+				Some(account_id) == ShardCollector::<T>::get(shard_id),
 				Error::<T>::NotSignedByCollector
 			);
 			T::Shards::submit_tss_public_key(shard_id, public_key)
@@ -83,7 +88,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
 			ensure!(
-				Some(account_id) == T::Shards::collector(status.shard_id),
+				Some(account_id) == ShardCollector::<T>::get(status.shard_id),
 				Error::<T>::NotSignedByCollector
 			);
 			T::Tasks::submit_task_result(task_id, cycle, status)
@@ -110,7 +115,7 @@ pub mod pallet {
 		}
 
 		fn submit_tx(payload: OcwPayload) {
-			let Some(_collector) = T::Shards::collector(payload.shard_id()) else {
+			let Some(_collector) = ShardCollector::<T>::get(payload.shard_id()) else {
 				return;
 			};
 			let signer = Signer::<T, T::AuthorityId>::any_account();
@@ -135,6 +140,12 @@ pub mod pallet {
 			if let Err(e) = res {
 				log::error!("send signed transaction returned an error: {:?}", e);
 			}
+		}
+	}
+
+	impl<T: Config> ShardCreated for Pallet<T> {
+		fn shard_created(shard_id: ShardId, members: sp_std::vec::Vec<TimeId>) {
+			ShardCollector::<T>::insert(shard_id, members[0].clone());
 		}
 	}
 }

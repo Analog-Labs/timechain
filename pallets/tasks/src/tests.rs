@@ -2,8 +2,8 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use time_primitives::{
-	Function, Network, ScheduleCycle, ScheduleInput, ScheduleInterface, ScheduleStatus, ShardId,
-	TimeId,
+	Function, Network, OcwSubmitTaskResult, ScheduleCycle, ScheduleInput, ScheduleInterface,
+	ScheduleStatus, ShardId, TimeId,
 };
 
 fn mock_task(network: Network, cycle: ScheduleCycle) -> ScheduleInput {

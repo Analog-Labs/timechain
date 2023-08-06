@@ -16,7 +16,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, ScheduleInterface, ShardId, ShardInterface, TimeId, TssPublicKey,
+		Network, OcwSubmitTssPublicKey, ScheduleInterface, ShardCreated, ShardId, TimeId,
+		TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -31,32 +32,24 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type ShardCreated: ShardCreated;
 		type TaskScheduler: ScheduleInterface;
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_id)]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
 	/// Network for which shards can be assigned tasks
 	#[pallet::storage]
-	#[pallet::getter(fn shard_network)]
 	pub type ShardNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Network, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_public_key)]
 	pub type ShardPublicKey<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn shard_collector)]
-	pub type ShardCollector<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, TimeId, OptionQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn shard_members)]
 	pub type ShardMembers<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TimeId, (), OptionQuery>;
 
@@ -95,11 +88,11 @@ pub mod pallet {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardCollector<T>>::insert(shard_id, members[0].clone());
-			for member in members {
-				<ShardMembers<T>>::insert(shard_id, member, ());
+			for member in &members {
+				<ShardMembers<T>>::insert(shard_id, member.clone(), ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
+			T::ShardCreated::shard_created(shard_id, members);
 			Ok(())
 		}
 	}
@@ -124,11 +117,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ShardInterface for Pallet<T> {
-		fn collector(shard_id: ShardId) -> Option<TimeId> {
-			ShardCollector::<T>::get(shard_id)
-		}
-
+	impl<T: Config> OcwSubmitTssPublicKey for Pallet<T> {
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			ensure!(

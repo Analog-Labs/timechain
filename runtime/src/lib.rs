@@ -1155,6 +1155,7 @@ parameter_types! {
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
+	type ShardCreated = Ocw;
 	type TaskScheduler = Tasks;
 }
 

@@ -75,17 +75,23 @@ pub enum Network {
 	Astar,
 }
 
+pub trait ShardCreated {
+	fn shard_created(shard_id: ShardId, members: sp_std::vec::Vec<TimeId>);
+}
+
 pub trait ScheduleInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
+}
+
+pub trait OcwSubmitTssPublicKey {
+	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
+}
+
+pub trait OcwSubmitTaskResult {
 	fn submit_task_result(
 		task_id: TaskId,
 		cycle: ScheduleCycle,
 		status: ScheduleStatus,
 	) -> DispatchResult;
-}
-
-pub trait ShardInterface {
-	fn collector(shard_id: ShardId) -> Option<TimeId>;
-	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
 }

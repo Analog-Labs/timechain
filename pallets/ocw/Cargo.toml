@@ -20,8 +20,6 @@ codec = { package = "parity-scale-codec", version = "3.6.3", default-features = 
 frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-pallet-shards = { default-features = false, path = "../shards" }
-pallet-tasks = { default-features = false, path = "../tasks" }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 sp-runtime = {  default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
@@ -38,8 +36,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-shards/std",
-	"pallet-tasks/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",

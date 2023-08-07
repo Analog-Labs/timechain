@@ -1,24 +1,17 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::TaskExecutorParams;
 use anyhow::{Context, Result};
-use dotenv::dotenv;
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, StreamExt};
-use graphql_client::{GraphQLQuery, Response as GraphQLResponse};
-use reqwest::header;
 use rosetta_client::{create_wallet, EthereumExt, Wallet};
 use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::env;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
-use time_primitives::ShardId;
 use time_primitives::{
-	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleStatus, TaskId,
-	TaskSchedule, TimeApi, TssSignature,
+	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleStatus, ShardId, TaskId,
+	TaskSchedule, TimeApi, TssRequest, TssSignature,
 };
-use time_worker::TssRequest;
-use timechain_integration::query::{collect_data, CollectData};
 
 pub struct Task {
 	tss: mpsc::Sender<TssRequest>,
@@ -76,57 +69,6 @@ impl Task {
 		Ok(rx.await?)
 	}
 
-	async fn submit_to_timegraph(
-		&self,
-		target_block_number: u64,
-		result: &FunctionResult,
-		collection: String,
-	) -> Result<()> {
-		// Add data into collection (user must have Collector role)
-		// @collection: collection hashId
-		// @cycle: time-chain block number
-		// @block: target network block number
-		// @task_id: task associated with data
-		// @task_counter: for repeated task it's incremented on every run
-		// @tss: TSS signature
-		// @data: data to add into collection
-
-		let FunctionResult::EVMViewWithoutAbi { result } = result;
-		let variables = collect_data::Variables {
-			collection,
-			block: target_block_number as i64,
-			// unused field
-			task_id: 0,
-			// unused field
-			cycle: 0,
-			data: result.clone(),
-		};
-		dotenv().ok();
-		let url =
-			env::var("TIMEGRAPH_GRAPHQL_URL").context("Unable to get timegraph graphql url")?;
-		let ssk = env::var("SSK").context("Unable to get timegraph ssk")?;
-
-		// Build the GraphQL request
-		let request = CollectData::build_query(variables);
-		// Execute the GraphQL request
-		let client = reqwest::Client::new();
-		let response = client
-			.post(url)
-			.json(&request)
-			.header(header::AUTHORIZATION, ssk)
-			.send()
-			.await
-			.context("error in post request to timegraph")?;
-		let data = response
-			.json::<GraphQLResponse<collect_data::ResponseData>>()
-			.await
-			.context("Failed to parse timegraph response")?
-			.data
-			.context("timegraph migrate collect status fail: No reponse")?;
-		log::info!(target: TW_LOG, "timegraph migrate collect status: {:?}", data.collect.status);
-		Ok(())
-	}
-
 	async fn execute(
 		self,
 		target_block: u64,
@@ -137,7 +79,8 @@ impl Task {
 	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
-		self.submit_to_timegraph(target_block, &result, task.hash.clone()).await?;
+		timechain_integration::submit_to_timegraph(target_block, &result, task.hash.clone())
+			.await?;
 		Ok(signature)
 	}
 }

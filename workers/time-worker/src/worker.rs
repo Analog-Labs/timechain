@@ -20,18 +20,9 @@ use std::{
 	task::Poll,
 	time::{Duration, Instant},
 };
-use time_primitives::{OcwPayload, ScheduleCycle, ShardId, TaskId, TimeApi, TssSignature};
+use time_primitives::{OcwPayload, ShardId, TimeApi, TssId, TssRequest, TssSignature};
 use tokio::time::Sleep;
 use tss::{Timeout, Tss, TssAction, TssMessage};
-
-pub type TssId = (TaskId, ScheduleCycle);
-
-pub struct TssRequest {
-	pub request_id: TssId,
-	pub shard_id: ShardId,
-	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<TssSignature>,
-}
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {

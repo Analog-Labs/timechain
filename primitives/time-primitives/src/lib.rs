@@ -2,6 +2,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -27,6 +29,15 @@ pub type PeerId = [u8; 32];
 pub type TaskId = u64;
 pub type ShardId = u64;
 pub type ScheduleCycle = u64;
+pub type TssId = (TaskId, ScheduleCycle);
+
+#[cfg(feature = "std")]
+pub struct TssRequest {
+	pub request_id: TssId,
+	pub shard_id: ShardId,
+	pub data: Vec<u8>,
+	pub tx: oneshot::Sender<TssSignature>,
+}
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.

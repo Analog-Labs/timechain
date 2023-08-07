@@ -12,9 +12,7 @@ use sc_network::NetworkRequest;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use time_primitives::{PeerId, TimeApi};
-
-pub use crate::worker::{TssId, TssRequest};
+use time_primitives::{PeerId, TimeApi, TssRequest};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";

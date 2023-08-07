@@ -4,8 +4,7 @@ use sc_client_api::{Backend, BlockchainEvents};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::{PeerId, TimeApi};
-use time_worker::TssRequest;
+use time_primitives::{PeerId, TimeApi, TssRequest};
 
 mod worker;
 

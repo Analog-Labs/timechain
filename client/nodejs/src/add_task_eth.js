@@ -1,6 +1,6 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { Channel } from 'async-channel';
-import { dirname } from 'path';
+import { dirname} from 'path';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,17 +21,17 @@ const setup_substrate = async () => {
 };
 
 const pallet_task_add = async (_keyspair, who) => {
-    const api = await setup_substrate();
+    const api =  await setup_substrate();
     const keyring = new Keyring({ type: 'sr25519' });
     const keyspair = keyring.addFromUri('//Alice', { name: 'Alice default' });
 
     const chan = new Channel(0 /* default */);
     const input_task = {
-        network: 1,
+        network: 0,
         cycle: 1,
-        frequency: 0,
+        start: 0,
+        period: 0,
         hash: 'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7',
-        status: 0,
         function: {
             EVMViewWithoutAbi: {
                 address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
@@ -42,12 +42,11 @@ const pallet_task_add = async (_keyspair, who) => {
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);
-    const unsub = await api.tx.taskSchedule.insertSchedule(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
+    const unsub = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
         console.log(`Current status is ${status}`);
     });
-
+    
     await chan.get().then(value => console.log(value), error => console.error(error));
-    // chan.close();
 };
 
 pallet_task_add();

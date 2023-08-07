@@ -148,6 +148,16 @@ pub fn new_full(
 	connector_network: Option<String>,
 	without_chronicle: bool,
 ) -> Result<TaskManager, ServiceError> {
+	let peer_id = config
+		.network
+		.node_key
+		.clone()
+		.into_keypair()
+		.unwrap()
+		.public()
+		.try_into_ed25519()
+		.unwrap()
+		.to_bytes();
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -170,10 +180,9 @@ pub fn new_full(
 		grandpa_protocol_name.clone(),
 	));
 
-	// registering time p2p gossip protocol
-	net_config.add_notification_protocol(time_worker::time_protocol_name::time_peers_set_config(
-		time_worker::time_protocol_name::gossip_protocol_name(),
-	));
+	// registering time p2p protocol
+	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
+	net_config.add_request_response_protocol(time_worker::protocol_config(protocol_tx));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -327,16 +336,13 @@ pub fn new_full(
 		if !without_chronicle {
 			// injecting our Worker
 			let time_params = time_worker::TimeWorkerParams {
+				_block: PhantomData,
 				runtime: client.clone(),
-				client: client.clone(),
 				backend: backend.clone(),
-				gossip_network: network,
-				kv: keystore_container.keystore(),
-				_block: PhantomData::default(),
-				sign_data_receiver,
-				accountid: PhantomData,
-				_block_number: PhantomData,
-				sync_service,
+				network,
+				peer_id,
+				tss_request: sign_data_receiver,
+				protocol_request: protocol_rx,
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(
@@ -347,13 +353,11 @@ pub fn new_full(
 
 			// start the executor for one-time task
 			let task_executor_params = task_executor::TaskExecutorParams {
+				_block: PhantomData,
 				runtime: client,
 				backend,
-				kv: keystore_container.keystore(),
-				_block: PhantomData::default(),
+				peer_id,
 				sign_data_sender,
-				account_id: PhantomData,
-				_block_number: PhantomData,
 				connector_url,
 				connector_blockchain,
 				connector_network,

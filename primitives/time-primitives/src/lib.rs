@@ -1,75 +1,81 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod abstraction;
-pub mod sharding;
-
-pub use abstraction::{ScheduleStatus, TaskSchedule};
-use codec::Codec;
-use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
-	MultiSignature,
-};
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+#[cfg(feature = "std")]
+use serde::Serialize;
+use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
+
+mod ocw;
+mod task;
+
+pub use crate::ocw::*;
+pub use crate::task::*;
 
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
-pub const SIG_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"psig");
-pub const SKD_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"pskd");
-pub const OCW_SIG_KEY: &[u8; 24] = b"pallet_sig::offchain_sig";
-pub const OCW_TSS_KEY: &[u8; 24] = b"pallet_sig::offchain_tss";
-pub const OCW_SKD_KEY: &[u8; 24] = b"pallet_skd::offchain_skd";
 
-/// The type representing a signature data
-// ThresholdSignature::to_bytes()
-pub type SignatureData = [u8; 64];
-pub type TimeSignature = MultiSignature;
-pub type TimeId = <<TimeSignature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type AccountId = AccountId32;
+pub type PublicKey = MultiSigner;
+pub type Signature = MultiSignature;
+pub type TssPublicKey = [u8; 33];
+pub type TssSignature = [u8; 64];
+pub type PeerId = [u8; 32];
 pub type TaskId = u64;
-pub type KeyId = u64;
 pub type ShardId = u64;
 pub type ScheduleCycle = u64;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi<AccountId, BlockNumber>
-	where
-	AccountId: Codec,
-	BlockNumber: Codec,
-	{
-		fn get_shards(time_id: TimeId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>>;
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
-		fn get_task(task_id: TaskId) -> Option<TaskSchedule<AccountId>>;
+	pub trait TimeApi {
+		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
+		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)>;
+		fn get_task(task_id: TaskId) -> Option<TaskSchedule>;
 	}
 }
 
 pub mod crypto {
-	use sp_application_crypto::{app_crypto, sr25519};
+	use sp_runtime::app_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
-}
 
-pub trait ProxyExtend<AccountId, Balance> {
-	fn proxy_exist(acc: &AccountId) -> bool;
-	fn get_master_account(acc: &AccountId) -> Option<AccountId>;
-	fn proxy_update_token_used(acc: &AccountId, amount: Balance) -> bool;
-}
+	pub struct SigAuthId;
 
-impl<AccountId: Clone, Balance> ProxyExtend<AccountId, Balance> for () {
-	fn proxy_exist(_acc: &AccountId) -> bool {
-		true
-	}
-	fn get_master_account(acc: &AccountId) -> Option<AccountId> {
-		Some(acc.clone())
-	}
-	fn proxy_update_token_used(_acc: &AccountId, _amount: Balance) -> bool {
-		true
+	impl frame_system::offchain::AppCrypto<crate::PublicKey, crate::Signature> for SigAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sr25519::Signature;
+		type GenericPublic = sr25519::Public;
 	}
 }
 
-pub trait PalletAccounts<AccountId> {
-	fn get_treasury() -> AccountId;
+/// Used to enforce one network per shard
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub enum Network {
+	Ethereum,
+	Astar,
+}
+
+pub trait ShardCreated {
+	fn shard_created(shard_id: ShardId, collector: PublicKey);
+}
+
+pub trait ScheduleInterface {
+	fn shard_online(shard_id: ShardId, network: Network);
+	fn shard_offline(shard_id: ShardId, network: Network);
+}
+
+pub trait OcwSubmitTssPublicKey {
+	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
+}
+
+pub trait OcwSubmitTaskResult {
+	fn submit_task_result(
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		status: ScheduleStatus,
+	) -> DispatchResult;
 }

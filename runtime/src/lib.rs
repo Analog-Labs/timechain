@@ -40,10 +40,10 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
-		IdentifyAccount, NumberFor, OpaqueKeys, Verify,
+		NumberFor, OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
+	ApplyExtrinsicResult, Percent, SaturatedConversion,
 };
 
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
@@ -53,8 +53,9 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use time_primitives::abstraction::TaskSchedule as abs_TaskSchedule;
-use time_primitives::{ShardId, TaskId, TimeId};
+pub use time_primitives::{
+	AccountId, PeerId, PublicKey, ScheduleCycle, ShardId, Signature, TaskId, TaskSchedule,
+};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime,
@@ -76,8 +77,6 @@ pub use pallet_utility::Call as UtilityCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{traits::Bounded, Perbill, Permill, Perquintill};
 use static_assertions::const_assert;
-
-pub use pallet_tesseract_sig_storage;
 
 pub type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
 use pallet_staking::UseValidatorsMap;
@@ -309,13 +308,6 @@ const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO
 
 /// An index to a block.
 pub type BlockNumber = u32;
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
 pub type Balance = u128;
@@ -1050,27 +1042,13 @@ parameter_types! {
 	pub const MaxTimeouts: u8 = 2;
 }
 
-impl pallet_tesseract_sig_storage::Config for Runtime {
-	type AuthorityId = pallet_tesseract_sig_storage::crypto::SigAuthId;
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::sig_storage::WeightInfo<Runtime>;
-	type Moment = u64;
-	type Timestamp = Timestamp;
-	type MinReportsPerCommittedOffense = MinReportsPerCommittedOffense;
-	type TaskScheduleHelper = TaskSchedule;
-	type MaxChronicleWorkers = MaxChronicleWorkers;
-	type SessionInterface = Self;
-	type TaskAssigner = TaskSchedule;
-	type MaxTimeouts = MaxTimeouts;
-}
-
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: RuntimeCall,
-		public: <Signature as Verify>::Signer,
+		public: PublicKey,
 		account: AccountId,
 		nonce: Index,
 	) -> Option<(
@@ -1110,7 +1088,7 @@ where
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
-	type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Public = PublicKey;
 	type Signature = Signature;
 }
 
@@ -1165,28 +1143,28 @@ impl pallet_treasury::Config for Runtime {
 	type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxBalance>;
 }
 
-pub struct CurrentPalletAccounts;
-impl time_primitives::PalletAccounts<AccountId> for CurrentPalletAccounts {
-	fn get_treasury() -> AccountId {
-		Treasury::account_id()
-	}
-}
-
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-impl task_schedule::Config for Runtime {
-	type AuthorityId = task_schedule::crypto::SigAuthId;
+impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_schedule::weights::WeightInfo<Runtime>;
-	type ProxyExtend = ();
-	type Currency = Balances;
-	type PalletAccounts = CurrentPalletAccounts;
-	type ScheduleFee = ScheduleFee;
-	type ShouldEndSession = Babe;
-	type IndexerReward = IndexerReward;
-	type ShardEligibility = TesseractSigStorage;
+	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
+	type ShardCreated = Ocw;
+	type TaskScheduler = Tasks;
+}
+
+impl pallet_tasks::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_tasks::weights::WeightInfo<Runtime>;
+}
+
+impl pallet_ocw::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_ocw::weights::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type Shards = Shards;
+	type Tasks = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1214,10 +1192,11 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		TesseractSigStorage: pallet_tesseract_sig_storage::{Pallet, Call, Storage, Event<T>},
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
-		TaskSchedule: task_schedule,
+		Tasks: pallet_tasks,
+		Ocw: pallet_ocw,
 	}
 );
 
@@ -1264,7 +1243,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_tesseract_sig_storage, TesseractSigStorage]
+		[pallet_shards, Shards]
 		[task_schedule, ScheduleBenchmarks::<Runtime>]
 	);
 }
@@ -1483,21 +1462,21 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block, AccountId, BlockNumber>  for Runtime {
-		fn get_shard_members(shard_id: ShardId) -> Option<Vec<TimeId>> {
-			Some(TesseractSigStorage::tss_shards(shard_id)?.shard.members())
+	impl time_primitives::TimeApi<Block>  for Runtime {
+		fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
+			Shards::get_shards(peer_id)
 		}
 
-		fn get_shards(time_id: TimeId) -> Vec<ShardId> {
-			TesseractSigStorage::api_get_shards(time_id)
+		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+			Shards::get_shard_members(shard_id)
 		}
 
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
-			TaskSchedule::api_get_shard_tasks(shard_id)
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
+			Tasks::get_shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<abs_TaskSchedule<AccountId>>{
-			TaskSchedule::get_task_via_id(task_id)
+		fn get_task(task_id: TaskId) -> Option<TaskSchedule>{
+			Tasks::get_task(task_id)
 		}
 	}
 
@@ -1515,7 +1494,7 @@ impl_runtime_apis! {
 			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
-			list_benchmark!(list, extra, pallet_tesseract_storage, TesseractSigStorage);
+			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1543,7 +1522,7 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			add_benchmark!(params, batches, pallet_tesseract_storage, TesseractSigStorage);
+			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

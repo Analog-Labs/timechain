@@ -17,7 +17,6 @@ tss = { path = "../../tss", package = "tesseract-tss" }
 
 sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sc-network = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-sc-network-gossip = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
@@ -25,6 +24,8 @@ sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", br
 sp-core = { features = ["full_crypto", "std"], git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+anyhow = "1.0.72"
+async-channel = "1.9.0"
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = ["derive"] }

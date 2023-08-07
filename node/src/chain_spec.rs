@@ -468,6 +468,18 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 						get_account_id_from_seed::<sr25519::Public>("Alice"),
 						ANLOG * 2000000 * 1_000_000_000,
 					),
+					// dev collector prefund, shard1
+					(
+						hex!["78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"]
+							.into(),
+						ANLOG * 2000000 * 1_000_000_000,
+					),
+					// dev collector prefund, shard2
+					(
+						hex!["1e31bbe09138bef48ffaca76214317eb0f7a8fd85959774e41d180f2ad9e741f"]
+							.into(),
+						ANLOG * 2000000 * 1_000_000_000,
+					),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),

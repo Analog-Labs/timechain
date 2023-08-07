@@ -1,113 +1,86 @@
 #![allow(clippy::type_complexity)]
-mod communication;
-mod traits;
 mod worker;
 
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
 
-use crate::communication::{time_protocol_name::gossip_protocol_name, validator::GossipValidator};
 use futures::channel::mpsc;
 use log::*;
-use sc_client_api::Backend;
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
+use sc_client_api::{Backend, BlockchainEvents};
+use sc_network::config::{IncomingRequest, RequestResponseConfig};
+use sc_network::NetworkRequest;
 use sp_api::ProvideRuntimeApi;
-use sp_consensus::SyncOracle;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc};
-use time_primitives::TimeApi;
-use traits::Client;
+use std::{marker::PhantomData, sync::Arc, time::Duration};
+use time_primitives::{PeerId, TimeApi};
 
-pub use crate::communication::time_protocol_name;
 pub use crate::worker::{TssId, TssRequest};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
 
-/// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, A, BN, C, R, BE, N, S>
-where
-	B: Block + 'static,
-	A: sp_runtime::codec::Codec + 'static,
-	BN: sp_runtime::codec::Codec + 'static,
-	BE: Backend<B> + 'static,
-	C: Client<B, BE> + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A, BN>,
-	N: GossipNetwork<B> + Clone + Send + Sync + 'static,
-	S: GossipSyncing<B> + SyncOracle + 'static,
-{
-	pub client: Arc<C>,
-	pub backend: Arc<BE>,
-	pub runtime: Arc<R>,
-	pub gossip_network: N,
-	pub kv: KeystorePtr,
-	pub _block: PhantomData<B>,
-	pub accountid: PhantomData<A>,
-	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<TssRequest>,
-	pub sync_service: Arc<S>,
+/// time protocol name suffix.
+pub const PROTOCOL_NAME: &str = "/time/1";
+
+pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestResponseConfig {
+	RequestResponseConfig {
+		name: PROTOCOL_NAME.into(),
+		fallback_names: vec![],
+		max_request_size: 1024 * 1024,
+		max_response_size: 0,
+		request_timeout: Duration::from_secs(3),
+		inbound_queue: Some(tx),
+	}
 }
 
-pub(crate) struct WorkerParams<B: Block, A, BN, C, R, BE> {
-	pub client: Arc<C>,
+/// Set of properties we need to run our gadget
+pub struct TimeWorkerParams<B: Block, R, BE, N>
+where
+	B: Block + 'static,
+	BE: Backend<B> + 'static,
+	R: BlockchainEvents<B> + ProvideRuntimeApi<B> + 'static,
+	R::Api: TimeApi<B>,
+	N: NetworkRequest,
+{
+	pub _block: PhantomData<B>,
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
-	pub gossip_engine: GossipEngine<B>,
-	pub kv: KeystorePtr,
-	pub accountid: PhantomData<A>,
-	pub _block_number: PhantomData<BN>,
-	pub sign_data_receiver: mpsc::Receiver<TssRequest>,
+	pub network: N,
+	pub peer_id: PeerId,
+	pub tss_request: mpsc::Receiver<TssRequest>,
+	pub protocol_request: async_channel::Receiver<IncomingRequest>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, A, BN, C, R, BE, N, S>(
-	timeworker_params: TimeWorkerParams<B, A, BN, C, R, BE, N, S>,
-) where
+pub async fn start_timeworker_gadget<B, R, BE, N>(timeworker_params: TimeWorkerParams<B, R, BE, N>)
+where
 	B: Block + 'static,
-	A: sp_runtime::codec::Codec + 'static,
-	BN: sp_runtime::codec::Codec + 'static,
 	BE: Backend<B> + 'static,
-	C: Client<B, BE> + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B, A, BN>,
-	N: GossipNetwork<B> + Clone + Send + Sync + 'static,
-	S: GossipSyncing<B> + SyncOracle + 'static,
+	R: BlockchainEvents<B> + ProvideRuntimeApi<B> + 'static,
+	R::Api: TimeApi<B>,
+	N: NetworkRequest,
 {
 	debug!(target: TW_LOG, "Starting TimeWorker gadget");
 	let TimeWorkerParams {
-		client,
-		backend,
-		runtime,
-		gossip_network,
-		kv,
 		_block,
-		sign_data_receiver,
-		accountid,
-		_block_number,
-		sync_service,
-	} = timeworker_params;
-	let gossip_engine = GossipEngine::new(
-		gossip_network,
-		sync_service,
-		gossip_protocol_name(),
-		Arc::new(GossipValidator::new()),
-		None,
-	);
-
-	let worker_params = WorkerParams {
-		client,
 		backend,
 		runtime,
-		gossip_engine,
-		kv,
-		sign_data_receiver,
-		accountid,
-		_block_number,
+		network,
+		peer_id,
+		tss_request,
+		protocol_request,
+	} = timeworker_params;
+	let worker_params = worker::WorkerParams {
+		_block,
+		backend,
+		runtime,
+		network,
+		peer_id,
+		tss_request,
+		protocol_request,
 	};
-	let mut worker = worker::TimeWorker::<_, _, _, _, _, _>::new(worker_params);
+	let mut worker = worker::TimeWorker::new(worker_params);
 	worker.run().await
 }

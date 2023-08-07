@@ -52,6 +52,7 @@ services:
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--bob'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
@@ -81,6 +82,7 @@ services:
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--charlie'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
@@ -110,6 +112,7 @@ services:
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
     - '--dave'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
@@ -139,6 +142,7 @@ services:
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
     - '--eve'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
@@ -168,6 +172,7 @@ services:
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
     - '--ferdie'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
       TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}

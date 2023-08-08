@@ -38,6 +38,10 @@ const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 50000;
 const SUDO_SUPPLY: Balance = ANLOG * 50000;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50000;
 
+/// Temporary fix before time keys becomes a session keys
+const PER_WORKER_STASH: Balance = ANLOG * 100000;
+const WORKER_SUPPLY: Balance = 12 * PER_WORKER_STASH;
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -342,6 +346,68 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						PER_VALIDATOR_STASH
 					),
 
+					// Chronicle offchain worker accounts (temporary fix)
+					(
+						hex!["88cadc7969ef201cfb2330db226f10e3886a4f89d683b25d76b66be211be8635"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["e43162d2056b35fb3dedc16360fe0af27ce78755f455457db482617b512d6946"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["8416c30931f34dc5baa7c8a43092b86584fc6b0227250487776ca83d37eeb605"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["5407c3fa0dd96e139cf88f40d7bc94690796275e837022d27970f40b7c893444"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["66547c4284385991d51819a59eab53cb3228041550b078fab7895834488f2d2d"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["488a19d03330cf97c183a9a28ce5af00ca130dff6f9ffcb3b3006d52a6d77450"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["f87f1b28f8d8861ab9b8d8c7535412d74e8116691153404f94d8b85b188a1b50"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["acb3c8576b20c541b1b6d90691a11b9a501b387cb26945b0ff439a55de7e9f39"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["f8114592f3437a96a025ce94a7a14ee61a1bda114f9fdd3531e699246742b924"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["f611cb5d58813ca34013f03cf2bd3c01ce4beae66eb50699a46593b1fced2f49"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["fe747c857e6787c1130a6dd9dea775693220c4927e7012ad2c90de3ae8b45570"]
+							.into(),
+						PER_WORKER_STASH
+					),
+					(
+						hex!["9ab8a9caa2dd36760afa1dabe9cc49d86a21e418c765096673c033eb4f571100"]
+							.into(),
+						PER_WORKER_STASH
+					),
+
 					// Tokenomics and supply
 					(
 						hex!["0062466de473bc2686173eed44f49b282bf1615f4287ce8566aeaa5747a70855"]
@@ -366,7 +432,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						hex!["62e926d7df56786c766af140cdc9da839c50e60fa0d6722488a1ad235f1c5d1a"]
 							.into(),
-						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - VALIDATOR_SUPPLY,
+						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
 					),
 					(
 						hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"]

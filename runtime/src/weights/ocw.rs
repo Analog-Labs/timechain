@@ -2,8 +2,6 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(missing_docs)]
-
-use crate::{self as pallet_ocw};
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 

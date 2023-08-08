@@ -1,21 +1,21 @@
+[package]
+name = "time-primitives"
+edition = "2021"
+version = "0.1.0"
 [dependencies]
-anyhow = { default-features = false, version = "1.0" }
-codec = { default-features = false, package = "parity-scale-codec", version = "3.6.3" }
-frame-system = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-futures = { optional = true, version = "0.3.28" }
+anyhow = { version = "1.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+futures = { version = "0.3.28", optional = true }
 log = "0.4.19"
-scale-info = { default-features = false, features = [ "derive" ], version = "2.9.0" }
-serde = { default-features = false, features = [ "derive" ], version = "1.0" }
-sp-api = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sp-application-crypto = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sp-core = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sp-runtime = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sp-std = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
+scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+serde = { version = "1.0", default-features = false, features = [ "derive" ] }
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-application-crypto = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 
 [features]
 default = [ "std" ]
-std = [ "futures", "codec/std", "frame-system/std", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std" ]
-[package]
-edition = "2021"
-name = "time-primitives"
-version = "0.1.0"
+std = [ "codec/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std" ]

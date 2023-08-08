@@ -1,11 +1,20 @@
+[package]
+name = "timechain-node"
+authors = [ "Analog Devs <https://github.com/analog-labs>" ]
+build = "build.rs"
+description = "A blochain node using the proof of time consensus."
+edition = "2021"
+homepage = "https://analog.one/"
+repository = "https://github.com/analog-labs/testnet"
+version = "0.0.1"
+
+[package.metadata.docs.rs]
+targets = [ "x86_64-unknown-linux-gnu" ]
 [[bin]]
 name = "timechain-node"
 
-[build-dependencies]
-substrate-build-script-utils = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-
 [dependencies]
-clap = { features = [ "derive" ], version = "4.3.11" }
+clap = { version = "4.3.11", features = [ "derive" ] }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 lazy_static = "1.4.0"
@@ -14,80 +23,71 @@ serde_json = "1.0"
 snow = "0.9.2"
 tokio = "1.29.1"
 
-frame-system = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-pallet-im-online = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-pallet-transaction-payment = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-chain-spec = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-cli = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sc-client-api = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-consensus = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-consensus-babe = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-consensus-grandpa = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-executor = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-keystore = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-network = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-service = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sc-telemetry = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-transaction-pool = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-transaction-pool-api = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-consensus = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-consensus-babe = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-consensus-grandpa = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-core = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-inherents = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-keyring = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-keystore = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-runtime = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-statement-store = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-timestamp = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
+frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+pallet-im-online = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-chain-spec = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-cli = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-executor = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-network = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-service = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sc-telemetry = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-consensus-babe = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-inherents = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-statement-store = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 
 # node 's RPCs deps
-jsonrpsee = { features = [ "server" ], version = "0.16.2" }
-pallet-transaction-payment-rpc = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-basic-authorship = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-rpc = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sc-rpc-api = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-api = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-block-builder = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-sp-blockchain = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-substrate-frame-rpc-system = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-surf = { default-features = false, features = [ "h1-client-rustls" ], version = "2.3.2" }
+jsonrpsee = { version = "0.16.2", features = [ "server" ] }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git" }
-frame-benchmarking-cli = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 
 # Local Dependencies
 runtime-common = { path = "../runtime/common" }
 timechain-runtime = { path = "../runtime", version = "0.0.1" }
 
 # CLI-specific dependencies
-try-runtime-cli = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git", optional = true }
+try-runtime-cli = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", optional = true }
 
 # Runtime Workers
-time-primitives = { default-features = false, path = "../primitives" }
+time-primitives = { path = "../primitives", default-features = false }
 time-worker = { path = "../workers/time-worker" }
 
 #Task-Executor
 async-channel = "1.9.0"
 task-executor = { path = "../workers/task-executor" }
 
+[build-dependencies]
+substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+
 [features]
 default = []
 # Dependencies that are only required if runtime benchmarking should be build.
-runtime-benchmarks = [ "timechain-runtime/runtime-benchmarks", "frame-benchmarking/runtime-benchmarks", "frame-benchmarking-cli/runtime-benchmarks" ]
+runtime-benchmarks = [ "frame-benchmarking-cli/runtime-benchmarks", "frame-benchmarking/runtime-benchmarks", "timechain-runtime/runtime-benchmarks" ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = [ "timechain-runtime/try-runtime", "try-runtime-cli" ]
-[package]
-authors = [ "Analog Devs <https://github.com/analog-labs>" ]
-build = "build.rs"
-description = "A blochain node using the proof of time consensus."
-edition = "2021"
-homepage = "https://analog.one/"
-name = "timechain-node"
-repository = "https://github.com/analog-labs/testnet"
-version = "0.0.1"
-
-[package.metadata.docs.rs]
-targets = [ "x86_64-unknown-linux-gnu" ]

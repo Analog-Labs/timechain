@@ -1,18 +1,28 @@
+[package]
+name = "pallet-tasks"
+authors = [ "Analog Devs <https://github.com/analog-labs>" ]
+description = "A pallet for storing task(s) schedule info."
+edition = "2021"
+homepage = "https://analog.one"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/Analog-Labs/testnet"
+version = "0.0.1"
 [dependencies]
-codec = { default-features = false, features = [ "max-encoded-len" ], package = "parity-scale-codec", version = "3.6.3" }
-frame-benchmarking = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", optional = true }
-frame-support = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate" }
-frame-system = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate" }
-log = { default-features = false, version = "0.4.19" }
-scale-info = { default-features = false, features = [ "derive" ], version = "2.9.0" }
-sp-runtime = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate" }
-sp-std = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-time-primitives = { default-features = false, path = "../../primitives" }
+codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = [ "max-encoded-len" ] }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false, optional = true }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+log = { version = "0.4.19", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { branch = "polkadot-v1.0.0", git = "https://github.com/paritytech/substrate.git", version = "4.0.0-dev" }
-sp-core = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sp-io = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
+pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", version = "4.0.0-dev" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -29,13 +39,3 @@ std = [
 
 runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks" ]
 try-runtime = [ "frame-support/try-runtime" ]
-[package]
-authors = [ "Analog Devs <https://github.com/analog-labs>" ]
-description = "A pallet for storing task(s) schedule info."
-edition = "2021"
-homepage = "https://analog.one"
-license = "Unlicense"
-name = "pallet-tasks"
-publish = false
-repository = "https://github.com/Analog-Labs/testnet"
-version = "0.0.1"

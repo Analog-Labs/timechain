@@ -1,19 +1,19 @@
-[dependencies]
-sp-core = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-sp-weights = { branch = "polkadot-v1.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
-
-[features]
-default = [ "std" ]
-runtime-benchmarks = []
-std = [
-	"sp-core/std",
-	"sp-weights/std",
-]
 [package]
+name = "runtime-common"
 authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
 edition = "2021"
 homepage = ""
 license = "LGPL-3.0"
-name = "runtime-common"
 repository = ""
 version = "1.0.0"
+[dependencies]
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-weights = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+
+[features]
+default = [ "std" ]
+std = [
+	"sp-core/std",
+	"sp-weights/std",
+]
+runtime-benchmarks = []

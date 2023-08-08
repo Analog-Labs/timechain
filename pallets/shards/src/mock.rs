@@ -1,5 +1,5 @@
 use crate::{self as pallet_shards};
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -85,6 +85,8 @@ impl pallet_shards::Config for Test {
 	type WeightInfo = pallet_shards::weights::WeightInfo<Test>;
 	type ShardCreated = MockOcw;
 	type TaskScheduler = MockTaskScheduler;
+	type MaxMembers = ConstU8<20>;
+	type MinMembers = ConstU8<3>;
 }
 
 // Build genesis storage according to the mock runtime.

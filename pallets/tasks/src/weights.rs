@@ -46,16 +46,4 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: TaskSchedule ScheduleStorage (r:1 w:1)
-	/// Proof Skipped: TaskSchedule ScheduleStorage (max_values: None, max_size: None, mode: Measured)
-	fn submit_result() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `130`
-		//  Estimated: `3595`
-		// Minimum execution time: 47_000_000 picoseconds.
-		Weight::from_parts(53_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3595))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 }

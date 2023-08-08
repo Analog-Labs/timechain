@@ -21,7 +21,6 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
-		fn submit_result() -> Weight;
 	}
 
 	#[pallet::pallet]

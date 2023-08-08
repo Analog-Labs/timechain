@@ -31,7 +31,7 @@ const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
 
 /// Tokens to take from team supply to bootstrap validators
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500000;
-const VALIDATOR_SUPPLY: Balance = 12 * PER_VALIDATOR_STASH;
+const VALIDATOR_SUPPLY: Balance = 16 * PER_VALIDATOR_STASH;
 
 const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 50000;
 
@@ -95,6 +95,44 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				hex!["1260c29b59a365f07ac449e109cdf8f95905296af0707db9f3da0254e5db5741"].into(),
 				// Initial authorities at genesis
 				vec![
+					// boot 0
+					(
+						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
+						hex!["2052373b15df90bf555e1498b2ff4f9157ab8b32b028cd8db5e1229750537919"].into(),
+
+						hex!["f04c936f39f1a69250ab608fb411df41fe98f80f0182a42a06fbdde5d4d71121"].unchecked_into(),
+						hex!["20841efc57a630ae0e3fb5593e8c0526bdbbfa6b2cf877394b4bd5e15d3ca921"].unchecked_into(),
+						hex!["44fc1e9d86c8c455340ab1fcdaf2da6c5103db1e2306f97e8ddc94d49bab355d"].unchecked_into(),
+					),
+					// boot 1
+					(
+						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
+						hex!["aabf500afa16987bfa9804d700765ac1745778caf12a4f8bc944fa8b712fa20a"].into(),
+
+						hex!["a420376e1ffa452c37f2ab02320c8156edf99a4855e9992e580bd08c82411e5b"].unchecked_into(),
+						hex!["fcbadd4a3b4e86713e1894b18413589a02acc93df989830be0c8ff9a4083c73c"].unchecked_into(),
+						hex!["2c51eb1e1d82051b9c7bf785fa64f6281586ac315c7f29ae9dce602efc5c0d40"].unchecked_into(),
+					),
+
+					// archive 0
+					(
+						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
+						hex!["18ea951f5a1362e7b6ad61b0c1dba56924610d734949c56459b2f930f2dfb466"].into(),
+
+						hex!["fc6a5f381265178388907b4318284754a64f63cea7eae535dd8bd88af714d977"].unchecked_into(),
+						hex!["c280c069882832700743c82856a4a69c9f57e678b56b0f6e26a897a56d42360f"].unchecked_into(),
+						hex!["f60d10ac6734437aa2b6e7c6c0669b8427f396990fb9abaaef896ee99f16ef06"].unchecked_into(),
+					),
+					// archive 1
+					(
+						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
+						hex!["b84c0fdb87eb3ba32ab919cf93b238ea6e7f11cd44988ea15240a52f9b707647"].into(),
+
+						hex!["eebaa541e6e739ec228feabe6896c5892f462cafcff7a05614fa69e654c17c5a"].unchecked_into(),
+						hex!["d20c7286d69cca523f2b85f520faaed13358ecc3bade0cf699c5acdc9e795d7e"].unchecked_into(),
+						hex!["1a4a01258ff2bb14b6f21d6ffece9418ad8152b3164e8378152238812fbf130f"].unchecked_into(),
+					),
+
 					// node 0
 					(
 						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
@@ -220,7 +258,29 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						CONTROLLER_SUPPLY
 					),
 
-					// Validator stashes
+					// Validator stashes (does not run chronicle)
+					(
+						hex!["2052373b15df90bf555e1498b2ff4f9157ab8b32b028cd8db5e1229750537919"]
+							.into(),
+						PER_VALIDATOR_STASH
+					),
+					(
+						hex!["aabf500afa16987bfa9804d700765ac1745778caf12a4f8bc944fa8b712fa20a"]
+							.into(),
+						PER_VALIDATOR_STASH
+					),
+					(
+						hex!["18ea951f5a1362e7b6ad61b0c1dba56924610d734949c56459b2f930f2dfb466"]
+							.into(),
+						PER_VALIDATOR_STASH
+					),
+					(
+						hex!["b84c0fdb87eb3ba32ab919cf93b238ea6e7f11cd44988ea15240a52f9b707647"]
+							.into(),
+						PER_VALIDATOR_STASH
+					),
+
+					// Sharded validator stashes (sheduled to run chronicle)
 					(
 						hex!["de6504921718b9b63c8318b4dda71f9d1678b0b16d4d44e7d835025b4985e64f"]
 							.into(),

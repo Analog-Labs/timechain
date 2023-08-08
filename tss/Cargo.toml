@@ -1,17 +1,16 @@
 [package]
 name = "tesseract-tss"
-version = "0.0.1"
-authors = ["Dev <Dev@analog.one>"]
+authors = [ "Dev <Dev@analog.one>" ]
 edition = "2021"
-license = "Apache-2.0"
 homepage = "https://www.analog.one/"
+license = "Apache-2.0"
 repository = "https://github.com/Analog-Labs/tesseract/"
-
+version = "0.0.1"
 [dependencies]
-frost-evm = { version = "0.1.0", git = "https://github.com/Analog-labs/frost-evm.git"}
+frost-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
 log = "0.4.19"
 rand = "0.8"
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.171", features = [ "derive" ] }
 
 [dev-dependencies]
 env_logger = "0.10.0"

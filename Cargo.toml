@@ -1,24 +1,23 @@
 [workspace]
 members = [
-    "node",
-    "pallets/ocw",
-    "pallets/shards",
-    "pallets/tasks",
-    "pallets/vesting",
-    "primitives",
-    "runtime",
-    "runtime/common",
-    "tss",
-    "workers/task-executor",
-    "workers/timechain-integration",
-    "workers/time-worker",
+	"node",
+	"pallets/ocw",
+	"pallets/shards",
+	"pallets/tasks",
+	"pallets/vesting",
+	"primitives",
+	"runtime",
+	"runtime/common",
+	"tss",
+	"workers/task-executor",
+	"workers/time-worker",
+	"workers/timechain-integration",
 ]
 resolver = "2"
-
 [profile.release]
+opt-level = "z"
 panic = "unwind"
 strip = true
-opt-level = "z"
 
 [profile.release-codecov]
 inherits = "release"

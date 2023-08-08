@@ -73,9 +73,9 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 ```
 
 1. Install docker, docker compose and musl using your system package manager.
-2. Build the docker image with `./build_docker.sh`.
+2. Build the docker image with `./scripts/build_docker.sh`.
 3. Start the timechain validators, connectors and chain nodes with `docker compose up -d`.
-4. Set the validator keys with `./set_keys.sh`.
+4. Set the validator keys with `./scripts/set_keys.sh`.
 
 ## Run public testnet
 

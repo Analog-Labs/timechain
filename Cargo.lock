@@ -6460,6 +6460,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "lazy_static",
+ "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",

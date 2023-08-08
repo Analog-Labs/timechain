@@ -1244,7 +1244,8 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_shards, Shards]
-		[task_schedule, ScheduleBenchmarks::<Runtime>]
+		[pallet_tasks, Tasks]
+		[pallet_ocw, Ocw]
 	);
 }
 
@@ -1490,11 +1491,11 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
-			use task_meta_bench::Pallet as MetaDataBenchmarks;
-			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, pallet_shards, Shards);
+			list_benchmark!(list, extra, pallet_tasks, Tasks);
+			list_benchmark!(list, extra, pallet_ocw, Ocw);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1509,13 +1510,9 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
-			use task_meta_bench::Pallet as MetaDataBenchmarks;
-			use task_schedule_bench::Pallet as ScheduleBenchmarks;
 
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl baseline::Config for Runtime {}
-			impl task_meta_bench::Config for Runtime {}
-			impl task_schedule_bench::Config for Runtime {}
 
 			use frame_support::traits::WhitelistedStorageKeys;
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
@@ -1523,6 +1520,8 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 			add_benchmark!(params, batches, pallet_shards, Shards);
+			add_benchmark!(params, batches, pallet_tasks, Tasks);
+			add_benchmark!(params, batches, pallet_ocw, Ocw);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

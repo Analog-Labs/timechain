@@ -4,7 +4,7 @@ use frame_system::RawOrigin;
 use time_primitives::{PublicKey, ScheduleStatus, ShardCreated, ShardId, TssPublicKey};
 
 fn collector() -> PublicKey {
-	PublicKey::Sr25519(sp_runtime::testing::sr25519::Public::from_raw([42; 32]))
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([42; 32]))
 }
 
 const SHARD_ID: ShardId = 42;

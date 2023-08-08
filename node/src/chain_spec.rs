@@ -42,6 +42,9 @@ const CONTROLLER_SUPPLY: Balance = ANLOG * 50000;
 const PER_WORKER_STASH: Balance = ANLOG * 100000;
 const WORKER_SUPPLY: Balance = 12 * PER_WORKER_STASH;
 
+/// Minimum needed validators, currently lowered to improve stability
+const MIN_VALIDATOR_COUNT: u32 = 4;
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -971,7 +974,7 @@ fn generate_analog_genesis(
 		// staking: Default::default(),
 		staking: StakingConfig {
 			validator_count: initial_authorities.len() as u32,
-			minimum_validator_count: initial_authorities.len() as u32,
+			minimum_validator_count: MIN_VALIDATOR_COUNT,
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,

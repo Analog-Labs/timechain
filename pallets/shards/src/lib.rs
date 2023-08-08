@@ -102,7 +102,7 @@ pub mod pallet {
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
 			for member in &members {
-				<ShardMembers<T>>::insert(shard_id, member.clone(), ());
+				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			T::ShardCreated::shard_created(shard_id, collector);

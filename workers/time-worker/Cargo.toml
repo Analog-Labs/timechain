@@ -14,7 +14,7 @@ sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = 
 sc-network = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-time-primitives = { path = "../../primitives/time-primitives" }
+time-primitives = { path = "../../primitives" }
 tokio = { version = "1.29.1", features = ["time"] }
 tss = { path = "../../tss", package = "tesseract-tss" }
 

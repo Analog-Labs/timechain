@@ -75,7 +75,7 @@ pallet-treasury = { default-features = false, git = "https://github.com/parityte
 pallet-shards = { version = "4.0.0-dev", default-features = false, path = "../pallets/shards" }
 pallet-ocw = { version = "4.0.0-dev", default-features = false, path = "../pallets/ocw" }
 runtime-common = { path = "./common", default-features = false }
-time-primitives = { path = "../primitives/time-primitives", default-features = false }
+time-primitives = { path = "../primitives", default-features = false }
 
 [dev-dependencies]
 separator = "0.4.1"

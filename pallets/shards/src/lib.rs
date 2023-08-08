@@ -23,6 +23,12 @@ pub mod pallet {
 		fn register_shard() -> Weight;
 	}
 
+	impl WeightInfo for () {
+		fn register_shard() -> Weight {
+			Weight::default()
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -97,7 +103,7 @@ pub mod pallet {
 				members.len() <= T::MaxMembers::get().into(),
 				Error::<T>::MembershipAboveMaximum
 			);
-			Self::do_register_shard(network, members, collector);
+			Self::create_shard(network, members, collector);
 			Ok(())
 		}
 	}
@@ -135,7 +141,7 @@ pub mod pallet {
 
 	impl<T: Config> OcwSubmitTssPublicKey for Pallet<T> {
 		fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
-			Self::do_register_shard(network, members, collector);
+			Self::create_shard(network, members, collector);
 		}
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;

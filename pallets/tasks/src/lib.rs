@@ -22,6 +22,12 @@ pub mod pallet {
 		fn create_task() -> Weight;
 	}
 
+	impl WeightInfo for () {
+		fn create_task() -> Weight {
+			Weight::default()
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);

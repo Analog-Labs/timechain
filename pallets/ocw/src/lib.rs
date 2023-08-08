@@ -29,6 +29,15 @@ pub mod pallet {
 		fn submit_task_result() -> Weight;
 	}
 
+	impl WeightInfo for () {
+		fn submit_tss_public_key() -> Weight {
+			Weight::default()
+		}
+		fn submit_task_result() -> Weight {
+			Weight::default()
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);

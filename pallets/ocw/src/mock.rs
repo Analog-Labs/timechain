@@ -95,7 +95,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_ocw::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_ocw::weights::WeightInfo<Test>;
+	type WeightInfo = ();
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = MockShards;
 	type Tasks = MockTasks;

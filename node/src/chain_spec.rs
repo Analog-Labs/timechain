@@ -444,11 +444,6 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 							.into(),
 						COMMUNITY_SUPPLY,
 					),
-					(
-						hex!["66c8567013bfc1ca7e4568b2d7ed07f775614ac6a68824a8a309425b2dcd930b"]
-							.into(),
-						VALIDATOR_SUPPLY,
-					),
 				],
 			)
 		},

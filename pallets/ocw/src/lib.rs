@@ -7,7 +7,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {

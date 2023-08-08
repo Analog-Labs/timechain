@@ -9,18 +9,18 @@ cargo build --release --features=runtime-benchmarks
     --extrinsic "*" \
     --steps 50 \
     --repeat 20 \
-    --output ./pallets/shards/src/weights.rs
+    --output ./runtime/src/weights/shards.rs
 
 ./target/release/timechain-node benchmark pallet \
     --pallet pallet_ocw \
     --extrinsic "*" \
     --steps 50 \
     --repeat 20 \
-    --output ./pallets/ocw/src/weights.rs
+    --output ./runtime/src/weights/ocw.rs
 
 ./target/release/timechain-node benchmark pallet \
     --pallet pallet_tasks \
     --extrinsic "*" \
     --steps 50 \
     --repeat 20 \
-    --output ./pallets/tasks/src/weights.rs
+    --output ./runtime/src/weights/tasks.rs

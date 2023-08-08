@@ -2,7 +2,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
 pub use pallet::*;
 #[cfg(test)]
 mod mock;
@@ -21,7 +20,12 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
-		fn submit_result() -> Weight;
+	}
+
+	impl WeightInfo for () {
+		fn create_task() -> Weight {
+			Weight::default()
+		}
 	}
 
 	#[pallet::pallet]

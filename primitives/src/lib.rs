@@ -80,6 +80,7 @@ pub trait ScheduleInterface {
 }
 
 pub trait OcwSubmitTssPublicKey {
+	fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
 }
 

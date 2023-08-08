@@ -82,7 +82,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_shards::weights::WeightInfo<Test>;
+	type WeightInfo = ();
 	type ShardCreated = MockOcw;
 	type TaskScheduler = MockTaskScheduler;
 	type MaxMembers = ConstU8<20>;

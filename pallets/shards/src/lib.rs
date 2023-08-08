@@ -6,7 +6,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod weights;
 
 pub use pallet::*;
 
@@ -22,6 +21,12 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
+	}
+
+	impl WeightInfo for () {
+		fn register_shard() -> Weight {
+			Weight::default()
+		}
 	}
 
 	#[pallet::pallet]
@@ -98,6 +103,13 @@ pub mod pallet {
 				members.len() <= T::MaxMembers::get().into(),
 				Error::<T>::MembershipAboveMaximum
 			);
+			Self::create_shard(network, members, collector);
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn create_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
@@ -106,11 +118,8 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			T::ShardCreated::shard_created(shard_id, collector);
-			Ok(())
 		}
-	}
 
-	impl<T: Config> Pallet<T> {
 		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
@@ -131,6 +140,9 @@ pub mod pallet {
 	}
 
 	impl<T: Config> OcwSubmitTssPublicKey for Pallet<T> {
+		fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
+			Self::create_shard(network, members, collector);
+		}
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			ensure!(

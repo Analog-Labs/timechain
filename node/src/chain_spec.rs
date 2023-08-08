@@ -35,8 +35,12 @@ const VALIDATOR_SUPPLY: Balance = 16 * PER_VALIDATOR_STASH;
 
 const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 50000;
 
+/// Token supply for prefunded admin accounts
 const SUDO_SUPPLY: Balance = ANLOG * 50000;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50000;
+
+/// Token supply for prefunded dev team test user account
+const TESTUSER_SUPPLY: Balance = ANLOG * 100000;
 
 /// Temporary fix before time keys becomes a session keys
 const PER_WORKER_STASH: Balance = ANLOG * 100000;
@@ -259,12 +263,18 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 							.into(),
 						SUDO_SUPPLY
 					),
-
 					// Controller stashes
 					(
 						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"]
 							.into(),
 						CONTROLLER_SUPPLY
+					),
+
+					// Test user stashes
+					(
+						hex!["10e467cff36a7ae9059963530db543ae07875dd3d61f9ea66334a43119b2d73e"]
+							.into(),
+						TESTUSER_SUPPLY
 					),
 
 					// Validator stashes (does not run chronicle)
@@ -437,7 +447,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						hex!["62e926d7df56786c766af140cdc9da839c50e60fa0d6722488a1ad235f1c5d1a"]
 							.into(),
-						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
+						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - TESTUSER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
 					),
 					(
 						hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"]
@@ -610,12 +620,18 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 							.into(),
 						SUDO_SUPPLY
 					),
-
 					// Controller stashes
 					(
 						hex!["ced65a5c8089791384cfa2e92825744b77622f2f32267614e864f9ba65f5135f"]
 							.into(),
 						CONTROLLER_SUPPLY
+					),
+
+					// Test user stashes
+					(
+						hex!["10e467cff36a7ae9059963530db543ae07875dd3d61f9ea66334a43119b2d73e"]
+							.into(),
+						TESTUSER_SUPPLY
 					),
 
 					// Validator stashes
@@ -766,7 +782,7 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 					(
 						hex!["a894a617e4cae275c9982f4b1777ede374d38f42f55b4d6f48fe647e55494e22"]
 							.into(),
-						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
+						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - TESTUSER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
 					),
 					(
 						hex!["cc382667871c8eac8ab337058361d3e6f8c7d04990e4a2c9a4024993e502b418"]

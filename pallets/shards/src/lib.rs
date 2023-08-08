@@ -103,7 +103,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn do_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
+		fn create_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);

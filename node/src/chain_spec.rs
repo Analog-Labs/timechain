@@ -455,7 +455,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 		// Telemetry
 		None,
 		// Protocol ID
-		None,
+		Some("analog"),
 		None,
 		// Properties
 		Some(properties),

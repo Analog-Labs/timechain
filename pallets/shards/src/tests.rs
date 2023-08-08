@@ -10,7 +10,7 @@ const D: PeerId = [4u8; 32];
 const E: PeerId = [5u8; 32];
 const F: PeerId = [6u8; 32];
 
-fn collector() -> PublicKey {
+pub(crate) fn collector() -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([42; 32]))
 }
 

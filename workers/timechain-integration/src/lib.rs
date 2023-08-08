@@ -2,7 +2,7 @@ use crate::query::{CollectData, ResponseData, Variables};
 use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::header;
-use time_primitives::FunctionResult;
+use time_primitives::{FunctionResult, ScheduleCycle};
 
 mod query;
 #[cfg(test)]
@@ -14,6 +14,7 @@ pub async fn submit_to_timegraph(
 	target_block_number: u64,
 	result: &FunctionResult,
 	collection: String,
+	cycle: ScheduleCycle,
 ) -> Result<()> {
 	// Add data into collection (user must have Collector role)
 	// @collection: collection hashId
@@ -31,7 +32,7 @@ pub async fn submit_to_timegraph(
 		// unused field
 		task_id: 0,
 		// unused field
-		cycle: 0,
+		cycle: cycle as i64,
 		data: result.clone(),
 	};
 	dotenv::dotenv().ok();
@@ -49,13 +50,12 @@ pub async fn submit_to_timegraph(
 		.header(header::AUTHORIZATION, ssk)
 		.send()
 		.await
-		.context("error in post request to timegraph")?;
-	let data = response
+		.map_err(|e| anyhow::anyhow!("error post to timegraph {}", e))?;
+	let json = response
 		.json::<Response<ResponseData>>()
 		.await
-		.context("Failed to parse timegraph response")?
-		.data
-		.context("timegraph migrate collect status fail: No reponse")?;
+		.context("Failed to parse timegraph response")?;
+	let data = json.data.context(format!("timegraph migrate collect status fail: No reponse {:?}", json.errors))?;
 	log::info!(target: TW_LOG, "timegraph migrate collect status: {:?}", data.collect.status);
 	Ok(())
 }

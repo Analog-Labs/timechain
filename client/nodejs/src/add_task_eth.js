@@ -28,14 +28,14 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         network: 0,
-        cycle: 1,
+        cycle: 0,
         start: 0,
         period: 0,
-        hash: 'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7',
+        hash: 'QmYFw5aYPKQ9oSw3L3UUed9fBqT4oTW5BZzAnPFGyuQir3',
         function: {
             EVMViewWithoutAbi: {
                 address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
-                function_signature: "function get_votes_stats() external view returns (uint, uint)",
+                function_signature: "function get_votes_stats() external view returns (uint[] memory)",
                 input: 2,
             }
         },

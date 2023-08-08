@@ -7,7 +7,7 @@ use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+use std::{collections::HashSet, marker::PhantomData, sync::{Arc, Mutex}};
 use time_primitives::{
 	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleStatus, ShardId, TaskId,
 	TaskSchedule, TimeApi, TssRequest, TssSignature,
@@ -79,7 +79,7 @@ impl Task {
 	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
-		timechain_integration::submit_to_timegraph(target_block, &result, task.hash.clone())
+		timechain_integration::submit_to_timegraph(target_block, &result, task.hash.clone(), cycle)
 			.await?;
 		Ok(signature)
 	}
@@ -92,7 +92,7 @@ pub struct TaskExecutor<B: Block, BE, R> {
 	peer_id: PeerId,
 	sign_data_sender: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
-	running_tasks: HashSet<TaskId>,
+	running_tasks: Arc<Mutex<HashSet<TaskId>>>,
 }
 
 impl<B, BE, R> TaskExecutor<B, BE, R>
@@ -123,7 +123,7 @@ where
 			peer_id,
 			sign_data_sender,
 			wallet: Arc::new(wallet),
-			running_tasks: Default::default(),
+			running_tasks: Arc::new(Mutex::new(Default::default())),
 		})
 	}
 
@@ -134,15 +134,16 @@ where
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
 			for (task_id, cycle) in tasks {
-				if self.running_tasks.contains(&task_id) {
+				if self.running_tasks.lock().unwrap().contains(&task_id) {
 					continue;
 				}
 				let task_descr =
 					self.runtime.runtime_api().get_task(block_id, task_id).unwrap().unwrap();
 				if block_height >= task_descr.trigger(cycle) {
-					self.running_tasks.insert(task_id);
+					self.running_tasks.lock().unwrap().insert(task_id);
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
 					let storage = self.backend.offchain_storage().unwrap();
+					let mut cloned_running_task = self.running_tasks.clone();
 					tokio::task::spawn(async move {
 						let result = task
 							.execute(block_height, shard_id, task_id, cycle, task_descr)
@@ -153,6 +154,7 @@ where
 							storage,
 							&OcwPayload::SubmitTaskResult { task_id, cycle, status },
 						);
+						// remove task and cycle from running tasks
 					});
 				}
 			}

@@ -76,7 +76,7 @@ try-runtime-cli = { optional = true, git = "https://github.com/paritytech/substr
 
 # Runtime Workers
 time-worker = { path = "../workers/time-worker" }
-time-primitives = { path = "../primitives/time-primitives", default-features = false }
+time-primitives = { path = "../primitives", default-features = false }
 
 #Task-Executor
 task-executor = { path = "../workers/task-executor" }

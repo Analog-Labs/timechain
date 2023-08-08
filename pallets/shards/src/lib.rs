@@ -34,6 +34,10 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type ShardCreated: ShardCreated;
 		type TaskScheduler: ScheduleInterface;
+		#[pallet::constant]
+		type MaxMembers: Get<u8>;
+		#[pallet::constant]
+		type MinMembers: Get<u8>;
 	}
 
 	#[pallet::storage]
@@ -66,7 +70,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		UnknownShard,
 		PublicKeyAlreadyRegistered,
-		InvalidNumberOfShardMembers,
+		MembershipBelowMinimum,
+		MembershipAboveMaximum,
 	}
 
 	#[pallet::call]
@@ -85,12 +90,19 @@ pub mod pallet {
 			collector: PublicKey,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(members.len() >= 3, Error::<T>::InvalidNumberOfShardMembers);
+			ensure!(
+				members.len() >= T::MinMembers::get().into(),
+				Error::<T>::MembershipBelowMinimum
+			);
+			ensure!(
+				members.len() <= T::MaxMembers::get().into(),
+				Error::<T>::MembershipAboveMaximum
+			);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
 			for member in &members {
-				<ShardMembers<T>>::insert(shard_id, member.clone(), ());
+				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			T::ShardCreated::shard_created(shard_id, collector);

@@ -1152,6 +1152,8 @@ impl pallet_shards::Config for Runtime {
 	type WeightInfo = pallet_shards::weights::WeightInfo<Runtime>;
 	type ShardCreated = Ocw;
 	type TaskScheduler = Tasks;
+	type MaxMembers = ConstU8<20>;
+	type MinMembers = ConstU8<3>;
 }
 
 impl pallet_tasks::Config for Runtime {

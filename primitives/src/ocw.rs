@@ -38,7 +38,7 @@ pub fn write_message_with_prefix<B: OffchainStorage>(
 		let raw_id = storage.get(prefix, OCW_WRITE_ID);
 		let id = raw_id
 			.as_deref()
-			.map(|id| u64::decode(&mut id.as_ref()).unwrap())
+			.map(|mut id| u64::decode(&mut id).unwrap())
 			.unwrap_or_default();
 		if !storage.compare_and_set(prefix, OCW_WRITE_ID, raw_id.as_deref(), &(id + 1).encode()) {
 			continue;

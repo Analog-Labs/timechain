@@ -5,7 +5,7 @@ members = [
     "pallets/shards",
     "pallets/tasks",
     "pallets/vesting",
-    "primitives/time-primitives",
+    "primitives",
     "runtime",
     "runtime/common",
     "tss",

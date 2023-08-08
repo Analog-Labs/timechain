@@ -23,7 +23,7 @@ fn test_ocw_read_message() {
 	let storage = ext.offchain_db();
 	time_primitives::write_message_with_prefix(storage.clone(), &[], &PAYLOAD);
 	time_primitives::write_message_with_prefix(storage.clone(), &[], &PAYLOAD);
-	let (offchain, offchain_state) = TestOffchainExt::with_offchain_db(storage.clone());
+	let (offchain, offchain_state) = TestOffchainExt::with_offchain_db(storage);
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
 	log::info!("{:?}", offchain_state);
@@ -41,7 +41,7 @@ fn test_ocw_submit_tx() {
 	let (offchain, offchain_state) = TestOffchainExt::new();
 	let (pool, pool_state) = TestTransactionPoolExt::new();
 	let keystore = MemoryKeystore::new();
-	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(&PHRASE)).unwrap();
+	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
 	ext.register_extension(OffchainWorkerExt::new(offchain));
 	ext.register_extension(TransactionPoolExt::new(pool));
 	ext.register_extension(KeystoreExt::new(keystore));
@@ -67,7 +67,7 @@ fn test_submit_public_key() {
 	env_logger::try_init().ok();
 	let mut ext = new_test_ext();
 	let keystore = MemoryKeystore::new();
-	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(&PHRASE)).unwrap();
+	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
 	ext.execute_with(|| {
 		Ocw::shard_created(SHARD_ID, collector.into());
 		assert_ok!(Ocw::submit_tss_public_key(
@@ -84,7 +84,7 @@ fn test_submit_public_key_not_collector() {
 	env_logger::try_init().ok();
 	let mut ext = new_test_ext();
 	let keystore = MemoryKeystore::new();
-	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(&PHRASE)).unwrap();
+	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
 	ext.execute_with(|| {
 		Ocw::shard_created(SHARD_ID, collector.into());
 		assert_noop!(

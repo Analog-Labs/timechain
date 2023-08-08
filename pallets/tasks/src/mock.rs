@@ -70,7 +70,7 @@ impl pallet_balances::Config for Test {
 
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = task_schedule::weights::WeightInfo<Test>;
+	type WeightInfo = ();
 }
 
 // Build genesis storage according to the mock runtime.

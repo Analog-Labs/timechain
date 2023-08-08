@@ -1,11 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -26,6 +27,15 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn submit_tss_public_key() -> Weight;
 		fn submit_task_result() -> Weight;
+	}
+
+	impl WeightInfo for () {
+		fn submit_tss_public_key() -> Weight {
+			Weight::default()
+		}
+		fn submit_task_result() -> Weight {
+			Weight::default()
+		}
 	}
 
 	#[pallet::pallet]

@@ -8,8 +8,8 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	OcwSubmitTaskResult, OcwSubmitTssPublicKey, ScheduleCycle, ScheduleStatus, ShardId, TaskId,
-	TssPublicKey,
+	Network, OcwSubmitTaskResult, OcwSubmitTssPublicKey, PeerId, PublicKey, ScheduleCycle,
+	ScheduleStatus, ShardId, TaskId, TssPublicKey,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -24,6 +24,7 @@ lazy_static::lazy_static! {
 pub struct MockShards;
 
 impl OcwSubmitTssPublicKey for MockShards {
+	fn benchmark_register_shard(_network: Network, _members: Vec<PeerId>, _collector: PublicKey) {}
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
@@ -95,7 +96,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_ocw::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_ocw::weights::WeightInfo<Test>;
+	type WeightInfo = ();
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = MockShards;
 	type Tasks = MockTasks;

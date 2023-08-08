@@ -100,6 +100,8 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				wasm_binary,
 				// Sudo account
 				hex!["1260c29b59a365f07ac449e109cdf8f95905296af0707db9f3da0254e5db5741"].into(),
+				// Council account
+				hex!["143cda6b33902c40050d7b85b9393f5db16eeafe1f728d50ac57404c85442a10"].into(),
 				// Initial authorities at genesis
 				vec![
 					// boot 0
@@ -487,6 +489,8 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 				wasm_binary,
 				// Sudo account
 				hex!["166ce0ffbe439609d59ab5aec79c00f4d7da021b856ccb412510f75791cf0a7d"].into(),
+				// Council account
+				hex!["a07e62ca85f6d68d83f3a6924bc7a47c6ad0a6ea1f43d7b59407af268d39fb43"].into(),
 				// Initial authorities at genesis
 				vec![
 					// node 0
@@ -814,6 +818,8 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 				wasm_binary,
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Council account
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
 				vec![
 					authority_keys_from_seed("Alice"),
@@ -905,6 +911,7 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 fn generate_analog_genesis(
 	wasm_binary: &[u8],
 	root_key: AccountId,
+	council_key: AccountId,
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 ) -> GenesisConfig {
@@ -983,6 +990,9 @@ fn generate_analog_genesis(
 		},
 		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
-		council: CouncilConfig::default(),
+		council: CouncilConfig {
+			members: vec![council_key],
+			..Default::default()
+		},
 	}
 }

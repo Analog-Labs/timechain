@@ -323,7 +323,7 @@ pub fn new_full(
 			prometheus_registry,
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			sync: sync_service.clone(),
+			sync: sync_service,
 		};
 
 		// the GRANDPA voter task is considered infallible, i.e.

@@ -23,7 +23,7 @@ fn test_ocw_read_message() {
 	let storage = ext.offchain_db();
 	time_primitives::write_message_with_prefix(storage.clone(), &[], &PAYLOAD);
 	time_primitives::write_message_with_prefix(storage.clone(), &[], &PAYLOAD);
-	let (offchain, offchain_state) = TestOffchainExt::with_offchain_db(storage.clone());
+	let (offchain, offchain_state) = TestOffchainExt::with_offchain_db(storage);
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
 	log::info!("{:?}", offchain_state);

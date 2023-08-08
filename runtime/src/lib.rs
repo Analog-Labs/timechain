@@ -1163,7 +1163,7 @@ impl pallet_tasks::Config for Runtime {
 
 impl pallet_ocw::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_ocw::weights::WeightInfo<Runtime>;
+	type WeightInfo = weights::ocw::WeightInfo<Runtime>;
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type Tasks = Tasks;

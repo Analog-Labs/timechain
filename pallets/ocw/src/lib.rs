@@ -36,6 +36,9 @@ pub mod pallet {
 		fn submit_task_result() -> Weight {
 			Weight::default()
 		}
+		fn set_shard_offline() -> Weight {
+			Weight::default()
+		}
 	}
 
 	#[pallet::pallet]
@@ -106,7 +109,7 @@ pub mod pallet {
 
 		/// Submits task result to runtime
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::submit_task_result())]
+		#[pallet::weight(T::WeightInfo::set_shard_offline())]
 		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
 			T::Shards::set_shard_offline(shard_id)

@@ -80,8 +80,13 @@ impl Task {
 	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
-		timechain_integration::submit_to_timegraph(target_block, &result, task.hash.clone(), block_num)
-			.await?;
+		timechain_integration::submit_to_timegraph(
+			target_block,
+			&result,
+			task.hash.clone(),
+			block_num,
+		)
+		.await?;
 		Ok(signature)
 	}
 }
@@ -135,9 +140,9 @@ where
 		let block_num: i64 = if let Ok(Some(val)) = self.backend.blockchain().number(block_id) {
 			//should not fail since we have u32 as BlockNumer
 			val.to_string().parse().unwrap()
-		}else{
+		} else {
 			log::warn!("Something bad happened fetching block number");
-			0	
+			0
 		};
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();

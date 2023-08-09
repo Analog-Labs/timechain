@@ -164,10 +164,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
-			ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+		fn set_shard_offline(shard_id: ShardId, network: Network) -> DispatchResult {
+			ensure!(ShardState::<T>::get(shard_id).is_some(), Error::<T>::UnknownShard);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
 			Self::deposit_event(Event::ShardOffline(shard_id));
+			T::TaskScheduler::shard_offline(shard_id, network);
 			Ok(())
 		}
 	}

@@ -21,12 +21,13 @@ pub mod pallet {
 	use time_primitives::{
 		msg_key, AccountId, OcwPayload, OcwShardInterface, OcwSubmitTaskResult, PublicKey,
 		ScheduleCycle, ScheduleStatus, ShardCreated, ShardId, TaskId, TssPublicKey, OCW_READ_ID,
-		OCW_WRITE_ID,
+		OCW_WRITE_ID, Network,
 	};
 
 	pub trait WeightInfo {
 		fn submit_tss_public_key() -> Weight;
 		fn submit_task_result() -> Weight;
+		fn set_shard_offline() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -107,12 +108,12 @@ pub mod pallet {
 			T::Tasks::submit_task_result(task_id, cycle, status)
 		}
 
-		/// Submits task result to runtime
+		/// Turns shard offline
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_shard_offline())]
-		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId, network: Network) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Shards::set_shard_offline(shard_id)
+			T::Shards::set_shard_offline(shard_id, network)
 		}
 	}
 
@@ -162,8 +163,8 @@ pub mod pallet {
 						status: status.clone(),
 					}),
 
-				OcwPayload::SetShardOffline { shard_id } => {
-					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
+				OcwPayload::SetShardOffline { shard_id, network } => {
+					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network })
 				},
 			};
 			let Some((_, res)) = call_res else {

@@ -6,11 +6,20 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	MultiSignature,
 };
+use time_primitives::{ShardId, ShardStatusInterface};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
+
+pub struct MockShardInterface;
+
+impl ShardStatusInterface for MockShardInterface {
+	fn is_shard_online(_: ShardId) -> bool {
+		true
+	}
+}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -71,6 +80,7 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type ShardStatus = MockShardInterface;
 }
 
 // Build genesis storage according to the mock runtime.

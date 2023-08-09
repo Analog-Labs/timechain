@@ -101,3 +101,7 @@ pub trait OcwSubmitTaskResult {
 		status: ScheduleStatus,
 	) -> DispatchResult;
 }
+
+pub trait ShardStatusInterface {
+	fn is_shard_online(shard_id: ShardId) -> bool;
+}

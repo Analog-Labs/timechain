@@ -16,7 +16,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated, ShardId,
-		ShardStatus, TssPublicKey,
+		ShardStatus, ShardStatusInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -170,6 +170,12 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardOffline(shard_id));
 			T::TaskScheduler::shard_offline(shard_id, network);
 			Ok(())
+		}
+	}
+
+	impl<T: Config> ShardStatusInterface for Pallet<T> {
+		fn is_shard_online(shard_id: ShardId) -> bool {
+			ShardState::<T>::get(shard_id) == Some(ShardStatus::Online)
 		}
 	}
 }

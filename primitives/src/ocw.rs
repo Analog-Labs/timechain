@@ -17,6 +17,7 @@ pub fn msg_key(id: u64) -> [u8; 14] {
 pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
 	SubmitTaskResult { task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus },
+	SetShardOffline { shard_id: ShardId },
 }
 
 impl OcwPayload {
@@ -24,6 +25,7 @@ impl OcwPayload {
 		match self {
 			Self::SubmitTssPublicKey { shard_id, .. } => *shard_id,
 			Self::SubmitTaskResult { status, .. } => status.shard_id,
+			Self::SetShardOffline { shard_id } => *shard_id,
 		}
 	}
 }

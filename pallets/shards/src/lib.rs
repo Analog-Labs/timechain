@@ -15,8 +15,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwSubmitTssPublicKey, PeerId, PublicKey, ScheduleInterface, ShardCreated,
-		ShardId, TssPublicKey,
+		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated,
+		ShardId, TssPublicKey, ShardStatus,
 	};
 
 	pub trait WeightInfo {
@@ -54,6 +54,11 @@ pub mod pallet {
 	pub type ShardNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Network, OptionQuery>;
 
+	/// Network for which shards can be assigned tasks
+	#[pallet::storage]
+	pub type ShardState<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;		
+
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
@@ -69,6 +74,8 @@ pub mod pallet {
 		ShardCreated(ShardId, Network),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),
+		/// Shard went offline
+		ShardOffline(ShardId),
 	}
 
 	#[pallet::error]
@@ -113,6 +120,7 @@ pub mod pallet {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
+			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
@@ -139,7 +147,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> OcwSubmitTssPublicKey for Pallet<T> {
+	impl<T: Config> OcwShardInterface for Pallet<T> {
 		fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
 			Self::create_shard(network, members, collector);
 		}
@@ -150,8 +158,16 @@ pub mod pallet {
 				Error::<T>::PublicKeyAlreadyRegistered
 			);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
+			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
 			T::TaskScheduler::shard_online(shard_id, network);
+			Ok(())
+		}
+
+		fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
+			ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
+			Self::deposit_event(Event::ShardOffline(shard_id));
 			Ok(())
 		}
 	}

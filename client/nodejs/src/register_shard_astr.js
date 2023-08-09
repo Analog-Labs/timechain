@@ -43,7 +43,7 @@ const chan = new Channel(0 /* default */);
 
 const register_shard = await api.tx.sudo
     .sudo(
-        api.tx.shards.registerShard(0, [time1, time2, time3], collector_pubkey)
+        api.tx.shards.registerShard(1, [time1, time2, time3], collector_pubkey)
     )
     .signAndSend(pair, (result) => {
         console.log('Result of shard creation: ', result)

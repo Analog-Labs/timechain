@@ -19,7 +19,7 @@ pub mod pallet {
 	use sp_runtime::traits::IdentifyAccount;
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, OcwPayload, OcwSubmitTaskResult, OcwSubmitTssPublicKey, PublicKey,
+		msg_key, AccountId, OcwPayload, OcwShardInterface, OcwSubmitTaskResult, PublicKey,
 		ScheduleCycle, ScheduleStatus, ShardCreated, ShardId, TaskId, TssPublicKey, OCW_READ_ID,
 		OCW_WRITE_ID,
 	};
@@ -61,7 +61,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Shards: OcwSubmitTssPublicKey;
+		type Shards: OcwShardInterface;
 		type Tasks: OcwSubmitTaskResult;
 	}
 
@@ -102,6 +102,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, status.shard_id)?;
 			T::Tasks::submit_task_result(task_id, cycle, status)
+		}
+
+		/// Submits task result to runtime
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::submit_task_result())]
+		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			Self::ensure_signed_by_collector(origin, shard_id)?;
+			T::Shards::set_shard_offline(shard_id)
 		}
 	}
 
@@ -150,6 +158,10 @@ pub mod pallet {
 						cycle,
 						status: status.clone(),
 					}),
+
+				OcwPayload::SetShardOffline { shard_id } => {
+					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
+				},
 			};
 			let Some((_, res)) = call_res else {
 				log::info!("send signed transaction returned none");

@@ -8,7 +8,7 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	Network, OcwSubmitTaskResult, OcwSubmitTssPublicKey, PeerId, PublicKey, ScheduleCycle,
+	Network, OcwSubmitTaskResult, OcwShardInterface, PeerId, PublicKey, ScheduleCycle,
 	ScheduleStatus, ShardId, TaskId, TssPublicKey,
 };
 
@@ -23,12 +23,13 @@ lazy_static::lazy_static! {
 
 pub struct MockShards;
 
-impl OcwSubmitTssPublicKey for MockShards {
+impl OcwShardInterface for MockShards {
 	fn benchmark_register_shard(_network: Network, _members: Vec<PeerId>, _collector: PublicKey) {}
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
 	}
+	fn set_shard_offline(shard_id: ShardId) -> DispatchResult {}
 }
 
 pub struct MockTasks;

@@ -70,6 +70,15 @@ pub enum Network {
 	Astar,
 }
 
+/// Used to enforce one network per shard
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub enum ShardStatus {
+	Created,
+	Online,
+	Offline,
+}
+
 pub trait ShardCreated {
 	fn shard_created(shard_id: ShardId, collector: PublicKey);
 }
@@ -79,9 +88,10 @@ pub trait ScheduleInterface {
 	fn shard_offline(shard_id: ShardId, network: Network);
 }
 
-pub trait OcwSubmitTssPublicKey {
+pub trait OcwShardInterface {
 	fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
+	fn set_shard_offline(shard_id: ShardId)-> DispatchResult;
 }
 
 pub trait OcwSubmitTaskResult {

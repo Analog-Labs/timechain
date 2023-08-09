@@ -28,9 +28,9 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         network: 0,
-        cycle: 0,
+        cycle: 5,
         start: 0,
-        period: 0,
+        period: 2,
         hash: 'QmYFw5aYPKQ9oSw3L3UUed9fBqT4oTW5BZzAnPFGyuQir3',
         function: {
             EVMViewWithoutAbi: {

@@ -91,7 +91,7 @@ pub trait ScheduleInterface {
 pub trait OcwShardInterface {
 	fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
-	fn set_shard_offline(shard_id: ShardId)-> DispatchResult;
+	fn set_shard_offline(shard_id: ShardId) -> DispatchResult;
 }
 
 pub trait OcwSubmitTaskResult {

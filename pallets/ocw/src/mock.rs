@@ -8,7 +8,7 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	Network, OcwSubmitTaskResult, OcwShardInterface, PeerId, PublicKey, ScheduleCycle,
+	Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, ScheduleCycle,
 	ScheduleStatus, ShardId, TaskId, TssPublicKey,
 };
 

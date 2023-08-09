@@ -15,8 +15,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated,
-		ShardId, TssPublicKey, ShardStatus,
+		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated, ShardId,
+		ShardStatus, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -57,7 +57,7 @@ pub mod pallet {
 	/// Network for which shards can be assigned tasks
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;		
+		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =

@@ -27,8 +27,8 @@ services:
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     environment:
-      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
-      SSK: ${SSK}
+      TIMEGRAPH_GRAPHQL_URL: https://timegraph.internal.analog.one/graphql 
+      SSK: '0;6hvzRj2aZiZUqSALPc5YgMKKrN17tRe6iGpYvRuSJzvK;0;*;;3VUDFC5TdfnD9sDENy97YGZoJMeaoYuiZuHJnyfc6xW5iPkt8aYpiwgGuEKasm6qpcyA1QfLatDNT8E7H7rbWueE'
     depends_on:
     - ethereum-connector
     volumes:
@@ -55,8 +55,8 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
-      SSK: ${SSK}
+      TIMEGRAPH_GRAPHQL_URL: https://timegraph.internal.analog.one/graphql 
+      SSK: '0;6hvzRj2aZiZUqSALPc5YgMKKrN17tRe6iGpYvRuSJzvK;0;*;;3VUDFC5TdfnD9sDENy97YGZoJMeaoYuiZuHJnyfc6xW5iPkt8aYpiwgGuEKasm6qpcyA1QfLatDNT8E7H7rbWueE'
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - bootnode
@@ -85,8 +85,8 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
-      SSK: ${SSK}
+      TIMEGRAPH_GRAPHQL_URL: https://timegraph.internal.analog.one/graphql 
+      SSK: '0;6hvzRj2aZiZUqSALPc5YgMKKrN17tRe6iGpYvRuSJzvK;0;*;;3VUDFC5TdfnD9sDENy97YGZoJMeaoYuiZuHJnyfc6xW5iPkt8aYpiwgGuEKasm6qpcyA1QfLatDNT8E7H7rbWueE'
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
@@ -115,8 +115,8 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
-      SSK: ${SSK}
+      TIMEGRAPH_GRAPHQL_URL: https://timegraph.internal.analog.one/graphql 
+      SSK: '0;6hvzRj2aZiZUqSALPc5YgMKKrN17tRe6iGpYvRuSJzvK;0;*;;3VUDFC5TdfnD9sDENy97YGZoJMeaoYuiZuHJnyfc6xW5iPkt8aYpiwgGuEKasm6qpcyA1QfLatDNT8E7H7rbWueE'
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
@@ -145,8 +145,8 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
-      SSK: ${SSK}
+      TIMEGRAPH_GRAPHQL_URL: https://timegraph.internal.analog.one/graphql 
+      SSK: '0;6hvzRj2aZiZUqSALPc5YgMKKrN17tRe6iGpYvRuSJzvK;0;*;;3VUDFC5TdfnD9sDENy97YGZoJMeaoYuiZuHJnyfc6xW5iPkt8aYpiwgGuEKasm6qpcyA1QfLatDNT8E7H7rbWueE'
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
@@ -175,8 +175,8 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      TIMEGRAPH_GRAPHQL_URL: ${TIMEGRAPH_GRAPHQL_URL}
-      SSK: ${SSK}
+      TIMEGRAPH_GRAPHQL_URL: https://timegraph.internal.analog.one/graphql 
+      SSK: '0;6hvzRj2aZiZUqSALPc5YgMKKrN17tRe6iGpYvRuSJzvK;0;*;;3VUDFC5TdfnD9sDENy97YGZoJMeaoYuiZuHJnyfc6xW5iPkt8aYpiwgGuEKasm6qpcyA1QfLatDNT8E7H7rbWueE'
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode

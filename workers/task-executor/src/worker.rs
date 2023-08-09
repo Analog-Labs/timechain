@@ -146,13 +146,14 @@ where
 		};
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
-			for (task_id, cycle) in tasks.clone() {
+			for (task_id, cycle) in tasks.iter().copied() {
 				if self.running_tasks.contains(&(task_id, cycle)) {
 					continue;
 				}
 				let task_descr =
 					self.runtime.runtime_api().get_task(block_id, task_id).unwrap().unwrap();
 				if block_height >= task_descr.trigger(cycle) {
+					log::info!("Running Task {:?}", task_id);
 					self.running_tasks.insert((task_id, cycle));
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
 					let storage = self.backend.offchain_storage().unwrap();
@@ -169,11 +170,7 @@ where
 					});
 				}
 			}
-			for task_ran in self.running_tasks.clone() {
-				if !tasks.contains(&task_ran) {
-					self.running_tasks.remove(&task_ran);
-				}
-			}
+			self.running_tasks.retain(|x| tasks.contains(x));
 		}
 		Ok(())
 	}

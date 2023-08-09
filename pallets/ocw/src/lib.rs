@@ -19,9 +19,9 @@ pub mod pallet {
 	use sp_runtime::traits::IdentifyAccount;
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, OcwPayload, OcwShardInterface, OcwSubmitTaskResult, PublicKey,
+		msg_key, AccountId, Network, OcwPayload, OcwShardInterface, OcwSubmitTaskResult, PublicKey,
 		ScheduleCycle, ScheduleStatus, ShardCreated, ShardId, TaskId, TssPublicKey, OCW_READ_ID,
-		OCW_WRITE_ID, Network,
+		OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -111,7 +111,11 @@ pub mod pallet {
 		/// Turns shard offline
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_shard_offline())]
-		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId, network: Network) -> DispatchResult {
+		pub fn set_shard_offline(
+			origin: OriginFor<T>,
+			shard_id: ShardId,
+			network: Network,
+		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
 			T::Shards::set_shard_offline(shard_id, network)
 		}
@@ -163,9 +167,8 @@ pub mod pallet {
 						status: status.clone(),
 					}),
 
-				OcwPayload::SetShardOffline { shard_id, network } => {
-					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network })
-				},
+				OcwPayload::SetShardOffline { shard_id, network } => signer
+					.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network }),
 			};
 			let Some((_, res)) = call_res else {
 				log::info!("send signed transaction returned none");

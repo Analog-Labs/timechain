@@ -41,5 +41,5 @@ std = [
 	"sp-std/std",
 	"time-primitives/std",
 ]
-runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks" ]
+runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
 try-runtime = [ "frame-support/try-runtime" ]

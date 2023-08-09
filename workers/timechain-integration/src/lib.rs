@@ -2,7 +2,7 @@ use crate::query::{CollectData, ResponseData, Variables};
 use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::header;
-use time_primitives::{FunctionResult, ScheduleCycle};
+use time_primitives::{FunctionResult};
 
 mod query;
 #[cfg(test)]
@@ -14,7 +14,7 @@ pub async fn submit_to_timegraph(
 	target_block_number: u64,
 	result: &FunctionResult,
 	collection: String,
-	cycle: ScheduleCycle,
+	block_num: i64,
 ) -> Result<()> {
 	// Add data into collection (user must have Collector role)
 	// @collection: collection hashId
@@ -31,8 +31,8 @@ pub async fn submit_to_timegraph(
 		block: target_block_number as i64,
 		// unused field
 		task_id: 0,
-		// unused field
-		cycle: cycle as i64,
+		// wrong field name should be 
+		cycle: block_num,
 		data: result.clone(),
 	};
 	dotenv::dotenv().ok();

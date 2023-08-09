@@ -3,11 +3,11 @@ use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, StreamExt};
 use rosetta_client::{create_wallet, EthereumExt, Wallet};
-use sc_client_api::{Backend, BlockchainEvents};
+use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{collections::HashSet, marker::PhantomData, sync::{Arc, Mutex}};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 use time_primitives::{
 	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleStatus, ShardId, TaskId,
 	TaskSchedule, TimeApi, TssRequest, TssSignature,
@@ -76,10 +76,11 @@ impl Task {
 		task_id: TaskId,
 		cycle: ScheduleCycle,
 		task: TaskSchedule,
+		block_num: i64,
 	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
-		timechain_integration::submit_to_timegraph(target_block, &result, task.hash.clone(), cycle)
+		timechain_integration::submit_to_timegraph(target_block, &result, task.hash.clone(), block_num)
 			.await?;
 		Ok(signature)
 	}
@@ -92,7 +93,7 @@ pub struct TaskExecutor<B: Block, BE, R> {
 	peer_id: PeerId,
 	sign_data_sender: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
-	running_tasks: Arc<Mutex<HashSet<TaskId>>>,
+	running_tasks: HashSet<(TaskId, ScheduleCycle)>,
 }
 
 impl<B, BE, R> TaskExecutor<B, BE, R>
@@ -123,7 +124,7 @@ where
 			peer_id,
 			sign_data_sender,
 			wallet: Arc::new(wallet),
-			running_tasks: Arc::new(Mutex::new(Default::default())),
+			running_tasks: Default::default(),
 		})
 	}
 
@@ -131,22 +132,28 @@ where
 		let status = self.wallet.status().await?;
 		let block_height = status.index;
 		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id).unwrap();
+		let block_num: i64 = if let Ok(Some(val)) = self.backend.blockchain().number(block_id) {
+			//should not fail since we have u32 as BlockNumer
+			val.to_string().parse().unwrap()
+		}else{
+			log::warn!("Something bad happened fetching block number");
+			0	
+		};
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
-			for (task_id, cycle) in tasks {
-				if self.running_tasks.lock().unwrap().contains(&task_id) {
+			for (task_id, cycle) in tasks.clone() {
+				if self.running_tasks.contains(&(task_id, cycle)) {
 					continue;
 				}
 				let task_descr =
 					self.runtime.runtime_api().get_task(block_id, task_id).unwrap().unwrap();
 				if block_height >= task_descr.trigger(cycle) {
-					self.running_tasks.lock().unwrap().insert(task_id);
+					self.running_tasks.insert((task_id, cycle));
 					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
 					let storage = self.backend.offchain_storage().unwrap();
-					let mut cloned_running_task = self.running_tasks.clone();
 					tokio::task::spawn(async move {
 						let result = task
-							.execute(block_height, shard_id, task_id, cycle, task_descr)
+							.execute(block_height, shard_id, task_id, cycle, task_descr, block_num)
 							.await
 							.map_err(|e| e.to_string());
 						let status = ScheduleStatus { shard_id, result };
@@ -154,8 +161,12 @@ where
 							storage,
 							&OcwPayload::SubmitTaskResult { task_id, cycle, status },
 						);
-						// remove task and cycle from running tasks
 					});
+				}
+			}
+			for task_ran in self.running_tasks.clone() {
+				if !tasks.contains(&task_ran) {
+					self.running_tasks.remove(&task_ran);
 				}
 			}
 		}

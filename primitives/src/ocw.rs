@@ -1,4 +1,4 @@
-use crate::{ScheduleCycle, ScheduleStatus, ShardId, TaskId, TssPublicKey};
+use crate::{ScheduleCycle, ScheduleStatus, ShardId, TaskId, TssPublicKey, Network};
 use codec::{Decode, Encode};
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
@@ -17,7 +17,7 @@ pub fn msg_key(id: u64) -> [u8; 14] {
 pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
 	SubmitTaskResult { task_id: TaskId, cycle: ScheduleCycle, status: ScheduleStatus },
-	SetShardOffline { shard_id: ShardId },
+	SetShardOffline { shard_id: ShardId, network: Network },
 }
 
 impl OcwPayload {
@@ -25,7 +25,7 @@ impl OcwPayload {
 		match self {
 			Self::SubmitTssPublicKey { shard_id, .. } => *shard_id,
 			Self::SubmitTaskResult { status, .. } => status.shard_id,
-			Self::SetShardOffline { shard_id } => *shard_id,
+			Self::SetShardOffline { shard_id, .. } => *shard_id,
 		}
 	}
 }

@@ -158,6 +158,7 @@ pub fn new_full(
 		.try_into_ed25519()
 		.unwrap()
 		.to_bytes();
+	log::info!("Peer identity bytes: {:?}", peer_id);
 	let sc_service::PartialComponents {
 		client,
 		backend,

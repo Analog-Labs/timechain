@@ -1,7 +1,7 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{Network, OcwSubmitTssPublicKey, PeerId, PublicKey};
+use time_primitives::{Network, OcwShardInterface, PeerId, PublicKey};
 
 const A: PeerId = [1u8; 32];
 const B: PeerId = [2u8; 32];

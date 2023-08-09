@@ -15,7 +15,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		Network, OcwSubmitTaskResult, ScheduleCycle, ScheduleInput, ScheduleInterface,
-		ScheduleStatus, ShardId, TaskId, TaskSchedule,
+		ScheduleStatus, ShardId, ShardStatusInterface, TaskId, TaskSchedule,
 	};
 
 	pub trait WeightInfo {
@@ -36,6 +36,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type ShardStatus: ShardStatusInterface;
 	}
 
 	#[pallet::storage]
@@ -144,6 +145,7 @@ pub mod pallet {
 		fn schedule_tasks(network: Network) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
+					.filter(|(shard_id, _)| T::ShardStatus::is_shard_online(*shard_id))
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {

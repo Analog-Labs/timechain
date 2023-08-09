@@ -2,7 +2,7 @@ use crate::query::{CollectData, ResponseData, Variables};
 use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::header;
-use time_primitives::{FunctionResult};
+use time_primitives::FunctionResult;
 
 mod query;
 #[cfg(test)]
@@ -31,7 +31,7 @@ pub async fn submit_to_timegraph(
 		block: target_block_number as i64,
 		// unused field
 		task_id: 0,
-		// wrong field name should be 
+		// wrong field name should be
 		cycle: block_num,
 		data: result.clone(),
 	};
@@ -55,7 +55,9 @@ pub async fn submit_to_timegraph(
 		.json::<Response<ResponseData>>()
 		.await
 		.context("Failed to parse timegraph response")?;
-	let data = json.data.context(format!("timegraph migrate collect status fail: No reponse {:?}", json.errors))?;
+	let data = json
+		.data
+		.context(format!("timegraph migrate collect status fail: No reponse {:?}", json.errors))?;
 	log::info!(target: TW_LOG, "timegraph migrate collect status: {:?}", data.collect.status);
 	Ok(())
 }

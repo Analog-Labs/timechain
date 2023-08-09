@@ -146,6 +146,7 @@ runtime-benchmarks = [
 	"pallet-ocw/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 ]
 try-runtime = [
 	"analog-vesting/try-runtime",

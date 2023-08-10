@@ -12084,6 +12084,7 @@ dependencies = [
  "anyhow",
  "dotenv",
  "graphql_client",
+ "hex",
  "log",
  "reqwest",
  "serde",

@@ -81,10 +81,13 @@ impl Task {
 		let result = self.execute_function(&task.function).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
 		timechain_integration::submit_to_timegraph(
-			target_block,
-			&result,
 			task.hash.clone(),
+			task_id,
+			cycle,
+			target_block,
 			block_num,
+			signature,
+			result,
 		)
 		.await?;
 		Ok(signature)

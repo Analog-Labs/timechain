@@ -9,10 +9,13 @@ type Int = i64;
 #[derive(Serialize, Debug)]
 pub struct Variables {
 	pub collection: String,
-	pub block: Int,
-	pub cycle: Int,
 	#[serde(rename = "taskId")]
 	pub task_id: Int,
+	#[serde(rename = "taskCounter")]
+	pub task_counter: Int,
+	pub block: Int,
+	pub cycle: Int,
+	pub tss: String,
 	pub data: Vec<String>,
 }
 

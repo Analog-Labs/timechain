@@ -1,9 +1,11 @@
 type Mutation {
   collect(
     collection: String!
+    taskId: Int!
+    taskCounter: Int!
     block: Int!
     cycle: Int!
-    taskId: Int!
+    tss: String!
     data: [String!]!
   ): CollectResult!
 }

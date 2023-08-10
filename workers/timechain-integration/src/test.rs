@@ -10,9 +10,11 @@ async fn test_collect_data() {
 	// Prepare the input variables
 	let variables = Variables {
 		collection: "QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7".to_owned(),
+		task_id: 1,
+		task_counter: 15 as i64,
 		block: 1,
 		cycle: 15,
-		task_id: 1,
+		tss: hex::encode(&[1u8; 64]),
 		data: vec!["0".to_string()],
 	};
 	dotenv().ok();

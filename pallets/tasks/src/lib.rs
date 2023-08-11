@@ -14,8 +14,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwSubmitTaskResult, ScheduleCycle, ScheduleInput, ScheduleInterface,
-		ScheduleStatus, ShardId, ShardStatusInterface, TaskId, TaskSchedule,
+		ExecutableTask, Network, OcwSubmitTaskResult, ScheduleCycle, ScheduleError, ScheduleInput,
+		ScheduleInterface, ScheduleStatus, ShardId, ShardStatusInterface, TaskId, TaskSchedule,
+		TaskStatus,
 	};
 
 	pub trait WeightInfo {
@@ -37,6 +38,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type ShardStatus: ShardStatusInterface;
+		type MaxRetryCount: Get<u8>;
 	}
 
 	#[pallet::storage]
@@ -61,6 +63,13 @@ pub mod pallet {
 	pub type Tasks<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, TaskSchedule, OptionQuery>;
 
 	#[pallet::storage]
+	pub type TaskState<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskStatus, OptionQuery>;
+
+	#[pallet::storage]
+	pub type TaskRetryCounter<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, u8, ValueQuery>;
+
+	#[pallet::storage]
 	pub type TaskCycle<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, ScheduleCycle, ValueQuery>;
 
@@ -82,6 +91,8 @@ pub mod pallet {
 		TaskCreated(TaskId),
 		/// Updated Schedule
 		TaskResult(TaskId, ScheduleCycle, ScheduleStatus),
+		/// Error occured while executing task
+		TaskError(TaskId, ScheduleError),
 	}
 
 	#[pallet::error]
@@ -109,6 +120,7 @@ pub mod pallet {
 					hash: schedule.hash,
 				},
 			);
+			TaskState::<T>::insert(task_id, TaskStatus::Created);
 			TaskIdCounter::<T>::put(task_id + 1);
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
@@ -118,9 +130,16 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
+		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<ExecutableTask> {
 			ShardTasks::<T>::iter_prefix(shard_id)
-				.map(|(task_id, _)| (task_id, TaskCycle::<T>::get(task_id)))
+				.filter(|(task_id, _)| Self::is_runnable(*task_id))
+				.map(|(task_id, _)| {
+					ExecutableTask::new(
+						task_id,
+						TaskCycle::<T>::get(task_id),
+						TaskRetryCounter::<T>::get(task_id),
+					)
+				})
 				.collect()
 		}
 
@@ -136,6 +155,17 @@ pub mod pallet {
 			} else {
 				true
 			}
+		}
+
+		fn is_failed(task_id: TaskId) -> bool {
+			if let Some(TaskStatus::Failed { .. }) = TaskState::<T>::get(task_id) {
+				return true;
+			}
+			return false;
+		}
+
+		fn is_runnable(task_id: TaskId) -> bool {
+			!Self::is_complete(task_id) && !Self::is_failed(task_id)
 		}
 
 		fn shard_task_count(shard_id: ShardId) -> usize {
@@ -192,13 +222,25 @@ pub mod pallet {
 			ensure!(TaskCycle::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycle::<T>::insert(task_id, cycle + 1);
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
+			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::get(task_id) {
 					ShardTasks::<T>::remove(shard_id, task_id);
 				}
+				TaskState::<T>::insert(task_id, TaskStatus::Completed);
 				TaskShard::<T>::remove(task_id);
 			}
 			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
+			Ok(())
+		}
+
+		fn submit_task_error(task_id: TaskId, error: ScheduleError) -> DispatchResult {
+			let retry_count = TaskRetryCounter::<T>::get(task_id);
+			TaskRetryCounter::<T>::insert(task_id, retry_count + 1);
+			if retry_count == T::MaxRetryCount::get() {
+				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
+				Self::deposit_event(Event::TaskError(task_id, error));
+			}
 			Ok(())
 		}
 	}

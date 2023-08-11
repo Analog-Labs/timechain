@@ -20,8 +20,8 @@ pub mod pallet {
 	use sp_std::vec;
 	use time_primitives::{
 		msg_key, AccountId, Network, OcwPayload, OcwShardInterface, OcwSubmitTaskResult, PublicKey,
-		ScheduleCycle, ScheduleStatus, ShardCreated, ShardId, TaskId, TssPublicKey, OCW_READ_ID,
-		OCW_WRITE_ID,
+		ScheduleCycle, ScheduleError, ScheduleStatus, ShardCreated, ShardId, TaskId, TssPublicKey,
+		OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -119,6 +119,18 @@ pub mod pallet {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
 			T::Shards::set_shard_offline(shard_id, network)
 		}
+
+		/// Submit Task Error
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::set_shard_offline())]
+		pub fn submit_task_error(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			error: ScheduleError,
+		) -> DispatchResult {
+			Self::ensure_signed_by_collector(origin, error.shard_id)?;
+			T::Tasks::submit_task_error(task_id, error)
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -169,6 +181,12 @@ pub mod pallet {
 
 				OcwPayload::SetShardOffline { shard_id, network } => signer
 					.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network }),
+				OcwPayload::SubmitTaskError { task_id, error } => {
+					signer.send_signed_transaction(|_| Call::submit_task_error {
+						task_id,
+						error: error.clone(),
+					})
+				},
 			};
 			let Some((_, res)) = call_res else {
 				log::info!("send signed transaction returned none");

@@ -32,7 +32,6 @@ pub type ScheduleCycle = u64;
 pub type TaskRetryCount = u8;
 pub type TssId = (TaskId, ScheduleCycle);
 
-
 #[cfg(feature = "std")]
 pub struct TssRequest {
 	pub request_id: TssId,
@@ -73,16 +72,8 @@ pub struct ExecutableTask {
 }
 
 impl ExecutableTask {
-	pub fn new(
-		task_id: TaskId,
-		cycle: ScheduleCycle,
-		retry_count: TaskRetryCount,
-	) -> Self {
-		Self {
-			task_id,
-			cycle,
-			retry_count,
-		}
+	pub fn new(task_id: TaskId, cycle: ScheduleCycle, retry_count: TaskRetryCount) -> Self {
+		Self { task_id, cycle, retry_count }
 	}
 }
 

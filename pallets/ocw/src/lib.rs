@@ -28,6 +28,7 @@ pub mod pallet {
 		fn submit_tss_public_key() -> Weight;
 		fn submit_task_result() -> Weight;
 		fn set_shard_offline() -> Weight;
+		fn submit_task_error() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -38,6 +39,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn set_shard_offline() -> Weight {
+			Weight::default()
+		}
+		fn submit_task_error() -> Weight {
 			Weight::default()
 		}
 	}
@@ -122,7 +126,7 @@ pub mod pallet {
 
 		/// Submit Task Error
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::set_shard_offline())]
+		#[pallet::weight(T::WeightInfo::submit_task_error())]
 		pub fn submit_task_error(
 			origin: OriginFor<T>,
 			task_id: TaskId,

@@ -59,6 +59,6 @@ pub struct ScheduleInput {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum TaskStatus {
 	Created,
-	Failed { error: ScheduleError } ,
+	Failed { error: ScheduleError },
 	Completed,
 }

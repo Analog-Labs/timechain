@@ -9,8 +9,8 @@ use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 use time_primitives::{
-	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleError, ScheduleStatus,
-	ShardId, TaskId, TaskSchedule, TimeApi, TssRequest, TssSignature, ExecutableTask,
+	ExecutableTask, Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleError,
+	ScheduleStatus, ShardId, TaskId, TaskSchedule, TimeApi, TssRequest, TssSignature,
 };
 
 pub struct Task {

@@ -9,8 +9,8 @@ use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 use time_primitives::{
-	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleStatus, ShardId, TaskId,
-	TaskSchedule, TimeApi, TssRequest, TssSignature,
+	Function, FunctionResult, OcwPayload, PeerId, ScheduleCycle, ScheduleError, ScheduleStatus,
+	ShardId, TaskId, TaskSchedule, TimeApi, TssRequest, TssSignature, ExecutableTask,
 };
 
 pub struct Task {
@@ -96,7 +96,7 @@ pub struct TaskExecutor<B: Block, BE, R> {
 	runtime: Arc<R>,
 	peer_id: PeerId,
 	sign_data_sender: mpsc::Sender<TssRequest>,
-	running_tasks: HashSet<(TaskId, ScheduleCycle)>,
+	running_tasks: HashSet<ExecutableTask>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
@@ -150,14 +150,17 @@ where
 		let block_num: i64 = block_num.to_string().parse()?;
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id)?;
-			for (task_id, cycle) in tasks.iter().copied() {
+			log::info!("got task ====== {:?}", tasks);
+			for executable_task in tasks.iter().copied() {
+				let task_id = executable_task.task_id;
+				let cycle = executable_task.cycle;
 				if self.running_tasks.contains(&(task_id, cycle)) {
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
 				if block_height >= task_descr.trigger(cycle) {
 					log::info!("Running Task {:?}", task_id);
-					self.running_tasks.insert((task_id, cycle));
+					self.running_tasks.insert(executable_task);
 					let task = Task::new(self.sign_data_sender.clone(), wallet.clone());
 					let storage = self.backend.offchain_storage().unwrap();
 					tokio::task::spawn(async move {
@@ -165,11 +168,23 @@ where
 							.execute(block_height, shard_id, task_id, cycle, task_descr, block_num)
 							.await
 							.map_err(|e| e.to_string());
-						let status = ScheduleStatus { shard_id, result };
-						time_primitives::write_message(
-							storage,
-							&OcwPayload::SubmitTaskResult { task_id, cycle, status },
-						);
+
+						match result {
+							Ok(signature) => {
+								let status = ScheduleStatus { shard_id, signature };
+								time_primitives::write_message(
+									storage,
+									&OcwPayload::SubmitTaskResult { task_id, cycle, status },
+								);
+							},
+							Err(error) => {
+								let error_status = ScheduleError { shard_id, error_string: error };
+								time_primitives::write_message(
+									storage,
+									&OcwPayload::SubmitTaskError { task_id, error: error_status },
+								);
+							},
+						}
 					});
 				}
 			}

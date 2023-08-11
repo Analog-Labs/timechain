@@ -74,6 +74,7 @@ impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ShardStatus = MockShardInterface;
+	type MaxRetryCount = ConstU8<3>;
 }
 
 // Build genesis storage according to the mock runtime.

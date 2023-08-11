@@ -128,7 +128,6 @@ where
 	}
 
 	fn on_finality(&mut self, block: <B as Block>::Hash) {
-		log::info!("finality notification for {}", block);
 		let shards = self.runtime.runtime_api().get_shards(block, self.peer_id).unwrap();
 		log::debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for shard_id in shards {
@@ -168,7 +167,7 @@ where
 		while let Some(action) = tss.next_action() {
 			match action {
 				TssAction::Send(peer, payload) => {
-					log::debug!(target: TW_LOG, "Sending gossip message");
+					log::debug!(target: TW_LOG, "Sending tss message");
 					let msg = TimeMessage { shard_id, payload };
 					let bytes = msg.encode();
 					let (tx, rx) = oneshot::channel();
@@ -181,13 +180,18 @@ where
 					);
 					tokio::task::spawn(async move {
 						if let Ok(Err(err)) = rx.await {
-							log::error!("network error {}", err);
+							log::error!(target: TW_LOG, "network error {}", err);
 						}
 					});
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes();
-					log::info!("New group key provided: {:?} for id: {}", public_key, shard_id);
+					log::info!(
+						target: TW_LOG,
+						"New group key provided: {:?} for id: {}",
+						public_key,
+						shard_id
+					);
 					self.timeouts.remove(&(shard_id, None));
 					time_primitives::write_message(
 						self.backend.offchain_storage().unwrap(),
@@ -261,12 +265,12 @@ where
 						sent_feedback: None,
 					});
 					if let Ok(TimeMessage { shard_id, payload }) = TimeMessage::decode(&payload) {
-						log::debug!(target: TW_LOG, "received gossip message {}", payload);
+						log::debug!(target: TW_LOG, "received tss message {}", payload);
 						if let Some(tss) = self.tss_states.get_mut(&shard_id) {
 							tss.on_message(peer, payload);
 							self.poll_actions(shard_id);
 						} else {
-							log::info!("state not found, adding message in map with id {:?}", shard_id);
+							log::info!(target: TW_LOG, "state not found, adding message in map with id {:?}", shard_id);
 							self.message_map.entry(shard_id).or_default().push_back((peer, TimeMessage { shard_id, payload }));
 						}
 					} else {

@@ -19,5 +19,6 @@ tokio = { version = "1.29.1", features = [ "time" ] }
 tss = { package = "tesseract-tss", path = "../../tss" }
 
 [dev-dependencies]
+frost-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-tracing = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

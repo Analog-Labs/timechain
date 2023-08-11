@@ -53,3 +53,42 @@ pub fn write_message_with_prefix<B: OffchainStorage>(
 pub fn write_message<B: OffchainStorage>(storage: B, payload: &OcwPayload) {
 	write_message_with_prefix(storage, STORAGE_PREFIX, payload);
 }
+
+/// Only used for testing.
+pub fn read_message_with_prefix<B: OffchainStorage>(
+	mut storage: B,
+	prefix: &[u8],
+) -> Option<OcwPayload> {
+	loop {
+		let raw_read_id = storage.get(prefix, OCW_READ_ID);
+		let read_id = raw_read_id
+			.as_deref()
+			.map(|mut id| u64::decode(&mut id).unwrap())
+			.unwrap_or_default();
+		let write_id = storage
+			.get(prefix, OCW_WRITE_ID)
+			.as_deref()
+			.map(|mut id| u64::decode(&mut id).unwrap())
+			.unwrap_or_default();
+		if read_id >= write_id {
+			return None;
+		}
+		if !storage.compare_and_set(
+			prefix,
+			OCW_READ_ID,
+			raw_read_id.as_deref(),
+			&(read_id + 1).encode(),
+		) {
+			continue;
+		}
+		let msg_key = msg_key(read_id);
+		let raw_msg = storage.get(prefix, &msg_key).unwrap();
+		let msg = OcwPayload::decode(&mut &raw_msg[..]).unwrap();
+		return Some(msg);
+	}
+}
+
+/// Only used for testing.
+pub fn read_message<B: OffchainStorage>(storage: B) -> Option<OcwPayload> {
+	read_message_with_prefix(storage, STORAGE_PREFIX)
+}

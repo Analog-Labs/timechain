@@ -339,6 +339,7 @@ pub fn new_full(
 			let time_params = time_worker::TimeWorkerParams {
 				_block: PhantomData,
 				runtime: client.clone(),
+				client: client.clone(),
 				backend: backend.clone(),
 				network,
 				peer_id,

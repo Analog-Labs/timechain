@@ -62,9 +62,10 @@ fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	)
 }
 
-pub struct WorkerParams<B: Block, BE, R, N> {
+pub struct WorkerParams<B: Block, BE, C, R, N> {
 	pub _block: PhantomData<B>,
 	pub backend: Arc<BE>,
+	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
 	pub peer_id: time_primitives::PeerId,
@@ -73,9 +74,10 @@ pub struct WorkerParams<B: Block, BE, R, N> {
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, BE, R, N> {
+pub struct TimeWorker<B: Block, BE, C, R, N> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
+	client: Arc<C>,
 	runtime: Arc<R>,
 	network: N,
 	peer_id: time_primitives::PeerId,
@@ -88,27 +90,30 @@ pub struct TimeWorker<B: Block, BE, R, N> {
 	requests: HashMap<TssId, oneshot::Sender<TssSignature>>,
 }
 
-impl<B, BE, R, N> TimeWorker<B, BE, R, N>
+impl<B, BE, C, R, N> TimeWorker<B, BE, C, R, N>
 where
 	B: Block + 'static,
+	C: BlockchainEvents<B> + 'static,
 	BE: Backend<B> + 'static,
-	R: BlockchainEvents<B> + ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: NetworkRequest,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, BE, R, N>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, BE, C, R, N>) -> Self {
 		let WorkerParams {
 			_block,
 			backend,
+			client,
 			runtime,
 			network,
 			peer_id,
 			tss_request,
 			protocol_request,
 		} = worker_params;
-		TimeWorker {
+		Self {
 			_block,
 			backend,
+			client,
 			runtime,
 			network,
 			peer_id,
@@ -214,7 +219,7 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
-		let mut finality_notifications = self.runtime.finality_notification_stream();
+		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			let timeout = futures::future::poll_fn(|cx| {
 				if let Some(timeout) = self.timeout.as_mut() {

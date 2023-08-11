@@ -17,12 +17,16 @@ pub enum FunctionResult {
 	EVMViewWithoutAbi { result: Vec<String> },
 }
 
-pub type ScheduleResult = Result<TssSignature, String>;
-
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct ScheduleStatus {
 	pub shard_id: ShardId,
-	pub result: ScheduleResult,
+	pub signature: TssSignature,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct ScheduleError {
+	pub shard_id: ShardId,
+	pub error_string: String,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -50,4 +54,11 @@ pub struct ScheduleInput {
 	pub period: u64,
 	pub hash: String,
 	pub function: Function,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub enum TaskStatus {
+	Created,
+	Failed { error: ScheduleError } ,
+	Completed,
 }

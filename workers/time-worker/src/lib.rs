@@ -1,8 +1,8 @@
 #![allow(clippy::type_complexity)]
 mod worker;
 
-//#[cfg(test)]
-//mod tests;
+#[cfg(test)]
+mod tests;
 
 use futures::channel::mpsc;
 use log::*;
@@ -32,16 +32,18 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 }
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, R, BE, N>
+pub struct TimeWorkerParams<B: Block, BE, C, R, N>
 where
 	B: Block + 'static,
 	BE: Backend<B> + 'static,
-	R: BlockchainEvents<B> + ProvideRuntimeApi<B> + 'static,
+	C: BlockchainEvents<B> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: NetworkRequest,
 {
 	pub _block: PhantomData<B>,
 	pub backend: Arc<BE>,
+	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
 	pub peer_id: PeerId,
@@ -52,11 +54,13 @@ where
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, R, BE, N>(timeworker_params: TimeWorkerParams<B, R, BE, N>)
-where
+pub async fn start_timeworker_gadget<B, BE, C, R, N>(
+	timeworker_params: TimeWorkerParams<B, BE, C, R, N>,
+) where
 	B: Block + 'static,
 	BE: Backend<B> + 'static,
-	R: BlockchainEvents<B> + ProvideRuntimeApi<B> + 'static,
+	C: BlockchainEvents<B> + 'static,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: NetworkRequest,
 {
@@ -64,6 +68,7 @@ where
 	let TimeWorkerParams {
 		_block,
 		backend,
+		client,
 		runtime,
 		network,
 		peer_id,
@@ -73,6 +78,7 @@ where
 	let worker_params = worker::WorkerParams {
 		_block,
 		backend,
+		client,
 		runtime,
 		network,
 		peer_id,

@@ -2,6 +2,7 @@
 name = "time-worker"
 edition = "2021"
 version = "0.1.0"
+
 [dependencies]
 anyhow = "1.0.72"
 async-channel = "1.9.0"
@@ -18,11 +19,5 @@ tokio = { version = "1.29.1", features = [ "time" ] }
 tss = { package = "tesseract-tss", path = "../../tss" }
 
 [dev-dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = [ "derive" ] }
-sc-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-sc-consensus-grandpa = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-sc-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-tracing = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-strum = { version = "0.25.0", features = [ "derive" ] }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

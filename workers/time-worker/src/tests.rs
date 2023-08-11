@@ -2,12 +2,16 @@ use crate::TimeWorkerParams;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
+use sc_client_api::Backend;
+use sc_network::NetworkSigner;
 use sc_network_test::{Block, FullPeerConfig, TestNet, TestNetFactory};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
-use time_primitives::{PeerId, ShardId, TimeApi, TssRequest};
+use time_primitives::{
+	OcwPayload, PeerId, ShardId, TimeApi, TssPublicKey, TssRequest, TssSignature,
+};
 
 #[derive(Default)]
 struct InnerMockApi {
@@ -68,6 +72,17 @@ impl ProvideRuntimeApi<Block> for MockApi {
 	}
 }
 
+fn verify_tss_signature(
+	public_key: TssPublicKey,
+	message: &[u8],
+	signature: TssSignature,
+) -> Result<()> {
+	let public_key = frost_evm::VerifyingKey::from_bytes(public_key)?;
+	let signature = frost_evm::Signature::from_bytes(signature)?;
+	public_key.verify(message, &signature)?;
+	Ok(())
+}
+
 #[tokio::test]
 async fn tss_smoke() -> Result<()> {
 	sp_tracing::init_for_tests();
@@ -88,8 +103,14 @@ async fn tss_smoke() -> Result<()> {
 			request_response_protocols: vec![crate::protocol_config(protocol_tx)],
 			..Default::default()
 		});
-		// TODO: get real peer id
-		peers.push(PeerId::default());
+		let peer_id = net
+			.peer(i)
+			.network_service()
+			.sign_with_local_identity(&[])?
+			.public_key
+			.try_into_ed25519()?
+			.to_bytes();
+		peers.push(peer_id);
 		tss.push(tss_tx);
 		tokio::task::spawn(crate::start_timeworker_gadget(TimeWorkerParams {
 			_block: PhantomData,
@@ -104,11 +125,15 @@ async fn tss_smoke() -> Result<()> {
 	}
 
 	api.create_shard(peers);
-
 	net.peer(0).push_blocks(1, false);
 	net.run_until_sync().await;
 
-	// TODO: read public key from offchain storage
+	let storage = net.peer(0).client().as_backend().offchain_storage().unwrap();
+	let msg = time_primitives::read_message(storage).unwrap();
+	let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = msg else {
+		anyhow::bail!("unexpected msg {:?}", msg);
+	};
+	assert_eq!(shard_id, 1);
 
 	// signing some data
 	let message = [1u8; 32];
@@ -121,10 +146,9 @@ async fn tss_smoke() -> Result<()> {
 			tx,
 		})
 		.await?;
-		rx.await?;
+		let signature = rx.await?;
+		verify_tss_signature(public_key, &message, signature)?;
 	}
-
-	// TODO: read signature from offchain storage
 
 	Ok(())
 }

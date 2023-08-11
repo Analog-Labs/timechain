@@ -3,12 +3,17 @@ use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use sc_client_api::Backend;
+use sc_consensus::BoxJustificationImport;
 use sc_network::NetworkSigner;
-use sc_network_test::{Block, FullPeerConfig, TestNet, TestNetFactory};
+use sc_network_test::{
+	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, TestNet,
+	TestNetFactory,
+};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use time_primitives::{
 	OcwPayload, PeerId, ShardId, TimeApi, TssPublicKey, TssRequest, TssSignature,
 };
@@ -83,16 +88,53 @@ fn verify_tss_signature(
 	Ok(())
 }
 
+#[derive(Default)]
+struct MockNetwork {
+	inner: TestNet,
+}
+
+impl TestNetFactory for MockNetwork {
+	type Verifier = PassThroughVerifier;
+	type PeerData = ();
+	type BlockImport = PeersClient;
+
+	fn make_verifier(&self, _client: PeersClient, _peer_data: &()) -> Self::Verifier {
+		PassThroughVerifier::new(true)
+	}
+
+	fn make_block_import(
+		&self,
+		client: PeersClient,
+	) -> (
+		BlockImportAdapter<Self::BlockImport>,
+		Option<BoxJustificationImport<Block>>,
+		Self::PeerData,
+	) {
+		self.inner.make_block_import(client)
+	}
+
+	fn peer(&mut self, i: usize) -> &mut Peer<(), Self::BlockImport> {
+		self.inner.peer(i)
+	}
+
+	fn peers(&self) -> &Vec<Peer<(), Self::BlockImport>> {
+		self.inner.peers()
+	}
+
+	fn peers_mut(&mut self) -> &mut Vec<Peer<(), Self::BlockImport>> {
+		self.inner.peers_mut()
+	}
+
+	fn mut_peers<F: FnOnce(&mut Vec<Peer<(), Self::BlockImport>>)>(&mut self, closure: F) {
+		self.inner.mut_peers(closure)
+	}
+}
+
 #[tokio::test]
 async fn tss_smoke() -> Result<()> {
-	sp_tracing::init_for_tests();
+	env_logger::try_init().ok();
 
-	sp_tracing::info!(
-		target: "time_keygen_completes",
-		"Starting test..."
-	);
-
-	let mut net = TestNet::default();
+	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
 	let mut peers = vec![];
 	let mut tss = vec![];
@@ -124,9 +166,14 @@ async fn tss_smoke() -> Result<()> {
 		}));
 	}
 
+	net.run_until_connected().await;
+	log::info!("creating shard with members {:?}", peers);
 	api.create_shard(peers);
 	net.peer(0).push_blocks(1, false);
+	log::info!("waiting for sync");
 	net.run_until_sync().await;
+	log::info!("waiting for keygen to complete");
+	tokio::time::sleep(Duration::from_secs(10)).await;
 
 	let storage = net.peer(0).client().as_backend().offchain_storage().unwrap();
 	let msg = time_primitives::read_message(storage).unwrap();
@@ -135,7 +182,7 @@ async fn tss_smoke() -> Result<()> {
 	};
 	assert_eq!(shard_id, 1);
 
-	// signing some data
+	log::info!("signing message with tss");
 	let message = [1u8; 32];
 	for tss in &mut tss {
 		let (tx, rx) = oneshot::channel();

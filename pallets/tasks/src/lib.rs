@@ -237,7 +237,8 @@ pub mod pallet {
 		fn submit_task_error(task_id: TaskId, error: ScheduleError) -> DispatchResult {
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			TaskRetryCounter::<T>::insert(task_id, retry_count + 1);
-			if retry_count == T::MaxRetryCount::get() {
+			//since count starts from 0 decrementing maxretrycount
+			if retry_count == T::MaxRetryCount::get() - 1 {
 				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
 				Self::deposit_event(Event::TaskError(task_id, error));
 			}

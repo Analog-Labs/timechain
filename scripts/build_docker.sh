@@ -28,7 +28,7 @@ case "$(uname -m)" in
 esac
 
 # Check if the musl linker is installed
-"$muslLinker" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '$muslLinker' linker for compile"; exit 1; }
+# "$muslLinker" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '$muslLinker' linker for compile"; exit 1; }
 
 # Check if the rust target is installed
 if ! rustup target list | grep -q "$rustTarget"; then
@@ -38,6 +38,6 @@ fi
 
 # Build docker image
 cargo build -p timechain-node --target "$rustTarget" --release
-mkdir -p target/release/timechain-node/bin
-mv "target/$rustTarget/release/timechain-node" target/release/timechain-node/bin
-docker build target/release/timechain-node -f docker/Dockerfile -t analoglabs/timechain-node
+mkdir -p target/docker
+mv "target/$rustTarget/release/timechain-node" target/docker
+docker build target/docker -f docker/Dockerfile -t analoglabs/timechain-node

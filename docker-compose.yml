@@ -10,6 +10,7 @@ volumes:
   ethereum-connector-volume:
   astar-volume:
   astar-connector-volume:
+  pgsql-dbx-volume:
 services:
   bootnode:
     image: 'analoglabs/timechain-node'
@@ -31,6 +32,7 @@ services:
       SSK: ${SSK}
     depends_on:
     - ethereum-connector
+    - timegraph
     volumes:
     - 'bootnode-volume:/data'
     ports:
@@ -61,6 +63,7 @@ services:
     depends_on:
     - bootnode
     - ethereum-connector
+    - timegraph
     volumes:
     - 'validator1-volume:/data'
     ports:
@@ -91,6 +94,7 @@ services:
     depends_on:
     - bootnode
     - ethereum-connector
+    - timegraph
     volumes:
     - 'validator2-volume:/data'
     ports:
@@ -121,6 +125,7 @@ services:
     depends_on:
     - bootnode
     - astar-connector
+    - timegraph
     volumes:
     - 'validator3-volume:/data'
     ports:
@@ -151,6 +156,7 @@ services:
     depends_on:
     - bootnode
     - astar-connector
+    - timegraph
     volumes:
     - 'validator4-volume:/data'
     ports:
@@ -181,6 +187,7 @@ services:
     depends_on:
     - bootnode
     - astar-connector
+    - timegraph
     volumes:
     - 'validator5-volume:/data'
     ports:
@@ -232,3 +239,44 @@ services:
     volumes:
     - "astar-connector-volume:/data"
     restart: always
+
+  pgsql:
+    hostname: pgsql
+    image: postgres:14-bullseye
+    environment:
+      - POSTGRES_DB=poc3
+      - POSTGRES_USER=poc3
+      - POSTGRES_PASSWORD=poc3
+      - DB_PORT=5436
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    command: -p 5436
+    volumes:
+      - pgsql-dbx-volume:/var/lib/postgresql/data
+    ports:
+      - "5436:5436"
+
+  timegraph:
+    build: ./docker/timegraph
+    hostname: timegraph
+    environment:
+      - GENESIS=yes
+      - ANALOG_DB_URL=postgres://poc3:poc3@pgsql:5436/poc3
+      - WAIT_HOSTS=pgsql:5436
+      - RUST_LOG=debug
+    command: serve --at 0.0.0.0:8008 --rpc ws://bootnode:9944 -k developer
+    ports:
+      - "8008:8008"
+    depends_on:
+      - pgsql
+
+  timegraph-sync:
+    build: ./docker/timegraph
+    hostname: timegraph-sync
+    environment:
+      - WAIT_HOSTS=pgsql:5436,bootnode:9944
+      - ANALOG_DB_URL=postgres://poc3:poc3@pgsql:5436/poc3
+      - RUST_LOG=debug
+    command: sync --rpc ws://bootnode:9944 --interval 3 --signer 22tya3QVJBCxPAskCqfKLxH8cg1qRrtzLpxFakH6T7WBQmdpQErBEcaihetUNenpc6qiAvkMBb9TQ5ii1ycFDddz
+    depends_on:
+      - bootnode
+      - pgsql

@@ -1,3 +1,3 @@
 FROM scratch
-COPY bin/timechain-node timechain-node
+COPY timechain-node timechain-node
 ENTRYPOINT ["/timechain-node"]

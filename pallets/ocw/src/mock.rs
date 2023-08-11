@@ -39,6 +39,10 @@ impl OcwSubmitTaskResult for MockTasks {
 	fn submit_task_result(_: TaskId, _: ScheduleCycle, _: ScheduleStatus) -> DispatchResult {
 		Ok(())
 	}
+
+	fn submit_task_error(_: TaskId, _: time_primitives::ScheduleError) -> DispatchResult {
+		Ok(())
+	}
 }
 
 frame_support::construct_runtime!(

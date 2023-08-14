@@ -287,9 +287,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			round2_packages: Default::default(),
 		};
 		self.actions.push_back(TssAction::Timeout(Timeout::DKGR1, None));
-		self.broadcast(&TssMessage::DkgR1 {
-			round1_package: round1_package.clone(),
-		});
+		self.broadcast(&TssMessage::DkgR1 { round1_package });
 		for (peer_id, round1_package) in round1_packages_preinit {
 			self.on_message(peer_id, TssMessage::DkgR1 { round1_package });
 		}
@@ -682,7 +680,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				);
 				self.actions.push_back(TssAction::Timeout(Timeout::commit(id), Some(id)));
 				let msg = SigningMessage::Commit { commitment };
-				self.broadcast(&TssMessage::Sign { id, msg: msg.clone() });
+				self.broadcast(&TssMessage::Sign { id, msg });
 			},
 			_ => panic!("invalid state"),
 		}

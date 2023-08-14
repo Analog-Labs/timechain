@@ -35,7 +35,7 @@ pub async fn submit_to_timegraph(
 		task_counter: cycle as i64,
 		block: target_block_number as i64,
 		cycle: block_num,
-		tss: hex::encode(&tss),
+		tss: hex::encode(tss),
 		data: result,
 	};
 	dotenv::dotenv().ok();

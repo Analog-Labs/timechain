@@ -160,7 +160,7 @@ async fn tss_smoke() -> Result<()> {
 		let peer_id = net
 			.peer(i)
 			.network_service()
-			.sign_with_local_identity(&[])?
+			.sign_with_local_identity([])?
 			.public_key
 			.try_into_ed25519()?
 			.to_bytes();

@@ -12,7 +12,7 @@ version = "4.0.0-dev"
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.4", default-features = false, features = [
 	"derive",
 ] }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false, optional = true }

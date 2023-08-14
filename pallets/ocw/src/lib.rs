@@ -16,7 +16,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::offchain::storage::StorageValueRef;
-	use sp_runtime::traits::IdentifyAccount;
+	use sp_runtime::traits::{Block, Header, IdentifyAccount};
 	use sp_std::vec;
 	use time_primitives::{
 		msg_key, AccountId, Network, OcwPayload, OcwShardInterface, OcwSubmitTaskResult, PublicKey,
@@ -48,7 +48,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn offchain_worker(_block_number: T::BlockNumber) {
+		fn offchain_worker(_block_number: <<T::Block as Block>::Header as Header>::Number) {
 			log::info!("running offchain worker");
 			while let Some(msg) = Self::read_message() {
 				log::info!("received ocw message {:?}", msg);

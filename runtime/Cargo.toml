@@ -69,7 +69,6 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", bran
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false, optional = true }
 
 # Local Dependencies
-analog-vesting = { path = "../pallets/vesting", version = "4.0.0-dev", default-features = false }
 pallet-ocw = { path = "../pallets/ocw", version = "4.0.0-dev", default-features = false }
 pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
 pallet-tasks = { path = "../pallets/tasks", version = "0.0.1", default-features = false }
@@ -85,7 +84,6 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate.git", 
 [features]
 default = [ "std" ]
 std = [
-	"analog-vesting/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
@@ -133,7 +131,6 @@ std = [
 	"time-primitives/std",
 ]
 runtime-benchmarks = [
-	"analog-vesting/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
@@ -149,7 +146,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 ]
 try-runtime = [
-	"analog-vesting/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",

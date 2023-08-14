@@ -1,11 +1,13 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use futures::channel::mpsc;
-use sc_client_api::BlockBackend;
+use futures::prelude::*;
+use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 
@@ -105,27 +107,29 @@ pub fn new_partial(
 	let slot_duration = babe_link.config().slot_duration();
 	let justification_import = grandpa_block_import;
 
-	let (import_queue, babe_task_handle) = sc_consensus_babe::import_queue(
-		babe_link.clone(),
-		block_import.clone(),
-		Some(Box::new(justification_import)),
-		client.clone(),
-		select_chain.clone(),
-		move |_, ()| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	let (import_queue, babe_task_handle) =
+		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
+			link: babe_link.clone(),
+			block_import: block_import.clone(),
+			justification_import: Some(Box::new(justification_import)),
+			client: client.clone(),
+			select_chain: select_chain.clone(),
+			create_inherent_data_providers: move |_, ()| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			let slot =
+				let slot =
 				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 					*timestamp,
 					slot_duration,
 				);
 
-			Ok((slot, timestamp))
-		},
-		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
-		telemetry.as_ref().map(|x| x.handle()),
-	)?;
+				Ok((slot, timestamp))
+			},
+			spawner: &task_manager.spawn_essential_handle(),
+			registry: config.prometheus_registry(),
+			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+		})?;
 	std::mem::forget(babe_task_handle);
 
 	Ok(sc_service::PartialComponents {
@@ -204,11 +208,23 @@ pub fn new_full(
 		})?;
 
 	if config.offchain_worker.enabled {
-		sc_service::build_offchain_workers(
-			&config,
-			task_manager.spawn_handle(),
-			client.clone(),
-			network.clone(),
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-worker",
+			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+				runtime_api_provider: client.clone(),
+				is_validator: config.role.is_authority(),
+				keystore: Some(keystore_container.keystore()),
+				offchain_db: backend.offchain_storage(),
+				transaction_pool: Some(OffchainTransactionPoolFactory::new(
+					transaction_pool.clone(),
+				)),
+				network_provider: network.clone(),
+				enable_http_requests: false,
+				custom_extensions: |_| vec![],
+			})
+			.run(client.clone(), task_manager.spawn_handle())
+			.boxed(),
 		);
 	}
 
@@ -253,7 +269,7 @@ pub fn new_full(
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
-			transaction_pool,
+			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
@@ -325,6 +341,7 @@ pub fn new_full(
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			sync: sync_service,
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
 		};
 
 		// the GRANDPA voter task is considered infallible, i.e.

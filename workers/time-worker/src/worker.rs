@@ -56,7 +56,7 @@ fn sleep_until(deadline: Instant) -> Pin<Box<Sleep>> {
 	Box::pin(tokio::time::sleep_until(deadline.into()))
 }
 
-fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
+pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	PeerId::from_public_key(
 		&sc_network::config::ed25519::PublicKey::try_from_bytes(&peer_id).unwrap().into(),
 	)
@@ -128,25 +128,18 @@ where
 	}
 
 	fn on_finality(&mut self, block: <B as Block>::Hash) {
+		let local_peer_id = to_peer_id(self.peer_id);
+		log::debug!(target: TW_LOG, "{}: on_finality {}", local_peer_id, block.to_string());
 		let shards = self.runtime.runtime_api().get_shards(block, self.peer_id).unwrap();
-		log::debug!(target: TW_LOG, "Read shards from runtime {:?}", shards);
 		for shard_id in shards {
 			if self.tss_states.get(&shard_id).filter(|tss| tss.is_initialized()).is_some() {
-				log::debug!(
-					target: TW_LOG,
-					"Already participating in keygen for shard {}",
-					shard_id
-				);
 				continue;
 			}
 			let members = self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap();
-			log::debug!(target: TW_LOG, "Participating in new keygen for shard {}", shard_id);
+			log::debug!(target: TW_LOG, "shard {}: {} joining shard", shard_id, local_peer_id);
 			let threshold = members.len() as _;
 			let members = members.into_iter().map(to_peer_id).collect();
-			let tss = self
-				.tss_states
-				.entry(shard_id)
-				.or_insert_with(|| Tss::new(to_peer_id(self.peer_id)));
+			let tss = self.tss_states.entry(shard_id).or_insert_with(|| Tss::new(local_peer_id));
 			tss.initialize(members, threshold);
 			self.poll_actions(shard_id);
 
@@ -167,7 +160,15 @@ where
 		while let Some(action) = tss.next_action() {
 			match action {
 				TssAction::Send(peer, payload) => {
-					log::debug!(target: TW_LOG, "Sending tss message");
+					let local_peer_id = to_peer_id(self.peer_id);
+					log::debug!(
+						target: TW_LOG,
+						"shard {}: {} tx {} to {}",
+						shard_id,
+						local_peer_id,
+						payload,
+						peer
+					);
 					let msg = TimeMessage { shard_id, payload };
 					let bytes = msg.encode();
 					let (tx, rx) = oneshot::channel();
@@ -180,18 +181,21 @@ where
 					);
 					tokio::task::spawn(async move {
 						if let Ok(Err(err)) = rx.await {
-							log::error!(target: TW_LOG, "network error {}", err);
+							log::error!(
+								target: TW_LOG,
+								"shard {}: {} tx {} to {} network error {}",
+								shard_id,
+								local_peer_id,
+								msg.payload,
+								peer,
+								err,
+							);
 						}
 					});
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes();
-					log::info!(
-						target: TW_LOG,
-						"New group key provided: {:?} for id: {}",
-						public_key,
-						shard_id
-					);
+					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
 					self.timeouts.remove(&(shard_id, None));
 					time_primitives::write_message(
 						self.backend.offchain_storage().unwrap(),
@@ -199,9 +203,15 @@ where
 					);
 				},
 				TssAction::Tss(tss_signature, request_id) => {
-					log::debug!(target: TW_LOG, "Storing tss signature");
-					self.timeouts.remove(&(shard_id, Some(request_id)));
 					let tss_signature = tss_signature.to_bytes();
+					log::debug!(
+						target: TW_LOG,
+						"shard {}: req {:?}: signature {:?}",
+						shard_id,
+						request_id,
+						tss_signature
+					);
+					self.timeouts.remove(&(shard_id, Some(request_id)));
 					if let Some(tx) = self.requests.remove(&request_id) {
 						tx.send(tss_signature).ok();
 					}
@@ -251,6 +261,7 @@ where
 					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 						continue;
 					};
+					log::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);
 					self.requests.insert(request_id, tx);
 					tss.sign(request_id, data.to_vec());
 					self.poll_actions(shard_id);
@@ -265,7 +276,9 @@ where
 						sent_feedback: None,
 					});
 					if let Ok(TimeMessage { shard_id, payload }) = TimeMessage::decode(&payload) {
-						log::debug!(target: TW_LOG, "received tss message {}", payload);
+						let local_peer_id = to_peer_id(self.peer_id);
+						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
+							shard_id, local_peer_id, payload, peer);
 						if let Some(tss) = self.tss_states.get_mut(&shard_id) {
 							tss.on_message(peer, payload);
 							self.poll_actions(shard_id);

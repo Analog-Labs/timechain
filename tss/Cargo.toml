@@ -9,9 +9,9 @@ version = "0.0.1"
 
 [dependencies]
 frost-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
-log = "0.4.19"
+log = "0.4.20"
 rand = "0.8"
-serde = { version = "1.0.171", features = [ "derive" ] }
+serde = { version = "1.0.183", features = [ "derive" ] }
 
 [dev-dependencies]
 env_logger = "0.10.0"

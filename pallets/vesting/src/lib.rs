@@ -33,6 +33,7 @@ use codec::{HasCompact, MaxEncodedLen};
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
+	traits::GenesisBuild,
 	traits::{
 		Currency, EnsureOrigin, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
 		WithdrawReasons,
@@ -59,6 +60,9 @@ pub use module::*;
 pub use weights::WeightInfo;
 
 pub const VESTING_LOCK_ID: LockIdentifier = *b"ana-vest";
+
+type BlockNumber<T> =
+	<<<T as frame_system::Config>::Block as sp_runtime::traits::Block>::Header as sp_runtime::traits::Header>::Number;
 
 /// The vesting schedule.
 ///
@@ -116,21 +120,15 @@ pub mod module {
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-	pub(crate) type VestingScheduleOf<T> =
-		VestingSchedule<<T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
-	pub type ScheduledItem<T> = (
-		<T as frame_system::Config>::AccountId,
-		<T as frame_system::Config>::BlockNumber,
-		<T as frame_system::Config>::BlockNumber,
-		u32,
-		BalanceOf<T>,
-	);
+	pub(crate) type VestingScheduleOf<T> = VestingSchedule<BlockNumber<T>, BalanceOf<T>>;
+	pub type ScheduledItem<T> =
+		(<T as frame_system::Config>::AccountId, BlockNumber<T>, BlockNumber<T>, u32, BalanceOf<T>);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumber<Self>>;
 
 		#[pallet::constant]
 		/// The minimum amount transferred to call `vested_transfer`.
@@ -146,7 +144,7 @@ pub mod module {
 		type MaxVestingSchedules: Get<u32>;
 
 		// The block number provider
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = Self::BlockNumber>;
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumber<Self>>;
 	}
 
 	#[pallet::error]
@@ -247,8 +245,8 @@ pub mod module {
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-		fn on_finalize(_n: T::BlockNumber) {}
+	impl<T: Config> Hooks<BlockNumber<T>> for Pallet<T> {
+		fn on_finalize(_n: BlockNumber<T>) {}
 	}
 
 	#[pallet::call]

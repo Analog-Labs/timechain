@@ -9,11 +9,11 @@ publish = false
 repository = "https://github.com/Analog-Labs/testnet"
 version = "0.0.1"
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.3", default-features = false, features = [ "max-encoded-len" ] }
+codec = { package = "parity-scale-codec", version = "3.6.4", default-features = false, features = [ "max-encoded-len" ] }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false, optional = true }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-log = { version = "0.4.19", default-features = false }
+log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }

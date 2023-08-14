@@ -2,13 +2,11 @@ use crate::{self as task_schedule};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
-	testing::Header,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	MultiSignature,
+	BuildStorage, MultiSignature,
 };
 use time_primitives::{ShardId, ShardStatusInterface};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
@@ -23,12 +21,8 @@ impl ShardStatusInterface for MockShardInterface {
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+	pub struct Test {
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Tasks: task_schedule::{Pallet, Call, Storage, Event<T>},
 	}
@@ -41,13 +35,12 @@ impl frame_system::Config for Test {
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-	type Index = u32;
-	type BlockNumber = u64;
+	type Nonce = u32;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
@@ -85,7 +78,7 @@ impl task_schedule::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
 	}

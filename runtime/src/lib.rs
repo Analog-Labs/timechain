@@ -499,15 +499,13 @@ impl frame_system::Config for Runtime {
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
+	type Nonce = Index;
 	/// The index type for blocks.
-	type BlockNumber = BlockNumber;
+	type Block = Block;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
 	type Hashing = BlakeTwo256;
-	/// The header type.
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
@@ -1173,10 +1171,6 @@ impl pallet_ocw::Config for Runtime {
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
-	where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
 		Balances: pallet_balances,

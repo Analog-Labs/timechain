@@ -8,8 +8,8 @@ use time_primitives::{PeerId, TimeApi, TssRequest};
 
 mod worker;
 
-//#[cfg(test)]
-//mod tests;
+#[cfg(test)]
+mod tests;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "task-executor";
@@ -43,7 +43,6 @@ where
 	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 {
-	log::debug!(target: TW_LOG, "Starting task-executor gadget");
-	let mut worker = TaskExecutor::new(params).await.unwrap();
+	let mut worker = TaskExecutor::new(params);
 	worker.run().await;
 }

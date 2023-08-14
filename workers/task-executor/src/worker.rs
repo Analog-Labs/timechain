@@ -23,11 +23,8 @@ impl Task {
 		Self { tss, wallet }
 	}
 
-	/// Fetches and executes contract call for a given schedule_id
 	async fn execute_function(&self, function: &Function) -> Result<FunctionResult> {
 		match function {
-			// If the task function is an Ethereum contract
-			// call, call it and send for signing
 			Function::EVMViewWithoutAbi {
 				address,
 				function_signature,
@@ -47,7 +44,6 @@ impl Task {
 		}
 	}
 
-	/// Encode call response and send data for tss signing process
 	async fn tss_sign(
 		&self,
 		shard_id: ShardId,
@@ -100,8 +96,10 @@ pub struct TaskExecutor<B: Block, BE, R> {
 	runtime: Arc<R>,
 	peer_id: PeerId,
 	sign_data_sender: mpsc::Sender<TssRequest>,
-	wallet: Arc<Wallet>,
 	running_tasks: HashSet<(TaskId, ScheduleCycle)>,
+	connector_url: Option<String>,
+	connector_blockchain: Option<String>,
+	connector_network: Option<String>,
 }
 
 impl<B, BE, R> TaskExecutor<B, BE, R>
@@ -111,7 +109,7 @@ where
 	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 {
-	pub async fn new(params: TaskExecutorParams<B, BE, R>) -> Result<Self> {
+	pub fn new(params: TaskExecutorParams<B, BE, R>) -> Self {
 		let TaskExecutorParams {
 			_block,
 			backend,
@@ -122,43 +120,45 @@ where
 			connector_blockchain,
 			connector_network,
 		} = params;
-		// create rosetta client and get chain configuration
-		let wallet =
-			create_wallet(connector_blockchain, connector_network, connector_url, None).await?;
-		Ok(Self {
+		Self {
 			_block,
 			backend,
 			runtime,
 			peer_id,
 			sign_data_sender,
-			wallet: Arc::new(wallet),
 			running_tasks: Default::default(),
-		})
+			connector_url,
+			connector_blockchain,
+			connector_network,
+		}
 	}
 
 	async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let status = self.wallet.status().await?;
+		let wallet = Arc::new(
+			create_wallet(
+				self.connector_blockchain.clone(),
+				self.connector_network.clone(),
+				self.connector_url.clone(),
+				None,
+			)
+			.await?,
+		);
+		let status = wallet.status().await?;
 		let block_height = status.index;
-		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id).unwrap();
-		let block_num: i64 = if let Ok(Some(val)) = self.backend.blockchain().number(block_id) {
-			//should not fail since we have u32 as BlockNumer
-			val.to_string().parse().unwrap()
-		} else {
-			log::warn!("Something bad happened fetching block number");
-			0
-		};
+		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
+		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
+		let block_num: i64 = block_num.to_string().parse()?;
 		for shard_id in shards {
-			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id).unwrap();
+			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id)?;
 			for (task_id, cycle) in tasks.iter().copied() {
 				if self.running_tasks.contains(&(task_id, cycle)) {
 					continue;
 				}
-				let task_descr =
-					self.runtime.runtime_api().get_task(block_id, task_id).unwrap().unwrap();
+				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
 				if block_height >= task_descr.trigger(cycle) {
 					log::info!("Running Task {:?}", task_id);
 					self.running_tasks.insert((task_id, cycle));
-					let task = Task::new(self.sign_data_sender.clone(), self.wallet.clone());
+					let task = Task::new(self.sign_data_sender.clone(), wallet.clone());
 					let storage = self.backend.offchain_storage().unwrap();
 					tokio::task::spawn(async move {
 						let result = task

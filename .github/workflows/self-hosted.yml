@@ -55,13 +55,6 @@ jobs:
       - run: cargo +stable fmt --all -- --check
       - run: cargo +stable test --workspace --locked
 
-  clippy:
-    name: Clippy
-    runs-on: self-hosted
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
       - uses: actions-rs/clippy-check@v1
         with:
           name: Clippy Report

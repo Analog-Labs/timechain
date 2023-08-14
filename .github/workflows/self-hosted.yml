@@ -52,14 +52,15 @@ jobs:
       - run: sudo apt-get install -y protobuf-compiler solc
 
       - run: ./scripts/pull_images.sh
-      - run: cargo fmt --all -- --check
-      - run: cargo test --workspace --locked
+      - run: cargo +stable fmt --all -- --check
+      - run: cargo +stable test --workspace --locked
 
       - name: Clippy
         uses: actions-rs/clippy-check@v1
         with:
           name: Clippy Report
           token: ${{secrets.GITHUB_TOKEN}}
+          toolchain: stable
           # `--no-deps` does not check dependencies out of workspace
           args: --all-targets --workspace --examples -- --no-deps -W clippy::all -A clippy::type_complexity
 

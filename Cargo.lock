@@ -12114,6 +12114,7 @@ dependencies = [
  "sc-network-test",
  "serde",
  "sp-api",
+ "sp-consensus",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "tesseract-tss",
  "time-primitives",

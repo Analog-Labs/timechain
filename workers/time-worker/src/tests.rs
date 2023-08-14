@@ -10,9 +10,11 @@ use sc_network_test::{
 	TestNetFactory,
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
+use sp_consensus::BlockOrigin;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
+use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
 	OcwPayload, PeerId, ShardId, TimeApi, TssPublicKey, TssRequest, TssSignature,
@@ -130,6 +132,16 @@ impl TestNetFactory for MockNetwork {
 	}
 }
 
+impl MockNetwork {
+	async fn into_future(mut self) {
+		futures::future::poll_fn(|cx| {
+			self.inner.poll(cx);
+			Poll::Pending
+		})
+		.await
+	}
+}
+
 #[tokio::test]
 async fn tss_smoke() -> Result<()> {
 	env_logger::try_init().ok();
@@ -165,34 +177,48 @@ async fn tss_smoke() -> Result<()> {
 			protocol_request: protocol_rx,
 		}));
 	}
-
 	net.run_until_connected().await;
-	log::info!("creating shard with members {:?}", peers);
+
+	log::info!(
+		"creating shard with members {:#?}",
+		peers
+			.iter()
+			.map(|p| crate::worker::to_peer_id(*p).to_string())
+			.collect::<Vec<_>>()
+	);
 	api.create_shard(peers);
-	net.peer(0).push_blocks(1, false);
-	log::info!("waiting for sync");
-	net.run_until_sync().await;
-	log::info!("waiting for keygen to complete");
-	tokio::time::sleep(Duration::from_secs(10)).await;
-
+	net.peer(0).generate_blocks(1, BlockOrigin::ConsensusBroadcast, |builder| {
+		builder.build().unwrap().block
+	});
 	let storage = net.peer(0).client().as_backend().offchain_storage().unwrap();
-	let msg = time_primitives::read_message(storage).unwrap();
-	let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = msg else {
-		anyhow::bail!("unexpected msg {:?}", msg);
-	};
-	assert_eq!(shard_id, 1);
+	tokio::task::spawn(net.into_future());
 
-	log::info!("signing message with tss");
+	let public_key = loop {
+		let Some(msg) = time_primitives::read_message(storage.clone()) else {
+			tokio::time::sleep(Duration::from_secs(1)).await;
+			continue;
+		};
+		let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = msg else {
+			anyhow::bail!("unexpected msg {:?}", msg);
+		};
+		assert_eq!(shard_id, 0);
+		break public_key;
+	};
+
 	let message = [1u8; 32];
+	let mut rxs = vec![];
 	for tss in &mut tss {
 		let (tx, rx) = oneshot::channel();
 		tss.send(TssRequest {
 			request_id: (1, 1),
-			shard_id: 1,
+			shard_id: 0,
 			data: message.to_vec(),
 			tx,
 		})
 		.await?;
+		rxs.push(rx);
+	}
+	for rx in rxs {
 		let signature = rx.await?;
 		verify_tss_signature(public_key, &message, signature)?;
 	}

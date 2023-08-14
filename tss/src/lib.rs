@@ -257,6 +257,15 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 		self.actions.push_back(TssAction::Report(peer, id));
 	}
 
+	fn broadcast(&mut self, msg: &TssMessage<I>) {
+		for peer in self.config.peer_to_frost.keys() {
+			if peer == &self.peer_id {
+				continue;
+			}
+			self.actions.push_back(TssAction::Send(peer.clone(), msg.clone()));
+		}
+	}
+
 	pub fn initialize(&mut self, members: BTreeSet<P>, threshold: u16) {
 		log::debug!("{} initialize {}/{}", self.peer_id, threshold, members.len());
 		let round1_packages_preinit = match &mut self.state {
@@ -278,14 +287,9 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			round2_packages: Default::default(),
 		};
 		self.actions.push_back(TssAction::Timeout(Timeout::DKGR1, None));
-		for peer in self.config.peer_to_frost.keys() {
-			self.actions.push_back(TssAction::Send(
-				peer.clone(),
-				TssMessage::DkgR1 {
-					round1_package: round1_package.clone(),
-				},
-			));
-		}
+		self.broadcast(&TssMessage::DkgR1 {
+			round1_package: round1_package.clone(),
+		});
 		for (peer_id, round1_package) in round1_packages_preinit {
 			self.on_message(peer_id, TssMessage::DkgR1 { round1_package });
 		}
@@ -607,12 +611,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 								},
 							);
 							self.actions.push_back(TssAction::Timeout(Timeout::sign(id), Some(id)));
-							for peer in self.config.peer_to_frost.keys() {
-								self.actions.push_back(TssAction::Send(
-									peer.clone(),
-									TssMessage::Sign { id, msg: msg.clone() },
-								));
-							}
+							self.broadcast(&TssMessage::Sign { id, msg: msg.clone() });
 							step = true;
 						} else {
 							log::debug!(
@@ -683,12 +682,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				);
 				self.actions.push_back(TssAction::Timeout(Timeout::commit(id), Some(id)));
 				let msg = SigningMessage::Commit { commitment };
-				for peer in self.config.peer_to_frost.keys() {
-					self.actions.push_back(TssAction::Send(
-						peer.clone(),
-						TssMessage::Sign { id, msg: msg.clone() },
-					));
-				}
+				self.broadcast(&TssMessage::Sign { id, msg: msg.clone() });
 			},
 			_ => panic!("invalid state"),
 		}

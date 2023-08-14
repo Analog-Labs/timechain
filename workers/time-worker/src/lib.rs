@@ -5,7 +5,6 @@ mod worker;
 mod tests;
 
 use futures::channel::mpsc;
-use log::*;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
 use sc_network::NetworkRequest;
@@ -64,7 +63,6 @@ pub async fn start_timeworker_gadget<B, BE, C, R, N>(
 	R::Api: TimeApi<B>,
 	N: NetworkRequest,
 {
-	debug!(target: TW_LOG, "Starting TimeWorker gadget");
 	let TimeWorkerParams {
 		_block,
 		backend,

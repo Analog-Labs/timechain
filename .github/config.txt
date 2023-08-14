@@ -1,5 +1,0 @@
-build-opts=--release
-target=release
-toolchain=stable
-clippy-opts=-W clippy::all -A clippy::type_complexity
-exclude-tests=

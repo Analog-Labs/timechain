@@ -544,9 +544,9 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 						hex!["ced65a5c8089791384cfa2e92825744b77622f2f32267614e864f9ba65f5135f"].into(),
 						hex!["34788c986a9d9236b572c762ebc47fdd32afd0116d4516c45b9ab655eb0f9c56"].into(),
 
-						hex!["1efa3587920e6acf6108bcc99ea0e2f7cf7a29752fb8b5d72cf3f9f9884e930a"].unchecked_into(),
-						hex!["235be4117640fb7d164b17bbb758e81205f6583db17eb4927ce9d3d599a87e94"].unchecked_into(),
 						hex!["ba20b15a4abb8287994a9c1976aceb1b21464f23280a35db068d0515dd457706"].unchecked_into(),
+						hex!["235be4117640fb7d164b17bbb758e81205f6583db17eb4927ce9d3d599a87e94"].unchecked_into(),
+						hex!["1efa3587920e6acf6108bcc99ea0e2f7cf7a29752fb8b5d72cf3f9f9884e930a"].unchecked_into(),
 					),
 					// node 5
 					(

@@ -13,7 +13,7 @@ use sp_runtime::{
 use timechain_runtime::{
 	AccountId, BalancesConfig, CouncilConfig, GrandpaConfig, ImOnlineConfig,
 	RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig, SudoConfig,
-	SystemConfig, VestingConfig, WASM_BINARY,
+	SystemConfig, WASM_BINARY,
 };
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -931,17 +931,6 @@ fn generate_analog_genesis(
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 ) -> GenesisConfig {
-	type BlockNumer = u32;
-	type NoOfVest = u32;
-
-	// 	3 months in terms of 6s blocks is 1,296,000 blocks, i.e. period = 1,296,000
-	// 	THREE_MONTHS: u32 = 1_296_000; // We are approximating a month to 30 days.
-	// 	ONE_MONTH: u32 = 432_000; // 30 days from block 0, implies 432_000 blocks
-	let vesting_accounts_json = &include_bytes!("../../resources/anlog_vesting.json")[..];
-	// configure not valid for these vesting accounts.
-	let vesting_accounts: Vec<(AccountId, BlockNumer, BlockNumer, NoOfVest, Balance)> =
-		serde_json::from_slice(vesting_accounts_json)
-			.expect("The file vesting_test.json is not exist or not having valid data.");
 	let initial_nominators: Vec<AccountId> = vec![];
 	let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
 	let stakers = initial_authorities
@@ -961,6 +950,7 @@ fn generate_analog_genesis(
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
 			code: wasm_binary.to_vec(),
+			..Default::default()
 		},
 		balances: BalancesConfig {
 			// Configure pool accounts with its initial supply.
@@ -969,8 +959,12 @@ fn generate_analog_genesis(
 		babe: timechain_runtime::BabeConfig {
 			authorities: vec![],
 			epoch_config: Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			..Default::default()
 		},
-		grandpa: GrandpaConfig { authorities: vec![] },
+		grandpa: GrandpaConfig {
+			authorities: vec![],
+			..Default::default()
+		},
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),
@@ -1004,7 +998,6 @@ fn generate_analog_genesis(
 			// TODO: ForceEra::ForceNone
 			..Default::default()
 		},
-		vesting: VestingConfig { vesting: vesting_accounts },
 		treasury: Default::default(),
 		council: CouncilConfig {
 			members: vec![council_key],

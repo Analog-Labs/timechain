@@ -8,7 +8,7 @@ mod weights;
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-use frame_system::{limits::BlockWeights, EnsureRoot, EnsureSigned};
+use frame_system::{limits::BlockWeights, EnsureRoot};
 
 use frame_election_provider_support::{
 	generate_solution_type, onchain, ExtendedBalance, SequentialPhragmen,
@@ -1112,16 +1112,6 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 	}
 }
 
-impl analog_vesting::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type MinVestedTransfer = MinVestedTransfer;
-	type WeightInfo = ();
-	type VestedTransferOrigin = EnsureSigned<AccountId>;
-	type MaxVestingSchedules = MaxVestingSchedules;
-	type BlockNumberProvider = SubstrateBlockNumberProvider;
-}
-
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
 	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
@@ -1190,7 +1180,6 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
-		Vesting: analog_vesting,
 		Treasury: pallet_treasury,
 		Tasks: pallet_tasks,
 		Ocw: pallet_ocw,
@@ -1608,8 +1597,8 @@ mod multiplier_tests {
 	where
 		F: FnMut(),
 	{
-		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
 			.unwrap()
 			.into();
 		t.execute_with(|| {
@@ -1644,8 +1633,8 @@ mod multiplier_tests {
 			..Default::default()
 		};
 
-		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
 			.unwrap()
 			.into();
 		// set the minimum

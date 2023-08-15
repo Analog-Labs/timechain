@@ -1,11 +1,12 @@
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
-use futures::channel::mpsc;
+use futures::{future, FutureExt};
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use time_primitives::{PeerId, ShardId, TaskDescriptor, TaskExecution, TaskId, TimeApi};
+use std::{future::Future, pin::Pin};
+use time_primitives::{PeerId, ShardId, TaskCycle, TaskDescriptor, TaskExecution, TaskId, TaskSpawner, TimeApi, TssSignature};
 
 #[derive(Clone, Default)]
 struct MockApi;
@@ -35,10 +36,29 @@ impl ProvideRuntimeApi<Block> for MockApi {
 	}
 }
 
+struct MockTask {}
+
+#[async_trait::async_trait]
+impl TaskSpawner for MockTask {
+	async fn block_height(&self) -> Result<u64> {
+		Ok(0)
+	}
+
+	fn execute(
+		&self,
+		_target_block: u64,
+		_shard_id: ShardId,
+		_task_id: TaskId,
+		_cycle: TaskCycle,
+		_task: TaskDescriptor,
+		_block_num: i64,
+	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
+		future::ready(Ok([0u8; 64])).boxed()
+	}
+}
+
 #[tokio::test]
 async fn task_executor_smoke() -> Result<()> {
-	let (sign_data_sender, _sign_data_receiver) = mpsc::channel(400);
-
 	let (client, backend) = {
 		let builder = TestClientBuilder::with_default_backend();
 		let backend = builder.backend();
@@ -48,13 +68,7 @@ async fn task_executor_smoke() -> Result<()> {
 
 	let api = Arc::new(MockApi::default());
 
-	let task_spawner = futures::executor::block_on(crate::Task::new(crate::TaskSpawnerParams {
-		tss: sign_data_sender,
-		connector_url: Some("".into()),
-		connector_blockchain: Some("".into()),
-		connector_network: Some("".into()),
-	}))
-	.unwrap();
+	let task_spawner = MockTask {};
 
 	let params = TaskExecutorParams {
 		_block: PhantomData::default(),

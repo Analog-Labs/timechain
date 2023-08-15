@@ -1,7 +1,6 @@
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::channel::mpsc;
-use futures::channel::mpsc;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use std::marker::PhantomData;

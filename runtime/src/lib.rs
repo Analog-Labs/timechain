@@ -54,8 +54,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, TaskExecution, PeerId, PublicKey, TaskCycle, ShardId, Signature, TaskId,
-	TaskDescriptor,
+	AccountId, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor, TaskExecution,
+	TaskId,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

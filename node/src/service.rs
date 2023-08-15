@@ -376,10 +376,15 @@ pub fn new_full(
 				runtime: client,
 				backend,
 				peer_id,
-				sign_data_sender,
-				connector_url,
-				connector_blockchain,
-				connector_network,
+				task_spawner: futures::executor::block_on(task_executor::Task::new(
+					task_executor::TaskSpawnerParams {
+						tss: sign_data_sender,
+						connector_url,
+						connector_blockchain,
+						connector_network,
+					},
+				))
+				.unwrap(),
 			};
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"task-executor",

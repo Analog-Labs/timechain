@@ -1,9 +1,14 @@
-use crate::{AccountId, Network, ShardId, TaskCycle, TssSignature};
+use crate::{AccountId, Network, ShardId, TaskCycle, TaskId, TssSignature};
+use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
 use sp_std::vec::Vec;
+#[cfg(feature = "std")]
+use std::future::Future;
+#[cfg(feature = "std")]
+use std::pin::Pin;
 
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -61,4 +66,20 @@ pub enum TaskStatus {
 	Created,
 	Failed { error: TaskError },
 	Completed,
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait TaskSpawner {
+	async fn block_height(&self) -> Result<u64>;
+
+	fn execute(
+		&self,
+		target_block: u64,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: ScheduleCycle,
+		task: TaskSchedule,
+		block_num: i64,
+	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
 }

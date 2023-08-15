@@ -3,7 +3,7 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use sp_std::vec;
 use time_primitives::{
-	Network, OcwShardInterface, PublicKey, CycleStatus, ShardCreated, ShardId, TssPublicKey,
+	CycleStatus, Network, OcwShardInterface, PublicKey, ShardCreated, ShardId, TssPublicKey,
 };
 
 fn collector() -> PublicKey {

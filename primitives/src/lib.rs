@@ -110,11 +110,8 @@ pub trait OcwShardInterface {
 }
 
 pub trait OcwSubmitTaskResult {
-	fn submit_task_result(
-		task_id: TaskId,
-		cycle: TaskCycle,
-		status: CycleStatus,
-	) -> DispatchResult;
+	fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus)
+		-> DispatchResult;
 
 	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
 }

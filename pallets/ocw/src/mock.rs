@@ -7,8 +7,8 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, TaskCycle,
-	CycleStatus, ShardId, TaskId, TssPublicKey,
+	CycleStatus, Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, ShardId,
+	TaskCycle, TaskId, TssPublicKey,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;

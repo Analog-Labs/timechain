@@ -14,9 +14,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		TaskExecution, Network, OcwSubmitTaskResult, TaskCycle, TaskError, TaskDescriptorParams,
-		ScheduleInterface, CycleStatus, ShardId, ShardStatusInterface, TaskId, TaskDescriptor,
-		TaskStatus,
+		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
+		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
+		TaskExecution, TaskId, TaskStatus,
 	};
 
 	pub trait WeightInfo {
@@ -60,7 +60,8 @@ pub mod pallet {
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
-	pub type Tasks<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
+	pub type Tasks<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 
 	#[pallet::storage]
 	pub type TaskState<T: Config> =

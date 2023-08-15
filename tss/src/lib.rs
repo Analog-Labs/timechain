@@ -7,7 +7,7 @@ use frost_evm::{
 };
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 /// Tss state.
 enum TssState<I, P> {
@@ -21,7 +21,7 @@ enum TssState<I, P> {
 	},
 	DkgR2 {
 		secret_package: dkg::round2::SecretPackage,
-		round1_packages: Vec<dkg::round1::Package>,
+		round1_packages: HashMap<Identifier, dkg::round1::Package>,
 		round2_packages: BTreeMap<P, dkg::round2::Package>,
 	},
 	Initialized {
@@ -91,7 +91,7 @@ pub enum TssAction<I, P> {
 	Send(P, TssMessage<I>),
 	PublicKey(VerifyingKey),
 	Tss(Signature, I),
-	Report(P, Option<I>),
+	Report(Option<P>, Option<I>),
 	Timeout(Timeout<I>, Option<I>),
 }
 
@@ -161,8 +161,11 @@ enum SignTimeoutKind {
 	Sign,
 }
 
+fn peer_to_frost(peer: impl std::fmt::Display) -> Identifier {
+	Identifier::derive(peer.to_string().as_bytes()).expect("non zero")
+}
+
 struct TssConfig<P> {
-	peer_to_frost: BTreeMap<P, Identifier>,
 	frost_to_peer: BTreeMap<Identifier, P>,
 	threshold: usize,
 	total_nodes: usize,
@@ -171,7 +174,6 @@ struct TssConfig<P> {
 impl<P> Default for TssConfig<P> {
 	fn default() -> Self {
 		Self {
-			peer_to_frost: Default::default(),
 			frost_to_peer: Default::default(),
 			threshold: 0,
 			total_nodes: 0,
@@ -179,23 +181,13 @@ impl<P> Default for TssConfig<P> {
 	}
 }
 
-impl<P: Clone + Ord> TssConfig<P> {
+impl<P: Clone + Ord + std::fmt::Display> TssConfig<P> {
 	pub fn new(peer_id: &P, members: BTreeSet<P>, threshold: u16) -> Self {
 		debug_assert!(members.contains(peer_id));
 		let threshold = threshold as _;
 		let total_nodes = members.len();
-		let peer_to_frost: BTreeMap<_, _> = members
-			.into_iter()
-			.enumerate()
-			.map(|(i, peer_id)| {
-				let frost = Identifier::try_from(i as u16 + 1).expect("non zero");
-				(peer_id, frost)
-			})
-			.collect();
-		let frost_to_peer =
-			peer_to_frost.iter().map(|(peer_id, frost)| (*frost, peer_id.clone())).collect();
+		let frost_to_peer = members.into_iter().map(|peer| (peer_to_frost(&peer), peer)).collect();
 		Self {
-			peer_to_frost,
 			frost_to_peer,
 			threshold,
 			total_nodes,
@@ -212,11 +204,16 @@ pub struct Tss<I, P> {
 	actions: VecDeque<TssAction<I, P>>,
 }
 
-impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display> Tss<I, P> {
+impl<I, P> Tss<I, P>
+where
+	I: Clone + Copy + Ord + std::fmt::Debug,
+	P: Clone + Ord + std::fmt::Display,
+{
 	pub fn new(peer_id: P) -> Self {
+		let frost_id = peer_to_frost(&peer_id);
 		Self {
 			peer_id,
-			frost_id: Identifier::try_from(1).unwrap(),
+			frost_id,
 			config: Default::default(),
 			state: Default::default(),
 			actions: Default::default(),
@@ -231,10 +228,6 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 		!matches!(&self.state, TssState::Uninitialized { .. })
 	}
 
-	fn peer_to_frost(&self, peer: &P) -> Identifier {
-		*self.config.peer_to_frost.get(peer).unwrap()
-	}
-
 	fn frost_to_peer(&self, frost: &Identifier) -> P {
 		self.config.frost_to_peer.get(frost).unwrap().clone()
 	}
@@ -247,18 +240,18 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 		self.config.threshold
 	}
 
-	fn report(&mut self, frost: Identifier, id: Option<I>) {
+	fn report(&mut self, frost: Option<Identifier>, id: Option<I>) {
 		if let (TssState::Initialized { signing_state, .. }, Some(id)) = (&mut self.state, id) {
 			signing_state.remove(&id);
 		} else {
 			self.state = TssState::default();
 		}
-		let peer = self.frost_to_peer(&frost);
+		let peer = frost.map(|frost| self.frost_to_peer(&frost));
 		self.actions.push_back(TssAction::Report(peer, id));
 	}
 
 	fn broadcast(&mut self, msg: &TssMessage<I>) {
-		for peer in self.config.peer_to_frost.keys() {
+		for peer in self.config.frost_to_peer.values() {
 			if peer == &self.peer_id {
 				continue;
 			}
@@ -273,7 +266,6 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			state => panic!("invalid state ({state})"),
 		};
 		self.config = TssConfig::new(&self.peer_id, members, threshold);
-		self.frost_id = self.peer_to_frost(&self.peer_id);
 		let (secret_package, round1_package) = dkg::part1(
 			self.frost_id,
 			self.config.total_nodes as _,
@@ -299,14 +291,14 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 		let mut timeout_id = None;
 		match (&self.state, timeout.0) {
 			(TssState::Uninitialized { round1_packages }, TimeoutKind::Uninitialized) => {
-				for (peer_id, frost_id) in &self.config.peer_to_frost {
+				for (frost_id, peer_id) in &self.config.frost_to_peer {
 					if round1_packages.contains_key(peer_id) {
 						report.push(*frost_id);
 					}
 				}
 			},
 			(TssState::DkgR1 { round1_packages, .. }, TimeoutKind::DkgR1) => {
-				for (peer_id, frost_id) in &self.config.peer_to_frost {
+				for (frost_id, peer_id) in &self.config.frost_to_peer {
 					if peer_id == &self.peer_id {
 						continue;
 					}
@@ -316,7 +308,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				}
 			},
 			(TssState::DkgR2 { round2_packages, .. }, TimeoutKind::DkgR2) => {
-				for (peer_id, frost_id) in &self.config.peer_to_frost {
+				for (frost_id, peer_id) in &self.config.frost_to_peer {
 					if peer_id == &self.peer_id {
 						continue;
 					}
@@ -329,21 +321,21 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				timeout_id = Some(id);
 				match (signing_state.get(&id), timeout) {
 					(Some(SigningState::PreCommit { commitments }), SignTimeoutKind::PreCommit) => {
-						for (peer_id, frost_id) in &self.config.peer_to_frost {
+						for (frost_id, peer_id) in &self.config.frost_to_peer {
 							if commitments.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
 						}
 					},
 					(Some(SigningState::Commit { commitments, .. }), SignTimeoutKind::Commit) => {
-						for (peer_id, frost_id) in &self.config.peer_to_frost {
+						for (frost_id, peer_id) in &self.config.frost_to_peer {
 							if !commitments.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
 						}
 					},
 					(Some(SigningState::Sign { signature_shares, .. }), SignTimeoutKind::Sign) => {
-						for (peer_id, frost_id) in &self.config.peer_to_frost {
+						for (frost_id, peer_id) in &self.config.frost_to_peer {
 							if !signature_shares.contains_key(peer_id) {
 								report.push(*frost_id);
 							}
@@ -355,7 +347,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			_ => {},
 		}
 		for report in report {
-			self.report(report, timeout_id);
+			self.report(Some(report), timeout_id);
 		}
 	}
 
@@ -365,7 +357,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			log::debug!("{} dropping message from self", self.peer_id);
 			return;
 		}
-		if self.config.peer_to_frost.is_empty() {
+		if self.config.frost_to_peer.is_empty() {
 			match (&mut self.state, msg) {
 				(
 					TssState::Uninitialized { round1_packages },
@@ -387,41 +379,21 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 			}
 			return;
 		}
-		if !self.config.peer_to_frost.contains_key(&peer_id) {
+		let frost_id = peer_to_frost(&peer_id);
+		if !self.config.frost_to_peer.contains_key(&frost_id) {
 			log::info!("{} dropping message from {}", self.peer_id, peer_id);
 			return;
 		}
 		log::debug!("on_message processing started");
-		let frost_id = self.peer_to_frost(&peer_id);
 		match (&mut self.state, msg) {
 			(TssState::DkgR1 { round1_packages, .. }, TssMessage::DkgR1 { round1_package, .. }) => {
-				if round1_package.sender_identifier != frost_id {
-					self.report(frost_id, None);
-					return;
-				}
 				round1_packages.insert(peer_id, round1_package);
 				self.transition(None);
 			},
 			(TssState::DkgR1 { round2_packages, .. }, TssMessage::DkgR2 { round2_package, .. }) => {
-				if round2_package.sender_identifier != frost_id {
-					self.report(frost_id, None);
-					return;
-				}
-				if round2_package.receiver_identifier != self.frost_id {
-					self.report(frost_id, None);
-					return;
-				}
 				round2_packages.insert(peer_id, round2_package);
 			},
 			(TssState::DkgR2 { round2_packages, .. }, TssMessage::DkgR2 { round2_package, .. }) => {
-				if round2_package.sender_identifier != frost_id {
-					self.report(frost_id, None);
-					return;
-				}
-				if round2_package.receiver_identifier != self.frost_id {
-					self.report(frost_id, None);
-					return;
-				}
 				round2_packages.insert(peer_id, round2_package);
 				self.transition(None);
 			},
@@ -435,20 +407,12 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 						SigningState::PreCommit { commitments },
 						SigningMessage::Commit { commitment },
 					) => {
-						if commitment.identifier != frost_id {
-							self.report(frost_id, Some(id));
-							return;
-						}
 						commitments.insert(peer_id, commitment);
 					},
 					(
 						SigningState::Commit { commitments, .. },
 						SigningMessage::Commit { commitment },
 					) => {
-						if commitment.identifier != frost_id {
-							self.report(frost_id, Some(id));
-							return;
-						}
 						commitments.insert(peer_id, commitment);
 						self.transition(Some(id));
 					},
@@ -456,20 +420,12 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 						SigningState::Commit { signature_shares, .. },
 						SigningMessage::Sign { signature_share },
 					) => {
-						if signature_share.identifier != frost_id {
-							self.report(frost_id, Some(id));
-							return;
-						}
 						signature_shares.insert(peer_id, signature_share);
 					},
 					(
 						SigningState::Sign { signature_shares, .. },
 						SigningMessage::Sign { signature_share },
 					) => {
-						if signature_share.identifier != frost_id {
-							self.report(frost_id, Some(id));
-							return;
-						}
 						signature_shares.insert(peer_id, signature_share);
 						self.transition(Some(id));
 					},
@@ -506,8 +462,10 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				) => {
 					if round1_packages.len() == self.config.total_nodes - 1 {
 						log::debug!("received all packages for dk2 processing transition");
-						let round1_packages =
-							std::mem::take(round1_packages).into_values().collect::<Vec<_>>();
+						let round1_packages = std::mem::take(round1_packages)
+							.into_iter()
+							.map(|(peer, package)| (peer_to_frost(&peer), package))
+							.collect();
 						match dkg::part2(secret_package.take().unwrap(), &round1_packages) {
 							Ok((secret_package, round2_package)) => {
 								self.state = TssState::DkgR2 {
@@ -516,8 +474,8 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 									round2_packages: std::mem::take(round2_packages),
 								};
 								self.actions.push_back(TssAction::Timeout(Timeout::DKGR2, None));
-								for package in round2_package {
-									let peer = self.frost_to_peer(&package.receiver_identifier);
+								for (identifier, package) in round2_package {
+									let peer = self.frost_to_peer(&identifier);
 									self.actions.push_back(TssAction::Send(
 										peer,
 										TssMessage::DkgR2 { round2_package: package },
@@ -525,8 +483,8 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 								}
 								step = true;
 							},
-							Err(Error::InvalidProofOfKnowledge { sender }) => {
-								self.report(sender, None);
+							Err(Error::InvalidProofOfKnowledge { culprit }) => {
+								self.report(Some(culprit), None);
 							},
 							Err(err) => unreachable!("{err}"),
 						}
@@ -548,12 +506,14 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 				) => {
 					if round2_packages.len() == self.config.total_nodes - 1 {
 						log::debug!("received all packages for dk3 processing transition");
-						let round2_packages =
-							std::mem::take(round2_packages).into_values().collect::<Vec<_>>();
+						let round2_packages = std::mem::take(round2_packages)
+							.into_iter()
+							.map(|(peer, package)| (peer_to_frost(&peer), package))
+							.collect();
 						match dkg::part3(secret_package, round1_packages, &round2_packages) {
 							Ok((key_package, public_key_package)) => {
 								let group_public =
-									VerifyingKey::new(public_key_package.group_public);
+									VerifyingKey::new(*public_key_package.group_public());
 								self.state = TssState::Initialized {
 									key_package,
 									public_key_package,
@@ -562,8 +522,8 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 								self.actions.push_back(TssAction::PublicKey(group_public));
 								step = true;
 							},
-							Err(Error::InvalidSecretShare { identifier }) => {
-								self.report(identifier, None);
+							Err(Error::InvalidSecretShare) => {
+								self.report(None, None);
 							},
 							Err(err) => unreachable!("{err}"),
 						}
@@ -592,9 +552,11 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 						if commitments.len() == self.config.total_nodes {
 							log::debug!("received all commitments processing signing");
 							let data = std::mem::take(data);
-							let commitments =
-								std::mem::take(commitments).into_values().collect::<Vec<_>>();
-							let signing_package = SigningPackage::new(commitments, data);
+							let commitments = std::mem::take(commitments)
+								.into_iter()
+								.map(|(peer, package)| (peer_to_frost(&peer), package))
+								.collect();
+							let signing_package = SigningPackage::new(commitments, &data);
 							let signature_share =
 								round2::sign(&signing_package, nonces, key_package)
 									.expect("valid inputs");
@@ -625,8 +587,10 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 					} => {
 						if signature_shares.len() == self.config.total_nodes {
 							log::debug!("Received all shares processing aggregator");
-							let shares =
-								std::mem::take(signature_shares).into_values().collect::<Vec<_>>();
+							let shares = std::mem::take(signature_shares)
+								.into_iter()
+								.map(|(peer, share)| (peer_to_frost(&peer), share))
+								.collect();
 							match frost_evm::aggregate(signing_package, &shares, public_key_package)
 							{
 								Ok(signature) => {
@@ -635,8 +599,8 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 									signing_state.remove(&id);
 									step = true;
 								},
-								Err(Error::InvalidSignatureShare { signer }) => {
-									self.report(signer, Some(id));
+								Err(Error::InvalidSignatureShare { culprit }) => {
+									self.report(Some(culprit), Some(id));
 								},
 								Err(err) => unreachable!("{err}"),
 							}
@@ -666,8 +630,7 @@ impl<I: Clone + Copy + Ord + std::fmt::Debug, P: Clone + Ord + std::fmt::Display
 						return;
 					},
 				};
-				let (nonces, commitment) =
-					round1::commit(self.frost_id, key_package.secret_share(), &mut OsRng);
+				let (nonces, commitment) = round1::commit(key_package.secret_share(), &mut OsRng);
 				commitments.insert(self.peer_id.clone(), commitment);
 				signing_state.insert(
 					id,
@@ -701,13 +664,17 @@ impl<I, P: std::fmt::Display> std::fmt::Display for Tss<I, P> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frost_evm::keys::SigningShare;
+
+	type Peer = u8;
+	type Id = u8;
 
 	#[derive(Default)]
 	struct TssEvents {
-		pubkeys: BTreeMap<u8, VerifyingKey>,
-		signatures: BTreeMap<u8, Signature>,
-		reports: BTreeMap<u8, u8>,
-		timeouts: BTreeMap<u8, Option<Timeout<u8>>>,
+		pubkeys: BTreeMap<Peer, VerifyingKey>,
+		signatures: BTreeMap<Peer, Signature>,
+		reports: BTreeMap<Peer, Option<Peer>>,
+		timeouts: BTreeMap<Peer, Option<Timeout<Id>>>,
 	}
 
 	impl TssEvents {
@@ -729,10 +696,10 @@ mod tests {
 			first.clone()
 		}
 
-		fn assert_reports(&self, n: usize) -> u8 {
+		fn assert_reports(&self, n: usize) -> Option<Peer> {
 			let mut score = BTreeMap::new();
 			for (reporter, offender) in &self.reports {
-				if reporter == offender {
+				if Some(*reporter) == *offender {
 					continue;
 				}
 				*score.entry(offender).or_insert(0) += 1;
@@ -769,11 +736,11 @@ mod tests {
 		}
 	}
 
-	type FaultInjector = Box<dyn FnMut(u8, TssMessage<u8>) -> Option<TssMessage<u8>>>;
+	type FaultInjector = Box<dyn FnMut(Peer, TssMessage<Id>) -> Option<TssMessage<Id>>>;
 
 	struct TssTester {
-		tss: Vec<Tss<u8, u8>>,
-		actions: VecDeque<(u8, TssAction<u8, u8>)>,
+		tss: Vec<Tss<Id, Peer>>,
+		actions: VecDeque<(Peer, TssAction<Id, Peer>)>,
 		events: TssEvents,
 		fault_injector: FaultInjector,
 	}
@@ -786,7 +753,7 @@ mod tests {
 		pub fn new_with_fault_injector(n: usize, fault_injector: FaultInjector) -> Self {
 			let mut tss = Vec::with_capacity(n);
 			for i in 0..n {
-				tss.push(Tss::new(i as u8));
+				tss.push(Tss::new(i as _));
 			}
 			Self {
 				tss,
@@ -798,7 +765,7 @@ mod tests {
 
 		pub fn initialize_one(&mut self, i: usize) {
 			let n = self.tss.len();
-			let members = (0..n).map(|i| i as u8).collect::<BTreeSet<_>>();
+			let members = (0..n).map(|i| i as _).collect::<BTreeSet<_>>();
 			let tss = &mut self.tss[i];
 			tss.initialize(members, n as _);
 			while let Some(action) = tss.next_action() {
@@ -808,7 +775,7 @@ mod tests {
 
 		pub fn initialize(&mut self) {
 			let n = self.tss.len();
-			let members = (0..n).map(|i| i as u8).collect::<BTreeSet<_>>();
+			let members = (0..n).map(|i| i as _).collect::<BTreeSet<_>>();
 			for tss in &mut self.tss {
 				tss.initialize(members.clone(), n as _);
 				while let Some(action) = tss.next_action() {
@@ -817,7 +784,7 @@ mod tests {
 			}
 		}
 
-		pub fn sign_one(&mut self, peer: usize, id: u8, data: &[u8]) {
+		pub fn sign_one(&mut self, peer: usize, id: Id, data: &[u8]) {
 			let tss = &mut self.tss[peer];
 			tss.sign(id, data.to_vec());
 			while let Some(action) = tss.next_action() {
@@ -848,7 +815,7 @@ mod tests {
 				match action {
 					TssAction::Send(peer, msg) => {
 						if let Some(msg) = (self.fault_injector)(peer_id, msg) {
-							let tss = &mut self.tss[peer as usize];
+							let tss = &mut self.tss[usize::from(peer)];
 							tss.on_message(peer_id, msg.clone());
 							while let Some(action) = tss.next_action() {
 								self.actions.push_back((*tss.peer_id(), action));
@@ -895,8 +862,9 @@ mod tests {
 			n,
 			Box::new(|peer_id, msg| {
 				if peer_id == 0 {
-					if let TssMessage::DkgR2 { mut round2_package } = msg {
-						round2_package.receiver_identifier = Identifier::try_from(1).unwrap();
+					if let TssMessage::DkgR2 { .. } = msg {
+						let round2_package =
+							dkg::round2::Package::new(SigningShare::deserialize([42; 32]).unwrap());
 						return Some(TssMessage::DkgR2 { round2_package });
 					}
 				}
@@ -905,7 +873,7 @@ mod tests {
 		);
 		tester.initialize();
 		let offender = tester.run().assert_reports(n - 1);
-		assert_eq!(offender, 0);
+		assert_eq!(offender, None);
 	}
 
 	#[test]
@@ -921,7 +889,7 @@ mod tests {
 						..
 					} = &mut msg
 					{
-						signature_share.identifier = Identifier::try_from(2).unwrap();
+						*signature_share = SignatureShare::deserialize([42; 32]).unwrap();
 					}
 				}
 				Some(msg)
@@ -931,7 +899,7 @@ mod tests {
 		tester.run().assert(n, 0, 0, 0);
 		tester.sign(0, b"message");
 		let offender = tester.run().assert_reports(n - 1);
-		assert_eq!(offender, 0);
+		assert_eq!(offender, Some(0));
 	}
 
 	#[test]

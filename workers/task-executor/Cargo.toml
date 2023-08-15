@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.72"
+async-trait = "0.1.73"
 bincode = "1.3.3"
 futures = "0.3.28"
 log = "0.4.20"

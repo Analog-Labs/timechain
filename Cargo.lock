@@ -11699,6 +11699,7 @@ name = "task-executor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "futures",
  "log",
@@ -11927,6 +11928,7 @@ name = "time-primitives"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "frame-system",
  "futures",
  "log",

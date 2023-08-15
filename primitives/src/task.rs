@@ -1,4 +1,4 @@
-use crate::{AccountId, Network, ScheduleCycle, ShardId, TssSignature};
+use crate::{AccountId, Network, TaskCycle, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -18,38 +18,38 @@ pub enum FunctionResult {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ScheduleStatus {
+pub struct CycleStatus {
 	pub shard_id: ShardId,
 	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ScheduleError {
+pub struct TaskError {
 	pub shard_id: ShardId,
-	pub error_string: String,
+	pub error: String,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskSchedule {
+pub struct TaskDescriptor {
 	pub owner: AccountId,
 	pub network: Network,
 	pub function: Function,
-	pub cycle: ScheduleCycle,
+	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
 	pub hash: String,
 }
 
-impl TaskSchedule {
-	pub fn trigger(&self, cycle: ScheduleCycle) -> u64 {
+impl TaskDescriptor {
+	pub fn trigger(&self, cycle: TaskCycle) -> u64 {
 		self.start + cycle * self.period
 	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ScheduleInput {
+pub struct TaskDescriptorParams {
 	pub network: Network,
-	pub cycle: ScheduleCycle,
+	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
 	pub hash: String,
@@ -59,6 +59,6 @@ pub struct ScheduleInput {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum TaskStatus {
 	Created,
-	Failed { error: ScheduleError },
+	Failed { error: TaskError },
 	Completed,
 }

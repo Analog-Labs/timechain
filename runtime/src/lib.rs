@@ -54,8 +54,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ExecutableTask, PeerId, PublicKey, ScheduleCycle, ShardId, Signature, TaskId,
-	TaskSchedule,
+	AccountId, TaskExecution, PeerId, PublicKey, TaskCycle, ShardId, Signature, TaskId,
+	TaskDescriptor,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1460,11 +1460,11 @@ impl_runtime_apis! {
 			Shards::get_shard_members(shard_id)
 		}
 
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<ExecutableTask> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<TaskSchedule>{
+		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
 			Tasks::get_task(task_id)
 		}
 	}

@@ -1,12 +1,12 @@
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::channel::mpsc;
+use futures::channel::mpsc;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use time_primitives::{PeerId, ShardId, TaskDescriptor, TaskExecution, TaskId, TimeApi};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use futures::channel::mpsc;
+use time_primitives::{PeerId, ShardId, TaskDescriptor, TaskExecution, TaskId, TimeApi};
 
 #[derive(Clone, Default)]
 struct MockApi;

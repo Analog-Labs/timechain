@@ -10,7 +10,7 @@ use sp_runtime::traits::Block;
 use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
 	CycleStatus, Function, FunctionResult, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TimeApi, TssRequest, TssSignature,
+	TaskError, TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
 };
 
 pub struct TaskSpawnerParams {
@@ -119,8 +119,8 @@ impl TaskSpawner for Task {
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
-		cycle: ScheduleCycle,
-		task: TaskSchedule,
+		cycle: TaskCycle,
+		task: TaskDescriptor,
 		block_num: i64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()

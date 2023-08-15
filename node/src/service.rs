@@ -373,7 +373,8 @@ pub fn new_full(
 			// start the executor for one-time task
 			let task_executor_params = task_executor::TaskExecutorParams {
 				_block: PhantomData,
-				runtime: client,
+				runtime: client.clone(),
+				client,
 				backend,
 				peer_id,
 				task_spawner: futures::executor::block_on(task_executor::Task::new(

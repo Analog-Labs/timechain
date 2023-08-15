@@ -17,16 +17,18 @@ pub const TW_LOG: &str = "task-executor";
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B: Block, BE, R, T>
+pub struct TaskExecutorParams<B: Block, BE, C, R, T>
 where
 	B: Block,
 	BE: Backend<B> + 'static,
-	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
+	C: BlockchainEvents<B>,
+	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {
 	pub _block: PhantomData<B>,
 	pub backend: Arc<BE>,
+	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub peer_id: PeerId,
 	pub task_spawner: T,
@@ -35,11 +37,12 @@ where
 /// Start the task Executor gadget.
 ///
 /// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_task_executor_gadget<B, BE, R, T>(params: TaskExecutorParams<B, BE, R, T>)
+pub async fn start_task_executor_gadget<B, BE, C, R, T>(params: TaskExecutorParams<B, BE, C, R, T>)
 where
 	B: Block,
 	BE: Backend<B> + 'static,
-	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
+	C: BlockchainEvents<B>,
+	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {

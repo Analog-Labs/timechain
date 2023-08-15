@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sc_network_test::Block;
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use time_primitives::{PeerId, ShardId, TaskExecution, TaskDescriptor, TaskId, TimeApi};
+use time_primitives::{PeerId, ShardId, TaskDescriptor, TaskExecution, TaskId, TimeApi};
 
 #[derive(Clone, Default)]
 struct MockApi;

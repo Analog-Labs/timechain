@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sc_network_test::Block;
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use time_primitives::{PeerId, ShardId, TaskCycle, TaskDescriptor, TaskId, TimeApi};
+use time_primitives::{PeerId, ShardId, TaskExecution, TaskDescriptor, TaskId, TimeApi};
 
 #[derive(Clone, Default)]
 struct MockApi;
@@ -14,7 +14,7 @@ sp_api::mock_impl_runtime_apis! {
 			vec![1]
 		}
 
-		fn get_shard_tasks(&self, _shard_id: ShardId) -> Vec<(TaskId, TaskCycle)> {
+		fn get_shard_tasks(&self, _shard_id: ShardId) -> Vec<TaskExecution> {
 			vec![]
 		}
 

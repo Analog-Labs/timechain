@@ -129,27 +129,30 @@ impl TaskSpawner for Task {
 	}
 }
 
-pub struct TaskExecutor<B: Block, BE, R, T> {
+pub struct TaskExecutor<B: Block, BE, C, R, T> {
 	_block: PhantomData<B>,
 	backend: Arc<BE>,
+	client: Arc<C>,
 	runtime: Arc<R>,
 	peer_id: PeerId,
 	running_tasks: HashSet<TaskExecution>,
 	task_spawner: T,
 }
 
-impl<B, BE, R, T> TaskExecutor<B, BE, R, T>
+impl<B, BE, C, R, T> TaskExecutor<B, BE, C, R, T>
 where
 	B: Block,
 	BE: Backend<B> + 'static,
-	R: BlockchainEvents<B> + ProvideRuntimeApi<B>,
+	C: BlockchainEvents<B>,
+	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {
-	pub fn new(params: TaskExecutorParams<B, BE, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, BE, C, R, T>) -> Self {
 		let TaskExecutorParams {
 			_block,
 			backend,
+			client,
 			runtime,
 			peer_id,
 			task_spawner,
@@ -157,6 +160,7 @@ where
 		Self {
 			_block,
 			backend,
+			client,
 			runtime,
 			peer_id,
 			running_tasks: Default::default(),
@@ -219,7 +223,7 @@ where
 	}
 
 	pub async fn run(&mut self) {
-		let mut finality_notifications = self.runtime.finality_notification_stream();
+		let mut finality_notifications = self.client.finality_notification_stream();
 		while let Some(notification) = finality_notifications.next().await {
 			if let Err(err) = self.start_tasks(notification.header.hash()).await {
 				log::error!("error processing tasks: {}", err);

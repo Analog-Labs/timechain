@@ -1,4 +1,4 @@
-use crate::{Network, TaskCycle, TaskError, CycleStatus, ShardId, TaskId, TssPublicKey};
+use crate::{CycleStatus, Network, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
 use codec::{Decode, Encode};
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 

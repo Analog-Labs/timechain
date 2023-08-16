@@ -34,7 +34,7 @@ fn test_create_task() {
 			mock_task(Network::Ethereum, 1)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, 0, 0)]);
+		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, 1, 0)]);
 		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
 	});
 }

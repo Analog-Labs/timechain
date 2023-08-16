@@ -168,7 +168,7 @@ where
 		}
 	}
 
-	async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	pub async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
 		let block_height = self.task_spawner.block_height().await?;
 		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
 		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
@@ -197,7 +197,6 @@ where
 					);
 					tokio::task::spawn(async move {
 						let result = task.await.map_err(|e| e.to_string());
-
 						match result {
 							Ok(signature) => {
 								let status = CycleStatus { shard_id, signature };

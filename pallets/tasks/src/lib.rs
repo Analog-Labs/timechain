@@ -13,6 +13,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
+	use sp_runtime::Saturating;
 	use time_primitives::{
 		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
 		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
@@ -122,7 +123,7 @@ pub mod pallet {
 				},
 			);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			TaskIdCounter::<T>::put(task_id + 1);
+			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network);
@@ -159,10 +160,7 @@ pub mod pallet {
 		}
 
 		fn is_failed(task_id: TaskId) -> bool {
-			if let Some(TaskStatus::Failed { .. }) = TaskState::<T>::get(task_id) {
-				return true;
-			}
-			return false;
+			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Failed { .. }))
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {
@@ -221,7 +219,7 @@ pub mod pallet {
 			status: CycleStatus,
 		) -> DispatchResult {
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			TaskCycleState::<T>::insert(task_id, cycle + 1);
+			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
@@ -237,7 +235,7 @@ pub mod pallet {
 
 		fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult {
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
-			TaskRetryCounter::<T>::insert(task_id, retry_count + 1);
+			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
 			//since count starts from 0 decrementing maxretrycount
 			if retry_count == T::MaxRetryCount::get() - 1 {
 				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });

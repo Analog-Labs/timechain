@@ -1,22 +1,22 @@
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
+use futures::executor::block_on;
 use futures::{future, FutureExt};
+use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::Backend;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
+use sp_consensus::BlockOrigin;
+use sp_runtime::AccountId32;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
-use time_primitives::{
-	OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskExecution, TaskId, TaskSpawner,
-	TimeApi, TssSignature, Network, Function
-};
-use futures::executor::block_on;
-use sc_block_builder::BlockBuilderProvider;
 use substrate_test_runtime_client::ClientBlockImportExt;
-use sp_consensus::BlockOrigin;
-use sp_runtime::AccountId32;
+use time_primitives::{
+	Function, Network, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskExecution,
+	TaskId, TaskSpawner, TimeApi, TssSignature,
+};
 
 #[derive(Clone, Default)]
 struct MockApi;
@@ -130,12 +130,12 @@ async fn task_executor_smoke() -> Result<()> {
 			};
 			if is_task_ok {
 				assert_eq!(matches!(msg, OcwPayload::SubmitTaskResult { .. }), true);
-				break
+				break;
 			} else {
 				assert_eq!(matches!(msg, OcwPayload::SubmitTaskError { .. }), true);
-				break
+				break;
 			}
-		};
+		}
 	}
 	Ok(())
 }

@@ -3,7 +3,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use time_primitives::{
 	CycleStatus, Function, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId, TaskCycle,
-	TaskDescriptorParams, TaskExecution,
+	TaskDescriptorParams, TaskExecution, TaskStatus,
 };
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
@@ -35,5 +35,17 @@ fn test_create_task() {
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, 0, 0)]);
 		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+	});
+}
+
+#[test]
+fn task_stopped_by_owner() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
 	});
 }

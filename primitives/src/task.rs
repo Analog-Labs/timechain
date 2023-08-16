@@ -65,6 +65,7 @@ pub struct TaskDescriptorParams {
 pub enum TaskStatus {
 	Created,
 	Failed { error: TaskError },
+	Stopped,
 	Completed,
 }
 

@@ -65,6 +65,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn task_state)]
 	pub type TaskState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskStatus, OptionQuery>;
 
@@ -95,10 +96,16 @@ pub mod pallet {
 		TaskResult(TaskId, TaskCycle, CycleStatus),
 		/// Error occured while executing task
 		TaskError(TaskId, TaskError),
+		/// Task stopped by owner
+		TaskStopped(TaskId),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Invalid Task
+		InvalidTask,
+		/// Invalid Owner
+		InvalidOwner,
 		/// Invalid cycle
 		InvalidCycle,
 	}
@@ -127,6 +134,17 @@ pub mod pallet {
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network);
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::create_task())]
+		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			ensure!(Tasks::<T>::contains_key(task_id), Error::<T>::InvalidTask);
+			ensure!(Tasks::<T>::get(task_id).unwrap().owner == owner, Error::<T>::InvalidOwner);
+			TaskState::<T>::insert(task_id, TaskStatus::Stopped);
+			Self::deposit_event(Event::TaskStopped(task_id));
 			Ok(())
 		}
 	}
@@ -159,12 +177,8 @@ pub mod pallet {
 			}
 		}
 
-		fn is_failed(task_id: TaskId) -> bool {
-			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Failed { .. }))
-		}
-
 		fn is_runnable(task_id: TaskId) -> bool {
-			!Self::is_complete(task_id) && !Self::is_failed(task_id)
+			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Created))
 		}
 
 		fn shard_task_count(shard_id: ShardId) -> usize {

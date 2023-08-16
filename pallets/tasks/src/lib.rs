@@ -189,7 +189,7 @@ pub mod pallet {
 				.map(|(task_id, _)| {
 					TaskExecution::new(
 						task_id,
-						TaskCycleState::<T>::get(task_id),
+						TaskCycleState::<T>::get(task_id).saturating_plus_one(),
 						TaskRetryCounter::<T>::get(task_id),
 					)
 				})
@@ -269,8 +269,9 @@ pub mod pallet {
 			cycle: TaskCycle,
 			status: CycleStatus,
 		) -> DispatchResult {
-			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
+			let dec_cycle = cycle.saturating_less_one();
+			ensure!(TaskCycleState::<T>::get(task_id) == dec_cycle, Error::<T>::InvalidCycle);
+			TaskCycleState::<T>::insert(task_id, cycle);
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {

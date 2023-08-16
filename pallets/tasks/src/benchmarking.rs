@@ -2,10 +2,10 @@ use crate::{Call, Config, Pallet};
 use codec::alloc::string::ToString;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use time_primitives::{Function, Network, ScheduleInput};
+use time_primitives::{Function, Network, TaskDescriptorParams};
 
 benchmarks! {
-	create_task {}: _(RawOrigin::Signed(whitelisted_caller()), ScheduleInput {
+	create_task {}: _(RawOrigin::Signed(whitelisted_caller()), TaskDescriptorParams {
 		network: Network::Ethereum,
 		function: Function::EVMViewWithoutAbi {
 			address: Default::default(),

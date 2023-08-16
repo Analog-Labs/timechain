@@ -77,4 +77,8 @@ impl<T: frame_system::Config> pallet_ocw::WeightInfo for WeightInfo<T> {
 	fn set_shard_offline() -> Weight {
 		Weight::default()
 	}
+
+	fn submit_task_error() -> Weight {
+		Weight::default()
+	}
 }

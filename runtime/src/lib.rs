@@ -54,7 +54,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, PeerId, PublicKey, ScheduleCycle, ShardId, Signature, TaskId, TaskSchedule,
+	AccountId, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor, TaskExecution,
+	TaskId,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1149,6 +1150,7 @@ impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type ShardStatus = Shards;
+	type MaxRetryCount = ConstU8<3>;
 }
 
 impl pallet_ocw::Config for Runtime {
@@ -1465,11 +1467,11 @@ impl_runtime_apis! {
 			Shards::get_shard_members(shard_id)
 		}
 
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<TaskSchedule>{
+		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
 			Tasks::get_task(task_id)
 		}
 	}

@@ -1,9 +1,14 @@
-use crate::{AccountId, Network, ScheduleCycle, ShardId, TssSignature};
+use crate::{AccountId, Network, ShardId, TaskCycle, TaskId, TssSignature};
+use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
 use sp_std::vec::Vec;
+#[cfg(feature = "std")]
+use std::future::Future;
+#[cfg(feature = "std")]
+use std::pin::Pin;
 
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -17,37 +22,64 @@ pub enum FunctionResult {
 	EVMViewWithoutAbi { result: Vec<String> },
 }
 
-pub type ScheduleResult = Result<TssSignature, String>;
-
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ScheduleStatus {
+pub struct CycleStatus {
 	pub shard_id: ShardId,
-	pub result: ScheduleResult,
+	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskSchedule {
+pub struct TaskError {
+	pub shard_id: ShardId,
+	pub error: String,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct TaskDescriptor {
 	pub owner: AccountId,
 	pub network: Network,
 	pub function: Function,
-	pub cycle: ScheduleCycle,
+	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
 	pub hash: String,
 }
 
-impl TaskSchedule {
-	pub fn trigger(&self, cycle: ScheduleCycle) -> u64 {
+impl TaskDescriptor {
+	pub fn trigger(&self, cycle: TaskCycle) -> u64 {
 		self.start + cycle * self.period
 	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct ScheduleInput {
+pub struct TaskDescriptorParams {
 	pub network: Network,
-	pub cycle: ScheduleCycle,
+	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
 	pub hash: String,
 	pub function: Function,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub enum TaskStatus {
+	Created,
+	Failed { error: TaskError },
+	Completed,
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait TaskSpawner {
+	async fn block_height(&self) -> Result<u64>;
+
+	fn execute(
+		&self,
+		target_block: u64,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		task: TaskDescriptor,
+		block_num: i64,
+	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
 }

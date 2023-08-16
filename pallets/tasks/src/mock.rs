@@ -1,5 +1,5 @@
 use crate::{self as task_schedule};
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -74,6 +74,7 @@ impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ShardStatus = MockShardInterface;
+	type MaxRetryCount = ConstU8<3>;
 }
 
 // Build genesis storage according to the mock runtime.

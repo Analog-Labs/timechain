@@ -3,7 +3,7 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use sp_std::vec;
 use time_primitives::{
-	Network, OcwShardInterface, PublicKey, ScheduleStatus, ShardCreated, ShardId, TssPublicKey,
+	CycleStatus, Network, OcwShardInterface, PublicKey, ShardCreated, ShardId, TssPublicKey,
 };
 
 fn collector() -> PublicKey {
@@ -25,7 +25,7 @@ benchmarks! {
 
 	submit_task_result {
 		Pallet::<T>::shard_created(SHARD_ID, collector());
-	}: _(RawOrigin::Signed([42; 32].into()), 0, 0, ScheduleStatus {
+	}: _(RawOrigin::Signed([42; 32].into()), 0, 0, CycleStatus {
 		shard_id: SHARD_ID, result: Ok([0; 64])
 	}) verify { }
 

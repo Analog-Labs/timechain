@@ -28,8 +28,9 @@ pub type TssSignature = [u8; 64];
 pub type PeerId = [u8; 32];
 pub type TaskId = u64;
 pub type ShardId = u64;
-pub type ScheduleCycle = u64;
-pub type TssId = (TaskId, ScheduleCycle);
+pub type TaskCycle = u64;
+pub type TaskRetryCount = u8;
+pub type TssId = (TaskId, TaskCycle);
 
 #[cfg(feature = "std")]
 pub struct TssRequest {
@@ -44,8 +45,8 @@ sp_api::decl_runtime_apis! {
 	pub trait TimeApi {
 		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<(TaskId, ScheduleCycle)>;
-		fn get_task(task_id: TaskId) -> Option<TaskSchedule>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
+		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 	}
 }
 
@@ -59,6 +60,20 @@ pub mod crypto {
 		type RuntimeAppPublic = Public;
 		type GenericSignature = sr25519::Signature;
 		type GenericPublic = sr25519::Public;
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
+pub struct TaskExecution {
+	pub task_id: TaskId,
+	pub cycle: TaskCycle,
+	pub retry_count: TaskRetryCount,
+}
+
+impl TaskExecution {
+	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount) -> Self {
+		Self { task_id, cycle, retry_count }
 	}
 }
 
@@ -95,11 +110,10 @@ pub trait OcwShardInterface {
 }
 
 pub trait OcwSubmitTaskResult {
-	fn submit_task_result(
-		task_id: TaskId,
-		cycle: ScheduleCycle,
-		status: ScheduleStatus,
-	) -> DispatchResult;
+	fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus)
+		-> DispatchResult;
+
+	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
 }
 
 pub trait ShardStatusInterface {

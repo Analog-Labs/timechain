@@ -12,8 +12,8 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_std::vec::Vec;
 	use sp_runtime::Saturating;
+	use sp_std::vec::Vec;
 	use time_primitives::{
 		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
 		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,

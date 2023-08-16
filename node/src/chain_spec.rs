@@ -855,16 +855,12 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 				],
 				// Pre-funded accounts
 				vec![
-					// TODO remove the 1_000_000_000 after tokenomics issue fixed
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						ANLOG * 2000000 * 1_000_000_000,
-					),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
 					// dev collector prefund, shard1
 					(
 						hex!["78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"]
 							.into(),
-						ANLOG * 2000000 * 1_000_000_000,
+						ANLOG * 2000000,
 					),
 					// dev collector prefund, shard2
 					(
@@ -883,16 +879,8 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 					(get_account_id_from_seed::<sr25519::Public>("Lisa"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Mona"), ANLOG * 1000000),
 					(get_account_id_from_seed::<sr25519::Public>("Nash"), ANLOG * 1000000),
-					// TODO remove the 1_000_000_000 after tokenomics issue fixed
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-						ANLOG * 1000000 * 1_000_000_000,
-					),
-					(
-						// TODO remove the 1_000_000_000 after tokenomics issue fixed
-						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-						ANLOG * 1000000 * 1_000_000_000,
-					),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 1000000),
 					(
 						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
 						ANLOG * 1000000,

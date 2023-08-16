@@ -46,8 +46,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Percent, SaturatedConversion,
 };
 
-use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-
 use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -66,7 +64,7 @@ pub use frame_support::{
 		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
 		OnUnbalanced, Randomness, StorageInfo,
 	},
-	weights::{constants::RocksDbWeight, IdentityFee, Weight, WeightToFee},
+	weights::{constants::RocksDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
 	PalletId, StorageValue,
 };
 pub use frame_system::Call as SystemCall;
@@ -993,33 +991,13 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 	MaximumMultiplier,
 >;
 
-// Adapted multiplier for analog transaction fee
-pub struct AnalogConstantMultiplier<T, M>(sp_std::marker::PhantomData<(T, M)>);
-
-impl<T, M> WeightToFee for AnalogConstantMultiplier<T, M>
-where
-	T: BaseArithmetic + From<u32> + Copy + Unsigned,
-	M: Get<T>,
-{
-	type Balance = T;
-	// since analog token's decimal is 8, we need to divide the weight by 100_000_000
-	// the transfer transaction fee is about 0.02 ANLOG, which total supply is 100 million.
-	fn weight_to_fee(weight: &Weight) -> Self::Balance {
-		Self::Balance::saturated_from(weight.ref_time()).saturating_mul(M::get())
-	}
-}
-
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
 	// multiplier to boost the priority of operational transactions
 	type OperationalFeeMultiplier = ConstU8<5>;
-	// charged weight = WEIGHT_FEE * weight_units_recorded
-	type WeightToFee = AnalogConstantMultiplier<Balance, ConstU128<{ WEIGHT_FEE }>>;
-	// type WeightToFee = IdentityFee<Balance>;
-	// length fee = TransactionByteFee * encoded_tx.len()
-	type LengthToFee = AnalogConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
-	// type LengthToFee = IdentityFee<Balance>;
+	type WeightToFee = IdentityFee<Balance>;
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
 
@@ -1161,11 +1139,6 @@ impl pallet_ocw::Config for Runtime {
 	type Tasks = Tasks;
 }
 
-impl pallet_template::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1191,7 +1164,6 @@ construct_runtime!(
 		Treasury: pallet_treasury,
 		Tasks: pallet_tasks,
 		Ocw: pallet_ocw,
-		Template: pallet_template,
 	}
 );
 

@@ -9,14 +9,14 @@ pub mod currency {
 
 	pub const TOKEN_DECIMALS: u32 = 12;
 	const TOKEN_BASE: u128 = 10;
-	pub const ANLOG: Balance = TOKEN_BASE.pow(TOKEN_DECIMALS); // 10^8
-	pub const MILLIANLOG: Balance = ANLOG / 1000; // 10^5
-	pub const MICROANLOG: Balance = MILLIANLOG / 1000; // 10^2
-	pub const TOCK: Balance = 1; // 1
+	pub const ANLOG: Balance = TOKEN_BASE.pow(TOKEN_DECIMALS); // 10^12
+	pub const MILLIANLOG: Balance = ANLOG / 1000; // 10^9
+	pub const MICROANLOG: Balance = MILLIANLOG / 1000; // 10^6
+	pub const NANOANLOG: Balance = MICROANLOG / 1000; // 10^3
+	pub const TOCK: Balance = NANOANLOG / 1000; // 1
 
-	pub const TRANSACTION_BYTE_FEE: Balance = 100_000 * 1;
-	pub const STORAGE_BYTE_FEE: Balance = 500 * MICROANLOG;
-	pub const WEIGHT_FEE: Balance = TOCK;
+	pub const TRANSACTION_BYTE_FEE: Balance = MICROANLOG;
+	pub const STORAGE_BYTE_FEE: Balance = 500 * MILLIANLOG;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		items as Balance * 15 * MICROANLOG + (bytes as Balance) * STORAGE_BYTE_FEE

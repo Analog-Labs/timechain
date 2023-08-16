@@ -4,7 +4,6 @@ members = [
 	"pallets/ocw",
 	"pallets/shards",
 	"pallets/tasks",
-	"pallets/template",
 	"primitives",
 	"runtime",
 	"runtime/common",

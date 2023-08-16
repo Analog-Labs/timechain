@@ -1005,7 +1005,6 @@ where
 	// the transfer transaction fee is about 0.02 ANLOG, which total supply is 100 million.
 	fn weight_to_fee(weight: &Weight) -> Self::Balance {
 		Self::Balance::saturated_from(weight.ref_time()).saturating_mul(M::get())
-			/ 100_000_000_u32.into()
 	}
 }
 
@@ -1016,8 +1015,10 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OperationalFeeMultiplier = ConstU8<5>;
 	// charged weight = WEIGHT_FEE * weight_units_recorded
 	type WeightToFee = AnalogConstantMultiplier<Balance, ConstU128<{ WEIGHT_FEE }>>;
+	// type WeightToFee = IdentityFee<Balance>;
 	// length fee = TransactionByteFee * encoded_tx.len()
 	type LengthToFee = AnalogConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
+	// type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
 
@@ -1158,6 +1159,11 @@ impl pallet_ocw::Config for Runtime {
 	type Tasks = Tasks;
 }
 
+impl pallet_template::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1183,6 +1189,7 @@ construct_runtime!(
 		Treasury: pallet_treasury,
 		Tasks: pallet_tasks,
 		Ocw: pallet_ocw,
+		Template: pallet_template,
 	}
 );
 

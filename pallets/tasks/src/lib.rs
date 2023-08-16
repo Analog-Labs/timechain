@@ -189,7 +189,7 @@ pub mod pallet {
 				.map(|(task_id, _)| {
 					TaskExecution::new(
 						task_id,
-						TaskCycleState::<T>::get(task_id).saturating_plus_one(),
+						TaskCycleState::<T>::get(task_id),
 						TaskRetryCounter::<T>::get(task_id),
 					)
 				})

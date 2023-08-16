@@ -197,12 +197,13 @@ where
 					);
 					tokio::task::spawn(async move {
 						let result = task.await.map_err(|e| e.to_string());
+						let cycle_inc = cycle + 1;
 						match result {
 							Ok(signature) => {
 								let status = CycleStatus { shard_id, signature };
 								time_primitives::write_message(
 									storage,
-									&OcwPayload::SubmitTaskResult { task_id, cycle, status },
+									&OcwPayload::SubmitTaskResult { task_id, cycle: cycle_inc, status },
 								);
 							},
 							Err(error) => {

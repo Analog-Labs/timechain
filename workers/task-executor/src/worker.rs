@@ -9,21 +9,24 @@ use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
-	CycleStatus, Function, FunctionResult, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
+	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
+	TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
 };
+use timegraph_client::{Timegraph, TimegraphData};
 
 pub struct TaskSpawnerParams {
 	pub tss: mpsc::Sender<TssRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
+	pub timegraph_url: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct Task {
 	tss: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
+	timegraph: Option<Arc<Timegraph>>,
 }
 
 impl Task {
@@ -37,14 +40,23 @@ impl Task {
 			)
 			.await?,
 		);
-		Ok(Self { tss: params.tss, wallet })
+		let timegraph = if let Some(url) = params.timegraph_url {
+			Some(Arc::new(Timegraph::new(url)?))
+		} else {
+			None
+		};
+		Ok(Self {
+			tss: params.tss,
+			wallet,
+			timegraph,
+		})
 	}
 
 	async fn execute_function(
 		&self,
 		function: &Function,
 		target_block_number: u64,
-	) -> Result<FunctionResult> {
+	) -> Result<Vec<String>> {
 		let block = PartialBlockIdentifier {
 			index: Some(target_block_number),
 			hash: None,
@@ -67,7 +79,7 @@ impl Task {
 						.collect::<Vec<String>>(),
 					v => vec![v.to_string()],
 				};
-				Ok(FunctionResult::EVMViewWithoutAbi { result })
+				Ok(result)
 			},
 		}
 	}
@@ -77,7 +89,7 @@ impl Task {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		result: &FunctionResult,
+		result: &[String],
 	) -> Result<TssSignature> {
 		let data = bincode::serialize(&result).context("Failed to serialize task")?;
 		let (tx, rx) = oneshot::channel();
@@ -100,20 +112,24 @@ impl Task {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		task: TaskDescriptor,
-		block_num: i64,
+		block_num: u64,
 	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function, target_block).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
-		timechain_integration::submit_to_timegraph(
-			task.hash.clone(),
-			task_id,
-			cycle,
-			target_block,
-			block_num,
-			signature,
-			result,
-		)
-		.await?;
+		if let Some(timegraph) = self.timegraph.as_ref() {
+			timegraph
+				.submit_data(TimegraphData {
+					collection: task.hash.clone(),
+					task_id,
+					cycle,
+					target_block_number: target_block,
+					timechain_block_number: block_num,
+					shard_id,
+					signature,
+					data: result,
+				})
+				.await?;
+		}
 		Ok(signature)
 	}
 }
@@ -132,7 +148,7 @@ impl TaskSpawner for Task {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		task: TaskDescriptor,
-		block_num: i64,
+		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
 			.execute(target_block, shard_id, task_id, cycle, task, block_num)
@@ -183,7 +199,7 @@ where
 		let block_height = self.task_spawner.block_height().await?;
 		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
 		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
-		let block_num: i64 = block_num.to_string().parse()?;
+		let block_num: u64 = block_num.to_string().parse()?;
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id)?;
 			log::info!("got task ====== {:?}", tasks);

@@ -218,6 +218,7 @@ pub fn run() -> sc_cli::Result<()> {
 					cli.run.connector_blockchain,
 					cli.run.connector_network,
 					cli.run.without_chronicle,
+					cli.run.timegraph_url,
 				)
 				.map_err(sc_cli::Error::Service)
 			})

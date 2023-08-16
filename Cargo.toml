@@ -10,9 +10,9 @@ members = [
 	"tss",
 	"workers/task-executor",
 	"workers/time-worker",
-	"workers/timechain-integration",
 ]
 resolver = "2"
+
 [profile.release]
 opt-level = "z"
 panic = "unwind"

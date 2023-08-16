@@ -81,7 +81,7 @@ impl TaskSpawner for MockTask {
 		_task_id: TaskId,
 		_cycle: TaskCycle,
 		_task: TaskDescriptor,
-		_block_num: i64,
+		_block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		if self.is_ok {
 			future::ready(Ok([0u8; 64])).boxed()
@@ -129,10 +129,10 @@ async fn task_executor_smoke() -> Result<()> {
 				continue;
 			};
 			if is_task_ok {
-				assert_eq!(matches!(msg, OcwPayload::SubmitTaskResult { .. }), true);
+				assert!(matches!(msg, OcwPayload::SubmitTaskResult { .. }));
 				break;
 			} else {
-				assert_eq!(matches!(msg, OcwPayload::SubmitTaskError { .. }), true);
+				assert!(matches!(msg, OcwPayload::SubmitTaskError { .. }));
 				break;
 			}
 		}

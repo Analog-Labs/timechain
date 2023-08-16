@@ -24,6 +24,9 @@ pub struct RunCmd {
 	/// The node not run TSS and task executor.
 	#[clap(long)]
 	pub without_chronicle: bool,
+	/// The timegraph url.
+	#[clap(long)]
+	pub timegraph_url: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]

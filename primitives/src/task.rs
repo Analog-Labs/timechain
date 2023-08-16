@@ -16,12 +16,6 @@ pub enum Function {
 	EVMViewWithoutAbi { address: String, function_signature: String, input: Vec<String> },
 }
 
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub enum FunctionResult {
-	EVMViewWithoutAbi { result: Vec<String> },
-}
-
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct CycleStatus {
 	pub shard_id: ShardId,
@@ -81,6 +75,6 @@ pub trait TaskSpawner {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		task: TaskDescriptor,
-		block_num: i64,
+		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
 }

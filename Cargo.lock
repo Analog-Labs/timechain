@@ -2388,12 +2388,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
 name = "downcast"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11674,7 +11668,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "surf",
  "time-primitives",
- "timechain-integration",
+ "timegraph-client",
  "tokio",
 ]
 
@@ -11924,22 +11918,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "timechain-integration"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dotenv",
- "graphql_client",
- "hex",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "time-primitives",
- "tokio",
-]
-
-[[package]]
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
@@ -12056,6 +12034,20 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "time-primitives",
+]
+
+[[package]]
+name = "timegraph-client"
+version = "0.1.6"
+source = "git+https://github.com/analog-labs/timegraph-sdk?branch=timegraph-client#92a33f15cbcc825be4aced473f24a0eb632d01b2"
+dependencies = [
+ "anyhow",
+ "graphql_client",
+ "hex",
+ "log",
+ "reqwest",
+ "serde",
+ "tokio",
 ]
 
 [[package]]

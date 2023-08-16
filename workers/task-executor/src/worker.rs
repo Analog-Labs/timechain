@@ -203,7 +203,11 @@ where
 								let status = CycleStatus { shard_id, signature };
 								time_primitives::write_message(
 									storage,
-									&OcwPayload::SubmitTaskResult { task_id, cycle: cycle_inc, status },
+									&OcwPayload::SubmitTaskResult {
+										task_id,
+										cycle: cycle_inc,
+										status,
+									},
 								);
 							},
 							Err(error) => {

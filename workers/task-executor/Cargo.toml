@@ -21,3 +21,6 @@ tokio = { version = "1.31.0", features = [ "macros" ] }
 [dev-dependencies]
 sc-network-test = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
+sp-consensus = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-block-builder = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+substrate-test-runtime-client = {  git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

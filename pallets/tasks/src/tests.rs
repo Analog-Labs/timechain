@@ -78,3 +78,20 @@ fn task_invalid_task_state_during_resume() {
 		);
 	});
 }
+
+#[test]
+fn task_stopped_and_moved_on_shard_offline() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		Tasks::shard_offline(1, Network::Ethereum);
+		Tasks::shard_online(2, Network::Ethereum);
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
+		assert_eq!(Tasks::get_shard_tasks(2), vec![TaskExecution::new(0, 0, 0)]);
+	});
+}

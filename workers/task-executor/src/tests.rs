@@ -19,7 +19,9 @@ use time_primitives::{
 };
 
 #[derive(Clone, Default)]
-struct MockApi;
+struct MockApi {
+	mock_cycle: TaskCycle,
+}
 
 impl MockApi {}
 
@@ -37,7 +39,7 @@ sp_api::mock_impl_runtime_apis! {
 			Some(TaskDescriptor{
 				owner: AccountId32::new([0u8; 32]),
 				network: Network::Ethereum,
-				cycle: 0,
+				cycle: self.mock_cycle,
 				function: Function::EVMViewWithoutAbi {
 					address: Default::default(),
 					function_signature: Default::default(),
@@ -58,6 +60,7 @@ impl ProvideRuntimeApi<Block> for MockApi {
 	}
 }
 
+#[derive(Clone)]
 struct MockTask {
 	is_ok: bool,
 }
@@ -137,5 +140,53 @@ async fn task_executor_smoke() -> Result<()> {
 			}
 		}
 	}
+	Ok(())
+}
+
+#[tokio::test]
+async fn recurring_task_executor_smoke() -> Result<()> {
+	let mut task_cycle = 5;
+
+	let (mut client, backend) = {
+		let builder = TestClientBuilder::with_default_backend();
+		let backend = builder.backend();
+		let (client, _) = builder.build_with_longest_chain();
+		(Arc::new(client), backend)
+	};
+	let storage = backend.offchain_storage().unwrap();
+
+	//import block
+	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	let dummy_block_hash = block.header.hash();
+
+	let task_spawner = MockTask::new(true);
+
+	for _i in 0..task_cycle {
+		let api = Arc::new(MockApi { mock_cycle: task_cycle });
+
+		let params = TaskExecutorParams {
+			_block: PhantomData::default(),
+			backend: backend.clone(),
+			client: client.clone(),
+			runtime: api.clone(),
+			peer_id: [0u8; 32],
+			task_spawner: task_spawner.clone(),
+		};
+
+		let mut task_executor = TaskExecutor::new(params);
+		let _ = task_executor.start_tasks(dummy_block_hash).await;
+
+		loop {
+			let Some(msg) = time_primitives::read_message(storage.clone()) else {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			};
+			assert_eq!(matches!(msg, OcwPayload::SubmitTaskResult { .. }), true);
+			task_cycle -= 1;
+			break;
+		}
+	}
+	assert_eq!(task_cycle, 0);
 	Ok(())
 }

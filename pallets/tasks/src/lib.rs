@@ -275,11 +275,10 @@ pub mod pallet {
 			TaskResults::<T>::insert(task_id, incremented_cycle, status.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
-				if let Some(shard_id) = TaskShard::<T>::get(task_id) {
+				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 					ShardTasks::<T>::remove(shard_id, task_id);
 				}
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
-				TaskShard::<T>::remove(task_id);
 			}
 			Self::deposit_event(Event::TaskResult(task_id, incremented_cycle, status));
 			Ok(())

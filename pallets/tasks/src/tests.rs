@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::Error;
 use frame_support::{assert_noop, assert_ok};
-use frame_system::{RawOrigin};
+use frame_system::RawOrigin;
 use time_primitives::{
 	CycleStatus, Function, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId, TaskCycle,
 	TaskDescriptorParams, TaskExecution, TaskStatus,
@@ -72,6 +72,9 @@ fn task_invalid_task_state_during_resume() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_noop!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0), Error::<Test>::InvalidTaskState);
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),
+			Error::<Test>::InvalidTaskState
+		);
 	});
 }

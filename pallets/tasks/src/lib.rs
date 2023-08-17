@@ -49,6 +49,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type ShardStatus: ShardStatusInterface;
+		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 	}
 
@@ -252,8 +253,7 @@ pub mod pallet {
 
 		fn shard_offline(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::remove(network, shard_id);
-			ShardTasks::<T>::iter_prefix(shard_id).for_each(|(task_id, _)| {
-				ShardTasks::<T>::remove(shard_id, task_id);
+			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
 				if Self::is_runnable(task_id) || Self::is_resumable(task_id) {
 					UnassignedTasks::<T>::insert(network, task_id, ());

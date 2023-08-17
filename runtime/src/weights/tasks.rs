@@ -50,4 +50,12 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+
+	fn stop_task() -> Weight {
+		Weight::default()
+	}
+
+	fn resume_task() -> Weight{
+		Weight::default()
+	}
 }

@@ -22,10 +22,20 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
+		fn stop_task() -> Weight;
+		fn resume_task() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn create_task() -> Weight {
+			Weight::default()
+		}
+
+		fn stop_task() -> Weight {
+			Weight::default()
+		}
+
+		fn resume_task() -> Weight {
 			Weight::default()
 		}
 	}
@@ -98,12 +108,16 @@ pub mod pallet {
 		TaskError(TaskId, TaskError),
 		/// Task stopped by owner
 		TaskStopped(TaskId),
+		/// Task resumed by owner
+		TaskResumed(TaskId),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Invalid Task
-		InvalidTask,
+		/// Unknown Task
+		UnknownTask,
+		/// Invalid Task State
+		InvalidTaskState,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Invalid cycle
@@ -138,12 +152,31 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::create_task())]
+		#[pallet::weight(T::WeightInfo::stop_task())]
 		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
-			ensure!(Tasks::<T>::contains_key(task_id), Error::<T>::InvalidTask);
-			ensure!(Tasks::<T>::get(task_id).unwrap().owner == owner, Error::<T>::InvalidOwner);
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
+			ensure!(
+				TaskState::<T>::get(task_id) == Some(TaskStatus::Created),
+				Error::<T>::InvalidTaskState
+			);
 			TaskState::<T>::insert(task_id, TaskStatus::Stopped);
+			Self::deposit_event(Event::TaskStopped(task_id));
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::resume_task())]
+		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
+			ensure!(
+				TaskState::<T>::get(task_id) == Some(TaskStatus::Stopped),
+				Error::<T>::InvalidTaskState
+			);
+			TaskState::<T>::insert(task_id, TaskStatus::Created);
 			Self::deposit_event(Event::TaskStopped(task_id));
 			Ok(())
 		}
@@ -175,6 +208,10 @@ pub mod pallet {
 			} else {
 				true
 			}
+		}
+
+		fn is_resumable(task_id: TaskId) -> bool {
+			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Stopped))
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {
@@ -218,7 +255,7 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id).for_each(|(task_id, _)| {
 				ShardTasks::<T>::remove(shard_id, task_id);
 				TaskShard::<T>::remove(task_id);
-				if !Self::is_complete(task_id) {
+				if Self::is_runnable(task_id) || Self::is_resumable(task_id) {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});

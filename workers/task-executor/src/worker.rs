@@ -2,7 +2,7 @@ use crate::TaskExecutorParams;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
-use rosetta_client::{create_wallet, EthereumExt, Wallet};
+use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
 use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
@@ -40,14 +40,25 @@ impl Task {
 		Ok(Self { tss: params.tss, wallet })
 	}
 
-	async fn execute_function(&self, function: &Function) -> Result<FunctionResult> {
+	async fn execute_function(
+		&self,
+		function: &Function,
+		target_block_number: u64,
+	) -> Result<FunctionResult> {
+		let block = PartialBlockIdentifier {
+			index: Some(target_block_number),
+			hash: None,
+		};
 		match function {
 			Function::EVMViewWithoutAbi {
 				address,
 				function_signature,
 				input,
 			} => {
-				let data = self.wallet.eth_view_call(address, function_signature, input).await?;
+				let data = self
+					.wallet
+					.eth_view_call(address, function_signature, input, Some(block))
+					.await?;
 				let result = match data.result {
 					Value::Array(val) => val
 						.iter()
@@ -91,7 +102,7 @@ impl Task {
 		task: TaskDescriptor,
 		block_num: i64,
 	) -> Result<TssSignature> {
-		let result = self.execute_function(&task.function).await?;
+		let result = self.execute_function(&task.function, target_block).await?;
 		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
 		timechain_integration::submit_to_timegraph(
 			task.hash.clone(),
@@ -183,12 +194,13 @@ where
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
-				if block_height >= task_descr.trigger(cycle) {
+				let target_block_number = task_descr.trigger(cycle);
+				if block_height >= target_block_number {
 					log::info!("Running Task {:?}", task_id);
 					self.running_tasks.insert(executable_task);
 					let storage = self.backend.offchain_storage().unwrap();
 					let task = self.task_spawner.execute(
-						block_height,
+						target_block_number,
 						shard_id,
 						task_id,
 						cycle,

@@ -95,3 +95,29 @@ fn task_stopped_and_moved_on_shard_offline() {
 		assert_eq!(Tasks::get_shard_tasks(2), vec![TaskExecution::new(0, 0, 0)]);
 	});
 }
+
+#[test]
+fn task_recurring_cycle_count() {
+	let mock_task = mock_task(Network::Ethereum, 5);
+	let mut total_results = 0;
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task.clone()
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		loop{
+			let task = Tasks::get_shard_tasks(1);
+			if task.is_empty(){
+				break
+			}
+			for task in task.iter().copied(){
+				let task_id = task.task_id;
+				let cycle = task.cycle;
+				assert_ok!(Tasks::submit_task_result(task_id, cycle, mock_result_ok(1)));
+				total_results += 1;
+			}
+		}
+		assert_eq!(total_results, mock_task.cycle);
+	});
+}

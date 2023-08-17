@@ -84,6 +84,7 @@ pub mod pallet {
 		PublicKeyAlreadyRegistered,
 		MembershipBelowMinimum,
 		MembershipAboveMaximum,
+		ShardAlreadyOffline,
 	}
 
 	#[pallet::call]
@@ -165,7 +166,8 @@ pub mod pallet {
 		}
 
 		fn set_shard_offline(shard_id: ShardId, network: Network) -> DispatchResult {
-			ensure!(ShardState::<T>::get(shard_id).is_some(), Error::<T>::UnknownShard);
+			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
 			Self::deposit_event(Event::ShardOffline(shard_id));
 			T::TaskScheduler::shard_offline(shard_id, network);
@@ -175,7 +177,7 @@ pub mod pallet {
 
 	impl<T: Config> ShardStatusInterface for Pallet<T> {
 		fn is_shard_online(shard_id: ShardId) -> bool {
-			ShardState::<T>::get(shard_id) == Some(ShardStatus::Online)
+			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 	}
 }

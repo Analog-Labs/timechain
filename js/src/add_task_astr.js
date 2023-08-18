@@ -14,9 +14,9 @@ const setup_substrate = async () => {
     const wsProvider = new WsProvider(node_address);
     // const custom_types = await get_custom_types();
     const api = await ApiPromise.create({
-        provider: wsProvider
+        provider: wsProvider,
+        noInitWarn: true
     });
-    //         , "types": custom_types
     return api;
 };
 
@@ -24,30 +24,33 @@ const pallet_task_add = async (_keyspair, who) => {
     const api = await setup_substrate();
     const keyring = new Keyring({ type: 'sr25519' });
     const keyspair = keyring.addFromUri('//Alice', { name: 'Alice default' });
+    const contract_address = process.argv[2];
+    const start_block = process.argv[3];
 
-    const chan = new Channel(0 /* default */);
     const input_task = {
         network: 1,
         cycle: 1,
-        start: 0,
+        start: start_block,
         period: 0,
         hash: 'QmWVZN1S6Yhygt35gQej6e3VbEEffbrVuqZZCQc772uRt7',
         function: {
             EVMViewWithoutAbi: {
-                address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
+                address: stringToHex(contract_address),
                 function_signature: "function get_votes_stats() external view returns (uint, uint)",
-                input: 2,
+                input: [],
             }
         },
     }
     await api.isReady;
-    console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);
-    const unsub = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-        console.log(`Current status is ${status}`);
+    const result = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events }) => {
+        if (status.isInBlock || status.isFinalized) {
+            const filtered_events = events.filter(({ event }) => api.events.tasks.TaskCreated.is(event))
+            if (filtered_events.length >= 1) {
+                console.log("registered_task:", filtered_events[0].event.data.toJSON().pop());
+                process.exit(0);
+            }
+        }
     });
-
-    await chan.get().then(value => console.log(value), error => console.error(error));
-    // chan.close();
 };
 
 pallet_task_add();

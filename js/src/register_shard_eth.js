@@ -14,7 +14,7 @@ const setup_substrate = async () => {
     return api;
 };
 
-const register_shard = async() => {
+const register_shard = async () => {
     const api = await setup_substrate();
     const time1 = [76, 181, 171, 246, 173, 121, 251, 245, 171, 188, 202, 252, 194, 105, 216, 92, 210, 101, 30, 212, 184, 133, 181, 134, 159, 36, 26, 237, 240, 165, 186, 41];
     const time2 = [116, 34, 185, 136, 117, 152, 6, 142, 50, 196, 68, 138, 148, 154, 219, 41, 13, 15, 78, 53, 185, 224, 27, 14, 229, 241, 161, 230, 0, 254, 38, 116];
@@ -29,9 +29,16 @@ const register_shard = async() => {
         .sudo(
             api.tx.shards.registerShard(0, [time1, time2, time3], collector_pubkey)
         )
-        .signAndSend(pair);
-    console.log("registered shard:", register_shard.hash.toString());
-    process.exit(0);
+        .signAndSend(pair, ({ status, events }) => {
+            if (status.isInBlock || status.isFinalized) {
+                const filtered_events = events.filter(({ event }) => api.events.shards.ShardCreated.is(event))
+                if (filtered_events.length >= 1) {
+                    console.log("details :", filtered_events[0].event.data.toJSON());
+                    process.exit(0);
+                }
+            }
+        });
+
 }
 
 register_shard();

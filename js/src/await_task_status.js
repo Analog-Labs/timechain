@@ -26,18 +26,20 @@ const await_task_status = async (_keyspair, who) => {
     const task_id = process.argv[2];
 
     while (true) {
+        await sleep(10000);
         const task_state = await api.query.tasks.taskState(task_id);
         const task_state_unwraped = task_state.unwrap();
-        console.log("Current Task Status:", task_state_unwraped.toHuman());
+        const stored_result = await api.query.tasks.taskResults.keys(task_id);
 
-        if (task_state_unwraped.isCompleted || task_state_unwraped.isFailed) {
-            console.log("Task success:", task_state_unwraped.isCompleted);
-            const stored_result = await api.query.tasks.taskResults(task_id, null);
-            console.log("Task results stored", stored_result.toJSON());
+        if (task_state_unwraped.isCompleted) {
+            console.log("task_id:" ,task_id, "success with ok results:", stored_result.length);
             break;
+        } else if (task_state_unwraped.isFailed){
+            console.log("Task failed with error", task_state_unwraped);
+            break;
+        }else{
+            console.log("Task not finished, Iterating again, results stored: ", stored_result.length);
         }
-        console.log("Task not finished, iterating again");
-        sleep(1000);
     }
 
     process.exit(0);

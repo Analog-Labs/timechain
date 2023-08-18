@@ -29,16 +29,45 @@ do
   insert_key 4 9949 "0x1e31bbe09138bef48ffaca76214317eb0f7a8fd85959774e41d180f2ad9e741f"
   insert_key 5 9951 "0x1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659"
   insert_key 6 9953 "0x72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"
-  sleep 2
+  echo '-----------------------------'
+  sleep 5
 done
 
 echo "All keys inserted, initializing test"
-echo "Registering eth shard"
-node ./js/src/register_shard_eth.js
-echo "Registering astart shard"
-node ./js/src/register_shard_astr.js
-echo "deploying contract"
-echo "inserting task"
-tsk_registered=$(node ./js/src/add_task_eth.js | sed 's/[^0-9]*//g')
-echo "Task registered with id: "$tsk_registered
-node ./js/src/await_task_status.js $tsk_registered
+
+#registering shard for ethereum
+eth_shard=$(node ./js/src/register_shard_eth.js)
+echo "Registered eth, shard "$eth_shard
+sleep 5
+
+#registering shard for astar
+astar_shard=$(node ./js/src/register_shard_astr.js)
+echo "Registered astar, shard "$astar_shard
+sleep 5
+
+# deploying ethereum smart contract
+echo "deploying contract for Eth"
+eth_response=$(./scripts/deploy_test_contract -u "http://127.0.0.1:8080" -b "ethereum" -n "dev")
+eth_contract=$(echo $eth_response | grep -oEi 'contract_address [0-9a-zA-Z]+' | grep -oEi '0x[0-9a-zA-Z]+')
+eth_block=$(echo $eth_response | grep -oEi 'index: [0-9]+' | grep -oEi '[0-9]+')
+
+echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
+
+# deplying astar smart contract
+echo "deploying contract for Astar"
+astar_response=$(./scripts/deploy_test_contract -u "http://127.0.0.1:8081" -b "astar" -n "dev")
+astar_contract=$(echo $astar_response | grep -oEi 'contract_address [0-9a-zA-Z]+' | grep -oEi '0x[0-9a-zA-Z]+')
+astar_block=$(echo $astar_response | grep -oEi 'index: [0-9]+' | grep -oEi '[0-9]+')
+
+echo "Astar contract registered with address: "$astar_contract" and block: "$astar_block 
+
+# inserting tasks for eth
+echo "inserting task for Eth"
+eth_tsk_registered=$(node ./js/src/add_task_eth.js $eth_contract $eth_block | sed 's/[^0-9]*//g')
+echo "Task registered with id: "$eth_tsk_registered
+node ./js/src/await_task_status.js $eth_tsk_registered
+
+echo "Inserting task for Astar"
+astr_tsk_registered=$(node ./js/src/add_task_astr.js $astar_contract $astar_block | sed 's/[^0-9]*//g')
+echo "Task registered with id: "$astr_tsk_registered
+node ./js/src/await_task_status.js $astr_tsk_registered

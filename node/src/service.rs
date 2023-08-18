@@ -152,6 +152,7 @@ pub fn new_full(
 	connector_network: Option<String>,
 	without_chronicle: bool,
 	timegraph_url: Option<String>,
+	timegraph_ssk: Option<String>
 ) -> Result<TaskManager, ServiceError> {
 	let peer_id = config
 		.network
@@ -385,6 +386,7 @@ pub fn new_full(
 						connector_blockchain,
 						connector_network,
 						timegraph_url,
+						timegraph_ssk
 					},
 				))
 				.unwrap(),

@@ -1,5 +1,5 @@
 use crate::TaskExecutorParams;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
@@ -20,6 +20,7 @@ pub struct TaskSpawnerParams {
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
 	pub timegraph_url: Option<String>,
+	pub timegraph_ssk: Option<String>,
 }
 
 #[derive(Clone)]
@@ -41,7 +42,14 @@ impl Task {
 			.await?,
 		);
 		let timegraph = if let Some(url) = params.timegraph_url {
-			Some(Arc::new(Timegraph::new(url)?))
+			Some(Arc::new(Timegraph::new(
+				url,
+				params
+					.timegraph_ssk
+					.as_deref()
+					.ok_or(anyhow!("timegraph session key is not specified"))?
+					.to_string(),
+			)?))
 		} else {
 			None
 		};
@@ -110,18 +118,18 @@ impl Task {
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
-		cycle: TaskCycle,
+		task_cycle: TaskCycle,
 		task: TaskDescriptor,
 		block_num: u64,
 	) -> Result<TssSignature> {
 		let result = self.execute_function(&task.function, target_block).await?;
-		let signature = self.tss_sign(shard_id, task_id, cycle, &result).await?;
+		let signature = self.tss_sign(shard_id, task_id, task_cycle, &result).await?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {
 					collection: task.hash.clone(),
 					task_id,
-					cycle,
+					task_cycle,
 					target_block_number: target_block,
 					timechain_block_number: block_num,
 					shard_id,

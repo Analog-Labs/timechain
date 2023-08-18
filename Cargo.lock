@@ -12038,8 +12038,8 @@ dependencies = [
 
 [[package]]
 name = "timegraph-client"
-version = "0.1.6"
-source = "git+https://github.com/analog-labs/timegraph-sdk?branch=timegraph-client#92a33f15cbcc825be4aced473f24a0eb632d01b2"
+version = "0.1.7"
+source = "git+https://github.com/analog-labs/timegraph-sdk#52b6fab6e99c6597e1d059303be1d2f6fe804e59"
 dependencies = [
  "anyhow",
  "graphql_client",

@@ -48,7 +48,10 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-
+      - name: Setup SSH access for private repo
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - run: sudo apt-get update -y
       - run: sudo add-apt-repository ppa:ethereum/ethereum
       - run: sudo apt-get install -y protobuf-compiler solc

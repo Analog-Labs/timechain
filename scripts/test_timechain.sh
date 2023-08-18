@@ -33,7 +33,11 @@ do
 done
 
 echo "All keys inserted, initializing test"
+echo "Registering eth shard"
 node ./js/src/register_shard_eth.js
+echo "Registering astart shard"
+node ./js/src/register_shard_astr.js
+echo "deploying contract"
 echo "inserting task"
 tsk_registered=$(node ./js/src/add_task_eth.js | sed 's/[^0-9]*//g')
 echo "Task registered with id: "$tsk_registered

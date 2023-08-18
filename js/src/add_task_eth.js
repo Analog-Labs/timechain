@@ -23,16 +23,18 @@ const pallet_task_add = async (_keyspair, who) => {
     const api = await setup_substrate();
     const keyring = new Keyring({ type: 'sr25519' });
     const keyspair = keyring.addFromUri('//Alice', { name: 'Alice default' });
+    const contract_address = process.argv[2];
+    const start_block = process.argv[3];
     
     const input_task = {
         network: 0,
-        cycle: 4,
-        start: 0,
+        cycle: 2,
+        start: start_block,
         period: 2,
         hash: 'QmYFw5aYPKQ9oSw3L3UUed9fBqT4oTW5BZzAnPFGyuQir3',
         function: {
             EVMViewWithoutAbi: {
-                address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
+                address: stringToHex(contract_address),
                 function_signature: "function get_votes_stats() external view returns (uint[] memory)",
                 input: [],
             }

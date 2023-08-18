@@ -132,3 +132,9 @@ dist
 # generated files
 bin
 js
+
+#package lock files
+package-lock.json
+
+#yarn lock file
+yarn.lock

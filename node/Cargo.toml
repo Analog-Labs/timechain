@@ -81,6 +81,7 @@ time-worker = { path = "../workers/time-worker" }
 #Task-Executor
 async-channel = "1.9.0"
 task-executor = { path = "../workers/task-executor" }
+log-panics = "2.1.0"
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
@@ -88,7 +89,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.
 [features]
 default = []
 # Dependencies that are only required if runtime benchmarking should be build.
-runtime-benchmarks = [ "frame-benchmarking-cli/runtime-benchmarks", "frame-benchmarking/runtime-benchmarks", "timechain-runtime/runtime-benchmarks" ]
+runtime-benchmarks = ["frame-benchmarking-cli/runtime-benchmarks", "frame-benchmarking/runtime-benchmarks", "timechain-runtime/runtime-benchmarks"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = [ "timechain-runtime/try-runtime", "try-runtime-cli" ]
+try-runtime = ["timechain-runtime/try-runtime", "try-runtime-cli"]

@@ -1,4 +1,4 @@
-use crate::{AccountId, Network, ShardId, TaskCycle, TaskId, TssSignature};
+use crate::{AccountId, Network, ShardId, TssSignature};
 use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
@@ -9,6 +9,10 @@ use sp_std::vec::Vec;
 use std::future::Future;
 #[cfg(feature = "std")]
 use std::pin::Pin;
+
+pub type TaskId = u64;
+pub type TaskCycle = u64;
+pub type TaskRetryCount = u8;
 
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -61,6 +65,27 @@ pub enum TaskStatus {
 	Failed { error: TaskError },
 	Stopped,
 	Completed,
+}
+
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
+pub struct TaskExecution {
+	pub task_id: TaskId,
+	pub cycle: TaskCycle,
+	pub retry_count: TaskRetryCount,
+}
+
+impl TaskExecution {
+	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount) -> Self {
+		Self { task_id, cycle, retry_count }
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for TaskExecution {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
+	}
 }
 
 #[cfg(feature = "std")]

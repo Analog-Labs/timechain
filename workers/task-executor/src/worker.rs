@@ -220,7 +220,7 @@ where
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
 				let target_block_number = task_descr.trigger(cycle);
 				if block_height >= target_block_number {
-					log::info!("Running Task {}", task_id);
+					log::info!("Running Task {}", executable_task);
 					self.running_tasks.insert(executable_task);
 					let storage = self.backend.offchain_storage().unwrap();
 					let task = self.task_spawner.execute(
@@ -233,7 +233,7 @@ where
 					);
 					tokio::task::spawn(async move {
 						let result = task.await.map_err(|e| e.to_string());
-						log::info!("Task {} completed with {:?}", task_id, result);
+						log::info!("Task {} completed with {:?}", executable_task, result);
 						match result {
 							Ok(signature) => {
 								let status = CycleStatus { shard_id, signature };

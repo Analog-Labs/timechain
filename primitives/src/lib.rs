@@ -1,19 +1,15 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
-#[cfg(feature = "std")]
-use futures::channel::oneshot;
-use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use serde::Serialize;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
 mod ocw;
+mod shard;
 mod task;
 
 pub use crate::ocw::*;
+pub use crate::shard::*;
 pub use crate::task::*;
 
 /// Time key type
@@ -23,32 +19,6 @@ pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 pub type AccountId = AccountId32;
 pub type PublicKey = MultiSigner;
 pub type Signature = MultiSignature;
-pub type TssPublicKey = [u8; 33];
-pub type TssSignature = [u8; 64];
-pub type PeerId = [u8; 32];
-pub type TaskId = u64;
-pub type ShardId = u64;
-pub type TaskCycle = u64;
-pub type TaskRetryCount = u8;
-pub type TssId = (TaskId, TaskCycle);
-
-#[cfg(feature = "std")]
-pub struct TssRequest {
-	pub request_id: TssId,
-	pub shard_id: ShardId,
-	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<TssSignature>,
-}
-
-sp_api::decl_runtime_apis! {
-	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi {
-		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
-		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-	}
-}
 
 pub mod crypto {
 	use sp_runtime::app_crypto::{app_crypto, sr25519};
@@ -63,35 +33,14 @@ pub mod crypto {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
-pub struct TaskExecution {
-	pub task_id: TaskId,
-	pub cycle: TaskCycle,
-	pub retry_count: TaskRetryCount,
-}
-
-impl TaskExecution {
-	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount) -> Self {
-		Self { task_id, cycle, retry_count }
+sp_api::decl_runtime_apis! {
+	/// API necessary for Time worker <-> pallet communication.
+	pub trait TimeApi {
+		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
+		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
+		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 	}
-}
-
-/// Used to enforce one network per shard
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
-pub enum Network {
-	Ethereum,
-	Astar,
-}
-
-/// Track status of shard
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
-pub enum ShardStatus {
-	Created,
-	Online,
-	Offline,
 }
 
 pub trait ShardCreated {

@@ -15,7 +15,7 @@ serde_json = "1.0.105"
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 time-primitives = { path = "../../primitives" }
-timegraph-client = { git = "https://github.com/analog-labs/timegraph-sdk", branch = "timegraph-client" }
+timegraph-client = { git = "https://github.com/analog-labs/timegraph-sdk"}
 tokio = { version = "1.32.0", features = [ "macros" ] }
 
 [dev-dependencies]

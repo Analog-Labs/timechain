@@ -24,9 +24,12 @@ pub struct RunCmd {
 	/// The node not run TSS and task executor.
 	#[clap(long)]
 	pub without_chronicle: bool,
-	/// The timegraph url.
+	/// The timegraph url (or TIMEGTAPH_URL environment variable).
 	#[clap(long)]
 	pub timegraph_url: Option<String>,
+	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
+	#[clap(long)]
+	pub timegraph_ssk: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]

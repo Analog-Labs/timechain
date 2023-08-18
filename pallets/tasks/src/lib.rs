@@ -123,6 +123,8 @@ pub mod pallet {
 		InvalidOwner,
 		/// Invalid cycle
 		InvalidCycle,
+		/// Cycle must be greater than zero
+		CycleMustBeGreaterThanZero,
 	}
 
 	#[pallet::call]
@@ -131,6 +133,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::create_task())]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
 			Tasks::<T>::insert(
 				task_id,

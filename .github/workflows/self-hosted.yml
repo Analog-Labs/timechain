@@ -44,7 +44,7 @@ jobs:
     name: Build and Test Project
     runs-on: self-hosted
     env:
-      CARGO_NET_GIT_FETCH_WITH_CLI: 1
+      CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

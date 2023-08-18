@@ -177,7 +177,7 @@ pub mod pallet {
 				Error::<T>::InvalidTaskState
 			);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			Self::deposit_event(Event::TaskStopped(task_id));
+			Self::deposit_event(Event::TaskResumed(task_id));
 			Ok(())
 		}
 	}

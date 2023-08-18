@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::Error;
+use crate::{Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{
@@ -48,6 +48,7 @@ fn task_stopped_by_owner() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		System::assert_last_event(Event::<Test>::TaskStopped(0).into());
 	});
 }
 
@@ -62,6 +63,7 @@ fn task_resumed_by_owner() {
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
 }
 

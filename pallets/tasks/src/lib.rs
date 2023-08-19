@@ -69,9 +69,11 @@ pub mod pallet {
 		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, ShardId, (), OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn task_id_counter)]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn tasks)]
 	pub type Tasks<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 

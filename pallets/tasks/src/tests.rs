@@ -2,9 +2,10 @@ use crate::mock::*;
 use crate::{Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use sp_runtime::Saturating;
 use time_primitives::{
 	CycleStatus, Function, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId, TaskCycle,
-	TaskDescriptorParams, TaskExecution, TaskStatus,
+	TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskStatus,
 };
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
@@ -33,9 +34,61 @@ fn test_create_task() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, 0, 0)]);
 		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		System::assert_last_event(
+			Event::<Test>::TaskResult(
+				0,
+				1,
+				CycleStatus {
+					shard_id: 1,
+					signature: [0; 64],
+				},
+			)
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn create_task_increments_task_id_counter() {
+	new_test_ext().execute_with(|| {
+		for i in 0..11 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(Network::Ethereum, 1)
+			));
+			assert_eq!(Tasks::task_id_counter(), i.saturating_plus_one());
+		}
+	});
+}
+
+#[test]
+fn create_task_inserts_task() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(
+			Tasks::tasks(0).unwrap(),
+			TaskDescriptor {
+				owner: [0; 32].into(),
+				network: Network::Ethereum,
+				function: Function::EVMViewWithoutAbi {
+					address: Default::default(),
+					function_signature: Default::default(),
+					input: Default::default(),
+				},
+				cycle: 1,
+				start: 0,
+				period: 1,
+				hash: "".to_string(),
+			}
+		);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 	});
 }
 

@@ -15,6 +15,7 @@ pub mod pallet {
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
 	use sp_runtime::offchain::storage::StorageValueRef;
 	use sp_runtime::traits::{Block, Header, IdentifyAccount};
 	use sp_std::vec;
@@ -26,6 +27,7 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn submit_tss_public_key() -> Weight;
+		fn submit_task_hash() -> Weight;
 		fn submit_task_result() -> Weight;
 		fn set_shard_offline() -> Weight;
 		fn submit_task_error() -> Weight;
@@ -33,6 +35,9 @@ pub mod pallet {
 
 	impl WeightInfo for () {
 		fn submit_tss_public_key() -> Weight {
+			Weight::default()
+		}
+		fn submit_task_hash() -> Weight {
 			Weight::default()
 		}
 		fn submit_task_result() -> Weight {
@@ -110,12 +115,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_task_result())]
 		pub fn submit_task_result(
 			origin: OriginFor<T>,
+			shard_id: ShardId,
 			task_id: TaskId,
 			cycle: TaskCycle,
-			status: CycleStatus,
+			signature: TssSignature,
 		) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, status.shard_id)?;
-			T::Tasks::submit_task_result(task_id, cycle, status)
+			Self::ensure_signed_by_collector(origin, shard_id)?;
+			T::Tasks::submit_task_result(shard_id, task_id, cycle, signature)
 		}
 
 		/// Turns shard offline
@@ -131,11 +137,25 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_task_error())]
 		pub fn submit_task_error(
 			origin: OriginFor<T>,
+			shard_id: ShardId,
 			task_id: TaskId,
-			error: TaskError,
+			error: String,
 		) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, error.shard_id)?;
-			T::Tasks::submit_task_error(task_id, error)
+			Self::ensure_signed_by_collector(origin, shard_id)?;
+			T::Tasks::submit_task_error(shard_id, task_id, error)
+		}
+
+		/// Submit Task Error
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::submit_task_hash())]
+		pub fn submit_task_hash(
+			origin: OriginFor<T>,
+			shard_id: ShardId,
+			task_id: TaskId,
+			hash: String,
+		) -> DispatchResult {
+			Self::ensure_signed_by_collector(origin, shard_id)?;
+			T::Tasks::submit_task_hash(shard_id, task_id, hash)
 		}
 	}
 
@@ -191,22 +211,30 @@ pub mod pallet {
 						shard_id,
 						public_key,
 					}),
-				OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
-					.send_signed_transaction(|_| Call::submit_task_result {
+				OcwPayload::SubmitTaskHash { shard_id, task_id, hash } => signer
+					.send_signed_transaction(|_| Call::submit_task_hash {
+						shard_id,
 						task_id,
-						cycle,
-						status: status.clone(),
+						hash: hash.clone(),
 					}),
-
-				OcwPayload::SetShardOffline { shard_id } => {
-					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
-				},
-				OcwPayload::SubmitTaskError { task_id, error } => {
-					signer.send_signed_transaction(|_| Call::submit_task_error {
+				OcwPayload::SubmitTaskResult {
+					shard_id,
+					task_id,
+					cycle,
+					signature,
+				} => signer.send_signed_transaction(|_| Call::submit_task_result {
+					shard_id,
+					task_id,
+					cycle,
+					signature,
+				}),
+				OcwPayload::SetShardOffline { shard_id } => signer
+					.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network }),
+				OcwPayload::SubmitTaskError { task_id, error } => signer
+					.send_signed_transaction(|_| Call::submit_task_error {
 						task_id,
 						error: error.clone(),
-					})
-				},
+					}),
 			};
 			let Some((_, res)) = call_res else {
 				log::info!("send signed transaction returned none");

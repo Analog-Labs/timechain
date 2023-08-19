@@ -64,13 +64,13 @@ impl Task {
 		&self,
 		function: &Function,
 		target_block_number: u64,
-	) -> Result<Vec<String>> {
+	) -> Result<String> {
 		let block = PartialBlockIdentifier {
 			index: Some(target_block_number),
 			hash: None,
 		};
-		match function {
-			Function::EVMViewWithoutAbi {
+		Ok(match function {
+			Function::EvmViewCall {
 				address,
 				function_signature,
 				input,
@@ -79,17 +79,27 @@ impl Task {
 					.wallet
 					.eth_view_call(address, function_signature, input, Some(block))
 					.await?;
-				let result = match data.result {
-					Value::Array(val) => val
-						.iter()
-						.filter_map(|x| x.as_str())
-						.map(|x| x.to_string())
-						.collect::<Vec<String>>(),
-					v => vec![v.to_string()],
-				};
-				Ok(result)
+				serde_json::to_string(&data.result)?
 			},
-		}
+			Function::EvmTxReceipt { tx } => {
+				let data = self.wallet.eth_transaction_receipt(tx).await?;
+				serde_json::to_string(&data.result)?
+			},
+			Function::EvmDeploy { bytecode } => {
+				self.wallet.eth_deploy_contract(bytecode.clone()).await?.hash
+			},
+			Function::EvmCall {
+				address,
+				function_signature,
+				input,
+				amount,
+			} => {
+				self.wallet
+					.eth_send_call(address, function_signature, input, *amount)
+					.await?
+					.hash
+			},
+		})
 	}
 
 	async fn tss_sign(
@@ -98,9 +108,8 @@ impl Task {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		result: &[String],
+		result: &str,
 	) -> Result<TssSignature> {
-		let data = bincode::serialize(&result).context("Failed to serialize task")?;
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
@@ -115,13 +124,14 @@ impl Task {
 		Ok(rx.await?)
 	}
 
-	async fn execute(
+	async fn execute_read(
 		self,
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task_cycle: TaskCycle,
-		task: TaskDescriptor,
+		function: Function,
+		hash: String,
 		block_num: u64,
 	) -> Result<TssSignature> {
 		let result = self
@@ -135,19 +145,23 @@ impl Task {
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {
-					collection: task.hash.clone(),
+					collection: hash,
 					task_id,
 					task_cycle,
 					target_block_number: target_block,
 					timechain_block_number: block_num,
 					shard_id,
 					signature,
-					data: result,
+					data: vec![result],
 				})
 				.await
 				.context("Failed to submit data to timegraph")?;
 		}
 		Ok(signature)
+	}
+
+	async fn execute_write(self, function: Function) -> Result<String> {
+		self.execute_function(&function, 0).await
 	}
 }
 
@@ -158,19 +172,27 @@ impl TaskSpawner for Task {
 		Ok(status.index)
 	}
 
-	fn execute(
+	fn execute_read(
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		task: TaskDescriptor,
+		function: Function,
+		hash: String,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
 			.execute(target_block, shard_id, task_id, cycle, task, block_num)
 			.map(move |res| res.with_context(|| format!("Task {}/{} failed", task_id, cycle)))
 			.boxed()
+	}
+
+	fn execute_write(
+		&self,
+		function: Function,
+	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>> {
+		self.clone().execute_write(function).boxed()
 	}
 }
 
@@ -223,56 +245,92 @@ where
 		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
-			log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
-			for executable_task in tasks.iter().copied() {
-				let task_id = executable_task.task_id;
-				let cycle = executable_task.cycle;
+			log::info!("got task ====== {:?}", tasks);
+			for executable_task in tasks {
 				if self.running_tasks.contains(&executable_task) {
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
 				let target_block_number = task_descr.trigger(cycle);
+				let function = task_descr.function;
+				let hash = task_descr.hash;
 				if block_height >= target_block_number {
-					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
-					self.running_tasks.insert(executable_task);
+					log::info!("Running Task {}", executable_task);
+					self.running_tasks.insert(executable_task.clone());
 					let storage = self.backend.offchain_storage().unwrap();
-					let task = self.task_spawner.execute(
-						target_block_number,
-						shard_id,
-						task_id,
-						cycle,
-						task_descr,
-						block_num,
-					);
-					tokio::task::spawn(async move {
-						let result = task.await.map_err(|e| e.to_string());
-						log::info!(
+					if executable_task.phase.is_write() {
+						let task = self.task_spawner.execute_write(function);
+						tokio::task::spawn(async move {
+							let result = task.await.map_err(|e| e.to_string());
+							log::info!(
 							target: TW_LOG,
 							"Task {} completed on shard {} with {:?}",
 							executable_task,
 							shard_id,
 							result
 						);
-						match result {
-							Ok(signature) => {
-								let status = CycleStatus { shard_id, signature };
-								time_primitives::write_message(
-									storage,
-									&OcwPayload::SubmitTaskResult { task_id, cycle, status },
-								);
-							},
-							Err(error) => {
-								let error = TaskError { shard_id, error };
-								time_primitives::write_message(
-									storage,
-									&OcwPayload::SubmitTaskError { task_id, error },
-								);
-							},
-						}
-					});
+							match result {
+								Ok(hash) => {
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
+									);
+								},
+								Err(error) => {
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskError { shard_id, task_id, error },
+									);
+								},
+							}
+						});
+					} else {
+						let function = if let Some(tx) = executable_task.phase.tx_hash() {
+							Function::EvmTxReceipt { tx: tx.to_string() }
+						} else {
+							function
+						};
+						let task = self.task_spawner.execute_read(
+							target_block_number,
+							shard_id,
+							task_id,
+							cycle,
+							function,
+							hash,
+							block_num,
+						);
+						tokio::task::spawn(async move {
+							let result = task.await.map_err(|e| e.to_string());
+							log::info!(
+							target: TW_LOG,
+							"Task {} completed on shard {} with {:?}",
+							executable_task,
+							shard_id,
+							result
+						);
+							match result {
+								Ok(signature) => {
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskResult {
+											shard_id,
+											task_id,
+											cycle,
+											signature,
+										},
+									);
+								},
+								Err(error) => {
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskError { shard_id, task_id, error },
+									);
+								},
+							}
+						});
+					}
 				}
 			}
-			self.running_tasks.retain(|x| tasks.contains(x));
 		}
 		Ok(())
 	}

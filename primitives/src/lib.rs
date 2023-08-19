@@ -1,6 +1,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use scale_info::prelude::string::String;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
@@ -66,10 +67,14 @@ pub trait OcwShardInterface {
 }
 
 pub trait OcwSubmitTaskResult {
-	fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus)
-		-> DispatchResult;
-
-	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
+	fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult;
+	fn submit_task_result(
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		signature: TssSignature,
+	) -> DispatchResult;
+	fn submit_task_error(shard_id: ShardId, task_id: TaskId, error: String) -> DispatchResult;
 }
 
 pub trait ShardStatusInterface {

@@ -12,12 +12,13 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
 		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskStatus,
+		TaskExecution, TaskId, TaskPhase, TaskStatus, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -195,6 +196,7 @@ pub mod pallet {
 						task_id,
 						TaskCycleState::<T>::get(task_id),
 						TaskRetryCounter::<T>::get(task_id),
+						TaskPhase::Read(None),
 					)
 				})
 				.collect()
@@ -267,11 +269,17 @@ pub mod pallet {
 	}
 
 	impl<T: Config> OcwSubmitTaskResult for Pallet<T> {
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult {
+			todo!()
+		}
+
 		fn submit_task_result(
+			shard_id: ShardId,
 			task_id: TaskId,
 			cycle: TaskCycle,
-			status: CycleStatus,
+			signature: TssSignature,
 		) -> DispatchResult {
+			let status = CycleStatus { shard_id, signature };
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -286,7 +294,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult {
+		fn submit_task_error(shard_id: ShardId, task_id: TaskId, error: String) -> DispatchResult {
+			let error = TaskError { shard_id, error };
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
 			// task fails when new retry count == max - 1 => old retry count == max

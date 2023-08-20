@@ -263,26 +263,19 @@ where
 						tokio::task::spawn(async move {
 							let result = task.await.map_err(|e| e.to_string());
 							log::info!(
-							target: TW_LOG,
-							"Task {} completed on shard {} with {:?}",
-							executable_task,
-							shard_id,
-							result
-						);
-							match result {
-								Ok(hash) => {
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
-									);
-								},
+								"Write phase {}/{}/{} completed with {:?}",
+								task_id,
+								cycle,
+								retry_count,
+								result
+							);
+							let payload = match result {
+								Ok(hash) => OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
 								Err(error) => {
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskError { shard_id, task_id, error },
-									);
+									OcwPayload::SubmitTaskError { shard_id, task_id, error }
 								},
-							}
+							};
+							time_primitives::write_message(storage, &payload);
 						});
 					} else {
 						let function = if let Some(tx) = executable_task.phase.tx_hash() {
@@ -302,31 +295,24 @@ where
 						tokio::task::spawn(async move {
 							let result = task.await.map_err(|e| e.to_string());
 							log::info!(
-							target: TW_LOG,
-							"Task {} completed on shard {} with {:?}",
-							executable_task,
-							shard_id,
-							result
-						);
-							match result {
-								Ok(signature) => {
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskResult {
-											shard_id,
-											task_id,
-											cycle,
-											signature,
-										},
-									);
+								"Task {}/{}/{} completed with {:?}",
+								task_id,
+								cycle,
+								retry_count,
+								result
+							);
+							let payload = match result {
+								Ok(signature) => OcwPayload::SubmitTaskResult {
+									shard_id,
+									task_id,
+									cycle,
+									signature,
 								},
 								Err(error) => {
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskError { shard_id, task_id, error },
-									);
+									OcwPayload::SubmitTaskError { shard_id, task_id, error }
 								},
-							}
+							};
+							time_primitives::write_message(storage, &payload);
 						});
 					}
 				}

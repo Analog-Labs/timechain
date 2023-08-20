@@ -157,6 +157,19 @@ fn task_auto_assigned_if_shard_joins_after() {
 }
 
 #[test]
+fn test_cycle_must_be_greater_than_zero() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(Network::Ethereum, 0)
+			),
+			Error::<Test>::CycleMustBeGreaterThanZero
+		);
+	});
+}
+
+#[test]
 fn task_stopped_by_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(

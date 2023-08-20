@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{Error, Event};
+use crate::{Error, Event, ShardTasks, UnassignedTasks};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
@@ -66,7 +66,7 @@ fn create_task_increments_task_id_counter() {
 }
 
 #[test]
-fn create_task_inserts_task() {
+fn create_task_inserts_task_unassigned_sans_shards() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -89,6 +89,70 @@ fn create_task_inserts_task() {
 			}
 		);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().collect::<Vec<_>>(),
+			vec![(Network::Ethereum, 0, ())]
+		);
+	});
+}
+
+#[test]
+fn task_auto_assigned_if_shard_online() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(
+			Tasks::tasks(0).unwrap(),
+			TaskDescriptor {
+				owner: [0; 32].into(),
+				network: Network::Ethereum,
+				function: Function::EVMViewWithoutAbi {
+					address: Default::default(),
+					function_signature: Default::default(),
+					input: Default::default(),
+				},
+				cycle: 1,
+				start: 0,
+				period: 1,
+				hash: "".to_string(),
+			}
+		);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+	});
+}
+
+#[test]
+fn task_auto_assigned_if_shard_joins_after() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(
+			Tasks::tasks(0).unwrap(),
+			TaskDescriptor {
+				owner: [0; 32].into(),
+				network: Network::Ethereum,
+				function: Function::EVMViewWithoutAbi {
+					address: Default::default(),
+					function_signature: Default::default(),
+					input: Default::default(),
+				},
+				cycle: 1,
+				start: 0,
+				period: 1,
+				hash: "".to_string(),
+			}
+		);
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 	});
 }
 

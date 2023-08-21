@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{Error, Event, ShardTasks, UnassignedTasks};
+use crate::{Error, Event, NetworkShards, ShardTasks, UnassignedTasks};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
@@ -153,6 +153,25 @@ fn task_auto_assigned_if_shard_joins_after() {
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+	});
+}
+
+#[test]
+fn shard_online_inserts_network_shards() {
+	new_test_ext().execute_with(|| {
+		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_none());
+		Tasks::shard_online(1, Network::Ethereum);
+		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_some());
+	});
+}
+
+#[test]
+fn shard_offline_removes_network_shards() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_some());
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_none());
 	});
 }
 

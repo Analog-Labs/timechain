@@ -6,6 +6,9 @@ volumes:
   validator3-volume:
   validator4-volume:
   validator5-volume:
+  validator6-volume:
+  validator7-volume:
+  validator8-volume:
   ethereum-volume:
   ethereum-connector-volume:
   astar-volume:
@@ -119,6 +122,8 @@ services:
     - '9949:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
 
   validator4:
     image: 'analoglabs/timechain-node'
@@ -147,6 +152,8 @@ services:
     - '9951:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
 
   validator5:
     image: 'analoglabs/timechain-node'
@@ -175,6 +182,98 @@ services:
     - '9953:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+  
+  validator6:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--validator'
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--offchain-worker=Always'
+    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-blockchain=ethereum'
+    - '--connector-network=dev'
+    - '--dave'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
+    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+    depends_on:
+    - bootnode
+    - ethereum-connector
+    volumes:
+    - 'validator6-volume:/data'
+    ports:
+    - '9955:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    profiles:
+    - ethereum
+
+  validator7:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--validator'
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--offchain-worker=Always'
+    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-blockchain=ethereum'
+    - '--connector-network=dev'
+    - '--eve'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
+    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+    depends_on:
+    - bootnode
+    - ethereum-connector
+    volumes:
+    - 'validator7-volume:/data'
+    ports:
+    - '9957:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    profiles:
+    - ethereum
+
+  validator8:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--validator'
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--offchain-worker=Always'
+    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-blockchain=ethereum'
+    - '--connector-network=dev'
+    - '--ferdie'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
+    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+    depends_on:
+    - bootnode
+    - ethereum-connector
+    volumes:
+    - 'validator8-volume:/data'
+    ports:
+    - '9959:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    profiles:
+    - ethereum
 
   ethereum:
     image: "ethereum/client-go:v1.12.2"

@@ -35,14 +35,11 @@ done
 
 echo "All keys inserted, initializing test"
 
-#registering shard for ethereum
-eth_shard=$(node ./js/src/register_shard_eth.js)
-echo "Registered eth, shard "$eth_shard
-sleep 5
 
-#registering shard for astar
-astar_shard=$(node ./js/src/register_shard_astr.js)
-echo "Registered astar, shard "$astar_shard
+####### Ethereum testing #########
+#registering shard for ethereum
+eth_shard=$(node ./js/src/register_shard.js 0 0)
+echo "Registered eth, shard "$eth_shard
 sleep 5
 
 # deploying ethereum smart contract
@@ -53,6 +50,18 @@ eth_block=$(echo $eth_response | grep -oEi 'index: [0-9]+' | grep -oEi '[0-9]+')
 
 echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
 
+# inserting tasks for eth
+echo "inserting task for Eth"
+eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block | sed 's/[^0-9]*//g')
+echo "Task registered with id: "$eth_tsk_registered
+node ./js/src/await_task_status.js $eth_tsk_registered
+
+####### Astar testing #########
+#registering shard for astar
+astar_shard=$(node ./js/src/register_shard.js 1 1)
+echo "Registered astar, shard "$astar_shard
+sleep 5
+
 # deplying astar smart contract
 echo "deploying contract for Astar"
 astar_response=$(./scripts/deploy_test_contract -u "http://127.0.0.1:8081" -b "astar" -n "dev")
@@ -61,13 +70,7 @@ astar_block=$(echo $astar_response | grep -oEi 'index: [0-9]+' | grep -oEi '[0-9
 
 echo "Astar contract registered with address: "$astar_contract" and block: "$astar_block 
 
-# inserting tasks for eth
-echo "inserting task for Eth"
-eth_tsk_registered=$(node ./js/src/add_task_eth.js $eth_contract $eth_block | sed 's/[^0-9]*//g')
-echo "Task registered with id: "$eth_tsk_registered
-node ./js/src/await_task_status.js $eth_tsk_registered
-
 echo "Inserting task for Astar"
-astr_tsk_registered=$(node ./js/src/add_task_astr.js $astar_contract $astar_block | sed 's/[^0-9]*//g')
+astr_tsk_registered=$(node ./js/src/add_task.js 1 $astar_contract $astar_block | sed 's/[^0-9]*//g')
 echo "Task registered with id: "$astr_tsk_registered
 node ./js/src/await_task_status.js $astr_tsk_registered

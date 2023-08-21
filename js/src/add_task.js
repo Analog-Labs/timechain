@@ -20,14 +20,20 @@ const setup_substrate = async () => {
 };
 
 const pallet_task_add = async (_keyspair, who) => {
+    var network = 0;
+    if (process.argv[2] != undefined) {
+        network = parseInt(process.argv[2]);
+    }
+    const contract_address = process.argv[3];
+    const start_block = process.argv[4];
+
     const api = await setup_substrate();
+
     const keyring = new Keyring({ type: 'sr25519' });
     const keyspair = keyring.addFromUri('//Alice', { name: 'Alice default' });
-    const contract_address = process.argv[2];
-    const start_block = process.argv[3];
     
     const input_task = {
-        network: 0,
+        network: network,
         cycle: 2,
         start: start_block,
         period: 2,

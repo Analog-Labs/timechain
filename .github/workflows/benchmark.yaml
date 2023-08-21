@@ -1,0 +1,40 @@
+name: Run benchmarks
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - '**/*.md'
+    
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  checks: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  run-benchmarks:
+    runs-on: [self-hosted, benchmark]
+    if: ${{
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name,'!ci-benchmark')
+      }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install protobuf
+        run: apt update && apt install -y protobuf-compiler
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run benchmark script
+        run: ./scripts/benchmarking.sh
+      - name: status
+        run: git status && git diff

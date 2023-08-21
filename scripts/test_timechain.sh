@@ -1,5 +1,14 @@
 #!/bin/bash
 TOTAL_INSERTS=0
+eth_url="http://127.0.0.1:8080"
+eth_blockchain="ethereum"
+eth_network="dev"
+
+astar_url="http://127.0.0.1:8081"
+astar_blockchain="astar"
+astar_network="dev"
+
+current_block_regex='current_block_identifier: BlockIdentifier { index: ([0-9]+),'
 
 insert_key() {
   if curl -f "http://localhost:$2" -H "Content-Type:application/json;charset=utf-8" -d "{
@@ -36,17 +45,22 @@ done
 echo "All keys inserted, initializing test"
 
 
-####### Ethereum testing #########
+###### Ethereum testing #########
 #registering shard for ethereum
 eth_shard=$(node ./js/src/register_shard.js 0 0)
 echo "Registered eth, shard "$eth_shard
 sleep 5
 
 # deploying ethereum smart contract
-echo "deploying contract for Eth"
-eth_response=$(./scripts/deploy_test_contract -u "http://127.0.0.1:8080" -b "ethereum" -n "dev")
-eth_contract=$(echo $eth_response | grep -oEi 'contract_address [0-9a-zA-Z]+' | grep -oEi '0x[0-9a-zA-Z]+')
-eth_block=$(echo $eth_response | grep -oEi 'index: [0-9]+' | grep -oEi '[0-9]+')
+echo "Initiated eth faucet"
+rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network faucet 100000000000000
+echo "Deploying eth contract"
+contract_result=$(rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network deploy-contract ./contracts/test_contract.sol)
+eth_contract=$(echo $contract_result | grep -oEi '0x[0-9a-zA-Z]+')
+eth_status=$(rosetta-cli --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network network status)
+minimized_status=$(echo $eth_status)
+[[ $minimized_status =~ $current_block_regex ]]
+eth_block=${BASH_REMATCH[1]}
 
 echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
 
@@ -56,17 +70,22 @@ eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block | sed 
 echo "Task registered with id: "$eth_tsk_registered
 node ./js/src/await_task_status.js $eth_tsk_registered
 
-####### Astar testing #########
-#registering shard for astar
+###### Astar testing #########
+# registering shard for astar
 astar_shard=$(node ./js/src/register_shard.js 1 1)
 echo "Registered astar, shard "$astar_shard
 sleep 5
 
-# deplying astar smart contract
-echo "deploying contract for Astar"
-astar_response=$(./scripts/deploy_test_contract -u "http://127.0.0.1:8081" -b "astar" -n "dev")
-astar_contract=$(echo $astar_response | grep -oEi 'contract_address [0-9a-zA-Z]+' | grep -oEi '0x[0-9a-zA-Z]+')
-astar_block=$(echo $astar_response | grep -oEi 'index: [0-9]+' | grep -oEi '[0-9]+')
+#deploying astar smart contract
+echo "Initiated Astar faucet"
+rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network faucet 100000000
+echo "Deploying astar contract"
+deployed_contract_astr=$(rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network deploy-contract ./contracts/test_contract.sol)
+astar_contract=$(echo $deployed_contract_astr | grep -oEi '0x[0-9a-zA-Z]+')
+astar_status=$(rosetta-cli --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network network status)
+minimized_status=$(echo $astar_status)
+[[ $minimized_status =~ $current_block_regex ]]
+astar_block=${BASH_REMATCH[1]}
 
 echo "Astar contract registered with address: "$astar_contract" and block: "$astar_block 
 

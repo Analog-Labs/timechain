@@ -107,11 +107,11 @@ Must have `rosetta-cli` and `rosetta-wallet` installed:
 Commands:<br>
 `cargo install --git https://github.com/Analog-Labs/chain-connectors rosetta-cli`<br>
 `cargo install --git https://github.com/Analog-Labs/chain-connectors rosetta-wallet`<br>
-Build chain:
+Build chain:<br>
 `./scripts/build_docker.sh`<br>
 Deploy on docker:<br>
-`docker compose --profile astar up`
-Test:
+`docker compose --profile astar up`<br>
+Test:<br>
 `./scripts/test_timechain.sh`
 
 

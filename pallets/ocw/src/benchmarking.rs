@@ -26,7 +26,7 @@ benchmarks! {
 	submit_task_result {
 		Pallet::<T>::shard_created(SHARD_ID, collector());
 	}: _(RawOrigin::Signed([42; 32].into()), 0, 0, CycleStatus {
-		shard_id: SHARD_ID, result: Ok([0; 64])
+		shard_id: SHARD_ID, signature: [0; 64]
 	}) verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

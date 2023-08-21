@@ -24,7 +24,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Install protobuf
-        run: apt update && apt install -y protobuf-compiler
+        run: sudo apt update && sudo apt install -y protobuf-compiler
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:

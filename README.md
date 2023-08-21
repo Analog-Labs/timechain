@@ -102,6 +102,13 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
   ```
 
 
+## Test Timechain
+Run 
+`./scripts/build_docker.sh`
+`docker compose up`
+`./scripts/test_timechain.sh`
+
+
 ## Upcoming features
 * Update the time-chain with Proof of time consensus protocol.
 * Attract enough validators from community.

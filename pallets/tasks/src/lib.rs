@@ -208,7 +208,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		fn is_complete(task_id: TaskId) -> bool {
 			if let Some(task) = Tasks::<T>::get(task_id) {
-				TaskResults::<T>::contains_key(task_id, task.cycle)
+				TaskResults::<T>::contains_key(task_id, task.cycle.saturating_less_one())
 			} else {
 				true
 			}
@@ -273,9 +273,8 @@ pub mod pallet {
 			status: CycleStatus,
 		) -> DispatchResult {
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			let incremented_cycle = cycle.saturating_plus_one();
-			TaskCycleState::<T>::insert(task_id, incremented_cycle);
-			TaskResults::<T>::insert(task_id, incremented_cycle, status.clone());
+			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
+			TaskResults::<T>::insert(task_id, cycle, status.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
@@ -283,7 +282,7 @@ pub mod pallet {
 				}
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
 			}
-			Self::deposit_event(Event::TaskResult(task_id, incremented_cycle, status));
+			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
 			Ok(())
 		}
 

@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, NetworkShards, ShardTasks, TaskIdCounter, TaskRetryCounter, TaskState,
-	UnassignedTasks,
+	Error, Event, NetworkShards, ShardTasks, TaskCycleState, TaskIdCounter, TaskResults,
+	TaskRetryCounter, TaskState, UnassignedTasks,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -44,7 +44,7 @@ fn test_create_task() {
 		System::assert_last_event(
 			Event::<Test>::TaskResult(
 				0,
-				1,
+				0,
 				CycleStatus {
 					shard_id: 1,
 					signature: [0; 64],
@@ -480,12 +480,28 @@ fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 			for _ in 1..=i {
 				assert_ok!(Tasks::create_task(
 					RawOrigin::Signed([0; 32].into()).into(),
-					mock_task.clone()
+					mock_task(Network::Ethereum, 5)
 				));
 			}
 		}
 		for i in 1..=10 {
 			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i);
 		}
+	});
+}
+
+#[test]
+fn submit_task_result_inserts_at_input_cycle() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 5)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		assert_eq!(TaskCycleState::<Test>::get(0), 1);
+		assert!(TaskResults::<Test>::get(0, 0).is_some());
+		assert!(TaskResults::<Test>::get(0, 1).is_none());
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
 	});
 }

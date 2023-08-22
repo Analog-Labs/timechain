@@ -7,8 +7,8 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, ShardId,
-	TaskCycle, TaskId, TssPublicKey, TssSignature
+	Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, ShardId, TaskCycle, TaskId,
+	TssPublicKey, TssSignature,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -51,8 +51,8 @@ impl OcwSubmitTaskResult for MockTasks {
 	}
 
 	fn submit_task_hash(_: ShardId, _: TaskId, _: String) -> DispatchResult {
-			Ok(())
-		}
+		Ok(())
+	}
 }
 
 frame_support::construct_runtime!(

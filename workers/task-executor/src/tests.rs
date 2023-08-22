@@ -15,7 +15,7 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	Function, Network, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId, TaskSpawner, TimeApi, TssSignature, TaskPhase
+	TaskId, TaskPhase, TaskSpawner, TimeApi, TssSignature,
 };
 
 #[derive(Clone, Default)]

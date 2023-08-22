@@ -446,7 +446,10 @@ fn task_stopped_and_moved_on_shard_offline() {
 		Tasks::shard_online(2, Network::Ethereum);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
-		assert_eq!(Tasks::get_shard_tasks(2), vec![TaskExecution::new(0, 0, 0, TaskPhase::Read(None))]);
+		assert_eq!(
+			Tasks::get_shard_tasks(2),
+			vec![TaskExecution::new(0, 0, 0, TaskPhase::Read(None))]
+		);
 	});
 }
 

@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{Error, Event, NetworkShards, ShardTasks, UnassignedTasks};
+use crate::{Error, Event, NetworkShards, ShardTasks, TaskIdCounter, TaskState, UnassignedTasks};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
@@ -60,7 +60,7 @@ fn create_task_increments_task_id_counter() {
 				RawOrigin::Signed([0; 32].into()).into(),
 				mock_task(Network::Ethereum, 1)
 			));
-			assert_eq!(Tasks::task_id_counter(), i.saturating_plus_one());
+			assert_eq!(TaskIdCounter::<Test>::get(), i.saturating_plus_one());
 		}
 	});
 }
@@ -88,7 +88,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 				hash: "".to_string(),
 			}
 		);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().collect::<Vec<_>>(),
 			vec![(Network::Ethereum, 0, ())]
@@ -120,7 +120,7 @@ fn task_auto_assigned_if_shard_online() {
 				hash: "".to_string(),
 			}
 		);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 	});
@@ -150,7 +150,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 			}
 		);
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 	});
@@ -272,7 +272,7 @@ fn task_stopped_by_owner() {
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
 		System::assert_last_event(Event::<Test>::TaskStopped(0).into());
 	});
 }
@@ -324,9 +324,9 @@ fn task_resumed_by_owner() {
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
 }

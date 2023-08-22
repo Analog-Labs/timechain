@@ -448,7 +448,7 @@ fn task_stopped_and_moved_on_shard_offline() {
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
 		assert_eq!(
 			Tasks::get_shard_tasks(2),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::Read(None))]
+			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
 	});
 }

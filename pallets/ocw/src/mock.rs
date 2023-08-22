@@ -7,7 +7,7 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, ShardId, TaskCycle, TaskId,
+	Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId, TaskCycle, TaskId,
 	TssPublicKey, TssSignature,
 };
 
@@ -41,7 +41,7 @@ impl OcwShardInterface for MockShards {
 
 pub struct MockTasks;
 
-impl OcwSubmitTaskResult for MockTasks {
+impl OcwTaskInterface for MockTasks {
 	fn submit_task_result(_: ShardId, _: TaskId, _: TaskCycle, _: TssSignature) -> DispatchResult {
 		Ok(())
 	}

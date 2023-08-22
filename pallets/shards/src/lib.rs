@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated, ShardId,
-		ShardStatus, ShardStatusInterface, TssPublicKey,
+		Network, OcwShardInterface, PeerId, PublicKey, TasksInterface, ShardId,
+		ShardStatus, ShardsInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -38,8 +38,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ShardCreated: ShardCreated;
-		type TaskScheduler: ScheduleInterface;
+		type TaskScheduler: TasksInterface;
 		#[pallet::constant]
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
@@ -47,6 +46,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
+
+	#[pallet::storage]
+	pub type ShardCollector<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
 
 	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
@@ -166,11 +169,11 @@ pub mod pallet {
 				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
+			<ShardCollector<T>>::insert(shard_id, collector);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			T::ShardCreated::shard_created(shard_id, collector);
 		}
 
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
@@ -229,9 +232,13 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ShardStatusInterface for Pallet<T> {
+	impl<T: Config> ShardsInterface for Pallet<T> {
 		fn is_shard_online(shard_id: ShardId) -> bool {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
+		}
+
+		fn collector(shard_id: ShardId) -> Option<PublicKey>{
+			ShardCollector::<T>::get(shard_id)
 		}
 	}
 }

@@ -16,9 +16,9 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
-		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskPhase, TaskStatus, TssSignature,
+		CycleStatus, Network, OcwTaskInterface, TasksInterface, ShardId,
+		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
+		TaskExecution, TaskId, TaskPhase, TaskStatus, TssSignature, Function
 	};
 
 	pub trait WeightInfo {
@@ -49,7 +49,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ShardStatus: ShardStatusInterface;
+		type ShardStatus: ShardsInterface;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 	}
@@ -80,6 +80,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TaskState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskStatus, OptionQuery>;
+
+	#[pallet::storage]
+	pub type TaskPhaseState<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
 
 	#[pallet::storage]
 	pub type TaskRetryCounter<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, u8, ValueQuery>;
@@ -196,7 +200,7 @@ pub mod pallet {
 						task_id,
 						TaskCycleState::<T>::get(task_id),
 						TaskRetryCounter::<T>::get(task_id),
-						TaskPhase::Read(None),
+						TaskPhaseState::<T>::get(task_id),
 					)
 				})
 				.collect()
@@ -224,6 +228,13 @@ pub mod pallet {
 			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Created))
 		}
 
+		fn is_payable(task_id: TaskId) -> bool {
+			let Some(task) = Self::get_task(task_id) else {
+				return false;
+			};
+			matches!(task.function, Function::EvmCall{ .. } | Function::EvmDeploy{ .. })
+		}
+
 		fn shard_task_count(shard_id: ShardId) -> usize {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
@@ -243,6 +254,14 @@ pub mod pallet {
 				let Some((shard_id, _)) = shard else {
 					break;
 				};
+
+				if Self::is_payable(task_id)
+					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
+				{
+					//todo fetch collector and get it
+					// let collector_id = ShardCollector::<T>::get(shard_id);
+					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write([0; 32]))
+				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
@@ -250,7 +269,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ScheduleInterface for Pallet<T> {
+	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::schedule_tasks(network);
@@ -268,7 +287,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> OcwSubmitTaskResult for Pallet<T> {
+	impl<T: Config> OcwTaskInterface for Pallet<T> {
 		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) -> DispatchResult {
 			todo!()
 		}

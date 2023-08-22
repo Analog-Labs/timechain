@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ShardId, ShardStatusInterface};
+use time_primitives::{ShardId, ShardsInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -13,9 +13,13 @@ pub type Signature = MultiSignature;
 
 pub struct MockShardInterface;
 
-impl ShardStatusInterface for MockShardInterface {
+impl ShardsInterface for MockShardInterface {
 	fn is_shard_online(_: ShardId) -> bool {
 		true
+	}
+
+	fn get_shard_collector(_: ShardId) -> Option<PeerId> {
+		None
 	}
 }
 

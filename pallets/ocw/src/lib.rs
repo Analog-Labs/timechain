@@ -80,13 +80,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Shards: OcwShardInterface;
-		type Tasks: OcwSubmitTaskResult;
+		type OcwShards: OcwShardInterface;
+		type OcwTasks: OcwTaskInterface;
+		type Shards: ShardsInterface;
+		type Tasks: TasksInterface;
 	}
 
-	#[pallet::storage]
-	pub type ShardCollector<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
 
 	#[pallet::event]
 	pub enum Event<T: Config> {}
@@ -107,7 +106,7 @@ pub mod pallet {
 			public_key: TssPublicKey,
 		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Shards::submit_tss_public_key(shard_id, public_key)
+			T::OcwShards::submit_tss_public_key(shard_id, public_key)
 		}
 
 		/// Submits task result to runtime
@@ -121,7 +120,7 @@ pub mod pallet {
 			signature: TssSignature,
 		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Tasks::submit_task_result(shard_id, task_id, cycle, signature)
+			T::OcwTasks::submit_task_result(shard_id, task_id, cycle, signature)
 		}
 
 		/// Turns shard offline
@@ -129,7 +128,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_shard_offline())]
 		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Shards::set_shard_offline(shard_id)
+			T::OcwShards::set_shard_offline(shard_id, network)
 		}
 
 		/// Submit Task Error
@@ -142,7 +141,7 @@ pub mod pallet {
 			error: String,
 		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Tasks::submit_task_error(shard_id, task_id, error)
+			T::OcwTasks::submit_task_error(shard_id, task_id, error)
 		}
 
 		/// Submit Task Hash
@@ -155,14 +154,14 @@ pub mod pallet {
 			hash: String,
 		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Tasks::submit_task_hash(shard_id, task_id, hash)
+			T::OcwTasks::submit_task_hash(shard_id, task_id, hash)
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
 		fn ensure_signed_by_collector(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
-			let Some(collector) = ShardCollector::<T>::get(shard_id) else {
+			let Some(collector) = T::Shards::collector(shard_id) else {
 				return Err(Error::<T>::NotSignedByCollector.into());
 			};
 			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
@@ -201,7 +200,7 @@ pub mod pallet {
 		}
 
 		pub(crate) fn submit_tx(payload: OcwPayload) {
-			let Some(collector) = ShardCollector::<T>::get(payload.shard_id()) else {
+			let Some(collector) = T::Shards::collector(payload.shard_id()) else {
 				return;
 			};
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
@@ -243,15 +242,6 @@ pub mod pallet {
 			if let Err(e) = res {
 				log::error!("send signed transaction returned an error: {:?}", e);
 			}
-		}
-	}
-
-	impl<T: Config> ShardCreated for Pallet<T> {
-		fn shard_created(shard_id: ShardId, collector: PublicKey) {
-			ShardCollector::<T>::insert(shard_id, collector);
-		}
-		fn shard_removed(shard_id: ShardId) {
-			ShardCollector::<T>::remove(shard_id);
 		}
 	}
 }

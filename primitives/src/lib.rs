@@ -45,12 +45,12 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-pub trait ShardCreated {
-	fn shard_created(shard_id: ShardId, collector: PublicKey);
-	fn shard_removed(shard_id: ShardId);
+pub trait ShardsInterface {
+	fn is_shard_online(shard_id: ShardId) -> bool;
+	fn collector(shard_id: ShardId) -> Option<PublicKey>;
 }
 
-pub trait ScheduleInterface {
+pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
 }
@@ -66,7 +66,7 @@ pub trait OcwShardInterface {
 	fn set_shard_offline(shard_id: ShardId) -> DispatchResult;
 }
 
-pub trait OcwSubmitTaskResult {
+pub trait OcwTaskInterface {
 	fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult;
 	fn submit_task_result(
 		shard_id: ShardId,
@@ -75,8 +75,4 @@ pub trait OcwSubmitTaskResult {
 		signature: TssSignature,
 	) -> DispatchResult;
 	fn submit_task_error(shard_id: ShardId, task_id: TaskId, error: String) -> DispatchResult;
-}
-
-pub trait ShardStatusInterface {
-	fn is_shard_online(shard_id: ShardId) -> bool;
 }

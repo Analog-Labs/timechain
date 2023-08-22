@@ -108,6 +108,12 @@ impl TaskPhase {
 	}
 }
 
+impl Default for TaskPhase {
+	fn default() -> Self {
+		TaskPhase::Read(None)
+	}
+}
+
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
 pub struct TaskExecution {

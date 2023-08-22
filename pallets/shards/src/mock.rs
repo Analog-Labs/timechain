@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, ScheduleInterface, ShardCreated, ShardId};
+use time_primitives::{Network, PublicKey, TasksInterface, ShardId};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -13,14 +13,9 @@ pub type Signature = MultiSignature;
 
 pub struct MockOcw;
 
-impl ShardCreated for MockOcw {
-	fn shard_created(_: ShardId, _: PublicKey) {}
-	fn shard_removed(_: ShardId) {}
-}
-
 pub struct MockTaskScheduler;
 
-impl ScheduleInterface for MockTaskScheduler {
+impl TasksInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: Network) {}
 	fn shard_offline(_: ShardId, _: Network) {}
 }
@@ -79,7 +74,6 @@ impl pallet_balances::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ShardCreated = MockOcw;
 	type TaskScheduler = MockTaskScheduler;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;

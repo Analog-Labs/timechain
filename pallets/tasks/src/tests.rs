@@ -5,7 +5,7 @@ use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
 	CycleStatus, Function, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId, TaskCycle,
-	TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskStatus,
+	TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskStatus,
 };
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
@@ -176,6 +176,82 @@ fn shard_offline_removes_network_shards() {
 }
 
 #[test]
+fn shard_offline_removes_tasks() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+	});
+}
+
+#[test]
+fn shard_offline_assigns_tasks_if_other_shard_online() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(2, Network::Ethereum);
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(
+			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
+			vec![(2, 0)]
+		);
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		Tasks::shard_offline(2, Network::Ethereum);
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert_eq!(
+			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
+			vec![(1, 0)]
+		);
+	});
+}
+
+#[test]
+fn submit_completed_result_purges_task_from_storage() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+	});
+}
+
+#[test]
+fn shard_offline_drops_failed_tasks() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		for _ in 0..3 {
+			assert_ok!(Tasks::submit_task_error(
+				0,
+				TaskError {
+					shard_id: 1,
+					error: "test".to_string()
+				}
+			));
+		}
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+	});
+}
+
+#[test]
 fn test_cycle_must_be_greater_than_zero() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
@@ -202,6 +278,45 @@ fn task_stopped_by_owner() {
 }
 
 #[test]
+fn cannot_stop_task_if_not_owner() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_noop!(
+			Tasks::stop_task(RawOrigin::Signed([1; 32].into()).into(), 0),
+			Error::<Test>::InvalidOwner
+		);
+	});
+}
+
+#[test]
+fn cannot_stop_stopped_task() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_noop!(
+			Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0),
+			Error::<Test>::InvalidTaskState
+		);
+	});
+}
+
+#[test]
+fn cannot_stop_if_task_dne() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0),
+			Error::<Test>::UnknownTask
+		);
+	});
+}
+
+#[test]
 fn task_resumed_by_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
@@ -217,7 +332,32 @@ fn task_resumed_by_owner() {
 }
 
 #[test]
-fn task_invalid_task_state_during_resume() {
+fn cannot_resume_if_task_dne() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),
+			Error::<Test>::UnknownTask
+		);
+	});
+}
+
+#[test]
+fn cannot_resume_task_if_not_owner() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Signed([1; 32].into()).into(), 0),
+			Error::<Test>::InvalidOwner
+		);
+	});
+}
+
+#[test]
+fn cannot_resume_running_task() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),

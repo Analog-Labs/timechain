@@ -14,7 +14,7 @@ use time_primitives::{
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
-		function: Function::EVMViewWithoutAbi {
+		function: Function::EvmViewCall {
 			address: Default::default(),
 			function_signature: Default::default(),
 			input: Default::default(),
@@ -26,13 +26,14 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	}
 }
 
-fn mock_result_ok(shard_id: ShardId) -> CycleStatus {
-	CycleStatus { shard_id, signature: [0; 64] }
+fn mock_result_ok(_shard_id: ShardId) -> TssSignature {
+	[0; 64]
 }
 
 #[test]
 fn test_create_task() {
 	new_test_ext().execute_with(|| {
+		let shard_id = 1;
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -445,13 +446,14 @@ fn task_stopped_and_moved_on_shard_offline() {
 		Tasks::shard_online(2, Network::Ethereum);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
-		assert_eq!(Tasks::get_shard_tasks(2), vec![TaskExecution::new(0, 0, 0)]);
+		assert_eq!(Tasks::get_shard_tasks(2), vec![TaskExecution::new(0, 0, 0, TaskPhase::Read(None))]);
 	});
 }
 
 #[test]
 fn task_recurring_cycle_count() {
 	let mock_task = mock_task(Network::Ethereum, 5);
+	let shard_id = 1;
 	let mut total_results = 0;
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), mock_task.clone()));
@@ -461,10 +463,10 @@ fn task_recurring_cycle_count() {
 			if task.is_empty() {
 				break;
 			}
-			for task in task.iter().copied() {
+			for task in task.iter() {
 				let task_id = task.task_id;
 				let cycle = task.cycle;
-				assert_ok!(Tasks::submit_task_result(task_id, cycle, mock_result_ok(1)));
+				assert_ok!(Tasks::submit_task_result(shard_id, task_id, cycle, mock_result_ok(1)));
 				total_results += 1;
 			}
 		}

@@ -145,7 +145,7 @@ pub mod pallet {
 			T::Tasks::submit_task_error(shard_id, task_id, error)
 		}
 
-		/// Submit Task Error
+		/// Submit Task Hash
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::submit_task_hash())]
 		pub fn submit_task_hash(

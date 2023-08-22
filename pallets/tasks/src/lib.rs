@@ -269,7 +269,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> OcwSubmitTaskResult for Pallet<T> {
-		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult {
+		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) -> DispatchResult {
 			todo!()
 		}
 

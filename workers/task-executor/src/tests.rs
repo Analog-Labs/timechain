@@ -121,7 +121,7 @@ async fn task_executor_smoke() -> Result<()> {
 		};
 
 		let mut task_executor = TaskExecutor::new(params);
-		let _ = task_executor.start_tasks(dummy_block_hash).await;
+		let _ = task_executor.start_tasks(dummy_block_hash, 1).await;
 
 		loop {
 			let Some(msg) = time_primitives::read_message(storage.clone()) else {

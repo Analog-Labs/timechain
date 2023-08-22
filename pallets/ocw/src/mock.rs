@@ -28,7 +28,7 @@ impl OcwShardInterface for MockShards {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
 	}
-	fn set_shard_offline(_shard_id: ShardId, _network: Network) -> DispatchResult {
+	fn set_shard_offline(_shard_id: ShardId) -> DispatchResult {
 		Ok(())
 	}
 }

@@ -105,8 +105,8 @@ pub mod pallet {
 		TaskCreated(TaskId),
 		/// Updated cycle status
 		TaskResult(TaskId, TaskCycle, CycleStatus),
-		/// Error occured while executing task
-		TaskError(TaskId, TaskError),
+		/// Task failed due to more errors than max retry count
+		TaskFailed(TaskId, TaskError),
 		/// Task stopped by owner
 		TaskStopped(TaskId),
 		/// Task resumed by owner
@@ -290,10 +290,10 @@ pub mod pallet {
 		fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult {
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
-			//since count starts from 0 decrementing maxretrycount
-			if retry_count == T::MaxRetryCount::get() - 1 {
+			// task fails when new retry count == max - 1 => old retry count == max
+			if retry_count == T::MaxRetryCount::get() {
 				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
-				Self::deposit_event(Event::TaskError(task_id, error));
+				Self::deposit_event(Event::TaskFailed(task_id, error));
 			}
 			Ok(())
 		}

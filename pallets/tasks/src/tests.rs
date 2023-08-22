@@ -1,5 +1,8 @@
 use crate::mock::*;
-use crate::{Error, Event, NetworkShards, ShardTasks, TaskIdCounter, TaskState, UnassignedTasks};
+use crate::{
+	Error, Event, NetworkShards, ShardTasks, TaskIdCounter, TaskRetryCounter, TaskState,
+	UnassignedTasks,
+};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
@@ -236,7 +239,7 @@ fn shard_offline_drops_failed_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		for _ in 0..3 {
+		for _ in 0..4 {
 			assert_ok!(Tasks::submit_task_error(
 				0,
 				TaskError {
@@ -248,6 +251,65 @@ fn shard_offline_drops_failed_tasks() {
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+	});
+}
+
+#[test]
+fn submit_task_error_increments_retry_count() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		let error = TaskError {
+			shard_id: 1,
+			error: "test".to_string(),
+		};
+		for _ in 1..=10 {
+			assert_ok!(Tasks::submit_task_error(0, error.clone()));
+		}
+		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
+	});
+}
+
+#[test]
+fn submit_task_error_over_max_retry_count_is_task_failure() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		let error = TaskError {
+			shard_id: 1,
+			error: "test".to_string(),
+		};
+		for _ in 0..4 {
+			assert_ok!(Tasks::submit_task_error(0, error.clone()));
+		}
+		System::assert_last_event(Event::<Test>::TaskFailed(0, error).into());
+	});
+}
+
+#[test]
+fn submit_task_result_resets_retry_count() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		let error = TaskError {
+			shard_id: 1,
+			error: "test".to_string(),
+		};
+		for _ in 1..=10 {
+			assert_ok!(Tasks::submit_task_error(0, error.clone()));
+		}
+		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
+		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
 }
 
@@ -407,5 +469,23 @@ fn task_recurring_cycle_count() {
 			}
 		}
 		assert_eq!(total_results, mock_task.cycle);
+	});
+}
+
+#[test]
+fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
+	new_test_ext().execute_with(|| {
+		for i in (1..=10).rev() {
+			Tasks::shard_online(i, Network::Ethereum);
+			for _ in 1..=i {
+				assert_ok!(Tasks::create_task(
+					RawOrigin::Signed([0; 32].into()).into(),
+					mock_task.clone()
+				));
+			}
+		}
+		for i in 1..=10 {
+			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i);
+		}
 	});
 }

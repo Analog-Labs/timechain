@@ -4,14 +4,24 @@ use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
-pub type TssId = (TaskId, TaskCycle);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "std", derive(Deserialize, Serialize))]
+pub struct TssId(pub TaskId, pub TaskCycle);
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for TssId {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{}/{}", self.0, self.1)
+	}
+}
 
 /// Used to enforce one network per shard
 #[cfg_attr(feature = "std", derive(Serialize))]
@@ -34,6 +44,7 @@ pub enum ShardStatus {
 pub struct TssRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
+	pub block_number: u64,
 	pub data: Vec<u8>,
 	pub tx: oneshot::Sender<TssSignature>,
 }

@@ -19,9 +19,9 @@ pub mod pallet {
 	use sp_runtime::traits::{Block, Header, IdentifyAccount};
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
-		OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId,
-		TssPublicKey, OCW_READ_ID, OCW_WRITE_ID,
+		msg_key, AccountId, CycleStatus, OcwPayload, OcwShardInterface, OcwSubmitTaskResult,
+		PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey, OCW_READ_ID,
+		OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -115,13 +115,9 @@ pub mod pallet {
 		/// Turns shard offline
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_shard_offline())]
-		pub fn set_shard_offline(
-			origin: OriginFor<T>,
-			shard_id: ShardId,
-			network: Network,
-		) -> DispatchResult {
+		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Shards::set_shard_offline(shard_id, network)
+			T::Shards::set_shard_offline(shard_id)
 		}
 
 		/// Submit Task Error
@@ -183,8 +179,9 @@ pub mod pallet {
 						status: status.clone(),
 					}),
 
-				OcwPayload::SetShardOffline { shard_id, network } => signer
-					.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network }),
+				OcwPayload::SetShardOffline { shard_id } => {
+					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
+				},
 				OcwPayload::SubmitTaskError { task_id, error } => {
 					signer.send_signed_transaction(|_| Call::submit_task_error {
 						task_id,

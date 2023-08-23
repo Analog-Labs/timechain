@@ -1,4 +1,5 @@
 use crate::{self as pallet_shards};
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -14,6 +15,7 @@ pub struct MockOcw;
 
 impl ShardCreated for MockOcw {
 	fn shard_created(_: ShardId, _: PublicKey) {}
+	fn shard_removed(_: ShardId) {}
 }
 
 pub struct MockTaskScheduler;
@@ -89,6 +91,7 @@ pub fn roll_to(n: u64) {
 	let now = System::block_number();
 	for i in now + 1..=n {
 		System::set_block_number(i);
+		Shards::on_initialize(i);
 	}
 }
 

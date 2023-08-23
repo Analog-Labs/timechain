@@ -45,6 +45,7 @@ sp_api::decl_runtime_apis! {
 
 pub trait ShardCreated {
 	fn shard_created(shard_id: ShardId, collector: PublicKey);
+	fn shard_removed(shard_id: ShardId);
 }
 
 pub trait ScheduleInterface {

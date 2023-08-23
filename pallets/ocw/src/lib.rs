@@ -203,5 +203,8 @@ pub mod pallet {
 		fn shard_created(shard_id: ShardId, collector: PublicKey) {
 			ShardCollector::<T>::insert(shard_id, collector);
 		}
+		fn shard_removed(shard_id: ShardId) {
+			ShardCollector::<T>::remove(shard_id);
+		}
 	}
 }

@@ -75,6 +75,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, Network),
+		/// Shard DKG timed out
+		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),
 		/// Shard went offline
@@ -122,6 +124,27 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			let mut writes = 0;
+			ShardState::<T>::iter().for_each(|(shard_id, status)| {
+				if let Some(created_block) = status.when_created() {
+					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+						// clean up shard state and emit event for timeout
+						ShardState::<T>::remove(shard_id);
+						ShardNetwork::<T>::remove(shard_id);
+						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
+						T::ShardCreated::shard_removed(shard_id);
+						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+						writes += 5;
+					}
+				}
+			});
+			T::DbWeight::get().writes(writes)
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
 		fn create_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
 			let shard_id = <ShardIdCounter<T>>::get();
@@ -166,16 +189,6 @@ pub mod pallet {
 			ensure!(
 				ShardPublicKey::<T>::get(shard_id).is_none(),
 				Error::<T>::PublicKeyAlreadyRegistered
-			);
-			let when_created = <ShardState<T>>::get(shard_id)
-				.ok_or(Error::<T>::ShardStatusDNE)?
-				.when_created()
-				.ok_or(Error::<T>::ShardStatusNotCreated)?;
-			// TODO: instead of error, remove the shard completely from storage(?)
-			ensure!(
-				frame_system::Pallet::<T>::block_number().saturating_sub(when_created)
-					< T::DkgTimeout::get(),
-				Error::<T>::ShardCreationTimedOut
 			);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Online);

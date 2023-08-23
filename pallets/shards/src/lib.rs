@@ -13,6 +13,7 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated, ShardId,
@@ -43,6 +44,8 @@ pub mod pallet {
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
 		type MinMembers: Get<u8>;
+		#[pallet::constant]
+		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
 
 	#[pallet::storage]
@@ -57,7 +60,7 @@ pub mod pallet {
 	/// Network for which shards can be assigned tasks
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus<BlockNumberFor<T>>, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
@@ -81,6 +84,9 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnknownShard,
+		ShardStatusDNE,
+		ShardStatusNotCreated,
+		ShardCreationTimedOut,
 		PublicKeyAlreadyRegistered,
 		MembershipBelowMinimum,
 		MembershipAboveMaximum,
@@ -121,7 +127,10 @@ pub mod pallet {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
+			<ShardState<T>>::insert(
+				shard_id,
+				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
+			);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
@@ -157,6 +166,16 @@ pub mod pallet {
 			ensure!(
 				ShardPublicKey::<T>::get(shard_id).is_none(),
 				Error::<T>::PublicKeyAlreadyRegistered
+			);
+			let when_created = <ShardState<T>>::get(shard_id)
+				.ok_or(Error::<T>::ShardStatusDNE)?
+				.when_created()
+				.ok_or(Error::<T>::ShardStatusNotCreated)?;
+			// TODO: instead of error, remove the shard completely from storage(?)
+			ensure!(
+				frame_system::Pallet::<T>::block_number().saturating_sub(when_created)
+					< T::DkgTimeout::get(),
+				Error::<T>::ShardCreationTimedOut
 			);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Online);

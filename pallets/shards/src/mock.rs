@@ -81,6 +81,15 @@ impl pallet_shards::Config for Test {
 	type TaskScheduler = MockTaskScheduler;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
+	type DkgTimeout = ConstU64<100>;
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+	}
 }
 
 // Build genesis storage according to the mock runtime.

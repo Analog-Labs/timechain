@@ -31,5 +31,10 @@ jobs:
           toolchain: stable
       - name: Run benchmark script
         run: ./scripts/benchmarking.sh
-      - name: status
-        run: git status && git diff
+      - name: Commit weights
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: './runtime/src/weights'
+          default_author: github_actions
+          author_name: Github Actions
+          message: 'Add generated weights'

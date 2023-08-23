@@ -1,4 +1,4 @@
-use crate::TaskExecutorParams;
+use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
@@ -110,7 +110,9 @@ impl Task {
 				tx,
 			})
 			.await?;
-		Ok(rx.await?)
+		Ok(rx.await.with_context(|| {
+			format!("Task {}/{} failed to tss sign on shard {}", task_id, cycle, shard_id)
+		})?)
 	}
 
 	async fn execute(
@@ -210,7 +212,7 @@ where
 		let block_num: u64 = block_num.to_string().parse()?;
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id)?;
-			log::info!("got task ====== {:?}", tasks);
+			log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 			for executable_task in tasks.iter().copied() {
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
@@ -220,7 +222,7 @@ where
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
 				let target_block_number = task_descr.trigger(cycle);
 				if block_height >= target_block_number {
-					log::info!("Running Task {}", executable_task);
+					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
 					self.running_tasks.insert(executable_task);
 					let storage = self.backend.offchain_storage().unwrap();
 					let task = self.task_spawner.execute(
@@ -233,7 +235,13 @@ where
 					);
 					tokio::task::spawn(async move {
 						let result = task.await.map_err(|e| e.to_string());
-						log::info!("Task {} completed with {:?}", executable_task, result);
+						log::info!(
+							target: TW_LOG,
+							"Task {} completed on shard {} with {:?}",
+							executable_task,
+							shard_id,
+							result
+						);
 						match result {
 							Ok(signature) => {
 								let status = CycleStatus { shard_id, signature };
@@ -261,8 +269,9 @@ where
 	pub async fn run(&mut self) {
 		let mut finality_notifications = self.client.finality_notification_stream();
 		while let Some(notification) = finality_notifications.next().await {
+			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
 			if let Err(err) = self.start_tasks(notification.header.hash()).await {
-				log::error!("error processing tasks: {}", err);
+				log::error!(target: TW_LOG, "error processing tasks: {}", err);
 			}
 		}
 	}

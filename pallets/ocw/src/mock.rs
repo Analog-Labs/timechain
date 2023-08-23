@@ -42,11 +42,11 @@ impl OcwShardInterface for MockShards {
 pub struct MockTasks;
 
 impl OcwTaskInterface for MockTasks {
-	fn submit_task_result(_: ShardId, _: TaskId, _: TaskCycle, _: TssSignature) -> DispatchResult {
+	fn submit_task_result(_: TaskId, _: TaskCycle, _: CycleStatus) -> DispatchResult {
 		Ok(())
 	}
 
-	fn submit_task_error(_: ShardId, _: TaskId, _: String) -> DispatchResult {
+	fn submit_task_error(_: TaskId, _: TaskError) -> DispatchResult {
 		Ok(())
 	}
 

@@ -4,12 +4,11 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
 use sc_client_api::{Backend, BlockchainEvents};
-use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
-	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
+	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError,
 	TaskExecution, TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
@@ -110,6 +109,7 @@ impl Task {
 		cycle: TaskCycle,
 		result: &str,
 	) -> Result<TssSignature> {
+		let data = bincode::serialize(&result).context("Failed to serialize task")?;
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
@@ -247,6 +247,9 @@ where
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 			log::info!("got task ====== {:?}", tasks);
 			for executable_task in tasks {
+				let task_id = executable_task.task_id;
+				let cycle = executable_task.cycle;
+				let retry_count = executable_task.retry_count;
 				if self.running_tasks.contains(&executable_task) {
 					continue;
 				}
@@ -263,19 +266,27 @@ where
 						tokio::task::spawn(async move {
 							let result = task.await.map_err(|e| e.to_string());
 							log::info!(
-								"Write phase {}/{}/{} completed with {:?}",
+								"Task {}/{}/{} completed with {:?}",
 								task_id,
 								cycle,
 								retry_count,
 								result
 							);
-							let payload = match result {
-								Ok(hash) => OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
-								Err(error) => {
-									OcwPayload::SubmitTaskError { shard_id, task_id, error }
+							match result {
+								Ok(hash) => {
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
+									);
 								},
-							};
-							time_primitives::write_message(storage, &payload);
+								Err(error) => {
+									let error = TaskError { shard_id, error };
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskError { task_id, error },
+									);
+								},
+							}
 						});
 					} else {
 						let function = if let Some(tx) = executable_task.phase.tx_hash() {
@@ -301,18 +312,26 @@ where
 								retry_count,
 								result
 							);
-							let payload = match result {
-								Ok(signature) => OcwPayload::SubmitTaskResult {
-									shard_id,
-									task_id,
-									cycle,
-									signature,
+							match result {
+								Ok(signature) => {
+									let status = CycleStatus { shard_id, signature };
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskResult {
+											task_id,
+											cycle,
+											status
+										},
+									);
 								},
 								Err(error) => {
-									OcwPayload::SubmitTaskError { shard_id, task_id, error }
+									let error = TaskError { shard_id, error };
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskError { task_id, error },
+									);
 								},
-							};
-							time_primitives::write_message(storage, &payload);
+							}
 						});
 					}
 				}

@@ -69,10 +69,9 @@ pub trait OcwShardInterface {
 pub trait OcwTaskInterface {
 	fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult;
 	fn submit_task_result(
-		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		signature: TssSignature,
+		status: CycleStatus
 	) -> DispatchResult;
-	fn submit_task_error(shard_id: ShardId, task_id: TaskId, error: String) -> DispatchResult;
+	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
 }

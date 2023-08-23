@@ -18,7 +18,7 @@ pub mod pallet {
 	use time_primitives::{
 		CycleStatus, Network, OcwTaskInterface, TasksInterface, ShardId,
 		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskPhase, TaskStatus, TssSignature, Function
+		TaskExecution, TaskId, TaskPhase, TaskStatus, Function
 	};
 
 	pub trait WeightInfo {
@@ -293,12 +293,10 @@ pub mod pallet {
 		}
 
 		fn submit_task_result(
-			shard_id: ShardId,
 			task_id: TaskId,
 			cycle: TaskCycle,
-			signature: TssSignature,
+			status: CycleStatus,
 		) -> DispatchResult {
-			let status = CycleStatus { shard_id, signature };
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -313,8 +311,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn submit_task_error(shard_id: ShardId, task_id: TaskId, error: String) -> DispatchResult {
-			let error = TaskError { shard_id, error };
+		fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult {
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
 			// task fails when new retry count == max - 1 => old retry count == max

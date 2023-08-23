@@ -33,8 +33,8 @@ impl OcwPayload {
 		match self {
 			Self::SubmitTssPublicKey { shard_id, .. } => *shard_id,
 			Self::SubmitTaskHash { shard_id, .. } => *shard_id,
-			Self::SubmitTaskResult { shard_id, .. } => *shard_id,
-			Self::SubmitTaskError { shard_id, .. } => *shard_id,
+			Self::SubmitTaskResult { status, .. } => status.shard_id,
+			Self::SubmitTaskError { error, .. } => error.shard_id,
 			Self::SetShardOffline { shard_id, .. } => *shard_id,
 		}
 	}

@@ -252,6 +252,7 @@ where
 						);
 						continue;
 					};
+					log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
 					self.on_finality(notification.header.hash());
 				},
 				tss_request = self.tss_request.next().fuse() => {
@@ -259,6 +260,7 @@ where
 						continue;
 					};
 					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+						log::debug!(target: TW_LOG, "trying to run task on non existent shard {}", shard_id);
 						continue;
 					};
 					log::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);

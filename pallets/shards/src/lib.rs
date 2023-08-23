@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, TasksInterface, ShardId,
-		ShardStatus, ShardsInterface, TssPublicKey,
+		Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -237,7 +237,7 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
-		fn collector(shard_id: ShardId) -> Option<PublicKey>{
+		fn collector(shard_id: ShardId) -> Option<PublicKey> {
 			ShardCollector::<T>::get(shard_id)
 		}
 	}

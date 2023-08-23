@@ -8,8 +8,8 @@ use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
-	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError,
-	TaskExecution, TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
+	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError, TaskExecution,
+	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -317,11 +317,7 @@ where
 									let status = CycleStatus { shard_id, signature };
 									time_primitives::write_message(
 										storage,
-										&OcwPayload::SubmitTaskResult {
-											task_id,
-											cycle,
-											status
-										},
+										&OcwPayload::SubmitTaskResult { task_id, cycle, status },
 									);
 								},
 								Err(error) => {

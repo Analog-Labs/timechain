@@ -20,9 +20,9 @@ pub mod pallet {
 	use sp_runtime::traits::{Block, Header, IdentifyAccount};
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, CycleStatus, OcwPayload, OcwShardInterface,
-		PublicKey, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey, OCW_READ_ID, OCW_READ_ID
-		OCW_WRITE_ID, TasksInterface, ShardsInterface, OcwTaskInterface
+		msg_key, AccountId, CycleStatus, OcwPayload, OcwShardInterface, OcwTaskInterface,
+		PublicKey, ShardId, ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface,
+		TssPublicKey, OCW_READ_ID, OCW_WRITE_ID, OCW_LOCK
 	};
 
 	pub trait WeightInfo {
@@ -85,7 +85,6 @@ pub mod pallet {
 		type Shards: ShardsInterface;
 		type Tasks: TasksInterface;
 	}
-
 
 	#[pallet::event]
 	pub enum Event<T: Config> {}
@@ -214,22 +213,21 @@ pub mod pallet {
 						task_id,
 						hash: hash.clone(),
 					}),
-				OcwPayload::SubmitTaskResult {
-					task_id,
-					cycle,
-					status,
-				} => signer.send_signed_transaction(|_| Call::submit_task_result {
-					task_id,
-					cycle,
-					status: status.clone(),
-				}),
-				OcwPayload::SetShardOffline { shard_id } => signer
-					.send_signed_transaction(|_| Call::set_shard_offline { shard_id }),
-				OcwPayload::SubmitTaskError { task_id, error } => signer
-					.send_signed_transaction(|_| Call::submit_task_error {
+				OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
+					.send_signed_transaction(|_| Call::submit_task_result {
+						task_id,
+						cycle,
+						status: status.clone(),
+					}),
+				OcwPayload::SetShardOffline { shard_id } => {
+					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
+				},
+				OcwPayload::SubmitTaskError { task_id, error } => {
+					signer.send_signed_transaction(|_| Call::submit_task_error {
 						task_id,
 						error: error.clone(),
-					}),
+					})
+				},
 			};
 			let Some((_, res)) = call_res else {
 				log::info!("send signed transaction returned none");

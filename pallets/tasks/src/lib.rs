@@ -16,9 +16,9 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Network, OcwTaskInterface, TasksInterface, ShardId,
-		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskPhase, TaskStatus, Function
+		CycleStatus, Function, Network, OcwTaskInterface, ShardId, ShardsInterface, TaskCycle,
+		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
+		TaskStatus, TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -232,7 +232,7 @@ pub mod pallet {
 			let Some(task) = Self::get_task(task_id) else {
 				return false;
 			};
-			matches!(task.function, Function::EvmCall{ .. } | Function::EvmDeploy{ .. })
+			matches!(task.function, Function::EvmCall { .. } | Function::EvmDeploy { .. })
 		}
 
 		fn shard_task_count(shard_id: ShardId) -> usize {

@@ -2,9 +2,7 @@ use crate::{Call, Config, Pallet};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use sp_std::vec;
-use time_primitives::{
-	CycleStatus, Network, OcwShardInterface, PublicKey, ShardId, TssPublicKey,
-};
+use time_primitives::{CycleStatus, Network, OcwShardInterface, PublicKey, ShardId, TssPublicKey};
 
 fn collector() -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([42; 32]))

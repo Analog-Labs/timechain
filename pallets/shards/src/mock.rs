@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, TasksInterface, ShardId};
+use time_primitives::{Network, PublicKey, ShardId, TasksInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;

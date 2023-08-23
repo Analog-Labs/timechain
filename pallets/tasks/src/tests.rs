@@ -7,8 +7,8 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	CycleStatus, Function, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId, TaskCycle,
-	TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskStatus,
+	CycleStatus, Function, Network, OcwTaskInterface, ShardId, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
 };
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
@@ -26,21 +26,23 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	}
 }
 
-fn mock_result_ok(_shard_id: ShardId) -> TssSignature {
-	[0; 64]
+fn mock_result_ok(shard_id: ShardId) -> CycleStatus {
+	CycleStatus { shard_id, signature: [0; 64] }
 }
 
 #[test]
 fn test_create_task() {
 	new_test_ext().execute_with(|| {
-		let shard_id = 1;
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
 		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, 0, 0)]);
+		assert_eq!(
+			Tasks::get_shard_tasks(1),
+			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
+		);
 		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
 		System::assert_last_event(
 			Event::<Test>::TaskResult(
@@ -81,7 +83,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 			TaskDescriptor {
 				owner: [0; 32].into(),
 				network: Network::Ethereum,
-				function: Function::EVMViewWithoutAbi {
+				function: Function::EvmViewCall {
 					address: Default::default(),
 					function_signature: Default::default(),
 					input: Default::default(),
@@ -113,7 +115,7 @@ fn task_auto_assigned_if_shard_online() {
 			TaskDescriptor {
 				owner: [0; 32].into(),
 				network: Network::Ethereum,
-				function: Function::EVMViewWithoutAbi {
+				function: Function::EvmViewCall {
 					address: Default::default(),
 					function_signature: Default::default(),
 					input: Default::default(),
@@ -142,7 +144,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 			TaskDescriptor {
 				owner: [0; 32].into(),
 				network: Network::Ethereum,
-				function: Function::EVMViewWithoutAbi {
+				function: Function::EvmViewCall {
 					address: Default::default(),
 					function_signature: Default::default(),
 					input: Default::default(),
@@ -456,7 +458,6 @@ fn task_stopped_and_moved_on_shard_offline() {
 #[test]
 fn task_recurring_cycle_count() {
 	let mock_task = mock_task(Network::Ethereum, 5);
-	let shard_id = 1;
 	let mut total_results = 0;
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), mock_task.clone()));
@@ -469,7 +470,7 @@ fn task_recurring_cycle_count() {
 			for task in task.iter() {
 				let task_id = task.task_id;
 				let cycle = task.cycle;
-				assert_ok!(Tasks::submit_task_result(shard_id, task_id, cycle, mock_result_ok(1)));
+				assert_ok!(Tasks::submit_task_result(task_id, cycle, mock_result_ok(1)));
 				total_results += 1;
 			}
 		}

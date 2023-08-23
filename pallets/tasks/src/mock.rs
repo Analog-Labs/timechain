@@ -5,7 +5,9 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ShardId, ShardsInterface};
+use time_primitives::{
+	CycleStatus, PublicKey, ShardId, ShardsInterface, TaskError, TaskPhase, TssSignature,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -18,7 +20,7 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
-	fn get_shard_collector(_: ShardId) -> Option<PeerId> {
+	fn collector(_: ShardId) -> Option<PublicKey> {
 		None
 	}
 }

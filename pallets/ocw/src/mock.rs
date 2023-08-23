@@ -7,8 +7,8 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId, TaskCycle, TaskId,
-	TssPublicKey, TssSignature,
+	CycleStatus, Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId,
+	TaskCycle, TaskError, TaskId, TssPublicKey, TssSignature,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -109,6 +109,8 @@ impl pallet_ocw::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type OcwShards = OcwShardInterface;
+	type OcwTasks = OcwTaskInterface;
 	type Shards = MockShards;
 	type Tasks = MockTasks;
 }

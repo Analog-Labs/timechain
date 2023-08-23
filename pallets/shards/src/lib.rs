@@ -52,6 +52,10 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
 
 	#[pallet::storage]
+	pub type ShardCollectorPeerId<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, PeerId, OptionQuery>;
+
+	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
@@ -170,6 +174,8 @@ pub mod pallet {
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			<ShardCollector<T>>::insert(shard_id, collector);
+			//TODO change on dynamic collector assigning
+			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
@@ -217,7 +223,7 @@ pub mod pallet {
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
+			T::TaskScheduler::shard_online(shard_id, network)?;
 			Ok(())
 		}
 
@@ -227,7 +233,7 @@ pub mod pallet {
 			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
 			Self::deposit_event(Event::ShardOffline(shard_id));
-			T::TaskScheduler::shard_offline(shard_id, network);
+			T::TaskScheduler::shard_offline(shard_id, network)?;
 			Ok(())
 		}
 	}
@@ -237,8 +243,12 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
-		fn collector(shard_id: ShardId) -> Option<PublicKey> {
+		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
 			ShardCollector::<T>::get(shard_id)
+		}
+
+		fn collector_peer_id(shard_id: ShardId) -> Option<PeerId> {
+			ShardCollectorPeerId::<T>::get(shard_id)
 		}
 	}
 }

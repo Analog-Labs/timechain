@@ -24,15 +24,28 @@ const pallet_task_add = async (_keyspair, who) => {
     if (process.argv[2] != undefined) {
         network = parseInt(process.argv[2]);
     }
-    const contract_address = process.argv[3];
-    const start_block = process.argv[4];
+    var contract_address = "0x3de7086ce750513ef79d14eacbd1282c4e4b0cea"
+    if (process.argv[3] != undefined){
+        contract_address = process.argv[3]
+    }
 
+    var start_block = 15;
+    if (process.argv[4] != undefined) {
+        start_block = parseInt(process.argv[4]);
+    }
+   
+    var is_payable = false;
+    if (process.argv[5] != undefined) {
+        is_payable = process.argv[2]
+    }
+    
+    console.log('payable', is_payable);
     const api = await setup_substrate();
 
     const keyring = new Keyring({ type: 'sr25519' });
     const keyspair = keyring.addFromUri('//Alice', { name: 'Alice default' });
     
-    const input_task = {
+    var input_task = {
         network: network,
         cycle: 2,
         start: start_block,
@@ -46,6 +59,26 @@ const pallet_task_add = async (_keyspair, who) => {
             }
         },
     }
+
+    if (is_payable) {
+        input_task = {
+            network: network,
+            cycle: 1,
+            start: start_block,
+            period: 0,
+            hash: 'QmYFw5aYPKQ9oSw3L3UUed9fBqT4oTW5BZzAnPFGyuQir3',
+            function: {
+                EVMCall: {
+                    address: stringToHex(contract_address),
+                    function_signature: "function vote_yes() public",
+                    input: [],
+                    amount: 10000000000,
+                }
+            },
+        }
+    }
+
+
     await api.isReady;
     const result = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events }) => {
         if (status.isInBlock || status.isFinalized) {

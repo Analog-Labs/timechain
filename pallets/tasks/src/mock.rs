@@ -20,7 +20,11 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
-	fn collector(_: ShardId) -> Option<PublicKey> {
+	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
+		None
+	}
+
+	fn collector_peer_id(_: ShardId) -> {
 		None
 	}
 }
@@ -79,7 +83,7 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ShardStatus = MockShardInterface;
+	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
 }
 

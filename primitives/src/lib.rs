@@ -47,12 +47,14 @@ sp_api::decl_runtime_apis! {
 
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
-	fn collector(shard_id: ShardId) -> Option<PublicKey>;
+	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
+	fn collector_peer_id(shard_id: ShardId) -> Option<PeerId>;
+	
 }
 
 pub trait TasksInterface {
-	fn shard_online(shard_id: ShardId, network: Network);
-	fn shard_offline(shard_id: ShardId, network: Network);
+	fn shard_online(shard_id: ShardId, network: Network) -> DispatchResult;
+	fn shard_offline(shard_id: ShardId, network: Network) -> DispatchResult;
 }
 
 pub trait OcwShardInterface {

@@ -12,6 +12,7 @@ use time_primitives::{
 	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
+use std::error::Error;
 
 pub struct TaskSpawnerParams {
 	pub tss: mpsc::Sender<TssRequest>,
@@ -93,6 +94,9 @@ impl Task {
 				input,
 				amount,
 			} => {
+				//temp faucet todo remove it
+				self.wallet.faucet(10000000000000).await;
+				log::info!("faucet done");
 				self.wallet
 					.eth_send_call(address, function_signature, input, *amount)
 					.await?
@@ -121,7 +125,10 @@ impl Task {
 				tx,
 			})
 			.await?;
-		Ok(rx.await?)
+		match rx.await {
+			Ok(data) => Ok(data),
+			Err(data) => Err(anyhow!("Error: {}, Cause: {:?}", data, data.source())),
+		}
 	}
 
 	async fn execute_read(
@@ -246,7 +253,7 @@ where
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 			log::info!("got task ====== {:?}", tasks);
-			for executable_task in tasks {
+			for executable_task in tasks.iter().clone() {
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
 				let retry_count = executable_task.retry_count;
@@ -257,11 +264,16 @@ where
 				let target_block_number = task_descr.trigger(cycle);
 				let function = task_descr.function;
 				let hash = task_descr.hash;
+				log::info!("Task for {}, current_height {}", target_block_number, block_height);
 				if block_height >= target_block_number {
 					log::info!("Running Task {}", executable_task);
 					self.running_tasks.insert(executable_task.clone());
 					let storage = self.backend.offchain_storage().unwrap();
-					if executable_task.phase.is_write() {
+					if let Some(peer_id) = executable_task.phase.get_write_id() {
+						if peer_id != self.peer_id {
+							log::info!("Skipping task {} due to peer_id mismatch", task_id);
+							continue;
+						}
 						let task = self.task_spawner.execute_write(function);
 						tokio::task::spawn(async move {
 							let result = task.await.map_err(|e| e.to_string());
@@ -289,6 +301,7 @@ where
 							}
 						});
 					} else {
+						log::info!("task is reading phase");
 						let function = if let Some(tx) = executable_task.phase.tx_hash() {
 							Function::EvmTxReceipt { tx: tx.to_string() }
 						} else {
@@ -332,6 +345,7 @@ where
 					}
 				}
 			}
+			self.running_tasks.retain(|x| tasks.contains(x));
 		}
 		Ok(())
 	}

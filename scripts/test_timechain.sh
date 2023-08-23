@@ -28,6 +28,7 @@ insert_key() {
 
 while [ $TOTAL_INSERTS -lt 6 ]
 do
+  sleep 5
   TOTAL_INSERTS=0
   # ethereum keys
   insert_key 1 9943 "0x78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"
@@ -39,7 +40,6 @@ do
   insert_key 5 9951 "0x1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659"
   insert_key 6 9953 "0x72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"
   echo '-----------------------------'
-  sleep 5
 done
 
 echo "All keys inserted, initializing test"
@@ -53,7 +53,7 @@ sleep 5
 
 # deploying ethereum smart contract
 echo "Initiated eth faucet"
-rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network faucet 100000000000000
+rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network faucet 1000000000000000
 echo "Deploying eth contract"
 contract_result=$(rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network deploy-contract ./contracts/test_contract.sol)
 eth_contract=$(echo $contract_result | grep -oEi '0x[0-9a-zA-Z]+')
@@ -64,32 +64,36 @@ eth_block=${BASH_REMATCH[1]}
 
 echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
 
+###hardcoded for testing
+# eth_block=12
+# eth_contract="0x3de7086ce750513ef79d14eacbd1282c4e4b0cea"
+
 # inserting tasks for eth
 echo "inserting task for Eth"
-eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block | sed 's/[^0-9]*//g')
+eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block true | sed 's/[^0-9]*//g')
 echo "Task registered with id: "$eth_tsk_registered
 node ./js/src/await_task_status.js $eth_tsk_registered
 
-###### Astar testing #########
-# registering shard for astar
-astar_shard=$(node ./js/src/register_shard.js 1 1)
-echo "Registered astar, shard "$astar_shard
-sleep 5
+# ###### Astar testing #########
+# # registering shard for astar
+# astar_shard=$(node ./js/src/register_shard.js 1 1)
+# echo "Registered astar, shard "$astar_shard
+# sleep 5
 
-#deploying astar smart contract
-echo "Initiated Astar faucet"
-rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network faucet 100000000
-echo "Deploying astar contract"
-deployed_contract_astr=$(rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network deploy-contract ./contracts/test_contract.sol)
-astar_contract=$(echo $deployed_contract_astr | grep -oEi '0x[0-9a-zA-Z]+')
-astar_status=$(rosetta-cli --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network network status)
-minimized_status=$(echo $astar_status)
-[[ $minimized_status =~ $current_block_regex ]]
-astar_block=${BASH_REMATCH[1]}
+# #deploying astar smart contract
+# echo "Initiated Astar faucet"
+# rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network faucet 100000000
+# echo "Deploying astar contract"
+# deployed_contract_astr=$(rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network deploy-contract ./contracts/test_contract.sol)
+# astar_contract=$(echo $deployed_contract_astr | grep -oEi '0x[0-9a-zA-Z]+')
+# astar_status=$(rosetta-cli --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network network status)
+# minimized_status=$(echo $astar_status)
+# [[ $minimized_status =~ $current_block_regex ]]
+# astar_block=${BASH_REMATCH[1]}
 
-echo "Astar contract registered with address: "$astar_contract" and block: "$astar_block 
+# echo "Astar contract registered with address: "$astar_contract" and block: "$astar_block 
 
-echo "Inserting task for Astar"
-astr_tsk_registered=$(node ./js/src/add_task.js 1 $astar_contract $astar_block | sed 's/[^0-9]*//g')
-echo "Task registered with id: "$astr_tsk_registered
-node ./js/src/await_task_status.js $astr_tsk_registered
+# echo "Inserting task for Astar"
+# astr_tsk_registered=$(node ./js/src/add_task.js 1 $astar_contract $astar_block | sed 's/[^0-9]*//g')
+# echo "Task registered with id: "$astr_tsk_registered
+# node ./js/src/await_task_status.js $astr_tsk_registered

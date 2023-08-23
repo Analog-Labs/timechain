@@ -158,7 +158,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		fn ensure_signed_by_collector(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
-			let Some(collector) = T::Shards::collector(shard_id) else {
+			let Some(collector) = T::Shards::collector_pubkey(shard_id) else {
 				return Err(Error::<T>::NotSignedByCollector.into());
 			};
 			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
@@ -197,7 +197,7 @@ pub mod pallet {
 		}
 
 		pub(crate) fn submit_tx(payload: OcwPayload) {
-			let Some(collector) = T::Shards::collector(payload.shard_id()) else {
+			let Some(collector) = T::Shards::collector_pubkey(payload.shard_id()) else {
 				return;
 			};
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);

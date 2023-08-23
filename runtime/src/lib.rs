@@ -1127,7 +1127,7 @@ impl pallet_shards::Config for Runtime {
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
-	type ShardStatus = Shards;
+	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
 }
 

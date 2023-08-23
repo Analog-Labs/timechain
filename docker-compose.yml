@@ -38,6 +38,9 @@ services:
     - '9943:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+    - ethereum
 
   validator1:
     image: 'analoglabs/timechain-node'
@@ -66,6 +69,9 @@ services:
     - '9945:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+    - ethereum
 
   validator2:
     image: 'analoglabs/timechain-node'
@@ -94,6 +100,9 @@ services:
     - '9947:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+    - ethereum
 
   validator3:
     image: 'analoglabs/timechain-node'
@@ -282,6 +291,9 @@ services:
     - "8545"
     volumes:
     - "ethereum-volume:/root"
+    profiles:
+    - astar
+    - ethereum
 
   ethereum-connector:
     image: "analoglabs/connector-ethereum"
@@ -296,6 +308,9 @@ services:
     volumes:
     - "ethereum-connector-volume:/data"
     restart: always
+    profiles:
+    - astar
+    - ethereum
 
   astar:
     image: "staketechnologies/astar-collator:latest"
@@ -305,6 +320,8 @@ services:
     - "9944"
     volumes:
     - "astar-volume:/astar"
+    profiles:
+    - astar
 
   astar-connector:
     image: "analoglabs/connector-astar"
@@ -319,6 +336,8 @@ services:
     volumes:
     - "astar-connector-volume:/data"
     restart: always
+    profiles:
+    - astar
 
   pgsql:
     hostname: pgsql

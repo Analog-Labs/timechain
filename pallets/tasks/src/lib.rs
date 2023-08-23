@@ -49,7 +49,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ShardStatus: ShardsInterface;
+		type Shards: ShardsInterface;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 	}
@@ -130,6 +130,8 @@ pub mod pallet {
 		InvalidCycle,
 		/// Cycle must be greater than zero
 		CycleMustBeGreaterThanZero,
+		/// Collector peer id not found
+		CollectorPeerIdNotFound
 	}
 
 	#[pallet::call]
@@ -156,7 +158,7 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_tasks(schedule.network);
+			Self::schedule_tasks(schedule.network)?;
 			Ok(())
 		}
 
@@ -239,10 +241,10 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
 
-		fn schedule_tasks(network: Network) {
+		fn schedule_tasks(network: Network) -> DispatchResult {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
-					.filter(|(shard_id, _)| T::ShardStatus::is_shard_online(*shard_id))
+					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {
@@ -258,24 +260,26 @@ pub mod pallet {
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 				{
-					//todo fetch collector and get it
-					// let collector_id = ShardCollector::<T>::get(shard_id);
-					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write([0; 32]))
+					let peer_id = T::Shards::collector_peer_id(shard_id).ok_or(Error::<T>::CollectorPeerIdNotFound)?;
+					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(peer_id))
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
+			Ok(())
 		}
+		
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
-		fn shard_online(shard_id: ShardId, network: Network) {
+		fn shard_online(shard_id: ShardId, network: Network) -> DispatchResult {
 			NetworkShards::<T>::insert(network, shard_id, ());
-			Self::schedule_tasks(network);
+			Self::schedule_tasks(network)?;
+			Ok(())
 		}
 
-		fn shard_offline(shard_id: ShardId, network: Network) {
+		fn shard_offline(shard_id: ShardId, network: Network) -> DispatchResult {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
@@ -283,13 +287,17 @@ pub mod pallet {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
-			Self::schedule_tasks(network);
+			Self::schedule_tasks(network)?;
+			Ok(())
 		}
 	}
 
 	impl<T: Config> OcwTaskInterface for Pallet<T> {
-		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) -> DispatchResult {
-			todo!()
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult {
+			ensure!(Tasks::<T>::get(task_id).is_some(),(Error::<T>::UnknownTask));
+			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
+			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
+			Ok(())
 		}
 
 		fn submit_task_result(

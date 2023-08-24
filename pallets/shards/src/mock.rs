@@ -83,7 +83,7 @@ impl pallet_shards::Config for Test {
 	type TaskScheduler = MockTaskScheduler;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
-	type DkgTimeout = ConstU64<100>;
+	type DkgTimeout = ConstU64<10>;
 }
 
 /// To from `now` to block `n`.

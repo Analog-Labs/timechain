@@ -137,7 +137,7 @@ fn dkg_times_out() {
 			[A, B, C].to_vec(),
 			collector(),
 		));
-		roll_to(101);
+		roll_to(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
 		assert!(ShardState::<Test>::get(0).is_none());
 		assert!(ShardNetwork::<Test>::get(0).is_none());

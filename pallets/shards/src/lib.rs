@@ -148,7 +148,7 @@ pub mod pallet {
 						ShardState::<T>::remove(shard_id);
 						ShardNetwork::<T>::remove(shard_id);
 						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
-						T::ShardCreated::shard_removed(shard_id);
+						ShardCollector::<T>::remove(shard_id);
 						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
 						writes += 5;
 					}

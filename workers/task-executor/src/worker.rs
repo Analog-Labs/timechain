@@ -194,7 +194,7 @@ impl TaskSpawner for Task {
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
-			.execute(target_block, shard_id, task_id, cycle, task, block_num)
+			.execute_read(target_block, shard_id, task_id, cycle, function, hash, block_num)
 			.map(move |res| res.with_context(|| format!("Task {}/{} failed", task_id, cycle)))
 			.boxed()
 	}

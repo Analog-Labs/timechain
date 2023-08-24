@@ -212,7 +212,8 @@ where
 	}
 
 	pub async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let block_height = self.task_spawner.block_height().await?;
+		let block_height =
+			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
 		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
 		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
 		let block_num: u64 = block_num.to_string().parse()?;

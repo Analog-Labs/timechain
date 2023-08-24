@@ -34,10 +34,19 @@ pub enum Network {
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
-pub enum ShardStatus {
-	Created,
+pub enum ShardStatus<Blocknumber> {
+	Created(Blocknumber),
 	Online,
 	Offline,
+}
+
+impl<B: Copy> ShardStatus<B> {
+	pub fn when_created(&self) -> Option<B> {
+		match self {
+			ShardStatus::Created(b) => Some(*b),
+			_ => None,
+		}
+	}
 }
 
 #[cfg(feature = "std")]

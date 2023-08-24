@@ -30,6 +30,8 @@ services:
     - '--connector-network=dev'
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - ethereum-connector
     volumes:

@@ -36,9 +36,9 @@ const pallet_task_add = async (_keyspair, who) => {
    
     var is_payable = false;
     if (process.argv[5] != undefined) {
-        is_payable = process.argv[2]
+        is_payable = process.argv[5]
     }
-    
+
     console.log('payable', is_payable);
     const api = await setup_substrate();
 
@@ -60,7 +60,7 @@ const pallet_task_add = async (_keyspair, who) => {
         },
     }
 
-    if (is_payable) {
+    if (is_payable == true) {
         input_task = {
             network: network,
             cycle: 1,

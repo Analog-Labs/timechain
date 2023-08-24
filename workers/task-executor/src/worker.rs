@@ -115,6 +115,7 @@ impl Task {
 	) -> Result<TssSignature> {
 		let data = bincode::serialize(&result).context("Failed to serialize task")?;
 		let (tx, rx) = oneshot::channel();
+		log::info!("oneshot created");
 		self.tss
 			.clone()
 			.send(TssRequest {
@@ -126,8 +127,14 @@ impl Task {
 			})
 			.await?;
 		match rx.await {
-			Ok(data) => Ok(data),
-			Err(data) => Err(anyhow!("Error: {}, Cause: {:?}", data, data.source())),
+			Ok(data) => {
+				log::info!("received data from oneshot {:?}", data);
+				Ok(data)
+			},
+			Err(data) => {
+				log::info!("error occured while waiting for oneshot");
+				Err(anyhow!("Error: {}, Cause: {:?}", data, data.source()))
+			},
 		}
 	}
 
@@ -141,14 +148,11 @@ impl Task {
 		hash: String,
 		block_num: u64,
 	) -> Result<TssSignature> {
-		let result = self
-			.execute_function(&task.function, target_block)
-			.await
-			.with_context(|| format!("Failed to execute {:?}", task.function))?;
-		let signature = self
-			.tss_sign(block_num, shard_id, task_id, task_cycle, &result)
-			.await
-			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
+		log::info!("execution read");
+		let result = self.execute_function(&function, target_block).await?;
+		log::info!("sending for singing");
+		let signature = self.tss_sign(block_num, shard_id, task_id, task_cycle, &result).await?;
+		log::info!("received sig {:?}", signature);
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {
@@ -266,7 +270,7 @@ where
 				let hash = task_descr.hash;
 				log::info!("Task for {}, current_height {}", target_block_number, block_height);
 				if block_height >= target_block_number {
-					log::info!("Running Task {}", executable_task);
+					log::info!("Running Task {}, {:?}", executable_task, executable_task.phase);
 					self.running_tasks.insert(executable_task.clone());
 					let storage = self.backend.offchain_storage().unwrap();
 					if let Some(peer_id) = executable_task.phase.get_write_id() {

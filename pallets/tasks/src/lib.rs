@@ -16,7 +16,7 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Function, Network, OcwTaskInterface, ShardId, ShardsInterface, TaskCycle,
+		CycleStatus, Network, OcwTaskInterface, ShardId, ShardsInterface, TaskCycle,
 		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
 		TaskStatus, TasksInterface,
 	};
@@ -234,7 +234,7 @@ pub mod pallet {
 			let Some(task) = Self::get_task(task_id) else {
 				return false;
 			};
-			matches!(task.function, Function::EvmCall { .. } | Function::EvmDeploy { .. })
+			task.function.is_payable()
 		}
 
 		fn shard_task_count(shard_id: ShardId) -> usize {

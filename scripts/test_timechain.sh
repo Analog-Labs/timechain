@@ -70,7 +70,7 @@ echo "Ethereum contract registered with address: "$eth_contract" and block "$eth
 
 # inserting tasks for eth
 echo "inserting task for Eth"
-eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block true | sed 's/[^0-9]*//g')
+eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block false | sed 's/[^0-9]*//g')
 echo "Task registered with id: "$eth_tsk_registered
 node ./js/src/await_task_status.js $eth_tsk_registered
 

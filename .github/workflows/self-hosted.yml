@@ -42,7 +42,7 @@ env:
 jobs:
   test:
     name: Build and Test Project
-    runs-on: self-hosted
+    runs-on: [self-hosted, rust-check]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

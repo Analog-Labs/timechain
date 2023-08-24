@@ -1122,6 +1122,7 @@ impl pallet_shards::Config for Runtime {
 	type TaskScheduler = Tasks;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
+	type DkgTimeout = ConstU32<10>;
 }
 
 impl pallet_tasks::Config for Runtime {

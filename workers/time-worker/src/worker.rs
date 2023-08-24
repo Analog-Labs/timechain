@@ -113,7 +113,8 @@ where
 			}
 			let members = self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap();
 			log::debug!(target: TW_LOG, "shard {}: {} joining shard", shard_id, local_peer_id);
-			let threshold = members.len() as _;
+			let threshold =
+				self.runtime.runtime_api().get_shard_threshold(block, shard_id).unwrap();
 			let members = members.into_iter().map(to_peer_id).collect();
 			self.tss_states.insert(shard_id, Tss::new(local_peer_id, members, threshold));
 			self.poll_actions(shard_id, block_number);
@@ -199,7 +200,7 @@ where
 					}
 				},
 				TssAction::Error(id, peer, error) => {
-					log::error!("{:?} {:?} {:?}", id, peer, error);
+					log::error!(target: TW_LOG, "{:?} {:?} {:?}", id, peer, error);
 					time_primitives::write_message(
 						self.backend.offchain_storage().unwrap(),
 						&OcwPayload::SetShardOffline { shard_id },
@@ -225,6 +226,7 @@ where
 					};
 					let block_hash = notification.header.hash();
 					let block_number = notification.header.number().to_string().parse().unwrap();
+					log::debug!(target: TW_LOG, "finalized {}", block_number);
 					self.on_finality(block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {
@@ -232,6 +234,7 @@ where
 						continue;
 					};
 					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+						log::debug!(target: TW_LOG, "trying to run task on non existent shard {}", shard_id);
 						continue;
 					};
 					log::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);

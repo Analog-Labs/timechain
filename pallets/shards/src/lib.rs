@@ -13,6 +13,7 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated, ShardId,
@@ -43,6 +44,8 @@ pub mod pallet {
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
 		type MinMembers: Get<u8>;
+		#[pallet::constant]
+		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
 
 	#[pallet::storage]
@@ -57,7 +60,7 @@ pub mod pallet {
 	/// Status for shard
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus<BlockNumberFor<T>>, OptionQuery>;
 
 	/// Threshold for shard
 	#[pallet::storage]
@@ -76,6 +79,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, Network),
+		/// Shard DKG timed out
+		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),
 		/// Shard went offline
@@ -125,6 +130,27 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			let mut writes = 0;
+			ShardState::<T>::iter().for_each(|(shard_id, status)| {
+				if let Some(created_block) = status.when_created() {
+					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+						// clean up shard state and emit event for timeout
+						ShardState::<T>::remove(shard_id);
+						ShardNetwork::<T>::remove(shard_id);
+						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
+						T::ShardCreated::shard_removed(shard_id);
+						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+						writes += 5;
+					}
+				}
+			});
+			T::DbWeight::get().writes(writes)
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
 		fn create_shard(
 			network: Network,
@@ -135,7 +161,10 @@ pub mod pallet {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
+			<ShardState<T>>::insert(
+				shard_id,
+				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
+			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());

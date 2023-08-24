@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::Error;
+use crate::{Error, Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{Network, OcwShardInterface, PeerId, PublicKey};
@@ -131,5 +131,22 @@ fn offline_shard_cannot_be_set_offline() {
 				Error::<Test>::ShardAlreadyOffline
 			);
 		}
+	});
+}
+
+#[test]
+fn dkg_times_out() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Shards::register_shard(
+			RawOrigin::Root.into(),
+			Network::Ethereum,
+			[A, B, C].to_vec(),
+			collector(),
+		));
+		roll_to(11);
+		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
+		assert!(ShardState::<Test>::get(0).is_none());
+		assert!(ShardNetwork::<Test>::get(0).is_none());
+		assert!(ShardMembers::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }

@@ -115,7 +115,8 @@ where
 			}
 			let members = self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap();
 			log::debug!(target: TW_LOG, "shard {}: {} joining shard", shard_id, local_peer_id);
-			let threshold = members.len() as _;
+			let threshold =
+				self.runtime.runtime_api().get_shard_threshold(block, shard_id).unwrap();
 			let members = members.into_iter().map(to_peer_id).collect();
 			self.tss_states.insert(shard_id, Tss::new(local_peer_id, members, threshold));
 			self.poll_actions(shard_id, block_number);

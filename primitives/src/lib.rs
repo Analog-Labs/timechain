@@ -38,6 +38,7 @@ sp_api::decl_runtime_apis! {
 	pub trait TimeApi {
 		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
+		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 	}
@@ -54,7 +55,12 @@ pub trait ScheduleInterface {
 }
 
 pub trait OcwShardInterface {
-	fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey);
+	fn benchmark_register_shard(
+		network: Network,
+		members: Vec<PeerId>,
+		collector: PublicKey,
+		threshold: u16,
+	);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
 	fn set_shard_offline(shard_id: ShardId) -> DispatchResult;
 }

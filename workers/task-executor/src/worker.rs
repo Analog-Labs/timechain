@@ -110,9 +110,7 @@ impl Task {
 				tx,
 			})
 			.await?;
-		Ok(rx.await.with_context(|| {
-			format!("Task {}/{} failed to tss sign on shard {}", task_id, cycle, shard_id)
-		})?)
+		Ok(rx.await?)
 	}
 
 	async fn execute(
@@ -124,8 +122,14 @@ impl Task {
 		task: TaskDescriptor,
 		block_num: u64,
 	) -> Result<TssSignature> {
-		let result = self.execute_function(&task.function, target_block).await?;
-		let signature = self.tss_sign(shard_id, task_id, task_cycle, &result).await?;
+		let result = self
+			.execute_function(&task.function, target_block)
+			.await
+			.with_context(|| format!("Failed to execute {:?}", task.function))?;
+		let signature = self
+			.tss_sign(shard_id, task_id, task_cycle, &result)
+			.await
+			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {
@@ -138,7 +142,8 @@ impl Task {
 					signature,
 					data: result,
 				})
-				.await?;
+				.await
+				.context("Failed to submit data to timegraph")?;
 		}
 		Ok(signature)
 	}
@@ -162,6 +167,7 @@ impl TaskSpawner for Task {
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
 			.execute(target_block, shard_id, task_id, cycle, task, block_num)
+			.map(move |res| res.with_context(|| format!("Task {}/{} failed", task_id, cycle)))
 			.boxed()
 	}
 }

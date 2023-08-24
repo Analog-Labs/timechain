@@ -86,9 +86,6 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnknownShard,
-		ShardStatusDNE,
-		ShardStatusNotCreated,
-		ShardCreationTimedOut,
 		PublicKeyAlreadyRegistered,
 		MembershipBelowMinimum,
 		MembershipAboveMaximum,

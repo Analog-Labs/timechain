@@ -1440,7 +1440,7 @@ impl_runtime_apis! {
 			Shards::get_shard_members(shard_id)
 		}
 
-		fn get_shard_threshold(shard_id) -> u8 {
+		fn get_shard_threshold(shard_id) -> u16 {
 			Shards::get_shard_threshold(shard_id)
 		}
 

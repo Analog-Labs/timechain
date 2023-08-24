@@ -64,7 +64,7 @@ pub mod pallet {
 
 	/// Threshold for shard
 	#[pallet::storage]
-	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u8, OptionQuery>;
+	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
@@ -112,7 +112,7 @@ pub mod pallet {
 			network: Network,
 			members: Vec<PeerId>,
 			collector: PublicKey,
-			threshold: u8,
+			threshold: u16,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(
@@ -156,7 +156,7 @@ pub mod pallet {
 			network: Network,
 			members: Vec<PeerId>,
 			collector: PublicKey,
-			threshold: u8,
+			threshold: u16,
 		) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
@@ -173,7 +173,7 @@ pub mod pallet {
 			T::ShardCreated::shard_created(shard_id, collector);
 		}
 
-		pub fn get_shard_threshold(shard_id: ShardId) -> u8 {
+		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
@@ -201,7 +201,7 @@ pub mod pallet {
 			network: Network,
 			members: Vec<PeerId>,
 			collector: PublicKey,
-			threshold: u8,
+			threshold: u16,
 		) {
 			Self::create_shard(network, members, collector, threshold);
 		}

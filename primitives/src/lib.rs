@@ -59,7 +59,7 @@ pub trait OcwShardInterface {
 		network: Network,
 		members: Vec<PeerId>,
 		collector: PublicKey,
-		threshold: u8,
+		threshold: u16,
 	);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
 	fn set_shard_offline(shard_id: ShardId) -> DispatchResult;

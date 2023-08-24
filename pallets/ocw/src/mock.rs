@@ -27,7 +27,7 @@ impl OcwShardInterface for MockShards {
 		_network: Network,
 		_members: Vec<PeerId>,
 		_collector: PublicKey,
-		_threshold: u8,
+		_threshold: u16,
 	) {
 	}
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {

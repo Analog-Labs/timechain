@@ -36,10 +36,9 @@ const pallet_task_add = async (_keyspair, who) => {
    
     var is_payable = false;
     if (process.argv[5] != undefined) {
-        is_payable = process.argv[5]
+        is_payable = process.argv[5] == 'true' ? true : false;
     }
 
-    console.log('payable', is_payable);
     const api = await setup_substrate();
 
     const keyring = new Keyring({ type: 'sr25519' });
@@ -60,7 +59,7 @@ const pallet_task_add = async (_keyspair, who) => {
         },
     }
 
-    if (is_payable == true) {
+    if (is_payable == true || is_payable == 'true') {
         input_task = {
             network: network,
             cycle: 1,
@@ -70,16 +69,16 @@ const pallet_task_add = async (_keyspair, who) => {
             function: {
                 EVMCall: {
                     address: stringToHex(contract_address),
-                    function_signature: "function vote_yes() public",
+                    function_signature: "function vote_yes()",
                     input: [],
-                    amount: 10000000000,
+                    amount: 0,
                 }
             },
         }
     }
 
-
     await api.isReady;
+    console.log(input_task)
     const result = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events }) => {
         if (status.isInBlock || status.isFinalized) {
             const filtered_events = events.filter(({ event }) => api.events.tasks.TaskCreated.is(event))

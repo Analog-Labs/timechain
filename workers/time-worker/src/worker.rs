@@ -254,9 +254,7 @@ where
 					self.channels.insert(request_id, tx);
 				},
 				protocol_request = self.protocol_request.next().fuse() => {
-					log::info!("protocol msg received");
 					let Some(IncomingRequest { peer, payload, pending_response }) = protocol_request else {
-						log::info!("skipping protocol msg bcz its not incominn request {:?}", protocol_request);
 						continue;
 					};
 					let _ = pending_response.send(OutgoingResponse {
@@ -264,7 +262,6 @@ where
 						reputation_changes: vec![],
 						sent_feedback: None,
 					});
-					log::info!("sent pending request");
 					if let Ok(TimeMessage { shard_id, block_number, payload }) = TimeMessage::decode(&payload) {
 						let local_peer_id = to_peer_id(self.peer_id);
 						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",

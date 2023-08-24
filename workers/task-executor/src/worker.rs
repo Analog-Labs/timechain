@@ -12,7 +12,6 @@ use time_primitives::{
 	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
-use std::error::Error;
 
 pub struct TaskSpawnerParams {
 	pub tss: mpsc::Sender<TssRequest>,
@@ -83,6 +82,7 @@ impl Task {
 			},
 			Function::EvmTxReceipt { tx } => {
 				let data = self.wallet.eth_transaction_receipt(tx).await?;
+				log::info!("=====tx receipt data {:?}", data);
 				serde_json::to_string(&data.result)?
 			},
 			Function::EvmDeploy { bytecode } => {
@@ -95,11 +95,11 @@ impl Task {
 				amount,
 			} => {
 				//temp faucet todo remove it
-				self.wallet.faucet(10000000000000).await;
-				self.wallet
-					.eth_send_call(address, function_signature, input, *amount)
-					.await?
-					.hash
+				let _ = self.wallet.faucet(1000000000000000).await;
+				let data =
+					self.wallet.eth_send_call(address, function_signature, input, *amount).await?;
+				log::info!("=====data from tx {:?}", data);
+				data.hash
 			},
 		})
 	}

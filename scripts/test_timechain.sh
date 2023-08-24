@@ -65,11 +65,16 @@ eth_block=${BASH_REMATCH[1]}
 echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
 
 ###hardcoded for testing
-# eth_block=12
-# eth_contract="0x3de7086ce750513ef79d14eacbd1282c4e4b0cea"
 
-inserting tasks for eth
+# inserting tasks for eth
 echo "inserting task for Eth"
+eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block false | sed 's/[^0-9]*//g')
+echo "Task registered with id: "$eth_tsk_registered
+node ./js/src/await_task_status.js $eth_tsk_registered
+
+
+# inserting payable tasks for eth
+echo "inserting payable task for Eth"
 eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block true | sed 's/[^0-9]*//g')
 echo "Task registered with id: "$eth_tsk_registered
 node ./js/src/await_task_status.js $eth_tsk_registered

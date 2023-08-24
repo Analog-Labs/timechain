@@ -131,7 +131,7 @@ pub mod pallet {
 		/// Cycle must be greater than zero
 		CycleMustBeGreaterThanZero,
 		/// Collector peer id not found
-		CollectorPeerIdNotFound
+		CollectorPeerIdNotFound,
 	}
 
 	#[pallet::call]
@@ -260,7 +260,8 @@ pub mod pallet {
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 				{
-					let peer_id = T::Shards::collector_peer_id(shard_id).ok_or(Error::<T>::CollectorPeerIdNotFound)?;
+					let peer_id = T::Shards::collector_peer_id(shard_id)
+						.ok_or(Error::<T>::CollectorPeerIdNotFound)?;
 					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(peer_id))
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
@@ -269,7 +270,6 @@ pub mod pallet {
 			}
 			Ok(())
 		}
-		
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
@@ -294,7 +294,7 @@ pub mod pallet {
 
 	impl<T: Config> OcwTaskInterface for Pallet<T> {
 		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult {
-			ensure!(Tasks::<T>::get(task_id).is_some(),(Error::<T>::UnknownTask));
+			ensure!(Tasks::<T>::get(task_id).is_some(), (Error::<T>::UnknownTask));
 			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())

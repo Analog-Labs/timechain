@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, ShardId, TasksInterface};
+use time_primitives::{Network, ShardId, TasksInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -16,8 +16,12 @@ pub struct MockOcw;
 pub struct MockTaskScheduler;
 
 impl TasksInterface for MockTaskScheduler {
-	fn shard_online(_: ShardId, _: Network) {}
-	fn shard_offline(_: ShardId, _: Network) {}
+	fn shard_online(_: ShardId, _: Network) -> DispatchResult {
+		Ok(())
+	}
+	fn shard_offline(_: ShardId, _: Network) -> DispatchResult {
+		Ok(())
+	}
 }
 
 frame_support::construct_runtime!(

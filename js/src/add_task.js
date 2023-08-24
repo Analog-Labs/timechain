@@ -78,7 +78,6 @@ const pallet_task_add = async (_keyspair, who) => {
     }
 
     await api.isReady;
-    console.log(input_task)
     const result = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events }) => {
         if (status.isInBlock || status.isFinalized) {
             const filtered_events = events.filter(({ event }) => api.events.tasks.TaskCreated.is(event))

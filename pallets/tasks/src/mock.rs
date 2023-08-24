@@ -24,7 +24,7 @@ impl ShardsInterface for MockShardInterface {
 		None
 	}
 
-	fn collector_peer_id(_: ShardId) -> {
+	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
 		None
 	}
 }

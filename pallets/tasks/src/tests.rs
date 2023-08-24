@@ -1,13 +1,13 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, NetworkShards, ShardTasks, TaskCycleState, TaskIdCounter, TaskResults,
-	TaskRetryCounter, TaskState, UnassignedTasks,
+	Error, Event, NetworkShards, ShardTasks, TaskCycleState, TaskIdCounter, TaskPhaseState,
+	TaskResults, TaskRetryCounter, TaskState, UnassignedTasks,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	CycleStatus, Function, Network, OcwTaskInterface, ShardId, TaskCycle, TaskDescriptor,
+	CycleStatus, Function, Network, OcwTaskInterface, PeerId, ShardId, TaskCycle, TaskDescriptor,
 	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
 };
 
@@ -22,6 +22,22 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 		cycle,
 		start: 0,
 		period: 1,
+		hash: "".to_string(),
+	}
+}
+
+fn mock_payable(network: Network) -> TaskDescriptorParams {
+	TaskDescriptorParams {
+		network,
+		function: Function::EvmCall {
+			address: Default::default(),
+			function_signature: Default::default(),
+			input: Default::default(),
+			amount: 0,
+		},
+		cycle: 1,
+		start: 0,
+		period: 0,
 		hash: "".to_string(),
 	}
 }
@@ -509,5 +525,28 @@ fn submit_task_result_inserts_at_input_cycle() {
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
 		assert!(TaskResults::<Test>::get(0, 1).is_none());
 		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
+	});
+}
+
+#[test]
+fn payable_task_smoke() {
+	let shard_id = 1;
+	let task_id = 0;
+	let task_hash = "mock_hash";
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_payable(Network::Ethereum)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write([0; 32]));
+		assert_ok!(Tasks::submit_task_hash(shard_id, task_id, task_hash.into()));
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash)));
+		assert_ok!(Tasks::submit_task_result(
+			task_id,
+			1,
+			CycleStatus { shard_id, signature: [0; 64] }
+		));
+		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 	});
 }

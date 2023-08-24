@@ -65,7 +65,8 @@ pub struct TimeWorker<B: Block, BE, C, R, N> {
 	protocol_request: async_channel::Receiver<IncomingRequest>,
 	tss_states: HashMap<ShardId, Tss<TssId, PeerId>>,
 	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
-	requests: HashMap<TssId, oneshot::Sender<TssSignature>>,
+	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
+	channels: HashMap<TssId, oneshot::Sender<TssSignature>>,
 }
 
 impl<B, BE, C, R, N> TimeWorker<B, BE, C, R, N>
@@ -100,6 +101,7 @@ where
 			tss_states: Default::default(),
 			messages: Default::default(),
 			requests: Default::default(),
+			channels: Default::default(),
 		}
 	}
 
@@ -119,13 +121,28 @@ where
 			self.tss_states.insert(shard_id, Tss::new(local_peer_id, members, threshold));
 			self.poll_actions(shard_id, block_number);
 		}
+		while let Some(n) = self.requests.keys().copied().next() {
+			if n > block_number {
+				break;
+			}
+			for (shard_id, request_id, data) in self.requests.remove(&n).unwrap() {
+				log::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);
+				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+					log::error!(target: TW_LOG, "trying to run task on unknown shard {}, dropping channel", shard_id);
+					self.channels.remove(&request_id);
+					continue;
+				};
+				tss.sign(request_id, data.to_vec());
+				self.poll_actions(shard_id, block_number);
+			}
+		}
 		while let Some(n) = self.messages.keys().copied().next() {
 			if n > block_number {
 				break;
 			}
 			for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-				log::error!("dropping message {} {} {}", shard_id, peer_id, msg);
+				log::error!(target: TW_LOG, "dropping message {} {} {}", shard_id, peer_id, msg);
 				continue;
 			};
 				tss.on_message(peer_id, msg);
@@ -195,7 +212,7 @@ where
 						request_id,
 						tss_signature
 					);
-					if let Some(tx) = self.requests.remove(&request_id) {
+					if let Some(tx) = self.channels.remove(&request_id) {
 						tx.send(tss_signature).ok();
 					}
 				},
@@ -230,17 +247,11 @@ where
 					self.on_finality(block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {
-					let Some(TssRequest { request_id, shard_id, block_number, data, tx }) = tss_request else {
+					let Some(TssRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
 						continue;
 					};
-					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-						log::debug!(target: TW_LOG, "trying to run task on non existent shard {}", shard_id);
-						continue;
-					};
-					log::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);
-					self.requests.insert(request_id, tx);
-					tss.sign(request_id, data.to_vec());
-					self.poll_actions(shard_id, block_number);
+					self.requests.entry(block_number).or_default().push((shard_id, request_id, data));
+					self.channels.insert(request_id, tx);
 				},
 				protocol_request = self.protocol_request.next().fuse() => {
 					let Some(IncomingRequest { peer, payload, pending_response }) = protocol_request else {
@@ -255,13 +266,7 @@ where
 						let local_peer_id = to_peer_id(self.peer_id);
 						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
 							shard_id, local_peer_id, payload, peer);
-						if let Some(tss) = self.tss_states.get_mut(&shard_id) {
-							tss.on_message(peer, payload);
-							self.poll_actions(shard_id, block_number);
-						} else {
-							log::info!(target: TW_LOG, "state not found, adding message in map with id {:?}", shard_id);
-							self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
-						}
+						self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
 					} else {
 						log::debug!(target: TW_LOG, "received invalid message");
 						continue;

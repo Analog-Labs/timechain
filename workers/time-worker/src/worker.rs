@@ -265,13 +265,7 @@ where
 						let local_peer_id = to_peer_id(self.peer_id);
 						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
 							shard_id, local_peer_id, payload, peer);
-						if let Some(tss) = self.tss_states.get_mut(&shard_id) {
-							tss.on_message(peer, payload);
-							self.poll_actions(shard_id, block_number);
-						} else {
-							log::info!(target: TW_LOG, "state not found, adding message in map with id {:?}", shard_id);
-							self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
-						}
+						self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
 					} else {
 						log::debug!(target: TW_LOG, "received invalid message");
 						continue;

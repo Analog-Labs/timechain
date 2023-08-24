@@ -117,7 +117,7 @@ where
 				self.runtime.runtime_api().get_shard_threshold(block, shard_id).unwrap();
 			let members = members.into_iter().map(to_peer_id).collect();
 			self.tss_states
-				.insert(shard_id, Tss::new(local_peer_id, members, threshold.into()));
+				.insert(shard_id, Tss::new(local_peer_id, members, threshold));
 			self.poll_actions(shard_id, block_number);
 		}
 		while let Some(n) = self.messages.keys().copied().next() {

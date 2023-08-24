@@ -1,3 +1,17 @@
+##########################################################
+#
+#  Workflow for running benchmarks on the self-hosted 
+#  benchmark machine.
+#  
+#  Workflow is triggered on each pull request with
+#  label `!ci-benchmark` and skip all files that aren't
+#  related to the pallets, runtime or node.
+# 
+#  After weights are generated, the CI commits and pushes
+#  the weights.rs files to the PR's branch.
+#
+##########################################################
+
 name: Run benchmarks
 
 on:

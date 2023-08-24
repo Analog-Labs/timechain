@@ -8,7 +8,7 @@ use sp_core::Decode;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use time_primitives::{OcwPayload, ShardId, TssPublicKey, TIME_KEY_TYPE};
 
-const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
+pub const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
 const SHARD_ID: ShardId = 42;
 const TSS_PUBLIC_KEY: TssPublicKey = [42; 33];
 const PAYLOAD: OcwPayload = OcwPayload::SubmitTssPublicKey {
@@ -46,7 +46,6 @@ fn test_ocw_submit_tx() {
 	ext.register_extension(TransactionPoolExt::new(pool));
 	ext.register_extension(KeystoreExt::new(keystore));
 	ext.execute_with(|| {
-		Ocw::shard_created(PAYLOAD.shard_id(), collector.into());
 		Ocw::submit_tx(PAYLOAD);
 		log::info!("{:?}", offchain_state);
 		let tx = pool_state.write().transactions.pop().unwrap();
@@ -69,14 +68,12 @@ fn test_submit_public_key() {
 	let keystore = MemoryKeystore::new();
 	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
 	ext.execute_with(|| {
-		// TODO
-		// Ocw::shard_created(SHARD_ID, collector.into());
-		// assert_ok!(Ocw::submit_tss_public_key(
-		// 	RawOrigin::Signed(collector.into()).into(),
-		// 	SHARD_ID,
-		// 	TSS_PUBLIC_KEY
-		// ));
-		// assert_eq!(SHARD_PUBLIC_KEYS.lock().unwrap().get(&SHARD_ID), Some(&TSS_PUBLIC_KEY));
+		assert_ok!(Ocw::submit_tss_public_key(
+			RawOrigin::Signed(collector.into()).into(),
+			SHARD_ID,
+			TSS_PUBLIC_KEY
+		));
+		assert_eq!(SHARD_PUBLIC_KEYS.lock().unwrap().get(&SHARD_ID), Some(&TSS_PUBLIC_KEY));
 	});
 }
 
@@ -84,10 +81,7 @@ fn test_submit_public_key() {
 fn test_submit_public_key_not_collector() {
 	env_logger::try_init().ok();
 	let mut ext = new_test_ext();
-	let keystore = MemoryKeystore::new();
-	let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
 	ext.execute_with(|| {
-		Ocw::shard_created(SHARD_ID, collector.into());
 		assert_noop!(
 			Ocw::submit_tss_public_key(
 				RawOrigin::Signed([42; 32].into()).into(),

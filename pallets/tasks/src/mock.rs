@@ -6,7 +6,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 use time_primitives::{
-	CycleStatus, PublicKey, ShardId, ShardsInterface, TaskError, TaskPhase, TssSignature,
+	PublicKey, ShardId, ShardsInterface, PeerId
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -25,7 +25,7 @@ impl ShardsInterface for MockShardInterface {
 	}
 
 	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
-		None
+		Some([0u8; 32])
 	}
 }
 

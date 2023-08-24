@@ -1,5 +1,6 @@
 use crate::{self as pallet_shards};
 use frame_support::traits::OnInitialize;
+use frame_support::pallet_prelude::DispatchResult;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -11,7 +12,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockOcw;
+// pub struct MockOcw;
 
 pub struct MockTaskScheduler;
 

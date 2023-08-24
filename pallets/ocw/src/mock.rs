@@ -8,8 +8,10 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
 	CycleStatus, Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId,
-	TaskCycle, TaskError, TaskId, TssPublicKey, TssSignature,
+	TaskCycle, TaskError, TaskId, TssPublicKey, TasksInterface, ShardsInterface,
+	TIME_KEY_TYPE,
 };
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -39,6 +41,20 @@ impl OcwShardInterface for MockShards {
 	}
 }
 
+impl ShardsInterface for MockShards {
+	fn is_shard_online(_: ShardId) -> bool{
+		true
+	}
+	fn collector_pubkey(_: ShardId) -> Option<PublicKey>{
+		let keystore = MemoryKeystore::new();
+		let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(crate::tests::PHRASE)).unwrap();
+		Some(collector.into())
+	}
+	fn collector_peer_id(_: ShardId) -> Option<PeerId>{
+		Some([0u8; 32])
+	}
+}
+
 pub struct MockTasks;
 
 impl OcwTaskInterface for MockTasks {
@@ -51,6 +67,15 @@ impl OcwTaskInterface for MockTasks {
 	}
 
 	fn submit_task_hash(_: ShardId, _: TaskId, _: String) -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl TasksInterface for MockTasks{
+	fn shard_online(_: ShardId, _: Network) -> DispatchResult{
+		Ok(())
+	}
+	fn shard_offline(_: ShardId, _: Network) -> DispatchResult {
 		Ok(())
 	}
 }
@@ -109,8 +134,8 @@ impl pallet_ocw::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type OcwShards = OcwShardInterface;
-	type OcwTasks = OcwTaskInterface;
+	type OcwShards = MockShards;
+	type OcwTasks = MockTasks;
 	type Shards = MockShards;
 	type Tasks = MockTasks;
 }

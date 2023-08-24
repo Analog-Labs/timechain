@@ -1,4 +1,4 @@
-use crate::TaskExecutorParams;
+use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
@@ -124,8 +124,14 @@ impl Task {
 		task: TaskDescriptor,
 		block_num: u64,
 	) -> Result<TssSignature> {
-		let result = self.execute_function(&task.function, target_block).await?;
-		let signature = self.tss_sign(block_num, shard_id, task_id, task_cycle, &result).await?;
+		let result = self
+			.execute_function(&task.function, target_block)
+			.await
+			.with_context(|| format!("Failed to execute {:?}", task.function))?;
+		let signature = self
+			.tss_sign(block_num, shard_id, task_id, task_cycle, &result)
+			.await
+			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {
@@ -138,7 +144,8 @@ impl Task {
 					signature,
 					data: result,
 				})
-				.await?;
+				.await
+				.context("Failed to submit data to timegraph")?;
 		}
 		Ok(signature)
 	}
@@ -162,6 +169,7 @@ impl TaskSpawner for Task {
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
 			.execute(target_block, shard_id, task_id, cycle, task, block_num)
+			.map(move |res| res.with_context(|| format!("Task {}/{} failed", task_id, cycle)))
 			.boxed()
 	}
 }
@@ -210,11 +218,12 @@ where
 		block_hash: <B as Block>::Hash,
 		block_num: u64,
 	) -> Result<()> {
-		let block_height = self.task_spawner.block_height().await?;
+		let block_height =
+			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
 		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
-			log::info!("got task ====== {:?}", tasks);
+			log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 			for executable_task in tasks.iter().copied() {
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
@@ -224,7 +233,7 @@ where
 				let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
 				let target_block_number = task_descr.trigger(cycle);
 				if block_height >= target_block_number {
-					log::info!("Running Task {}", executable_task);
+					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
 					self.running_tasks.insert(executable_task);
 					let storage = self.backend.offchain_storage().unwrap();
 					let task = self.task_spawner.execute(
@@ -237,7 +246,13 @@ where
 					);
 					tokio::task::spawn(async move {
 						let result = task.await.map_err(|e| e.to_string());
-						log::info!("Task {} completed with {:?}", executable_task, result);
+						log::info!(
+							target: TW_LOG,
+							"Task {} completed on shard {} with {:?}",
+							executable_task,
+							shard_id,
+							result
+						);
 						match result {
 							Ok(signature) => {
 								let status = CycleStatus { shard_id, signature };
@@ -267,8 +282,9 @@ where
 		while let Some(notification) = finality_notifications.next().await {
 			let block_hash = notification.header.hash();
 			let block_num = notification.header.number().to_string().parse().unwrap();
+			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
 			if let Err(err) = self.start_tasks(block_hash, block_num).await {
-				log::error!("error processing tasks: {}", err);
+				log::error!(target: TW_LOG, "error processing tasks: {}", err);
 			}
 		}
 	}

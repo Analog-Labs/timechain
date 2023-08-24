@@ -142,6 +142,7 @@ fn dkg_times_out() {
 			Network::Ethereum,
 			[A, B, C].to_vec(),
 			collector(),
+			1,
 		));
 		roll_to(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());

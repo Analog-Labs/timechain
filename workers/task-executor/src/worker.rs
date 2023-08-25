@@ -6,7 +6,9 @@ use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, 
 use sc_client_api::{Backend, BlockchainEvents};
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{
+	collections::HashSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
+};
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError, TaskExecution,
 	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
@@ -18,6 +20,7 @@ pub struct TaskSpawnerParams {
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
+	pub keyfile: Option<String>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 }
@@ -31,12 +34,13 @@ pub struct Task {
 
 impl Task {
 	pub async fn new(params: TaskSpawnerParams) -> Result<Self> {
+		let path = params.keyfile.as_ref().map(|val| Path::new(val));
 		let wallet = Arc::new(
 			create_wallet(
 				params.connector_blockchain,
 				params.connector_network,
 				params.connector_url,
-				None,
+				path,
 			)
 			.await?,
 		);
@@ -93,6 +97,7 @@ impl Task {
 				input,
 				amount,
 			} => {
+				log::info!("wallet pub key {:?}", self.wallet.public_key().hex_bytes);
 				self.wallet
 					.eth_send_call(address, function_signature, input, *amount)
 					.await?

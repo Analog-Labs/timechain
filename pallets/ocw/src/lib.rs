@@ -53,13 +53,13 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(block_number: <<T::Block as Block>::Header as Header>::Number) {
-			if Self::is_free() {
+			if Self::is_locked() {
 				log::info!("running offchain worker for: {:?}", block_number);
 				while let Some(msg) = Self::read_message() {
 					log::info!("received ocw message {:?}", msg);
 					Self::submit_tx(msg);
 				}
-				StorageValueRef::persistent(OCW_LOCK).set(&true);
+				StorageValueRef::persistent(OCW_LOCK).set(&false);
 				log::info!("finished offchain worker for: {:?}", block_number);
 			} else {
 				log::info!("skipped offchain worker for: {:?}", block_number);
@@ -153,7 +153,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn is_free() -> bool {
+		pub(crate) fn is_locked() -> bool {
 			let storage = StorageValueRef::persistent(OCW_LOCK);
 			storage
 				.mutate::<bool, _, _>(|res| {

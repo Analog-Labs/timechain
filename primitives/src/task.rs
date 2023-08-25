@@ -87,14 +87,6 @@ pub enum TaskPhase {
 }
 
 impl TaskPhase {
-	pub fn get_write_id(&self) -> Option<PeerId> {
-		if let Self::Write(peer_id) = self {
-			Some(*peer_id)
-		} else {
-			None
-		}
-	}
-
 	pub fn peer_id(&self) -> Option<PeerId> {
 		if let Self::Write(peer_id) = self {
 			Some(*peer_id)

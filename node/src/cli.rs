@@ -21,6 +21,9 @@ pub struct RunCmd {
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
 	pub connector_network: Option<String>,
+	/// key file for connector wallet
+	#[clap(long)]
+	pub key_file: Option<String>,
 	/// The node not run TSS and task executor.
 	#[clap(long)]
 	pub without_chronicle: bool,

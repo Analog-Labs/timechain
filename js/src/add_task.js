@@ -59,7 +59,7 @@ const pallet_task_add = async (_keyspair, who) => {
         },
     }
 
-    if (is_payable == true || is_payable == 'true') {
+    if (is_payable == true) {
         input_task = {
             network: network,
             cycle: 1,

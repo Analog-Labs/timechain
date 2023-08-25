@@ -28,6 +28,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--key-file=/etc/eth_keyfile1'
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     environment:
@@ -35,6 +36,7 @@ services:
     depends_on:
     - ethereum-connector
     volumes:
+    - './dummy_wallet/eth_keyfile1:/etc/eth_keyfile1'
     - 'bootnode-volume:/data'
     ports:
     - '9943:9944'
@@ -57,6 +59,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--key-file=/etc/eth_keyfile2'
     - '--bob'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -66,6 +69,7 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallet/eth_keyfile2:/etc/eth_keyfile2'
     - 'validator1-volume:/data'
     ports:
     - '9945:9944'
@@ -88,6 +92,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--key-file=/etc/eth_keyfile3'
     - '--charlie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -97,6 +102,7 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallet/eth_keyfile3:/etc/eth_keyfile3'
     - 'validator2-volume:/data'
     ports:
     - '9947:9944'
@@ -119,6 +125,7 @@ services:
     - '--connector-url=http://astar-connector:8081'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
+    - '--key-file=/etc/astar_keyfile1'
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -128,6 +135,7 @@ services:
     - bootnode
     - astar-connector
     volumes:
+    - './dummy_wallet/astar_keyfile1:/etc/astar_keyfile1'
     - 'validator3-volume:/data'
     ports:
     - '9949:9944'
@@ -149,6 +157,7 @@ services:
     - '--connector-url=http://astar-connector:8081'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
+    - '--key-file=/etc/astar_keyfile2'
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -158,6 +167,7 @@ services:
     - bootnode
     - astar-connector
     volumes:
+    - './dummy_wallets/astar_keyfile2:/etc/astar_keyfile2'
     - 'validator4-volume:/data'
     ports:
     - '9951:9944'
@@ -179,6 +189,7 @@ services:
     - '--connector-url=http://astar-connector:8081'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
+    - '--key-file=/etc/astar_keyfile3'
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -188,6 +199,7 @@ services:
     - bootnode
     - astar-connector
     volumes:
+    - './dummy_wallets/astar_keyfile3:/etc/astar_keyfile3'
     - 'validator5-volume:/data'
     ports:
     - '9953:9944'
@@ -209,6 +221,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--key-file=/etc/eth_keyfile4'
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -218,6 +231,7 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallets/eth_keyfile4:/etc/eth_keyfile4'
     - 'validator6-volume:/data'
     ports:
     - '9955:9944'
@@ -239,6 +253,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--key-file=/etc/eth_keyfile5'
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -248,6 +263,7 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallets/eth_keyfile5:/etc/eth_keyfile5'
     - 'validator7-volume:/data'
     ports:
     - '9957:9944'
@@ -269,6 +285,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--key-file=/etc/eth_keyfile6'
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -278,6 +295,7 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallets/eth_keyfile6:/etc/eth_keyfile6'
     - 'validator8-volume:/data'
     ports:
     - '9959:9944'

@@ -48,7 +48,7 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type ShardCollector<T: Config> =
+	pub type ShardCollectorPublicKey<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
 
 	#[pallet::storage]
@@ -148,7 +148,7 @@ pub mod pallet {
 						ShardState::<T>::remove(shard_id);
 						ShardNetwork::<T>::remove(shard_id);
 						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
-						ShardCollector::<T>::remove(shard_id);
+						ShardCollectorPublicKey::<T>::remove(shard_id);
 						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
 						writes += 5;
 					}
@@ -173,7 +173,7 @@ pub mod pallet {
 				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
-			<ShardCollector<T>>::insert(shard_id, collector);
+			<ShardCollectorPublicKey<T>>::insert(shard_id, collector);
 			//TODO change on dynamic collector assigning
 			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
 			for member in &members {
@@ -244,7 +244,7 @@ pub mod pallet {
 		}
 
 		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
-			ShardCollector::<T>::get(shard_id)
+			ShardCollectorPublicKey::<T>::get(shard_id)
 		}
 
 		fn collector_peer_id(shard_id: ShardId) -> Option<PeerId> {

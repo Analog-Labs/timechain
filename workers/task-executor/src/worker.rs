@@ -82,7 +82,6 @@ impl Task {
 			},
 			Function::EvmTxReceipt { tx } => {
 				let data = self.wallet.eth_transaction_receipt(tx).await?;
-				log::info!("=====tx receipt data {:?}", data);
 				serde_json::to_string(&data.result)?
 			},
 			Function::EvmDeploy { bytecode } => {
@@ -98,7 +97,6 @@ impl Task {
 				let _ = self.wallet.faucet(1000000000000000).await;
 				let data =
 					self.wallet.eth_send_call(address, function_signature, input, *amount).await?;
-				log::info!("=====data from tx {:?}", data);
 				data.hash
 			},
 		})
@@ -258,7 +256,7 @@ where
 					log::info!("Running Task {}, {:?}", executable_task, executable_task.phase);
 					self.running_tasks.insert(executable_task.clone());
 					let storage = self.backend.offchain_storage().unwrap();
-					if let Some(peer_id) = executable_task.phase.get_write_id() {
+					if let Some(peer_id) = executable_task.phase.peer_id() {
 						if peer_id != self.peer_id {
 							log::info!("Skipping task {} due to peer_id mismatch", task_id);
 							continue;

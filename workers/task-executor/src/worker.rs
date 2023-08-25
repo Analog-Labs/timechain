@@ -3,14 +3,14 @@ use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
+use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
+	TaskExecution, TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -94,6 +94,7 @@ impl Task {
 
 	async fn tss_sign(
 		&self,
+		block_number: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
@@ -104,8 +105,9 @@ impl Task {
 		self.tss
 			.clone()
 			.send(TssRequest {
-				request_id: (task_id, cycle),
+				request_id: TssId(task_id, cycle),
 				shard_id,
+				block_number,
 				data,
 				tx,
 			})
@@ -127,7 +129,7 @@ impl Task {
 			.await
 			.with_context(|| format!("Failed to execute {:?}", task.function))?;
 		let signature = self
-			.tss_sign(shard_id, task_id, task_cycle, &result)
+			.tss_sign(block_num, shard_id, task_id, task_cycle, &result)
 			.await
 			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
@@ -211,14 +213,16 @@ where
 		}
 	}
 
-	pub async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	pub async fn start_tasks(
+		&mut self,
+		block_hash: <B as Block>::Hash,
+		block_num: u64,
+	) -> Result<()> {
 		let block_height =
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
-		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
-		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
-		let block_num: u64 = block_num.to_string().parse()?;
+		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
 		for shard_id in shards {
-			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id)?;
+			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 			log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 			for executable_task in tasks.iter().copied() {
 				let task_id = executable_task.task_id;
@@ -226,7 +230,7 @@ where
 				if self.running_tasks.contains(&executable_task) {
 					continue;
 				}
-				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
+				let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
 				let target_block_number = task_descr.trigger(cycle);
 				if block_height >= target_block_number {
 					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
@@ -276,8 +280,10 @@ where
 	pub async fn run(&mut self) {
 		let mut finality_notifications = self.client.finality_notification_stream();
 		while let Some(notification) = finality_notifications.next().await {
+			let block_hash = notification.header.hash();
+			let block_num = notification.header.number().to_string().parse().unwrap();
 			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
-			if let Err(err) = self.start_tasks(notification.header.hash()).await {
+			if let Err(err) = self.start_tasks(block_hash, block_num).await {
 				log::error!(target: TW_LOG, "error processing tasks: {}", err);
 			}
 		}

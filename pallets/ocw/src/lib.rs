@@ -121,13 +121,9 @@ pub mod pallet {
 		/// Turns shard offline
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_shard_offline())]
-		pub fn set_shard_offline(
-			origin: OriginFor<T>,
-			shard_id: ShardId,
-			network: Network,
-		) -> DispatchResult {
+		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::Shards::set_shard_offline(shard_id, network)
+			T::Shards::set_shard_offline(shard_id)
 		}
 
 		/// Submit Task Error
@@ -202,8 +198,9 @@ pub mod pallet {
 						status: status.clone(),
 					}),
 
-				OcwPayload::SetShardOffline { shard_id, network } => signer
-					.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network }),
+				OcwPayload::SetShardOffline { shard_id } => {
+					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
+				},
 				OcwPayload::SubmitTaskError { task_id, error } => {
 					signer.send_signed_transaction(|_| Call::submit_task_error {
 						task_id,
@@ -224,6 +221,9 @@ pub mod pallet {
 	impl<T: Config> ShardCreated for Pallet<T> {
 		fn shard_created(shard_id: ShardId, collector: PublicKey) {
 			ShardCollector::<T>::insert(shard_id, collector);
+		}
+		fn shard_removed(shard_id: ShardId) {
+			ShardCollector::<T>::remove(shard_id);
 		}
 	}
 }

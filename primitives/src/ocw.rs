@@ -1,4 +1,4 @@
-use crate::{CycleStatus, Network, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
+use crate::{CycleStatus, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
 use codec::{Decode, Encode};
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
@@ -19,7 +19,7 @@ pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
 	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, status: CycleStatus },
 	SubmitTaskError { task_id: TaskId, error: TaskError },
-	SetShardOffline { shard_id: ShardId, network: Network },
+	SetShardOffline { shard_id: ShardId },
 }
 
 impl OcwPayload {

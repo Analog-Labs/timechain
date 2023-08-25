@@ -23,12 +23,18 @@ lazy_static::lazy_static! {
 pub struct MockShards;
 
 impl OcwShardInterface for MockShards {
-	fn benchmark_register_shard(_network: Network, _members: Vec<PeerId>, _collector: PublicKey) {}
+	fn benchmark_register_shard(
+		_network: Network,
+		_members: Vec<PeerId>,
+		_collector: PublicKey,
+		_threshold: u16,
+	) {
+	}
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
 	}
-	fn set_shard_offline(_shard_id: ShardId, _network: Network) -> DispatchResult {
+	fn set_shard_offline(_shard_id: ShardId) -> DispatchResult {
 		Ok(())
 	}
 }

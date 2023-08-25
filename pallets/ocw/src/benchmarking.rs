@@ -19,7 +19,7 @@ const TSS_PUBLIC_KEY: TssPublicKey = [42; 33];
 
 benchmarks! {
 	submit_tss_public_key {
-		T::Shards::benchmark_register_shard(Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector());
+		T::Shards::benchmark_register_shard(Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector(), 3);
 	}: _(RawOrigin::Signed([42; 32].into()), SHARD_ID, TSS_PUBLIC_KEY)
 	verify { }
 

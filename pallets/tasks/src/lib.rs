@@ -72,11 +72,11 @@ pub mod pallet {
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn tasks)]
 	pub type Tasks<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn task_state)]
 	pub type TaskState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskStatus, OptionQuery>;
 
@@ -105,8 +105,8 @@ pub mod pallet {
 		TaskCreated(TaskId),
 		/// Updated cycle status
 		TaskResult(TaskId, TaskCycle, CycleStatus),
-		/// Error occured while executing task
-		TaskError(TaskId, TaskError),
+		/// Task failed due to more errors than max retry count
+		TaskFailed(TaskId, TaskError),
 		/// Task stopped by owner
 		TaskStopped(TaskId),
 		/// Task resumed by owner
@@ -123,6 +123,8 @@ pub mod pallet {
 		InvalidOwner,
 		/// Invalid cycle
 		InvalidCycle,
+		/// Cycle must be greater than zero
+		CycleMustBeGreaterThanZero,
 	}
 
 	#[pallet::call]
@@ -131,6 +133,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::create_task())]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
 			Tasks::<T>::insert(
 				task_id,
@@ -205,7 +208,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		fn is_complete(task_id: TaskId) -> bool {
 			if let Some(task) = Tasks::<T>::get(task_id) {
-				TaskResults::<T>::contains_key(task_id, task.cycle)
+				TaskResults::<T>::contains_key(task_id, task.cycle.saturating_less_one())
 			} else {
 				true
 			}
@@ -270,9 +273,8 @@ pub mod pallet {
 			status: CycleStatus,
 		) -> DispatchResult {
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			let incremented_cycle = cycle.saturating_plus_one();
-			TaskCycleState::<T>::insert(task_id, incremented_cycle);
-			TaskResults::<T>::insert(task_id, incremented_cycle, status.clone());
+			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
+			TaskResults::<T>::insert(task_id, cycle, status.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
@@ -280,17 +282,17 @@ pub mod pallet {
 				}
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
 			}
-			Self::deposit_event(Event::TaskResult(task_id, incremented_cycle, status));
+			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
 			Ok(())
 		}
 
 		fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult {
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
-			//since count starts from 0 decrementing maxretrycount
-			if retry_count == T::MaxRetryCount::get() - 1 {
+			// task fails when new retry count == max - 1 => old retry count == max
+			if retry_count == T::MaxRetryCount::get() {
 				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
-				Self::deposit_event(Event::TaskError(task_id, error));
+				Self::deposit_event(Event::TaskFailed(task_id, error));
 			}
 			Ok(())
 		}

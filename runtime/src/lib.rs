@@ -1122,6 +1122,7 @@ impl pallet_shards::Config for Runtime {
 	type TaskScheduler = Tasks;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
+	type DkgTimeout = ConstU32<10>;
 }
 
 impl pallet_tasks::Config for Runtime {
@@ -1437,6 +1438,10 @@ impl_runtime_apis! {
 
 		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			Shards::get_shard_members(shard_id)
+		}
+
+		fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			Shards::get_shard_threshold(shard_id)
 		}
 
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {

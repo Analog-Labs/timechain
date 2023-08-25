@@ -97,7 +97,6 @@ impl Task {
 				input,
 				amount,
 			} => {
-				log::info!("wallet pub key {:?}", self.wallet.public_key().hex_bytes);
 				self.wallet
 					.eth_send_call(address, function_signature, input, *amount)
 					.await?

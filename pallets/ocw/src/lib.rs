@@ -59,7 +59,7 @@ pub mod pallet {
 					log::info!("received ocw message {:?}", msg);
 					Self::submit_tx(msg);
 				}
-				Self::set_free(true);
+				StorageValueRef::persistent(OCW_STATUS).set(&true);
 			}
 			log::info!("finished offchain worker for: {:?}", block_number);
 		}
@@ -153,16 +153,10 @@ pub mod pallet {
 
 		pub(crate) fn is_free() -> bool {
 			let storage = StorageValueRef::persistent(OCW_STATUS);
-			let status = storage.get::<bool>().unwrap().unwrap_or(true);
-			if status {
-				storage.set(&false);
-			}
-			return status;
-		}
-
-		pub(crate) fn set_free(status: bool) {
-			let storage = StorageValueRef::persistent(OCW_STATUS);
-			storage.set(&status);
+			let val = storage
+				.mutate::<bool, _, _>(|res| Ok::<_, ()>(res.unwrap().unwrap_or(true) == false))
+				.unwrap();
+			!val
 		}
 
 		pub(crate) fn read_message() -> Option<OcwPayload> {

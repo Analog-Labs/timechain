@@ -21,7 +21,7 @@ pub mod pallet {
 	use time_primitives::{
 		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
 		OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId,
-		TssPublicKey, OCW_READ_ID, OCW_WRITE_ID,
+		TssPublicKey, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -53,12 +53,17 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(block_number: <<T::Block as Block>::Header as Header>::Number) {
-			log::info!("running offchain worker for: {:?}", block_number);
-			while let Some(msg) = Self::read_message() {
-				log::info!("received ocw message {:?}", msg);
-				Self::submit_tx(msg);
+			if Self::lock() {
+				log::info!("running offchain worker for: {:?}", block_number);
+				while let Some(msg) = Self::read_message() {
+					log::info!("received ocw message {:?}", msg);
+					Self::submit_tx(msg);
+				}
+				StorageValueRef::persistent(OCW_LOCK).clear();
+				log::info!("finished offchain worker for: {:?}", block_number);
+			} else {
+				log::info!("skipped offchain worker for: {:?}", block_number);
 			}
-			log::info!("finished offchain worker for: {:?}", block_number);
 		}
 	}
 
@@ -146,6 +151,19 @@ pub mod pallet {
 			};
 			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
 			Ok(())
+		}
+
+		pub(crate) fn lock() -> bool {
+			let storage = StorageValueRef::persistent(OCW_LOCK);
+			storage
+				.mutate::<bool, _, _>(|res| {
+					if !res.unwrap().unwrap_or_default() {
+						Ok(true)
+					} else {
+						Err(())
+					}
+				})
+				.unwrap()
 		}
 
 		pub(crate) fn read_message() -> Option<OcwPayload> {

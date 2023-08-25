@@ -2,6 +2,7 @@ use crate::{CycleStatus, Network, ShardId, TaskCycle, TaskError, TaskId, TssPubl
 use codec::{Decode, Encode};
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
+pub const OCW_STATUS: &[u8] = b"ocwstatus";
 pub const OCW_READ_ID: &[u8] = b"ocwreadid";
 pub const OCW_WRITE_ID: &[u8] = b"ocwwriteid";
 pub const OCW_MESSAGE_PREFIX: &[u8] = b"ocwmsg";

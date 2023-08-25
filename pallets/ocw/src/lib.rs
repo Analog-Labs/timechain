@@ -52,12 +52,13 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn offchain_worker(_block_number: <<T::Block as Block>::Header as Header>::Number) {
-			log::info!("running offchain worker");
+		fn offchain_worker(block_number: <<T::Block as Block>::Header as Header>::Number) {
+			log::info!("running offchain worker for: {:?}", block_number);
 			while let Some(msg) = Self::read_message() {
 				log::info!("received ocw message {:?}", msg);
 				Self::submit_tx(msg);
 			}
+			log::info!("finished offchain worker for: {:?}", block_number);
 		}
 	}
 

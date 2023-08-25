@@ -14,10 +14,8 @@ pub type Signature = MultiSignature;
 pub struct MockTaskScheduler;
 
 impl TasksInterface for MockTaskScheduler {
-	fn shard_online(_: ShardId, _: Network){
-	}
-	fn shard_offline(_: ShardId, _: Network){
-	}
+	fn shard_online(_: ShardId, _: Network) {}
+	fn shard_offline(_: ShardId, _: Network) {}
 }
 
 frame_support::construct_runtime!(

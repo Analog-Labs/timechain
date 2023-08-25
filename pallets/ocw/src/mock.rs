@@ -1,5 +1,6 @@
 use crate::{self as pallet_ocw};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, DispatchResult, MultiSignature,
@@ -8,10 +9,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
 	CycleStatus, Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId,
-	TaskCycle, TaskError, TaskId, TssPublicKey, TasksInterface, ShardsInterface,
-	TIME_KEY_TYPE,
+	ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface, TssPublicKey, TIME_KEY_TYPE,
 };
-use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -42,15 +41,17 @@ impl OcwShardInterface for MockShards {
 }
 
 impl ShardsInterface for MockShards {
-	fn is_shard_online(_: ShardId) -> bool{
+	fn is_shard_online(_: ShardId) -> bool {
 		true
 	}
-	fn collector_pubkey(_: ShardId) -> Option<PublicKey>{
+	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
 		let keystore = MemoryKeystore::new();
-		let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(crate::tests::PHRASE)).unwrap();
+		let collector = keystore
+			.sr25519_generate_new(TIME_KEY_TYPE, Some(crate::tests::PHRASE))
+			.unwrap();
 		Some(collector.into())
 	}
-	fn collector_peer_id(_: ShardId) -> Option<PeerId>{
+	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
 		Some([0u8; 32])
 	}
 }
@@ -71,8 +72,8 @@ impl OcwTaskInterface for MockTasks {
 	}
 }
 
-impl TasksInterface for MockTasks{
-	fn shard_online(_: ShardId, _: Network) -> DispatchResult{
+impl TasksInterface for MockTasks {
+	fn shard_online(_: ShardId, _: Network) -> DispatchResult {
 		Ok(())
 	}
 	fn shard_offline(_: ShardId, _: Network) -> DispatchResult {

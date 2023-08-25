@@ -1,6 +1,6 @@
 use crate::{self as pallet_shards};
-use frame_support::traits::OnInitialize;
 use frame_support::pallet_prelude::DispatchResult;
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},

@@ -54,7 +54,7 @@ fn test_create_task() {
 			mock_task(Network::Ethereum, 1)
 		));
 		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(
 			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
@@ -121,7 +121,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 #[test]
 fn task_auto_assigned_if_shard_online() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -171,7 +171,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 				hash: "".to_string(),
 			}
 		);
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
@@ -182,7 +182,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 fn shard_online_inserts_network_shards() {
 	new_test_ext().execute_with(|| {
 		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_none());
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_some());
 	});
 }
@@ -190,9 +190,9 @@ fn shard_online_inserts_network_shards() {
 #[test]
 fn shard_offline_removes_network_shards() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_some());
-		assert_ok!(Tasks::shard_offline(1, Network::Ethereum));
+		Tasks::shard_offline(1, Network::Ethereum);
 		assert!(NetworkShards::<Test>::get(Network::Ethereum, 1).is_none());
 	});
 }
@@ -200,14 +200,14 @@ fn shard_offline_removes_network_shards() {
 #[test]
 fn shard_offline_removes_tasks() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert_ok!(Tasks::shard_offline(1, Network::Ethereum));
+		Tasks::shard_offline(1, Network::Ethereum);
 		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -216,8 +216,8 @@ fn shard_offline_removes_tasks() {
 #[test]
 fn shard_offline_assigns_tasks_if_other_shard_online() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(2, Network::Ethereum));
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(2, Network::Ethereum);
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -227,7 +227,7 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 			vec![(2, 0)]
 		);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert_ok!(Tasks::shard_offline(2, Network::Ethereum));
+		Tasks::shard_offline(2, Network::Ethereum);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
@@ -239,7 +239,7 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 #[test]
 fn submit_completed_result_purges_task_from_storage() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -253,7 +253,7 @@ fn submit_completed_result_purges_task_from_storage() {
 #[test]
 fn shard_offline_drops_failed_tasks() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -267,7 +267,7 @@ fn shard_offline_drops_failed_tasks() {
 				}
 			));
 		}
-		assert_ok!(Tasks::shard_offline(1, Network::Ethereum));
+		Tasks::shard_offline(1, Network::Ethereum);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -276,7 +276,7 @@ fn shard_offline_drops_failed_tasks() {
 #[test]
 fn submit_task_error_increments_retry_count() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -295,7 +295,7 @@ fn submit_task_error_increments_retry_count() {
 #[test]
 fn submit_task_error_over_max_retry_count_is_task_failure() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -314,7 +314,7 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 #[test]
 fn submit_task_result_resets_retry_count() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
@@ -458,10 +458,10 @@ fn task_stopped_and_moved_on_shard_offline() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_ok!(Tasks::shard_offline(1, Network::Ethereum));
-		assert_ok!(Tasks::shard_online(2, Network::Ethereum));
+		Tasks::shard_offline(1, Network::Ethereum);
+		Tasks::shard_online(2, Network::Ethereum);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
 		assert_eq!(
@@ -477,7 +477,7 @@ fn task_recurring_cycle_count() {
 	let mut total_results = 0;
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), mock_task.clone()));
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		loop {
 			let task = Tasks::get_shard_tasks(1);
 			if task.is_empty() {
@@ -498,7 +498,7 @@ fn task_recurring_cycle_count() {
 fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 	new_test_ext().execute_with(|| {
 		for i in (1..=10).rev() {
-			assert_ok!(Tasks::shard_online(i, Network::Ethereum));
+			Tasks::shard_online(i, Network::Ethereum);
 			for _ in 1..=i {
 				assert_ok!(Tasks::create_task(
 					RawOrigin::Signed([0; 32].into()).into(),
@@ -519,7 +519,7 @@ fn submit_task_result_inserts_at_input_cycle() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 5)
 		));
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
 		assert_eq!(TaskCycleState::<Test>::get(0), 1);
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
@@ -538,7 +538,7 @@ fn payable_task_smoke() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_payable(Network::Ethereum)
 		));
-		assert_ok!(Tasks::shard_online(1, Network::Ethereum));
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write([0u8; 32]));
 		assert_ok!(Tasks::submit_task_hash(shard_id, task_id, task_hash.into()));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));

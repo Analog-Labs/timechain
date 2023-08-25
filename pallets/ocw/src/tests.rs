@@ -8,7 +8,8 @@ use sp_core::Decode;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use time_primitives::{OcwPayload, ShardId, TssPublicKey, TIME_KEY_TYPE};
 
-pub const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
+pub const PHRASE: &str =
+	"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
 const SHARD_ID: ShardId = 42;
 const TSS_PUBLIC_KEY: TssPublicKey = [42; 33];
 const PAYLOAD: OcwPayload = OcwPayload::SubmitTssPublicKey {

@@ -21,7 +21,6 @@ pub enum OcwPayload {
 	SubmitTaskHash { shard_id: ShardId, task_id: TaskId, hash: String },
 	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, status: CycleStatus },
 	SubmitTaskError { task_id: TaskId, error: TaskError },
-	SetShardOffline { shard_id: ShardId },
 }
 
 impl OcwPayload {
@@ -31,7 +30,6 @@ impl OcwPayload {
 			Self::SubmitTaskHash { shard_id, .. } => *shard_id,
 			Self::SubmitTaskResult { status, .. } => status.shard_id,
 			Self::SubmitTaskError { error, .. } => error.shard_id,
-			Self::SetShardOffline { shard_id, .. } => *shard_id,
 		}
 	}
 }

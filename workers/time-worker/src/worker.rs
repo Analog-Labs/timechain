@@ -218,10 +218,6 @@ where
 				},
 				TssAction::Error(id, peer, error) => {
 					log::error!(target: TW_LOG, "{:?} {:?} {:?}", id, peer, error);
-					time_primitives::write_message(
-						self.backend.offchain_storage().unwrap(),
-						&OcwPayload::SetShardOffline { shard_id },
-					);
 				},
 			}
 		}

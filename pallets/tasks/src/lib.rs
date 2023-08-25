@@ -158,7 +158,7 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_tasks(schedule.network)?;
+			Self::schedule_tasks(schedule.network);
 			Ok(())
 		}
 
@@ -241,10 +241,11 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
 
-		fn schedule_tasks(network: Network) -> DispatchResult {
+		fn schedule_tasks(network: Network) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
+					.filter(|(shard_id, _)| T::Shards::collector_peer_id(shard_id).is_some())
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {
@@ -253,6 +254,10 @@ pub mod pallet {
 							(shard_id2, task_count2)
 						}
 					});
+
+				let Some(peer_id) = T::Shards::collector_peer_id(shard_id) else {
+					break;
+				}
 				let Some((shard_id, _)) = shard else {
 					break;
 				};
@@ -260,8 +265,6 @@ pub mod pallet {
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 				{
-					let peer_id = T::Shards::collector_peer_id(shard_id)
-						.ok_or(Error::<T>::CollectorPeerIdNotFound)?;
 					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(peer_id))
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
@@ -273,13 +276,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
-		fn shard_online(shard_id: ShardId, network: Network) -> DispatchResult {
+		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
-			Self::schedule_tasks(network)?;
+			Self::schedule_tasks(network);
 			Ok(())
 		}
 
-		fn shard_offline(shard_id: ShardId, network: Network) -> DispatchResult {
+		fn shard_offline(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
@@ -287,7 +290,7 @@ pub mod pallet {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
-			Self::schedule_tasks(network)?;
+			Self::schedule_tasks(network);
 			Ok(())
 		}
 	}

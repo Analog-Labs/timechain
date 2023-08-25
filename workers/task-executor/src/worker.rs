@@ -93,11 +93,10 @@ impl Task {
 				input,
 				amount,
 			} => {
-				//temp faucet todo remove it
-				let _ = self.wallet.faucet(1000000000000000).await;
-				let data =
-					self.wallet.eth_send_call(address, function_signature, input, *amount).await?;
-				data.hash
+				self.wallet
+					.eth_send_call(address, function_signature, input, *amount)
+					.await?
+					.hash
 			},
 		})
 	}

@@ -52,8 +52,8 @@ pub trait ShardsInterface {
 }
 
 pub trait TasksInterface {
-	fn shard_online(shard_id: ShardId, network: Network) -> DispatchResult;
-	fn shard_offline(shard_id: ShardId, network: Network) -> DispatchResult;
+	fn shard_online(shard_id: ShardId, network: Network);
+	fn shard_offline(shard_id: ShardId, network: Network);
 }
 
 pub trait OcwShardInterface {
@@ -64,7 +64,6 @@ pub trait OcwShardInterface {
 		threshold: u16,
 	);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
-	fn set_shard_offline(shard_id: ShardId) -> DispatchResult;
 }
 
 pub trait OcwTaskInterface {

@@ -29,7 +29,6 @@ pub mod pallet {
 		fn submit_tss_public_key() -> Weight;
 		fn submit_task_hash() -> Weight;
 		fn submit_task_result() -> Weight;
-		fn set_shard_offline() -> Weight;
 		fn submit_task_error() -> Weight;
 	}
 
@@ -41,9 +40,6 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn submit_task_result() -> Weight {
-			Weight::default()
-		}
-		fn set_shard_offline() -> Weight {
 			Weight::default()
 		}
 		fn submit_task_error() -> Weight {
@@ -121,16 +117,8 @@ pub mod pallet {
 			T::OcwTasks::submit_task_result(task_id, cycle, status)
 		}
 
-		/// Turns shard offline
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_shard_offline())]
-		pub fn set_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, shard_id)?;
-			T::OcwShards::set_shard_offline(shard_id)
-		}
-
 		/// Submit Task Error
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::submit_task_error())]
 		pub fn submit_task_error(
 			origin: OriginFor<T>,
@@ -142,7 +130,7 @@ pub mod pallet {
 		}
 
 		/// Submit Task Hash
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::submit_task_hash())]
 		pub fn submit_task_hash(
 			origin: OriginFor<T>,
@@ -219,9 +207,6 @@ pub mod pallet {
 						cycle,
 						status: status.clone(),
 					}),
-				OcwPayload::SetShardOffline { shard_id } => {
-					signer.send_signed_transaction(|_| Call::set_shard_offline { shard_id })
-				},
 				OcwPayload::SubmitTaskError { task_id, error } => {
 					signer.send_signed_transaction(|_| Call::submit_task_error {
 						task_id,

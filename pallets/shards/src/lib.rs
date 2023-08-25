@@ -203,6 +203,17 @@ pub mod pallet {
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
+
+		// TO be used in future
+		fn _set_shard_offline(shard_id: ShardId) -> DispatchResult {
+			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
+			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
+			Self::deposit_event(Event::ShardOffline(shard_id));
+			T::TaskScheduler::shard_offline(shard_id, network);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> OcwShardInterface for Pallet<T> {
@@ -223,17 +234,7 @@ pub mod pallet {
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network)?;
-			Ok(())
-		}
-
-		fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
-			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
-			Self::deposit_event(Event::ShardOffline(shard_id));
-			T::TaskScheduler::shard_offline(shard_id, network)?;
+			T::TaskScheduler::shard_online(shard_id, network);
 			Ok(())
 		}
 	}

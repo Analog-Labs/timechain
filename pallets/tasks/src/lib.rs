@@ -245,7 +245,7 @@ pub mod pallet {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-					.filter(|(shard_id, _)| T::Shards::collector_peer_id(shard_id).is_some())
+					.filter(|(shard_id, _)| T::Shards::collector_peer_id(*shard_id).is_some())
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {
@@ -254,11 +254,10 @@ pub mod pallet {
 							(shard_id2, task_count2)
 						}
 					});
-
-				let Some(peer_id) = T::Shards::collector_peer_id(shard_id) else {
-					break;
-				}
 				let Some((shard_id, _)) = shard else {
+					break;
+				};
+				let Some(peer_id) = T::Shards::collector_peer_id(shard_id) else {
 					break;
 				};
 
@@ -271,7 +270,6 @@ pub mod pallet {
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
-			Ok(())
 		}
 	}
 
@@ -279,7 +277,6 @@ pub mod pallet {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::schedule_tasks(network);
-			Ok(())
 		}
 
 		fn shard_offline(shard_id: ShardId, network: Network) {
@@ -291,7 +288,6 @@ pub mod pallet {
 				}
 			});
 			Self::schedule_tasks(network);
-			Ok(())
 		}
 	}
 

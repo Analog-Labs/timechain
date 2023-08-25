@@ -4,10 +4,12 @@
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
+mod member;
 mod ocw;
 mod shard;
 mod task;
 
+pub use crate::member::*;
 pub use crate::ocw::*;
 pub use crate::shard::*;
 pub use crate::task::*;

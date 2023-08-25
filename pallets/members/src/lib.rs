@@ -12,6 +12,7 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use strum::IntoEnumIterator;
 	use time_primitives::{AccountId, MemberState, Network, PeerId};
 
 	pub trait WeightInfo {
@@ -94,14 +95,15 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn assign_members() {
-			// for network in Network enum
-			// Unassigned::<T>::prefix_iter(network)
-			// check if more than MinShard and register_shard if so
-			// TODO: how is collector chosen for new shard
-			// THEN:
-			// insert heartbeat upon assignment and update Status
-			// callback to member_online
-			todo!()
+			for _network in Network::iter() {
+				todo!()
+				//Unassigned::<T>::iter_prefix(network)
+				// check if more than MinShard and register_shard if so
+				// TODO: how is collector chosen for new shard
+				// THEN:
+				// insert heartbeat upon assignment and update Status
+				// callback to member_online
+			}
 		}
 		fn remove_member(member: PeerId) -> DispatchResult {
 			let MemberState { network, status } =

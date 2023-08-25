@@ -245,7 +245,7 @@ pub mod pallet {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-					.filter(|(shard_id, _)| T::Shards::collector_peer_id(*shard_id).is_some())
+					.filter_map(|(shard_id, _)| T::Shards::collector_peer_id(*shard_id).map(|collector| (shard_id, collector)))
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {

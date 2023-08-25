@@ -25,10 +25,7 @@ pub enum Function {
 
 impl Function {
 	pub fn is_payable(&self) -> bool {
-		match self {
-			Self::EvmDeploy { .. } | Self::EvmCall { .. } => true,
-			_ => false,
-		}
+		matches!(self, Self::EvmDeploy { .. } | Self::EvmCall { .. })
 	}
 }
 

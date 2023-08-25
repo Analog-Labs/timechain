@@ -21,7 +21,7 @@ pub mod pallet {
 	use time_primitives::{
 		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
 		OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId,
-		TssPublicKey, OCW_READ_ID, OCW_STATUS, OCW_WRITE_ID,
+		TssPublicKey, OCW_READ_ID, OCW_LOCK, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -154,7 +154,7 @@ pub mod pallet {
 		}
 
 		pub(crate) fn is_free() -> bool {
-			let storage = StorageValueRef::persistent(OCW_STATUS);
+			let storage = StorageValueRef::persistent(OCW_LOCK);
 			storage
 				.mutate::<bool, _, _>(
 					|res| if !res?.unwrap_or_default() { Ok(true) } else { Err(()) },

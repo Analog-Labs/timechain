@@ -1,5 +1,4 @@
 use crate::{self as pallet_shards};
-use frame_support::pallet_prelude::DispatchResult;
 use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
@@ -12,16 +11,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-// pub struct MockOcw;
-
 pub struct MockTaskScheduler;
 
 impl TasksInterface for MockTaskScheduler {
-	fn shard_online(_: ShardId, _: Network) -> DispatchResult {
-		Ok(())
+	fn shard_online(_: ShardId, _: Network){
 	}
-	fn shard_offline(_: ShardId, _: Network) -> DispatchResult {
-		Ok(())
+	fn shard_offline(_: ShardId, _: Network){
 	}
 }
 

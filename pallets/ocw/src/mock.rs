@@ -35,9 +35,6 @@ impl OcwShardInterface for MockShards {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
 	}
-	fn set_shard_offline(_shard_id: ShardId) -> DispatchResult {
-		Ok(())
-	}
 }
 
 impl ShardsInterface for MockShards {
@@ -73,11 +70,9 @@ impl OcwTaskInterface for MockTasks {
 }
 
 impl TasksInterface for MockTasks {
-	fn shard_online(_: ShardId, _: Network) -> DispatchResult {
-		Ok(())
+	fn shard_online(_: ShardId, _: Network){
 	}
-	fn shard_offline(_: ShardId, _: Network) -> DispatchResult {
-		Ok(())
+	fn shard_offline(_: ShardId, _: Network){
 	}
 }
 

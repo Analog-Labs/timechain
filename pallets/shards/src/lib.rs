@@ -204,8 +204,8 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 
-		// TO be used in future
-		fn _set_shard_offline(shard_id: ShardId) -> DispatchResult {
+		// Used in tests
+		pub fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
 			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);

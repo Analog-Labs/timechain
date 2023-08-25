@@ -22,7 +22,7 @@ pub mod pallet {
 	use time_primitives::{
 		msg_key, AccountId, CycleStatus, OcwPayload, OcwShardInterface, OcwTaskInterface,
 		PublicKey, ShardId, ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface,
-		TssPublicKey, OCW_READ_ID, OCW_WRITE_ID, OCW_LOCK
+		TssPublicKey, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {

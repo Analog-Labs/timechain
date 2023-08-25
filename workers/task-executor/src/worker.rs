@@ -1,9 +1,11 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{anyhow, Context, Result};
+
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
 use sc_client_api::{Backend, BlockchainEvents};
+use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{
@@ -141,19 +143,30 @@ impl Task {
 		let result = self.execute_function(&function, target_block).await?;
 		let signature = self.tss_sign(block_num, shard_id, task_id, task_cycle, &result).await?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
-			timegraph
-				.submit_data(TimegraphData {
-					collection: hash,
-					task_id,
-					task_cycle,
-					target_block_number: target_block,
-					timechain_block_number: block_num,
-					shard_id,
-					signature,
-					data: vec![result],
-				})
-				.await
-				.context("Failed to submit data to timegraph")?;
+			if matches!(function, Function::EvmViewCall { .. }) {
+				let result_json = serde_json::from_str(&result)?;
+				let formatted_result = match result_json {
+					Value::Array(val) => val
+						.iter()
+						.filter_map(|x| x.as_str())
+						.map(|x| x.to_string())
+						.collect::<Vec<String>>(),
+					v => vec![v.to_string()],
+				};
+				timegraph
+					.submit_data(TimegraphData {
+						collection: hash,
+						task_id,
+						task_cycle,
+						target_block_number: target_block,
+						timechain_block_number: block_num,
+						shard_id,
+						signature,
+						data: formatted_result,
+					})
+					.await
+					.context("Failed to submit data to timegraph")?;
+			}
 		}
 		Ok(signature)
 	}

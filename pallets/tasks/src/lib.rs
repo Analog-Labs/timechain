@@ -245,26 +245,31 @@ pub mod pallet {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-					.filter_map(|(shard_id, _)| T::Shards::collector_peer_id(*shard_id).map(|collector| (shard_id, collector)))
-					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
-					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
-						if task_count < task_count2 {
-							(shard_id, task_count)
-						} else {
-							(shard_id2, task_count2)
-						}
-					});
-				let Some((shard_id, _)) = shard else {
-					break;
-				};
-				let Some(peer_id) = T::Shards::collector_peer_id(shard_id) else {
+					.filter_map(|(shard_id, _)| {
+						T::Shards::collector_peer_id(shard_id)
+							.map(|collector| (shard_id, collector))
+					})
+					.map(|(shard_id, collector)| {
+						(shard_id, Self::shard_task_count(shard_id), collector)
+					})
+					.reduce(
+						|(shard_id, task_count, collector),
+						 (shard_id2, task_count2, collector2)| {
+							if task_count < task_count2 {
+								(shard_id, task_count, collector)
+							} else {
+								(shard_id2, task_count2, collector2)
+							}
+						},
+					);
+				let Some((shard_id, _, collector)) = shard else {
 					break;
 				};
 
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 				{
-					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(peer_id))
+					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(collector))
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);

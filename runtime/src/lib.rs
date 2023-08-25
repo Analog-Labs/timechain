@@ -1440,6 +1440,10 @@ impl_runtime_apis! {
 			Shards::get_shard_members(shard_id)
 		}
 
+		fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			Shards::get_shard_threshold(shard_id)
+		}
+
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}

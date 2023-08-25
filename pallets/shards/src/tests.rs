@@ -25,11 +25,14 @@ fn test_register_shard() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let members = Shards::get_shard_members(shard_id as _);
+			let threshold = Shards::get_shard_threshold(shard_id as _);
 			assert_eq!(members.len(), shard.len());
+			assert_eq!(threshold, 1);
 		}
 		for member in [A, B, C] {
 			let shards = Shards::get_shards(member);
@@ -64,6 +67,7 @@ fn submit_public_key_max_once() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
@@ -86,6 +90,7 @@ fn test_set_shard_offline() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
@@ -115,6 +120,7 @@ fn offline_shard_cannot_be_set_offline() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
@@ -136,6 +142,7 @@ fn dkg_times_out() {
 			Network::Ethereum,
 			[A, B, C].to_vec(),
 			collector(),
+			1,
 		));
 		roll_to(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());

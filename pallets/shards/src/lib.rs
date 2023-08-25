@@ -57,10 +57,14 @@ pub mod pallet {
 	pub type ShardNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Network, OptionQuery>;
 
-	/// Network for which shards can be assigned tasks
+	/// Status for shard
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus<BlockNumberFor<T>>, OptionQuery>;
+
+	/// Threshold for shard
+	#[pallet::storage]
+	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
@@ -89,6 +93,8 @@ pub mod pallet {
 		PublicKeyAlreadyRegistered,
 		MembershipBelowMinimum,
 		MembershipAboveMaximum,
+		ThresholdAboveMembershipLen,
+		ThresholdMustBeNonZero,
 		ShardAlreadyOffline,
 	}
 
@@ -106,6 +112,7 @@ pub mod pallet {
 			network: Network,
 			members: Vec<PeerId>,
 			collector: PublicKey,
+			threshold: u16,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(
@@ -116,7 +123,9 @@ pub mod pallet {
 				members.len() <= T::MaxMembers::get().into(),
 				Error::<T>::MembershipAboveMaximum
 			);
-			Self::create_shard(network, members, collector);
+			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
+			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
+			Self::create_shard(network, members, collector, threshold);
 			Ok(())
 		}
 	}
@@ -143,7 +152,12 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn create_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
+		fn create_shard(
+			network: Network,
+			members: Vec<PeerId>,
+			collector: PublicKey,
+			threshold: u16,
+		) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
@@ -151,11 +165,16 @@ pub mod pallet {
 				shard_id,
 				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
 			);
+			<ShardThreshold<T>>::insert(shard_id, threshold);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			T::ShardCreated::shard_created(shard_id, collector);
+		}
+
+		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
 		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
@@ -178,8 +197,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> OcwShardInterface for Pallet<T> {
-		fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
-			Self::create_shard(network, members, collector);
+		fn benchmark_register_shard(
+			network: Network,
+			members: Vec<PeerId>,
+			collector: PublicKey,
+			threshold: u16,
+		) {
+			Self::create_shard(network, members, collector, threshold);
 		}
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;

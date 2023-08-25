@@ -59,7 +59,7 @@ pub mod pallet {
 					log::info!("received ocw message {:?}", msg);
 					Self::submit_tx(msg);
 				}
-				StorageValueRef::persistent(OCW_STATUS).set(&true);
+				StorageValueRef::persistent(OCW_LOCK).set(&true);
 				log::info!("finished offchain worker for: {:?}", block_number);
 			} else {
 				log::info!("skipped offchain worker for: {:?}", block_number);
@@ -157,7 +157,7 @@ pub mod pallet {
 			let storage = StorageValueRef::persistent(OCW_LOCK);
 			storage
 				.mutate::<bool, _, _>(
-					|res| if !res?.unwrap_or_default() { Ok(true) } else { Err(()) },
+					|res| if !res.unwrap().unwrap_or_default() { Ok(true) } else { Err(()) },
 				)
 				.unwrap()
 		}

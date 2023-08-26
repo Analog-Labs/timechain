@@ -225,9 +225,9 @@ async fn tss_smoke() -> Result<()> {
 	// is scheduled to complete. we should require all members to submit the public
 	// key before scheduling.
 	let mut tss_public_key = None;
-	for i in 0..3 {
+	for storage in &storage {
 		loop {
-			let Some(msg) = time_primitives::read_message(storage[i].clone()) else {
+			let Some(msg) = time_primitives::read_message(storage.clone()) else {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			};

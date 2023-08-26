@@ -216,9 +216,6 @@ where
 						tx.send(tss_signature).ok();
 					}
 				},
-				TssAction::Error(id, peer, error) => {
-					log::error!(target: TW_LOG, "{:?} {:?} {:?}", id, peer, error);
-				},
 			}
 		}
 	}

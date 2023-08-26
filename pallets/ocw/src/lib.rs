@@ -19,9 +19,9 @@ pub mod pallet {
 	use sp_runtime::traits::{Block, Header, IdentifyAccount};
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
-		OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId,
-		TssPublicKey, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
+		msg_key, AccountId, CycleStatus, OcwPayload, OcwShardInterface, OcwSubmitTaskResult,
+		PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey, OCW_LOCK,
+		OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {

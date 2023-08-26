@@ -3504,7 +3504,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#95298ee77f726ae0a2769e4ab8f9f9f89588f1c3"
+source = "git+https://github.com/analog-labs/frost-evm.git#95298ee77f726ae0a2769e4ab8f9f9f89588f1c3"
 dependencies = [
  "anyhow",
  "frost-core",

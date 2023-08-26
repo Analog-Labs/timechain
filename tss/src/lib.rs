@@ -134,7 +134,7 @@ where
 	}
 
 	pub fn sign(&mut self, id: I, data: Vec<u8>) {
-		log::debug!("{} sign", self.peer_id);
+		log::debug!("{} sign {}", self.peer_id, id);
 		match &mut self.state {
 			TssState::Roast {
 				key_package,

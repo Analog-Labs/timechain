@@ -27,7 +27,6 @@ pub enum TssAction<I, P> {
 	Send(Vec<(P, TssMessage<I>)>),
 	PublicKey(VerifyingKey),
 	Signature(I, Signature),
-	Error(Option<I>, Option<P>, frost_evm::Error),
 }
 
 /// Tss message.
@@ -53,8 +52,10 @@ fn peer_to_frost(peer: impl std::fmt::Display) -> Identifier {
 /// Tss state machine.
 pub struct Tss<I, P> {
 	peer_id: P,
+	frost_id: Identifier,
 	frost_to_peer: BTreeMap<Identifier, P>,
 	threshold: u16,
+	is_coordinator: bool,
 	state: TssState<I>,
 }
 
@@ -65,15 +66,25 @@ where
 {
 	pub fn new(peer_id: P, members: BTreeSet<P>, threshold: u16) -> Self {
 		debug_assert!(members.contains(&peer_id));
+		let frost_id = peer_to_frost(&peer_id);
 		let frost_to_peer: BTreeMap<_, _> =
 			members.into_iter().map(|peer| (peer_to_frost(&peer), peer)).collect();
-		let dkg =
-			Dkg::new(peer_to_frost(&peer_id), frost_to_peer.keys().cloned().collect(), threshold);
-		log::debug!("{} initialize {}/{}", peer_id, threshold, frost_to_peer.len());
+		let index = frost_to_peer.iter().position(|(id, _)| *id == frost_id).unwrap();
+		let is_coordinator = index < (frost_to_peer.len() - threshold as usize + 1);
+		let dkg = Dkg::new(frost_id, frost_to_peer.keys().cloned().collect(), threshold);
+		log::debug!(
+			"{} initialize {}/{} coordinator = {}",
+			peer_id,
+			threshold,
+			frost_to_peer.len(),
+			is_coordinator
+		);
 		Self {
 			peer_id,
+			frost_id,
 			frost_to_peer,
 			threshold,
+			is_coordinator,
 			state: TssState::Dkg { dkg },
 		}
 	}
@@ -131,12 +142,11 @@ where
 				signing_sessions,
 			} => {
 				let roast = Roast::new(
-					peer_to_frost(&self.peer_id),
-					self.frost_to_peer.keys().copied().collect(),
 					self.threshold,
 					key_package.clone(),
 					public_key_package.clone(),
 					data,
+					self.is_coordinator,
 				);
 				signing_sessions.insert(id, roast);
 			},
@@ -180,7 +190,8 @@ where
 						return Some(TssAction::PublicKey(public_key));
 					},
 					DkgAction::Failure(error) => {
-						return Some(TssAction::Error(None, None, error));
+						log::error!("dkg failed with error {}", error);
+						return None;
 					},
 				};
 			},
@@ -188,40 +199,61 @@ where
 				let session_ids: Vec<_> = signing_sessions.keys().cloned().collect();
 				for id in session_ids {
 					let session = signing_sessions.get_mut(&id).unwrap();
-					if let Some(action) = session.next_action() {
-						match action {
+					while let Some(action) = session.next_action() {
+						let (peers, send_to_self, msg) = match action {
 							RoastAction::Broadcast(msg) => {
-								return Some(TssAction::Send(
-									self.frost_to_peer
-										.values()
-										.filter(|peer| **peer != self.peer_id)
-										.cloned()
-										.map(|peer| {
-											(
-												peer,
-												TssMessage::Roast {
-													id: id.clone(),
-													msg: msg.clone(),
-												},
-											)
-										})
-										.collect(),
-								));
+								let peers = self
+									.frost_to_peer
+									.keys()
+									.filter(|peer| **peer != self.frost_id)
+									.copied()
+									.collect();
+								(peers, true, msg)
+							},
+							RoastAction::Send(peer, msg) => {
+								if peer == self.frost_id {
+									(vec![], true, msg)
+								} else {
+									(vec![peer], false, msg)
+								}
+							},
+							RoastAction::SendMany(all_peers, msg) => {
+								let peers: Vec<_> = all_peers
+									.iter()
+									.filter(|peer| **peer != self.frost_id)
+									.copied()
+									.collect();
+								let send_to_self = peers.len() != all_peers.len();
+								(peers, send_to_self, msg)
 							},
 							RoastAction::Complete(signature) => {
 								signing_sessions.remove(&id);
 								return Some(TssAction::Signature(id, signature));
 							},
-							RoastAction::Failure(peer, error) => {
-								signing_sessions.remove(&id);
-								let peer = peer.map(|peer| self.frost_to_peer(&peer));
-								return Some(TssAction::Error(Some(id), peer, error));
-							},
+						};
+						if send_to_self {
+							session.on_message(self.frost_id, msg.clone());
+						}
+						if !peers.is_empty() {
+							return Some(TssAction::Send(
+								peers
+									.into_iter()
+									.map(|peer| {
+										(
+											self.frost_to_peer(&peer),
+											TssMessage::Roast {
+												id: id.clone(),
+												msg: msg.clone(),
+											},
+										)
+									})
+									.collect(),
+							));
 						}
 					}
 				}
 			},
-		};
+		}
 		None
 	}
 }

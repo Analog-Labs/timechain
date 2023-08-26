@@ -15,13 +15,11 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	Function, Network, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId, TaskSpawner, TimeApi, TssSignature,
+	TaskId, TaskPhase, TaskSpawner, TimeApi, TssSignature,
 };
 
 #[derive(Clone, Default)]
 struct MockApi;
-
-impl MockApi {}
 
 sp_api::mock_impl_runtime_apis! {
 	impl TimeApi<Block> for MockApi {
@@ -30,7 +28,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn get_shard_tasks(&self, _shard_id: ShardId) -> Vec<TaskExecution> {
-			vec![TaskExecution::new(1,0,0)]
+			vec![TaskExecution::new(1,0,0, TaskPhase::default())]
 		}
 
 		fn get_task(&self, _task_id: TaskId) -> Option<TaskDescriptor> {
@@ -38,7 +36,7 @@ sp_api::mock_impl_runtime_apis! {
 				owner: AccountId32::new([0u8; 32]),
 				network: Network::Ethereum,
 				cycle: 0,
-				function: Function::EVMViewWithoutAbi {
+				function: Function::EvmViewCall {
 					address: Default::default(),
 					function_signature: Default::default(),
 					input: Default::default(),
@@ -74,13 +72,14 @@ impl TaskSpawner for MockTask {
 		Ok(0)
 	}
 
-	fn execute(
+	fn execute_read(
 		&self,
 		_target_block: u64,
 		_shard_id: ShardId,
 		_task_id: TaskId,
 		_cycle: TaskCycle,
-		_task: TaskDescriptor,
+		_function: Function,
+		_hash: String,
 		_block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		if self.is_ok {
@@ -88,6 +87,13 @@ impl TaskSpawner for MockTask {
 		} else {
 			future::ready(Err(anyhow::anyhow!("mock error"))).boxed()
 		}
+	}
+
+	fn execute_write(
+		&self,
+		_function: Function,
+	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>> {
+		future::ready(Ok("".into())).boxed()
 	}
 }
 

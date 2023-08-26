@@ -28,6 +28,7 @@ insert_key() {
 
 while [ $TOTAL_INSERTS -lt 6 ]
 do
+  sleep 5
   TOTAL_INSERTS=0
   # ethereum keys
   insert_key 1 9943 "0x78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"
@@ -39,11 +40,12 @@ do
   insert_key 5 9951 "0x1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659"
   insert_key 6 9953 "0x72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"
   echo '-----------------------------'
-  sleep 5
 done
 
 echo "All keys inserted, initializing test"
 
+### Fund test accounts
+./scripts/fund_test_wallets.sh &
 
 ###### Ethereum testing #########
 #registering shard for ethereum
@@ -53,7 +55,7 @@ sleep 5
 
 # deploying ethereum smart contract
 echo "Initiated eth faucet"
-rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network faucet 100000000000000
+rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network faucet 1000000000000000
 echo "Deploying eth contract"
 contract_result=$(rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network deploy-contract ./contracts/test_contract.sol)
 eth_contract=$(echo $contract_result | grep -oEi '0x[0-9a-zA-Z]+')
@@ -64,9 +66,18 @@ eth_block=${BASH_REMATCH[1]}
 
 echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
 
+###hardcoded for testing
+
 # inserting tasks for eth
-echo "inserting task for Eth"
-eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block | sed 's/[^0-9]*//g')
+echo "inserting view task for Eth"
+eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block false | sed 's/[^0-9]*//g')
+echo "Task registered with id: "$eth_tsk_registered
+node ./js/src/await_task_status.js $eth_tsk_registered
+
+
+# inserting payable tasks for eth
+echo "inserting payable task for Eth"
+eth_tsk_registered=$(node ./js/src/add_task.js 0 $eth_contract $eth_block true | sed 's/[^0-9]*//g')
 echo "Task registered with id: "$eth_tsk_registered
 node ./js/src/await_task_status.js $eth_tsk_registered
 

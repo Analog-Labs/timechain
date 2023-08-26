@@ -51,7 +51,7 @@ const register_shard = async () => {
     await api.isReady;
     const register_shard = await api.tx.sudo
         .sudo(
-            api.tx.shards.registerShard(network, [time1, time2, time3], collector_pubkey)
+            api.tx.shards.registerShard(network, [time1, time2, time3], collector_pubkey, 3)
         )
         .signAndSend(pair, ({ status, events }) => {
             if (status.isInBlock || status.isFinalized) {

@@ -32,7 +32,7 @@ pub mod pallet {
 	pub type MemberNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, PeerId, Network, OptionQuery>;
 
-	/// Unassigned members by network
+	/// Unassigned members per network
 	#[pallet::storage]
 	pub type Unassigned<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, PeerId, (), OptionQuery>;
@@ -50,15 +50,13 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Register member
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::default())]
-		pub fn register(origin: OriginFor<T>, network: Network) -> DispatchResult {
+		pub fn register_member(origin: OriginFor<T>, network: Network) -> DispatchResult {
 			let member: PeerId = ensure_signed(origin)?.into();
 			ensure!(MemberNetwork::<T>::get(member).is_none(), Error::<T>::AlreadyMember);
 			MemberNetwork::<T>::insert(member, network);
-			Unassigned::<T>::insert(network, member, ());
-			T::Elections::member_online(network);
+			Self::unassign_member(member, network);
 			Self::deposit_event(Event::RegisteredMember(network, member));
 			Ok(())
 		}
@@ -70,13 +68,21 @@ pub mod pallet {
 		}
 		fn unassign_member(member: PeerId, network: Network) {
 			Unassigned::<T>::insert(network, member, ());
-			T::Elections::member_online(network);
+			T::Elections::unassigned_member_online(network);
 		}
 	}
 
 	impl<T: Config> MemberElections for Pallet<T> {
-		fn get_unassigned_members(n: usize, network: Network) -> Vec<PeerId> {
-			Unassigned::<T>::iter_prefix(network).map(|(m, _)| m).take(n).collect()
+		fn new_shard_members(n: usize, network: Network) -> Option<Vec<PeerId>> {
+			let members = Unassigned::<T>::iter_prefix(network)
+				.map(|(m, _)| m)
+				.take(n)
+				.collect::<Vec<_>>();
+			if members.len() == n {
+				Some(members)
+			} else {
+				None
+			}
 		}
 	}
 }

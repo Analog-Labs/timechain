@@ -207,6 +207,9 @@ pub mod pallet {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
+			for member in ShardMembers::<T>::drain_prefix(shard_id).map(|(m, _)| m) {
+				T::Members::unassign_member(member, network);
+			}
 			Self::deposit_event(Event::ShardOffline(shard_id));
 			T::TaskScheduler::shard_offline(shard_id, network);
 			Ok(())

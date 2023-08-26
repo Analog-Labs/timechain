@@ -11,7 +11,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
-	use sp_runtime::traits::Saturating;
 	use time_primitives::{AccountId, ElectionsInterface, MemberElections, Network, ShardCreator};
 
 	#[pallet::pallet]
@@ -28,22 +27,12 @@ pub mod pallet {
 		type Threshold: Get<u16>;
 	}
 
-	/// Counter to determine when shard should be created
-	#[pallet::storage]
-	pub type OnlineUnassigned<T: Config> = StorageMap<_, Blake2_128Concat, Network, u8, ValueQuery>;
-
 	impl<T: Config> ElectionsInterface for Pallet<T> {
-		fn member_online(network: Network) {
-			let online_unassigned = OnlineUnassigned::<T>::get(network).saturating_plus_one();
-			if online_unassigned == T::ShardSize::get() {
-				T::Shards::create_shard(
-					network,
-					T::Members::get_unassigned_members(T::ShardSize::get() as usize, network),
-					T::Threshold::get(),
-				);
-				OnlineUnassigned::<T>::insert(network, 0);
-			} else {
-				OnlineUnassigned::<T>::insert(network, online_unassigned);
+		fn unassigned_member_online(network: Network) {
+			if let Some(members) =
+				T::Members::new_shard_members(T::ShardSize::get() as usize, network)
+			{
+				T::Shards::create_shard(network, members, T::Threshold::get());
 			}
 		}
 	}

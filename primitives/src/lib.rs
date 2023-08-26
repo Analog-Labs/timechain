@@ -51,11 +51,11 @@ pub trait MemberAssignment {
 }
 
 pub trait MemberElections {
-	fn get_unassigned_members(n: usize, network: Network) -> Vec<PeerId>;
+	fn new_shard_members(n: usize, network: Network) -> Option<Vec<PeerId>>;
 }
 
 pub trait ElectionsInterface {
-	fn member_online(network: Network);
+	fn unassigned_member_online(network: Network);
 }
 
 pub trait ShardCreator {

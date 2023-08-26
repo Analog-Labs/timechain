@@ -106,7 +106,7 @@ async fn task_executor_smoke() -> Result<()> {
 		(Arc::new(client), backend)
 	};
 	let storage = backend.offchain_storage().unwrap();
-	let api = Arc::new(MockApi {});
+	let api = Arc::new(MockApi);
 
 	//import block
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;

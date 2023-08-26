@@ -46,9 +46,7 @@ impl ShardsInterface for MockShards {
 	}
 	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
 		let keystore = MemoryKeystore::new();
-		let collector = keystore
-			.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE))
-			.unwrap();
+		let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
 		Some(collector.into())
 	}
 	fn collector_peer_id(_: ShardId) -> Option<PeerId> {

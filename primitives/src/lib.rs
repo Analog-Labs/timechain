@@ -5,12 +5,10 @@ use scale_info::prelude::string::String;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
-mod member;
 mod ocw;
 mod shard;
 mod task;
 
-pub use crate::member::*;
 pub use crate::ocw::*;
 pub use crate::shard::*;
 pub use crate::task::*;
@@ -47,6 +45,23 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+pub trait MemberAssignment {
+	fn assign_member(member: PeerId, network: Network);
+	fn unassign_member(member: PeerId, network: Network);
+}
+
+pub trait MemberElections {
+	fn get_unassigned_members(n: usize, network: Network) -> Vec<PeerId>;
+}
+
+pub trait ElectionsInterface {
+	fn member_online(network: Network);
+}
+
+pub trait ShardCreator {
+	fn create_shard(network: Network, members: Vec<PeerId>, threshold: u16);
+}
+
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
@@ -59,12 +74,7 @@ pub trait TasksInterface {
 }
 
 pub trait OcwShardInterface {
-	fn benchmark_register_shard(
-		network: Network,
-		members: Vec<PeerId>,
-		collector: PublicKey,
-		threshold: u16,
-	);
+	fn benchmark_register_shard(network: Network, members: Vec<PeerId>, threshold: u16);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
 }
 

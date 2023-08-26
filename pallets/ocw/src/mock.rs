@@ -27,13 +27,7 @@ pub(crate) const PHRASE: &str =
 pub struct MockShards;
 
 impl OcwShardInterface for MockShards {
-	fn benchmark_register_shard(
-		_network: Network,
-		_members: Vec<PeerId>,
-		_collector: PublicKey,
-		_threshold: u16,
-	) {
-	}
+	fn benchmark_register_shard(_network: Network, _members: Vec<PeerId>, _threshold: u16) {}
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())

@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		MemberAssignment, Network, OcwShardInterface, PeerId, PublicKey, ShardCreator, ShardId,
+		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -39,6 +39,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: TasksInterface;
+		type Members: MemberAssignment;
 		#[pallet::constant]
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
@@ -118,7 +119,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			network: Network,
 			members: Vec<PeerId>,
-			collector: PublicKey,
+			// TODO: remove and all places where it is used
+			_collector: PublicKey,
 			threshold: u16,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -132,7 +134,7 @@ pub mod pallet {
 			);
 			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
 			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
-			Self::create_shard(network, members, collector, threshold);
+			Self::create_shard(network, members, threshold);
 			Ok(())
 		}
 	}
@@ -158,13 +160,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		fn create_shard(
-			network: Network,
-			members: Vec<PeerId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
+	impl<T: Config> ShardCreator for Pallet<T> {
+		fn create_shard(network: Network, members: Vec<PeerId>, threshold: u16) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
@@ -173,15 +170,15 @@ pub mod pallet {
 				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
-			<ShardCollectorPublicKey<T>>::insert(shard_id, collector);
-			//TODO change on dynamic collector assigning
-			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
 			for member in &members {
+				T::Members::assign_member(*member, network);
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
+	}
 
+	impl<T: Config> Pallet<T> {
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
@@ -217,13 +214,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> OcwShardInterface for Pallet<T> {
-		fn benchmark_register_shard(
-			network: Network,
-			members: Vec<PeerId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
-			Self::create_shard(network, members, collector, threshold);
+		fn benchmark_register_shard(network: Network, members: Vec<PeerId>, threshold: u16) {
+			Self::create_shard(network, members, threshold);
 		}
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
@@ -244,10 +236,12 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
+		// TODO: remove and all dependencies on it
 		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
 			ShardCollectorPublicKey::<T>::get(shard_id)
 		}
 
+		// TODO: remove and all dependencies on it
 		fn collector_peer_id(shard_id: ShardId) -> Option<PeerId> {
 			ShardCollectorPeerId::<T>::get(shard_id)
 		}

@@ -1,6 +1,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use scale_info::prelude::string::String;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
@@ -46,12 +47,13 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-pub trait ShardCreated {
-	fn shard_created(shard_id: ShardId, collector: PublicKey);
-	fn shard_removed(shard_id: ShardId);
+pub trait ShardsInterface {
+	fn is_shard_online(shard_id: ShardId) -> bool;
+	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
+	fn collector_peer_id(shard_id: ShardId) -> Option<PeerId>;
 }
 
-pub trait ScheduleInterface {
+pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
 }
@@ -64,16 +66,11 @@ pub trait OcwShardInterface {
 		threshold: u16,
 	);
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
-	fn set_shard_offline(shard_id: ShardId) -> DispatchResult;
 }
 
-pub trait OcwSubmitTaskResult {
+pub trait OcwTaskInterface {
+	fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult;
 	fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus)
 		-> DispatchResult;
-
 	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
-}
-
-pub trait ShardStatusInterface {
-	fn is_shard_online(shard_id: ShardId) -> bool;
 }

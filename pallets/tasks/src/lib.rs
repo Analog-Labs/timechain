@@ -12,12 +12,13 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
-		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskStatus,
+		CycleStatus, Network, OcwTaskInterface, ShardId, ShardsInterface, TaskCycle,
+		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
+		TaskStatus, TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -48,7 +49,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ShardStatus: ShardStatusInterface;
+		type Shards: ShardsInterface;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 	}
@@ -79,6 +80,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TaskState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskStatus, OptionQuery>;
+
+	#[pallet::storage]
+	pub type TaskPhaseState<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
 
 	#[pallet::storage]
 	pub type TaskRetryCounter<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, u8, ValueQuery>;
@@ -125,6 +130,8 @@ pub mod pallet {
 		InvalidCycle,
 		/// Cycle must be greater than zero
 		CycleMustBeGreaterThanZero,
+		/// Collector peer id not found
+		CollectorPeerIdNotFound,
 	}
 
 	#[pallet::call]
@@ -195,6 +202,7 @@ pub mod pallet {
 						task_id,
 						TaskCycleState::<T>::get(task_id),
 						TaskRetryCounter::<T>::get(task_id),
+						TaskPhaseState::<T>::get(task_id),
 					)
 				})
 				.collect()
@@ -222,6 +230,13 @@ pub mod pallet {
 			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Created))
 		}
 
+		fn is_payable(task_id: TaskId) -> bool {
+			let Some(task) = Self::get_task(task_id) else {
+				return false;
+			};
+			task.function.is_payable()
+		}
+
 		fn shard_task_count(shard_id: ShardId) -> usize {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
@@ -229,18 +244,33 @@ pub mod pallet {
 		fn schedule_tasks(network: Network) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
-					.filter(|(shard_id, _)| T::ShardStatus::is_shard_online(*shard_id))
-					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
-					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
-						if task_count < task_count2 {
-							(shard_id, task_count)
-						} else {
-							(shard_id2, task_count2)
-						}
-					});
-				let Some((shard_id, _)) = shard else {
+					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
+					.filter_map(|(shard_id, _)| {
+						T::Shards::collector_peer_id(shard_id)
+							.map(|collector| (shard_id, collector))
+					})
+					.map(|(shard_id, collector)| {
+						(shard_id, Self::shard_task_count(shard_id), collector)
+					})
+					.reduce(
+						|(shard_id, task_count, collector),
+						 (shard_id2, task_count2, collector2)| {
+							if task_count < task_count2 {
+								(shard_id, task_count, collector)
+							} else {
+								(shard_id2, task_count2, collector2)
+							}
+						},
+					);
+				let Some((shard_id, _, collector)) = shard else {
 					break;
 				};
+
+				if Self::is_payable(task_id)
+					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
+				{
+					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(collector))
+				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
@@ -248,7 +278,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ScheduleInterface for Pallet<T> {
+	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::schedule_tasks(network);
@@ -266,7 +296,14 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> OcwSubmitTaskResult for Pallet<T> {
+	impl<T: Config> OcwTaskInterface for Pallet<T> {
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult {
+			ensure!(Tasks::<T>::get(task_id).is_some(), (Error::<T>::UnknownTask));
+			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
+			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
+			Ok(())
+		}
+
 		fn submit_task_result(
 			task_id: TaskId,
 			cycle: TaskCycle,

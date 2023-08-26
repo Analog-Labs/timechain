@@ -1118,7 +1118,6 @@ parameter_types! {
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
-	type ShardCreated = Ocw;
 	type TaskScheduler = Tasks;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
@@ -1128,7 +1127,7 @@ impl pallet_shards::Config for Runtime {
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
-	type ShardStatus = Shards;
+	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
 }
 
@@ -1136,6 +1135,8 @@ impl pallet_ocw::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::ocw::WeightInfo<Runtime>;
 	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type OcwShards = Shards;
+	type OcwTasks = Tasks;
 	type Shards = Shards;
 	type Tasks = Tasks;
 }

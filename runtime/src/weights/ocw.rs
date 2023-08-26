@@ -74,11 +74,11 @@ impl<T: frame_system::Config> pallet_ocw::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 
-	fn set_shard_offline() -> Weight {
+	fn submit_task_error() -> Weight {
 		Weight::default()
 	}
 
-	fn submit_task_error() -> Weight {
+	fn submit_task_hash() -> Weight {
 		Weight::default()
 	}
 }

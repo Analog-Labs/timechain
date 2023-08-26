@@ -1,9 +1,9 @@
 use crate::TimeWorkerParams;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
-use futures::SinkExt;
+use futures::prelude::*;
 use sc_client_api::Backend;
-use sc_consensus::BoxJustificationImport;
+use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
 use sc_network::NetworkSigner;
 use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, TestNet,
@@ -11,6 +11,7 @@ use sc_network_test::{
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
+use sp_runtime::generic::BlockId;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
@@ -66,6 +67,10 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			self.inner.lock().unwrap().get_shard_members(shard_id)
+		}
+
+		fn get_shard_threshold(_shard_id: ShardId) -> u16 {
+			3
 		}
 	}
 
@@ -133,12 +138,12 @@ impl TestNetFactory for MockNetwork {
 }
 
 impl MockNetwork {
-	async fn into_future(mut self) {
-		futures::future::poll_fn(|cx| {
+	async fn poll(&mut self) {
+		futures::future::poll_fn::<(), _>(|cx| {
 			self.inner.poll(cx);
 			Poll::Pending
 		})
-		.await
+		.await;
 	}
 }
 
@@ -179,6 +184,11 @@ async fn tss_smoke() -> Result<()> {
 	}
 	net.run_until_connected().await;
 
+	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
+	let storage: Vec<_> = (0..3)
+		.map(|i| net.peer(i).client().as_backend().offchain_storage().unwrap())
+		.collect();
+
 	log::info!(
 		"creating shard with members {:#?}",
 		peers
@@ -187,24 +197,52 @@ async fn tss_smoke() -> Result<()> {
 			.collect::<Vec<_>>()
 	);
 	api.create_shard(peers);
-	net.peer(0).generate_blocks(1, BlockOrigin::ConsensusBroadcast, |builder| {
-		builder.build().unwrap().block
+
+	tokio::task::spawn(async move {
+		let mut block_timer = tokio::time::interval(Duration::from_secs(1));
+		loop {
+			futures::select! {
+				_ = block_timer.tick().fuse() => {
+					let peer = net.peer(0);
+					let best_hash = peer.client().info().best_hash;
+					peer.generate_blocks_at(
+						BlockId::Hash(best_hash),
+						1,
+						BlockOrigin::ConsensusBroadcast,
+						|builder| builder.build().unwrap().block,
+						false,
+						true,
+						false,
+						ForkChoiceStrategy::LongestChain,
+					);
+				}
+				_ = net.poll().fuse() => {}
+			}
+		}
 	});
-	let storage = net.peer(0).client().as_backend().offchain_storage().unwrap();
-	tokio::task::spawn(net.into_future());
 
-	let public_key = loop {
-		let Some(msg) = time_primitives::read_message(storage.clone()) else {
-			tokio::time::sleep(Duration::from_secs(1)).await;
-			continue;
-		};
-		let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = msg else {
-			anyhow::bail!("unexpected msg {:?}", msg);
-		};
-		assert_eq!(shard_id, 0);
-		break public_key;
-	};
+	// TODO: after collector completes dkg all other nodes have time until a task
+	// is scheduled to complete. we should require all members to submit the public
+	// key before scheduling.
+	let mut tss_public_key = None;
+	for i in 0..3 {
+		loop {
+			let Some(msg) = time_primitives::read_message(storage[i].clone()) else {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			};
+			let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = msg else {
+				anyhow::bail!("unexpected msg {:?}", msg);
+			};
+			assert_eq!(shard_id, 0);
+			tss_public_key = Some(public_key);
+			break;
+		}
+	}
+	let public_key = tss_public_key.unwrap();
+	log::info!("dkg returned a public key");
 
+	let block_number = client[0].chain_info().finalized_number;
 	let message = [1u8; 32];
 	let mut rxs = vec![];
 	for tss in &mut tss {
@@ -212,7 +250,7 @@ async fn tss_smoke() -> Result<()> {
 		tss.send(TssRequest {
 			request_id: TssId(1, 1),
 			shard_id: 0,
-			block_number: 1,
+			block_number,
 			data: message.to_vec(),
 			tx,
 		})

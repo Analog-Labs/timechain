@@ -163,7 +163,7 @@ pub mod pallet {
 						Err(())
 					}
 				})
-				.unwrap()
+				.unwrap_or_default()
 		}
 
 		pub(crate) fn read_message() -> Option<OcwPayload> {

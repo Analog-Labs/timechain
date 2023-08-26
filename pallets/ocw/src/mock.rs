@@ -21,6 +21,9 @@ lazy_static::lazy_static! {
 	pub static ref SHARD_PUBLIC_KEYS: Mutex<HashMap<ShardId, TssPublicKey>> = Default::default();
 }
 
+pub(crate) const PHRASE: &str =
+	"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
+
 pub struct MockShards;
 
 impl OcwShardInterface for MockShards {
@@ -44,7 +47,7 @@ impl ShardsInterface for MockShards {
 	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
 		let keystore = MemoryKeystore::new();
 		let collector = keystore
-			.sr25519_generate_new(TIME_KEY_TYPE, Some(crate::tests::PHRASE))
+			.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE))
 			.unwrap();
 		Some(collector.into())
 	}

@@ -21,8 +21,6 @@ use time_primitives::{
 #[derive(Clone, Default)]
 struct MockApi;
 
-impl MockApi {}
-
 sp_api::mock_impl_runtime_apis! {
 	impl TimeApi<Block> for MockApi {
 		fn get_shards(&self, _peer_id: PeerId) -> Vec<ShardId> {
@@ -108,7 +106,7 @@ async fn task_executor_smoke() -> Result<()> {
 		(Arc::new(client), backend)
 	};
 	let storage = backend.offchain_storage().unwrap();
-	let api = Arc::new(MockApi::default());
+	let api = Arc::new(MockApi {});
 
 	//import block
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
@@ -120,7 +118,7 @@ async fn task_executor_smoke() -> Result<()> {
 		let task_spawner = MockTask::new(is_task_ok);
 
 		let params = TaskExecutorParams {
-			_block: PhantomData::default(),
+			_block: PhantomData,
 			backend: backend.clone(),
 			client: client.clone(),
 			runtime: api.clone(),

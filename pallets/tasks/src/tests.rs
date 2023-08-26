@@ -483,7 +483,7 @@ fn task_recurring_cycle_count() {
 			if task.is_empty() {
 				break;
 			}
-			for task in task.iter() {
+			for task in &task {
 				let task_id = task.task_id;
 				let cycle = task.cycle;
 				assert_ok!(Tasks::submit_task_result(task_id, cycle, mock_result_ok(1)));

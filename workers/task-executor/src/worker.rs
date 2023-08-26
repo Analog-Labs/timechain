@@ -36,7 +36,7 @@ pub struct Task {
 
 impl Task {
 	pub async fn new(params: TaskSpawnerParams) -> Result<Self> {
-		let path = params.keyfile.as_ref().map(|val| Path::new(val));
+		let path = params.keyfile.as_ref().map(Path::new);
 		let wallet = Arc::new(
 			create_wallet(
 				params.connector_blockchain,
@@ -261,7 +261,7 @@ where
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
 				let retry_count = executable_task.retry_count;
-				if self.running_tasks.contains(&executable_task) {
+				if self.running_tasks.contains(executable_task) {
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();

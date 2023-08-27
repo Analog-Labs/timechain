@@ -14,9 +14,9 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Saturating;
-	use sp_std::vec::Vec;
+	use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 	use time_primitives::{
-		MemberAssignment, Network, OcwShardInterface, PeerId, PublicKey, ShardCreator, ShardId,
+		MemberInterface, Network, OcwShardInterface, PeerId, PublicKey, ShardCreator, ShardId,
 		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
@@ -39,7 +39,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: TasksInterface;
-		type Members: MemberAssignment;
+		type Members: MemberInterface;
 		#[pallet::constant]
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
@@ -72,7 +72,7 @@ pub mod pallet {
 
 	/// Threshold for shard
 	#[pallet::storage]
-	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
+	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, ValueQuery>;
 
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
@@ -89,6 +89,8 @@ pub mod pallet {
 		ShardCreated(ShardId, Network),
 		/// Shard DKG timed out
 		ShardKeyGenTimedOut(ShardId),
+		/// Shard members timed out preventing threshold
+		ShardMembersTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),
 		/// Shard went offline
@@ -146,16 +148,33 @@ pub mod pallet {
 			ShardState::<T>::iter().for_each(|(shard_id, status)| {
 				if let Some(created_block) = status.when_created() {
 					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-						// clean up shard state and emit event for timeout
-						ShardState::<T>::remove(shard_id);
-						ShardNetwork::<T>::remove(shard_id);
-						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
-						ShardCollectorPublicKey::<T>::remove(shard_id);
+						Self::remove_shard_offline(shard_id);
 						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
 						writes += 5;
 					}
 				}
 			});
+			let mut member_timeouts: BTreeMap<ShardId, u8> = BTreeMap::new();
+			ShardMembers::<T>::iter().for_each(|(shard_id, member, _)| {
+				if T::Members::is_offline(member) {
+					if let Some(count) = member_timeouts.get(&shard_id) {
+						member_timeouts.insert(shard_id, count.saturating_plus_one());
+					} else {
+						member_timeouts.insert(shard_id, 1);
+					}
+				}
+			});
+			for (shard_id, timeouts) in member_timeouts {
+				let members = ShardMembers::<T>::iter_prefix(shard_id).collect::<Vec<_>>().len();
+				if members.saturating_sub(timeouts.into())
+					< ShardThreshold::<T>::get(shard_id).into()
+				{
+					Self::remove_shard_offline(shard_id);
+					Self::deposit_event(Event::ShardMembersTimedOut(shard_id));
+				} else {
+					ShardState::<T>::insert(shard_id, ShardStatus::PartialOffline);
+				}
+			}
 			T::DbWeight::get().writes(writes)
 		}
 	}
@@ -180,7 +199,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
-			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
+			ShardThreshold::<T>::get(shard_id)
 		}
 
 		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
@@ -201,7 +220,19 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 
+		fn remove_shard_offline(shard_id: ShardId) {
+			ShardState::<T>::remove(shard_id);
+			let network = ShardNetwork::<T>::take(shard_id).unwrap_or_default();
+			for member in ShardMembers::<T>::drain_prefix(shard_id).map(|(m, _)| m) {
+				T::Members::unassign_member(member, network);
+			}
+			ShardCollectorPublicKey::<T>::remove(shard_id);
+			ShardCollectorPeerId::<T>::remove(shard_id);
+			T::TaskScheduler::shard_offline(shard_id, network);
+		}
+
 		// Used in tests
+		// TODO: remove this, it is useless
 		pub fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
 			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;

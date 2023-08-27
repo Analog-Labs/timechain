@@ -45,7 +45,8 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-pub trait MemberAssignment {
+pub trait MemberInterface {
+	fn is_offline(member: PeerId) -> bool;
 	fn assign_member(member: PeerId, network: Network);
 	fn unassign_member(member: PeerId, network: Network);
 }

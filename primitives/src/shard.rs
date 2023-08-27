@@ -31,12 +31,19 @@ pub enum Network {
 	Astar,
 }
 
+impl Default for Network {
+	fn default() -> Network {
+		Network::Ethereum
+	}
+}
+
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum ShardStatus<Blocknumber> {
 	Created(Blocknumber),
 	Online,
+	PartialOffline,
 	Offline,
 }
 

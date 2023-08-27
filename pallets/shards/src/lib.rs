@@ -172,6 +172,7 @@ pub mod pallet {
 					Self::remove_shard_offline(shard_id);
 					Self::deposit_event(Event::ShardMembersTimedOut(shard_id));
 				} else {
+					writes += 1;
 					ShardState::<T>::insert(shard_id, ShardStatus::PartialOffline);
 				}
 			}
@@ -231,8 +232,7 @@ pub mod pallet {
 			T::TaskScheduler::shard_offline(shard_id, network);
 		}
 
-		// Used in tests
-		// TODO: remove this, it is useless
+		// TODO: remove, only used in tests
 		pub fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
 			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
@@ -241,6 +241,8 @@ pub mod pallet {
 			for member in ShardMembers::<T>::drain_prefix(shard_id).map(|(m, _)| m) {
 				T::Members::unassign_member(member, network);
 			}
+			ShardCollectorPublicKey::<T>::remove(shard_id);
+			ShardCollectorPeerId::<T>::remove(shard_id);
 			Self::deposit_event(Event::ShardOffline(shard_id));
 			T::TaskScheduler::shard_offline(shard_id, network);
 			Ok(())

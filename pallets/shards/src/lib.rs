@@ -145,15 +145,6 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			ShardState::<T>::iter().for_each(|(shard_id, status)| {
-				if let Some(created_block) = status.when_created() {
-					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-						Self::remove_shard_offline(shard_id);
-						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
-						writes += 5;
-					}
-				}
-			});
 			let mut member_timeouts: BTreeMap<ShardId, u8> = BTreeMap::new();
 			ShardMembers::<T>::iter().for_each(|(shard_id, member, _)| {
 				if T::Members::is_offline(member) {
@@ -164,7 +155,7 @@ pub mod pallet {
 					}
 				}
 			});
-			for (shard_id, timeouts) in member_timeouts {
+			for (shard_id, timeouts) in member_timeouts.clone() {
 				let members = ShardMembers::<T>::iter_prefix(shard_id).collect::<Vec<_>>().len();
 				if members.saturating_sub(timeouts.into())
 					< ShardThreshold::<T>::get(shard_id).into()
@@ -176,6 +167,20 @@ pub mod pallet {
 					ShardState::<T>::insert(shard_id, ShardStatus::PartialOffline);
 				}
 			}
+			ShardState::<T>::iter().for_each(|(shard_id, status)| {
+				if let Some(created_block) = status.when_created() {
+					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+						Self::remove_shard_offline(shard_id);
+						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+						writes += 5;
+					}
+				} else if matches!(status, ShardStatus::PartialOffline)
+					&& member_timeouts.get(&shard_id).is_none()
+				{
+					writes += 1;
+					ShardState::<T>::insert(shard_id, ShardStatus::Online);
+				}
+			});
 			T::DbWeight::get().writes(writes)
 		}
 	}

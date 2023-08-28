@@ -102,19 +102,16 @@ where
 
 	pub fn recover(
 		peer_id: P,
-		members: BTreeSet<P>,
+		commitments: BTreeMap<P, VerifiableSecretSharingCommitment>,
 		threshold: u16,
-		commitment: VerifiableSecretSharingCommitment,
-		public_key_package: PublicKeyPackage,
 	) -> Self {
+		let members = commitments.keys().cloned().collect();
 		let mut tss = Self::new(peer_id, members, threshold);
-		let rts = Rts::new(
-			tss.frost_id,
-			tss.frost_to_peer.keys().cloned().collect(),
-			threshold,
-			commitment,
-			public_key_package,
-		);
+		let commitments = commitments
+			.into_iter()
+			.map(|(peer, commitment)| (peer_to_frost(&peer), commitment))
+			.collect();
+		let rts = Rts::new(tss.frost_id, commitments, threshold);
 		tss.state = TssState::Rts { rts };
 		tss
 	}

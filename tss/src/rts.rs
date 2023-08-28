@@ -1,4 +1,5 @@
 use frost_evm::elliptic_curve::PrimeField;
+use frost_evm::frost_core::frost::keys::compute_public_key_package;
 use frost_evm::frost_secp256k1::Secp256K1Sha256;
 use frost_evm::keys::repairable;
 use frost_evm::keys::{
@@ -149,17 +150,17 @@ pub struct Rts {
 impl Rts {
 	pub fn new(
 		id: Identifier,
-		members: BTreeSet<Identifier>,
+		commitments: HashMap<Identifier, VerifiableSecretSharingCommitment>,
 		threshold: u16,
-		commitment: VerifiableSecretSharingCommitment,
-		public_key_package: PublicKeyPackage,
 	) -> Self {
-		let helpers: BTreeSet<_> = members
-			.iter()
+		let public_key_package = compute_public_key_package(&commitments);
+		let helpers: BTreeSet<_> = commitments
+			.keys()
 			.filter(|helper| **helper != id)
 			.take(threshold as _)
 			.copied()
 			.collect();
+		let commitment = commitments.get(&id).unwrap().clone();
 		Self {
 			id,
 			commitment,

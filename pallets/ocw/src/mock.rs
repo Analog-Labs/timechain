@@ -1,5 +1,6 @@
 use crate::{self as pallet_ocw};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, DispatchResult, MultiSignature,
@@ -7,8 +8,8 @@ use sp_runtime::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 use time_primitives::{
-	CycleStatus, Network, OcwShardInterface, OcwSubmitTaskResult, PeerId, PublicKey, ShardId,
-	TaskCycle, TaskId, TssPublicKey,
+	CycleStatus, Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId,
+	ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface, TssPublicKey, TIME_KEY_TYPE,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -20,29 +21,58 @@ lazy_static::lazy_static! {
 	pub static ref SHARD_PUBLIC_KEYS: Mutex<HashMap<ShardId, TssPublicKey>> = Default::default();
 }
 
+pub(crate) const PHRASE: &str =
+	"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
+
 pub struct MockShards;
 
 impl OcwShardInterface for MockShards {
-	fn benchmark_register_shard(_network: Network, _members: Vec<PeerId>, _collector: PublicKey) {}
+	fn benchmark_register_shard(
+		_network: Network,
+		_members: Vec<PeerId>,
+		_collector: PublicKey,
+		_threshold: u16,
+	) {
+	}
 	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
 		Ok(())
 	}
-	fn set_shard_offline(_shard_id: ShardId, _network: Network) -> DispatchResult {
-		Ok(())
+}
+
+impl ShardsInterface for MockShards {
+	fn is_shard_online(_: ShardId) -> bool {
+		true
+	}
+	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
+		let keystore = MemoryKeystore::new();
+		let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
+		Some(collector.into())
+	}
+	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
+		Some([0u8; 32])
 	}
 }
 
 pub struct MockTasks;
 
-impl OcwSubmitTaskResult for MockTasks {
+impl OcwTaskInterface for MockTasks {
 	fn submit_task_result(_: TaskId, _: TaskCycle, _: CycleStatus) -> DispatchResult {
 		Ok(())
 	}
 
-	fn submit_task_error(_: TaskId, _: time_primitives::TaskError) -> DispatchResult {
+	fn submit_task_error(_: TaskId, _: TaskError) -> DispatchResult {
 		Ok(())
 	}
+
+	fn submit_task_hash(_: ShardId, _: TaskId, _: String) -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl TasksInterface for MockTasks {
+	fn shard_online(_: ShardId, _: Network) {}
+	fn shard_offline(_: ShardId, _: Network) {}
 }
 
 frame_support::construct_runtime!(
@@ -99,6 +129,8 @@ impl pallet_ocw::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type OcwShards = MockShards;
+	type OcwTasks = MockTasks;
 	type Shards = MockShards;
 	type Tasks = MockTasks;
 }

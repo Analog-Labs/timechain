@@ -13,10 +13,11 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ScheduleInterface, ShardCreated, ShardId,
-		ShardStatus, ShardStatusInterface, TssPublicKey,
+		Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -37,13 +38,22 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type ShardCreated: ShardCreated;
-		type TaskScheduler: ScheduleInterface;
+		type TaskScheduler: TasksInterface;
 		#[pallet::constant]
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
 		type MinMembers: Get<u8>;
+		#[pallet::constant]
+		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
+
+	#[pallet::storage]
+	pub type ShardCollectorPublicKey<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
+
+	#[pallet::storage]
+	pub type ShardCollectorPeerId<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, PeerId, OptionQuery>;
 
 	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
@@ -54,10 +64,14 @@ pub mod pallet {
 	pub type ShardNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Network, OptionQuery>;
 
-	/// Network for which shards can be assigned tasks
+	/// Status for shard
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus<BlockNumberFor<T>>, OptionQuery>;
+
+	/// Threshold for shard
+	#[pallet::storage]
+	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
@@ -72,6 +86,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, Network),
+		/// Shard DKG timed out
+		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),
 		/// Shard went offline
@@ -84,6 +100,8 @@ pub mod pallet {
 		PublicKeyAlreadyRegistered,
 		MembershipBelowMinimum,
 		MembershipAboveMaximum,
+		ThresholdAboveMembershipLen,
+		ThresholdMustBeNonZero,
 		ShardAlreadyOffline,
 	}
 
@@ -101,6 +119,7 @@ pub mod pallet {
 			network: Network,
 			members: Vec<PeerId>,
 			collector: PublicKey,
+			threshold: u16,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(
@@ -111,22 +130,60 @@ pub mod pallet {
 				members.len() <= T::MaxMembers::get().into(),
 				Error::<T>::MembershipAboveMaximum
 			);
-			Self::create_shard(network, members, collector);
+			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
+			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
+			Self::create_shard(network, members, collector, threshold);
 			Ok(())
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			let mut writes = 0;
+			ShardState::<T>::iter().for_each(|(shard_id, status)| {
+				if let Some(created_block) = status.when_created() {
+					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+						// clean up shard state and emit event for timeout
+						ShardState::<T>::remove(shard_id);
+						ShardNetwork::<T>::remove(shard_id);
+						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
+						ShardCollectorPublicKey::<T>::remove(shard_id);
+						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+						writes += 5;
+					}
+				}
+			});
+			T::DbWeight::get().writes(writes)
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
-		fn create_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
+		fn create_shard(
+			network: Network,
+			members: Vec<PeerId>,
+			collector: PublicKey,
+			threshold: u16,
+		) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
+			<ShardState<T>>::insert(
+				shard_id,
+				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
+			);
+			<ShardThreshold<T>>::insert(shard_id, threshold);
+			<ShardCollectorPublicKey<T>>::insert(shard_id, collector);
+			//TODO change on dynamic collector assigning
+			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			T::ShardCreated::shard_created(shard_id, collector);
+		}
+
+		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
 		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
@@ -146,11 +203,27 @@ pub mod pallet {
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
+
+		// Used in tests
+		pub fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
+			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
+			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
+			Self::deposit_event(Event::ShardOffline(shard_id));
+			T::TaskScheduler::shard_offline(shard_id, network);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> OcwShardInterface for Pallet<T> {
-		fn benchmark_register_shard(network: Network, members: Vec<PeerId>, collector: PublicKey) {
-			Self::create_shard(network, members, collector);
+		fn benchmark_register_shard(
+			network: Network,
+			members: Vec<PeerId>,
+			collector: PublicKey,
+			threshold: u16,
+		) {
+			Self::create_shard(network, members, collector, threshold);
 		}
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
@@ -164,20 +237,19 @@ pub mod pallet {
 			T::TaskScheduler::shard_online(shard_id, network);
 			Ok(())
 		}
-
-		fn set_shard_offline(shard_id: ShardId, network: Network) -> DispatchResult {
-			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
-			Self::deposit_event(Event::ShardOffline(shard_id));
-			T::TaskScheduler::shard_offline(shard_id, network);
-			Ok(())
-		}
 	}
 
-	impl<T: Config> ShardStatusInterface for Pallet<T> {
+	impl<T: Config> ShardsInterface for Pallet<T> {
 		fn is_shard_online(shard_id: ShardId) -> bool {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
+		}
+
+		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
+			ShardCollectorPublicKey::<T>::get(shard_id)
+		}
+
+		fn collector_peer_id(shard_id: ShardId) -> Option<PeerId> {
+			ShardCollectorPeerId::<T>::get(shard_id)
 		}
 	}
 }

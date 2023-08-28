@@ -2,9 +2,7 @@ use crate::{Call, Config, Pallet};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use sp_std::vec;
-use time_primitives::{
-	CycleStatus, Network, OcwShardInterface, PublicKey, ShardCreated, ShardId, TssPublicKey,
-};
+use time_primitives::{CycleStatus, Network, OcwShardInterface, PublicKey, ShardId, TssPublicKey};
 
 fn collector() -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([42; 32]))
@@ -19,7 +17,7 @@ const TSS_PUBLIC_KEY: TssPublicKey = [42; 33];
 
 benchmarks! {
 	submit_tss_public_key {
-		T::Shards::benchmark_register_shard(Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector());
+		T::Shards::benchmark_register_shard(Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector(), 3);
 	}: _(RawOrigin::Signed([42; 32].into()), SHARD_ID, TSS_PUBLIC_KEY)
 	verify { }
 

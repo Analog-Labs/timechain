@@ -217,9 +217,10 @@ pub fn run() -> sc_cli::Result<()> {
 					cli.run.connector_url,
 					cli.run.connector_blockchain,
 					cli.run.connector_network,
+					cli.run.keyfile,
 					cli.run.without_chronicle,
-					cli.run.timegraph_url.or(std::env::var("TIMEGRAPH_URL").map_or(None, Some)),
-					cli.run.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").map_or(None, Some)),
+					cli.run.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
+					cli.run.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
 				)
 				.map_err(sc_cli::Error::Service)
 			})

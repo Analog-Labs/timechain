@@ -1,16 +1,19 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{anyhow, Context, Result};
+
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
+use sc_client_api::{Backend, BlockchainEvents};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{
+	collections::HashSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
+};
 use time_primitives::{
-	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
+	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError, TaskExecution,
+	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -19,6 +22,7 @@ pub struct TaskSpawnerParams {
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
+	pub keyfile: Option<String>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 }
@@ -32,12 +36,13 @@ pub struct Task {
 
 impl Task {
 	pub async fn new(params: TaskSpawnerParams) -> Result<Self> {
+		let path = params.keyfile.as_ref().map(Path::new);
 		let wallet = Arc::new(
 			create_wallet(
 				params.connector_blockchain,
 				params.connector_network,
 				params.connector_url,
-				None,
+				path,
 			)
 			.await?,
 		);
@@ -64,13 +69,13 @@ impl Task {
 		&self,
 		function: &Function,
 		target_block_number: u64,
-	) -> Result<Vec<String>> {
+	) -> Result<String> {
 		let block = PartialBlockIdentifier {
 			index: Some(target_block_number),
 			hash: None,
 		};
-		match function {
-			Function::EVMViewWithoutAbi {
+		Ok(match function {
+			Function::EvmViewCall {
 				address,
 				function_signature,
 				input,
@@ -79,33 +84,45 @@ impl Task {
 					.wallet
 					.eth_view_call(address, function_signature, input, Some(block))
 					.await?;
-				let result = match data.result {
-					Value::Array(val) => val
-						.iter()
-						.filter_map(|x| x.as_str())
-						.map(|x| x.to_string())
-						.collect::<Vec<String>>(),
-					v => vec![v.to_string()],
-				};
-				Ok(result)
+				serde_json::to_string(&data.result)?
 			},
-		}
+			Function::EvmTxReceipt { tx } => {
+				let data = self.wallet.eth_transaction_receipt(tx).await?;
+				serde_json::to_string(&data.result)?
+			},
+			Function::EvmDeploy { bytecode } => {
+				self.wallet.eth_deploy_contract(bytecode.clone()).await?.hash
+			},
+			Function::EvmCall {
+				address,
+				function_signature,
+				input,
+				amount,
+			} => {
+				self.wallet
+					.eth_send_call(address, function_signature, input, *amount)
+					.await?
+					.hash
+			},
+		})
 	}
 
 	async fn tss_sign(
 		&self,
+		block_number: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		result: &[String],
+		result: &str,
 	) -> Result<TssSignature> {
 		let data = bincode::serialize(&result).context("Failed to serialize task")?;
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
 			.send(TssRequest {
-				request_id: (task_id, cycle),
+				request_id: TssId(task_id, cycle),
 				shard_id,
+				block_number,
 				data,
 				tx,
 			})
@@ -113,39 +130,49 @@ impl Task {
 		Ok(rx.await?)
 	}
 
-	async fn execute(
+	async fn execute_read(
 		self,
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task_cycle: TaskCycle,
-		task: TaskDescriptor,
+		function: Function,
+		hash: String,
 		block_num: u64,
 	) -> Result<TssSignature> {
-		let result = self
-			.execute_function(&task.function, target_block)
-			.await
-			.with_context(|| format!("Failed to execute {:?}", task.function))?;
-		let signature = self
-			.tss_sign(shard_id, task_id, task_cycle, &result)
-			.await
-			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
+		let result = self.execute_function(&function, target_block).await?;
+		let signature = self.tss_sign(block_num, shard_id, task_id, task_cycle, &result).await?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
-			timegraph
-				.submit_data(TimegraphData {
-					collection: task.hash.clone(),
-					task_id,
-					task_cycle,
-					target_block_number: target_block,
-					timechain_block_number: block_num,
-					shard_id,
-					signature,
-					data: result,
-				})
-				.await
-				.context("Failed to submit data to timegraph")?;
+			if matches!(function, Function::EvmViewCall { .. }) {
+				let result_json = serde_json::from_str(&result)?;
+				let formatted_result = match result_json {
+					Value::Array(val) => val
+						.iter()
+						.filter_map(|x| x.as_str())
+						.map(|x| x.to_string())
+						.collect::<Vec<String>>(),
+					v => vec![v.to_string()],
+				};
+				timegraph
+					.submit_data(TimegraphData {
+						collection: hash,
+						task_id,
+						task_cycle,
+						target_block_number: target_block,
+						timechain_block_number: block_num,
+						shard_id,
+						signature,
+						data: formatted_result,
+					})
+					.await
+					.context("Failed to submit data to timegraph")?;
+			}
 		}
 		Ok(signature)
+	}
+
+	async fn execute_write(self, function: Function) -> Result<String> {
+		self.execute_function(&function, 0).await
 	}
 }
 
@@ -156,19 +183,27 @@ impl TaskSpawner for Task {
 		Ok(status.index)
 	}
 
-	fn execute(
+	fn execute_read(
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		task: TaskDescriptor,
+		function: Function,
+		hash: String,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
-			.execute(target_block, shard_id, task_id, cycle, task, block_num)
+			.execute_read(target_block, shard_id, task_id, cycle, function, hash, block_num)
 			.map(move |res| res.with_context(|| format!("Task {}/{} failed", task_id, cycle)))
 			.boxed()
+	}
+
+	fn execute_write(
+		&self,
+		function: Function,
+	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>> {
+		self.clone().execute_write(function).boxed()
 	}
 }
 
@@ -211,61 +246,105 @@ where
 		}
 	}
 
-	pub async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
+	pub async fn start_tasks(
+		&mut self,
+		block_hash: <B as Block>::Hash,
+		block_num: u64,
+	) -> Result<()> {
 		let block_height =
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
-		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
-		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
-		let block_num: u64 = block_num.to_string().parse()?;
+		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
 		for shard_id in shards {
-			let tasks = self.runtime.runtime_api().get_shard_tasks(block_id, shard_id)?;
-			log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
-			for executable_task in tasks.iter().copied() {
+			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
+			log::info!("got task ====== {:?}", tasks);
+			for executable_task in tasks.iter().clone() {
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
-				if self.running_tasks.contains(&executable_task) {
+				let retry_count = executable_task.retry_count;
+				if self.running_tasks.contains(executable_task) {
 					continue;
 				}
-				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
+				let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
 				let target_block_number = task_descr.trigger(cycle);
+				let function = task_descr.function;
+				let hash = task_descr.hash;
 				if block_height >= target_block_number {
-					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
-					self.running_tasks.insert(executable_task);
+					log::info!("Running Task {}, {:?}", executable_task, executable_task.phase);
+					self.running_tasks.insert(executable_task.clone());
 					let storage = self.backend.offchain_storage().unwrap();
-					let task = self.task_spawner.execute(
-						target_block_number,
-						shard_id,
-						task_id,
-						cycle,
-						task_descr,
-						block_num,
-					);
-					tokio::task::spawn(async move {
-						let result = task.await.map_err(|e| format!("{:?}", e));
-						log::info!(
-							target: TW_LOG,
-							"Task {} completed on shard {} with {:?}",
-							executable_task,
-							shard_id,
-							result
-						);
-						match result {
-							Ok(signature) => {
-								let status = CycleStatus { shard_id, signature };
-								time_primitives::write_message(
-									storage,
-									&OcwPayload::SubmitTaskResult { task_id, cycle, status },
-								);
-							},
-							Err(error) => {
-								let error = TaskError { shard_id, error };
-								time_primitives::write_message(
-									storage,
-									&OcwPayload::SubmitTaskError { task_id, error },
-								);
-							},
+					if let Some(peer_id) = executable_task.phase.peer_id() {
+						if peer_id != self.peer_id {
+							log::info!("Skipping task {} due to peer_id mismatch", task_id);
+							continue;
 						}
-					});
+						let task = self.task_spawner.execute_write(function);
+						tokio::task::spawn(async move {
+							let result = task.await.map_err(|e| format!("{:?}", e));
+							log::info!(
+								"Task {}/{}/{} completed with {:?}",
+								task_id,
+								cycle,
+								retry_count,
+								result
+							);
+							match result {
+								Ok(hash) => {
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
+									);
+								},
+								Err(error) => {
+									let error = TaskError { shard_id, error };
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskError { task_id, error },
+									);
+								},
+							}
+						});
+					} else {
+						let function = if let Some(tx) = executable_task.phase.tx_hash() {
+							Function::EvmTxReceipt { tx: tx.to_string() }
+						} else {
+							function
+						};
+						let task = self.task_spawner.execute_read(
+							target_block_number,
+							shard_id,
+							task_id,
+							cycle,
+							function,
+							hash,
+							block_num,
+						);
+						tokio::task::spawn(async move {
+							let result = task.await.map_err(|e| e.to_string());
+							log::info!(
+								"Task {}/{}/{} completed with {:?}",
+								task_id,
+								cycle,
+								retry_count,
+								result
+							);
+							match result {
+								Ok(signature) => {
+									let status = CycleStatus { shard_id, signature };
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskResult { task_id, cycle, status },
+									);
+								},
+								Err(error) => {
+									let error = TaskError { shard_id, error };
+									time_primitives::write_message(
+										storage,
+										&OcwPayload::SubmitTaskError { task_id, error },
+									);
+								},
+							}
+						});
+					}
 				}
 			}
 			self.running_tasks.retain(|x| tasks.contains(x));
@@ -276,8 +355,10 @@ where
 	pub async fn run(&mut self) {
 		let mut finality_notifications = self.client.finality_notification_stream();
 		while let Some(notification) = finality_notifications.next().await {
+			let block_hash = notification.header.hash();
+			let block_num = notification.header.number().to_string().parse().unwrap();
 			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
-			if let Err(err) = self.start_tasks(notification.header.hash()).await {
+			if let Err(err) = self.start_tasks(block_hash, block_num).await {
 				log::error!(target: TW_LOG, "error processing tasks: {:?}", err);
 			}
 		}

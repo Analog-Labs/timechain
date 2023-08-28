@@ -1118,16 +1118,16 @@ parameter_types! {
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
-	type ShardCreated = Ocw;
 	type TaskScheduler = Tasks;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
+	type DkgTimeout = ConstU32<10>;
 }
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
-	type ShardStatus = Shards;
+	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
 }
 
@@ -1135,6 +1135,8 @@ impl pallet_ocw::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::ocw::WeightInfo<Runtime>;
 	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type OcwShards = Shards;
+	type OcwTasks = Tasks;
 	type Shards = Shards;
 	type Tasks = Tasks;
 }
@@ -1437,6 +1439,10 @@ impl_runtime_apis! {
 
 		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
 			Shards::get_shard_members(shard_id)
+		}
+
+		fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			Shards::get_shard_threshold(shard_id)
 		}
 
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {

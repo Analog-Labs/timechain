@@ -1,24 +1,19 @@
 use crate::{self as pallet_shards};
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, ScheduleInterface, ShardCreated, ShardId};
+use time_primitives::{Network, ShardId, TasksInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockOcw;
-
-impl ShardCreated for MockOcw {
-	fn shard_created(_: ShardId, _: PublicKey) {}
-}
-
 pub struct MockTaskScheduler;
 
-impl ScheduleInterface for MockTaskScheduler {
+impl TasksInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: Network) {}
 	fn shard_offline(_: ShardId, _: Network) {}
 }
@@ -77,10 +72,19 @@ impl pallet_balances::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ShardCreated = MockOcw;
 	type TaskScheduler = MockTaskScheduler;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
+	type DkgTimeout = ConstU64<10>;
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Shards::on_initialize(i);
+	}
 }
 
 // Build genesis storage according to the mock runtime.

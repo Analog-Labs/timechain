@@ -2,8 +2,10 @@ use crate::{Call, Config, Pallet};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use sp_std::vec;
+use codec::alloc::string::ToString;
 use time_primitives::{
 	CycleStatus, Network, OcwShardInterface, PublicKey, ShardCreated, ShardId, TssPublicKey,
+	TaskError
 };
 
 fn collector() -> PublicKey {
@@ -28,6 +30,19 @@ benchmarks! {
 	}: _(RawOrigin::Signed([42; 32].into()), 0, 0, CycleStatus {
 		shard_id: SHARD_ID, signature: [0; 64]
 	}) verify { }
+
+	set_shard_offline {
+		T::Shards::benchmark_register_shard(Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector());
+	}: _(RawOrigin::Signed([42; 32].into()), SHARD_ID, Network::Ethereum)
+	verify { }
+
+	submit_task_error {
+		T::Shards::benchmark_register_shard(Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector());
+	}: _(RawOrigin::Signed([42; 32].into()), SHARD_ID, TaskError {
+		shard_id: SHARD_ID,
+		error: "error".to_string()
+	})
+	verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

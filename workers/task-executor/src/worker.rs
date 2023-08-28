@@ -279,7 +279,7 @@ where
 						}
 						let task = self.task_spawner.execute_write(function);
 						tokio::task::spawn(async move {
-							let result = task.await.map_err(|e| e.to_string());
+							let result = task.await.map_err(|e| format!("{:?}", e));
 							log::info!(
 								"Task {}/{}/{} completed with {:?}",
 								task_id,
@@ -359,7 +359,7 @@ where
 			let block_num = notification.header.number().to_string().parse().unwrap();
 			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
 			if let Err(err) = self.start_tasks(block_hash, block_num).await {
-				log::error!(target: TW_LOG, "error processing tasks: {}", err);
+				log::error!(target: TW_LOG, "error processing tasks: {:?}", err);
 			}
 		}
 	}

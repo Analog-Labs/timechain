@@ -184,7 +184,7 @@ where
 							if let Ok(Err(err)) = rx.await {
 								log::error!(
 									target: TW_LOG,
-									"shard {}: {} tx {} to {} network error {}",
+									"shard {}: {} tx {} to {} network error {:?}",
 									shard_id,
 									local_peer_id,
 									msg.payload,

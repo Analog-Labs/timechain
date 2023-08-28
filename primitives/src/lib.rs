@@ -49,8 +49,8 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait MemberEvents {
-	fn member_online(id: &PeerId);
-	fn member_offline(id: &PeerId);
+	fn member_online(id: &AccountId);
+	fn member_offline(id: &AccountId);
 }
 
 pub trait MemberStorage {
@@ -60,7 +60,6 @@ pub trait MemberStorage {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
-	fn collector_peer_id(shard_id: ShardId) -> Option<PeerId>;
 }
 
 pub trait TasksInterface {
@@ -71,7 +70,7 @@ pub trait TasksInterface {
 pub trait OcwShardInterface {
 	fn benchmark_register_shard(
 		network: Network,
-		members: Vec<PeerId>,
+		members: Vec<AccountId>,
 		collector: PublicKey,
 		threshold: u16,
 	);

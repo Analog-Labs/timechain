@@ -16,7 +16,7 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		MemberEvents, Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus,
+		AccountId, MemberEvents, Network, OcwShardInterface, PublicKey, ShardId, ShardStatus,
 		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
@@ -52,10 +52,6 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ShardCollectorPeerId<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, PeerId, OptionQuery>;
-
-	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
@@ -78,11 +74,19 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
 
 	#[pallet::storage]
-	pub type MemberShard<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, ShardId, OptionQuery>;
+	pub type MemberShard<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ShardMembers<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, PeerId, (), OptionQuery>;
+	pub type ShardMembers<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ShardId,
+		Blake2_128Concat,
+		AccountId,
+		(),
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -120,7 +124,7 @@ pub mod pallet {
 		pub fn register_shard(
 			origin: OriginFor<T>,
 			network: Network,
-			members: Vec<PeerId>,
+			members: Vec<AccountId>,
 			collector: PublicKey,
 			threshold: u16,
 		) -> DispatchResult {
@@ -164,7 +168,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		fn create_shard(
 			network: Network,
-			members: Vec<PeerId>,
+			members: Vec<AccountId>,
 			collector: PublicKey,
 			threshold: u16,
 		) {
@@ -177,11 +181,9 @@ pub mod pallet {
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			<ShardCollectorPublicKey<T>>::insert(shard_id, collector);
-			//TODO change on dynamic collector assigning
-			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
 			for member in &members {
-				<ShardMembers<T>>::insert(shard_id, *member, ());
-				MemberShard::<T>::insert(*member, shard_id);
+				<ShardMembers<T>>::insert(shard_id, member, ());
+				MemberShard::<T>::insert(member, shard_id);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
@@ -190,7 +192,7 @@ pub mod pallet {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
+		pub fn get_shards(peer_id: AccountId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
 					|(shard_id, member, _)| {
@@ -204,7 +206,7 @@ pub mod pallet {
 				.collect()
 		}
 
-		pub fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+		pub fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 
@@ -221,7 +223,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
-		fn member_online(id: &PeerId) {
+		fn member_online(id: &AccountId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
 			let new_status = old_status.online_member();
@@ -233,13 +235,13 @@ pub mod pallet {
 				T::TaskScheduler::shard_online(shard_id, network);
 			}
 		}
-		fn member_offline(id: &PeerId) {
+		fn member_offline(id: &AccountId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
 			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else  { return };
 			let total_members = ShardMembers::<T>::iter().collect::<Vec<_>>().len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
-			let Some(max_members_offline) = max_members_offline.try_into() else { return };
+			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
 			let new_status = old_status.offline_member(max_members_offline);
 			ShardState::<T>::insert(shard_id, new_status);
 			if matches!(new_status, ShardStatus::Offline)
@@ -255,7 +257,7 @@ pub mod pallet {
 	impl<T: Config> OcwShardInterface for Pallet<T> {
 		fn benchmark_register_shard(
 			network: Network,
-			members: Vec<PeerId>,
+			members: Vec<AccountId>,
 			collector: PublicKey,
 			threshold: u16,
 		) {
@@ -282,10 +284,6 @@ pub mod pallet {
 
 		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
 			ShardCollectorPublicKey::<T>::get(shard_id)
-		}
-
-		fn collector_peer_id(shard_id: ShardId) -> Option<PeerId> {
-			ShardCollectorPeerId::<T>::get(shard_id)
 		}
 	}
 }

@@ -241,7 +241,7 @@ where
 						block_num,
 					);
 					tokio::task::spawn(async move {
-						let result = task.await.map_err(|e| e.to_string());
+						let result = task.await.map_err(|e| format!("{:?}", e));
 						log::info!(
 							target: TW_LOG,
 							"Task {} completed on shard {} with {:?}",
@@ -278,7 +278,7 @@ where
 		while let Some(notification) = finality_notifications.next().await {
 			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
 			if let Err(err) = self.start_tasks(notification.header.hash()).await {
-				log::error!(target: TW_LOG, "error processing tasks: {}", err);
+				log::error!(target: TW_LOG, "error processing tasks: {:?}", err);
 			}
 		}
 	}

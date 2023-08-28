@@ -6,6 +6,9 @@ volumes:
   validator3-volume:
   validator4-volume:
   validator5-volume:
+  validator6-volume:
+  validator7-volume:
+  validator8-volume:
   ethereum-volume:
   ethereum-connector-volume:
   astar-volume:
@@ -25,16 +28,23 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--keyfile=/etc/eth_keyfile1'
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - ethereum-connector
     volumes:
+    - './dummy_wallets/eth_keyfile1:/etc/eth_keyfile1'
     - 'bootnode-volume:/data'
     ports:
     - '9943:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+    - ethereum
 
   validator1:
     image: 'analoglabs/timechain-node'
@@ -49,6 +59,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--keyfile=/etc/eth_keyfile2'
     - '--bob'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -58,11 +69,15 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallets/eth_keyfile2:/etc/eth_keyfile2'
     - 'validator1-volume:/data'
     ports:
     - '9945:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+    - ethereum
 
   validator2:
     image: 'analoglabs/timechain-node'
@@ -77,6 +92,7 @@ services:
     - '--connector-url=http://ethereum-connector:8080'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
+    - '--keyfile=/etc/eth_keyfile3'
     - '--charlie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -86,11 +102,15 @@ services:
     - bootnode
     - ethereum-connector
     volumes:
+    - './dummy_wallets/eth_keyfile3:/etc/eth_keyfile3'
     - 'validator2-volume:/data'
     ports:
     - '9947:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+    - ethereum
 
   validator3:
     image: 'analoglabs/timechain-node'
@@ -105,6 +125,7 @@ services:
     - '--connector-url=http://astar-connector:8081'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
+    - '--keyfile=/etc/astar_keyfile1'
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -114,11 +135,14 @@ services:
     - bootnode
     - astar-connector
     volumes:
+    - './dummy_wallets/astar_keyfile1:/etc/astar_keyfile1'
     - 'validator3-volume:/data'
     ports:
     - '9949:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
 
   validator4:
     image: 'analoglabs/timechain-node'
@@ -133,6 +157,7 @@ services:
     - '--connector-url=http://astar-connector:8081'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
+    - '--keyfile=/etc/astar_keyfile2'
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -142,11 +167,14 @@ services:
     - bootnode
     - astar-connector
     volumes:
+    - './dummy_wallets/astar_keyfile2:/etc/astar_keyfile2'
     - 'validator4-volume:/data'
     ports:
     - '9951:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
 
   validator5:
     image: 'analoglabs/timechain-node'
@@ -161,6 +189,7 @@ services:
     - '--connector-url=http://astar-connector:8081'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
+    - '--keyfile=/etc/astar_keyfile3'
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
@@ -170,19 +199,121 @@ services:
     - bootnode
     - astar-connector
     volumes:
+    - './dummy_wallets/astar_keyfile3:/etc/astar_keyfile3'
     - 'validator5-volume:/data'
     ports:
     - '9953:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    profiles:
+    - astar
+  
+  validator6:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--validator'
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--offchain-worker=Always'
+    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-blockchain=ethereum'
+    - '--connector-network=dev'
+    - '--keyfile=/etc/eth_keyfile4'
+    - '--dave'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
+    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+    depends_on:
+    - bootnode
+    - ethereum-connector
+    volumes:
+    - './dummy_wallets/eth_keyfile4:/etc/eth_keyfile4'
+    - 'validator6-volume:/data'
+    ports:
+    - '9955:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    profiles:
+    - ethereum
+
+  validator7:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--validator'
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--offchain-worker=Always'
+    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-blockchain=ethereum'
+    - '--connector-network=dev'
+    - '--keyfile=/etc/eth_keyfile5'
+    - '--eve'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
+    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+    depends_on:
+    - bootnode
+    - ethereum-connector
+    volumes:
+    - './dummy_wallets/eth_keyfile5:/etc/eth_keyfile5'
+    - 'validator7-volume:/data'
+    ports:
+    - '9957:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    profiles:
+    - ethereum
+
+  validator8:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--validator'
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--offchain-worker=Always'
+    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-blockchain=ethereum'
+    - '--connector-network=dev'
+    - '--keyfile=/etc/eth_keyfile6'
+    - '--ferdie'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
+    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    environment:
+      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+    depends_on:
+    - bootnode
+    - ethereum-connector
+    volumes:
+    - './dummy_wallets/eth_keyfile6:/etc/eth_keyfile6'
+    - 'validator8-volume:/data'
+    ports:
+    - '9959:9944'
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    profiles:
+    - ethereum
 
   ethereum:
-    image: "ethereum/client-go:v1.10.26"
+    image: "ethereum/client-go:v1.12.2"
     command: "--dev --ipcdisable --dev.period 14 --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
     expose:
     - "8545"
     volumes:
     - "ethereum-volume:/root"
+    profiles:
+    - astar
+    - ethereum
 
   ethereum-connector:
     image: "analoglabs/connector-ethereum"
@@ -197,6 +328,9 @@ services:
     volumes:
     - "ethereum-connector-volume:/data"
     restart: always
+    profiles:
+    - astar
+    - ethereum
 
   astar:
     image: "staketechnologies/astar-collator:latest"
@@ -206,6 +340,8 @@ services:
     - "9944"
     volumes:
     - "astar-volume:/astar"
+    profiles:
+    - astar
 
   astar-connector:
     image: "analoglabs/connector-astar"
@@ -220,6 +356,8 @@ services:
     volumes:
     - "astar-connector-volume:/data"
     restart: always
+    profiles:
+    - astar
 
   pgsql:
     hostname: pgsql

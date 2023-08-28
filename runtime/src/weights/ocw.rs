@@ -77,6 +77,14 @@ impl<T: frame_system::Config> pallet_ocw::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(91_691_000, 0)
 			.saturating_add(Weight::from_parts(0, 3596))
 			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+
+	fn submit_task_error() -> Weight {
+		Weight::default()
+	}
+
+	fn submit_task_hash() -> Weight {
+		Weight::default()
 	}
 }

@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::Error;
+use crate::{Error, Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{Network, OcwShardInterface, PeerId, PublicKey};
@@ -25,11 +25,14 @@ fn test_register_shard() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let members = Shards::get_shard_members(shard_id as _);
+			let threshold = Shards::get_shard_threshold(shard_id as _);
 			assert_eq!(members.len(), shard.len());
+			assert_eq!(threshold, 1);
 		}
 		for member in [A, B, C] {
 			let shards = Shards::get_shards(member);
@@ -64,6 +67,7 @@ fn submit_public_key_max_once() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
@@ -86,11 +90,12 @@ fn test_set_shard_offline() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
 			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
-			assert_ok!(Shards::set_shard_offline(shard_id as _, Network::Ethereum));
+			assert_ok!(Shards::set_shard_offline(shard_id as _));
 		}
 	});
 }
@@ -100,10 +105,7 @@ fn cannot_set_shard_offline_if_no_shard() {
 	let shards = [[A, B, C], [C, B, A], [D, E, F]];
 	new_test_ext().execute_with(|| {
 		for (shard_id, _) in shards.iter().enumerate() {
-			assert_noop!(
-				Shards::set_shard_offline(shard_id as _, Network::Ethereum),
-				Error::<Test>::UnknownShard
-			);
+			assert_noop!(Shards::set_shard_offline(shard_id as _), Error::<Test>::UnknownShard);
 		}
 	});
 }
@@ -118,15 +120,34 @@ fn offline_shard_cannot_be_set_offline() {
 				Network::Ethereum,
 				shard.to_vec(),
 				collector(),
+				1,
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
 			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
-			assert_ok!(Shards::set_shard_offline(shard_id as _, Network::Ethereum));
+			assert_ok!(Shards::set_shard_offline(shard_id as _));
 			assert_noop!(
-				Shards::set_shard_offline(shard_id as _, Network::Ethereum),
+				Shards::set_shard_offline(shard_id as _),
 				Error::<Test>::ShardAlreadyOffline
 			);
 		}
+	});
+}
+
+#[test]
+fn dkg_times_out() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Shards::register_shard(
+			RawOrigin::Root.into(),
+			Network::Ethereum,
+			[A, B, C].to_vec(),
+			collector(),
+			1,
+		));
+		roll_to(11);
+		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
+		assert!(ShardState::<Test>::get(0).is_none());
+		assert!(ShardNetwork::<Test>::get(0).is_none());
+		assert!(ShardMembers::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }

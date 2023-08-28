@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ShardId, ShardStatusInterface};
+use time_primitives::{PeerId, PublicKey, ShardId, ShardsInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -13,9 +13,17 @@ pub type Signature = MultiSignature;
 
 pub struct MockShardInterface;
 
-impl ShardStatusInterface for MockShardInterface {
+impl ShardsInterface for MockShardInterface {
 	fn is_shard_online(_: ShardId) -> bool {
 		true
+	}
+
+	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
+		None
+	}
+
+	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
+		Some([0u8; 32])
 	}
 }
 
@@ -73,7 +81,7 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ShardStatus = MockShardInterface;
+	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
 }
 

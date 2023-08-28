@@ -1,4 +1,4 @@
-use crate::{AccountId, Network, ShardId, TssSignature};
+use crate::{AccountId, Network, PeerId, ShardId, TssSignature};
 use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
@@ -17,7 +17,16 @@ pub type TaskRetryCount = u8;
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
-	EVMViewWithoutAbi { address: String, function_signature: String, input: Vec<String> },
+	EvmDeploy { bytecode: Vec<u8> },
+	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
+	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
+	EvmTxReceipt { tx: String },
+}
+
+impl Function {
+	pub fn is_payable(&self) -> bool {
+		matches!(self, Self::EvmDeploy { .. } | Self::EvmCall { .. })
+	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -68,16 +77,58 @@ pub enum TaskStatus {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, Hash)]
+pub enum TaskPhase {
+	Write(PeerId),
+	Read(Option<String>),
+}
+
+impl TaskPhase {
+	pub fn peer_id(&self) -> Option<PeerId> {
+		if let Self::Write(peer_id) = self {
+			Some(*peer_id)
+		} else {
+			None
+		}
+	}
+
+	pub fn tx_hash(&self) -> Option<&str> {
+		if let Self::Read(Some(tx_hash)) = self {
+			Some(tx_hash.as_str())
+		} else {
+			None
+		}
+	}
+}
+
+impl Default for TaskPhase {
+	fn default() -> Self {
+		TaskPhase::Read(None)
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
 	pub retry_count: TaskRetryCount,
+	pub phase: TaskPhase,
 }
 
 impl TaskExecution {
-	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount) -> Self {
-		Self { task_id, cycle, retry_count }
+	pub fn new(
+		task_id: TaskId,
+		cycle: TaskCycle,
+		retry_count: TaskRetryCount,
+		phase: TaskPhase,
+	) -> Self {
+		Self {
+			task_id,
+			cycle,
+			retry_count,
+			phase,
+		}
 	}
 }
 
@@ -93,13 +144,19 @@ impl std::fmt::Display for TaskExecution {
 pub trait TaskSpawner {
 	async fn block_height(&self) -> Result<u64>;
 
-	fn execute(
+	fn execute_read(
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		task: TaskDescriptor,
+		function: Function,
+		hash: String,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
+
+	fn execute_write(
+		&self,
+		function: Function,
+	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>>;
 }

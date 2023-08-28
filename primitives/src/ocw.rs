@@ -1,7 +1,9 @@
-use crate::{CycleStatus, Network, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
+use crate::{CycleStatus, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
 use codec::{Decode, Encode};
+use scale_info::prelude::string::String;
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
+pub const OCW_LOCK: &[u8] = b"ocwlock";
 pub const OCW_READ_ID: &[u8] = b"ocwreadid";
 pub const OCW_WRITE_ID: &[u8] = b"ocwwriteid";
 pub const OCW_MESSAGE_PREFIX: &[u8] = b"ocwmsg";
@@ -16,18 +18,18 @@ pub fn msg_key(id: u64) -> [u8; 14] {
 #[derive(Clone, Debug, PartialEq, Decode, Encode)]
 pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
+	SubmitTaskHash { shard_id: ShardId, task_id: TaskId, hash: String },
 	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, status: CycleStatus },
 	SubmitTaskError { task_id: TaskId, error: TaskError },
-	SetShardOffline { shard_id: ShardId, network: Network },
 }
 
 impl OcwPayload {
 	pub fn shard_id(&self) -> ShardId {
 		match self {
 			Self::SubmitTssPublicKey { shard_id, .. } => *shard_id,
+			Self::SubmitTaskHash { shard_id, .. } => *shard_id,
 			Self::SubmitTaskResult { status, .. } => status.shard_id,
 			Self::SubmitTaskError { error, .. } => error.shard_id,
-			Self::SetShardOffline { shard_id, .. } => *shard_id,
 		}
 	}
 }

@@ -5,10 +5,12 @@ use scale_info::prelude::string::String;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
+mod member;
 mod ocw;
 mod shard;
 mod task;
 
+pub use crate::member::*;
 pub use crate::ocw::*;
 pub use crate::shard::*;
 pub use crate::task::*;
@@ -37,12 +39,22 @@ pub mod crypto {
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
+		fn get_member_peer_id(account: AccountId) -> Option<PeerId>;
 		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 	}
+}
+
+pub trait MemberEvents {
+	fn member_online(id: &PeerId);
+	fn member_offline(id: &PeerId);
+}
+
+pub trait MemberStorage {
+	fn member_peer_id(account: AccountId) -> Option<PeerId>;
 }
 
 pub trait ShardsInterface {

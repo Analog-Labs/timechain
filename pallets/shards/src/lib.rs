@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		MemberEvents, Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus,
+		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -76,6 +76,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ShardPublicKey<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
+
+	#[pallet::storage]
+	pub type MemberShard<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardMembers<T: Config> =
@@ -178,6 +181,7 @@ pub mod pallet {
 			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, *member, ());
+				MemberShard::<T>::insert(*member, shard_id);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
@@ -213,6 +217,29 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardOffline(shard_id));
 			T::TaskScheduler::shard_offline(shard_id, network);
 			Ok(())
+		}
+	}
+
+	impl<T: Config> MemberEvents for Pallet<T> {
+		fn member_online(id: &PeerId) {
+			let shard_id = MemberShard::<T>::get(id).unwrap();
+			let old_status = ShardState::<T>::get(shard_id).unwrap();
+			let new_status = old_status.online_member();
+			ShardState::<T>::insert(shard_id, new_status);
+		}
+		fn member_offline(id: &PeerId) {
+			let shard_id = MemberShard::<T>::get(id).unwrap();
+			let old_status = ShardState::<T>::get(shard_id).unwrap();
+			let shard_threshold = ShardThreshold::<T>::get(shard_id).unwrap();
+			let total_members = ShardMembers::<T>::iter().collect::<Vec<_>>().len();
+			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
+			let new_status = old_status.offline_member(max_members_offline.try_into().unwrap());
+			ShardState::<T>::insert(shard_id, new_status);
+			if matches!(new_status, ShardStatus::Offline) {
+				let network = ShardNetwork::<T>::get(shard_id).unwrap();
+				Self::deposit_event(Event::ShardOffline(shard_id));
+				T::TaskScheduler::shard_offline(shard_id, network);
+			}
 		}
 	}
 

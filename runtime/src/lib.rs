@@ -52,8 +52,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId,
+	AccountId, MemberStorage, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor,
+	TaskExecution, TaskId,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1141,6 +1141,13 @@ impl pallet_ocw::Config for Runtime {
 	type Tasks = Tasks;
 }
 
+impl pallet_members::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Shards = Shards;
+	type HeartbeatTimeout = ConstU32<100>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1166,6 +1173,7 @@ construct_runtime!(
 		Treasury: pallet_treasury,
 		Tasks: pallet_tasks,
 		Ocw: pallet_ocw,
+		Members: pallet_members,
 	}
 );
 
@@ -1433,6 +1441,10 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block>  for Runtime {
+		fn get_member_peer_id(account: AccountId) -> Option<PeerId> {
+			Members::member_peer_id(account)
+		}
+
 		fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
 			Shards::get_shards(peer_id)
 		}

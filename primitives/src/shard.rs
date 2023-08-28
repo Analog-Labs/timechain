@@ -5,6 +5,7 @@ use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 
 pub type TssPublicKey = [u8; 33];
@@ -37,6 +38,7 @@ pub enum Network {
 pub enum ShardStatus<Blocknumber> {
 	Created(Blocknumber),
 	Online,
+	PartialOffline(u16),
 	Offline,
 }
 
@@ -45,6 +47,33 @@ impl<B: Copy> ShardStatus<B> {
 		match self {
 			ShardStatus::Created(b) => Some(*b),
 			_ => None,
+		}
+	}
+	pub fn online_member(&self) -> Self {
+		match self {
+			ShardStatus::PartialOffline(count) => {
+				let new_count = count.saturating_less_one();
+				if new_count.is_zero() {
+					ShardStatus::Online
+				} else {
+					ShardStatus::PartialOffline(new_count)
+				}
+			},
+			_ => *self,
+		}
+	}
+	pub fn offline_member(&self, max: u16) -> Self {
+		match self {
+			ShardStatus::PartialOffline(count) => {
+				let new_count = count.saturating_plus_one();
+				if new_count > max {
+					ShardStatus::Offline
+				} else {
+					ShardStatus::PartialOffline(new_count)
+				}
+			},
+			ShardStatus::Online => ShardStatus::PartialOffline(1),
+			_ => *self,
 		}
 	}
 }

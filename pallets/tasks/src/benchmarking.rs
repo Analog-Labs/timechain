@@ -8,7 +8,7 @@ use time_primitives::{Function, Network, TaskDescriptorParams};
 benchmarks! {
 	create_task {}: _(RawOrigin::Signed(whitelisted_caller()), TaskDescriptorParams {
 		network: Network::Ethereum,
-		function: Function::EVMViewWithoutAbi {
+		function: Function::EvmViewCall {
 			address: Default::default(),
 			function_signature: Default::default(),
 			input: Default::default(),
@@ -22,7 +22,7 @@ benchmarks! {
 	stop_task {
 		let _t = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: Network::Ethereum,
-			function: Function::EVMViewWithoutAbi {
+			function: Function::EvmViewCall {
 				address: Default::default(),
 				function_signature: Default::default(),
 				input: Default::default(),
@@ -38,7 +38,7 @@ benchmarks! {
 	resume_task {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: Network::Ethereum,
-			function: Function::EVMViewWithoutAbi {
+			function: Function::EvmViewCall {
 				address: Default::default(),
 				function_signature: Default::default(),
 				input: Default::default(),

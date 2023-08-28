@@ -1,13 +1,17 @@
 #![allow(clippy::large_enum_variant)]
 use crate::dkg::{Dkg, DkgAction, DkgMessage};
 use crate::roast::{Roast, RoastAction, RoastMessage};
-use frost_evm::keys::{KeyPackage, PublicKeyPackage};
+use crate::rts::{Rts, RtsAction, RtsHelper, RtsMessage};
+use frost_evm::keys::{
+	KeyPackage, PublicKeyPackage, SecretShare, VerifiableSecretSharingCommitment,
+};
 use frost_evm::{Identifier, Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub mod dkg;
 pub mod roast;
+pub mod rts;
 #[cfg(test)]
 mod tests;
 
@@ -15,7 +19,11 @@ enum TssState<I> {
 	Dkg {
 		dkg: Dkg,
 	},
+	Rts {
+		rts: Rts,
+	},
 	Roast {
+		rts: RtsHelper,
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
 		signing_sessions: BTreeMap<I, Roast>,
@@ -25,6 +33,7 @@ enum TssState<I> {
 #[derive(Clone)]
 pub enum TssAction<I, P> {
 	Send(Vec<(P, TssMessage<I>)>),
+	Commit(VerifiableSecretSharingCommitment),
 	PublicKey(VerifyingKey),
 	Signature(I, Signature),
 }
@@ -33,6 +42,7 @@ pub enum TssAction<I, P> {
 #[derive(Clone, Deserialize, Serialize)]
 pub enum TssMessage<I> {
 	Dkg { msg: DkgMessage },
+	Rts { msg: RtsMessage },
 	Roast { id: I, msg: RoastMessage },
 }
 
@@ -40,6 +50,7 @@ impl<I: std::fmt::Display> std::fmt::Display for TssMessage<I> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Dkg { msg } => write!(f, "dkg {}", msg),
+			Self::Rts { msg } => write!(f, "rts {}", msg),
 			Self::Roast { id, msg } => write!(f, "roast {} {}", id, msg),
 		}
 	}
@@ -89,6 +100,25 @@ where
 		}
 	}
 
+	pub fn recover(
+		peer_id: P,
+		members: BTreeSet<P>,
+		threshold: u16,
+		commitment: VerifiableSecretSharingCommitment,
+		public_key_package: PublicKeyPackage,
+	) -> Self {
+		let mut tss = Self::new(peer_id, members, threshold);
+		let rts = Rts::new(
+			tss.frost_id,
+			tss.frost_to_peer.keys().cloned().collect(),
+			threshold,
+			commitment,
+			public_key_package,
+		);
+		tss.state = TssState::Rts { rts };
+		tss
+	}
+
 	pub fn peer_id(&self) -> &P {
 		&self.peer_id
 	}
@@ -117,8 +147,14 @@ where
 			return;
 		}
 		match (&mut self.state, msg) {
-			(TssState::Dkg { dkg }, TssMessage::Dkg { msg }) => {
+			(TssState::Dkg { dkg, .. }, TssMessage::Dkg { msg }) => {
 				dkg.on_message(frost_id, msg);
+			},
+			(TssState::Rts { rts }, TssMessage::Rts { msg }) => {
+				rts.on_message(frost_id, msg);
+			},
+			(TssState::Roast { rts, .. }, TssMessage::Rts { msg }) => {
+				rts.on_message(frost_id, msg);
 			},
 			(TssState::Roast { signing_sessions, .. }, TssMessage::Roast { id, msg }) => {
 				if let Some(session) = signing_sessions.get_mut(&id) {
@@ -133,6 +169,29 @@ where
 		}
 	}
 
+	pub fn commit(&mut self, iter: impl Iterator<Item = (P, VerifiableSecretSharingCommitment)>) {
+		log::debug!("{} commit", self.peer_id);
+		let mut commitments = HashMap::new();
+		for (peer, commitment) in iter {
+			let peer = peer_to_frost(&peer);
+			if !self.frost_to_peer.contains_key(&peer) {
+				log::error!("received invalid commitments");
+				return;
+			}
+			commitments.insert(peer, commitment);
+		}
+		if commitments.len() != self.frost_to_peer.len() {
+			log::error!("invalid number of commitments");
+			return;
+		}
+		match &mut self.state {
+			TssState::Dkg { dkg, .. } => {
+				dkg.commit(commitments);
+			},
+			_ => log::error!("unexpected commit"),
+		}
+	}
+
 	pub fn sign(&mut self, id: I, data: Vec<u8>) {
 		log::debug!("{} sign {}", self.peer_id, id);
 		match &mut self.state {
@@ -140,6 +199,7 @@ where
 				key_package,
 				public_key_package,
 				signing_sessions,
+				..
 			} => {
 				let roast = Roast::new(
 					self.threshold,
@@ -150,7 +210,7 @@ where
 				);
 				signing_sessions.insert(id, roast);
 			},
-			TssState::Dkg { .. } => {
+			_ => {
 				log::error!("not ready to sign");
 			},
 		}
@@ -179,10 +239,19 @@ where
 								.collect(),
 						));
 					},
-					DkgAction::Complete(key_package, public_key_package) => {
+					DkgAction::Commit(commitment) => {
+						return Some(TssAction::Commit(commitment));
+					},
+					DkgAction::Complete(key_package, public_key_package, commitment) => {
+						let secret_share = SecretShare::new(
+							self.frost_id,
+							*key_package.secret_share(),
+							commitment,
+						);
 						let public_key =
 							VerifyingKey::new(public_key_package.group_public().to_element());
 						self.state = TssState::Roast {
+							rts: RtsHelper::new(secret_share),
 							key_package,
 							public_key_package,
 							signing_sessions: Default::default(),
@@ -194,6 +263,31 @@ where
 						return None;
 					},
 				};
+			},
+			TssState::Rts { rts } => match rts.next_action()? {
+				RtsAction::Send(msgs) => {
+					return Some(TssAction::Send(
+						msgs.into_iter()
+							.map(|(peer, msg)| (self.frost_to_peer(&peer), TssMessage::Rts { msg }))
+							.collect(),
+					));
+				},
+				RtsAction::Complete(key_package, public_key_package, commitment) => {
+					let secret_share =
+						SecretShare::new(self.frost_id, *key_package.secret_share(), commitment);
+					let public_key = VerifyingKey::new(*public_key_package.group_public());
+					self.state = TssState::Roast {
+						rts: RtsHelper::new(secret_share),
+						key_package,
+						public_key_package,
+						signing_sessions: Default::default(),
+					};
+					return Some(TssAction::PublicKey(public_key));
+				},
+				RtsAction::Failure(error) => {
+					log::error!("rts failed with error {}", error);
+					return None;
+				},
 			},
 			TssState::Roast { signing_sessions, .. } => {
 				let session_ids: Vec<_> = signing_sessions.keys().cloned().collect();

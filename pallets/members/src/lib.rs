@@ -75,9 +75,8 @@ pub mod pallet {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
 			Heartbeat::<T>::iter().for_each(|(account, heart)| {
-				if heart.is_online {
-					if n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
-						let peer_id = MemberPeerId::<T>::get(&account).unwrap();
+				if heart.is_online && n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
+					if let Some(peer_id) = MemberPeerId::<T>::get(&account) {
 						T::Shards::member_offline(&peer_id);
 						Heartbeat::<T>::insert(&account, heart.set_offline());
 						writes += 1;

@@ -222,21 +222,30 @@ pub mod pallet {
 
 	impl<T: Config> MemberEvents for Pallet<T> {
 		fn member_online(id: &PeerId) {
-			let shard_id = MemberShard::<T>::get(id).unwrap();
-			let old_status = ShardState::<T>::get(shard_id).unwrap();
+			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
 			let new_status = old_status.online_member();
 			ShardState::<T>::insert(shard_id, new_status);
+			if matches!(new_status, ShardStatus::Online)
+				&& !matches!(old_status, ShardStatus::Online)
+			{
+				let Some(network) = ShardNetwork::<T>::get(shard_id) else { return };
+				T::TaskScheduler::shard_online(shard_id, network);
+			}
 		}
 		fn member_offline(id: &PeerId) {
-			let shard_id = MemberShard::<T>::get(id).unwrap();
-			let old_status = ShardState::<T>::get(shard_id).unwrap();
-			let shard_threshold = ShardThreshold::<T>::get(shard_id).unwrap();
+			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else  { return };
 			let total_members = ShardMembers::<T>::iter().collect::<Vec<_>>().len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
-			let new_status = old_status.offline_member(max_members_offline.try_into().unwrap());
+			let Some(max_members_offline) = max_members_offline.try_into() else { return };
+			let new_status = old_status.offline_member(max_members_offline);
 			ShardState::<T>::insert(shard_id, new_status);
-			if matches!(new_status, ShardStatus::Offline) {
-				let network = ShardNetwork::<T>::get(shard_id).unwrap();
+			if matches!(new_status, ShardStatus::Offline)
+				&& !matches!(old_status, ShardStatus::Offline)
+			{
+				let Some(network) = ShardNetwork::<T>::get(shard_id) else { return };
 				Self::deposit_event(Event::ShardOffline(shard_id));
 				T::TaskScheduler::shard_offline(shard_id, network);
 			}

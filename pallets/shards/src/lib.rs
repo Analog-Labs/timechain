@@ -110,6 +110,7 @@ pub mod pallet {
 		ThresholdAboveMembershipLen,
 		ThresholdMustBeNonZero,
 		ShardAlreadyOffline,
+		MaxOneShardPerMember,
 	}
 
 	#[pallet::call]
@@ -139,6 +140,9 @@ pub mod pallet {
 			);
 			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
 			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
+			for member in &members {
+				ensure!(MemberShard::<T>::get(member).is_none(), Error::<T>::MaxOneShardPerMember);
+			}
 			Self::create_shard(network, members, collector, threshold);
 			Ok(())
 		}

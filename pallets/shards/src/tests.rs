@@ -4,14 +4,14 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{AccountId, Network, OcwShardInterface, PublicKey};
 
-fn shards() -> [[AccountId; 3]; 3] {
+fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
 	let b: AccountId = [2u8; 32].into();
 	let c: AccountId = [3u8; 32].into();
 	let d: AccountId = [4u8; 32].into();
 	let e: AccountId = [5u8; 32].into();
 	let f: AccountId = [6u8; 32].into();
-	[[a.clone(), b.clone(), c.clone()], [c, b, a], [d, e, f]]
+	[[a, b, c], [d, e, f]]
 }
 
 fn first_shard() -> [AccountId; 3] {
@@ -46,10 +46,36 @@ fn test_register_shard() {
 		}
 		for member in first_shard() {
 			let shards = Shards::get_shards(member);
-			assert_eq!(shards.len(), 2);
+			assert_eq!(shards.len(), 1);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
 			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
+		}
+	});
+}
+
+#[test]
+fn member_restricted_to_max_one_shard() {
+	let shards = shards();
+	new_test_ext().execute_with(|| {
+		for shard in &shards {
+			assert_ok!(Shards::register_shard(
+				RawOrigin::Root.into(),
+				Network::Ethereum,
+				shard.to_vec(),
+				collector(),
+				1,
+			),);
+			assert_noop!(
+				Shards::register_shard(
+					RawOrigin::Root.into(),
+					Network::Ethereum,
+					shard.to_vec(),
+					collector(),
+					1,
+				),
+				Error::<Test>::MaxOneShardPerMember
+			);
 		}
 	});
 }
@@ -108,6 +134,6 @@ fn dkg_times_out() {
 	});
 }
 
-// test member_online
+// member_offline_sets_shard_partially_offline
 
-// test member_offline
+// member_offline_above_threshold_sets_shard_offline

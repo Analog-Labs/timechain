@@ -9,13 +9,25 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use timechain_runtime::{self, opaque::Block, PublicKey, Runtime, RuntimeApi, RuntimeCall};
+use time_primitives::OcwPayload;
+use timechain_runtime::{
+	self, opaque::Block, OcwCall, PublicKey, Runtime, RuntimeApi, RuntimeCall,
+};
+
+fn payload_to_call(payload: OcwPayload) -> RuntimeCall {
+	match payload {
+		OcwPayload::SubmitTssPublicKey { shard_id, public_key } => {
+			RuntimeCall::Ocw(OcwCall::submit_tss_public_key { shard_id, public_key })
+		},
+		_ => todo!(),
+	}
+}
 
 fn submit_transaction(
 	pool: OffchainTransactionPoolFactory<Block>,
 	block_hash: <Block as sp_runtime::traits::Block>::Hash,
-	call: RuntimeCall,
 	public: PublicKey,
+	call: RuntimeCall,
 ) -> Result<(), ()> {
 	use frame_system::offchain::{CreateSignedTransaction, SendTransactionTypes};
 	use frame_system::Account;

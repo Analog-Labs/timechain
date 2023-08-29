@@ -69,6 +69,8 @@ pub use frame_support::{
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
+pub use pallet_ocw::Call as OcwCall;
+pub use pallet_shards::Call as ShardsCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 pub use pallet_utility::Call as UtilityCall;

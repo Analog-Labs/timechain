@@ -4,7 +4,7 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{
 	CycleStatus, Function, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId, TaskCycle,
-	TaskDescriptorParams, TaskExecution, TaskStatus, TaskError
+	TaskDescriptorParams, TaskError, TaskExecution, TaskStatus,
 };
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
@@ -70,9 +70,9 @@ fn task_resumed_by_owner() {
 #[test]
 fn resume_failed_task() {
 	let mock_error = TaskError {
-					shard_id: 1,
-					error: "mock_error".to_string()
-				};
+		shard_id: 1,
+		error: "mock_error".to_string(),
+	};
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -80,10 +80,7 @@ fn resume_failed_task() {
 		));
 		// fails 3 time to turn task status to failed
 		for _ in 0..3 {
-			assert_ok!(Tasks::submit_task_error(
-				0,
-				mock_error.clone()
-			));
+			assert_ok!(Tasks::submit_task_error(0, mock_error.clone()));
 		}
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),);

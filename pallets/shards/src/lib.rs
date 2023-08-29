@@ -285,5 +285,9 @@ pub mod pallet {
 		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
 			ShardCollectorPublicKey::<T>::get(shard_id)
 		}
+
+		fn collector_peer_id(shard_id: ShardId) -> Option<time_primitives::PeerId> {
+			None
+		}
 	}
 }

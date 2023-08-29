@@ -60,6 +60,7 @@ pub trait MemberStorage {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
+	fn collector_peer_id(shard_id: ShardId) -> Option<PeerId>;
 }
 
 pub trait TasksInterface {

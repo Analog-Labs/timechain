@@ -1,6 +1,6 @@
-use frost_evm::elliptic_curve::PrimeField;
 use frost_evm::frost_core::frost::keys::compute_public_key_package;
 use frost_evm::frost_secp256k1::Secp256K1Sha256;
+use frost_evm::k256::elliptic_curve::PrimeField;
 use frost_evm::keys::repairable;
 use frost_evm::keys::{
 	KeyPackage, PublicKeyPackage, SecretShare, VerifiableSecretSharingCommitment,

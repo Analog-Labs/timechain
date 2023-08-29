@@ -91,60 +91,6 @@ fn submit_public_key_max_once() {
 }
 
 #[test]
-fn test_set_shard_offline() {
-	let shards = shards();
-	new_test_ext().execute_with(|| {
-		for shard in &shards {
-			assert_ok!(Shards::register_shard(
-				RawOrigin::Root.into(),
-				Network::Ethereum,
-				shard.to_vec(),
-				collector(),
-				1,
-			),);
-		}
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
-			assert_ok!(Shards::set_shard_offline(shard_id as _));
-		}
-	});
-}
-
-#[test]
-fn cannot_set_shard_offline_if_no_shard() {
-	let shards = shards();
-	new_test_ext().execute_with(|| {
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_noop!(Shards::set_shard_offline(shard_id as _), Error::<Test>::UnknownShard);
-		}
-	});
-}
-
-#[test]
-fn offline_shard_cannot_be_set_offline() {
-	let shards = shards();
-	new_test_ext().execute_with(|| {
-		for shard in &shards {
-			assert_ok!(Shards::register_shard(
-				RawOrigin::Root.into(),
-				Network::Ethereum,
-				shard.to_vec(),
-				collector(),
-				1,
-			),);
-		}
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
-			assert_ok!(Shards::set_shard_offline(shard_id as _));
-			assert_noop!(
-				Shards::set_shard_offline(shard_id as _),
-				Error::<Test>::ShardAlreadyOffline
-			);
-		}
-	});
-}
-
-#[test]
 fn dkg_times_out() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Shards::register_shard(

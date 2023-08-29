@@ -151,11 +151,7 @@ pub mod pallet {
 			ShardState::<T>::iter().for_each(|(shard_id, status)| {
 				if let Some(created_block) = status.when_created() {
 					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-						// clean up shard state and emit event for timeout
-						ShardState::<T>::remove(shard_id);
-						ShardNetwork::<T>::remove(shard_id);
-						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
-						ShardCollectorPublicKey::<T>::remove(shard_id);
+						Self::remove_shard_offline(shard_id);
 						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
 						writes += 5;
 					}
@@ -188,6 +184,19 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 
+		/// Remove shard state for shard that just went offline
+		fn remove_shard_offline(shard_id: ShardId) {
+			ShardState::<T>::remove(shard_id);
+			ShardThreshold::<T>::remove(shard_id);
+			ShardCollectorPublicKey::<T>::remove(shard_id);
+			if let Some(network) = ShardNetwork::<T>::take(shard_id) {
+				T::TaskScheduler::shard_offline(shard_id, network);
+			}
+			for (member, _) in ShardMembers::<T>::drain_prefix(shard_id) {
+				MemberShard::<T>::remove(&member);
+			}
+		}
+
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
@@ -208,17 +217,6 @@ pub mod pallet {
 
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
-		}
-
-		// Used in tests
-		pub fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
-			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
-			Self::deposit_event(Event::ShardOffline(shard_id));
-			T::TaskScheduler::shard_offline(shard_id, network);
-			Ok(())
 		}
 	}
 
@@ -243,13 +241,11 @@ pub mod pallet {
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
 			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
 			let new_status = old_status.offline_member(max_members_offline);
-			ShardState::<T>::insert(shard_id, new_status);
-			if matches!(new_status, ShardStatus::Offline)
-				&& !matches!(old_status, ShardStatus::Offline)
-			{
-				let Some(network) = ShardNetwork::<T>::get(shard_id) else { return };
+			if matches!(new_status, ShardStatus::Offline) {
+				Self::remove_shard_offline(shard_id);
 				Self::deposit_event(Event::ShardOffline(shard_id));
-				T::TaskScheduler::shard_offline(shard_id, network);
+			} else {
+				ShardState::<T>::insert(shard_id, new_status);
 			}
 		}
 	}
@@ -286,7 +282,7 @@ pub mod pallet {
 			ShardCollectorPublicKey::<T>::get(shard_id)
 		}
 
-		fn collector_peer_id(shard_id: ShardId) -> Option<time_primitives::PeerId> {
+		fn collector_peer_id(_: ShardId) -> Option<time_primitives::PeerId> {
 			None
 		}
 	}

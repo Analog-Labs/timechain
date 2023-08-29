@@ -174,7 +174,7 @@ pub mod pallet {
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
 			ensure!(
-				TaskState::<T>::get(task_id) == Some(TaskStatus::Stopped),
+				matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Stopped) | Some(TaskStatus::Failed { .. })),
 				Error::<T>::InvalidTaskState
 			);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);

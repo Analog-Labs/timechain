@@ -23,7 +23,7 @@ impl TssEvents {
 		for pubkey in self.pubkeys.values() {
 			assert_eq!(pubkey, first);
 		}
-		first.clone()
+		*first
 	}
 
 	fn assert_signatures(&self, n: usize) -> Signature {

@@ -111,13 +111,6 @@ where
 		}
 	}
 
-	fn on_every_block_import(&mut self, block: <B as Block>::Hash) {
-		log::info!("block imported {:?} adding pool factory", block);
-		self.runtime
-			.runtime_api()
-			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
-	}
-
 	fn on_finality(&mut self, block: <B as Block>::Hash, block_number: u64) {
 		let local_peer_id = to_peer_id(self.peer_id);
 		log::debug!(target: TW_LOG, "{}: on_finality {}", local_peer_id, block.to_string());
@@ -211,7 +204,9 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					let _ = self.runtime.runtime_api().submit_unsigned_tx(
+					let mut runtime = self.runtime.runtime_api();
+					runtime.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
+					runtime.submit_unsigned_tx(
 						block,
 						OcwPayload::SubmitTssPublicKey { shard_id, public_key },
 					);
@@ -240,7 +235,6 @@ where
 	/// topics
 	pub(crate) async fn run(&mut self) {
 		let mut finality_notifications = self.client.finality_notification_stream();
-		let mut block_import_stream = self.client.every_import_notification_stream();
 		loop {
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
@@ -255,17 +249,6 @@ where
 					let block_number = notification.header.number().to_string().parse().unwrap();
 					log::debug!(target: TW_LOG, "finalized {}", block_number);
 					self.on_finality(block_hash, block_number);
-				},
-				block_import = block_import_stream.next().fuse() => {
-					let Some(block_import) = block_import else {
-						log::debug!(
-							target: TW_LOG,
-							"no new block imports"
-						);
-						continue;
-					};
-					let block_hash = block_import.header.hash();
-					self.on_every_block_import(block_hash);
 				},
 				tss_request = self.tss_request.next().fuse() => {
 					let Some(TssRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {

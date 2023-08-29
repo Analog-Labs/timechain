@@ -9,7 +9,37 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use timechain_runtime::{self, opaque::Block, RuntimeApi};
+use timechain_runtime::{self, opaque::Block, PublicKey, Runtime, RuntimeApi, RuntimeCall};
+
+fn submit_transaction(
+	pool: OffchainTransactionPoolFactory<Block>,
+	block_hash: <Block as sp_runtime::traits::Block>::Hash,
+	call: RuntimeCall,
+	public: PublicKey,
+) -> Result<(), ()> {
+	use frame_system::offchain::{CreateSignedTransaction, SendTransactionTypes};
+	use frame_system::Account;
+	use sp_api::Encode;
+	use sp_runtime::traits::{Extrinsic, IdentifyAccount};
+	use time_primitives::crypto::SigAuthId;
+	let account = public.clone().into_account();
+	let nonce = Account::<Runtime>::get(&account).nonce;
+	let (call, signature) =
+		<Runtime as CreateSignedTransaction<RuntimeCall>>::create_transaction::<SigAuthId>(
+			call,
+			public,
+			account.clone(),
+			nonce,
+		)
+		.unwrap();
+	let tx = <Runtime as SendTransactionTypes<RuntimeCall>>::Extrinsic::new(call, Some(signature))
+		.encode();
+	let result = pool.offchain_transaction_pool(block_hash).submit_transaction(tx);
+	if result.is_ok() {
+		Account::<Runtime>::mutate(&account, |a| a.nonce += 1);
+	}
+	result
+}
 
 // Our native executor instance.
 pub struct ExecutorDispatch;

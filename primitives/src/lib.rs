@@ -42,6 +42,7 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
+		fn ocw_pubkey_payload(payload: OcwPayload);
 	}
 }
 

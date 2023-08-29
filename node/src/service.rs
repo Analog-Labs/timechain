@@ -344,7 +344,7 @@ pub fn new_full(
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			sync: sync_service,
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		};
 
 		// the GRANDPA voter task is considered infallible, i.e.
@@ -365,6 +365,7 @@ pub fn new_full(
 				peer_id,
 				tss_request: sign_data_receiver,
 				protocol_request: protocol_rx,
+				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(

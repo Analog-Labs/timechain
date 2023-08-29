@@ -12,6 +12,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use time_primitives::{PeerId, TimeApi, TssRequest};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
@@ -48,6 +49,7 @@ where
 	pub peer_id: PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 }
 
 /// Start the Timeworker gadget.
@@ -72,6 +74,7 @@ pub async fn start_timeworker_gadget<B, BE, C, R, N>(
 		peer_id,
 		tss_request,
 		protocol_request,
+		offchain_tx_pool_factory,
 	} = timeworker_params;
 	let worker_params = worker::WorkerParams {
 		_block,
@@ -82,6 +85,7 @@ pub async fn start_timeworker_gadget<B, BE, C, R, N>(
 		peer_id,
 		tss_request,
 		protocol_request,
+		offchain_tx_pool_factory
 	};
 	let mut worker = worker::TimeWorker::new(worker_params);
 	worker.run().await

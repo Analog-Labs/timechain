@@ -1,6 +1,7 @@
+use crate::Vec;
 use crate::{CycleStatus, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
 use codec::{Decode, Encode};
-use scale_info::prelude::string::String;
+use scale_info::{prelude::string::String, TypeInfo};
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
 pub const OCW_LOCK: &[u8] = b"ocwlock";
@@ -15,7 +16,7 @@ pub fn msg_key(id: u64) -> [u8; 14] {
 	key
 }
 
-#[derive(Clone, Debug, PartialEq, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Decode, Encode, TypeInfo)]
 pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
 	SubmitTaskHash { shard_id: ShardId, task_id: TaskId, hash: String },
@@ -95,4 +96,8 @@ pub fn read_message_with_prefix<B: OffchainStorage>(
 /// Only used for testing.
 pub fn read_message<B: OffchainStorage>(storage: B) -> Option<OcwPayload> {
 	read_message_with_prefix(storage, STORAGE_PREFIX)
+}
+
+pub fn submit_transaction(data: Vec<u8>) {
+	let _result = sp_io::offchain::submit_transaction(data);
 }

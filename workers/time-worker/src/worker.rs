@@ -9,6 +9,8 @@ use sc_client_api::{Backend, BlockchainEvents};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
 use serde::{Deserialize, Serialize};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block, Header};
 use std::{
@@ -51,6 +53,7 @@ pub struct WorkerParams<B: Block, BE, C, R, N> {
 	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 }
 
 /// Our structure, which holds refs to everything we need to operate
@@ -60,6 +63,7 @@ pub struct TimeWorker<B: Block, BE, C, R, N> {
 	client: Arc<C>,
 	runtime: Arc<R>,
 	network: N,
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
@@ -88,6 +92,7 @@ where
 			peer_id,
 			tss_request,
 			protocol_request,
+			offchain_tx_pool_factory,
 		} = worker_params;
 		Self {
 			_block,
@@ -95,6 +100,7 @@ where
 			client,
 			runtime,
 			network,
+			offchain_tx_pool_factory,
 			peer_id,
 			tss_request,
 			protocol_request,
@@ -103,6 +109,13 @@ where
 			requests: Default::default(),
 			channels: Default::default(),
 		}
+	}
+
+	fn on_block_import(&mut self, block: <B as Block>::Hash,){
+		log::info!("block imported {:?} adding pool factory", block);
+		self.runtime
+			.runtime_api()
+			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
 	}
 
 	fn on_finality(&mut self, block: <B as Block>::Hash, block_number: u64) {
@@ -119,7 +132,7 @@ where
 				self.runtime.runtime_api().get_shard_threshold(block, shard_id).unwrap();
 			let members = members.into_iter().map(to_peer_id).collect();
 			self.tss_states.insert(shard_id, Tss::new(local_peer_id, members, threshold));
-			self.poll_actions(shard_id, block_number);
+			self.poll_actions(shard_id, block, block_number);
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
 			if n > block_number {
@@ -133,7 +146,7 @@ where
 					continue;
 				};
 				tss.sign(request_id, data.to_vec());
-				self.poll_actions(shard_id, block_number);
+				self.poll_actions(shard_id, block, block_number);
 			}
 		}
 		while let Some(n) = self.messages.keys().copied().next() {
@@ -146,12 +159,12 @@ where
 				continue;
 			};
 				tss.on_message(peer_id, msg);
-				self.poll_actions(shard_id, n);
+				self.poll_actions(shard_id, block, n);
 			}
 		}
 	}
 
-	fn poll_actions(&mut self, shard_id: ShardId, block_number: u64) {
+	fn poll_actions(&mut self, shard_id: ShardId, block: <B as Block>::Hash, block_number: u64) {
 		let tss = self.tss_states.get_mut(&shard_id).unwrap();
 		while let Some(action) = tss.next_action() {
 			match action {
@@ -198,10 +211,22 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					time_primitives::write_message(
-						self.backend.offchain_storage().unwrap(),
-						&OcwPayload::SubmitTssPublicKey { shard_id, public_key },
-					);
+					let call = self
+						.runtime
+						.runtime_api()
+						.ocw_pubkey_payload(block, OcwPayload::SubmitTssPublicKey { shard_id, public_key });
+
+					// let extensions = self.runtime.runtime_api().extensions();
+					// log::info!("extensions registered {:?}", extensions);
+
+					// let pool = self.offchain_tx_pool_factory.offchain_transaction_pool(block);
+					// pool.submit_extrinsic(call.into());
+					// time_primitives::submit_transaction(call);
+					// time_primitives::write_message(
+					// 	self.backend.offchain_storage().unwrap(),
+					// 	&OcwPayload::SubmitTssPublicKey { shard_id, public_key },
+					// );
+
 				},
 				TssAction::Signature(request_id, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -227,6 +252,7 @@ where
 	/// topics
 	pub(crate) async fn run(&mut self) {
 		let mut finality_notifications = self.client.finality_notification_stream();
+		let mut block_import_stream = self.client.finality_notification_stream();
 		loop {
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
@@ -241,6 +267,17 @@ where
 					let block_number = notification.header.number().to_string().parse().unwrap();
 					log::debug!(target: TW_LOG, "finalized {}", block_number);
 					self.on_finality(block_hash, block_number);
+				},
+				block_import = block_import_stream.next().fuse() => {
+					let Some(block_import) = block_import else {
+						log::debug!(
+							target: TW_LOG,
+							"no new block imports"
+						);
+						continue;
+					};
+					let block_hash = block_import.header.hash();
+					self.on_block_import(block_hash);
 				},
 				tss_request = self.tss_request.next().fuse() => {
 					let Some(TssRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {

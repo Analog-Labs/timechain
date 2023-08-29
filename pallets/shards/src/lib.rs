@@ -239,7 +239,7 @@ pub mod pallet {
 			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
 			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else  { return };
-			let total_members = ShardMembers::<T>::iter().collect::<Vec<_>>().len();
+			let total_members = ShardMembers::<T>::iter_prefix(shard_id).collect::<Vec<_>>().len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
 			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
 			let new_status = old_status.offline_member(max_members_offline);

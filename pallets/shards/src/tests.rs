@@ -161,3 +161,7 @@ fn dkg_times_out() {
 		assert!(ShardMembers::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
+
+// test member_online
+
+// test member_offline

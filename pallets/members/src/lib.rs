@@ -102,6 +102,7 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
+			T::Shards::member_online(&member);
 			Self::deposit_event(Event::RegisteredMember(member, network, id));
 			Ok(())
 		}

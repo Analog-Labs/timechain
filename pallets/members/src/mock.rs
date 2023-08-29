@@ -81,6 +81,7 @@ pub fn roll_to(n: u64) {
 	let now = System::block_number();
 	for i in now + 1..=n {
 		System::set_block_number(i);
+		Members::on_initialize(i);
 	}
 }
 

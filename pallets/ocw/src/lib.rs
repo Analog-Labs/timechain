@@ -223,6 +223,19 @@ pub mod pallet {
 			}
 		}
 
+		pub fn submit_signed_tx(payload: OcwPayload) {
+			if let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = payload {
+				let call = Call::submit_tss_public_key { shard_id, public_key };
+
+				let signer = Signer::<T, T::AuthorityId>::all_accounts();
+				if !signer.can_sign() {
+					log::error!("No local accounts available");
+				}
+
+				let res = signer.send_signed_transaction(|_acct| call.clone().into());
+			}
+		}
+
 		pub fn submit_unsigned_tx(payload: OcwPayload) {
 			use frame_system::offchain::SubmitTransaction;
 

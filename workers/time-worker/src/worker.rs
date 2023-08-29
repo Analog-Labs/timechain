@@ -5,13 +5,14 @@ use futures::{
 	channel::{mpsc, oneshot},
 	FutureExt, StreamExt,
 };
-use sc_client_api::{Backend, BlockchainEvents};
+use sc_client_api::BlockchainEvents;
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde::{Deserialize, Serialize};
 use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
+use sp_keystore::{KeystorePtr, KeystoreExt};
 use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -44,12 +45,12 @@ pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	)
 }
 
-pub struct WorkerParams<B: Block, BE, C, R, N> {
+pub struct WorkerParams<B: Block, C, R, N> {
 	pub _block: PhantomData<B>,
-	pub backend: Arc<BE>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
+	pub kv: KeystorePtr,
 	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
@@ -57,12 +58,12 @@ pub struct WorkerParams<B: Block, BE, C, R, N> {
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, BE, C, R, N> {
+pub struct TimeWorker<B: Block, C, R, N> {
 	_block: PhantomData<B>,
-	backend: Arc<BE>,
 	client: Arc<C>,
 	runtime: Arc<R>,
 	network: N,
+	kv: KeystorePtr,
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssRequest>,
@@ -73,22 +74,21 @@ pub struct TimeWorker<B: Block, BE, C, R, N> {
 	channels: HashMap<TssId, oneshot::Sender<TssSignature>>,
 }
 
-impl<B, BE, C, R, N> TimeWorker<B, BE, C, R, N>
+impl<B, C, R, N> TimeWorker<B, C, R, N>
 where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
-	BE: Backend<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: NetworkRequest,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, BE, C, R, N>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N>) -> Self {
 		let WorkerParams {
 			_block,
-			backend,
 			client,
 			runtime,
 			network,
+			kv,
 			peer_id,
 			tss_request,
 			protocol_request,
@@ -96,10 +96,10 @@ where
 		} = worker_params;
 		Self {
 			_block,
-			backend,
 			client,
 			runtime,
 			network,
+			kv,
 			offchain_tx_pool_factory,
 			peer_id,
 			tss_request,
@@ -205,8 +205,9 @@ where
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
 					let mut runtime = self.runtime.runtime_api();
+					runtime.register_extension(KeystoreExt(self.kv.clone()));
 					runtime.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
-					runtime.submit_unsigned_tx(
+					runtime.submit_signed_tx(
 						block,
 						OcwPayload::SubmitTssPublicKey { shard_id, public_key },
 					);

@@ -211,7 +211,7 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					let _ = self.runtime.runtime_api().ocw_pubkey_payload(
+					let _ = self.runtime.runtime_api().submit_unsigned_tx(
 						block,
 						OcwPayload::SubmitTssPublicKey { shard_id, public_key },
 					);

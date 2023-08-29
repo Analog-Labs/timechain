@@ -230,9 +230,9 @@ pub mod pallet {
 				let call = Call::submit_tss_public_key { shard_id, public_key };
 				let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 				match res {
-					Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
+					Ok(_) => log::info!("Submitted equivocation report."),
 					Err(e) => {
-						error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e)
+						log::error!("Error submitting equivocation report: {:?}", e)
 					},
 				}
 			}

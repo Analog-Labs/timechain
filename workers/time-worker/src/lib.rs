@@ -8,11 +8,11 @@ use futures::channel::mpsc;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
 use sc_network::NetworkRequest;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use time_primitives::{PeerId, TimeApi, TssRequest};
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
@@ -85,7 +85,7 @@ pub async fn start_timeworker_gadget<B, BE, C, R, N>(
 		peer_id,
 		tss_request,
 		protocol_request,
-		offchain_tx_pool_factory
+		offchain_tx_pool_factory,
 	};
 	let mut worker = worker::TimeWorker::new(worker_params);
 	worker.run().await

@@ -12025,7 +12025,6 @@ dependencies = [
  "frost-evm",
  "futures",
  "log",
- "pallet-ocw",
  "sc-client-api",
  "sc-consensus",
  "sc-network",

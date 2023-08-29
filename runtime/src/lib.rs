@@ -52,8 +52,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId, TssPublicKey, OcwPayload
+	AccountId, OcwPayload, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor,
+	TaskExecution, TaskId, TssPublicKey,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1452,8 +1452,8 @@ impl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
 			Tasks::get_task(task_id)
 		}
-		fn ocw_pubkey_payload(payload: OcwPayload){
-			Ocw::submit_tx(payload)
+		fn submit_unsigned_tx(payload: OcwPayload){
+			Ocw::submit_unsigned_tx(payload)
 		}
 	}
 

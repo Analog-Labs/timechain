@@ -1,4 +1,3 @@
-use crate::Vec;
 use crate::{CycleStatus, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
@@ -96,8 +95,4 @@ pub fn read_message_with_prefix<B: OffchainStorage>(
 /// Only used for testing.
 pub fn read_message<B: OffchainStorage>(storage: B) -> Option<OcwPayload> {
 	read_message_with_prefix(storage, STORAGE_PREFIX)
-}
-
-pub fn submit_transaction(data: Vec<u8>) {
-	let _result = sp_io::offchain::submit_transaction(data);
 }

@@ -184,87 +184,61 @@ pub mod pallet {
 			Some(msg)
 		}
 
-		// pub fn submit_tx(payload: OcwPayload) {
-		// 	let Some(collector) = T::Shards::collector_pubkey(payload.shard_id()) else {
-		// 		return;
-		// 	};
-		// 	log::info!("collector pubkey {:?}", collector.into_account());
-		// 	log::info!("got collector");
-		// 	let signer = Signer::<T, T::AuthorityId>::any_account();
-		// 	log::info!("got signer {:?}", signer.can_sign());
-		// 	let call_res = match payload {
-		// 		OcwPayload::SubmitTssPublicKey { shard_id, public_key } => {
-		// 			signer
-		// 			.send_signed_transaction(|_| Call::submit_tss_public_key {
-		// 				shard_id,
-		// 				public_key,
-		// 			})
-		// 		},
-		// 		OcwPayload::SubmitTaskHash { shard_id, task_id, hash } => signer
-		// 			.send_signed_transaction(|_| Call::submit_task_hash {
-		// 				shard_id,
-		// 				task_id,
-		// 				hash: hash.clone(),
-		// 			}),
-		// 		OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
-		// 			.send_signed_transaction(|_| Call::submit_task_result {
-		// 				task_id,
-		// 				cycle,
-		// 				status: status.clone(),
-		// 			}),
-		// 		OcwPayload::SubmitTaskError { task_id, error } => {
-		// 			signer.send_signed_transaction(|_| Call::submit_task_error {
-		// 				task_id,
-		// 				error: error.clone(),
-		// 			})
-		// 		},
-		// 	};
-		// 	let Some((_, res)) = call_res else {
-		// 		log::info!("send signed transaction returned none");
-		// 		return;
-		// 	};
-		// 	if let Err(e) = res {
-		// 		log::error!("send signed transaction returned an error: {:?}", e);
-		// 	}
-		// }
-
 		pub fn submit_tx(payload: OcwPayload) {
-			use frame_system::offchain::SubmitTransaction;
-
-			let call = match payload {
-				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => {
-					Call::submit_tss_public_key {
+			let Some(collector) = T::Shards::collector_pubkey(payload.shard_id()) else {
+				return;
+			};
+			log::info!("collector pubkey {:?}", collector.into_account());
+			log::info!("got collector");
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+			log::info!("got signer {:?}", signer.can_sign());
+			let call_res = match payload {
+				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
+					.send_signed_transaction(|_| Call::submit_tss_public_key {
 						shard_id,
 						public_key,
-					}
-				},
-				OcwPayload::SubmitTaskHash { shard_id, task_id, hash } =>
-					Call::submit_task_hash {
+					}),
+				OcwPayload::SubmitTaskHash { shard_id, task_id, hash } => signer
+					.send_signed_transaction(|_| Call::submit_task_hash {
 						shard_id,
 						task_id,
 						hash: hash.clone(),
-					},
-				OcwPayload::SubmitTaskResult { task_id, cycle, status } =>
-					Call::submit_task_result {
+					}),
+				OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
+					.send_signed_transaction(|_| Call::submit_task_result {
 						task_id,
 						cycle,
 						status: status.clone(),
-					},
+					}),
 				OcwPayload::SubmitTaskError { task_id, error } => {
-					Call::submit_task_error {
+					signer.send_signed_transaction(|_| Call::submit_task_error {
 						task_id,
 						error: error.clone(),
-					}
+					})
 				},
 			};
+			let Some((_, res)) = call_res else {
+				log::info!("send signed transaction returned none");
+				return;
+			};
+			if let Err(e) = res {
+				log::error!("send signed transaction returned an error: {:?}", e);
+			}
+		}
 
+		pub fn submit_unsigned_tx(payload: OcwPayload) {
+			use frame_system::offchain::SubmitTransaction;
 
-			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-			// match res {
-			// 	Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
-			// 	Err(e) => error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e),
-			// }
-
+			if let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = payload {
+				let call = Call::submit_tss_public_key { shard_id, public_key };
+				let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+				match res {
+					Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
+					Err(e) => {
+						error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e)
+					},
+				}
+			}
 		}
 	}
 }

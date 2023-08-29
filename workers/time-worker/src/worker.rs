@@ -8,8 +8,8 @@ use futures::{
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
-use serde::{Deserialize, Serialize};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use serde::{Deserialize, Serialize};
 use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block, Header};
@@ -111,7 +111,7 @@ where
 		}
 	}
 
-	fn on_block_import(&mut self, block: <B as Block>::Hash,){
+	fn on_every_block_import(&mut self, block: <B as Block>::Hash) {
 		log::info!("block imported {:?} adding pool factory", block);
 		self.runtime
 			.runtime_api()
@@ -211,22 +211,10 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					let call = self
-						.runtime
-						.runtime_api()
-						.ocw_pubkey_payload(block, OcwPayload::SubmitTssPublicKey { shard_id, public_key });
-
-					// let extensions = self.runtime.runtime_api().extensions();
-					// log::info!("extensions registered {:?}", extensions);
-
-					// let pool = self.offchain_tx_pool_factory.offchain_transaction_pool(block);
-					// pool.submit_extrinsic(call.into());
-					// time_primitives::submit_transaction(call);
-					// time_primitives::write_message(
-					// 	self.backend.offchain_storage().unwrap(),
-					// 	&OcwPayload::SubmitTssPublicKey { shard_id, public_key },
-					// );
-
+					let call = self.runtime.runtime_api().ocw_pubkey_payload(
+						block,
+						OcwPayload::SubmitTssPublicKey { shard_id, public_key },
+					);
 				},
 				TssAction::Signature(request_id, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -252,7 +240,7 @@ where
 	/// topics
 	pub(crate) async fn run(&mut self) {
 		let mut finality_notifications = self.client.finality_notification_stream();
-		let mut block_import_stream = self.client.finality_notification_stream();
+		let mut block_import_stream = self.client.every_import_notification_stream();
 		loop {
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
@@ -277,7 +265,7 @@ where
 						continue;
 					};
 					let block_hash = block_import.header.hash();
-					self.on_block_import(block_hash);
+					self.on_every_block_import(block_hash);
 				},
 				tss_request = self.tss_request.next().fuse() => {
 					let Some(TssRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {

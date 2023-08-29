@@ -170,7 +170,8 @@ where
 						));
 					},
 					DkgAction::Complete(key_package, public_key_package) => {
-						let public_key = VerifyingKey::new(*public_key_package.group_public());
+						let public_key =
+							VerifyingKey::new(public_key_package.group_public().to_element());
 						self.state = TssState::Roast {
 							key_package,
 							public_key_package,

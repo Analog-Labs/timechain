@@ -196,7 +196,7 @@ where
 					}
 				},
 				TssAction::PublicKey(tss_public_key) => {
-					let public_key = tss_public_key.to_bytes();
+					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
 					time_primitives::write_message(
 						self.backend.offchain_storage().unwrap(),

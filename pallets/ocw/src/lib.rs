@@ -184,14 +184,11 @@ pub mod pallet {
 			Some(msg)
 		}
 
-		pub fn submit_tx(payload: OcwPayload) {
+		pub(crate) fn submit_tx(payload: OcwPayload) {
 			let Some(collector) = T::Shards::collector_pubkey(payload.shard_id()) else {
 				return;
 			};
-			log::info!("collector pubkey {:?}", collector.into_account());
-			log::info!("got collector");
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-			log::info!("got signer {:?}", signer.can_sign());
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
 			let call_res = match payload {
 				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
 					.send_signed_transaction(|_| Call::submit_tss_public_key {

@@ -43,7 +43,7 @@ pub async fn start_task_executor_gadget<B, C, R, T>(params: TaskExecutorParams<B
 where
 	B: Block,
 	C: BlockchainEvents<B>,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {

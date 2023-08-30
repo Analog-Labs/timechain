@@ -224,7 +224,7 @@ impl<B, C, R, T> TaskExecutor<B, C, R, T>
 where
 	B: Block,
 	C: BlockchainEvents<B>,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {
@@ -258,16 +258,17 @@ where
 		let block_height =
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
 		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
-
-		// let mut tx_runtime = self.runtime.runtime_api();
-		// tx_runtime.register_extension(KeystoreExt(self.kv.clone()));
-		// tx_runtime.register_extension(
-		// 	self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
-		// );
+		let tx_runtime = self.runtime.clone();
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 			log::info!("got task ====== {:?}", tasks);
 			for executable_task in tasks.iter().clone() {
+				let mut api = tx_runtime.runtime_api();
+				api.register_extension(KeystoreExt(self.kv.clone()));
+				api.register_extension(
+					self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
+				);
+
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
 				let retry_count = executable_task.retry_count;
@@ -298,12 +299,12 @@ where
 							);
 							match result {
 								Ok(_hash) => {
-									// tx_runtime.submit_task_hash(block_hash, shard_id, task_id, hash)
+									api.submit_task_hash(block_hash, shard_id, task_id, hash)
 								},
 
 								Err(error) => {
 									let error = TaskError { shard_id, error };
-									// tx_runtime.submit_task_error(block_hash, task_id, error)
+									api.submit_task_error(block_hash, task_id, error)
 								},
 							}
 						});
@@ -334,12 +335,12 @@ where
 							match result {
 								Ok(signature) => {
 									let status = CycleStatus { shard_id, signature };
-									// tx_runtime
-									// 	.submit_task_result(block_hash, task_id, cycle, status)
+									api
+										.submit_task_result(block_hash, task_id, cycle, status)
 								},
 								Err(error) => {
 									let error = TaskError { shard_id, error };
-									// tx_runtime.submit_task_error(block_hash, task_id, error)
+									api.submit_task_error(block_hash, task_id, error)
 								},
 							}
 						});

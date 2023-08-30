@@ -10,6 +10,7 @@ use sp_api::ApiExt;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block;
+use std::marker::{Send, Sync};
 use std::{
 	collections::HashSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
@@ -224,7 +225,7 @@ impl<B, C, R, T> TaskExecutor<B, C, R, T>
 where
 	B: Block,
 	C: BlockchainEvents<B>,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + 'static + Send + Sync,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {
@@ -299,7 +300,7 @@ where
 								result
 							);
 							match result {
-								Ok(_hash) => {
+								Ok(hash) => {
 									api.submit_task_hash(block_hash, shard_id, task_id, hash)
 								},
 

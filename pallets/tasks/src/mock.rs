@@ -2,11 +2,13 @@ use crate::{self as task_schedule};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
+	testing::sr25519::Public,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
 use time_primitives::{PeerId, PublicKey, ShardId, ShardsInterface};
 
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
@@ -19,7 +21,7 @@ impl ShardsInterface for MockShardInterface {
 	}
 
 	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
-		None
+		Some(sp_runtime::MultiSigner::Sr25519(Public([0u8; 32])))
 	}
 
 	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
@@ -81,8 +83,39 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: u32,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
 }
 
 // Build genesis storage according to the mock runtime.

@@ -157,6 +157,8 @@ pub mod pallet {
 		CollectorPeerIdNotFound,
 		// Tx is not signed by collector of shard
 		NotSignedByCollector,
+		// Collector PublicKey not found
+		CollectorPubKeyNotFound,
 	}
 
 	#[pallet::call]
@@ -298,7 +300,7 @@ pub mod pallet {
 		fn ensure_signed_by_collector(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let account_id = ensure_signed(origin)?;
 			let Some(collector) = T::Shards::collector_pubkey(shard_id) else {
-				return Err(Error::<T>::NotSignedByCollector.into());
+				return Err(Error::<T>::CollectorPubKeyNotFound.into());
 			};
 			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
 			Ok(())
@@ -395,20 +397,16 @@ pub mod pallet {
 			use frame_system::offchain::SubmitTransaction;
 
 			let call = Call::submit_result { task_id, cycle, status };
-			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					log::error!("Failed to submit task result {:?}/{:?}", task_id, cycle);
-				});
+			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+			log::info!("Submitted Task result {:?}/{:?}: {:?}", task_id, cycle, res);
 		}
 
 		pub fn submit_task_error(task_id: TaskId, error: TaskError) {
 			use frame_system::offchain::SubmitTransaction;
 
 			let call = Call::submit_error { task_id, error };
-			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					log::error!("Failed to submit task error {:?}", task_id);
-				});
+			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+			log::info!("Submitted Task error {:?}: {:?}", task_id, res);
 		}
 	}
 
@@ -433,14 +431,33 @@ pub mod pallet {
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			//transaction validity
+
 			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
 				return InvalidTransaction::Call.into();
 			}
+
+			let is_valid = match call {
+				Call::submit_result { task_id, cycle, .. } => {
+					log::info!("Got unsigned tx for submit_result {:?}/{:?}", task_id, cycle);
+					TaskResults::<T>::get(task_id, cycle).is_none()
+				},
+				Call::submit_error { task_id, .. } => {
+					log::info!("Got unsigned tx for submit_error {:?}", task_id);
+					true
+				},
+				_ => false,
+			};
+
+			if !is_valid {
+				return InvalidTransaction::Call.into();
+			}
+
 			ValidTransaction::with_tag_prefix("tasks-pallet")
 				.priority(TransactionPriority::max_value())
-				.longevity(3)
-				.propagate(true)
+				.longevity(10)
+				.propagate(false)
 				.build()
 		}
 

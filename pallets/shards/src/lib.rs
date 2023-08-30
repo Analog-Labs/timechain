@@ -191,13 +191,22 @@ pub mod pallet {
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
 				return InvalidTransaction::Call.into();
 			}
+
+			let is_valid = match call {
+				Call::submit_tss_public_key { shard_id, public_key } => {
+					log::info!("got unsigned tx for tss pub key {:?}", shard_id);
+					ShardPublicKey::<T>::get(shard_id).is_none()
+				},
+				_ => false,
+			};
+
 			ValidTransaction::with_tag_prefix("shards-pallet")
 				.priority(TransactionPriority::max_value())
-				.longevity(3)
+				.longevity(10)
 				.propagate(true)
 				.build()
 		}
@@ -266,12 +275,9 @@ pub mod pallet {
 
 		pub fn submit_tss_pub_key(shard_id: ShardId, public_key: TssPublicKey) {
 			use frame_system::offchain::SubmitTransaction;
-
 			let call = Call::submit_tss_public_key { shard_id, public_key };
-			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					log::error!("Failed to submit tss group key");
-				});
+			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+			log::info!("submitted pubkey {:?}", res);
 		}
 	}
 

@@ -4,6 +4,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
+use std::marker::{Send, Sync};
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::{PeerId, TaskSpawner, TimeApi};
 
@@ -43,7 +44,7 @@ pub async fn start_task_executor_gadget<B, C, R, T>(params: TaskExecutorParams<B
 where
 	B: Block,
 	C: BlockchainEvents<B>,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + 'static + Send + Sync,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {

@@ -2,6 +2,7 @@ use crate::worker::TaskExecutor;
 use sc_client_api::BlockchainEvents;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::{PeerId, TaskSpawner, TimeApi};
@@ -29,6 +30,7 @@ where
 	pub _block: PhantomData<B>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
+	pub kv: KeystorePtr,
 	pub peer_id: PeerId,
 	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	pub task_spawner: T,

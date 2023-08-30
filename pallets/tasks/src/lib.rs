@@ -11,20 +11,27 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
-	use sp_runtime::Saturating;
+	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Network, OcwTaskInterface, ShardId, ShardsInterface, TaskCycle,
-		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
-		TaskStatus, TasksInterface,
+		CycleStatus, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
+		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskStatus,
+		TasksInterface,
 	};
 
 	pub trait WeightInfo {
 		fn create_task() -> Weight;
 		fn stop_task() -> Weight;
 		fn resume_task() -> Weight;
+		fn submit_result() -> Weight;
+		fn submit_error() -> Weight;
+		fn submit_hash() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -39,6 +46,18 @@ pub mod pallet {
 		fn resume_task() -> Weight {
 			Weight::default()
 		}
+
+		fn submit_result() -> Weight {
+			Weight::default()
+		}
+
+		fn submit_error() -> Weight {
+			Weight::default()
+		}
+
+		fn submit_hash() -> Weight {
+			Weight::default()
+		}
 	}
 
 	#[pallet::pallet]
@@ -46,8 +65,12 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>, Public = PublicKey>
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		#[pallet::constant]
@@ -132,6 +155,8 @@ pub mod pallet {
 		CycleMustBeGreaterThanZero,
 		/// Collector peer id not found
 		CollectorPeerIdNotFound,
+		// Tx is not signed by collector of shard
+		NotSignedByCollector,
 	}
 
 	#[pallet::call]
@@ -191,6 +216,64 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskResumed(task_id));
 			Ok(())
 		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::submit_result())]
+		pub fn submit_result(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			cycle: TaskCycle,
+			status: CycleStatus,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
+			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
+			TaskResults::<T>::insert(task_id, cycle, status.clone());
+			TaskRetryCounter::<T>::insert(task_id, 0);
+			if Self::is_complete(task_id) {
+				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
+					ShardTasks::<T>::remove(shard_id, task_id);
+				}
+				TaskState::<T>::insert(task_id, TaskStatus::Completed);
+			}
+			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
+			Ok(())
+		}
+
+		/// Submit Task Error
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::submit_error())]
+		pub fn submit_error(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			error: TaskError,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+			let retry_count = TaskRetryCounter::<T>::get(task_id);
+			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
+			// task fails when new retry count == max - 1 => old retry count == max
+			if retry_count == T::MaxRetryCount::get() {
+				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
+				Self::deposit_event(Event::TaskFailed(task_id, error));
+			}
+			Ok(())
+		}
+
+		/// Submit Task Hash
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::submit_hash())]
+		pub fn submit_hash(
+			origin: OriginFor<T>,
+			shard_id: ShardId,
+			task_id: TaskId,
+			hash: String,
+		) -> DispatchResult {
+			Self::ensure_signed_by_collector(origin, shard_id)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), (Error::<T>::UnknownTask));
+			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
+			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -210,6 +293,15 @@ pub mod pallet {
 
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
 			Tasks::<T>::get(task_id)
+		}
+
+		fn ensure_signed_by_collector(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			let account_id = ensure_signed(origin)?;
+			let Some(collector) = T::Shards::collector_pubkey(shard_id) else {
+				return Err(Error::<T>::NotSignedByCollector.into());
+			};
+			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
+			Ok(())
 		}
 	}
 
@@ -276,6 +368,48 @@ pub mod pallet {
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
 		}
+
+		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) {
+			let Some(collector) = T::Shards::collector_pubkey(shard_id) else {
+				log::error!("No collector found while sumbitting task hash {:?}", task_id);
+				return;
+			};
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
+
+			let call_res = signer.send_signed_transaction(|_| Call::submit_hash {
+				shard_id,
+				task_id,
+				hash: hash.clone(),
+			});
+
+			let Some((_, res)) = call_res else {
+				log::info!("send signed transaction returned none");
+				return;
+			};
+			if let Err(e) = res {
+				log::error!("send signed transaction returned an error: {:?}", e)
+			}
+		}
+
+		pub fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus) {
+			use frame_system::offchain::SubmitTransaction;
+
+			let call = Call::submit_result { task_id, cycle, status };
+			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| {
+					log::error!("Failed to submit task result {:?}/{:?}", task_id, cycle);
+				});
+		}
+
+		pub fn submit_task_error(task_id: TaskId, error: TaskError) {
+			use frame_system::offchain::SubmitTransaction;
+
+			let call = Call::submit_error { task_id, error };
+			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| {
+					log::error!("Failed to submit task error {:?}", task_id);
+				});
+		}
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
@@ -296,41 +430,21 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> OcwTaskInterface for Pallet<T> {
-		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult {
-			ensure!(Tasks::<T>::get(task_id).is_some(), (Error::<T>::UnknownTask));
-			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
-			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
-			Ok(())
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
+				return InvalidTransaction::Call.into();
+			}
+			ValidTransaction::with_tag_prefix("tasks-pallet")
+				.priority(TransactionPriority::max_value())
+				.longevity(3)
+				.propagate(true)
+				.build()
 		}
 
-		fn submit_task_result(
-			task_id: TaskId,
-			cycle: TaskCycle,
-			status: CycleStatus,
-		) -> DispatchResult {
-			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
-			TaskResults::<T>::insert(task_id, cycle, status.clone());
-			TaskRetryCounter::<T>::insert(task_id, 0);
-			if Self::is_complete(task_id) {
-				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-					ShardTasks::<T>::remove(shard_id, task_id);
-				}
-				TaskState::<T>::insert(task_id, TaskStatus::Completed);
-			}
-			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
-			Ok(())
-		}
-
-		fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult {
-			let retry_count = TaskRetryCounter::<T>::get(task_id);
-			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
-			// task fails when new retry count == max - 1 => old retry count == max
-			if retry_count == T::MaxRetryCount::get() {
-				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
-				Self::deposit_event(Event::TaskFailed(task_id, error));
-			}
+		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
 			Ok(())
 		}
 	}

@@ -8,13 +8,14 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
 use sp_api::ApiExt;
 use sp_api::{HeaderT, ProvideRuntimeApi};
+use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::{
 	collections::HashSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
-	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
+	CycleStatus, Function, PeerId, ShardId, TaskCycle, TaskError, TaskExecution, TaskId,
+	TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -212,6 +213,7 @@ pub struct TaskExecutor<B: Block, C, R, T> {
 	_block: PhantomData<B>,
 	client: Arc<C>,
 	runtime: Arc<R>,
+	kv: KeystorePtr,
 	peer_id: PeerId,
 	running_tasks: HashSet<TaskExecution>,
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
@@ -231,6 +233,7 @@ where
 			_block,
 			client,
 			runtime,
+			kv,
 			peer_id,
 			offchain_tx_pool_factory,
 			task_spawner,
@@ -239,6 +242,7 @@ where
 			_block,
 			client,
 			runtime,
+			kv,
 			peer_id,
 			running_tasks: Default::default(),
 			offchain_tx_pool_factory,
@@ -255,10 +259,11 @@ where
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
 		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
 
-		let mut tx_runtime = self.runtime.runtime_api();
-		tx_runtime.register_extension(
-			self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
-		);
+		// let mut tx_runtime = self.runtime.runtime_api();
+		// tx_runtime.register_extension(KeystoreExt(self.kv.clone()));
+		// tx_runtime.register_extension(
+		// 	self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
+		// );
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 			log::info!("got task ====== {:?}", tasks);
@@ -292,16 +297,13 @@ where
 								result
 							);
 							match result {
-								Ok(hash) => tx_runtime.submit_unsigned(
-									block_hash,
-									OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
-								),
+								Ok(_hash) => {
+									// tx_runtime.submit_task_hash(block_hash, shard_id, task_id, hash)
+								},
+
 								Err(error) => {
 									let error = TaskError { shard_id, error };
-									tx_runtime.submit_unsigned(
-										block_hash,
-										OcwPayload::SubmitTaskError { task_id, error },
-									)
+									// tx_runtime.submit_task_error(block_hash, task_id, error)
 								},
 							}
 						});
@@ -332,17 +334,12 @@ where
 							match result {
 								Ok(signature) => {
 									let status = CycleStatus { shard_id, signature };
-									tx_runtime.submit_unsigned(
-										block_hash,
-										OcwPayload::SubmitTaskResult { task_id, cycle, status },
-									)
+									// tx_runtime
+									// 	.submit_task_result(block_hash, task_id, cycle, status)
 								},
 								Err(error) => {
 									let error = TaskError { shard_id, error };
-									tx_runtime.submit_unsigned(
-										block_hash,
-										OcwPayload::SubmitTaskError { task_id, error },
-									)
+									// tx_runtime.submit_task_error(block_hash, task_id, error)
 								},
 							}
 						});

@@ -381,6 +381,7 @@ pub fn new_full(
 				_block: PhantomData,
 				runtime: client.clone(),
 				client,
+				kv: keystore_container.keystore(),
 				peer_id,
 				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
 				task_spawner: futures::executor::block_on(task_executor::Task::new(

@@ -19,7 +19,7 @@ use std::{
 	marker::PhantomData,
 	sync::Arc,
 };
-use time_primitives::{OcwPayload, ShardId, TimeApi, TssId, TssRequest, TssSignature};
+use time_primitives::{ShardId, TimeApi, TssId, TssRequest, TssSignature};
 use tss::{Tss, TssAction, TssMessage};
 
 #[derive(Deserialize, Serialize)]
@@ -209,10 +209,7 @@ where
 					runtime.register_extension(
 						self.offchain_tx_pool_factory.offchain_transaction_pool(block),
 					);
-					if let Err(e) = runtime.submit_unsigned(
-						block,
-						OcwPayload::SubmitTssPublicKey { shard_id, public_key },
-					) {
+					if let Err(e) = runtime.submit_tss_public_key(block, shard_id, public_key) {
 						log::error!("Error submitting tss pub key {:?}", e);
 					}
 				},

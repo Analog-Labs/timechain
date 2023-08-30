@@ -12,20 +12,26 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_system::offchain::{AppCrypto, CreateSignedTransaction};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		Network, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface, TasksInterface,
+		TssPublicKey,
 	};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
+		fn submit_tss_public_key() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn register_shard() -> Weight {
+			Weight::default()
+		}
+
+		fn submit_tss_public_key() -> Weight {
 			Weight::default()
 		}
 	}
@@ -35,8 +41,12 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>, Public = PublicKey>
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: TasksInterface;
 		#[pallet::constant]
@@ -135,6 +145,26 @@ pub mod pallet {
 			Self::create_shard(network, members, collector, threshold);
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
+		pub fn submit_tss_public_key(
+			origin: OriginFor<T>,
+			shard_id: ShardId,
+			public_key: TssPublicKey,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(
+				ShardPublicKey::<T>::get(shard_id).is_none(),
+				Error::<T>::PublicKeyAlreadyRegistered
+			);
+			<ShardPublicKey<T>>::insert(shard_id, public_key);
+			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
+			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
+			T::TaskScheduler::shard_online(shard_id, network);
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -155,6 +185,25 @@ pub mod pallet {
 				}
 			});
 			T::DbWeight::get().writes(writes)
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
+				return InvalidTransaction::Call.into();
+			}
+			ValidTransaction::with_tag_prefix("shards-pallet")
+				.priority(TransactionPriority::max_value())
+				.longevity(3)
+				.propagate(true)
+				.build()
+		}
+
+		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
+			Ok(())
 		}
 	}
 
@@ -214,28 +263,15 @@ pub mod pallet {
 			T::TaskScheduler::shard_offline(shard_id, network);
 			Ok(())
 		}
-	}
 
-	impl<T: Config> OcwShardInterface for Pallet<T> {
-		fn benchmark_register_shard(
-			network: Network,
-			members: Vec<PeerId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
-			Self::create_shard(network, members, collector, threshold);
-		}
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
-			);
-			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
-			Ok(())
+		pub fn submit_tss_pub_key(shard_id: ShardId, public_key: TssPublicKey) {
+			use frame_system::offchain::SubmitTransaction;
+
+			let call = Call::submit_tss_public_key { shard_id, public_key };
+			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| {
+					log::error!("Failed to submit tss group key");
+				});
 		}
 	}
 

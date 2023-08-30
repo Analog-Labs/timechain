@@ -2,14 +2,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use scale_info::prelude::string::String;
-use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
+use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
-mod ocw;
 mod shard;
 mod task;
-
-pub use crate::ocw::*;
 pub use crate::shard::*;
 pub use crate::task::*;
 
@@ -42,8 +39,10 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn submit_signed(payload: OcwPayload);
-		fn submit_unsigned(payload: OcwPayload);
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey);
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus);
+		fn submit_task_error(shard_id: ShardId, error: TaskError);
 	}
 }
 
@@ -56,21 +55,4 @@ pub trait ShardsInterface {
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
-}
-
-pub trait OcwShardInterface {
-	fn benchmark_register_shard(
-		network: Network,
-		members: Vec<PeerId>,
-		collector: PublicKey,
-		threshold: u16,
-	);
-	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
-}
-
-pub trait OcwTaskInterface {
-	fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult;
-	fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus)
-		-> DispatchResult;
-	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
 }

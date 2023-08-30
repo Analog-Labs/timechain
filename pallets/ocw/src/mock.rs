@@ -29,7 +29,7 @@ pub struct MockShards;
 impl OcwShardInterface for MockShards {
 	fn benchmark_register_shard(
 		_network: Network,
-		_members: Vec<PeerId>,
+		_members: Vec<AccountId>,
 		_collector: PublicKey,
 		_threshold: u16,
 	) {

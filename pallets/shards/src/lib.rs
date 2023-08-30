@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, MemberEvents, Network, OcwShardInterface, PublicKey, ShardId, ShardStatus,
-		ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, MemberEvents, MemberStorage, Network, OcwShardInterface, PublicKey, ShardId,
+		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -39,6 +39,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: TasksInterface;
+		type Members: MemberStorage;
 		#[pallet::constant]
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]
@@ -111,6 +112,8 @@ pub mod pallet {
 		ThresholdMustBeNonZero,
 		ShardAlreadyOffline,
 		MaxOneShardPerMember,
+		AllCreatedShardMembersMustBeOnline,
+		OfflineShardMayNotGoOnline,
 	}
 
 	#[pallet::call]
@@ -141,6 +144,10 @@ pub mod pallet {
 			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
 			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
 			for member in &members {
+				ensure!(
+					T::Members::is_member_online(member),
+					Error::<T>::AllCreatedShardMembersMustBeOnline
+				);
 				ensure!(MemberShard::<T>::get(member).is_none(), Error::<T>::MaxOneShardPerMember);
 			}
 			Self::create_shard(network, members, collector, threshold);
@@ -189,8 +196,9 @@ pub mod pallet {
 		}
 
 		/// Remove shard state for shard that just went offline
+		/// Set shard status to offline and keep shard public key if already submitted
 		fn remove_shard_offline(shard_id: ShardId) {
-			ShardState::<T>::remove(shard_id);
+			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
 			ShardThreshold::<T>::remove(shard_id);
 			ShardCollectorPublicKey::<T>::remove(shard_id);
 			if let Some(network) = ShardNetwork::<T>::take(shard_id) {
@@ -245,10 +253,12 @@ pub mod pallet {
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
 			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
 			let new_status = old_status.offline_member(max_members_offline);
-			if matches!(new_status, ShardStatus::Offline) {
+			if matches!(new_status, ShardStatus::Offline)
+				&& !matches!(old_status, ShardStatus::Offline)
+			{
 				Self::remove_shard_offline(shard_id);
 				Self::deposit_event(Event::ShardOffline(shard_id));
-			} else {
+			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
 		}
@@ -264,15 +274,19 @@ pub mod pallet {
 			Self::create_shard(network, members, collector, threshold);
 		}
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(
+				!matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Offline)),
+				Error::<T>::OfflineShardMayNotGoOnline
+			);
 			ensure!(
 				ShardPublicKey::<T>::get(shard_id).is_none(),
 				Error::<T>::PublicKeyAlreadyRegistered
 			);
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			T::TaskScheduler::shard_online(shard_id, network);
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
 			Ok(())
 		}
 	}

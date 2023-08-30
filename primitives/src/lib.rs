@@ -55,6 +55,7 @@ pub trait MemberEvents {
 
 pub trait MemberStorage {
 	fn member_peer_id(account: AccountId) -> Option<PeerId>;
+	fn is_member_online(account: &AccountId) -> bool;
 }
 
 pub trait ShardsInterface {

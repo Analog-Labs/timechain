@@ -1119,6 +1119,7 @@ impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type TaskScheduler = Tasks;
+	type Members = Members;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
 	type DkgTimeout = ConstU32<10>;

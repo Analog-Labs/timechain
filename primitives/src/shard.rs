@@ -72,7 +72,16 @@ impl<B: Copy> ShardStatus<B> {
 					ShardStatus::PartialOffline(new_count)
 				}
 			},
-			ShardStatus::Online => ShardStatus::PartialOffline(1),
+			// if a member goes offline before the group key is submitted,
+			// then the shard will never go online
+			ShardStatus::Created(_) => ShardStatus::Offline,
+			ShardStatus::Online => {
+				if max.is_zero() {
+					ShardStatus::Offline
+				} else {
+					ShardStatus::PartialOffline(1)
+				}
+			},
 			_ => *self,
 		}
 	}

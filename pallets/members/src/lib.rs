@@ -127,5 +127,10 @@ pub mod pallet {
 		fn member_peer_id(account: AccountId) -> Option<PeerId> {
 			MemberPeerId::<T>::get(account)
 		}
+		fn is_member_online(account: &AccountId) -> bool {
+			let Some(heart) = Heartbeat::<T>::get(account) else { return false };
+			frame_system::Pallet::<T>::block_number().saturating_sub(heart.block)
+				< T::HeartbeatTimeout::get()
+		}
 	}
 }

@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, ShardId, TasksInterface};
+use time_primitives::{MemberStorage, Network, PeerId, ShardId, TasksInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -16,6 +16,17 @@ pub struct MockTaskScheduler;
 impl TasksInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: Network) {}
 	fn shard_offline(_: ShardId, _: Network) {}
+}
+
+pub struct MockMembers;
+
+impl MemberStorage for MockMembers {
+	fn member_peer_id(_: AccountId) -> Option<PeerId> {
+		None
+	}
+	fn is_member_online(_: &AccountId) -> bool {
+		true
+	}
 }
 
 frame_support::construct_runtime!(
@@ -73,6 +84,7 @@ impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type TaskScheduler = MockTaskScheduler;
+	type Members = MockMembers;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
 	type DkgTimeout = ConstU64<10>;

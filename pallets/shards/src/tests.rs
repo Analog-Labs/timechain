@@ -2,7 +2,9 @@ use crate::mock::*;
 use crate::{Error, Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, Network, OcwShardInterface, PublicKey};
+use time_primitives::{
+	AccountId, MemberEvents, Network, OcwShardInterface, PublicKey, ShardStatus,
+};
 
 fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
@@ -14,7 +16,7 @@ fn shards() -> [[AccountId; 3]; 2] {
 	[[a, b, c], [d, e, f]]
 }
 
-fn first_shard() -> [AccountId; 3] {
+fn shard() -> [AccountId; 3] {
 	let a: AccountId = [1u8; 32].into();
 	let b: AccountId = [2u8; 32].into();
 	let c: AccountId = [3u8; 32].into();
@@ -44,7 +46,7 @@ fn test_register_shard() {
 			assert_eq!(members.len(), shard.len());
 			assert_eq!(threshold, 1);
 		}
-		for member in first_shard() {
+		for member in shard() {
 			let shards = Shards::get_shards(member);
 			assert_eq!(shards.len(), 1);
 		}
@@ -122,18 +124,65 @@ fn dkg_times_out() {
 		assert_ok!(Shards::register_shard(
 			RawOrigin::Root.into(),
 			Network::Ethereum,
-			first_shard().to_vec(),
+			shard().to_vec(),
 			collector(),
 			1,
 		));
 		roll_to(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
-		assert!(ShardState::<Test>::get(0).is_none());
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 		assert!(ShardNetwork::<Test>::get(0).is_none());
 		assert!(ShardMembers::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
 
-// member_offline_sets_shard_partially_offline
+#[test]
+fn member_offline_before_group_key_submitted_then_shard_offline() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Shards::register_shard(
+			RawOrigin::Root.into(),
+			Network::Ethereum,
+			shard().to_vec(),
+			collector(),
+			1,
+		));
+		Shards::member_offline(&shard()[0]);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
+		assert_noop!(
+			Shards::submit_tss_public_key(0, [0; 33]),
+			Error::<Test>::OfflineShardMayNotGoOnline
+		);
+	});
+}
 
-// member_offline_above_threshold_sets_shard_offline
+#[test]
+fn member_offline_sets_online_shard_partially_offline() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Shards::register_shard(
+			RawOrigin::Root.into(),
+			Network::Ethereum,
+			shard().to_vec(),
+			collector(),
+			1,
+		));
+		assert_ok!(Shards::submit_tss_public_key(0, [0; 33]));
+		Shards::member_offline(&shard()[0]);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
+	});
+}
+
+#[test]
+fn member_offline_above_threshold_sets_online_shard_offline() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Shards::register_shard(
+			RawOrigin::Root.into(),
+			Network::Ethereum,
+			shard().to_vec(),
+			collector(),
+			shard().len().try_into().unwrap(),
+		));
+		assert_ok!(Shards::submit_tss_public_key(0, [0; 33]));
+		Shards::member_offline(&shard()[0]);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
+	});
+}

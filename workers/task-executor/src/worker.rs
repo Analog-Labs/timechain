@@ -7,7 +7,13 @@ use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{collections::{HashSet, HashMap}, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	future::Future,
+	marker::PhantomData,
+	pin::Pin,
+	sync::Arc,
+};
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
 	TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
@@ -226,7 +232,8 @@ where
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
 				if self.running_tasks.contains(&executable_task) {
-					if let Some(executed_block_num) = self.execution_block_map.get(&executable_task) {
+					if let Some(executed_block_num) = self.execution_block_map.get(&executable_task)
+					{
 						if executed_block_num + 30 < block_num {
 							log::warn!("clearing execution for task {:?}", executable_task.task_id);
 							self.running_tasks.remove(&executable_task);

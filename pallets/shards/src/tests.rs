@@ -186,3 +186,21 @@ fn member_offline_above_threshold_sets_online_shard_offline() {
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 	});
 }
+
+#[test]
+fn member_online_sets_partially_offline_shard_back_online() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Shards::register_shard(
+			RawOrigin::Root.into(),
+			Network::Ethereum,
+			shard().to_vec(),
+			collector(),
+			1,
+		));
+		assert_ok!(Shards::submit_tss_public_key(0, [0; 33]));
+		Shards::member_offline(&shard()[0]);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
+		Shards::member_online(&shard()[0]);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
+	});
+}

@@ -213,11 +213,11 @@ pub mod pallet {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shards(peer_id: AccountId) -> Vec<ShardId> {
+		pub fn get_shards(account: AccountId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
 					|(shard_id, member, _)| {
-						if member == peer_id {
+						if member == account {
 							Some(shard_id)
 						} else {
 							None

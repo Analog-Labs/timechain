@@ -1446,11 +1446,11 @@ impl_runtime_apis! {
 			Members::member_peer_id(account)
 		}
 
-		fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
-			Shards::get_shards(peer_id)
+		fn get_shards(account: AccountId) -> Vec<ShardId> {
+			Shards::get_shards(account)
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			Shards::get_shard_members(shard_id)
 		}
 

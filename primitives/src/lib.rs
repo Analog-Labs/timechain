@@ -40,8 +40,8 @@ sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
 		fn get_member_peer_id(account: AccountId) -> Option<PeerId>;
-		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
+		fn get_shards(account: AccountId) -> Vec<ShardId>;
+		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;

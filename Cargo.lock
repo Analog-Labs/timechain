@@ -11781,6 +11781,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api",
  "sc-network-test",
+ "sc-transaction-pool-api",
  "serde_json",
  "sp-api",
  "sp-consensus",

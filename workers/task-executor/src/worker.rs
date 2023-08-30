@@ -1,11 +1,12 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{anyhow, Context, Result};
-
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_client_api::{Backend, BlockchainEvents};
+use sc_client_api::BlockchainEvents;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
+use sp_api::ApiExt;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
 use std::{
@@ -207,41 +208,40 @@ impl TaskSpawner for Task {
 	}
 }
 
-pub struct TaskExecutor<B: Block, BE, C, R, T> {
+pub struct TaskExecutor<B: Block, C, R, T> {
 	_block: PhantomData<B>,
-	backend: Arc<BE>,
 	client: Arc<C>,
 	runtime: Arc<R>,
 	peer_id: PeerId,
 	running_tasks: HashSet<TaskExecution>,
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	task_spawner: T,
 }
 
-impl<B, BE, C, R, T> TaskExecutor<B, BE, C, R, T>
+impl<B, C, R, T> TaskExecutor<B, C, R, T>
 where
 	B: Block,
-	BE: Backend<B> + 'static,
 	C: BlockchainEvents<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TimeApi<B>,
 	T: TaskSpawner,
 {
-	pub fn new(params: TaskExecutorParams<B, BE, C, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, C, R, T>) -> Self {
 		let TaskExecutorParams {
 			_block,
-			backend,
 			client,
 			runtime,
 			peer_id,
+			offchain_tx_pool_factory,
 			task_spawner,
 		} = params;
 		Self {
 			_block,
-			backend,
 			client,
 			runtime,
 			peer_id,
 			running_tasks: Default::default(),
+			offchain_tx_pool_factory,
 			task_spawner,
 		}
 	}
@@ -254,6 +254,11 @@ where
 		let block_height =
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
 		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
+
+		let mut tx_runtime = self.runtime.runtime_api();
+		tx_runtime.register_extension(
+			self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
+		);
 		for shard_id in shards {
 			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 			log::info!("got task ====== {:?}", tasks);
@@ -271,7 +276,6 @@ where
 				if block_height >= target_block_number {
 					log::info!("Running Task {}, {:?}", executable_task, executable_task.phase);
 					self.running_tasks.insert(executable_task.clone());
-					let storage = self.backend.offchain_storage().unwrap();
 					if let Some(peer_id) = executable_task.phase.peer_id() {
 						if peer_id != self.peer_id {
 							log::info!("Skipping task {} due to peer_id mismatch", task_id);
@@ -288,18 +292,16 @@ where
 								result
 							);
 							match result {
-								Ok(hash) => {
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
-									);
-								},
+								Ok(hash) => tx_runtime.submit_unsigned(
+									block_hash,
+									OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
+								),
 								Err(error) => {
 									let error = TaskError { shard_id, error };
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskError { task_id, error },
-									);
+									tx_runtime.submit_unsigned(
+										block_hash,
+										OcwPayload::SubmitTaskError { task_id, error },
+									)
 								},
 							}
 						});
@@ -330,17 +332,17 @@ where
 							match result {
 								Ok(signature) => {
 									let status = CycleStatus { shard_id, signature };
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskResult { task_id, cycle, status },
-									);
+									tx_runtime.submit_unsigned(
+										block_hash,
+										OcwPayload::SubmitTaskResult { task_id, cycle, status },
+									)
 								},
 								Err(error) => {
 									let error = TaskError { shard_id, error };
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskError { task_id, error },
-									);
+									tx_runtime.submit_unsigned(
+										block_hash,
+										OcwPayload::SubmitTaskError { task_id, error },
+									)
 								},
 							}
 						});

@@ -12,7 +12,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde::{Deserialize, Serialize};
 use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::{KeystorePtr, KeystoreExt};
+use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::{Block, Header};
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -206,11 +206,15 @@ where
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
 					let mut runtime = self.runtime.runtime_api();
 					runtime.register_extension(KeystoreExt(self.kv.clone()));
-					runtime.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
-					runtime.submit_signed_tx(
+					runtime.register_extension(
+						self.offchain_tx_pool_factory.offchain_transaction_pool(block),
+					);
+					if let Err(e) = runtime.submit_unsigned(
 						block,
 						OcwPayload::SubmitTssPublicKey { shard_id, public_key },
-					);
+					) {
+						log::error!("Error submitting tss pub key {:?}", e);
+					}
 				},
 				TssAction::Signature(request_id, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();

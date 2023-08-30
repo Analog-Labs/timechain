@@ -55,9 +55,8 @@ where
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, C, R, N>(
-	timeworker_params: TimeWorkerParams<B, C, R, N>,
-) where
+pub async fn start_timeworker_gadget<B, C, R, N>(timeworker_params: TimeWorkerParams<B, C, R, N>)
+where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,

@@ -1453,11 +1453,11 @@ impl_runtime_apis! {
 			Tasks::get_task(task_id)
 		}
 
-		fn submit_signed_tx(payload: OcwPayload){
+		fn submit_signed(payload: OcwPayload){
 			Ocw::submit_signed_tx(payload)
 		}
 
-		fn submit_unsigned_tx(payload: OcwPayload){
+		fn submit_unsigned(payload: OcwPayload){
 			Ocw::submit_unsigned_tx(payload)
 		}
 	}

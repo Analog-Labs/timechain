@@ -16,13 +16,11 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
-	use sp_runtime::offchain::storage::StorageValueRef;
-	use sp_runtime::traits::{Block, Header, IdentifyAccount};
+	use sp_runtime::traits::IdentifyAccount;
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, CycleStatus, OcwPayload, OcwShardInterface, OcwTaskInterface,
-		PublicKey, ShardId, ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface,
-		TssPublicKey, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
+		AccountId, CycleStatus, OcwPayload, OcwShardInterface, OcwTaskInterface, PublicKey,
+		ShardId, ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -50,23 +48,6 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn offchain_worker(block_number: <<T::Block as Block>::Header as Header>::Number) {
-			if Self::lock() {
-				log::info!("running offchain worker for: {:?}", block_number);
-				while let Some(msg) = Self::read_message() {
-					log::info!("received ocw message {:?}", msg);
-					Self::submit_tx(msg);
-				}
-				StorageValueRef::persistent(OCW_LOCK).clear();
-				log::info!("finished offchain worker for: {:?}", block_number);
-			} else {
-				log::info!("skipped offchain worker for: {:?}", block_number);
-			}
-		}
-	}
 
 	#[pallet::config]
 	pub trait Config:
@@ -100,7 +81,7 @@ pub mod pallet {
 			shard_id: ShardId,
 			public_key: TssPublicKey,
 		) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, shard_id)?;
+			ensure_none(origin)?;
 			T::OcwShards::submit_tss_public_key(shard_id, public_key)
 		}
 
@@ -113,7 +94,7 @@ pub mod pallet {
 			cycle: TaskCycle,
 			status: CycleStatus,
 		) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, status.shard_id)?;
+			ensure_none(origin)?;
 			T::OcwTasks::submit_task_result(task_id, cycle, status)
 		}
 
@@ -125,7 +106,7 @@ pub mod pallet {
 			task_id: TaskId,
 			error: TaskError,
 		) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, error.shard_id)?;
+			ensure_none(origin)?;
 			T::OcwTasks::submit_task_error(task_id, error)
 		}
 
@@ -153,65 +134,22 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn lock() -> bool {
-			let storage = StorageValueRef::persistent(OCW_LOCK);
-			storage
-				.mutate::<bool, _, _>(|res| {
-					if !res.unwrap().unwrap_or_default() {
-						Ok(true)
-					} else {
-						Err(())
-					}
-				})
-				.unwrap_or_default()
-		}
-
-		pub(crate) fn read_message() -> Option<OcwPayload> {
-			let read_id_storage = StorageValueRef::persistent(OCW_READ_ID);
-			let write_id_storage = StorageValueRef::persistent(OCW_WRITE_ID);
-			let read_id = read_id_storage.get::<u64>().unwrap().unwrap_or_default();
-			let write_id = write_id_storage.get::<u64>().unwrap().unwrap_or_default();
-			if read_id >= write_id {
-				return None;
-			}
-			let msg_key = msg_key(read_id);
-			let mut msg_storage = StorageValueRef::persistent(&msg_key);
-			let msg = msg_storage.get::<OcwPayload>().unwrap().unwrap();
-			read_id_storage
-				.mutate::<u64, _, _>(|res| Ok::<_, ()>(res.unwrap().unwrap_or_default() + 1))
-				.unwrap();
-			msg_storage.clear();
-			Some(msg)
-		}
-
-		pub(crate) fn submit_tx(payload: OcwPayload) {
+		pub fn submit_signed_tx(payload: OcwPayload) {
 			let Some(collector) = T::Shards::collector_pubkey(payload.shard_id()) else {
 				return;
 			};
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
+
 			let call_res = match payload {
-				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
-					.send_signed_transaction(|_| Call::submit_tss_public_key {
-						shard_id,
-						public_key,
-					}),
 				OcwPayload::SubmitTaskHash { shard_id, task_id, hash } => signer
 					.send_signed_transaction(|_| Call::submit_task_hash {
 						shard_id,
 						task_id,
 						hash: hash.clone(),
 					}),
-				OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
-					.send_signed_transaction(|_| Call::submit_task_result {
-						task_id,
-						cycle,
-						status: status.clone(),
-					}),
-				OcwPayload::SubmitTaskError { task_id, error } => {
-					signer.send_signed_transaction(|_| Call::submit_task_error {
-						task_id,
-						error: error.clone(),
-					})
+				_ => {
+					log::error!("needed unsigned payload got signed {:?}", payload);
+					None
 				},
 			};
 			let Some((_, res)) = call_res else {
@@ -223,32 +161,50 @@ pub mod pallet {
 			}
 		}
 
-		pub fn submit_signed_tx(payload: OcwPayload) {
-			if let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = payload {
-				let call = Call::submit_tss_public_key { shard_id, public_key };
-
-				let signer = Signer::<T, T::AuthorityId>::all_accounts();
-				if !signer.can_sign() {
-					log::error!("No local accounts available");
-				}
-
-				let res = signer.send_signed_transaction(|_acct| call.clone().into());
-			}
-		}
-
 		pub fn submit_unsigned_tx(payload: OcwPayload) {
 			use frame_system::offchain::SubmitTransaction;
 
-			if let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = payload {
-				let call = Call::submit_tss_public_key { shard_id, public_key };
-				let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-				match res {
-					Ok(_) => log::info!("Submitted equivocation report."),
-					Err(e) => {
-						log::error!("Error submitting equivocation report: {:?}", e)
-					},
-				}
+			let call = match payload.clone() {
+				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => {
+					Call::submit_tss_public_key { shard_id, public_key }
+				},
+				OcwPayload::SubmitTaskResult { task_id, cycle, status } => {
+					Call::submit_task_result { task_id, cycle, status }
+				},
+				OcwPayload::SubmitTaskError { task_id, error } => {
+					Call::submit_task_error { task_id, error }
+				},
+				_ => {
+					log::error!("payload needed go be signed {:?}", payload);
+					return;
+				},
+			};
+			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+			match res {
+				Ok(_) => log::info!("Submitted unsigned tx {:?}", payload),
+				Err(e) => {
+					log::error!("Error submitting unsigned tx {:?}: {:?}", payload, e)
+				},
 			}
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
+				return InvalidTransaction::Call.into();
+			}
+			ValidTransaction::with_tag_prefix("ocw-pallet")
+				.priority(TransactionPriority::max_value())
+				.longevity(3)
+				.propagate(true)
+				.build()
+		}
+
+		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
+			Ok(())
 		}
 	}
 }

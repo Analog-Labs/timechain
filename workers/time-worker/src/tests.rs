@@ -173,7 +173,6 @@ async fn tss_smoke() -> Result<()> {
 		tss.push(tss_tx);
 		tokio::task::spawn(crate::start_timeworker_gadget(TimeWorkerParams {
 			_block: PhantomData,
-			backend: net.peer(i).client().as_backend(),
 			client: net.peer(i).client().as_client(),
 			runtime: api.clone(),
 			network: net.peer(i).network_service().clone(),

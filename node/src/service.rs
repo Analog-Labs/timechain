@@ -365,7 +365,9 @@ pub fn new_full(
 				peer_id,
 				tss_request: sign_data_receiver,
 				protocol_request: protocol_rx,
-				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
+				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+					transaction_pool.clone(),
+				),
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(
@@ -379,8 +381,8 @@ pub fn new_full(
 				_block: PhantomData,
 				runtime: client.clone(),
 				client,
-				backend,
 				peer_id,
+				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
 				task_spawner: futures::executor::block_on(task_executor::Task::new(
 					task_executor::TaskSpawnerParams {
 						tss: sign_data_sender,

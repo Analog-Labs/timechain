@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"node",
+	"pallets/elections",
 	"pallets/members",
 	"pallets/shards",
 	"pallets/tasks",

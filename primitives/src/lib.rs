@@ -68,8 +68,16 @@ pub trait MemberStorage {
 	fn is_member_online(account: &AccountId) -> bool;
 }
 
+pub trait ElectionsInterface {
+	fn assign_member(member: &AccountId, network: Network);
+	fn unassign_member(member: &AccountId, network: Network);
+	fn random_signer(signers: Vec<AccountId>) -> PublicKey;
+}
+
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
+	fn is_not_in_shard(account: &AccountId) -> bool;
+	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
 	fn random_signer(shard_id: ShardId) -> PublicKey;
 }
 

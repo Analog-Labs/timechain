@@ -17,7 +17,7 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, MemberEvents, MemberStorage, Network, PublicKey, ShardId, ShardStatus,
+		AccountId, ElectionsInterface, MemberEvents, Network, PublicKey, ShardId, ShardStatus,
 		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
@@ -48,12 +48,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Members: MemberStorage;
+		type Elections: ElectionsInterface;
 		type TaskScheduler: TasksInterface;
-		#[pallet::constant]
-		type MaxMembers: Get<u8>;
-		#[pallet::constant]
-		type MinMembers: Get<u8>;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -112,54 +108,13 @@ pub mod pallet {
 	pub enum Error<T> {
 		UnknownShard,
 		PublicKeyAlreadyRegistered,
-		MembershipBelowMinimum,
-		MembershipAboveMaximum,
-		ThresholdAboveMembershipLen,
-		ThresholdMustBeNonZero,
 		ShardAlreadyOffline,
-		MaxOneShardPerMember,
-		AllCreatedShardMembersMustBeOnline,
 		OfflineShardMayNotGoOnline,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Root can register new shard via providing
-		/// set of IDs matching one of supported size of shard
-		/// # Param
-		/// * members - supported sized set of shard members Id
-		/// * collector - index of collector if not index 0
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::register_shard())]
-		pub fn register_shard(
-			origin: OriginFor<T>,
-			network: Network,
-			members: Vec<AccountId>,
-			threshold: u16,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			ensure!(
-				members.len() >= T::MinMembers::get().into(),
-				Error::<T>::MembershipBelowMinimum
-			);
-			ensure!(
-				members.len() <= T::MaxMembers::get().into(),
-				Error::<T>::MembershipAboveMaximum
-			);
-			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
-			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
-			for member in &members {
-				ensure!(
-					T::Members::is_member_online(member),
-					Error::<T>::AllCreatedShardMembersMustBeOnline
-				);
-				ensure!(MemberShard::<T>::get(member).is_none(), Error::<T>::MaxOneShardPerMember);
-			}
-			Self::create_shard(network, members, threshold);
-			Ok(())
-		}
-
-		#[pallet::call_index(2)]
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
 		pub fn submit_tss_public_key(
 			origin: OriginFor<T>,
@@ -230,32 +185,16 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
-			let shard_id = <ShardIdCounter<T>>::get();
-			<ShardIdCounter<T>>::put(shard_id + 1);
-			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardState<T>>::insert(
-				shard_id,
-				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
-			);
-			<ShardThreshold<T>>::insert(shard_id, threshold);
-			for member in &members {
-				<ShardMembers<T>>::insert(shard_id, member, ());
-				MemberShard::<T>::insert(member, shard_id);
-			}
-			Self::deposit_event(Event::ShardCreated(shard_id, network));
-		}
-
 		/// Remove shard state for shard that just went offline
 		/// Set shard status to offline and keep shard public key if already submitted
 		fn remove_shard_offline(shard_id: ShardId) {
 			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
 			ShardThreshold::<T>::remove(shard_id);
-			if let Some(network) = ShardNetwork::<T>::take(shard_id) {
-				T::TaskScheduler::shard_offline(shard_id, network);
-			}
+			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
+			T::TaskScheduler::shard_offline(shard_id, network);
 			for (member, _) in ShardMembers::<T>::drain_prefix(shard_id) {
 				MemberShard::<T>::remove(&member);
+				T::Elections::unassign_member(&member, network);
 			}
 		}
 
@@ -327,8 +266,29 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
+		fn is_not_in_shard(member: &AccountId) -> bool {
+			MemberShard::<T>::get(member).is_none()
+		}
+
+		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
+			let shard_id = <ShardIdCounter<T>>::get();
+			<ShardIdCounter<T>>::put(shard_id + 1);
+			<ShardNetwork<T>>::insert(shard_id, network);
+			<ShardState<T>>::insert(
+				shard_id,
+				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
+			);
+			<ShardThreshold<T>>::insert(shard_id, threshold);
+			for member in &members {
+				ShardMembers::<T>::insert(shard_id, member, ());
+				MemberShard::<T>::insert(member, shard_id);
+				T::Elections::assign_member(member, network);
+			}
+			Self::deposit_event(Event::ShardCreated(shard_id, network));
+		}
+
 		fn random_signer(shard_id: ShardId) -> PublicKey {
-			todo!()
+			T::Elections::random_signer(Self::get_shard_members(shard_id))
 		}
 	}
 }

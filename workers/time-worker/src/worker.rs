@@ -10,16 +10,15 @@ use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde::{Deserialize, Serialize};
-use sp_api::ApiExt;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::{KeystoreExt, KeystorePtr};
-use sp_runtime::traits::{Block, Header};
+use sp_runtime::traits::{Block, Header, IdentifyAccount};
 use std::{
 	collections::{BTreeMap, HashMap},
 	marker::PhantomData,
 	sync::Arc,
 };
-use time_primitives::{ShardId, TimeApi, TssId, TssRequest, TssSignature};
+use time_primitives::{MembersApi, PublicKey, ShardId, ShardsApi, TssId, TssRequest, TssSignature};
 use tss::{Tss, TssAction, TssMessage};
 
 #[derive(Deserialize, Serialize)]
@@ -51,6 +50,7 @@ pub struct WorkerParams<B: Block, C, R, N> {
 	pub runtime: Arc<R>,
 	pub network: N,
 	pub kv: KeystorePtr,
+	pub public_key: PublicKey,
 	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
@@ -65,6 +65,7 @@ pub struct TimeWorker<B: Block, C, R, N> {
 	network: N,
 	kv: KeystorePtr,
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
+	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
@@ -79,7 +80,7 @@ where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 {
 	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N>) -> Self {
@@ -89,6 +90,7 @@ where
 			runtime,
 			network,
 			kv,
+			public_key,
 			peer_id,
 			tss_request,
 			protocol_request,
@@ -101,6 +103,7 @@ where
 			network,
 			kv,
 			offchain_tx_pool_factory,
+			public_key,
 			peer_id,
 			tss_request,
 			protocol_request,
@@ -114,16 +117,25 @@ where
 	fn on_finality(&mut self, block: <B as Block>::Hash, block_number: u64) {
 		let local_peer_id = to_peer_id(self.peer_id);
 		log::debug!(target: TW_LOG, "{}: on_finality {}", local_peer_id, block.to_string());
-		let shards = self.runtime.runtime_api().get_shards(block, self.peer_id).unwrap();
+		let shards = self
+			.runtime
+			.runtime_api()
+			.get_shards(block, &self.public_key.clone().into_account())
+			.unwrap();
 		for shard_id in shards {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
 			}
-			let members = self.runtime.runtime_api().get_shard_members(block, shard_id).unwrap();
+			let api = self.runtime.runtime_api();
+			let members = api.get_shard_members(block, shard_id).unwrap();
 			log::debug!(target: TW_LOG, "shard {}: {} joining shard", shard_id, local_peer_id);
-			let threshold =
-				self.runtime.runtime_api().get_shard_threshold(block, shard_id).unwrap();
-			let members = members.into_iter().map(to_peer_id).collect();
+			let threshold = api.get_shard_threshold(block, shard_id).unwrap();
+			let members = members
+				.into_iter()
+				.map(|account| {
+					to_peer_id(api.get_member_peer_id(block, &account).unwrap().unwrap())
+				})
+				.collect();
 			self.tss_states.insert(shard_id, Tss::new(local_peer_id, members, threshold));
 			self.poll_actions(shard_id, block, block_number);
 		}

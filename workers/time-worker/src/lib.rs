@@ -13,7 +13,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use time_primitives::{PeerId, TimeApi, TssRequest};
+use time_primitives::{MembersApi, PeerId, PublicKey, ShardsApi, TssRequest};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
@@ -38,7 +38,7 @@ where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 {
 	pub _block: PhantomData<B>,
@@ -46,6 +46,7 @@ where
 	pub runtime: Arc<R>,
 	pub network: N,
 	pub kv: KeystorePtr,
+	pub public_key: PublicKey,
 	pub peer_id: PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
@@ -60,7 +61,7 @@ where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: TimeApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 {
 	let TimeWorkerParams {
@@ -69,6 +70,7 @@ where
 		runtime,
 		network,
 		kv,
+		public_key,
 		peer_id,
 		tss_request,
 		protocol_request,
@@ -80,6 +82,7 @@ where
 		runtime,
 		network,
 		kv,
+		public_key,
 		peer_id,
 		tss_request,
 		protocol_request,

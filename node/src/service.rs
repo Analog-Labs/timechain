@@ -147,11 +147,11 @@ pub fn new_partial(
 /// Builds a new service for a full client.
 pub fn new_full(
 	config: Configuration,
+	shard_network: Option<time_primitives::Network>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
 	keyfile: Option<String>,
-	without_chronicle: bool,
 	timegraph_url: Option<String>,
 	timegraph_ssk: Option<String>,
 ) -> Result<TaskManager, ServiceError> {
@@ -364,12 +364,13 @@ pub fn new_full(
 			None,
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-		if !without_chronicle {
+		if let Some(shard_network) = shard_network {
 			let task_executor =
 				task_executor::TaskExecutor::new(task_executor::TaskExecutorParams {
 					_block: PhantomData,
 					runtime: client.clone(),
 					kv: keystore_container.keystore(),
+					network: shard_network,
 					public_key: public_key.clone(),
 					offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
 						transaction_pool.clone(),

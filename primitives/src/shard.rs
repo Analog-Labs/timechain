@@ -31,6 +31,18 @@ pub enum Network {
 	Astar,
 }
 
+impl core::str::FromStr for Network {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Ok(match s {
+			"ethereum" => Self::Ethereum,
+			"astar" => Self::Astar,
+			_ => anyhow::bail!("unsupported network {}", s),
+		})
+	}
+}
+
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]

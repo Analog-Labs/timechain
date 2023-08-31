@@ -230,6 +230,7 @@ where
 			_block,
 			runtime,
 			kv,
+			network: _,
 			public_key,
 			offchain_tx_pool_factory,
 			task_spawner,

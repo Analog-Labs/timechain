@@ -5,7 +5,7 @@ use futures::{
 	channel::{mpsc, oneshot},
 	FutureExt, StreamExt,
 };
-use sc_client_api::BlockchainEvents;
+use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -82,7 +82,7 @@ pub struct TimeWorker<B: Block, C, R, N, T> {
 impl<B, C, R, N, T> TimeWorker<B, C, R, N, T>
 where
 	B: Block + 'static,
-	C: BlockchainEvents<B> + 'static,
+	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
@@ -264,6 +264,18 @@ where
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
 	pub(crate) async fn run(&mut self) {
+		let block = self.client.info().best_hash;
+		let mut runtime = self.runtime.runtime_api();
+		runtime.register_extension(KeystoreExt(self.kv.clone()));
+		runtime.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
+		runtime
+			.submit_register_member(
+				block,
+				self.task_executor.network(),
+				self.public_key.clone(),
+				self.peer_id,
+			)
+			.unwrap();
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {

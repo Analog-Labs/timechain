@@ -4,7 +4,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::{PublicKey, ShardId, TaskSpawner, TasksApi};
+use time_primitives::{Network, PublicKey, ShardId, TaskSpawner, TasksApi};
 use tokio::sync::Mutex;
 
 mod worker;
@@ -29,12 +29,16 @@ where
 	pub _block: PhantomData<B>,
 	pub runtime: Arc<R>,
 	pub kv: KeystorePtr,
-	pub public_key: PublicKey,
 	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	pub task_spawner: T,
+	pub network: Network,
+	pub public_key: PublicKey,
 }
 
-pub struct TaskExecutor<B: Block, R, T>(Arc<Mutex<worker::TaskExecutor<B, R, T>>>);
+pub struct TaskExecutor<B: Block, R, T> {
+	network: Network,
+	task_executor: Arc<Mutex<worker::TaskExecutor<B, R, T>>>,
+}
 
 impl<B, R, T> TaskExecutor<B, R, T>
 where
@@ -44,13 +48,19 @@ where
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
-		Self(Arc::new(Mutex::new(worker::TaskExecutor::new(params))))
+		Self {
+			network: params.network,
+			task_executor: Arc::new(Mutex::new(worker::TaskExecutor::new(params))),
+		}
 	}
 }
 
 impl<B: Block, R, T> Clone for TaskExecutor<B, R, T> {
 	fn clone(&self) -> Self {
-		Self(self.0.clone())
+		Self {
+			network: self.network,
+			task_executor: self.task_executor.clone(),
+		}
 	}
 }
 
@@ -62,12 +72,20 @@ where
 	R::Api: TasksApi<B>,
 	T: TaskSpawner + Send + Sync + 'static,
 {
+	fn network(&self) -> Network {
+		self.network
+	}
+
 	async fn start_tasks(
 		&self,
 		block_hash: B::Hash,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<()> {
-		self.0.lock().await.start_tasks(block_hash, block_num, shard_id).await
+		self.task_executor
+			.lock()
+			.await
+			.start_tasks(block_hash, block_num, shard_id)
+			.await
 	}
 }

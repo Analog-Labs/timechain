@@ -5,7 +5,7 @@ mod worker;
 mod tests;
 
 use futures::channel::mpsc;
-use sc_client_api::BlockchainEvents;
+use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
 use sc_network::NetworkRequest;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -36,7 +36,7 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 pub struct TimeWorkerParams<B: Block, C, R, N, T>
 where
 	B: Block + 'static,
-	C: BlockchainEvents<B> + 'static,
+	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
@@ -62,7 +62,7 @@ pub async fn start_timeworker_gadget<B, C, R, N, T>(
 	timeworker_params: TimeWorkerParams<B, C, R, N, T>,
 ) where
 	B: Block + 'static,
-	C: BlockchainEvents<B> + 'static,
+	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,

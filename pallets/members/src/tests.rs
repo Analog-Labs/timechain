@@ -4,7 +4,6 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{AccountId, MemberStorage, Network, PublicKey};
 
-
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }
@@ -42,7 +41,12 @@ fn cannot_register_member_twice() {
 			A,
 		));
 		assert_noop!(
-			Members::register_member(RawOrigin::Signed(A.into()).into(), Network::Ethereum, pubkey_from_bytes(A), A),
+			Members::register_member(
+				RawOrigin::Signed(A.into()).into(),
+				Network::Ethereum,
+				pubkey_from_bytes(A),
+				A
+			),
 			Error::<Test>::AlreadyMember
 		);
 	});

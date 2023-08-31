@@ -7,8 +7,8 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	CycleStatus, Function, Network, ShardId, TaskCycle, TaskDescriptor, TaskDescriptorParams,
-	TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface, PublicKey, AccountId
+	AccountId, CycleStatus, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

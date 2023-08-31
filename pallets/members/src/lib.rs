@@ -18,8 +18,7 @@ pub mod pallet {
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, ElectionsInterface, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId,
-		PublicKey,
+		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -48,7 +47,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Elections: ElectionsInterface + MemberEvents;
+		type Elections: MemberEvents;
 		#[pallet::constant]
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
 	}

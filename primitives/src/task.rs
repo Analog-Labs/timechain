@@ -77,7 +77,7 @@ pub enum TaskStatus {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
 	Write(PublicKey),
 	Read(Option<String>),
@@ -108,7 +108,7 @@ impl Default for TaskPhase {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,

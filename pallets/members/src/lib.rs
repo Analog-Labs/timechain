@@ -49,7 +49,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Shards: MemberEvents;
-		type Elections: ElectionsInterface;
+		type Elections: ElectionsInterface + MemberEvents;
 		#[pallet::constant]
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -94,7 +94,9 @@ pub mod pallet {
 			let mut writes = 0;
 			Heartbeat::<T>::iter().for_each(|(account, heart)| {
 				if heart.is_online && n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
-					T::Shards::member_offline(&account);
+					if let Some(network) = MemberNetwork::<T>::get(&account) {
+						T::Elections::member_offline(&account, network);
+					}
 					Heartbeat::<T>::insert(&account, heart.set_offline());
 					writes += 1;
 				}
@@ -123,7 +125,7 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
-			T::Elections::unassign_member(&member, network);
+			T::Elections::member_online(&member, network);
 			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
 			Ok(())
 		}
@@ -133,13 +135,15 @@ pub mod pallet {
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let heart = Heartbeat::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			if !heart.is_online {
-				T::Shards::member_online(&member);
-			}
 			Heartbeat::<T>::insert(
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
+			if !heart.is_online {
+				if let Some(network) = MemberNetwork::<T>::get(&member) {
+					T::Elections::member_online(&member, network);
+				}
+			}
 			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}

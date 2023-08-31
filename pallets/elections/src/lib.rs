@@ -12,7 +12,7 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberStorage, Network, PublicKey, ShardsInterface,
+		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, ShardsInterface,
 	};
 
 	#[pallet::pallet]
@@ -21,7 +21,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
-		type Shards: ShardsInterface;
+		type Shards: ShardsInterface + MemberEvents;
 		type Members: MemberStorage;
 		#[pallet::constant]
 		type ShardSize: Get<u8>;
@@ -41,23 +41,26 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	impl<T: Config> ElectionsInterface for Pallet<T> {
-		fn assign_member(member: &AccountId, network: Network) {
+	impl<T: Config> MemberEvents for Pallet<T> {
+		fn member_online(member: &AccountId, network: Network) {
+			if !T::Shards::is_shard_member(&member) {
+				Unassigned::<T>::insert(network, member, ());
+				Self::try_elect_shard(network);
+			}
+			T::Shards::member_online(member, network);
+		}
+		fn member_offline(member: &AccountId, network: Network) {
 			Unassigned::<T>::remove(network, member);
+			T::Shards::member_offline(member, network);
 		}
-		fn unassign_member(member: &AccountId, network: Network) {
-			Unassigned::<T>::insert(network, member, ());
+	}
+
+	impl<T: Config> ElectionsInterface for Pallet<T> {
+		fn shard_offline(network: Network, members: Vec<AccountId>) {
+			for member in members {
+				Unassigned::<T>::insert(network, member, ());
+			}
 			Self::try_elect_shard(network);
-		}
-		fn random_signer(signers: Vec<AccountId>) -> PublicKey {
-			let seed = u64::from_ne_bytes(
-				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
-					.try_into()
-					.expect("Block hash should convert into [u8; 8]"),
-			);
-			let mut rng = fastrand::Rng::with_seed(seed);
-			T::Members::member_public_key(&signers[rng.usize(..signers.len())])
-				.expect("All signers should be registered members")
 		}
 	}
 
@@ -71,7 +74,7 @@ pub mod pallet {
 		fn new_shard_members(n: usize, network: Network) -> Option<Vec<AccountId>> {
 			let members = Unassigned::<T>::iter_prefix(network)
 				.map(|(m, _)| m)
-				.filter(|m| T::Members::is_member_online(&m) && T::Shards::is_not_in_shard(&m))
+				.filter(|m| T::Members::is_member_online(&m))
 				.take(n)
 				.collect::<Vec<_>>();
 			if members.len() == n {

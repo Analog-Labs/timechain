@@ -17,8 +17,8 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberEvents, Network, PublicKey, ShardId, ShardStatus,
-		ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, PublicKey, ShardId,
+		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -48,7 +48,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Elections: ElectionsInterface;
+		type Elections: ElectionsInterface + MemberEvents;
+		type Members: MemberStorage;
 		type TaskScheduler: TasksInterface;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
@@ -192,10 +193,13 @@ pub mod pallet {
 			ShardThreshold::<T>::remove(shard_id);
 			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
 			T::TaskScheduler::shard_offline(shard_id, network);
-			for (member, _) in ShardMembers::<T>::drain_prefix(shard_id) {
-				MemberShard::<T>::remove(&member);
-				T::Elections::unassign_member(&member, network);
-			}
+			let members = ShardMembers::<T>::drain_prefix(shard_id)
+				.map(|(m, _)| {
+					MemberShard::<T>::remove(&m);
+					m
+				})
+				.collect::<Vec<_>>();
+			T::Elections::shard_offline(network, members);
 		}
 
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
@@ -229,7 +233,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
-		fn member_online(id: &AccountId) {
+		fn member_online(id: &AccountId, network: Network) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
 			let new_status = old_status.online_member();
@@ -237,16 +241,15 @@ pub mod pallet {
 			if matches!(new_status, ShardStatus::Online)
 				&& !matches!(old_status, ShardStatus::Online)
 			{
-				let Some(network) = ShardNetwork::<T>::get(shard_id) else { return };
 				T::TaskScheduler::shard_online(shard_id, network);
 			}
 		}
 
-		fn member_offline(id: &AccountId) {
+		fn member_offline(id: &AccountId, _: Network) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
 			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else  { return };
-			let total_members = ShardMembers::<T>::iter_prefix(shard_id).collect::<Vec<_>>().len();
+			let total_members = Self::get_shard_members(shard_id).len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
 			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
 			let new_status = old_status.offline_member(max_members_offline);
@@ -266,8 +269,8 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
-		fn is_not_in_shard(member: &AccountId) -> bool {
-			MemberShard::<T>::get(member).is_none()
+		fn is_shard_member(member: &AccountId) -> bool {
+			MemberShard::<T>::get(member).is_some()
 		}
 
 		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
@@ -282,13 +285,20 @@ pub mod pallet {
 			for member in &members {
 				ShardMembers::<T>::insert(shard_id, member, ());
 				MemberShard::<T>::insert(member, shard_id);
-				T::Elections::assign_member(member, network);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 
 		fn random_signer(shard_id: ShardId) -> PublicKey {
-			T::Elections::random_signer(Self::get_shard_members(shard_id))
+			let seed = u64::from_ne_bytes(
+				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
+					.try_into()
+					.expect("Block hash should convert into [u8; 8]"),
+			);
+			let mut rng = fastrand::Rng::with_seed(seed);
+			let members = Self::get_shard_members(shard_id);
+			T::Members::member_public_key(&members[rng.usize(..members.len())])
+				.expect("All signers should be registered members")
 		}
 	}
 }

@@ -58,8 +58,8 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait MemberEvents {
-	fn member_online(id: &AccountId);
-	fn member_offline(id: &AccountId);
+	fn member_online(id: &AccountId, network: Network);
+	fn member_offline(id: &AccountId, network: Network);
 }
 
 pub trait MemberStorage {
@@ -69,14 +69,12 @@ pub trait MemberStorage {
 }
 
 pub trait ElectionsInterface {
-	fn assign_member(member: &AccountId, network: Network);
-	fn unassign_member(member: &AccountId, network: Network);
-	fn random_signer(signers: Vec<AccountId>) -> PublicKey;
+	fn shard_offline(network: Network, members: Vec<AccountId>);
 }
 
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
-	fn is_not_in_shard(account: &AccountId) -> bool;
+	fn is_shard_member(account: &AccountId) -> bool;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
 	fn random_signer(shard_id: ShardId) -> PublicKey;
 }

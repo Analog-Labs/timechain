@@ -37,14 +37,14 @@ pub mod crypto {
 sp_api::decl_runtime_apis! {
 	/// API necessary for Time worker <-> pallet communication.
 	pub trait TimeApi {
-		fn get_member_peer_id(account: AccountId) -> Option<PeerId>;
-		fn get_shards(account: AccountId) -> Vec<ShardId>;
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
+		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey);
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
 		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus);
 		fn submit_task_error(shard_id: ShardId, error: TaskError);
 	}
@@ -56,14 +56,14 @@ pub trait MemberEvents {
 }
 
 pub trait MemberStorage {
-	fn member_peer_id(account: AccountId) -> Option<PeerId>;
+	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
+	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;
 }
 
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
-	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
-	fn collector_peer_id(shard_id: ShardId) -> Option<PeerId>;
+	fn random_signer(shard_id: ShardId) -> PublicKey;
 }
 
 pub trait TasksInterface {

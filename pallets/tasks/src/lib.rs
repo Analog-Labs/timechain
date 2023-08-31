@@ -153,12 +153,10 @@ pub mod pallet {
 		InvalidCycle,
 		/// Cycle must be greater than zero
 		CycleMustBeGreaterThanZero,
-		/// Collector peer id not found
-		CollectorPeerIdNotFound,
-		// Tx is not signed by collector of shard
-		NotSignedByCollector,
-		// Collector PublicKey not found
-		CollectorPubKeyNotFound,
+		/// Not write phase
+		NotWritePhase,
+		/// Invalid signer
+		InvalidSigner,
 	}
 
 	#[pallet::call]
@@ -270,9 +268,13 @@ pub mod pallet {
 			task_id: TaskId,
 			hash: String,
 		) -> DispatchResult {
-			Self::ensure_signed_by_collector(origin, shard_id)?;
-			ensure!(Tasks::<T>::get(task_id).is_some(), (Error::<T>::UnknownTask));
+			let signer = ensure_signed(origin)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
+			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
+				return Err(Error::<T>::NotWritePhase.into());
+			};
+			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
@@ -295,15 +297,6 @@ pub mod pallet {
 
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
 			Tasks::<T>::get(task_id)
-		}
-
-		fn ensure_signed_by_collector(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			let Some(collector) = T::Shards::collector_pubkey(shard_id) else {
-				return Err(Error::<T>::CollectorPubKeyNotFound.into());
-			};
-			ensure!(account_id == collector.into_account(), Error::<T>::NotSignedByCollector);
-			Ok(())
 		}
 	}
 
@@ -339,31 +332,23 @@ pub mod pallet {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-					.filter_map(|(shard_id, _)| {
-						T::Shards::collector_peer_id(shard_id)
-							.map(|collector| (shard_id, collector))
-					})
-					.map(|(shard_id, collector)| {
-						(shard_id, Self::shard_task_count(shard_id), collector)
-					})
-					.reduce(
-						|(shard_id, task_count, collector),
-						 (shard_id2, task_count2, collector2)| {
-							if task_count < task_count2 {
-								(shard_id, task_count, collector)
-							} else {
-								(shard_id2, task_count2, collector2)
-							}
-						},
-					);
-				let Some((shard_id, _, collector)) = shard else {
+					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
+					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
+						if task_count < task_count2 {
+							(shard_id, task_count)
+						} else {
+							(shard_id2, task_count2)
+						}
+					});
+				let Some((shard_id, _)) = shard else {
 					break;
 				};
 
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 				{
-					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(collector))
+					let signer = T::Shards::random_signer(shard_id);
+					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(signer))
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);
@@ -372,11 +357,11 @@ pub mod pallet {
 		}
 
 		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) {
-			let Some(collector) = T::Shards::collector_pubkey(shard_id) else {
-				log::error!("No collector found while sumbitting task hash {:?}", task_id);
+			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
+				log::error!("task not in write phase");
 				return;
 			};
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
 
 			let call_res = signer.send_signed_transaction(|_| Call::submit_hash {
 				shard_id,

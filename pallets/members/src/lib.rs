@@ -12,8 +12,10 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::Saturating;
-	use time_primitives::{AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId};
+	use sp_runtime::traits::{IdentifyAccount, Saturating};
+	use time_primitives::{
+		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
+	};
 
 	pub trait WeightInfo {
 		fn register_member() -> Weight;
@@ -52,6 +54,11 @@ pub mod pallet {
 	pub type MemberPeerId<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, PeerId, OptionQuery>;
 
+	/// Get PublicKey for member
+	#[pallet::storage]
+	pub type MemberPublicKey<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, PublicKey, OptionQuery>;
+
 	/// Indicate if member is online or offline
 	#[pallet::storage]
 	pub type Heartbeat<T: Config> =
@@ -66,6 +73,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		InvalidPublicKey,
 		AlreadyMember,
 		NotMember,
 	}
@@ -92,20 +100,24 @@ pub mod pallet {
 		pub fn register_member(
 			origin: OriginFor<T>,
 			network: Network,
-			id: PeerId,
+			public_key: PublicKey,
+			peer_id: PeerId,
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
+			ensure!(member == public_key.clone().into_account(), Error::<T>::InvalidPublicKey);
 			ensure!(MemberNetwork::<T>::get(&member).is_none(), Error::<T>::AlreadyMember);
 			MemberNetwork::<T>::insert(&member, network);
-			MemberPeerId::<T>::insert(&member, id);
+			MemberPublicKey::<T>::insert(&member, public_key);
+			MemberPeerId::<T>::insert(&member, peer_id);
 			Heartbeat::<T>::insert(
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
 			T::Shards::member_online(&member);
-			Self::deposit_event(Event::RegisteredMember(member, network, id));
+			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
 			Ok(())
 		}
+
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::send_heartbeat())]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
@@ -124,9 +136,14 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberStorage for Pallet<T> {
-		fn member_peer_id(account: AccountId) -> Option<PeerId> {
+		fn member_peer_id(account: &AccountId) -> Option<PeerId> {
 			MemberPeerId::<T>::get(account)
 		}
+
+		fn member_public_key(account: &AccountId) -> Option<PublicKey> {
+			MemberPublicKey::<T>::get(account)
+		}
+
 		fn is_member_online(account: &AccountId) -> bool {
 			let Some(heart) = Heartbeat::<T>::get(account) else { return false };
 			frame_system::Pallet::<T>::block_number().saturating_sub(heart.block)

@@ -1434,11 +1434,11 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TimeApi<Block>  for Runtime {
-		fn get_member_peer_id(account: AccountId) -> Option<PeerId> {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId> {
 			Members::member_peer_id(account)
 		}
 
-		fn get_shards(account: AccountId) -> Vec<ShardId> {
+		fn get_shards(account: &AccountId) -> Vec<ShardId> {
 			Shards::get_shards(account)
 		}
 

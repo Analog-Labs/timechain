@@ -59,10 +59,6 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type ShardCollectorPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
-
-	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
 	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
 
@@ -139,7 +135,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			network: Network,
 			members: Vec<AccountId>,
-			collector: PublicKey,
 			threshold: u16,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -160,7 +155,7 @@ pub mod pallet {
 				);
 				ensure!(MemberShard::<T>::get(member).is_none(), Error::<T>::MaxOneShardPerMember);
 			}
-			Self::create_shard(network, members, collector, threshold);
+			Self::create_shard(network, members, threshold);
 			Ok(())
 		}
 
@@ -235,12 +230,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn create_shard(
-			network: Network,
-			members: Vec<AccountId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
+		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
@@ -249,7 +239,6 @@ pub mod pallet {
 				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
-			<ShardCollectorPublicKey<T>>::insert(shard_id, collector);
 			for member in &members {
 				<ShardMembers<T>>::insert(shard_id, member, ());
 				MemberShard::<T>::insert(member, shard_id);
@@ -262,7 +251,6 @@ pub mod pallet {
 		fn remove_shard_offline(shard_id: ShardId) {
 			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
 			ShardThreshold::<T>::remove(shard_id);
-			ShardCollectorPublicKey::<T>::remove(shard_id);
 			if let Some(network) = ShardNetwork::<T>::take(shard_id) {
 				T::TaskScheduler::shard_offline(shard_id, network);
 			}
@@ -275,11 +263,11 @@ pub mod pallet {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shards(account: AccountId) -> Vec<ShardId> {
+		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
 					|(shard_id, member, _)| {
-						if member == account {
+						if member == *account {
 							Some(shard_id)
 						} else {
 							None
@@ -339,12 +327,8 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
-		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
-			ShardCollectorPublicKey::<T>::get(shard_id)
-		}
-
-		fn collector_peer_id(_: ShardId) -> Option<time_primitives::PeerId> {
-			None
+		fn random_signer(shard_id: ShardId) -> PublicKey {
+			todo!()
 		}
 	}
 }

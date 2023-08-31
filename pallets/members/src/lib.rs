@@ -18,7 +18,8 @@ pub mod pallet {
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
+		AccountId, ElectionsInterface, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId,
+		PublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -48,6 +49,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Shards: MemberEvents;
+		type Elections: ElectionsInterface;
 		#[pallet::constant]
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -121,7 +123,7 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
-			T::Shards::member_online(&member);
+			T::Elections::unassign_member(&member, network);
 			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
 			Ok(())
 		}

@@ -53,8 +53,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, CycleStatus, MemberStorage, PeerId, PublicKey, ShardId, Signature, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TssPublicKey,
+	AccountId, CycleStatus, MemberStorage, Network, PeerId, PublicKey, ShardId, Signature,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TssPublicKey,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1120,8 +1120,8 @@ impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type TaskScheduler = Tasks;
 	type Members = Members;
+	type TaskScheduler = Tasks;
 	type MaxMembers = ConstU8<20>;
 	type MinMembers = ConstU8<3>;
 	type DkgTimeout = ConstU32<10>;
@@ -1136,8 +1136,9 @@ impl pallet_tasks::Config for Runtime {
 }
 
 impl pallet_members::Config for Runtime {
-	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::members::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type HeartbeatTimeout = ConstU32<50>;
 }
@@ -1433,11 +1434,21 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block>  for Runtime {
+	impl time_primitives::MembersApi<Block> for Runtime {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId> {
 			Members::member_peer_id(account)
 		}
 
+		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
+			Members::submit_register_member(network, public_key, peer_id)
+		}
+
+		fn submit_heartbeat(public_key: PublicKey) {
+			Members::submit_heartbeat(public_key)
+		}
+	}
+
+	impl time_primitives::ShardsApi<Block> for Runtime {
 		fn get_shards(account: &AccountId) -> Vec<ShardId> {
 			Shards::get_shards(account)
 		}
@@ -1450,6 +1461,12 @@ impl_runtime_apis! {
 			Shards::get_shard_threshold(shard_id)
 		}
 
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
+			Shards::submit_tss_pub_key(shard_id, public_key);
+		}
+	}
+
+	impl time_primitives::TasksApi<Block> for Runtime {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}
@@ -1470,9 +1487,6 @@ impl_runtime_apis! {
 			Tasks::submit_task_error(shard_id, error);
 		}
 
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
-			Shards::submit_tss_pub_key(shard_id, public_key);
-		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

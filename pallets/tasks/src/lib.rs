@@ -20,9 +20,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
-		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskStatus,
-		TasksInterface,
+		AccountId, CycleStatus, Network, PublicKey, ShardId, ShardsInterface, TaskCycle,
+		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
+		TaskStatus, TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -67,11 +67,11 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		CreateSignedTransaction<Call<Self>, Public = PublicKey>
-		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+		+ frame_system::Config<AccountId = AccountId>
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type WeightInfo: WeightInfo;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Shards: ShardsInterface;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;

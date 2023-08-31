@@ -11,8 +11,12 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
+	use sp_std::vec;
 	use time_primitives::{
 		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
 	};
@@ -36,9 +40,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
-		type WeightInfo: WeightInfo;
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>, Public = PublicKey>
+		+ frame_system::Config<AccountId = AccountId>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type WeightInfo: WeightInfo;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Shards: MemberEvents;
 		#[pallet::constant]
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
@@ -132,6 +140,37 @@ pub mod pallet {
 			);
 			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
+			let signer =
+				Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key.clone()]);
+			let call_res = signer.send_signed_transaction(|_| Call::register_member {
+				network,
+				public_key: public_key.clone(),
+				peer_id,
+			});
+			let Some((_, res)) = call_res else {
+				log::info!("send signed transaction returned none");
+				return;
+			};
+			if let Err(e) = res {
+				log::error!("send signed transaction returned an error: {:?}", e)
+			}
+		}
+
+		pub fn submit_heartbeat(public_key: PublicKey) {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
+			let call_res = signer.send_signed_transaction(|_| Call::send_heartbeat {});
+			let Some((_, res)) = call_res else {
+				log::info!("send signed transaction returned none");
+				return;
+			};
+			if let Err(e) = res {
+				log::error!("send signed transaction returned an error: {:?}", e)
+			}
 		}
 	}
 

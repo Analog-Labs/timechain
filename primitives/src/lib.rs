@@ -35,15 +35,22 @@ pub mod crypto {
 }
 
 sp_api::decl_runtime_apis! {
-	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi {
+	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
+		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId);
+		fn submit_heartbeat(public_key: PublicKey);
+	}
+
+	pub trait ShardsApi {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey);
+	}
+
+	pub trait TasksApi {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey);
 		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
 		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus);
 		fn submit_task_error(shard_id: ShardId, error: TaskError);

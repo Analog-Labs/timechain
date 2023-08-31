@@ -46,10 +46,10 @@ pub mod pallet {
 		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type WeightInfo: WeightInfo;
-		type TaskScheduler: TasksInterface;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Members: MemberStorage;
+		type TaskScheduler: TasksInterface;
 		#[pallet::constant]
 		type MaxMembers: Get<u8>;
 		#[pallet::constant]

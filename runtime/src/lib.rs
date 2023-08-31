@@ -1146,7 +1146,7 @@ impl pallet_members::Config for Runtime {
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Shards = Shards;
-	type HeartbeatTimeout = ConstU32<100>;
+	type HeartbeatTimeout = ConstU32<50>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

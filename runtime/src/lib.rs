@@ -1143,7 +1143,7 @@ impl pallet_ocw::Config for Runtime {
 }
 
 impl pallet_members::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Shards = Shards;
 	type HeartbeatTimeout = ConstU32<100>;
@@ -1224,6 +1224,7 @@ mod benches {
 		[pallet_shards, Shards]
 		[pallet_tasks, Tasks]
 		[pallet_ocw, Ocw]
+		[pallet_members, Members]
 	);
 }
 
@@ -1482,6 +1483,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
 			list_benchmark!(list, extra, pallet_ocw, Ocw);
+			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1508,6 +1510,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
 			add_benchmark!(params, batches, pallet_ocw, Ocw);
+			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

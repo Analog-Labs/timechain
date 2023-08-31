@@ -49,9 +49,14 @@ pub mod pallet {
 			Unassigned::<T>::insert(network, member, ());
 			Self::try_elect_shard(network);
 		}
-		// TODO: use fastrand to get random signer
 		fn random_signer(signers: Vec<AccountId>) -> PublicKey {
-			T::Members::member_public_key(&signers[0])
+			let seed = u64::from_ne_bytes(
+				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
+					.try_into()
+					.expect("Block hash should convert into [u8; 8]"),
+			);
+			let mut rng = fastrand::Rng::with_seed(seed);
+			T::Members::member_public_key(&signers[rng.usize(..signers.len())])
 				.expect("All signers should be registered members")
 		}
 	}

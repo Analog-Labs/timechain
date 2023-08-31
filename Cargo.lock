@@ -6425,6 +6425,7 @@ name = "pallet-elections"
 version = "0.0.1"
 dependencies = [
  "env_logger",
+ "fastrand 2.0.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

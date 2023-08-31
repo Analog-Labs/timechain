@@ -2,7 +2,6 @@
 
 pub mod balances;
 pub mod members;
-pub mod ocw;
 pub mod shards;
 pub mod system;
 pub mod tasks;

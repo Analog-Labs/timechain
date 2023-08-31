@@ -6,7 +6,6 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{Saturating, Zero};
-use sp_std::vec::Vec;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];

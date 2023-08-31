@@ -12,20 +12,26 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_system::offchain::{AppCrypto, CreateSignedTransaction};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, MemberEvents, MemberStorage, Network, OcwShardInterface, PublicKey, ShardId,
-		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, MemberEvents, MemberStorage, Network, PublicKey, ShardId, ShardStatus,
+		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
 		fn register_shard() -> Weight;
+		fn submit_tss_public_key() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn register_shard() -> Weight {
+			Weight::default()
+		}
+
+		fn submit_tss_public_key() -> Weight {
 			Weight::default()
 		}
 	}
@@ -35,8 +41,12 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>, Public = PublicKey>
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type WeightInfo: WeightInfo;
 		type TaskScheduler: TasksInterface;
 		type Members: MemberStorage;
@@ -153,6 +163,30 @@ pub mod pallet {
 			Self::create_shard(network, members, collector, threshold);
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
+		pub fn submit_tss_public_key(
+			origin: OriginFor<T>,
+			shard_id: ShardId,
+			public_key: TssPublicKey,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+			ensure!(
+				!matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Offline)),
+				Error::<T>::OfflineShardMayNotGoOnline
+			);
+			ensure!(
+				ShardPublicKey::<T>::get(shard_id).is_none(),
+				Error::<T>::PublicKeyAlreadyRegistered
+			);
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			<ShardPublicKey<T>>::insert(shard_id, public_key);
+			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
+			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
+			T::TaskScheduler::shard_online(shard_id, network);
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -169,6 +203,34 @@ pub mod pallet {
 				}
 			});
 			T::DbWeight::get().writes(writes)
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
+				return InvalidTransaction::Call.into();
+			}
+
+			let is_valid = match call {
+				Call::submit_tss_public_key { shard_id, public_key } => {
+					log::info!("got unsigned tx for tss pub key {:?}", shard_id);
+					ShardPublicKey::<T>::get(shard_id).is_none()
+				},
+				_ => false,
+			};
+
+			ValidTransaction::with_tag_prefix("shards-pallet")
+				.priority(TransactionPriority::max_value())
+				.longevity(10)
+				.propagate(true)
+				.build()
+		}
+
+		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
+			Ok(())
 		}
 	}
 
@@ -230,6 +292,13 @@ pub mod pallet {
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
+
+		pub fn submit_tss_pub_key(shard_id: ShardId, public_key: TssPublicKey) {
+			use frame_system::offchain::SubmitTransaction;
+			let call = Call::submit_tss_public_key { shard_id, public_key };
+			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+			log::info!("submitted pubkey {:?}", res);
+		}
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
@@ -245,6 +314,7 @@ pub mod pallet {
 				T::TaskScheduler::shard_online(shard_id, network);
 			}
 		}
+
 		fn member_offline(id: &AccountId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
@@ -261,33 +331,6 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
-		}
-	}
-
-	impl<T: Config> OcwShardInterface for Pallet<T> {
-		fn benchmark_register_shard(
-			network: Network,
-			members: Vec<AccountId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
-			Self::create_shard(network, members, collector, threshold);
-		}
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
-			ensure!(
-				!matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Offline)),
-				Error::<T>::OfflineShardMayNotGoOnline
-			);
-			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
-			);
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			T::TaskScheduler::shard_online(shard_id, network);
-			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			Ok(())
 		}
 	}
 

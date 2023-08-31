@@ -58,4 +58,16 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	fn resume_task() -> Weight{
 		Weight::default()
 	}
+
+	fn submit_result() -> Weight{
+		Weight::default()
+	}
+
+	fn submit_error() -> Weight{
+		Weight::default()
+	}
+
+	fn submit_hash() -> Weight{
+		Weight::default()
+	}
 }

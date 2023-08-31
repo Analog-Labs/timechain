@@ -2,9 +2,7 @@ use crate::mock::*;
 use crate::{Error, Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use time_primitives::{
-	AccountId, MemberEvents, Network, OcwShardInterface, PublicKey, ShardStatus,
-};
+use time_primitives::{AccountId, MemberEvents, Network, PublicKey, ShardStatus};
 
 fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
@@ -51,7 +49,12 @@ fn test_register_shard() {
 			assert_eq!(shards.len(), 1);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
+			let collector = Shards::collector_peer_id(shard_id as _).unwrap();
+			assert_ok!(Shards::submit_tss_public_key(
+				RawOrigin::None.into(),
+				shard_id as _,
+				[0; 33]
+			));
 		}
 	});
 }
@@ -88,7 +91,7 @@ fn cannot_submit_public_key_if_shard_not_exists() {
 	new_test_ext().execute_with(|| {
 		for (shard_id, _) in shards.iter().enumerate() {
 			assert_noop!(
-				Shards::submit_tss_public_key(shard_id as _, [0; 33]),
+				Shards::submit_tss_public_key(RawOrigin::None.into(), shard_id as _, [0; 33]),
 				Error::<Test>::UnknownShard
 			);
 		}
@@ -109,10 +112,79 @@ fn submit_public_key_max_once() {
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
+			let collector = Shards::collector_peer_id(shard_id as _).unwrap();
+			assert_ok!(Shards::submit_tss_public_key(
+				RawOrigin::None.into(),
+				shard_id as _,
+				[0; 33]
+			));
 			assert_noop!(
-				Shards::submit_tss_public_key(shard_id as _, [1; 33]),
+				Shards::submit_tss_public_key(RawOrigin::None.into(), shard_id as _, [1; 33]),
 				Error::<Test>::PublicKeyAlreadyRegistered
+			);
+		}
+	});
+}
+
+#[test]
+fn test_set_shard_offline() {
+	let shards = [[A, B, C], [C, B, A], [D, E, F]];
+	new_test_ext().execute_with(|| {
+		for shard in &shards {
+			assert_ok!(Shards::register_shard(
+				RawOrigin::Root.into(),
+				Network::Ethereum,
+				shard.to_vec(),
+				collector(),
+				1,
+			),);
+		}
+		for (shard_id, _) in shards.iter().enumerate() {
+			let collector = Shards::collector_peer_id(shard_id as _).unwrap();
+			assert_ok!(Shards::submit_tss_public_key(
+				RawOrigin::None.into(),
+				shard_id as _,
+				[0; 33]
+			));
+			assert_ok!(Shards::set_shard_offline(shard_id as _));
+		}
+	});
+}
+
+#[test]
+fn cannot_set_shard_offline_if_no_shard() {
+	let shards = [[A, B, C], [C, B, A], [D, E, F]];
+	new_test_ext().execute_with(|| {
+		for (shard_id, _) in shards.iter().enumerate() {
+			assert_noop!(Shards::set_shard_offline(shard_id as _), Error::<Test>::UnknownShard);
+		}
+	});
+}
+
+#[test]
+fn offline_shard_cannot_be_set_offline() {
+	let shards = [[A, B, C], [C, B, A], [D, E, F]];
+	new_test_ext().execute_with(|| {
+		for shard in &shards {
+			assert_ok!(Shards::register_shard(
+				RawOrigin::Root.into(),
+				Network::Ethereum,
+				shard.to_vec(),
+				collector(),
+				1,
+			),);
+		}
+		for (shard_id, _) in shards.iter().enumerate() {
+			let collector = Shards::collector_peer_id(shard_id as _).unwrap();
+			assert_ok!(Shards::submit_tss_public_key(
+				RawOrigin::None.into(),
+				shard_id as _,
+				[0; 33]
+			));
+			assert_ok!(Shards::set_shard_offline(shard_id as _));
+			assert_noop!(
+				Shards::set_shard_offline(shard_id as _),
+				Error::<Test>::ShardAlreadyOffline
 			);
 		}
 	});

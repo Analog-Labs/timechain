@@ -47,13 +47,14 @@ use sp_runtime::{
 };
 
 use frame_system::EnsureRootWithSuccess;
+use scale_info::prelude::string::String;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, MemberStorage, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor,
-	TaskExecution, TaskId,
+	AccountId, CycleStatus, MemberStorage, PeerId, PublicKey, ShardId, Signature, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TssPublicKey,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1118,6 +1119,7 @@ parameter_types! {
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type TaskScheduler = Tasks;
 	type Members = Members;
 	type MaxMembers = ConstU8<20>;
@@ -1128,18 +1130,9 @@ impl pallet_shards::Config for Runtime {
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
-}
-
-impl pallet_ocw::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::ocw::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type OcwShards = Shards;
-	type OcwTasks = Tasks;
-	type Shards = Shards;
-	type Tasks = Tasks;
 }
 
 impl pallet_members::Config for Runtime {
@@ -1170,11 +1163,10 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury,
-		Tasks: pallet_tasks,
-		Ocw: pallet_ocw,
 		Members: pallet_members,
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );
 
@@ -1221,10 +1213,9 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_members, Members]
 		[pallet_shards, Shards]
 		[pallet_tasks, Tasks]
-		[pallet_ocw, Ocw]
-		[pallet_members, Members]
 	);
 }
 
@@ -1466,6 +1457,22 @@ impl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
 			Tasks::get_task(task_id)
 		}
+
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) {
+			Tasks::submit_task_hash(shard_id, task_id, hash);
+		}
+
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus) {
+			Tasks::submit_task_result(task_id, cycle, status);
+		}
+
+		fn submit_task_error(shard_id: ShardId, error: TaskError) {
+			Tasks::submit_task_error(shard_id, error);
+		}
+
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
+			Shards::submit_tss_pub_key(shard_id, public_key);
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1482,7 +1489,6 @@ impl_runtime_apis! {
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
-			list_benchmark!(list, extra, pallet_ocw, Ocw);
 			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmarks!(list, extra);
 
@@ -1509,7 +1515,6 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
-			add_benchmark!(params, batches, pallet_ocw, Ocw);
 			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmarks!(params, batches);
 

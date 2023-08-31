@@ -5,10 +5,12 @@ mod worker;
 mod tests;
 
 use futures::channel::mpsc;
-use sc_client_api::{Backend, BlockchainEvents};
+use sc_client_api::BlockchainEvents;
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
 use sc_network::NetworkRequest;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use time_primitives::{PeerId, TimeApi, TssRequest};
@@ -31,33 +33,31 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 }
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, BE, C, R, N>
+pub struct TimeWorkerParams<B: Block, C, R, N>
 where
 	B: Block + 'static,
-	BE: Backend<B> + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
 	N: NetworkRequest,
 {
 	pub _block: PhantomData<B>,
-	pub backend: Arc<BE>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
+	pub kv: KeystorePtr,
 	pub peer_id: PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, BE, C, R, N>(
-	timeworker_params: TimeWorkerParams<B, BE, C, R, N>,
-) where
+pub async fn start_timeworker_gadget<B, C, R, N>(timeworker_params: TimeWorkerParams<B, C, R, N>)
+where
 	B: Block + 'static,
-	BE: Backend<B> + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: TimeApi<B>,
@@ -65,23 +65,25 @@ pub async fn start_timeworker_gadget<B, BE, C, R, N>(
 {
 	let TimeWorkerParams {
 		_block,
-		backend,
 		client,
 		runtime,
 		network,
+		kv,
 		peer_id,
 		tss_request,
 		protocol_request,
+		offchain_tx_pool_factory,
 	} = timeworker_params;
 	let worker_params = worker::WorkerParams {
 		_block,
-		backend,
 		client,
 		runtime,
 		network,
+		kv,
 		peer_id,
 		tss_request,
 		protocol_request,
+		offchain_tx_pool_factory,
 	};
 	let mut worker = worker::TimeWorker::new(worker_params);
 	worker.run().await

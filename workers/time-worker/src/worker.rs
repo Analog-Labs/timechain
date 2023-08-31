@@ -18,7 +18,9 @@ use std::{
 	marker::PhantomData,
 	sync::Arc,
 };
-use time_primitives::{MembersApi, PublicKey, ShardId, ShardsApi, TssId, TssRequest, TssSignature};
+use time_primitives::{
+	MembersApi, PublicKey, ShardId, ShardsApi, TaskExecutor, TssId, TssRequest, TssSignature,
+};
 use tss::{Tss, TssAction, TssMessage};
 
 #[derive(Deserialize, Serialize)]
@@ -44,12 +46,13 @@ pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	)
 }
 
-pub struct WorkerParams<B: Block, C, R, N> {
+pub struct WorkerParams<B: Block, C, R, N, T> {
 	pub _block: PhantomData<B>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
 	pub kv: KeystorePtr,
+	pub task_executor: T,
 	pub public_key: PublicKey,
 	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
@@ -58,12 +61,13 @@ pub struct WorkerParams<B: Block, C, R, N> {
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, C, R, N> {
+pub struct TimeWorker<B: Block, C, R, N, T> {
 	_block: PhantomData<B>,
 	client: Arc<C>,
 	runtime: Arc<R>,
 	network: N,
 	kv: KeystorePtr,
+	task_executor: T,
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
@@ -75,21 +79,23 @@ pub struct TimeWorker<B: Block, C, R, N> {
 	channels: HashMap<TssId, oneshot::Sender<TssSignature>>,
 }
 
-impl<B, C, R, N> TimeWorker<B, C, R, N>
+impl<B, C, R, N, T> TimeWorker<B, C, R, N, T>
 where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
+	T: TaskExecutor<B>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N, T>) -> Self {
 		let WorkerParams {
 			_block,
 			client,
 			runtime,
 			network,
 			kv,
+			task_executor,
 			public_key,
 			peer_id,
 			tss_request,
@@ -102,6 +108,7 @@ where
 			runtime,
 			network,
 			kv,
+			task_executor,
 			offchain_tx_pool_factory,
 			public_key,
 			peer_id,
@@ -122,7 +129,7 @@ where
 			.runtime_api()
 			.get_shards(block, &self.public_key.clone().into_account())
 			.unwrap();
-		for shard_id in shards {
+		for shard_id in shards.iter().copied() {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
 			}
@@ -166,6 +173,15 @@ where
 				tss.on_message(peer_id, msg);
 				self.poll_actions(shard_id, block, n);
 			}
+		}
+		for shard_id in shards {
+			let task_executor = self.task_executor.clone();
+			tokio::task::spawn(async move {
+				log::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
+				if let Err(err) = task_executor.start_tasks(block, block_number, shard_id).await {
+					log::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, err);
+				}
+			});
 		}
 	}
 

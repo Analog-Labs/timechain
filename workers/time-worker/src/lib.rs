@@ -13,7 +13,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use time_primitives::{MembersApi, PeerId, PublicKey, ShardsApi, TssRequest};
+use time_primitives::{MembersApi, PeerId, PublicKey, ShardsApi, TaskExecutor, TssRequest};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
@@ -33,19 +33,21 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 }
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, C, R, N>
+pub struct TimeWorkerParams<B: Block, C, R, N, T>
 where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
+	T: TaskExecutor<B>,
 {
 	pub _block: PhantomData<B>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
 	pub kv: KeystorePtr,
+	pub task_executor: T,
 	pub public_key: PublicKey,
 	pub peer_id: PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
@@ -56,13 +58,15 @@ where
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, C, R, N>(timeworker_params: TimeWorkerParams<B, C, R, N>)
-where
+pub async fn start_timeworker_gadget<B, C, R, N, T>(
+	timeworker_params: TimeWorkerParams<B, C, R, N, T>,
+) where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
+	T: TaskExecutor<B>,
 {
 	let TimeWorkerParams {
 		_block,
@@ -70,6 +74,7 @@ where
 		runtime,
 		network,
 		kv,
+		task_executor,
 		public_key,
 		peer_id,
 		tss_request,
@@ -82,6 +87,7 @@ where
 		runtime,
 		network,
 		kv,
+		task_executor,
 		public_key,
 		peer_id,
 		tss_request,

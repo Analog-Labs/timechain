@@ -238,6 +238,16 @@ pub fn new_full(
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.keystore();
+	let public_key: time_primitives::PublicKey = if let Some(public_key) =
+		keystore.sr25519_public_keys(time_primitives::TIME_KEY_TYPE).into_iter().next()
+	{
+		public_key.into()
+	} else {
+		keystore
+			.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
+			.unwrap()
+			.into()
+	};
 
 	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
@@ -355,52 +365,47 @@ pub fn new_full(
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 		if !without_chronicle {
-			// injecting our Worker
+			let task_executor =
+				task_executor::TaskExecutor::new(task_executor::TaskExecutorParams {
+					_block: PhantomData,
+					runtime: client.clone(),
+					kv: keystore_container.keystore(),
+					public_key: public_key.clone(),
+					offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+						transaction_pool.clone(),
+					),
+					task_spawner: futures::executor::block_on(task_executor::Task::new(
+						task_executor::TaskSpawnerParams {
+							tss: sign_data_sender,
+							connector_url,
+							connector_blockchain,
+							connector_network,
+							keyfile,
+							timegraph_url,
+							timegraph_ssk,
+						},
+					))
+					.unwrap(),
+				});
+
 			let time_params = time_worker::TimeWorkerParams {
 				_block: PhantomData,
 				runtime: client.clone(),
 				client: client.clone(),
 				network,
 				kv: keystore_container.keystore(),
+				task_executor,
+				public_key,
 				peer_id,
 				tss_request: sign_data_receiver,
 				protocol_request: protocol_rx,
-				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-					transaction_pool.clone(),
-				),
+				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"time-worker",
 				None,
 				time_worker::start_timeworker_gadget(time_params),
-			);
-
-			// start the executor for one-time task
-			let task_executor_params = task_executor::TaskExecutorParams {
-				_block: PhantomData,
-				runtime: client.clone(),
-				client,
-				kv: keystore_container.keystore(),
-				peer_id,
-				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
-				task_spawner: futures::executor::block_on(task_executor::Task::new(
-					task_executor::TaskSpawnerParams {
-						tss: sign_data_sender,
-						connector_url,
-						connector_blockchain,
-						connector_network,
-						keyfile,
-						timegraph_url,
-						timegraph_ssk,
-					},
-				))
-				.unwrap(),
-			};
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"task-executor",
-				None,
-				task_executor::start_task_executor_gadget(task_executor_params),
 			);
 		}
 	}

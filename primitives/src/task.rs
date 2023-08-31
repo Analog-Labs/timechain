@@ -160,3 +160,14 @@ pub trait TaskSpawner {
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>>;
 }
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'static {
+	async fn start_tasks(
+		&self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()>;
+}

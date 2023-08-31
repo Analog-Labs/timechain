@@ -20,12 +20,8 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
-	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
-		Some(sp_runtime::MultiSigner::Sr25519(Public([0u8; 32])))
-	}
-
-	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
-		Some([0u8; 32])
+	fn random_signer(shard_id: ShardId) -> PublicKey {
+		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
 	}
 }
 

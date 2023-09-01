@@ -379,10 +379,6 @@ pub fn new_full(
 					runtime: client.clone(),
 					network: shard_network,
 					public_key: public_key.clone(),
-					// kv: keystore_container.keystore(),
-					// offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-					// 	transaction_pool.clone(),
-					// ),
 					task_spawner: futures::executor::block_on(task_executor::Task::new(
 						task_executor::TaskSpawnerParams {
 							tss: sign_data_sender,

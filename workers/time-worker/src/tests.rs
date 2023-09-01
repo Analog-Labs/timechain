@@ -62,7 +62,7 @@ impl InnerMockApi {
 	}
 
 	fn submit_tss_public_key(&mut self, _shard_id: ShardId, public_key: TssPublicKey) {
-		self.pubkey = Some(public_key.clone());
+		self.pubkey = Some(public_key);
 	}
 }
 
@@ -77,7 +77,7 @@ impl MockApi {
 	}
 
 	pub fn get_pubkey(&self) -> Option<TssPublicKey> {
-		self.inner.lock().unwrap().pubkey.clone()
+		self.inner.lock().unwrap().pubkey
 	}
 }
 
@@ -85,7 +85,7 @@ sp_api::mock_impl_runtime_apis! {
 	impl ShardsApi<Block> for MockApi {
 
 		fn get_shards(&self, account: &AccountId) -> Vec<ShardId> {
-			self.inner.lock().unwrap().get_shards((*account).clone().into())
+			self.inner.lock().unwrap().get_shards((*account).clone()
 		}
 
 		fn get_shard_members(&self, shard_id: ShardId) -> Vec<AccountId> {
@@ -277,7 +277,7 @@ async fn tss_smoke() -> Result<()> {
 	let peers_account_id: Vec<AccountId> =
 		pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
 
-	api.create_shard(peers_account_id.into());
+	api.create_shard(peers_account_id);
 
 	tokio::task::spawn(async move {
 		let mut block_timer = tokio::time::interval(Duration::from_secs(1));

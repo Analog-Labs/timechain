@@ -395,7 +395,6 @@ pub fn new_full(
 						},
 					))
 					.unwrap(),
-					// tx_submitter: tx_submitter.clone(),
 				});
 
 			let time_params = time_worker::TimeWorkerParams {

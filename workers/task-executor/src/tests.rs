@@ -127,14 +127,6 @@ async fn task_executor_smoke() -> Result<()> {
 	};
 	let api = Arc::new(MockApi);
 
-	// let keystore = MemoryKeystore::new();
-	// let tx_submitter = TransactionSubmitter::new(
-	// 	false,
-	// 	keystore.into(),
-	// 	OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
-	// 	api.clone(),
-	// );
-
 	//import block
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
 	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();

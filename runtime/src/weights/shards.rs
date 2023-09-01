@@ -33,27 +33,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_shards`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
-	/// Storage: `Shards::ShardIdCounter` (r:1 w:1)
-	/// Proof: `Shards::ShardIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Ocw::ShardCollector` (r:0 w:1)
-	/// Proof: `Ocw::ShardCollector` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardNetwork` (r:0 w:1)
-	/// Proof: `Shards::ShardNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardMembers` (r:0 w:3)
-	/// Proof: `Shards::ShardMembers` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardState` (r:0 w:1)
-	/// Proof: `Shards::ShardState` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn register_shard() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `42`
-		//  Estimated: `1527`
-		// Minimum execution time: 81_251_000 picoseconds.
-		Weight::from_parts(82_945_000, 0)
-			.saturating_add(Weight::from_parts(0, 1527))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(7))
-	}
-
 	fn submit_tss_public_key() -> Weight {
 		Weight::default()
 	}

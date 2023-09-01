@@ -62,8 +62,8 @@ pub use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
-		OnUnbalanced, Randomness, StorageInfo,
+		ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin,
+		KeyOwnerProofSystem, OnUnbalanced, Randomness, StorageInfo,
 	},
 	weights::{constants::RocksDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
 	PalletId, StorageValue,
@@ -1116,14 +1116,28 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+impl pallet_members::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::members::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type Elections = Elections;
+	type HeartbeatTimeout = ConstU32<50>;
+}
+
+impl pallet_elections::Config for Runtime {
+	type Members = Members;
+	type Shards = Shards;
+	type ShardSize = ConstU16<3>;
+	type Threshold = ConstU16<2>;
+}
+
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Members = Members;
+	type Elections = Elections;
 	type TaskScheduler = Tasks;
-	type MaxMembers = ConstU8<20>;
-	type MinMembers = ConstU8<3>;
 	type DkgTimeout = ConstU32<10>;
 }
 
@@ -1133,14 +1147,6 @@ impl pallet_tasks::Config for Runtime {
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
-}
-
-impl pallet_members::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::members::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type Shards = Shards;
-	type HeartbeatTimeout = ConstU32<50>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1167,6 +1173,7 @@ construct_runtime!(
 		Treasury: pallet_treasury,
 		Members: pallet_members,
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Elections: pallet_elections,
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );

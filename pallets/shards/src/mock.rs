@@ -1,11 +1,13 @@
 use crate::{self as pallet_shards};
 use frame_support::traits::OnInitialize;
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface};
+use time_primitives::{
+	ElectionsInterface, MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface,
+};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -31,6 +33,12 @@ impl MemberStorage for MockMembers {
 	fn is_member_online(_: &AccountId) -> bool {
 		true
 	}
+}
+
+pub struct MockElections;
+
+impl ElectionsInterface for MockElections {
+	fn shard_offline(_: Network, _: Vec<AccountId>) {}
 }
 
 frame_support::construct_runtime!(
@@ -90,8 +98,7 @@ impl pallet_shards::Config for Test {
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type TaskScheduler = MockTaskScheduler;
 	type Members = MockMembers;
-	type MaxMembers = ConstU8<20>;
-	type MinMembers = ConstU8<3>;
+	type Elections = MockElections;
 	type DkgTimeout = ConstU64<10>;
 }
 

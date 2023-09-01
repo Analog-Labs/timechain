@@ -11,6 +11,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, ShardsInterface,
 	};
@@ -24,7 +25,7 @@ pub mod pallet {
 		type Shards: ShardsInterface + MemberEvents;
 		type Members: MemberStorage;
 		#[pallet::constant]
-		type ShardSize: Get<u8>;
+		type ShardSize: Get<u16>;
 		#[pallet::constant]
 		type Threshold: Get<u16>;
 	}

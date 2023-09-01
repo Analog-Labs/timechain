@@ -71,6 +71,7 @@ frame-system-benchmarking = { git = "https://github.com/paritytech/substrate.git
 # Local Dependencies
 pallet-members = { path = "../pallets/members", version = "0.0.1", default-features = false }
 pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
+pallet-elections = { path = "../pallets/elections", default-features = false }
 pallet-tasks = { path = "../pallets/tasks", version = "0.0.1", default-features = false }
 pallet-treasury = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 runtime-common = { path = "./common", default-features = false }

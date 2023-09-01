@@ -6431,6 +6431,7 @@ dependencies = [
  "lazy_static",
  "log",
  "pallet-balances",
+ "pallet-shards",
  "parity-scale-codec",
  "scale-info",
  "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",

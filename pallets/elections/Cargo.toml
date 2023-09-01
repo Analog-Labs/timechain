@@ -31,6 +31,7 @@ lazy_static = "1.4.0"
 pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", version = "4.0.0-dev" }
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+pallet-shards = { path = "../shards" }
 
 [features]
 default = [ "std" ]

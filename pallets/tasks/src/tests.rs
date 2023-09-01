@@ -7,8 +7,9 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	AccountId, CycleStatus, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
+	AccountId, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskResult, TaskStatus,
+	TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -48,8 +49,12 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 	}
 }
 
-fn mock_result_ok(shard_id: ShardId) -> CycleStatus {
-	CycleStatus { shard_id, signature: [0; 64] }
+fn mock_result_ok(shard_id: ShardId) -> TaskResult {
+	TaskResult {
+		shard_id,
+		hash: [0; 32],
+		signature: [0; 64],
+	}
 }
 
 #[test]
@@ -66,17 +71,7 @@ fn test_create_task() {
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
 		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
-		System::assert_last_event(
-			Event::<Test>::TaskResult(
-				0,
-				0,
-				CycleStatus {
-					shard_id: 1,
-					signature: [0; 64],
-				},
-			)
-			.into(),
-		);
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
 	});
 }
 
@@ -268,9 +263,11 @@ fn shard_offline_drops_failed_tasks() {
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::None.into(),
 				0,
+				0,
 				TaskError {
 					shard_id: 1,
-					error: "test".to_string()
+					msg: "test".to_string(),
+					signature: [0; 64],
 				}
 			));
 		}
@@ -290,10 +287,11 @@ fn submit_task_error_increments_retry_count() {
 		));
 		let error = TaskError {
 			shard_id: 1,
-			error: "test".to_string(),
+			msg: "test".to_string(),
+			signature: [0; 64],
 		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
 	});
@@ -309,12 +307,13 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 		));
 		let error = TaskError {
 			shard_id: 1,
-			error: "test".to_string(),
+			msg: "test".to_string(),
+			signature: [0; 64],
 		};
-		for _ in 0..4 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, error.clone()));
+		for _ in 1..4 {
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
 		}
-		System::assert_last_event(Event::<Test>::TaskFailed(0, error).into());
+		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, error).into());
 	});
 }
 
@@ -328,10 +327,11 @@ fn submit_task_result_resets_retry_count() {
 		));
 		let error = TaskError {
 			shard_id: 1,
-			error: "test".to_string(),
+			msg: "test".to_string(),
+			signature: [0; 64],
 		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
 		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
@@ -564,7 +564,7 @@ fn payable_task_smoke() {
 			RawOrigin::None.into(),
 			task_id,
 			0,
-			CycleStatus { shard_id, signature: [0; 64] }
+			mock_result_ok(shard_id)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 	});

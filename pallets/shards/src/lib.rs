@@ -160,23 +160,23 @@ pub mod pallet {
 				return InvalidTransaction::Call.into();
 			}
 
-			let is_valid = match call {
-				Call::submit_tss_public_key { shard_id, .. } => {
+			match call {
+				Call::submit_tss_public_key { shard_id, public_key: _ } => {
 					log::info!("got unsigned tx for tss pub key {:?}", shard_id);
-					ShardPublicKey::<T>::get(shard_id).is_none()
+					if ShardPublicKey::<T>::get(shard_id).is_some() {
+						return InvalidTransaction::Call.into();
+					}
 				},
-				_ => false,
+				_ => {
+					return InvalidTransaction::Call.into();
+				},
 			};
 
-			if is_valid {
-				ValidTransaction::with_tag_prefix("shards-pallet")
-					.priority(TransactionPriority::max_value())
-					.longevity(10)
-					.propagate(true)
-					.build()
-			} else {
-				return InvalidTransaction::Call.into();
-			}
+			ValidTransaction::with_tag_prefix("shards-pallet")
+				.priority(TransactionPriority::max_value())
+				.longevity(10)
+				.propagate(true)
+				.build()
 		}
 
 		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
@@ -298,6 +298,10 @@ pub mod pallet {
 			let members = Self::get_shard_members(shard_id);
 			T::Members::member_public_key(&members[rng.usize(..members.len())])
 				.expect("All signers should be registered members")
+		}
+
+		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
+			ShardPublicKey::<T>::get(shard_id)
 		}
 	}
 }

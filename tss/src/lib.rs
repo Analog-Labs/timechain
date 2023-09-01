@@ -26,7 +26,7 @@ enum TssState<I> {
 pub enum TssAction<I, P> {
 	Send(Vec<(P, TssMessage<I>)>),
 	PublicKey(VerifyingKey),
-	Signature(I, Signature),
+	Signature(I, [u8; 32], Signature),
 	Error(Option<I>, Option<P>, frost_evm::Error),
 }
 
@@ -208,9 +208,9 @@ where
 										.collect(),
 								));
 							},
-							RoastAction::Complete(signature) => {
+							RoastAction::Complete(hash, signature) => {
 								signing_sessions.remove(&id);
-								return Some(TssAction::Signature(id, signature));
+								return Some(TssAction::Signature(id, hash, signature));
 							},
 							RoastAction::Failure(peer, error) => {
 								signing_sessions.remove(&id);

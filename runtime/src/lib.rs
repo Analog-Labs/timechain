@@ -53,8 +53,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, CycleStatus, MemberStorage, Network, PeerId, PublicKey, ShardId, Signature,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TssPublicKey,
+	AccountId, MemberStorage, Network, PeerId, PublicKey, ShardId, Signature, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1486,12 +1486,12 @@ impl_runtime_apis! {
 			Tasks::submit_task_hash(shard_id, task_id, hash);
 		}
 
-		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus) {
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) {
 			Tasks::submit_task_result(task_id, cycle, status);
 		}
 
-		fn submit_task_error(task_id: TaskId, error: TaskError) {
-			Tasks::submit_task_error(task_id, error);
+		fn submit_task_error(shard_id: ShardId, cycle: TaskCycle, error: TaskError) {
+			Tasks::submit_task_error(shard_id, cycle, error);
 		}
 
 	}

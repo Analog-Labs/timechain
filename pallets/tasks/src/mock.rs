@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, ShardId, ShardsInterface};
+use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -27,6 +27,10 @@ impl ShardsInterface for MockShardInterface {
 
 	fn random_signer(shard_id: ShardId) -> PublicKey {
 		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
+	}
+
+	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
+		None
 	}
 }
 

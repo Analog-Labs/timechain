@@ -21,9 +21,9 @@ use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, CycleStatus, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TasksApi, TssId, TssPublicKey, TssRequest,
-	TssSignature,
+	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
+	TssRequest, TssSignature,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -113,8 +113,8 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
 		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
 		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) {}
-		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: CycleStatus) {}
-		fn submit_task_error(_shard_id: ShardId, _error: TaskError) {}
+		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) {}
+		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) {}
 	}
 }
 
@@ -333,7 +333,7 @@ async fn tss_smoke() -> Result<()> {
 	}
 	for rx in rxs {
 		let signature = rx.await?;
-		verify_tss_signature(public_key, &message, signature)?;
+		verify_tss_signature(public_key, &message, signature.1)?;
 	}
 
 	Ok(())

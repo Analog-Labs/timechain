@@ -1,9 +1,12 @@
 use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+#[cfg(feature = "std")]
 use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
+#[cfg(feature = "std")]
+use sp_api::ApiError;
 use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::future::Future;
@@ -30,15 +33,17 @@ impl Function {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct CycleStatus {
+pub struct TaskResult {
 	pub shard_id: ShardId,
+	pub hash: [u8; 32],
 	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskError {
 	pub shard_id: ShardId,
-	pub error: String,
+	pub msg: String,
+	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -153,12 +158,14 @@ pub trait TaskSpawner {
 		function: Function,
 		hash: String,
 		block_num: u64,
-	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
 	fn execute_write(
 		&self,
+		shard_id: ShardId,
+		task_id: TaskId,
 		function: Function,
-	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>>;
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }
 
 #[cfg(feature = "std")]
@@ -174,14 +181,27 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'sta
 	) -> Result<()>;
 }
 
+#[cfg(feature = "std")]
 pub trait SubmitTasks<B: sp_runtime::traits::Block> {
-	fn submit_task_hash(&self, block: B::Hash, shard_id: ShardId, task_id: TaskId, hash: String);
+	fn submit_task_hash(
+		&self,
+		block: B::Hash,
+		shard_id: ShardId,
+		task_id: TaskId,
+		hash: String,
+	) -> Result<(), ApiError>;
 	fn submit_task_result(
 		&self,
 		block: B::Hash,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		status: CycleStatus,
-	);
-	fn submit_task_error(&self, block: B::Hash, task_id: TaskId, error: TaskError);
+		status: TaskResult,
+	) -> Result<(), ApiError>;
+	fn submit_task_error(
+		&self,
+		block: B::Hash,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> Result<(), ApiError>;
 }

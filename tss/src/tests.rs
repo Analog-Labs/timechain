@@ -136,7 +136,7 @@ impl TssTester {
 				TssAction::PublicKey(pubkey) => {
 					assert!(self.events.pubkeys.insert(peer_id, pubkey).is_none());
 				},
-				TssAction::Signature(_, sig) => {
+				TssAction::Signature(_, _, sig) => {
 					assert!(self.events.signatures.insert(peer_id, sig).is_none());
 				},
 				TssAction::Error(_, offender, _) => {

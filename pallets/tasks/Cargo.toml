@@ -15,6 +15,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+schnorr-evm = { git = "https://github.com/analog-labs/frost-evm", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
@@ -32,6 +33,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"schnorr-evm/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"time-primitives/std",

@@ -5,8 +5,10 @@ use futures::{future, FutureExt};
 use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::Backend;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
+use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
+use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::AccountId32;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -15,11 +17,9 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	AccountId, CycleStatus, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskSpawner, TasksApi,
-	TssPublicKey, TssSignature, TaskExecutor as OtherTaskExecutor
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId,
+	TaskPhase, TaskSpawner, TasksApi, TssPublicKey, TssSignature,
 };
-use sc_transaction_pool_api::{RejectAllTxPool, OffchainTransactionPoolFactory};
-use sp_keystore::testing::MemoryKeystore;
 use time_worker::tx_submitter::TransactionSubmitter;
 
 lazy_static::lazy_static! {
@@ -155,7 +155,7 @@ async fn task_executor_smoke() -> Result<()> {
 			task_spawner,
 			network: Network::Ethereum,
 			public_key: pubkey_from_bytes([i; 32]),
-			tx_submitter: tx_submitter.clone()
+			tx_submitter: tx_submitter.clone(),
 		};
 
 		let mut task_executor = TaskExecutor::new(params);
@@ -166,7 +166,6 @@ async fn task_executor_smoke() -> Result<()> {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			};
-			}
 			if is_task_ok {
 				assert!(status);
 				break;

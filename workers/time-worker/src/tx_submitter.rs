@@ -44,7 +44,7 @@ where
 	}
 }
 
-impl<B, R> Clone for TransactionSubmitter<B, R> 
+impl<B, R> Clone for TransactionSubmitter<B, R>
 where
 	B: Block + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,

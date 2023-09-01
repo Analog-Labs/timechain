@@ -5,6 +5,8 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
+#[cfg(feature = "std")]
+use sp_api::ApiError;
 use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::future::Future;
@@ -179,20 +181,27 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'sta
 	) -> Result<()>;
 }
 
+#[cfg(feature = "std")]
 pub trait SubmitTasks<B: sp_runtime::traits::Block> {
-	fn submit_task_hash(&self, block: B::Hash, shard_id: ShardId, task_id: TaskId, hash: String);
+	fn submit_task_hash(
+		&self,
+		block: B::Hash,
+		shard_id: ShardId,
+		task_id: TaskId,
+		hash: String,
+	) -> Result<(), ApiError>;
 	fn submit_task_result(
 		&self,
 		block: B::Hash,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	);
+	) -> Result<(), ApiError>;
 	fn submit_task_error(
 		&self,
 		block: B::Hash,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	);
+	) -> Result<(), ApiError>;
 }

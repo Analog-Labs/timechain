@@ -242,11 +242,15 @@ where
 				)
 				.await?;
 				let result = TaskResult { shard_id, hash, signature };
-				self.tx_submitter.submit_task_result(block_hash, task_id, task_cycle, result);
+				if let Err(e) = self.tx_submitter.submit_task_result(block_hash, task_id, task_cycle, result){
+					log::error!("Error submitting task result {:?}", e);
+				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				self.tx_submitter.submit_task_error(block_hash, task_id, task_cycle, error);
+				if let Err(e) = self.tx_submitter.submit_task_error(block_hash, task_id, task_cycle, error){
+					log::error!("Error submitting task error {:?}", e);
+				}
 			},
 		}
 		Ok(())
@@ -255,7 +259,9 @@ where
 	async fn write(self, shard_id: ShardId, task_id: TaskId, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
 		let block_hash = self.client.info().best_hash;
-		self.tx_submitter.submit_task_hash(block_hash, shard_id, task_id, tx_hash);
+		if let Err(e) = self.tx_submitter.submit_task_hash(block_hash, shard_id, task_id, tx_hash){
+			log::error!("Error submitting task hash {:?}", e);
+		}
 		Ok(())
 	}
 }

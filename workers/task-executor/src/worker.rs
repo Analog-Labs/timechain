@@ -3,10 +3,8 @@ use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_keystore::{KeystoreExt, KeystorePtr};
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::marker::{Send, Sync};
 use std::{

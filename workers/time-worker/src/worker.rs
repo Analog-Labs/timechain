@@ -18,7 +18,7 @@ use std::{
 };
 use time_primitives::{
 	MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssId,
-	TssRequest, TssSignature,
+	TssRequest, TssSignature
 };
 use tss::{Tss, TssAction, TssMessage};
 
@@ -229,14 +229,6 @@ where
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
 					self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key);
-					// let mut runtime = self.runtime.runtime_api();
-					// runtime.register_extension(KeystoreExt(self.kv.clone()));
-					// runtime.register_extension(
-					// 	self.offchain_tx_pool_factory.offchain_transaction_pool(block),
-					// );
-					// if let Err(e) = runtime.submit_tss_public_key(block, shard_id, public_key) {
-					// 	log::error!("Error submitting tss pub key {:?}", e);
-					// }
 				},
 				TssAction::Signature(request_id, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -268,17 +260,6 @@ where
 			self.public_key.clone(),
 			self.peer_id,
 		);
-		// let mut runtime = self.runtime.runtime_api();
-		// runtime.register_extension(KeystoreExt(self.kv.clone()));
-		// runtime.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
-		// runtime
-		// 	.submit_register_member(
-		// 		block,
-		// 		self.task_executor.network(),
-		// 		self.public_key.clone(),
-		// 		self.peer_id,
-		// 	)
-		// 	.unwrap();
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {

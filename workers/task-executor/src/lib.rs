@@ -1,7 +1,5 @@
 use anyhow::Result;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::{Network, PublicKey, ShardId, SubmitTasks, TaskSpawner, TasksApi};

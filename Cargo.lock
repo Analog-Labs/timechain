@@ -12031,7 +12031,6 @@ dependencies = [
  "env_logger",
  "frost-evm",
  "futures",
- "lazy_static",
  "log",
  "sc-client-api",
  "sc-consensus",

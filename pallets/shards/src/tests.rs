@@ -2,7 +2,7 @@ use crate::mock::*;
 use crate::{Error, Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, MemberEvents, Network, PublicKey, ShardStatus};
+use time_primitives::{AccountId, MemberEvents, Network, ShardStatus};
 
 fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
@@ -19,10 +19,6 @@ fn shard() -> [AccountId; 3] {
 	let b: AccountId = [2u8; 32].into();
 	let c: AccountId = [3u8; 32].into();
 	[a, b, c]
-}
-
-fn collector() -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([42; 32]))
 }
 
 #[test]

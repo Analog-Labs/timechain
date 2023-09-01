@@ -11,10 +11,10 @@ use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::AccountId32;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
-use std::sync::Mutex;
 use time_primitives::{
 	AccountId, CycleStatus, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi,
 	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId,

@@ -18,7 +18,7 @@ use std::{
 };
 use time_primitives::{
 	MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssId,
-	TssRequest, TssSignature
+	TssRequest, TssSignature,
 };
 use tss::{Tss, TssAction, TssMessage};
 

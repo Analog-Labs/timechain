@@ -274,7 +274,8 @@ async fn tss_smoke() -> Result<()> {
 
 	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
 
-	let peers_account_id: Vec<AccountId> = pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
+	let peers_account_id: Vec<AccountId> =
+		pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
 
 	api.create_shard(peers_account_id.into());
 

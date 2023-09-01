@@ -228,7 +228,9 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					if let Err(e) = self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key){
+					if let Err(e) =
+						self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key)
+					{
 						log::error!("error submitting tss pubkey {:?}", e);
 					}
 				},
@@ -261,7 +263,7 @@ where
 			self.task_executor.network(),
 			self.public_key.clone(),
 			self.peer_id,
-		){
+		) {
 			log::error!("error registering member {:?}", e);
 		}
 		let mut finality_notifications = self.client.finality_notification_stream();

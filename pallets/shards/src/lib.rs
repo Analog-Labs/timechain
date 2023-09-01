@@ -22,15 +22,10 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn register_shard() -> Weight;
 		fn submit_tss_public_key() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn register_shard() -> Weight {
-			Weight::default()
-		}
-
 		fn submit_tss_public_key() -> Weight {
 			Weight::default()
 		}

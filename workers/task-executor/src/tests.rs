@@ -16,7 +16,7 @@ use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	AccountId, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId, TaskPhase,
-	TaskResult, TaskSpawner, TasksApi, TssPublicKey
+	TaskResult, TaskSpawner, TasksApi, TssPublicKey,
 };
 
 lazy_static::lazy_static! {
@@ -79,14 +79,14 @@ struct MockTask {
 	is_ok: bool,
 }
 
-impl MockTask{
+impl MockTask {
 	pub fn new(is_ok: bool) -> Self {
-		Self { is_ok}
+		Self { is_ok }
 	}
 }
 
 #[async_trait::async_trait]
-impl TaskSpawner for MockTask{
+impl TaskSpawner for MockTask {
 	async fn block_height(&self) -> Result<u64> {
 		Ok(0)
 	}

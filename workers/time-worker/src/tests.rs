@@ -35,7 +35,7 @@ struct InnerMockApi {
 	shard_counter: ShardId,
 	shards: HashMap<AccountId, Vec<ShardId>>,
 	members: HashMap<ShardId, Vec<AccountId>>,
-	pubkey: Option<TssPublicKey>,
+	pubkeys: Vec<TssPublicKey>,
 }
 
 impl InnerMockApi {
@@ -62,7 +62,7 @@ impl InnerMockApi {
 	}
 
 	fn submit_tss_public_key(&mut self, _shard_id: ShardId, public_key: TssPublicKey) {
-		self.pubkey = Some(public_key);
+		self.pubkeys.push(public_key);
 	}
 }
 
@@ -76,8 +76,8 @@ impl MockApi {
 		self.inner.lock().unwrap().create_shard(members)
 	}
 
-	pub fn get_pubkey(&self) -> Option<TssPublicKey> {
-		self.inner.lock().unwrap().pubkey
+	pub fn get_pubkey(&self) -> Vec<TssPublicKey> {
+		self.inner.lock().unwrap().pubkeys.clone()
 	}
 }
 
@@ -306,19 +306,15 @@ async fn tss_smoke() -> Result<()> {
 	// is scheduled to complete. we should require all members to submit the public
 	// key before scheduling.
 
-	let mut tss_keys = vec![];
 	loop {
-		let Some(key) = api.get_pubkey() else {
+		if api.get_pubkey().len() == 3 {
+			break
+		} else {
 			tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 			continue;
 		};
-
-		tss_keys.push(key);
-		if tss_keys.len() == 3 {
-			break;
-		}
 	}
-	let public_key = tss_keys.pop().unwrap();
+	let public_key =  api.get_pubkey().pop().unwrap();
 
 	let block_number = client[0].chain_info().finalized_number;
 	let message = [1u8; 32];

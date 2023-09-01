@@ -308,13 +308,13 @@ async fn tss_smoke() -> Result<()> {
 
 	loop {
 		if api.get_pubkey().len() == 3 {
-			break
+			break;
 		} else {
 			tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 			continue;
 		};
 	}
-	let public_key =  api.get_pubkey().pop().unwrap();
+	let public_key = api.get_pubkey().pop().unwrap();
 
 	let block_number = client[0].chain_info().finalized_number;
 	let message = [1u8; 32];

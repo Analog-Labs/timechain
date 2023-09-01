@@ -369,12 +369,8 @@ pub fn new_full(
 				task_executor::TaskExecutor::new(task_executor::TaskExecutorParams {
 					_block: PhantomData,
 					runtime: client.clone(),
-					kv: keystore_container.keystore(),
 					network: shard_network,
 					public_key: public_key.clone(),
-					offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-						transaction_pool.clone(),
-					),
 					task_spawner: futures::executor::block_on(task_executor::Task::new(
 						task_executor::TaskSpawnerParams {
 							tss: sign_data_sender,
@@ -384,6 +380,12 @@ pub fn new_full(
 							keyfile,
 							timegraph_url,
 							timegraph_ssk,
+							client: client.clone(),
+							runtime: client.clone(),
+							kv: keystore_container.keystore(),
+							offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+								transaction_pool.clone(),
+							),
 						},
 					))
 					.unwrap(),

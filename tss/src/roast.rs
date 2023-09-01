@@ -2,7 +2,7 @@ use frost_evm::{
 	keys::{KeyPackage, PublicKeyPackage},
 	round1::{self, SigningCommitments, SigningNonces},
 	round2::{self, SignatureShare},
-	Error, Identifier, Signature, SigningPackage,
+	Error, Identifier, Signature, SigningPackage, VerifyingKey,
 };
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl std::fmt::Display for RoastMessage {
 
 pub enum RoastAction {
 	Broadcast(RoastMessage),
-	Complete(Signature),
+	Complete([u8; 32], Signature),
 	Failure(Option<Identifier>, Error),
 }
 
@@ -146,9 +146,10 @@ impl Roast {
 				if signature_shares.len() == self.members.len() {
 					log::debug!("Received all shares processing aggregator");
 					let shares = std::mem::take(signature_shares);
+					let hash = VerifyingKey::message_hash(signing_package.message());
 					match frost_evm::aggregate(signing_package, &shares, &self.public_key_package) {
 						Ok(signature) => {
-							return Some(RoastAction::Complete(signature));
+							return Some(RoastAction::Complete(hash, signature));
 						},
 						Err(Error::InvalidSignatureShare { culprit }) => {
 							return Some(RoastAction::Failure(

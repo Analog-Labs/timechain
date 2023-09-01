@@ -1,0 +1,57 @@
+##########################################################
+#
+#  Workflow for running benchmarks on the self-hosted 
+#  benchmark machine.
+#  
+#  Workflow is triggered on each pull request with
+#  label `!ci-benchmark` and skip all files that aren't
+#  related to the pallets, runtime or node.
+# 
+#  After weights are generated, the CI commits and pushes
+#  the weights.rs files to the PR's branch.
+#
+##########################################################
+
+name: Run benchmarks
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - '**/*.md'
+    
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-benchmarks:
+    runs-on: [self-hosted, benchmark]
+    if: ${{
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name,'!ci-benchmark')
+      }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Install protobuf
+        run: sudo apt update && sudo apt install -y protobuf-compiler
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run benchmark script
+        run: ./scripts/benchmarking.sh
+      - name: Commit weights
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: './runtime/src/weights'
+          default_author: github_actions
+          author_name: Github Actions
+          message: 'Add generated weights'

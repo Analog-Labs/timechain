@@ -314,7 +314,7 @@ async fn tss_smoke() -> Result<()> {
 		};
 
 		tss_keys.push(key);
-		if tss_keys.len() == 3{
+		if tss_keys.len() == 3 {
 			break;
 		}
 	}

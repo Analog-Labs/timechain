@@ -1,10 +1,8 @@
 use anyhow::Result;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::{Network, PublicKey, ShardId, TaskSpawner, TasksApi};
+use time_primitives::{Network, PublicKey, ShardId, SubmitTasks, TaskSpawner, TasksApi};
 use tokio::sync::Mutex;
 
 mod worker;
@@ -19,35 +17,36 @@ pub const TW_LOG: &str = "task-executor";
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B: Block, R, T>
+pub struct TaskExecutorParams<B: Block, R, T, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TasksApi<B>,
 	T: TaskSpawner,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
 	pub _block: PhantomData<B>,
 	pub runtime: Arc<R>,
-	pub kv: KeystorePtr,
-	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	pub task_spawner: T,
+	pub tx_submitter: TxSub,
 	pub network: Network,
 	pub public_key: PublicKey,
 }
 
-pub struct TaskExecutor<B: Block, R, T> {
+pub struct TaskExecutor<B: Block, R, T, TxSub> {
 	network: Network,
-	task_executor: Arc<Mutex<worker::TaskExecutor<B, R, T>>>,
+	task_executor: Arc<Mutex<worker::TaskExecutor<B, R, T, TxSub>>>,
 }
 
-impl<B, R, T> TaskExecutor<B, R, T>
+impl<B, R, T, TxSub> TaskExecutor<B, R, T, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 	T: TaskSpawner + Send + Sync + 'static,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, R, T, TxSub>) -> Self {
 		Self {
 			network: params.network,
 			task_executor: Arc::new(Mutex::new(worker::TaskExecutor::new(params))),
@@ -55,7 +54,7 @@ where
 	}
 }
 
-impl<B: Block, R, T> Clone for TaskExecutor<B, R, T> {
+impl<B: Block, R, T, TxSub> Clone for TaskExecutor<B, R, T, TxSub> {
 	fn clone(&self) -> Self {
 		Self {
 			network: self.network,
@@ -65,12 +64,13 @@ impl<B: Block, R, T> Clone for TaskExecutor<B, R, T> {
 }
 
 #[async_trait::async_trait]
-impl<B, R, T> time_primitives::TaskExecutor<B> for TaskExecutor<B, R, T>
+impl<B, R, T, TxSub> time_primitives::TaskExecutor<B> for TaskExecutor<B, R, T, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 	T: TaskSpawner + Send + Sync + 'static,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
 	fn network(&self) -> Network {
 		self.network

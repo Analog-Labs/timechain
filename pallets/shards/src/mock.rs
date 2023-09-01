@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{MemberStorage, Network, PeerId, ShardId, TasksInterface};
+use time_primitives::{MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -22,7 +22,10 @@ impl TasksInterface for MockTaskScheduler {
 pub struct MockMembers;
 
 impl MemberStorage for MockMembers {
-	fn member_peer_id(_: AccountId) -> Option<PeerId> {
+	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
+		None
+	}
+	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
 		None
 	}
 	fn is_member_online(_: &AccountId) -> bool {

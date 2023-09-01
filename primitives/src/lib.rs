@@ -53,7 +53,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
 		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus);
-		fn submit_task_error(shard_id: ShardId, error: TaskError);
+		fn submit_task_error(task_id: ShardId, error: TaskError);
 	}
 }
 

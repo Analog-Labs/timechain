@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+pub mod tx_submitter;
 mod worker;
 
 #[cfg(test)]
@@ -8,12 +9,12 @@ use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
 use sc_network::NetworkRequest;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use time_primitives::{MembersApi, PeerId, PublicKey, ShardsApi, TaskExecutor, TssRequest};
+use time_primitives::{
+	MembersApi, PeerId, PublicKey, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssRequest,
+};
 
 /// Constant to indicate target for logging
 pub const TW_LOG: &str = "time-worker";
@@ -33,7 +34,7 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 }
 
 /// Set of properties we need to run our gadget
-pub struct TimeWorkerParams<B: Block, C, R, N, T>
+pub struct TimeWorkerParams<B: Block, C, R, N, T, TxSub>
 where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
@@ -41,25 +42,25 @@ where
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 	T: TaskExecutor<B>,
+	TxSub: SubmitShards<B> + SubmitMembers<B>,
 {
 	pub _block: PhantomData<B>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
-	pub kv: KeystorePtr,
 	pub task_executor: T,
+	pub tx_submitter: TxSub,
 	pub public_key: PublicKey,
 	pub peer_id: PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
-	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 }
 
 /// Start the Timeworker gadget.
 ///
 /// This is a thin shim around running and awaiting a time worker.
-pub async fn start_timeworker_gadget<B, C, R, N, T>(
-	timeworker_params: TimeWorkerParams<B, C, R, N, T>,
+pub async fn start_timeworker_gadget<B, C, R, N, T, TxSub>(
+	timeworker_params: TimeWorkerParams<B, C, R, N, T, TxSub>,
 ) where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
@@ -67,32 +68,31 @@ pub async fn start_timeworker_gadget<B, C, R, N, T>(
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 	T: TaskExecutor<B>,
+	TxSub: SubmitShards<B> + SubmitMembers<B>,
 {
 	let TimeWorkerParams {
 		_block,
 		client,
 		runtime,
 		network,
-		kv,
 		task_executor,
+		tx_submitter,
 		public_key,
 		peer_id,
 		tss_request,
 		protocol_request,
-		offchain_tx_pool_factory,
 	} = timeworker_params;
 	let worker_params = worker::WorkerParams {
 		_block,
 		client,
 		runtime,
 		network,
-		kv,
 		task_executor,
+		tx_submitter,
 		public_key,
 		peer_id,
 		tss_request,
 		protocol_request,
-		offchain_tx_pool_factory,
 	};
 	let mut worker = worker::TimeWorker::new(worker_params);
 	worker.run().await

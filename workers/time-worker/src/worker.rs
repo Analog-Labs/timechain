@@ -8,10 +8,8 @@ use futures::{
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde::{Deserialize, Serialize};
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_keystore::{KeystoreExt, KeystorePtr};
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block, Header, IdentifyAccount};
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -19,7 +17,8 @@ use std::{
 	sync::Arc,
 };
 use time_primitives::{
-	MembersApi, PublicKey, ShardId, ShardsApi, TaskExecutor, TssId, TssRequest, TssSignature,
+	MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssId,
+	TssRequest, TssSignature,
 };
 use tss::{Tss, TssAction, TssMessage};
 
@@ -46,29 +45,27 @@ pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	)
 }
 
-pub struct WorkerParams<B: Block, C, R, N, T> {
+pub struct WorkerParams<B: Block, C, R, N, T, TxSub> {
 	pub _block: PhantomData<B>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub network: N,
-	pub kv: KeystorePtr,
 	pub task_executor: T,
+	pub tx_submitter: TxSub,
 	pub public_key: PublicKey,
 	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
-	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, C, R, N, T> {
+pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	_block: PhantomData<B>,
 	client: Arc<C>,
 	runtime: Arc<R>,
 	network: N,
-	kv: KeystorePtr,
 	task_executor: T,
-	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
+	tx_submitter: TxSub,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssRequest>,
@@ -79,7 +76,7 @@ pub struct TimeWorker<B: Block, C, R, N, T> {
 	channels: HashMap<TssId, oneshot::Sender<TssSignature>>,
 }
 
-impl<B, C, R, N, T> TimeWorker<B, C, R, N, T>
+impl<B, C, R, N, T, TxSub> TimeWorker<B, C, R, N, T, TxSub>
 where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
@@ -87,29 +84,28 @@ where
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 	T: TaskExecutor<B>,
+	TxSub: SubmitShards<B> + SubmitMembers<B>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N, T>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N, T, TxSub>) -> Self {
 		let WorkerParams {
 			_block,
 			client,
 			runtime,
 			network,
-			kv,
 			task_executor,
+			tx_submitter,
 			public_key,
 			peer_id,
 			tss_request,
 			protocol_request,
-			offchain_tx_pool_factory,
 		} = worker_params;
 		Self {
 			_block,
 			client,
 			runtime,
 			network,
-			kv,
 			task_executor,
-			offchain_tx_pool_factory,
+			tx_submitter,
 			public_key,
 			peer_id,
 			tss_request,
@@ -232,14 +228,7 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					let mut runtime = self.runtime.runtime_api();
-					runtime.register_extension(KeystoreExt(self.kv.clone()));
-					runtime.register_extension(
-						self.offchain_tx_pool_factory.offchain_transaction_pool(block),
-					);
-					if let Err(e) = runtime.submit_tss_public_key(block, shard_id, public_key) {
-						log::error!("Error submitting tss pub key {:?}", e);
-					}
+					self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key);
 				},
 				TssAction::Signature(request_id, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -265,17 +254,12 @@ where
 	/// topics
 	pub(crate) async fn run(&mut self) {
 		let block = self.client.info().best_hash;
-		let mut runtime = self.runtime.runtime_api();
-		runtime.register_extension(KeystoreExt(self.kv.clone()));
-		runtime.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block));
-		runtime
-			.submit_register_member(
-				block,
-				self.task_executor.network(),
-				self.public_key.clone(),
-				self.peer_id,
-			)
-			.unwrap();
+		self.tx_submitter.submit_register_member(
+			block,
+			self.task_executor.network(),
+			self.public_key.clone(),
+			self.peer_id,
+		);
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {

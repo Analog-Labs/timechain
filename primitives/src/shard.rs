@@ -98,6 +98,10 @@ impl<B: Copy> ShardStatus<B> {
 	}
 }
 
+pub trait SubmitShards<B: sp_runtime::traits::Block> {
+	fn submit_tss_pub_key(&self, block: B::Hash, shard_id: ShardId, public_key: TssPublicKey);
+}
+
 #[cfg(feature = "std")]
 pub struct TssRequest {
 	pub request_id: TssId,

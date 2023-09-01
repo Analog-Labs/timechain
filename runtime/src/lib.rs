@@ -1483,8 +1483,8 @@ impl_runtime_apis! {
 			Tasks::submit_task_result(task_id, cycle, status);
 		}
 
-		fn submit_task_error(shard_id: ShardId, error: TaskError) {
-			Tasks::submit_task_error(shard_id, error);
+		fn submit_task_error(task_id: TaskId, error: TaskError) {
+			Tasks::submit_task_error(task_id, error);
 		}
 
 	}

@@ -254,9 +254,10 @@ pub mod pallet {
 			ensure_none(origin)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
-			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
+			let new_retry_count = retry_count.saturating_plus_one();
+			TaskRetryCounter::<T>::insert(task_id, new_retry_count);
 			// task fails when new retry count == max - 1 => old retry count == max
-			if retry_count == T::MaxRetryCount::get() {
+			if new_retry_count == T::MaxRetryCount::get() {
 				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
 				Self::deposit_event(Event::TaskFailed(task_id, cycle, error));
 			}

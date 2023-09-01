@@ -4,7 +4,6 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
 use sc_client_api::HeaderBackend;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -14,11 +13,12 @@ use std::{
 };
 use time_primitives::{
 	Function, PublicKey, ShardId, TaskCycle, TaskError, TaskExecution, TaskId, TaskResult,
-	TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
+	TaskSpawner, TasksApi, TssId, TssRequest, TssSignature, SubmitTasks
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
-pub struct TaskSpawnerParams<B: Block, C, R> {
+pub struct TaskSpawnerParams<B: Block, C, R, TxSub> {
+	pub _marker: PhantomData<B>,
 	pub tss: mpsc::Sender<TssRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
@@ -28,42 +28,46 @@ pub struct TaskSpawnerParams<B: Block, C, R> {
 	pub timegraph_ssk: Option<String>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
-	pub kv: KeystorePtr,
-	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
+	pub tx_submitter: TxSub,
 }
 
-pub struct Task<B: Block, C, R> {
+pub struct Task<B, C, R, TxSub> {
+	_marker: PhantomData<B>,
 	tss: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
 	client: Arc<C>,
 	runtime: Arc<R>,
-	kv: KeystorePtr,
-	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
+	tx_submitter: TxSub,
 }
 
-impl<B: Block, C, R> Clone for Task<B, C, R> {
+impl<B, C, R, TxSub> Clone for Task<B, C, R, TxSub> 
+where
+	B: Block,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
+{
 	fn clone(&self) -> Self {
 		Self {
+			_marker: PhantomData,
 			tss: self.tss.clone(),
 			wallet: self.wallet.clone(),
 			timegraph: self.timegraph.clone(),
 			client: self.client.clone(),
 			runtime: self.runtime.clone(),
-			kv: self.kv.clone(),
-			offchain_tx_pool_factory: self.offchain_tx_pool_factory.clone(),
+			tx_submitter: self.tx_submitter.clone(),
 		}
 	}
 }
 
-impl<B, C, R> Task<B, C, R>
+impl<B, C, R, TxSub> Task<B, C, R, TxSub>
 where
 	B: Block,
 	C: HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
-	pub async fn new(params: TaskSpawnerParams<B, C, R>) -> Result<Self> {
+	pub async fn new(params: TaskSpawnerParams<B, C, R, TxSub>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);
 		let wallet = Arc::new(
 			create_wallet(
@@ -87,13 +91,13 @@ where
 			None
 		};
 		Ok(Self {
+			_marker: PhantomData,
 			tss: params.tss,
 			wallet,
 			timegraph,
 			client: params.client,
 			runtime: params.runtime,
-			kv: params.kv,
-			offchain_tx_pool_factory: params.offchain_tx_pool_factory,
+			tx_submitter: params.tx_submitter,
 		})
 	}
 
@@ -223,9 +227,6 @@ where
 		let (hash, signature) =
 			self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
 		let block_hash = self.client.info().best_hash;
-		let mut api = self.runtime.runtime_api();
-		api.register_extension(KeystoreExt(self.kv.clone()));
-		api.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash));
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(
@@ -241,11 +242,11 @@ where
 				)
 				.await?;
 				let result = TaskResult { shard_id, hash, signature };
-				api.submit_task_result(block_hash, task_id, task_cycle, result)?;
+				self.tx_submitter.submit_task_result(block_hash, task_id, task_cycle, result);
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				api.submit_task_error(block_hash, task_id, task_cycle, error)?;
+				self.tx_submitter.submit_task_error(block_hash, task_id, task_cycle, error);
 			},
 		}
 		Ok(())
@@ -254,21 +255,19 @@ where
 	async fn write(self, shard_id: ShardId, task_id: TaskId, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
 		let block_hash = self.client.info().best_hash;
-		let mut api = self.runtime.runtime_api();
-		api.register_extension(KeystoreExt(self.kv.clone()));
-		api.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(block_hash));
-		api.submit_task_hash(block_hash, shard_id, task_id, tx_hash)?;
+		self.tx_submitter.submit_task_hash(block_hash, shard_id, task_id, tx_hash);
 		Ok(())
 	}
 }
 
 #[async_trait::async_trait]
-impl<B, C, R> TaskSpawner for Task<B, C, R>
+impl<B, C, R, TxSub> TaskSpawner for Task<B, C, R, TxSub>
 where
 	B: Block,
 	C: HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
 	async fn block_height(&self) -> Result<u64> {
 		let status = self.wallet.status().await?;
@@ -300,31 +299,28 @@ where
 	}
 }
 
-pub struct TaskExecutor<B: Block, R, T, TxSub> {
+pub struct TaskExecutor<B: Block, R, T> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
 	public_key: PublicKey,
 	running_tasks: BTreeSet<TaskExecution>,
 	task_spawner: T,
-	tx_submitter: TxSub,
 }
 
-impl<B, R, T, TxSub> TaskExecutor<B, R, T, TxSub>
+impl<B, R, T> TaskExecutor<B, R, T>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 	T: TaskSpawner,
-	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
-	pub fn new(params: TaskExecutorParams<B, R, T, TxSub>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
 		let TaskExecutorParams {
 			_block,
 			runtime,
 			network: _,
 			public_key,
 			task_spawner,
-			tx_submitter,
 		} = params;
 		Self {
 			_block,
@@ -332,7 +328,6 @@ where
 			public_key,
 			running_tasks: Default::default(),
 			task_spawner,
-			tx_submitter,
 		}
 	}
 

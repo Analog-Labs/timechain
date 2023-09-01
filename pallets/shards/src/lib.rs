@@ -221,15 +221,11 @@ pub mod pallet {
 				},
 			};
 
-			if is_valid {
-				ValidTransaction::with_tag_prefix("shards-pallet")
-					.priority(TransactionPriority::max_value())
-					.longevity(10)
-					.propagate(true)
-					.build()
-			} else {
-				return InvalidTransaction::Call.into();
-			}
+			ValidTransaction::with_tag_prefix("shards-pallet")
+				.priority(TransactionPriority::max_value())
+				.longevity(10)
+				.propagate(true)
+				.build()
 		}
 
 		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {

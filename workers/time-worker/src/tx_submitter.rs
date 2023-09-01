@@ -5,8 +5,8 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use time_primitives::{
-	CycleStatus, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers,
-	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TasksApi, TssPublicKey,
+	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers,
+	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TasksApi, TssPublicKey, TaskResult
 };
 
 pub struct TransactionSubmitter<B, R>
@@ -104,7 +104,7 @@ where
 		block: B::Hash,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		status: CycleStatus,
+		status: TaskResult,
 	) {
 		if self.register_extension {
 			let mut runtime = self.runtime.runtime_api();
@@ -114,13 +114,13 @@ where
 			self.runtime.runtime_api().submit_task_result(block, task_id, cycle, status);
 		}
 	}
-	fn submit_task_error(&self, block: B::Hash, task_id: TaskId, error: TaskError) {
+	fn submit_task_error(&self, block: B::Hash, task_id: TaskId, cycle: TaskCycle, error: TaskError) {
 		if self.register_extension {
 			let mut runtime = self.runtime.runtime_api();
 			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_task_error(block, task_id, error);
+			runtime.submit_task_error(block, task_id, cycle, error);
 		} else {
-			self.runtime.runtime_api().submit_task_error(block, task_id, error);
+			self.runtime.runtime_api().submit_task_error(block, task_id, cycle, error);
 		}
 	}
 }

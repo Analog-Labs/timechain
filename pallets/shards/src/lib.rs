@@ -209,12 +209,16 @@ pub mod pallet {
 				return InvalidTransaction::Call.into();
 			}
 
-			let is_valid = match call {
-				Call::submit_tss_public_key { shard_id, public_key } => {
+			match call {
+				Call::submit_tss_public_key { shard_id, public_key: _ } => {
 					log::info!("got unsigned tx for tss pub key {:?}", shard_id);
-					ShardPublicKey::<T>::get(shard_id).is_none()
+					if ShardPublicKey::<T>::get(shard_id).is_some() {
+						return InvalidTransaction::Call.into();
+					}
 				},
-				_ => false,
+				_ => {
+					return InvalidTransaction::Call.into();
+				},
 			};
 
 			ValidTransaction::with_tag_prefix("shards-pallet")
@@ -329,6 +333,10 @@ pub mod pallet {
 
 		fn random_signer(shard_id: ShardId) -> PublicKey {
 			todo!()
+		}
+
+		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
+			ShardPublicKey::<T>::get(shard_id)
 		}
 	}
 }

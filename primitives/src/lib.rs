@@ -52,8 +52,8 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
-		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus);
-		fn submit_task_error(shard_id: ShardId, error: TaskError);
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult);
+		fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError);
 	}
 }
 
@@ -71,6 +71,7 @@ pub trait MemberStorage {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn random_signer(shard_id: ShardId) -> PublicKey;
+	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 
 pub trait TasksInterface {

@@ -104,5 +104,5 @@ pub struct TssRequest {
 	pub shard_id: ShardId,
 	pub block_number: u64,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<TssSignature>,
+	pub tx: oneshot::Sender<([u8; 32], TssSignature)>,
 }

@@ -1,7 +1,5 @@
 use anyhow::Result;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
 use time_primitives::{Network, PublicKey, ShardId, TaskSpawner, TasksApi};
@@ -28,8 +26,6 @@ where
 {
 	pub _block: PhantomData<B>,
 	pub runtime: Arc<R>,
-	pub kv: KeystorePtr,
-	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	pub task_spawner: T,
 	pub network: Network,
 	pub public_key: PublicKey,

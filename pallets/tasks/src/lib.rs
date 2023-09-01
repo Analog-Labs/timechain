@@ -12,7 +12,7 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer, SubmitTransaction,
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
@@ -20,9 +20,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, CycleStatus, Network, PublicKey, ShardId, ShardsInterface, TaskCycle,
-		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
-		TaskStatus, TasksInterface,
+		AccountId, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
+		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
+		TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -122,7 +122,7 @@ pub mod pallet {
 		TaskId,
 		Blake2_128Concat,
 		TaskCycle,
-		CycleStatus,
+		TaskResult,
 		OptionQuery,
 	>;
 
@@ -132,9 +132,9 @@ pub mod pallet {
 		/// the record id that uniquely identify
 		TaskCreated(TaskId),
 		/// Updated cycle status
-		TaskResult(TaskId, TaskCycle, CycleStatus),
+		TaskResult(TaskId, TaskCycle, TaskResult),
 		/// Task failed due to more errors than max retry count
-		TaskFailed(TaskId, TaskError),
+		TaskFailed(TaskId, TaskCycle, TaskError),
 		/// Task stopped by owner
 		TaskStopped(TaskId),
 		/// Task resumed by owner
@@ -223,7 +223,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			cycle: TaskCycle,
-			status: CycleStatus,
+			status: TaskResult,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
@@ -246,15 +246,17 @@ pub mod pallet {
 		pub fn submit_error(
 			origin: OriginFor<T>,
 			task_id: TaskId,
+			cycle: TaskCycle,
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_none(origin)?;
+			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			TaskRetryCounter::<T>::insert(task_id, retry_count.saturating_plus_one());
 			// task fails when new retry count == max - 1 => old retry count == max
 			if retry_count == T::MaxRetryCount::get() {
 				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
-				Self::deposit_event(Event::TaskFailed(task_id, error));
+				Self::deposit_event(Event::TaskFailed(task_id, cycle, error));
 			}
 			Ok(())
 		}
@@ -378,18 +380,14 @@ pub mod pallet {
 			}
 		}
 
-		pub fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus) {
-			use frame_system::offchain::SubmitTransaction;
-
+		pub fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) {
 			let call = Call::submit_result { task_id, cycle, status };
 			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 			log::info!("Submitted Task result {:?}/{:?}: {:?}", task_id, cycle, res);
 		}
 
-		pub fn submit_task_error(task_id: TaskId, error: TaskError) {
-			use frame_system::offchain::SubmitTransaction;
-
-			let call = Call::submit_error { task_id, error };
+		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) {
+			let call = Call::submit_error { task_id, cycle, error };
 			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 			log::info!("Submitted Task error {:?}: {:?}", task_id, res);
 		}
@@ -417,25 +415,46 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			//transaction validity
-
 			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
 				return InvalidTransaction::Call.into();
 			}
 
-			let is_valid = match call {
-				Call::submit_result { task_id, cycle, .. } => {
+			let (task_id, cycle, shard_id, hash, signature) = match call {
+				Call::submit_result { task_id, cycle, status } => {
 					log::info!("Got unsigned tx for submit_result {:?}/{:?}", task_id, cycle);
-					TaskResults::<T>::get(task_id, cycle).is_none()
+					(task_id, cycle, status.shard_id, status.hash, status.signature)
 				},
-				Call::submit_error { task_id, .. } => {
+				Call::submit_error { task_id, cycle, error } => {
 					log::info!("Got unsigned tx for submit_error {:?}", task_id);
-					true
+					(
+						task_id,
+						cycle,
+						error.shard_id,
+						schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
+						error.signature,
+					)
 				},
-				_ => false,
+				_ => {
+					return InvalidTransaction::Call.into();
+				},
 			};
 
-			if !is_valid {
+			if Tasks::<T>::get(task_id).is_none() {
+				return InvalidTransaction::Call.into();
+			}
+			if TaskResults::<T>::get(task_id, cycle).is_some() {
+				return InvalidTransaction::Call.into();
+			}
+			let Some(public_key) = T::Shards::tss_public_key(shard_id) else {
+				return InvalidTransaction::Call.into();
+			};
+			let Ok(signature) = schnorr_evm::Signature::from_bytes(signature) else {
+				return InvalidTransaction::Call.into();
+			};
+			let Ok(public_key) = schnorr_evm::VerifyingKey::from_bytes(public_key) else {
+				return InvalidTransaction::Call.into();
+			};
+			if public_key.verify_prehashed(hash, &signature).is_err() {
 				return InvalidTransaction::Call.into();
 			}
 

@@ -16,7 +16,7 @@ use std::{
 };
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskSpawner, TimeApi, TssRequest, TssSignature,
+	TaskExecution, TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -103,6 +103,7 @@ impl Task {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
+		retry_count: TaskRetryCount,
 		result: &[String],
 	) -> Result<TssSignature> {
 		let data = bincode::serialize(&result).context("Failed to serialize task")?;
@@ -110,7 +111,7 @@ impl Task {
 		self.tss
 			.clone()
 			.send(TssRequest {
-				request_id: (task_id, cycle),
+				request_id: (task_id, cycle, retry_count),
 				shard_id,
 				data,
 				tx,
@@ -125,6 +126,7 @@ impl Task {
 		shard_id: ShardId,
 		task_id: TaskId,
 		task_cycle: TaskCycle,
+		retry_count: TaskRetryCount,
 		task: TaskDescriptor,
 		block_num: u64,
 	) -> Result<TssSignature> {
@@ -133,7 +135,7 @@ impl Task {
 			.await
 			.with_context(|| format!("Failed to execute {:?}", task.function))?;
 		let signature = self
-			.tss_sign(shard_id, task_id, task_cycle, &result)
+			.tss_sign(shard_id, task_id, task_cycle, retry_count, &result)
 			.await
 			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
 		if let Some(timegraph) = self.timegraph.as_ref() {
@@ -168,12 +170,15 @@ impl TaskSpawner for Task {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
+		retry_count: TaskRetryCount,
 		task: TaskDescriptor,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
 		self.clone()
-			.execute(target_block, shard_id, task_id, cycle, task, block_num)
-			.map(move |res| res.with_context(|| format!("Task {}/{} failed", task_id, cycle)))
+			.execute(target_block, shard_id, task_id, cycle, retry_count, task, block_num)
+			.map(move |res| {
+				res.with_context(|| format!("Task {}/{}/{} failed", task_id, cycle, retry_count))
+			})
 			.boxed()
 	}
 }
@@ -231,6 +236,7 @@ where
 			for executable_task in tasks.iter().copied() {
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
+				let retry_count = executable_task.retry_count;
 				if self.running_tasks.contains(&executable_task) {
 					log::info!("skipping task {:?}", executable_task);
 					if let Some(executed_block_num) = self.execution_block_map.get(&executable_task)
@@ -254,6 +260,7 @@ where
 						shard_id,
 						task_id,
 						cycle,
+						retry_count,
 						task_descr,
 						block_num,
 					);
@@ -284,7 +291,11 @@ where
 						}
 					});
 				} else {
-					log::info!("block_height < target_block_number === {} < {}", block_height, target_block_number);
+					log::info!(
+						"block_height < target_block_number === {} < {}",
+						block_height,
+						target_block_number
+					);
 				}
 			}
 			self.running_tasks.retain(|x| tasks.contains(x));

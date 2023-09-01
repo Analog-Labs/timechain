@@ -7,9 +7,15 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	CycleStatus, Function, Network, ShardId, TaskCycle, TaskDescriptor, TaskDescriptorParams,
-	TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
+	AccountId, CycleStatus, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
 };
+
+fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+}
+
+const A: [u8; 32] = [1u8; 32];
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
@@ -539,15 +545,16 @@ fn payable_task_smoke() {
 	let shard_id = 1;
 	let task_id = 0;
 	let task_hash = "mock_hash";
+	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0; 32].into()).into(),
+			RawOrigin::Signed(a.clone()).into(),
 			mock_payable(Network::Ethereum)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write([0u8; 32]));
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
 		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
+			RawOrigin::Signed(a).into(),
 			shard_id,
 			task_id,
 			task_hash.into()

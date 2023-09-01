@@ -178,3 +178,15 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'sta
 		shard_id: ShardId,
 	) -> Result<()>;
 }
+
+pub trait SubmitTasks<B: sp_runtime::traits::Block> {
+	fn submit_task_hash(&self, block: B::Hash, shard_id: ShardId, task_id: TaskId, hash: String);
+	fn submit_task_result(
+		&self,
+		block: B::Hash,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		status: CycleStatus,
+	);
+	fn submit_task_error(&self, block: B::Hash, task_id: TaskId, error: TaskError);
+}

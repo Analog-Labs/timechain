@@ -157,6 +157,8 @@ pub mod pallet {
 		NotWritePhase,
 		/// Invalid signer
 		InvalidSigner,
+		/// Task not assigned
+		UnassignedTask,
 	}
 
 	#[pallet::call]
@@ -272,7 +274,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::InvalidOwner);
+			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::UnassignedTask);
 			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				return Err(Error::<T>::NotWritePhase.into());
 			};

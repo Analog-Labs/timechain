@@ -6,8 +6,7 @@ use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, 
 use sc_client_api::HeaderBackend;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_keystore::{KeystoreExt, KeystorePtr};
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::marker::{Send, Sync};
 use std::{
@@ -301,28 +300,31 @@ where
 	}
 }
 
-pub struct TaskExecutor<B: Block, R, T> {
+pub struct TaskExecutor<B: Block, R, T, TxSub> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
 	public_key: PublicKey,
 	running_tasks: BTreeSet<TaskExecution>,
 	task_spawner: T,
+	tx_submitter: TxSub,
 }
 
-impl<B, R, T> TaskExecutor<B, R, T>
+impl<B, R, T, TxSub> TaskExecutor<B, R, T, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 	T: TaskSpawner,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, R, T, TxSub>) -> Self {
 		let TaskExecutorParams {
 			_block,
 			runtime,
 			network: _,
 			public_key,
 			task_spawner,
+			tx_submitter,
 		} = params;
 		Self {
 			_block,
@@ -330,6 +332,7 @@ where
 			public_key,
 			running_tasks: Default::default(),
 			task_spawner,
+			tx_submitter,
 		}
 	}
 

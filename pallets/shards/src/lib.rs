@@ -221,11 +221,15 @@ pub mod pallet {
 				},
 			};
 
-			ValidTransaction::with_tag_prefix("shards-pallet")
-				.priority(TransactionPriority::max_value())
-				.longevity(10)
-				.propagate(true)
-				.build()
+			if is_valid {
+				ValidTransaction::with_tag_prefix("shards-pallet")
+					.priority(TransactionPriority::max_value())
+					.longevity(10)
+					.propagate(true)
+					.build()
+			} else {
+				return InvalidTransaction::Call.into();
+			}
 		}
 
 		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
@@ -331,7 +335,7 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
-		fn random_signer(shard_id: ShardId) -> PublicKey {
+		fn random_signer(_shard_id: ShardId) -> PublicKey {
 			todo!()
 		}
 

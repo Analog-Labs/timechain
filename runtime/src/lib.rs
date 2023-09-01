@@ -1044,7 +1044,7 @@ where
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
 		log::info!(
-			"create_transaction from account {} with nonce {} on block {}",
+			"create_transaction from account {:?} with nonce {} on block {}",
 			account,
 			nonce,
 			current_block

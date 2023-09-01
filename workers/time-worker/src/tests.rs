@@ -2,35 +2,30 @@ use crate::TimeWorkerParams;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
-use sc_client_api::Backend;
 use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
 use sc_network::NetworkSigner;
 use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, TestNet,
 	TestNetFactory,
 };
-use sc_transaction_pool::BasicPool;
-use sc_transaction_pool_api::LocalTransactionPool;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sc_transaction_pool_api::TransactionPool;
-use sp_api::BlockT;
+use sc_transaction_pool_api::{RejectAllTxPool, TransactionPool};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_core::offchain::testing::{TestOffchainExt, TestTransactionPoolExt};
 use sp_core::offchain::TransactionPoolExt;
 use sp_keystore::testing::MemoryKeystore;
-use sp_keystore::Keystore;
 use sp_runtime::generic::BlockId;
 use sp_runtime::traits::Block as sp_block;
-use sp_runtime::traits::Extrinsic;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TssId, TssPublicKey,
-	TssRequest, TssSignature, TIME_KEY_TYPE,
+	AccountId, CycleStatus, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TasksApi, TssId, TssPublicKey, TssRequest,
+	TssSignature, TIME_KEY_TYPE,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -68,7 +63,7 @@ impl InnerMockApi {
 		3
 	}
 
-	fn submit_tss_public_key(&mut self, shard_id: ShardId, public_key: TssPublicKey) {
+	fn submit_tss_public_key(&mut self, _shard_id: ShardId, public_key: TssPublicKey) {
 		self.pubkey = Some(public_key);
 	}
 }
@@ -103,6 +98,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
+			log::info!("Tss key submitted for shard id {:?}", shard_id);
 			self.inner.lock().unwrap().submit_tss_public_key(shard_id, public_key);
 		}
 	}
@@ -111,8 +107,16 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>{
 			Some((*account).clone().into())
 		}
-		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {}
-		fn submit_heartbeat(public_key: PublicKey) {}
+		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) {}
+		fn submit_heartbeat(_public_key: PublicKey) {}
+	}
+
+	impl TasksApi<Block> for MockApi{
+		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
+		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
+		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) {}
+		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: CycleStatus) {}
+		fn submit_task_error(_shard_id: ShardId, _error: TaskError) {}
 	}
 }
 
@@ -222,20 +226,21 @@ impl MockNetwork {
 async fn tss_smoke() -> Result<()> {
 	env_logger::try_init().ok();
 
-	let client = Arc::new(substrate_test_runtime_client::new());
-	let spawner = sp_core::testing::TaskExecutor::new();
-	let txpool =
-		BasicPool::new_full(Default::default(), true.into(), None, spawner.clone(), client.clone());
-	let task_executor = MockTaskExecutor::<Block>::new();
 	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
+
+	let task_executor = MockTaskExecutor::<Block>::new();
+	let keystore = MemoryKeystore::new();
+	let tx_submitter = crate::tx_submitter::TransactionSubmitter::new(
+		false,
+		keystore.into(),
+		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		api.clone(),
+	);
+
 	let mut peers = vec![];
 	let mut tss = vec![];
 	for i in 0..3 {
-		let keystore = MemoryKeystore::new();
-		let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some("//Alice")).unwrap();
-		let factory = OffchainTransactionPoolFactory::new(txpool.clone());
-
 		let (protocol_tx, protocol_rx) = async_channel::unbounded();
 		let (tss_tx, tss_rx) = mpsc::channel(10);
 		net.add_full_peer_with_config(FullPeerConfig {
@@ -251,17 +256,17 @@ async fn tss_smoke() -> Result<()> {
 			.to_bytes();
 		peers.push(peer_id);
 		tss.push(tss_tx);
+
 		tokio::task::spawn(crate::start_timeworker_gadget(TimeWorkerParams {
 			_block: PhantomData,
 			client: net.peer(i).client().as_client(),
 			runtime: api.clone(),
-			kv: keystore.into(),
 			network: net.peer(i).network_service().clone(),
-			offchain_tx_pool_factory: factory,
 			peer_id: peers[i],
 			tss_request: tss_rx,
 			protocol_request: protocol_rx,
 			task_executor: task_executor.clone(),
+			tx_submitter: tx_submitter.clone(),
 			public_key: pubkey_from_bytes([i as u8; 32]),
 		}));
 	}
@@ -271,6 +276,7 @@ async fn tss_smoke() -> Result<()> {
 
 	let peers_account_id: Vec<AccountId> = peers.iter().map(|p| (*p).into()).collect();
 	log::info!("creating shard with members {:#?}", peers_account_id);
+
 	api.create_shard(peers_account_id.into());
 
 	tokio::task::spawn(async move {
@@ -299,15 +305,15 @@ async fn tss_smoke() -> Result<()> {
 	// TODO: after collector completes dkg all other nodes have time until a task
 	// is scheduled to complete. we should require all members to submit the public
 	// key before scheduling.
-	sp_std::if_std! {
-		println!("{:?}", txpool.status());
-	}
 
 	let mut tss_public_key = None;
 	loop {
+		log::info!("looking for key {:?}", tss_public_key);
 		if let Some(pubkey) = api.get_tss_key() {
 			tss_public_key = Some(pubkey);
+			break;
 		}
+		tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 	}
 	let public_key = tss_public_key.unwrap();
 	log::info!("dkg returned a public key");

@@ -25,7 +25,7 @@ impl MemberStorage for MockMembers {
 	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
 		None
 	}
-	fn member_public_key(account: &AccountId) -> Option<PublicKey> {
+	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
 		None
 	}
 	fn is_member_online(_: &AccountId) -> bool {

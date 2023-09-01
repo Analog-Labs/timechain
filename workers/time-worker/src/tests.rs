@@ -85,7 +85,7 @@ sp_api::mock_impl_runtime_apis! {
 	impl ShardsApi<Block> for MockApi {
 
 		fn get_shards(&self, account: &AccountId) -> Vec<ShardId> {
-			self.inner.lock().unwrap().get_shards((*account).clone()
+			self.inner.lock().unwrap().get_shards(*account).clone()
 		}
 
 		fn get_shard_members(&self, shard_id: ShardId) -> Vec<AccountId> {

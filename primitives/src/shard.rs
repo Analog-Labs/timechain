@@ -5,7 +5,7 @@ use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_std::vec::Vec;
+use sp_runtime::traits::{Saturating, Zero};
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
@@ -31,12 +31,25 @@ pub enum Network {
 	Astar,
 }
 
+impl core::str::FromStr for Network {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Ok(match s {
+			"ethereum" => Self::Ethereum,
+			"astar" => Self::Astar,
+			_ => anyhow::bail!("unsupported network {}", s),
+		})
+	}
+}
+
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum ShardStatus<Blocknumber> {
 	Created(Blocknumber),
 	Online,
+	PartialOffline(u16),
 	Offline,
 }
 
@@ -45,6 +58,42 @@ impl<B: Copy> ShardStatus<B> {
 		match self {
 			ShardStatus::Created(b) => Some(*b),
 			_ => None,
+		}
+	}
+	pub fn online_member(&self) -> Self {
+		match self {
+			ShardStatus::PartialOffline(count) => {
+				let new_count = count.saturating_less_one();
+				if new_count.is_zero() {
+					ShardStatus::Online
+				} else {
+					ShardStatus::PartialOffline(new_count)
+				}
+			},
+			_ => *self,
+		}
+	}
+	pub fn offline_member(&self, max: u16) -> Self {
+		match self {
+			ShardStatus::PartialOffline(count) => {
+				let new_count = count.saturating_plus_one();
+				if new_count > max {
+					ShardStatus::Offline
+				} else {
+					ShardStatus::PartialOffline(new_count)
+				}
+			},
+			// if a member goes offline before the group key is submitted,
+			// then the shard will never go online
+			ShardStatus::Created(_) => ShardStatus::Offline,
+			ShardStatus::Online => {
+				if max.is_zero() {
+					ShardStatus::Offline
+				} else {
+					ShardStatus::PartialOffline(1)
+				}
+			},
+			_ => *self,
 		}
 	}
 }

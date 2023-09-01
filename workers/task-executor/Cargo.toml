@@ -11,8 +11,10 @@ futures = "0.3.28"
 log = "0.4.20"
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 serde_json = "1.0.105"
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 time-primitives = { path = "../../primitives" }
 timegraph-client = "0.1.7"

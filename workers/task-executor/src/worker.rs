@@ -1,19 +1,20 @@
 use crate::{TaskExecutorParams, TW_LOG};
 use anyhow::{anyhow, Context, Result};
-
 use futures::channel::{mpsc, oneshot};
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_client_api::{Backend, BlockchainEvents};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
-use sp_api::{HeaderT, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block;
+use std::marker::{Send, Sync};
 use std::{
-	collections::HashSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
+	collections::BTreeSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
-	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskSpawner, TimeApi, TssId, TssRequest, TssSignature,
+	CycleStatus, Function, PublicKey, ShardId, TaskCycle, TaskError, TaskExecution, TaskId,
+	TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -207,41 +208,40 @@ impl TaskSpawner for Task {
 	}
 }
 
-pub struct TaskExecutor<B: Block, BE, C, R, T> {
+pub struct TaskExecutor<B: Block, R, T> {
 	_block: PhantomData<B>,
-	backend: Arc<BE>,
-	client: Arc<C>,
 	runtime: Arc<R>,
-	peer_id: PeerId,
-	running_tasks: HashSet<TaskExecution>,
+	kv: KeystorePtr,
+	public_key: PublicKey,
+	running_tasks: BTreeSet<TaskExecution>,
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	task_spawner: T,
 }
 
-impl<B, BE, C, R, T> TaskExecutor<B, BE, C, R, T>
+impl<B, R, T> TaskExecutor<B, R, T>
 where
 	B: Block,
-	BE: Backend<B> + 'static,
-	C: BlockchainEvents<B>,
-	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
+	R: ProvideRuntimeApi<B> + 'static + Send + Sync,
+	R::Api: TasksApi<B>,
 	T: TaskSpawner,
 {
-	pub fn new(params: TaskExecutorParams<B, BE, C, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
 		let TaskExecutorParams {
 			_block,
-			backend,
-			client,
 			runtime,
-			peer_id,
+			kv,
+			network: _,
+			public_key,
+			offchain_tx_pool_factory,
 			task_spawner,
 		} = params;
 		Self {
 			_block,
-			backend,
-			client,
 			runtime,
-			peer_id,
+			kv,
+			public_key,
 			running_tasks: Default::default(),
+			offchain_tx_pool_factory,
 			task_spawner,
 		}
 	}
@@ -250,117 +250,104 @@ where
 		&mut self,
 		block_hash: <B as Block>::Hash,
 		block_num: u64,
+		shard_id: ShardId,
 	) -> Result<()> {
 		let block_height =
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
-		let shards = self.runtime.runtime_api().get_shards(block_hash, self.peer_id)?;
-		for shard_id in shards {
-			let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
-			log::info!("got task ====== {:?}", tasks);
-			for executable_task in tasks.iter().clone() {
-				let task_id = executable_task.task_id;
-				let cycle = executable_task.cycle;
-				let retry_count = executable_task.retry_count;
-				if self.running_tasks.contains(executable_task) {
-					continue;
-				}
-				let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
-				let target_block_number = task_descr.trigger(cycle);
-				let function = task_descr.function;
-				let hash = task_descr.hash;
-				if block_height >= target_block_number {
-					log::info!("Running Task {}, {:?}", executable_task, executable_task.phase);
-					self.running_tasks.insert(executable_task.clone());
-					let storage = self.backend.offchain_storage().unwrap();
-					if let Some(peer_id) = executable_task.phase.peer_id() {
-						if peer_id != self.peer_id {
-							log::info!("Skipping task {} due to peer_id mismatch", task_id);
-							continue;
-						}
-						let task = self.task_spawner.execute_write(function);
-						tokio::task::spawn(async move {
-							let result = task.await.map_err(|e| format!("{:?}", e));
-							log::info!(
-								"Task {}/{}/{} completed with {:?}",
-								task_id,
-								cycle,
-								retry_count,
-								result
-							);
-							match result {
-								Ok(hash) => {
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskHash { shard_id, task_id, hash },
-									);
-								},
-								Err(error) => {
-									let error = TaskError { shard_id, error };
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskError { task_id, error },
-									);
-								},
-							}
-						});
-					} else {
-						let function = if let Some(tx) = executable_task.phase.tx_hash() {
-							Function::EvmTxReceipt { tx: tx.to_string() }
-						} else {
-							function
-						};
-						let task = self.task_spawner.execute_read(
-							target_block_number,
-							shard_id,
+		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
+		log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
+		for executable_task in tasks.iter().clone() {
+			let task_id = executable_task.task_id;
+			let cycle = executable_task.cycle;
+			let retry_count = executable_task.retry_count;
+			if self.running_tasks.contains(executable_task) {
+				continue;
+			}
+			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
+			let target_block_number = task_descr.trigger(cycle);
+			let function = task_descr.function;
+			let hash = task_descr.hash;
+			let runtime = self.runtime.clone();
+			let kv = self.kv.clone();
+			let offchain_tx_pool_factory = self.offchain_tx_pool_factory.clone();
+			if block_height >= target_block_number {
+				log::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
+				self.running_tasks.insert(executable_task.clone());
+				if let Some(public_key) = executable_task.phase.public_key() {
+					if *public_key != self.public_key {
+						log::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+						continue;
+					}
+					let task = self.task_spawner.execute_write(function);
+					tokio::task::spawn(async move {
+						let mut api = runtime.runtime_api();
+						api.register_extension(KeystoreExt(kv));
+						api.register_extension(
+							offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
+						);
+						let result = task.await.map_err(|e| e.to_string());
+						log::info!(
+							target: TW_LOG,
+							"Task {}/{}/{} completed with {:?}",
 							task_id,
 							cycle,
-							function,
-							hash,
-							block_num,
+							retry_count,
+							result
 						);
-						tokio::task::spawn(async move {
-							let result = task.await.map_err(|e| e.to_string());
-							log::info!(
-								"Task {}/{}/{} completed with {:?}",
-								task_id,
-								cycle,
-								retry_count,
-								result
-							);
-							match result {
-								Ok(signature) => {
-									let status = CycleStatus { shard_id, signature };
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskResult { task_id, cycle, status },
-									);
-								},
-								Err(error) => {
-									let error = TaskError { shard_id, error };
-									time_primitives::write_message(
-										storage,
-										&OcwPayload::SubmitTaskError { task_id, error },
-									);
-								},
-							}
-						});
-					}
+						match result {
+							Ok(hash) => api.submit_task_hash(block_hash, shard_id, task_id, hash),
+
+							Err(error) => {
+								let error = TaskError { shard_id, error };
+								api.submit_task_error(block_hash, task_id, error)
+							},
+						}
+					});
+				} else {
+					let function = if let Some(tx) = executable_task.phase.tx_hash() {
+						Function::EvmTxReceipt { tx: tx.to_string() }
+					} else {
+						function
+					};
+					let task = self.task_spawner.execute_read(
+						target_block_number,
+						shard_id,
+						task_id,
+						cycle,
+						function,
+						hash,
+						block_num,
+					);
+					tokio::task::spawn(async move {
+						let mut api = runtime.runtime_api();
+						api.register_extension(KeystoreExt(kv));
+						api.register_extension(
+							offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
+						);
+						let result = task.await.map_err(|e| e.to_string());
+						log::info!(
+							target: TW_LOG,
+							"Task {}/{}/{} completed with {:?}",
+							task_id,
+							cycle,
+							retry_count,
+							result
+						);
+						match result {
+							Ok(signature) => {
+								let status = CycleStatus { shard_id, signature };
+								api.submit_task_result(block_hash, task_id, cycle, status)
+							},
+							Err(error) => {
+								let error = TaskError { shard_id, error };
+								api.submit_task_error(block_hash, task_id, error)
+							},
+						}
+					});
 				}
 			}
-			self.running_tasks.retain(|x| tasks.contains(x));
 		}
+		self.running_tasks.retain(|x| tasks.contains(x));
 		Ok(())
-	}
-
-	pub async fn run(&mut self) {
-		let mut finality_notifications = self.client.finality_notification_stream();
-		while let Some(notification) = finality_notifications.next().await {
-			let block_hash = notification.header.hash();
-			let block_num = notification.header.number().to_string().parse().unwrap();
-			log::debug!(target: TW_LOG, "finalized {}", notification.header.number());
-			if let Err(err) = self.start_tasks(block_hash, block_num).await {
-				log::error!(target: TW_LOG, "error processing tasks: {:?}", err);
-			}
-		}
 	}
 }

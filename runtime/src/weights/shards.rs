@@ -53,4 +53,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
+
+	fn submit_tss_public_key() -> Weight {
+		Weight::default()
+	}
 }

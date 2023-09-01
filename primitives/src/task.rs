@@ -1,4 +1,4 @@
-use crate::{AccountId, Network, PeerId, ShardId, TssSignature};
+use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
 use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
@@ -77,16 +77,16 @@ pub enum TaskStatus {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
-	Write(PeerId),
+	Write(PublicKey),
 	Read(Option<String>),
 }
 
 impl TaskPhase {
-	pub fn peer_id(&self) -> Option<PeerId> {
-		if let Self::Write(peer_id) = self {
-			Some(*peer_id)
+	pub fn public_key(&self) -> Option<&PublicKey> {
+		if let Self::Write(public_key) = self {
+			Some(public_key)
 		} else {
 			None
 		}
@@ -108,7 +108,7 @@ impl Default for TaskPhase {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
@@ -159,4 +159,17 @@ pub trait TaskSpawner {
 		&self,
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>>;
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'static {
+	fn network(&self) -> Network;
+
+	async fn start_tasks(
+		&self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()>;
 }

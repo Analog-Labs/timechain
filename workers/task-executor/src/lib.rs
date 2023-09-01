@@ -1,9 +1,11 @@
-use crate::worker::TaskExecutor;
-use sc_client_api::{Backend, BlockchainEvents};
+use anyhow::Result;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
-use time_primitives::{PeerId, TaskSpawner, TimeApi};
+use time_primitives::{Network, PublicKey, ShardId, TaskSpawner, TasksApi};
+use tokio::sync::Mutex;
 
 mod worker;
 
@@ -17,35 +19,73 @@ pub const TW_LOG: &str = "task-executor";
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B: Block, BE, C, R, T>
+pub struct TaskExecutorParams<B: Block, R, T>
 where
 	B: Block,
-	BE: Backend<B> + 'static,
-	C: BlockchainEvents<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
+	R::Api: TasksApi<B>,
 	T: TaskSpawner,
 {
 	pub _block: PhantomData<B>,
-	pub backend: Arc<BE>,
-	pub client: Arc<C>,
 	pub runtime: Arc<R>,
-	pub peer_id: PeerId,
+	pub kv: KeystorePtr,
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	pub task_spawner: T,
+	pub network: Network,
+	pub public_key: PublicKey,
 }
 
-/// Start the task Executor gadget.
-///
-/// This is a thin shim around running and awaiting a task Executor.
-pub async fn start_task_executor_gadget<B, BE, C, R, T>(params: TaskExecutorParams<B, BE, C, R, T>)
+pub struct TaskExecutor<B: Block, R, T> {
+	network: Network,
+	task_executor: Arc<Mutex<worker::TaskExecutor<B, R, T>>>,
+}
+
+impl<B, R, T> TaskExecutor<B, R, T>
 where
 	B: Block,
-	BE: Backend<B> + 'static,
-	C: BlockchainEvents<B>,
-	R: ProvideRuntimeApi<B>,
-	R::Api: TimeApi<B>,
-	T: TaskSpawner,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + 'static,
 {
-	let mut worker = TaskExecutor::new(params);
-	worker.run().await;
+	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+		Self {
+			network: params.network,
+			task_executor: Arc::new(Mutex::new(worker::TaskExecutor::new(params))),
+		}
+	}
+}
+
+impl<B: Block, R, T> Clone for TaskExecutor<B, R, T> {
+	fn clone(&self) -> Self {
+		Self {
+			network: self.network,
+			task_executor: self.task_executor.clone(),
+		}
+	}
+}
+
+#[async_trait::async_trait]
+impl<B, R, T> time_primitives::TaskExecutor<B> for TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + 'static,
+{
+	fn network(&self) -> Network {
+		self.network
+	}
+
+	async fn start_tasks(
+		&self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()> {
+		self.task_executor
+			.lock()
+			.await
+			.start_tasks(block_hash, block_num, shard_id)
+			.await
+	}
 }

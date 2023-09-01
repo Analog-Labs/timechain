@@ -1,40 +1,29 @@
-use crate::{self as task_schedule};
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
+use crate::{self as pallet_members};
+use frame_support::traits::OnInitialize;
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
-	app_crypto::sp_core,
-	testing::sr25519::Public,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{PeerId, PublicKey, ShardId, ShardsInterface};
+use time_primitives::MemberEvents;
 
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockShardInterface;
+pub struct MockShards;
 
-impl ShardsInterface for MockShardInterface {
-	fn is_shard_online(_: ShardId) -> bool {
-		true
-	}
-
-	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
-		Some(sp_runtime::MultiSigner::Sr25519(Public([0u8; 32])))
-	}
-
-	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
-		Some([0u8; 32])
-	}
+impl MemberEvents for MockShards {
+	fn member_online(_: &AccountId) {}
+	fn member_offline(_: &AccountId) {}
 }
 
-// Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub struct Test {
+	pub struct Test
+	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		Tasks: task_schedule::{Pallet, Call, Storage, Event<T>},
+		Members: pallet_members::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -48,9 +37,9 @@ impl frame_system::Config for Test {
 	type Nonce = u32;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
+	type Block = Block;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
@@ -80,42 +69,24 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 }
 
-impl task_schedule::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
+impl pallet_members::Config for Test {
 	type WeightInfo = ();
-	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type Shards = MockShardInterface;
-	type MaxRetryCount = ConstU8<3>;
+	type RuntimeEvent = RuntimeEvent;
+	type Shards = MockShards;
+	type HeartbeatTimeout = ConstU64<10>;
 }
 
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
-where
-	RuntimeCall: From<LocalCall>,
-{
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: RuntimeCall,
-		_public: <Signature as Verify>::Signer,
-		account: AccountId,
-		_nonce: u32,
-	) -> Option<(
-		RuntimeCall,
-		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-	)> {
-		Some((call, (account, (), ())))
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Members::on_initialize(i);
 	}
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-	RuntimeCall: From<C>,
-{
-	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
-}
-
-impl frame_system::offchain::SigningTypes for Test {
-	type Public = <Signature as Verify>::Signer;
-	type Signature = Signature;
+fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }
 
 // Build genesis storage according to the mock runtime.
@@ -129,8 +100,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }

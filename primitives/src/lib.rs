@@ -2,14 +2,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use scale_info::prelude::string::String;
-use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
+use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
-mod ocw;
+mod member;
 mod shard;
 mod task;
 
-pub use crate::ocw::*;
+pub use crate::member::*;
 pub use crate::shard::*;
 pub use crate::task::*;
 
@@ -35,40 +35,45 @@ pub mod crypto {
 }
 
 sp_api::decl_runtime_apis! {
-	/// API necessary for Time worker <-> pallet communication.
-	pub trait TimeApi {
-		fn get_shards(peer_id: PeerId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId>;
+	pub trait MembersApi {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
+		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId);
+		fn submit_heartbeat(public_key: PublicKey);
+	}
+
+	pub trait ShardsApi {
+		fn get_shards(account: &AccountId) -> Vec<ShardId>;
+		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey);
+	}
+
+	pub trait TasksApi {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus);
+		fn submit_task_error(shard_id: ShardId, error: TaskError);
 	}
+}
+
+pub trait MemberEvents {
+	fn member_online(id: &AccountId);
+	fn member_offline(id: &AccountId);
+}
+
+pub trait MemberStorage {
+	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
+	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
+	fn is_member_online(account: &AccountId) -> bool;
 }
 
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
-	fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey>;
-	fn collector_peer_id(shard_id: ShardId) -> Option<PeerId>;
+	fn random_signer(shard_id: ShardId) -> PublicKey;
 }
 
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
-}
-
-pub trait OcwShardInterface {
-	fn benchmark_register_shard(
-		network: Network,
-		members: Vec<PeerId>,
-		collector: PublicKey,
-		threshold: u16,
-	);
-	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult;
-}
-
-pub trait OcwTaskInterface {
-	fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> DispatchResult;
-	fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: CycleStatus)
-		-> DispatchResult;
-	fn submit_task_error(task_id: TaskId, error: TaskError) -> DispatchResult;
 }

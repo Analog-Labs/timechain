@@ -6464,8 +6464,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-ocw"
-version = "4.0.0-dev"
+name = "pallet-members"
+version = "0.0.1"
 dependencies = [
  "env_logger",
  "frame-benchmarking",
@@ -6529,6 +6529,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -11781,9 +11782,11 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api",
  "sc-network-test",
+ "sc-transaction-pool-api",
  "serde_json",
  "sp-api",
  "sp-consensus",
+ "sp-keystore 0.27.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "substrate-test-runtime-client",
  "surf",
@@ -12009,6 +12012,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto 23.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
+ "sp-io 23.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
 ]
@@ -12028,10 +12032,16 @@ dependencies = [
  "sc-consensus",
  "sc-network",
  "sc-network-test",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
  "serde",
  "sp-api",
  "sp-consensus",
+ "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
+ "sp-keystore 0.27.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
+ "substrate-test-runtime-client",
  "tesseract-tss",
  "time-primitives",
  "tokio",
@@ -12120,7 +12130,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-grandpa",
  "pallet-im-online",
- "pallet-ocw",
+ "pallet-members",
  "pallet-offences",
  "pallet-session",
  "pallet-shards",

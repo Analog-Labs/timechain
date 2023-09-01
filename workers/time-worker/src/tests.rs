@@ -9,11 +9,9 @@ use sc_network_test::{
 	TestNetFactory,
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sc_transaction_pool_api::{RejectAllTxPool, TransactionPool};
+use sc_transaction_pool_api::RejectAllTxPool;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
-use sp_core::offchain::testing::{TestOffchainExt, TestTransactionPoolExt};
-use sp_core::offchain::TransactionPoolExt;
 use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::generic::BlockId;
 use sp_runtime::traits::Block as sp_block;
@@ -25,8 +23,12 @@ use std::time::Duration;
 use time_primitives::{
 	AccountId, CycleStatus, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskId, TasksApi, TssId, TssPublicKey, TssRequest,
-	TssSignature, TIME_KEY_TYPE,
+	TssSignature,
 };
+
+lazy_static::lazy_static! {
+	pub static ref TSS_KEY: Arc<Mutex<Option<TssPublicKey>>> = Default::default();
+}
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
@@ -99,7 +101,7 @@ sp_api::mock_impl_runtime_apis! {
 
 		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
 			log::info!("Tss key submitted for shard id {:?}", shard_id);
-			self.inner.lock().unwrap().submit_tss_public_key(shard_id, public_key);
+			TSS_KEY.lock().unwrap().replace(public_key.clone());
 		}
 	}
 

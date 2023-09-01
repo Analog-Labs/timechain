@@ -9,11 +9,10 @@ use time_primitives::{
 	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TasksApi, TssPublicKey,
 };
 
-#[derive(Clone)]
 pub struct TransactionSubmitter<B, R>
 where
 	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
 {
 	_block: PhantomData<B>,
@@ -26,7 +25,7 @@ where
 impl<B, R> TransactionSubmitter<B, R>
 where
 	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
 {
 	pub fn new(
@@ -45,10 +44,26 @@ where
 	}
 }
 
+impl<B, R> Clone for TransactionSubmitter<B, R> 
+where
+	B: Block + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
+{
+	fn clone(&self) -> TransactionSubmitter<B, R> {
+		TransactionSubmitter::new(
+			self.register_extension,
+			self.kv.clone(),
+			self.pool.clone(),
+			self.runtime.clone(),
+		)
+	}
+}
+
 impl<B, R> SubmitShards<B> for TransactionSubmitter<B, R>
 where
 	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
 {
 	fn submit_tss_pub_key(
@@ -71,7 +86,7 @@ where
 impl<B, R> SubmitTasks<B> for TransactionSubmitter<B, R>
 where
 	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
 {
 	fn submit_task_hash(&self, block: B::Hash, shard_id: ShardId, task_id: TaskId, hash: String) {
@@ -113,7 +128,7 @@ where
 impl<B, R> SubmitMembers<B> for TransactionSubmitter<B, R>
 where
 	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
 {
 	fn submit_register_member(

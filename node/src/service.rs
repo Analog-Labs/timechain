@@ -366,16 +366,23 @@ pub fn new_full(
 		);
 
 		if let Some(shard_network) = shard_network {
+			let tx_submitter = time_worker::tx_submitter::TransactionSubmitter::new(
+				true,
+				keystore_container.keystore(),
+				OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+				client.clone(),
+			);
+
 			let task_executor =
 				task_executor::TaskExecutor::new(task_executor::TaskExecutorParams {
 					_block: PhantomData,
 					runtime: client.clone(),
-					kv: keystore_container.keystore(),
 					network: shard_network,
 					public_key: public_key.clone(),
-					offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-						transaction_pool.clone(),
-					),
+					// kv: keystore_container.keystore(),
+					// offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+					// 	transaction_pool.clone(),
+					// ),
 					task_spawner: futures::executor::block_on(task_executor::Task::new(
 						task_executor::TaskSpawnerParams {
 							tss: sign_data_sender,
@@ -388,14 +395,9 @@ pub fn new_full(
 						},
 					))
 					.unwrap(),
+					tx_submitter: tx_submitter.clone(),
 				});
 
-			let tx_submitter = time_worker::tx_submitter::TransactionSubmitter::new(
-				true,
-				keystore_container.keystore(),
-				OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-				client.clone(),
-			);
 			let time_params = time_worker::TimeWorkerParams {
 				_block: PhantomData,
 				runtime: client.clone(),

@@ -306,17 +306,19 @@ async fn tss_smoke() -> Result<()> {
 	// is scheduled to complete. we should require all members to submit the public
 	// key before scheduling.
 
-	let mut tss_public_key = None;
+	let mut tss_keys = vec![];
 	loop {
 		let Some(key) = api.get_pubkey() else {
 			tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 			continue;
 		};
 
-		tss_public_key = Some(key);
-		break;
+		tss_keys.push(key);
+		if tss_keys.len() == 3{
+			break;
+		}
 	}
-	let public_key = tss_public_key.unwrap();
+	let public_key = tss_keys.pop().unwrap();
 
 	let block_number = client[0].chain_info().finalized_number;
 	let message = [1u8; 32];

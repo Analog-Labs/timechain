@@ -1043,6 +1043,12 @@ where
 			// so the actual block number is `n`.
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
+		log::info!(
+			"create_transaction from account {} with nonce {} on block {}",
+			account,
+			nonce,
+			current_block
+		);
 		let extra = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),

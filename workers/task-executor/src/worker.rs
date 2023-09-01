@@ -220,7 +220,7 @@ where
 	}
 
 	pub async fn start_tasks(&mut self, block_id: <B as Block>::Hash) -> Result<()> {
-		let block_height =
+		let block_height: u64 =
 			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
 		let shards = self.runtime.runtime_api().get_shards(block_id, self.peer_id)?;
 		let block_num = self.backend.blockchain().number(block_id)?.unwrap();
@@ -232,6 +232,7 @@ where
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
 				if self.running_tasks.contains(&executable_task) {
+					log::info!("skipping task {:?}", executable_task);
 					if let Some(executed_block_num) = self.execution_block_map.get(&executable_task)
 					{
 						if executed_block_num + 30 < block_num {
@@ -282,6 +283,8 @@ where
 							},
 						}
 					});
+				} else {
+					log::info!("block_height < target_block_number === {} < {}", block_height, target_block_number);
 				}
 			}
 			self.running_tasks.retain(|x| tasks.contains(x));

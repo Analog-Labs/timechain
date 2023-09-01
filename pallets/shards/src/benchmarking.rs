@@ -2,17 +2,18 @@ use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use sp_std::vec;
-use time_primitives::{Network, PublicKey};
+use time_primitives::{AccountId, Network};
 
-pub const ALICE: [u8; 32] = [1u8; 32];
-pub const BOB: [u8; 32] = [2u8; 32];
-pub const CHARLIE: [u8; 32] = [3u8; 32];
+fn shard() -> [AccountId; 3] {
+	let a: AccountId = [1u8; 32].into();
+	let b: AccountId = [2u8; 32].into();
+	let c: AccountId = [3u8; 32].into();
+	[a, b, c]
+}
 
 benchmarks! {
 	register_shard {
-		let collector = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(ALICE));
-	}: _(RawOrigin::Root, Network::Ethereum, vec![ALICE, BOB, CHARLIE], collector, 1)
+	}: _(RawOrigin::Root, Network::Ethereum, shard().to_vec(), 1)
 	verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

@@ -53,6 +53,7 @@ jobs:
       - run: ./scripts/pull_images.sh
       - run: cargo +stable fmt --all -- --check
       - run: cargo +stable test --workspace --locked
+      - run: cargo +stable check --features runtime-benchmarks
 
       - uses: actions-rs/clippy-check@v1
         with:

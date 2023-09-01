@@ -4,7 +4,6 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use time_primitives::{Function, Network, TaskDescriptorParams};
 
-
 benchmarks! {
 	create_task {}: _(RawOrigin::Signed(whitelisted_caller()), TaskDescriptorParams {
 		network: Network::Ethereum,

@@ -81,4 +81,16 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn submit_result() -> Weight {
+		Default::default()
+	}
+
+	fn submit_error() -> Weight {
+		Default::default()
+	}
+
+	fn submit_hash() -> Weight {
+		Default::default()
+	}
 }

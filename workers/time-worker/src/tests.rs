@@ -22,8 +22,8 @@ use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
 	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TasksApi, TssId, TssPublicKey, TssRequest,
-	TssSignature, TaskResult
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
+	TssRequest, TssSignature,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

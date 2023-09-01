@@ -7,8 +7,9 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	AccountId, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor, TaskResult,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
+	AccountId, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskResult, TaskStatus,
+	TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -49,7 +50,11 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 }
 
 fn mock_result_ok(shard_id: ShardId) -> TaskResult {
-	TaskResult { shard_id, hash: [0; 32], signature: [0; 64] }
+	TaskResult {
+		shard_id,
+		hash: [0; 32],
+		signature: [0; 64],
+	}
 }
 
 #[test]
@@ -66,14 +71,7 @@ fn test_create_task() {
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
 		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
-		System::assert_last_event(
-			Event::<Test>::TaskResult(
-				0,
-				0,
-				mock_result_ok(1),
-			)
-			.into(),
-		);
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
 	});
 }
 
@@ -267,7 +265,7 @@ fn shard_offline_drops_failed_tasks() {
 				0,
 				0,
 				TaskError {
-					shard_id: 1, 
+					shard_id: 1,
 					msg: "test".to_string(),
 					signature: [0; 64],
 				}

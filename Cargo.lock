@@ -11777,6 +11777,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
+ "env_logger",
  "futures",
  "lazy_static",
  "log",

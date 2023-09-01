@@ -391,7 +391,7 @@ pub fn new_full(
 							timegraph_ssk,
 							client: client.clone(),
 							runtime: client.clone(),
-							tx_submitter: tx_submitter.clone()
+							tx_submitter: tx_submitter.clone(),
 						},
 					))
 					.unwrap(),

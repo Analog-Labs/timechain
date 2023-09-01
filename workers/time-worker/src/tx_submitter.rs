@@ -5,8 +5,8 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use time_primitives::{
-	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers,
-	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TasksApi, TssPublicKey, TaskResult
+	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards,
+	SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi, TssPublicKey,
 };
 
 pub struct TransactionSubmitter<B, R>
@@ -114,7 +114,13 @@ where
 			self.runtime.runtime_api().submit_task_result(block, task_id, cycle, status);
 		}
 	}
-	fn submit_task_error(&self, block: B::Hash, task_id: TaskId, cycle: TaskCycle, error: TaskError) {
+	fn submit_task_error(
+		&self,
+		block: B::Hash,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) {
 		if self.register_extension {
 			let mut runtime = self.runtime.runtime_api();
 			runtime.register_extension(self.pool.offchain_transaction_pool(block));

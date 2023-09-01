@@ -12,8 +12,8 @@ use std::{
 	collections::BTreeSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
-	Function, PublicKey, ShardId, TaskCycle, TaskError, TaskExecution, TaskId, TaskResult,
-	TaskSpawner, TasksApi, TssId, TssRequest, TssSignature, SubmitTasks
+	Function, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution, TaskId,
+	TaskResult, TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -41,7 +41,7 @@ pub struct Task<B, C, R, TxSub> {
 	tx_submitter: TxSub,
 }
 
-impl<B, C, R, TxSub> Clone for Task<B, C, R, TxSub> 
+impl<B, C, R, TxSub> Clone for Task<B, C, R, TxSub>
 where
 	B: Block,
 	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,

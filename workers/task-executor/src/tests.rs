@@ -13,14 +13,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
-use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
- use time_worker::tx_submitter::TransactionSubmitter;
- use sp_keystore::testing::MemoryKeystore;
- use sp_runtime::traits::Block as SP_Block;
 use time_primitives::{
 	AccountId, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId, TaskPhase,
-	TaskResult, TaskSpawner, TasksApi, TssPublicKey, SubmitTasks
+	TaskResult, TaskSpawner, TasksApi, TssPublicKey
 };
 
 lazy_static::lazy_static! {
@@ -29,22 +25,6 @@ lazy_static::lazy_static! {
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
-}
-
-fn mock_task_result() -> TaskResult {
-	TaskResult {
-		shard_id: 0,
-		hash: [0u8; 32],
-		signature: [0u8; 64],
-	}
-}
-
-fn mock_task_error() -> TaskError {
-	TaskError {
-		shard_id: 0,
-		msg: "test".to_string(),
-		signature: [0u8; 64],
-	}
 }
 
 #[derive(Clone, Default)]
@@ -95,37 +75,18 @@ impl ProvideRuntimeApi<Block> for MockApi {
 	}
 }
 
-struct MockTask<B, TxSub> {
-	marker: PhantomData<B>,
+struct MockTask {
 	is_ok: bool,
-	tx_submitter: TxSub,
 }
 
-impl<B, TxSub> MockTask<B, TxSub>
-where
-	B: SP_Block,
-	TxSub: SubmitTasks<B> + Send + Sync + 'static,
-{
-	pub fn new(is_ok: bool, tx_submitter: TxSub) -> Self {
-		Self { marker: PhantomData, is_ok, tx_submitter }
-	}
-
-	async fn read(&self) -> Result<()> {
-		if self.is_ok {
-			self.tx_submitter.submit_task_result(0, 0, mock_task_result());
-		} else {
-			self.tx_submitter.submit_task_error(0, 0, mock_task_error());
-		}
-		Ok(())
+impl MockTask{
+	pub fn new(is_ok: bool) -> Self {
+		Self { is_ok}
 	}
 }
 
 #[async_trait::async_trait]
-impl<B, TxSub> TaskSpawner for MockTask<B, TxSub> 
-where
-	B: SP_Block,
-	TxSub: std::marker::Sync
-{
+impl TaskSpawner for MockTask{
 	async fn block_height(&self) -> Result<u64> {
 		Ok(0)
 	}
@@ -140,7 +101,8 @@ where
 		_hash: String,
 		_block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().read().boxed()
+		TASK_STATUS.lock().unwrap().push(self.is_ok);
+		future::ready(Ok(())).boxed()
 	}
 
 	fn execute_write(
@@ -165,13 +127,13 @@ async fn task_executor_smoke() -> Result<()> {
 	};
 	let api = Arc::new(MockApi);
 
-	let keystore = MemoryKeystore::new();
-	let tx_submitter = TransactionSubmitter::new(
-		false,
-		keystore.into(),
-		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
-		api.clone(),
-	);
+	// let keystore = MemoryKeystore::new();
+	// let tx_submitter = TransactionSubmitter::new(
+	// 	false,
+	// 	keystore.into(),
+	// 	OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+	// 	api.clone(),
+	// );
 
 	//import block
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
@@ -180,7 +142,7 @@ async fn task_executor_smoke() -> Result<()> {
 
 	for i in 0..3 {
 		let is_task_ok = i % 2 == 0;
-		let task_spawner = MockTask::new(is_task_ok, tx_submitter.clone());
+		let task_spawner = MockTask::new(is_task_ok);
 
 		let params = TaskExecutorParams {
 			_block: PhantomData,

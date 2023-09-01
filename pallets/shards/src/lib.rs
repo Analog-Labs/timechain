@@ -48,7 +48,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-		type Elections: ElectionsInterface + MemberEvents;
+		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
 		type TaskScheduler: TasksInterface;
 		#[pallet::constant]

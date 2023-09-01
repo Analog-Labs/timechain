@@ -1,3 +1,4 @@
+use crate::{Network, PeerId, PublicKey};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
@@ -17,4 +18,16 @@ impl<B: Copy> HeartbeatInfo<B> {
 			block: self.block,
 		}
 	}
+}
+
+pub trait SubmitMembers<B: sp_runtime::traits::Block> {
+	fn submit_register_member(
+		&self,
+		block: B::Hash,
+		network: Network,
+		public_key: PublicKey,
+		peer_id: PeerId,
+	);
+
+	fn submit_heartbeat(&self, block: B::Hash, public_key: PublicKey);
 }

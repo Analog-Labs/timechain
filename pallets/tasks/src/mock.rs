@@ -2,11 +2,10 @@ use crate::{self as task_schedule};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
-	testing::sr25519::Public,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{PeerId, PublicKey, ShardId, ShardsInterface};
+use time_primitives::{PublicKey, ShardId, ShardsInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -20,12 +19,8 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
-	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
-		Some(sp_runtime::MultiSigner::Sr25519(Public([0u8; 32])))
-	}
-
-	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
-		Some([0u8; 32])
+	fn random_signer(shard_id: ShardId) -> PublicKey {
+		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
 	}
 }
 

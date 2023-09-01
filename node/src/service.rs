@@ -364,17 +364,21 @@ pub fn new_full(
 			None,
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
+
 		if let Some(shard_network) = shard_network {
+			let tx_submitter = time_worker::tx_submitter::TransactionSubmitter::new(
+				true,
+				keystore_container.keystore(),
+				OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+				client.clone(),
+			);
+
 			let task_executor =
 				task_executor::TaskExecutor::new(task_executor::TaskExecutorParams {
 					_block: PhantomData,
 					runtime: client.clone(),
-					kv: keystore_container.keystore(),
 					network: shard_network,
 					public_key: public_key.clone(),
-					offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-						transaction_pool.clone(),
-					),
 					task_spawner: futures::executor::block_on(task_executor::Task::new(
 						task_executor::TaskSpawnerParams {
 							tss: sign_data_sender,
@@ -387,6 +391,7 @@ pub fn new_full(
 						},
 					))
 					.unwrap(),
+					tx_submitter: tx_submitter.clone(),
 				});
 
 			let time_params = time_worker::TimeWorkerParams {
@@ -394,13 +399,12 @@ pub fn new_full(
 				runtime: client.clone(),
 				client: client.clone(),
 				network,
-				kv: keystore_container.keystore(),
 				task_executor,
+				tx_submitter,
 				public_key,
 				peer_id,
 				tss_request: sign_data_receiver,
 				protocol_request: protocol_rx,
-				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(

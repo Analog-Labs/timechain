@@ -3,18 +3,16 @@ use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use serde_json::Value;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_keystore::{KeystoreExt, KeystorePtr};
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::marker::{Send, Sync};
 use std::{
 	collections::BTreeSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
-	CycleStatus, Function, PublicKey, ShardId, TaskCycle, TaskError, TaskExecution, TaskId,
-	TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
+	CycleStatus, Function, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
+	TaskId, TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -208,41 +206,39 @@ impl TaskSpawner for Task {
 	}
 }
 
-pub struct TaskExecutor<B: Block, R, T> {
+pub struct TaskExecutor<B: Block, R, T, TxSub> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
-	kv: KeystorePtr,
 	public_key: PublicKey,
 	running_tasks: BTreeSet<TaskExecution>,
-	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	task_spawner: T,
+	tx_submitter: TxSub,
 }
 
-impl<B, R, T> TaskExecutor<B, R, T>
+impl<B, R, T, TxSub> TaskExecutor<B, R, T, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + 'static + Send + Sync,
 	R::Api: TasksApi<B>,
 	T: TaskSpawner,
+	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
 {
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, R, T, TxSub>) -> Self {
 		let TaskExecutorParams {
 			_block,
 			runtime,
-			kv,
 			network: _,
 			public_key,
-			offchain_tx_pool_factory,
 			task_spawner,
+			tx_submitter,
 		} = params;
 		Self {
 			_block,
 			runtime,
-			kv,
 			public_key,
 			running_tasks: Default::default(),
-			offchain_tx_pool_factory,
 			task_spawner,
+			tx_submitter,
 		}
 	}
 
@@ -267,9 +263,7 @@ where
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;
-			let runtime = self.runtime.clone();
-			let kv = self.kv.clone();
-			let offchain_tx_pool_factory = self.offchain_tx_pool_factory.clone();
+			let tx_submitter = self.tx_submitter.clone();
 			if block_height >= target_block_number {
 				log::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				self.running_tasks.insert(executable_task.clone());
@@ -280,11 +274,6 @@ where
 					}
 					let task = self.task_spawner.execute_write(function);
 					tokio::task::spawn(async move {
-						let mut api = runtime.runtime_api();
-						api.register_extension(KeystoreExt(kv));
-						api.register_extension(
-							offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
-						);
 						let result = task.await.map_err(|e| e.to_string());
 						log::info!(
 							target: TW_LOG,
@@ -295,11 +284,13 @@ where
 							result
 						);
 						match result {
-							Ok(hash) => api.submit_task_hash(block_hash, shard_id, task_id, hash),
+							Ok(hash) => {
+								tx_submitter.submit_task_hash(block_hash, shard_id, task_id, hash)
+							},
 
 							Err(error) => {
 								let error = TaskError { shard_id, error };
-								api.submit_task_error(block_hash, task_id, error)
+								tx_submitter.submit_task_error(block_hash, task_id, error)
 							},
 						}
 					});
@@ -319,11 +310,6 @@ where
 						block_num,
 					);
 					tokio::task::spawn(async move {
-						let mut api = runtime.runtime_api();
-						api.register_extension(KeystoreExt(kv));
-						api.register_extension(
-							offchain_tx_pool_factory.offchain_transaction_pool(block_hash),
-						);
 						let result = task.await.map_err(|e| e.to_string());
 						log::info!(
 							target: TW_LOG,
@@ -336,11 +322,11 @@ where
 						match result {
 							Ok(signature) => {
 								let status = CycleStatus { shard_id, signature };
-								api.submit_task_result(block_hash, task_id, cycle, status)
+								tx_submitter.submit_task_result(block_hash, task_id, cycle, status)
 							},
 							Err(error) => {
 								let error = TaskError { shard_id, error };
-								api.submit_task_error(block_hash, task_id, error)
+								tx_submitter.submit_task_error(block_hash, task_id, error)
 							},
 						}
 					});

@@ -1,12 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -58,27 +56,26 @@ pub mod pallet {
 
 	impl<T: Config> ElectionsInterface for Pallet<T> {
 		fn shard_offline(network: Network, members: Vec<AccountId>) {
-			for member in members {
-				Unassigned::<T>::insert(network, member, ());
-			}
+			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
 			Self::try_elect_shard(network);
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn try_elect_shard(n: Network) {
-			if let Some(m) = Self::new_shard_members(T::ShardSize::get() as usize, n) {
-				T::Shards::create_shard(n, m, T::Threshold::get());
+		fn try_elect_shard(network: Network) {
+			if let Some(members) = Self::new_shard_members(network) {
+				members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+				T::Shards::create_shard(network, members, T::Threshold::get());
 			}
 		}
 
-		fn new_shard_members(n: usize, network: Network) -> Option<Vec<AccountId>> {
+		fn new_shard_members(network: Network) -> Option<Vec<AccountId>> {
 			let members = Unassigned::<T>::iter_prefix(network)
 				.map(|(m, _)| m)
 				.filter(|m| T::Members::is_member_online(&m))
-				.take(n)
+				.take(T::ShardSize::get() as usize)
 				.collect::<Vec<_>>();
-			if members.len() == n {
+			if members.len() == T::ShardSize::get() as usize {
 				Some(members)
 			} else {
 				None

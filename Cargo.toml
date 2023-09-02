@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"chronicle",
 	"node",
 	"pallets/elections",
 	"pallets/members",

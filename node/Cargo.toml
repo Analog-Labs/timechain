@@ -76,12 +76,11 @@ try-runtime-cli = { git = "https://github.com/paritytech/substrate.git", branch 
 
 # Runtime Workers
 time-primitives = { path = "../primitives", default-features = false }
-time-worker = { path = "../workers/time-worker" }
 
 #Task-Executor
 async-channel = "1.9.0"
-task-executor = { path = "../workers/task-executor" }
 log-panics = "2.1.0"
+chronicle = { path = "../chronicle" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }

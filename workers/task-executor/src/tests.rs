@@ -15,7 +15,7 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	Function, Network, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssSignature,
+	TaskId, TaskSpawner, TimeApi, TssSignature,
 };
 
 #[derive(Clone, Default)]
@@ -80,7 +80,6 @@ impl TaskSpawner for MockTask {
 		_shard_id: ShardId,
 		_task_id: TaskId,
 		_cycle: TaskCycle,
-		_retry_count: TaskRetryCount,
 		_task: TaskDescriptor,
 		_block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {

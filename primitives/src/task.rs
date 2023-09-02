@@ -99,7 +99,6 @@ pub trait TaskSpawner {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		retry_count: TaskRetryCount,
 		task: TaskDescriptor,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;

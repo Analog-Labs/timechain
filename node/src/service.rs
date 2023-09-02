@@ -381,6 +381,7 @@ pub fn new_full(
 					public_key: public_key.clone(),
 					task_spawner: futures::executor::block_on(task_executor::Task::new(
 						task_executor::TaskSpawnerParams {
+							_marker: PhantomData,
 							tss: sign_data_sender,
 							connector_url,
 							connector_blockchain,
@@ -388,10 +389,12 @@ pub fn new_full(
 							keyfile,
 							timegraph_url,
 							timegraph_ssk,
+							client: client.clone(),
+							runtime: client.clone(),
+							tx_submitter: tx_submitter.clone(),
 						},
 					))
 					.unwrap(),
-					tx_submitter: tx_submitter.clone(),
 				});
 
 			let time_params = time_worker::TimeWorkerParams {

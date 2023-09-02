@@ -73,7 +73,7 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	tss_states: HashMap<ShardId, Tss<TssId, PeerId>>,
 	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
 	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
-	channels: HashMap<TssId, oneshot::Sender<TssSignature>>,
+	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
 }
 
 impl<B, C, R, N, T, TxSub> TimeWorker<B, C, R, N, T, TxSub>
@@ -228,9 +228,13 @@ where
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key);
+					if let Err(e) =
+						self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key)
+					{
+						log::error!("error submitting tss pubkey {:?}", e);
+					}
 				},
-				TssAction::Signature(request_id, tss_signature) => {
+				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
 					log::debug!(
 						target: TW_LOG,
@@ -240,7 +244,7 @@ where
 						tss_signature
 					);
 					if let Some(tx) = self.channels.remove(&request_id) {
-						tx.send(tss_signature).ok();
+						tx.send((hash, tss_signature)).ok();
 					}
 				},
 				TssAction::Error(id, peer, error) => {
@@ -254,12 +258,14 @@ where
 	/// topics
 	pub(crate) async fn run(&mut self) {
 		let block = self.client.info().best_hash;
-		self.tx_submitter.submit_register_member(
+		if let Err(e) = self.tx_submitter.submit_register_member(
 			block,
 			self.task_executor.network(),
 			self.public_key.clone(),
 			self.peer_id,
-		);
+		) {
+			log::error!("error registering member {:?}", e);
+		}
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {

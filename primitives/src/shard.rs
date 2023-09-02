@@ -5,6 +5,8 @@ use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "std")]
+use sp_api::ApiError;
 use sp_runtime::traits::{Saturating, Zero};
 
 pub type TssPublicKey = [u8; 33];
@@ -98,8 +100,14 @@ impl<B: Copy> ShardStatus<B> {
 	}
 }
 
+#[cfg(feature = "std")]
 pub trait SubmitShards<B: sp_runtime::traits::Block> {
-	fn submit_tss_pub_key(&self, block: B::Hash, shard_id: ShardId, public_key: TssPublicKey);
+	fn submit_tss_pub_key(
+		&self,
+		block: B::Hash,
+		shard_id: ShardId,
+		public_key: TssPublicKey,
+	) -> Result<(), ApiError>;
 }
 
 #[cfg(feature = "std")]
@@ -108,5 +116,5 @@ pub struct TssRequest {
 	pub shard_id: ShardId,
 	pub block_number: u64,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<TssSignature>,
+	pub tx: oneshot::Sender<([u8; 32], TssSignature)>,
 }

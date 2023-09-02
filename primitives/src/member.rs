@@ -2,6 +2,9 @@ use crate::{Network, PeerId, PublicKey};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+#[cfg(feature = "std")]
+use sp_api::ApiError;
+
 #[derive(Clone, Copy, Debug, Encode, Decode, TypeInfo)]
 pub struct HeartbeatInfo<BlockNumber> {
 	pub is_online: bool,
@@ -20,6 +23,7 @@ impl<B: Copy> HeartbeatInfo<B> {
 	}
 }
 
+#[cfg(feature = "std")]
 pub trait SubmitMembers<B: sp_runtime::traits::Block> {
 	fn submit_register_member(
 		&self,
@@ -27,7 +31,7 @@ pub trait SubmitMembers<B: sp_runtime::traits::Block> {
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
-	);
+	) -> Result<(), ApiError>;
 
-	fn submit_heartbeat(&self, block: B::Hash, public_key: PublicKey);
+	fn submit_heartbeat(&self, block: B::Hash, public_key: PublicKey) -> Result<(), ApiError>;
 }

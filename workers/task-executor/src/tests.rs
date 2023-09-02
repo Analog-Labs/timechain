@@ -4,10 +4,8 @@ use futures::executor::block_on;
 use futures::{future, FutureExt};
 use sc_block_builder::BlockBuilderProvider;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
-use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
-use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::AccountId32;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -16,11 +14,10 @@ use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
-	AccountId, CycleStatus, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId,
-	TaskPhase, TaskSpawner, TasksApi, TssPublicKey, TssSignature,
+	AccountId, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId, TaskPhase,
+	TaskResult, TaskSpawner, TasksApi, TssPublicKey,
 };
-use time_worker::tx_submitter::TransactionSubmitter;
 
 lazy_static::lazy_static! {
 	pub static ref TASK_STATUS: Mutex<Vec<bool>> = Default::default();
@@ -57,10 +54,10 @@ sp_api::mock_impl_runtime_apis! {
 			})
 		}
 		fn submit_task_hash(_: ShardId, _: TaskId, _: String) {}
-		fn submit_task_result(_: TaskId, _: TaskCycle, _: CycleStatus) {
+		fn submit_task_result(_: TaskId, _: TaskCycle, _: TaskResult) {
 			TASK_STATUS.lock().unwrap().push(true);
 		}
-		fn submit_task_error(_task_id: TaskId, _error: TaskError) {
+		fn submit_task_error(_: TaskId, _: TaskCycle, _: TaskError) {
 			TASK_STATUS.lock().unwrap().push(false);
 		}
 	}
@@ -103,24 +100,25 @@ impl TaskSpawner for MockTask {
 		_function: Function,
 		_hash: String,
 		_block_num: u64,
-	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>> {
-		if self.is_ok {
-			future::ready(Ok([0u8; 64])).boxed()
-		} else {
-			future::ready(Err(anyhow::anyhow!("mock error"))).boxed()
-		}
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		TASK_STATUS.lock().unwrap().push(self.is_ok);
+		future::ready(Ok(())).boxed()
 	}
 
 	fn execute_write(
 		&self,
-		_function: Function,
-	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>> {
-		future::ready(Ok("".into())).boxed()
+		_: ShardId,
+		_: TaskId,
+		_: Function,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		future::ready(Ok(())).boxed()
 	}
 }
 
 #[tokio::test]
 async fn task_executor_smoke() -> Result<()> {
+	env_logger::try_init().ok();
+
 	let (mut client, _) = {
 		let builder = TestClientBuilder::with_default_backend();
 		let backend = builder.backend();
@@ -128,14 +126,6 @@ async fn task_executor_smoke() -> Result<()> {
 		(Arc::new(client), backend)
 	};
 	let api = Arc::new(MockApi);
-
-	let keystore = MemoryKeystore::new();
-	let tx_submitter = TransactionSubmitter::new(
-		false,
-		keystore.into(),
-		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
-		api.clone(),
-	);
 
 	//import block
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
@@ -152,12 +142,12 @@ async fn task_executor_smoke() -> Result<()> {
 			task_spawner,
 			network: Network::Ethereum,
 			public_key: pubkey_from_bytes([i; 32]),
-			tx_submitter: tx_submitter.clone(),
 		};
 
 		let task_executor = TaskExecutor::new(params);
 		let _ = task_executor.start_tasks(dummy_block_hash, 1, 1).await;
 
+		log::info!("waiting for result");
 		loop {
 			let Some(status) = TASK_STATUS.lock().unwrap().pop() else {
 				tokio::time::sleep(Duration::from_secs(1)).await;

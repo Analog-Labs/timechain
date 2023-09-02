@@ -1,0 +1,18 @@
+[package]
+name = "chronicle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-channel = "1.9.0"
+futures = "0.3.28"
+log = "0.4.20"
+sc-client-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-network = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+task-executor = { path = "../workers/task-executor" }
+time-primitives = { path = "../primitives" }
+time-worker = { path = "../workers/time-worker" }

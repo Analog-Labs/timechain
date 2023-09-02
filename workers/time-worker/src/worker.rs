@@ -45,7 +45,7 @@ pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	)
 }
 
-pub struct WorkerParams<B: Block, C, R, N, T, TxSub> {
+pub struct TimeWorkerParams<B: Block, C, R, N, T, TxSub> {
 	pub _block: PhantomData<B>,
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
@@ -86,8 +86,8 @@ where
 	T: TaskExecutor<B>,
 	TxSub: SubmitShards<B> + SubmitMembers<B>,
 {
-	pub(crate) fn new(worker_params: WorkerParams<B, C, R, N, T, TxSub>) -> Self {
-		let WorkerParams {
+	pub fn new(worker_params: TimeWorkerParams<B, C, R, N, T, TxSub>) -> Self {
+		let TimeWorkerParams {
 			_block,
 			client,
 			runtime,
@@ -256,7 +256,7 @@ where
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
-	pub(crate) async fn run(&mut self) {
+	pub async fn run(&mut self) {
 		let block = self.client.info().best_hash;
 		if let Err(e) = self.tx_submitter.submit_register_member(
 			block,

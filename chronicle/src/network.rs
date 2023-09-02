@@ -256,7 +256,7 @@ where
 
 	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
 	/// topics
-	pub async fn run(&mut self) {
+	pub async fn run(mut self) {
 		let block = self.client.info().best_hash;
 		if let Err(e) = self.tx_submitter.submit_register_member(
 			block,

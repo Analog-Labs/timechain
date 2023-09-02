@@ -1,3 +1,6 @@
+use crate::network::{TimeWorker, TimeWorkerParams};
+use crate::task_executor::{Task, TaskExecutor, TaskExecutorParams, TaskSpawnerParams};
+use crate::tx_submitter::TransactionSubmitter;
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
@@ -9,10 +12,13 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
-use task_executor::{Task, TaskExecutor, TaskExecutorParams, TaskSpawnerParams};
 use time_primitives::{MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE};
-use time_worker::tx_submitter::TransactionSubmitter;
-use time_worker::{TimeWorker, TimeWorkerParams};
+
+mod network;
+mod task_executor;
+#[cfg(test)]
+mod tests;
+mod tx_submitter;
 
 pub const TW_LOG: &str = "chronicle";
 
@@ -102,7 +108,7 @@ where
 		task_spawner,
 	});
 
-	let mut time_worker = TimeWorker::new(TimeWorkerParams {
+	let time_worker = TimeWorker::new(TimeWorkerParams {
 		_block: PhantomData,
 		runtime: params.runtime.clone(),
 		client: params.client.clone(),

@@ -1,5 +1,5 @@
 [package]
-name = "tesseract-tss"
+name = "tss"
 authors = [ "Dev <Dev@analog.one>" ]
 edition = "2021"
 homepage = "https://www.analog.one/"

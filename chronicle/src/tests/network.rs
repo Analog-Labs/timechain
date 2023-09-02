@@ -1,4 +1,4 @@
-use crate::TimeWorkerParams;
+use crate::network::{TimeWorker, TimeWorkerParams};
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -131,8 +131,8 @@ fn verify_tss_signature(
 	message: &[u8],
 	signature: TssSignature,
 ) -> Result<()> {
-	let public_key = frost_evm::VerifyingKey::from_bytes(public_key)?;
-	let signature = frost_evm::Signature::from_bytes(signature)?;
+	let public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)?;
+	let signature = schnorr_evm::Signature::from_bytes(signature)?;
 	public_key.verify(message, &signature)?;
 	Ok(())
 }
@@ -257,18 +257,21 @@ async fn tss_smoke() -> Result<()> {
 		peers.push(peer_id);
 		tss.push(tss_tx);
 
-		tokio::task::spawn(crate::start_timeworker_gadget(TimeWorkerParams {
-			_block: PhantomData,
-			client: net.peer(i).client().as_client(),
-			runtime: api.clone(),
-			network: net.peer(i).network_service().clone(),
-			peer_id: peers[i],
-			tss_request: tss_rx,
-			protocol_request: protocol_rx,
-			task_executor: task_executor.clone(),
-			tx_submitter: tx_submitter.clone(),
-			public_key: pub_keys[i].clone(),
-		}));
+		tokio::task::spawn(
+			TimeWorker::new(TimeWorkerParams {
+				_block: PhantomData,
+				client: net.peer(i).client().as_client(),
+				runtime: api.clone(),
+				network: net.peer(i).network_service().clone(),
+				peer_id: peers[i],
+				tss_request: tss_rx,
+				protocol_request: protocol_rx,
+				task_executor: task_executor.clone(),
+				tx_submitter: tx_submitter.clone(),
+				public_key: pub_keys[i].clone(),
+			})
+			.run(),
+		);
 	}
 	net.run_until_connected().await;
 

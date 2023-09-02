@@ -1216,18 +1216,35 @@ dependencies = [
 name = "chronicle"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-channel",
+ "async-trait",
+ "bincode",
+ "env_logger",
  "futures",
+ "lazy_static",
  "log",
+ "rosetta-client",
+ "sc-block-builder",
  "sc-client-api",
+ "sc-consensus",
  "sc-network",
+ "sc-network-test",
  "sc-transaction-pool-api",
+ "schnorr-evm",
+ "serde",
+ "serde_json",
  "sp-api",
+ "sp-consensus",
+ "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-keystore 0.27.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "task-executor",
+ "substrate-test-runtime-client",
+ "surf",
  "time-primitives",
- "time-worker",
+ "timegraph-client",
+ "tokio",
+ "tss",
 ]
 
 [[package]]
@@ -11812,36 +11829,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
 
 [[package]]
-name = "task-executor"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "env_logger",
- "futures",
- "lazy_static",
- "log",
- "rosetta-client",
- "sc-block-builder",
- "sc-client-api",
- "sc-network-test",
- "sc-transaction-pool-api",
- "serde_json",
- "sp-api",
- "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-keystore 0.27.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "substrate-test-runtime-client",
- "surf",
- "time-primitives",
- "time-worker",
- "timegraph-client",
- "tokio",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11879,17 +11866,6 @@ name = "termtree"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
-
-[[package]]
-name = "tesseract-tss"
-version = "0.0.1"
-dependencies = [
- "env_logger",
- "frost-evm",
- "log",
- "rand 0.8.5",
- "serde",
-]
 
 [[package]]
 name = "thiserror"
@@ -12061,37 +12037,6 @@ dependencies = [
  "sp-io 23.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
-]
-
-[[package]]
-name = "time-worker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-trait",
- "bincode",
- "env_logger",
- "frost-evm",
- "futures",
- "log",
- "sc-client-api",
- "sc-consensus",
- "sc-network",
- "sc-network-test",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "serde",
- "sp-api",
- "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-keystore 0.27.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "sp-std 8.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "substrate-test-runtime-client",
- "tesseract-tss",
- "time-primitives",
- "tokio",
 ]
 
 [[package]]
@@ -12654,6 +12599,17 @@ dependencies = [
  "sp-weights 20.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
  "substrate-rpc-client",
  "zstd 0.12.4",
+]
+
+[[package]]
+name = "tss"
+version = "0.0.1"
+dependencies = [
+ "env_logger",
+ "frost-evm",
+ "log",
+ "rand 0.8.5",
+ "serde",
 ]
 
 [[package]]

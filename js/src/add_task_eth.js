@@ -29,14 +29,14 @@ const pallet_task_add = async (_keyspair, who) => {
     const input_task = {
         network: 0,
         cycle: 4,
-        start: 0,
+        start: 11,
         period: 2,
         hash: 'QmYFw5aYPKQ9oSw3L3UUed9fBqT4oTW5BZzAnPFGyuQir3',
         function: {
             EVMViewWithoutAbi: {
                 address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
                 function_signature: "function get_votes_stats() external view returns (uint[] memory)",
-                input: 2,
+                input: [],
             }
         },
     }

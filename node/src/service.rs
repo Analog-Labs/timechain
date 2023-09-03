@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use futures::channel::mpsc;
 use futures::prelude::*;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
@@ -8,7 +7,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 
 // Our native executor instance.
@@ -155,17 +154,6 @@ pub fn new_full(
 	timegraph_url: Option<String>,
 	timegraph_ssk: Option<String>,
 ) -> Result<TaskManager, ServiceError> {
-	let peer_id = config
-		.network
-		.node_key
-		.clone()
-		.into_keypair()
-		.unwrap()
-		.public()
-		.try_into_ed25519()
-		.unwrap()
-		.to_bytes();
-	log::info!("Peer identity bytes: {:?}", peer_id);
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -190,7 +178,7 @@ pub fn new_full(
 
 	// registering time p2p protocol
 	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
-	net_config.add_request_response_protocol(time_worker::protocol_config(protocol_tx));
+	net_config.add_request_response_protocol(chronicle::protocol_config(protocol_tx));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -238,18 +226,7 @@ pub fn new_full(
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.keystore();
-	let public_key: time_primitives::PublicKey = if let Some(public_key) =
-		keystore.sr25519_public_keys(time_primitives::TIME_KEY_TYPE).into_iter().next()
-	{
-		public_key.into()
-	} else {
-		keystore
-			.sr25519_generate_new(time_primitives::TIME_KEY_TYPE, None)
-			.unwrap()
-			.into()
-	};
 
-	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -366,54 +343,27 @@ pub fn new_full(
 		);
 
 		if let Some(shard_network) = shard_network {
-			let tx_submitter = time_worker::tx_submitter::TransactionSubmitter::new(
-				true,
-				keystore_container.keystore(),
-				OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-				client.clone(),
-			);
-
-			let task_executor =
-				task_executor::TaskExecutor::new(task_executor::TaskExecutorParams {
-					_block: PhantomData,
-					runtime: client.clone(),
-					network: shard_network,
-					public_key: public_key.clone(),
-					task_spawner: futures::executor::block_on(task_executor::Task::new(
-						task_executor::TaskSpawnerParams {
-							_marker: PhantomData,
-							tss: sign_data_sender,
-							connector_url,
-							connector_blockchain,
-							connector_network,
-							keyfile,
-							timegraph_url,
-							timegraph_ssk,
-							client: client.clone(),
-							runtime: client.clone(),
-							tx_submitter: tx_submitter.clone(),
-						},
-					))
-					.unwrap(),
-				});
-
-			let time_params = time_worker::TimeWorkerParams {
-				_block: PhantomData,
-				runtime: client.clone(),
+			let params = chronicle::ChronicleParams {
 				client: client.clone(),
+				runtime: client.clone(),
+				keystore: keystore_container.keystore(),
+				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 				network,
-				task_executor,
-				tx_submitter,
-				public_key,
-				peer_id,
-				tss_request: sign_data_receiver,
-				protocol_request: protocol_rx,
+				tss_requests: protocol_rx,
+				config: chronicle::ChronicleConfig {
+					network: shard_network,
+					connector_url,
+					connector_blockchain,
+					connector_network,
+					keyfile,
+					timegraph_url,
+					timegraph_ssk,
+				},
 			};
-
 			task_manager.spawn_essential_handle().spawn_blocking(
-				"time-worker",
+				"chronicle",
 				None,
-				time_worker::start_timeworker_gadget(time_params),
+				chronicle::run_chronicle(params),
 			);
 		}
 	}

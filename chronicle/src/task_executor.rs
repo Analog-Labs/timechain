@@ -1,4 +1,4 @@
-use crate::{TaskExecutorParams, TW_LOG};
+use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
@@ -12,10 +12,11 @@ use std::{
 	collections::BTreeSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
-	Function, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution, TaskId,
-	TaskResult, TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
+	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
+	TaskId, TaskResult, TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
+use tokio::sync::Mutex;
 
 pub struct TaskSpawnerParams<B: Block, C, R, TxSub> {
 	pub _marker: PhantomData<B>,
@@ -309,7 +310,78 @@ where
 	}
 }
 
+/// Set of properties we need to run our gadget
+#[derive(Clone)]
+pub struct TaskExecutorParams<B: Block, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B>,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner,
+{
+	pub _block: PhantomData<B>,
+	pub runtime: Arc<R>,
+	pub task_spawner: T,
+	pub network: Network,
+	pub public_key: PublicKey,
+}
+
 pub struct TaskExecutor<B: Block, R, T> {
+	network: Network,
+	task_executor: Arc<Mutex<InnerTaskExecutor<B, R, T>>>,
+}
+
+impl<B, R, T> TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + 'static,
+{
+	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+		Self {
+			network: params.network,
+			task_executor: Arc::new(Mutex::new(InnerTaskExecutor::new(params))),
+		}
+	}
+}
+
+impl<B: Block, R, T> Clone for TaskExecutor<B, R, T> {
+	fn clone(&self) -> Self {
+		Self {
+			network: self.network,
+			task_executor: self.task_executor.clone(),
+		}
+	}
+}
+
+#[async_trait::async_trait]
+impl<B, R, T> time_primitives::TaskExecutor<B> for TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + 'static,
+{
+	fn network(&self) -> Network {
+		self.network
+	}
+
+	async fn start_tasks(
+		&self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()> {
+		self.task_executor
+			.lock()
+			.await
+			.start_tasks(block_hash, block_num, shard_id)
+			.await
+	}
+}
+
+struct InnerTaskExecutor<B: Block, R, T> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
 	public_key: PublicKey,
@@ -317,7 +389,7 @@ pub struct TaskExecutor<B: Block, R, T> {
 	task_spawner: T,
 }
 
-impl<B, R, T> TaskExecutor<B, R, T>
+impl<B, R, T> InnerTaskExecutor<B, R, T>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,

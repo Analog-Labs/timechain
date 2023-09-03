@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"chronicle",
 	"node",
 	"pallets/elections",
 	"pallets/members",
@@ -9,8 +10,6 @@ members = [
 	"runtime",
 	"runtime/common",
 	"tss",
-	"workers/task-executor",
-	"workers/time-worker",
 ]
 resolver = "2"
 

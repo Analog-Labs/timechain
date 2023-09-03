@@ -2,7 +2,7 @@ use frost_evm::{
 	keys::{KeyPackage, PublicKeyPackage},
 	round1::{self, SigningCommitments, SigningNonces},
 	round2::{self, SignatureShare},
-	Identifier, Signature, SigningPackage,
+	Identifier, Signature, SigningPackage, VerifyingKey,
 };
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
@@ -168,7 +168,7 @@ pub enum RoastAction {
 	Broadcast(RoastMessage),
 	Send(Identifier, RoastMessage),
 	SendMany(Vec<Identifier>, RoastMessage),
-	Complete(Signature),
+	Complete([u8; 32], Signature),
 }
 
 /// ROAST state machine.
@@ -245,7 +245,8 @@ impl Roast {
 					&session.signature_shares,
 					&self.public_key_package,
 				) {
-					return Some(RoastAction::Complete(signature));
+					let hash = VerifyingKey::message_hash(&self.data);
+					return Some(RoastAction::Complete(hash, signature));
 				}
 			}
 			if let Some((session_id, members)) = coordinator.start_session(&self.commitments) {

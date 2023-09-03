@@ -2,49 +2,67 @@ use crate::TimeWorkerParams;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
-use sc_client_api::Backend;
 use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
 use sc_network::NetworkSigner;
 use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, TestNet,
 	TestNetFactory,
 };
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sc_transaction_pool_api::RejectAllTxPool;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
+use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::generic::BlockId;
+use sp_runtime::traits::{Block as sp_block, IdentifyAccount};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	OcwPayload, PeerId, ShardId, TimeApi, TssId, TssPublicKey, TssRequest, TssSignature,
+	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
+	TssRequest, TssSignature,
 };
+
+fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+}
 
 #[derive(Default)]
 struct InnerMockApi {
 	shard_counter: ShardId,
-	shards: HashMap<PeerId, Vec<ShardId>>,
-	members: HashMap<ShardId, Vec<PeerId>>,
+	shards: HashMap<AccountId, Vec<ShardId>>,
+	members: HashMap<ShardId, Vec<AccountId>>,
+	pubkeys: Vec<TssPublicKey>,
 }
 
 impl InnerMockApi {
-	fn create_shard(&mut self, members: Vec<PeerId>) -> ShardId {
+	fn create_shard(&mut self, members: Vec<AccountId>) -> ShardId {
 		let id = self.shard_counter;
 		self.shard_counter += 1;
-		for member in &members {
-			self.shards.entry(*member).or_default().push(id);
+		for member in members.clone() {
+			self.shards.entry(member).or_default().push(id);
 		}
 		self.members.insert(id, members);
 		id
 	}
 
-	fn get_shards(&self, peer_id: PeerId) -> Vec<ShardId> {
+	fn get_shards(&self, peer_id: AccountId) -> Vec<ShardId> {
 		self.shards.get(&peer_id).cloned().unwrap_or_default()
 	}
 
-	fn get_shard_members(&self, shard_id: ShardId) -> Vec<PeerId> {
+	fn get_shard_members(&self, shard_id: ShardId) -> Vec<AccountId> {
 		self.members.get(&shard_id).cloned().unwrap_or_default()
+	}
+
+	fn get_shard_threshold(&self, _shard_id: ShardId) -> u16 {
+		3
+	}
+
+	fn submit_tss_public_key(&mut self, _shard_id: ShardId, public_key: TssPublicKey) {
+		self.pubkeys.push(public_key);
 	}
 }
 
@@ -54,26 +72,50 @@ struct MockApi {
 }
 
 impl MockApi {
-	pub fn create_shard(&self, members: Vec<PeerId>) -> ShardId {
+	pub fn create_shard(&self, members: Vec<AccountId>) -> ShardId {
 		self.inner.lock().unwrap().create_shard(members)
+	}
+
+	pub fn get_pubkey(&self) -> Vec<TssPublicKey> {
+		self.inner.lock().unwrap().pubkeys.clone()
 	}
 }
 
 sp_api::mock_impl_runtime_apis! {
-	impl TimeApi<Block> for MockApi {
-		fn get_shards(&self, peer_id: PeerId) -> Vec<ShardId> {
-			self.inner.lock().unwrap().get_shards(peer_id)
+	impl ShardsApi<Block> for MockApi {
+
+		fn get_shards(&self, account: &AccountId) -> Vec<ShardId> {
+			self.inner.lock().unwrap().get_shards((*account).clone())
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+		fn get_shard_members(&self, shard_id: ShardId) -> Vec<AccountId> {
 			self.inner.lock().unwrap().get_shard_members(shard_id)
 		}
 
-		fn get_shard_threshold(_shard_id: ShardId) -> u16 {
-			3
+		fn get_shard_threshold(&self, shard_id: ShardId) -> u16 {
+			self.inner.lock().unwrap().get_shard_threshold(shard_id)
+		}
+
+		fn submit_tss_public_key(&self, shard_id: ShardId, public_key: TssPublicKey) {
+			self.inner.lock().unwrap().submit_tss_public_key(shard_id, public_key)
 		}
 	}
 
+	impl MembersApi<Block> for MockApi {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>{
+			Some((*account).clone().into())
+		}
+		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) {}
+		fn submit_heartbeat(_public_key: PublicKey) {}
+	}
+
+	impl TasksApi<Block> for MockApi{
+		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
+		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
+		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) {}
+		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) {}
+		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) {}
+	}
 }
 
 impl ProvideRuntimeApi<Block> for MockApi {
@@ -93,6 +135,36 @@ fn verify_tss_signature(
 	let signature = frost_evm::Signature::from_bytes(signature)?;
 	public_key.verify(message, &signature)?;
 	Ok(())
+}
+
+#[derive(Clone)]
+struct MockTaskExecutor<B> {
+	_block: PhantomData<B>,
+}
+
+impl<B: sp_block> MockTaskExecutor<B> {
+	fn new() -> Self {
+		Self { _block: PhantomData }
+	}
+}
+
+#[async_trait::async_trait]
+impl<B> time_primitives::TaskExecutor<B> for MockTaskExecutor<B>
+where
+	B: sp_block,
+{
+	fn network(&self) -> Network {
+		Network::Ethereum
+	}
+
+	async fn start_tasks(
+		&self,
+		_block_hash: <B as sp_block>::Hash,
+		_block_num: u64,
+		_shard_id: ShardId,
+	) -> Result<()> {
+		Ok(())
+	}
 }
 
 #[derive(Default)]
@@ -153,7 +225,18 @@ async fn tss_smoke() -> Result<()> {
 
 	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
+
+	let task_executor = MockTaskExecutor::<Block>::new();
+	let keystore = MemoryKeystore::new();
+	let tx_submitter = crate::tx_submitter::TransactionSubmitter::new(
+		false,
+		keystore.into(),
+		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		api.clone(),
+	);
+
 	let mut peers = vec![];
+	let mut pub_keys = vec![];
 	let mut tss = vec![];
 	for i in 0..3 {
 		let (protocol_tx, protocol_rx) = async_channel::unbounded();
@@ -169,34 +252,32 @@ async fn tss_smoke() -> Result<()> {
 			.public_key
 			.try_into_ed25519()?
 			.to_bytes();
+
+		pub_keys.push(pubkey_from_bytes(peer_id));
 		peers.push(peer_id);
 		tss.push(tss_tx);
+
 		tokio::task::spawn(crate::start_timeworker_gadget(TimeWorkerParams {
 			_block: PhantomData,
-			backend: net.peer(i).client().as_backend(),
 			client: net.peer(i).client().as_client(),
 			runtime: api.clone(),
 			network: net.peer(i).network_service().clone(),
 			peer_id: peers[i],
 			tss_request: tss_rx,
 			protocol_request: protocol_rx,
+			task_executor: task_executor.clone(),
+			tx_submitter: tx_submitter.clone(),
+			public_key: pub_keys[i].clone(),
 		}));
 	}
 	net.run_until_connected().await;
 
 	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
-	let storage: Vec<_> = (0..3)
-		.map(|i| net.peer(i).client().as_backend().offchain_storage().unwrap())
-		.collect();
 
-	log::info!(
-		"creating shard with members {:#?}",
-		peers
-			.iter()
-			.map(|p| crate::worker::to_peer_id(*p).to_string())
-			.collect::<Vec<_>>()
-	);
-	api.create_shard(peers);
+	let peers_account_id: Vec<AccountId> =
+		pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
+
+	api.create_shard(peers_account_id);
 
 	tokio::task::spawn(async move {
 		let mut block_timer = tokio::time::interval(Duration::from_secs(1));
@@ -224,23 +305,16 @@ async fn tss_smoke() -> Result<()> {
 	// TODO: after collector completes dkg all other nodes have time until a task
 	// is scheduled to complete. we should require all members to submit the public
 	// key before scheduling.
-	let mut tss_public_key = None;
-	for storage in &storage {
-		loop {
-			let Some(msg) = time_primitives::read_message(storage.clone()) else {
-				tokio::time::sleep(Duration::from_secs(1)).await;
-				continue;
-			};
-			let OcwPayload::SubmitTssPublicKey { shard_id, public_key } = msg else {
-				anyhow::bail!("unexpected msg {:?}", msg);
-			};
-			assert_eq!(shard_id, 0);
-			tss_public_key = Some(public_key);
+
+	loop {
+		if api.get_pubkey().len() == 3 {
 			break;
-		}
+		} else {
+			tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+			continue;
+		};
 	}
-	let public_key = tss_public_key.unwrap();
-	log::info!("dkg returned a public key");
+	let public_key = api.get_pubkey().pop().unwrap();
 
 	let block_number = client[0].chain_info().finalized_number;
 	let message = [1u8; 32];
@@ -259,7 +333,7 @@ async fn tss_smoke() -> Result<()> {
 	}
 	for rx in rxs {
 		let signature = rx.await?;
-		verify_tss_signature(public_key, &message, signature)?;
+		verify_tss_signature(public_key, &message, signature.1)?;
 	}
 
 	Ok(())

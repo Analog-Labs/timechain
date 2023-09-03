@@ -47,13 +47,14 @@ use sp_runtime::{
 };
 
 use frame_system::EnsureRootWithSuccess;
+use scale_info::prelude::string::String;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId,
+	AccountId, MemberStorage, Network, PeerId, PublicKey, ShardId, Signature, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -61,8 +62,8 @@ pub use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
-		OnUnbalanced, Randomness, StorageInfo,
+		ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin,
+		KeyOwnerProofSystem, OnUnbalanced, Randomness, StorageInfo,
 	},
 	weights::{constants::RocksDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
 	PalletId, StorageValue,
@@ -1115,30 +1116,37 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+impl pallet_members::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::members::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type Elections = Elections;
+	type HeartbeatTimeout = ConstU32<50>;
+}
+
+impl pallet_elections::Config for Runtime {
+	type Members = Members;
+	type Shards = Shards;
+	type ShardSize = ConstU16<3>;
+	type Threshold = ConstU16<2>;
+}
+
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
+	type Members = Members;
+	type Elections = Elections;
 	type TaskScheduler = Tasks;
-	type MaxMembers = ConstU8<20>;
-	type MinMembers = ConstU8<3>;
 	type DkgTimeout = ConstU32<10>;
 }
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
-}
-
-impl pallet_ocw::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::ocw::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type OcwShards = Shards;
-	type OcwTasks = Tasks;
-	type Shards = Shards;
-	type Tasks = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1162,10 +1170,11 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury,
-		Tasks: pallet_tasks,
-		Ocw: pallet_ocw,
+		Members: pallet_members,
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Elections: pallet_elections,
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );
 
@@ -1212,9 +1221,9 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_members, Members]
 		[pallet_shards, Shards]
 		[pallet_tasks, Tasks]
-		[pallet_ocw, Ocw]
 	);
 }
 
@@ -1432,12 +1441,26 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block>  for Runtime {
-		fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
-			Shards::get_shards(peer_id)
+	impl time_primitives::MembersApi<Block> for Runtime {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId> {
+			Members::member_peer_id(account)
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
+			Members::submit_register_member(network, public_key, peer_id)
+		}
+
+		fn submit_heartbeat(public_key: PublicKey) {
+			Members::submit_heartbeat(public_key)
+		}
+	}
+
+	impl time_primitives::ShardsApi<Block> for Runtime {
+		fn get_shards(account: &AccountId) -> Vec<ShardId> {
+			Shards::get_shards(account)
+		}
+
+		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			Shards::get_shard_members(shard_id)
 		}
 
@@ -1445,6 +1468,12 @@ impl_runtime_apis! {
 			Shards::get_shard_threshold(shard_id)
 		}
 
+		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
+			Shards::submit_tss_pub_key(shard_id, public_key);
+		}
+	}
+
+	impl time_primitives::TasksApi<Block> for Runtime {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}
@@ -1452,6 +1481,19 @@ impl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
 			Tasks::get_task(task_id)
 		}
+
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) {
+			Tasks::submit_task_hash(shard_id, task_id, hash);
+		}
+
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) {
+			Tasks::submit_task_result(task_id, cycle, status);
+		}
+
+		fn submit_task_error(shard_id: ShardId, cycle: TaskCycle, error: TaskError) {
+			Tasks::submit_task_error(shard_id, cycle, error);
+		}
+
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1468,7 +1510,7 @@ impl_runtime_apis! {
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
-			list_benchmark!(list, extra, pallet_ocw, Ocw);
+			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1494,7 +1536,7 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
-			add_benchmark!(params, batches, pallet_ocw, Ocw);
+			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

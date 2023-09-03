@@ -5,8 +5,9 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{PeerId, PublicKey, ShardId, ShardsInterface};
+use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
 
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
@@ -18,12 +19,18 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
-	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
-		None
+	fn is_shard_member(_: &AccountId) -> bool {
+		true
 	}
 
-	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
-		Some([0u8; 32])
+	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
+
+	fn random_signer(shard_id: ShardId) -> PublicKey {
+		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
+	}
+
+	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
+		None
 	}
 }
 
@@ -81,8 +88,39 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: u32,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
 }
 
 // Build genesis storage according to the mock runtime.

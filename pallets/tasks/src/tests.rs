@@ -7,9 +7,16 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::Saturating;
 use time_primitives::{
-	CycleStatus, Function, Network, OcwTaskInterface, ShardId, TaskCycle, TaskDescriptor,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskStatus, TasksInterface,
+	AccountId, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskResult, TaskStatus,
+	TasksInterface,
 };
+
+fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+}
+
+const A: [u8; 32] = [1u8; 32];
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
@@ -42,8 +49,12 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 	}
 }
 
-fn mock_result_ok(shard_id: ShardId) -> CycleStatus {
-	CycleStatus { shard_id, signature: [0; 64] }
+fn mock_result_ok(shard_id: ShardId) -> TaskResult {
+	TaskResult {
+		shard_id,
+		hash: [0; 32],
+		signature: [0; 64],
+	}
 }
 
 #[test]
@@ -59,18 +70,8 @@ fn test_create_task() {
 			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
-		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
-		System::assert_last_event(
-			Event::<Test>::TaskResult(
-				0,
-				0,
-				CycleStatus {
-					shard_id: 1,
-					signature: [0; 64],
-				},
-			)
-			.into(),
-		);
+		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
 	});
 }
 
@@ -244,7 +245,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -259,11 +260,14 @@ fn shard_offline_drops_failed_tasks() {
 			mock_task(Network::Ethereum, 1)
 		));
 		for _ in 0..4 {
-			assert_ok!(Tasks::submit_task_error(
+			assert_ok!(Tasks::submit_error(
+				RawOrigin::None.into(),
+				0,
 				0,
 				TaskError {
 					shard_id: 1,
-					error: "test".to_string()
+					msg: "test".to_string(),
+					signature: [0; 64],
 				}
 			));
 		}
@@ -283,10 +287,11 @@ fn submit_task_error_increments_retry_count() {
 		));
 		let error = TaskError {
 			shard_id: 1,
-			error: "test".to_string(),
+			msg: "test".to_string(),
+			signature: [0; 64],
 		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_task_error(0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
 	});
@@ -302,12 +307,13 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 		));
 		let error = TaskError {
 			shard_id: 1,
-			error: "test".to_string(),
+			msg: "test".to_string(),
+			signature: [0; 64],
 		};
-		for _ in 0..4 {
-			assert_ok!(Tasks::submit_task_error(0, error.clone()));
+		for _ in 1..4 {
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
 		}
-		System::assert_last_event(Event::<Test>::TaskFailed(0, error).into());
+		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, error).into());
 	});
 }
 
@@ -321,13 +327,14 @@ fn submit_task_result_resets_retry_count() {
 		));
 		let error = TaskError {
 			shard_id: 1,
-			error: "test".to_string(),
+			msg: "test".to_string(),
+			signature: [0; 64],
 		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_task_error(0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
-		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
 }
@@ -486,7 +493,12 @@ fn task_recurring_cycle_count() {
 			for task in &task {
 				let task_id = task.task_id;
 				let cycle = task.cycle;
-				assert_ok!(Tasks::submit_task_result(task_id, cycle, mock_result_ok(1)));
+				assert_ok!(Tasks::submit_result(
+					RawOrigin::None.into(),
+					task_id,
+					cycle,
+					mock_result_ok(1)
+				));
 				total_results += 1;
 			}
 		}
@@ -520,7 +532,7 @@ fn submit_task_result_inserts_at_input_cycle() {
 			mock_task(Network::Ethereum, 5)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_ok!(Tasks::submit_task_result(0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
 		assert_eq!(TaskCycleState::<Test>::get(0), 1);
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
 		assert!(TaskResults::<Test>::get(0, 1).is_none());
@@ -533,19 +545,26 @@ fn payable_task_smoke() {
 	let shard_id = 1;
 	let task_id = 0;
 	let task_hash = "mock_hash";
+	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0; 32].into()).into(),
+			RawOrigin::Signed(a.clone()).into(),
 			mock_payable(Network::Ethereum)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write([0u8; 32]));
-		assert_ok!(Tasks::submit_task_hash(shard_id, task_id, task_hash.into()));
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed(a).into(),
+			shard_id,
+			task_id,
+			task_hash.into()
+		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));
-		assert_ok!(Tasks::submit_task_result(
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::None.into(),
 			task_id,
 			0,
-			CycleStatus { shard_id, signature: [0; 64] }
+			mock_result_ok(shard_id)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 	});

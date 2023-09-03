@@ -1,9 +1,12 @@
-use crate::{AccountId, Network, PeerId, ShardId, TssSignature};
+use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+#[cfg(feature = "std")]
 use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
+#[cfg(feature = "std")]
+use sp_api::ApiError;
 use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::future::Future;
@@ -30,15 +33,17 @@ impl Function {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct CycleStatus {
+pub struct TaskResult {
 	pub shard_id: ShardId,
+	pub hash: [u8; 32],
 	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskError {
 	pub shard_id: ShardId,
-	pub error: String,
+	pub msg: String,
+	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -77,16 +82,16 @@ pub enum TaskStatus {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
-	Write(PeerId),
+	Write(PublicKey),
 	Read(Option<String>),
 }
 
 impl TaskPhase {
-	pub fn peer_id(&self) -> Option<PeerId> {
-		if let Self::Write(peer_id) = self {
-			Some(*peer_id)
+	pub fn public_key(&self) -> Option<&PublicKey> {
+		if let Self::Write(public_key) = self {
+			Some(public_key)
 		} else {
 			None
 		}
@@ -108,7 +113,7 @@ impl Default for TaskPhase {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
@@ -153,10 +158,50 @@ pub trait TaskSpawner {
 		function: Function,
 		hash: String,
 		block_num: u64,
-	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
 	fn execute_write(
 		&self,
+		shard_id: ShardId,
+		task_id: TaskId,
 		function: Function,
-	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>>;
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'static {
+	fn network(&self) -> Network;
+
+	async fn start_tasks(
+		&self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()>;
+}
+
+#[cfg(feature = "std")]
+pub trait SubmitTasks<B: sp_runtime::traits::Block> {
+	fn submit_task_hash(
+		&self,
+		block: B::Hash,
+		shard_id: ShardId,
+		task_id: TaskId,
+		hash: String,
+	) -> Result<(), ApiError>;
+	fn submit_task_result(
+		&self,
+		block: B::Hash,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		status: TaskResult,
+	) -> Result<(), ApiError>;
+	fn submit_task_error(
+		&self,
+		block: B::Hash,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> Result<(), ApiError>;
 }

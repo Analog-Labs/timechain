@@ -69,8 +69,9 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", bran
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false, optional = true }
 
 # Local Dependencies
-pallet-ocw = { path = "../pallets/ocw", version = "4.0.0-dev", default-features = false }
+pallet-members = { path = "../pallets/members", version = "0.0.1", default-features = false }
 pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
+pallet-elections = { path = "../pallets/elections", default-features = false }
 pallet-tasks = { path = "../pallets/tasks", version = "0.0.1", default-features = false }
 pallet-treasury = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
 runtime-common = { path = "./common", default-features = false }
@@ -102,6 +103,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
+	"pallet-members/std",
 	"pallet-offences/std",
 	"pallet-session/std",
 	"pallet-shards/std",
@@ -140,7 +142,7 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
-	"pallet-ocw/runtime-benchmarks",
+	"pallet-members/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

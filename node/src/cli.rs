@@ -12,6 +12,9 @@ pub struct Cli {
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
+	/// The shard network. If it is not provided the chronicle won't be started.
+	#[clap(long)]
+	pub network: Option<time_primitives::Network>,
 	/// The address of Analog Connector.
 	#[clap(long)]
 	pub connector_url: Option<String>,
@@ -24,9 +27,6 @@ pub struct RunCmd {
 	/// key file for connector wallet
 	#[clap(long)]
 	pub keyfile: Option<String>,
-	/// The node not run TSS and task executor.
-	#[clap(long)]
-	pub without_chronicle: bool,
 	/// The timegraph url (or TIMEGTAPH_URL environment variable).
 	#[clap(long)]
 	pub timegraph_url: Option<String>,

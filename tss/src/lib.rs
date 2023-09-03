@@ -35,7 +35,7 @@ pub enum TssAction<I, P> {
 	Send(Vec<(P, TssMessage<I>)>),
 	Commit(VerifiableSecretSharingCommitment),
 	PublicKey(VerifyingKey),
-	Signature(I, Signature),
+	Signature(I, [u8; 32], Signature),
 }
 
 /// Tss message.
@@ -318,9 +318,9 @@ where
 								let send_to_self = peers.len() != all_peers.len();
 								(peers, send_to_self, msg)
 							},
-							RoastAction::Complete(signature) => {
+							RoastAction::Complete(hash, signature) => {
 								signing_sessions.remove(&id);
-								return Some(TssAction::Signature(id, signature));
+								return Some(TssAction::Signature(id, hash, signature));
 							},
 						};
 						if send_to_self {

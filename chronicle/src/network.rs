@@ -225,6 +225,9 @@ where
 						});
 					}
 				},
+				TssAction::Commit(_commitment) => {
+					todo!()
+				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);

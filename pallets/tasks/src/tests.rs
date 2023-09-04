@@ -552,7 +552,7 @@ fn payable_task_smoke() {
 			mock_payable(Network::Ethereum)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A), 1));
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed(a).into(),
 			shard_id,

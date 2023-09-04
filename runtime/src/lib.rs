@@ -1147,6 +1147,7 @@ impl pallet_tasks::Config for Runtime {
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
+	type WritePhaseTimeout = ConstU64<10>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

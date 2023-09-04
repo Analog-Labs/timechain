@@ -25,7 +25,7 @@ impl ShardsInterface for MockShardInterface {
 
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
 
-	fn random_signer(shard_id: ShardId) -> PublicKey {
+	fn random_signer(shard_id: ShardId, _: Option<PublicKey>) -> PublicKey {
 		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
 	}
 
@@ -91,6 +91,7 @@ impl task_schedule::Config for Test {
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
+	type WritePhaseTimeout = ConstU64<10>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

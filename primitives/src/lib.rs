@@ -49,7 +49,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait TasksApi {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution<u32>>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String);
 		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult);
@@ -76,7 +76,7 @@ pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
-	fn random_signer(shard_id: ShardId) -> PublicKey;
+	fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 

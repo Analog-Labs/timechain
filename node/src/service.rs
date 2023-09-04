@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use futures::channel::mpsc;
 use futures::prelude::*;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
@@ -187,10 +186,6 @@ pub fn new_full(
 		grandpa_protocol_name.clone(),
 	));
 
-	// registering time p2p protocol
-	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
-	net_config.add_request_response_protocol(time_worker::protocol_config(protocol_tx));
-
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
@@ -238,7 +233,6 @@ pub fn new_full(
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.keystore();
 
-	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -354,25 +348,6 @@ pub fn new_full(
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 		if !without_chronicle {
-			// injecting our Worker
-			let time_params = time_worker::TimeWorkerParams {
-				_block: PhantomData,
-				runtime: client.clone(),
-				client: client.clone(),
-				backend: backend.clone(),
-				network,
-				peer_id,
-				tss_request: sign_data_receiver,
-				protocol_request: protocol_rx,
-			};
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"time-worker",
-				None,
-				time_worker::start_timeworker_gadget(time_params),
-			);
-
-			// start the executor for one-time task
 			let task_executor_params = task_executor::TaskExecutorParams {
 				_block: PhantomData,
 				runtime: client.clone(),
@@ -381,7 +356,6 @@ pub fn new_full(
 				peer_id,
 				task_spawner: futures::executor::block_on(task_executor::Task::new(
 					task_executor::TaskSpawnerParams {
-						tss: sign_data_sender,
 						connector_url,
 						connector_blockchain,
 						connector_network,

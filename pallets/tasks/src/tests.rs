@@ -164,6 +164,5 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),);
 		assert_eq!(Tasks::task_shard(0), Some(1));
-		
 	});
 }

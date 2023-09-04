@@ -216,7 +216,10 @@ pub mod pallet {
 		}
 
 		fn is_resumable(task_id: TaskId) -> bool {
-			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Stopped) | Some(TaskStatus::Failed { .. }))
+			matches!(
+				TaskState::<T>::get(task_id),
+				Some(TaskStatus::Stopped) | Some(TaskStatus::Failed { .. })
+			)
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {

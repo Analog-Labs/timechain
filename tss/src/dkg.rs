@@ -1,62 +1,27 @@
 use frost_evm::frost_secp256k1::Signature;
 use frost_evm::keys::dkg::*;
-use frost_evm::keys::{KeyPackage, PublicKeyPackage, VerifiableSecretSharingCommitment};
-use frost_evm::{Error, Identifier};
-
+use frost_evm::keys::{
+	KeyPackage, PublicKeyPackage, SecretShare, SigningShare, VerifiableSecretSharingCommitment,
+};
+use frost_evm::{Identifier, Scalar};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
-/// Dkg state.
-enum DkgState {
-	Uninitialized,
-	DkgR1 {
-		secret_package: round1::SecretPackage,
-		proofs_of_knowledge: HashMap<Identifier, Signature>,
-		commitments: Option<HashMap<Identifier, VerifiableSecretSharingCommitment>>,
-		round2_packages: HashMap<Identifier, round2::Package>,
-	},
-	DkgR2 {
-		secret_package: round2::SecretPackage,
-		round1_packages: HashMap<Identifier, round1::Package>,
-		round2_packages: HashMap<Identifier, round2::Package>,
-	},
-}
-
-impl std::fmt::Display for DkgState {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::Uninitialized => write!(f, "uninitialized"),
-			Self::DkgR1 { proofs_of_knowledge, .. } => {
-				write!(f, "dkgr1 {}", proofs_of_knowledge.len())
-			},
-			Self::DkgR2 { round2_packages, .. } => write!(f, "dkgr2 {}", round2_packages.len()),
-		}
-	}
-}
-
 #[derive(Clone)]
 pub enum DkgAction {
-	Broadcast(DkgMessage),
+	Commit(VerifiableSecretSharingCommitment, Signature),
 	Send(Vec<(Identifier, DkgMessage)>),
-	Commit(VerifiableSecretSharingCommitment),
 	Complete(KeyPackage, PublicKeyPackage, VerifiableSecretSharingCommitment),
-	Failure(Error),
 }
 
 /// Tss message.
 #[derive(Clone, Deserialize, Serialize)]
-pub enum DkgMessage {
-	DkgR1 { proof_of_knowledge: Signature },
-	DkgR2 { round2_package: round2::Package },
-}
+pub struct DkgMessage(round2::Package);
 
 impl std::fmt::Display for DkgMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::DkgR1 { .. } => write!(f, "dkgr1"),
-			Self::DkgR2 { .. } => write!(f, "dkgr2"),
-		}
+		write!(f, "dkg")
 	}
 }
 
@@ -65,9 +30,10 @@ pub struct Dkg {
 	id: Identifier,
 	members: BTreeSet<Identifier>,
 	threshold: u16,
-	state: DkgState,
+	secret_package: Option<round1::SecretPackage>,
 	commitment: Option<VerifiableSecretSharingCommitment>,
-	committed: bool,
+	sent_round2_packages: bool,
+	round2_packages: HashMap<Identifier, round2::Package>,
 }
 
 impl Dkg {
@@ -77,139 +43,106 @@ impl Dkg {
 			id,
 			members,
 			threshold,
-			state: DkgState::Uninitialized,
+			secret_package: None,
 			commitment: None,
-			committed: false,
+			sent_round2_packages: false,
+			round2_packages: Default::default(),
 		}
 	}
 
-	pub fn commit(
-		&mut self,
-		secure_broadcast_commitments: HashMap<Identifier, VerifiableSecretSharingCommitment>,
-	) {
-		match &mut self.state {
-			DkgState::DkgR1 { commitments, .. } => {
-				if commitments.is_none() {
-					*commitments = Some(secure_broadcast_commitments);
-				} else {
-					log::error!("already received commitments");
-				}
-			},
-			state => log::error!("unexpected commitments in state {}", state),
-		}
+	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
+		self.commitment = Some(commitment);
 	}
 
 	pub fn on_message(&mut self, peer: Identifier, msg: DkgMessage) {
-		match (&mut self.state, msg) {
-			(DkgState::Uninitialized, _) => log::error!("received msg before polling state"),
-			(
-				DkgState::DkgR1 { proofs_of_knowledge, .. },
-				DkgMessage::DkgR1 { proof_of_knowledge, .. },
-			) => {
-				proofs_of_knowledge.insert(peer, proof_of_knowledge);
-			},
-			(DkgState::DkgR1 { round2_packages, .. }, DkgMessage::DkgR2 { round2_package, .. }) => {
-				round2_packages.insert(peer, round2_package);
-			},
-			(DkgState::DkgR2 { round2_packages, .. }, DkgMessage::DkgR2 { round2_package, .. }) => {
-				round2_packages.insert(peer, round2_package);
-			},
-			(DkgState::DkgR2 { .. }, DkgMessage::DkgR1 { .. }) => {
-				log::error!("received dkgr1 message in round2");
-			},
-		}
+		self.round2_packages.insert(peer, msg.0);
 	}
 
 	pub fn next_action(&mut self) -> Option<DkgAction> {
-		if !self.committed {
-			if let Some(commitment) = self.commitment.as_ref() {
-				self.committed = true;
-				return Some(DkgAction::Commit(commitment.clone()));
+		let Some(secret_package) = self.secret_package.as_ref() else {
+			// TODO: handle failure
+			let (secret_package, round1_package) =
+				part1(self.id, self.members.len() as _, self.threshold, OsRng).unwrap();
+			self.secret_package = Some(secret_package);
+			return Some(DkgAction::Commit(round1_package.commitment().clone(), *round1_package.proof_of_knowledge()));
+		};
+		let Some(commitment) = self.commitment.as_ref() else {
+			return None;
+		};
+		if !self.sent_round2_packages {
+			let mut msgs = Vec::with_capacity(self.members.len());
+			for peer in &self.members {
+				if *peer == self.id {
+					continue;
+				}
+				let share = SigningShare::from_coefficients(secret_package.coefficients(), *peer);
+				msgs.push((*peer, DkgMessage(round2::Package::new(share))));
+			}
+			self.sent_round2_packages = true;
+			return Some(DkgAction::Send(msgs));
+		}
+		if self.round2_packages.len() != self.members.len() - 1 {
+			return None;
+		}
+		let signing_share = self
+			.round2_packages
+			.values()
+			.map(|package| package.secret_share().clone())
+			.chain(std::iter::once(SigningShare::from_coefficients(
+				secret_package.coefficients(),
+				self.id,
+			)))
+			.fold(SigningShare::new(Scalar::ZERO), |acc, e| {
+				SigningShare::new(acc.to_scalar() + e.to_scalar())
+			});
+		let secret_share = SecretShare::new(self.id, signing_share, commitment.clone());
+		// TODO: handle failure
+		let key_package = KeyPackage::try_from(secret_share).unwrap();
+		let public_key_package = PublicKeyPackage::from_commitment(&self.members, &commitment);
+		Some(DkgAction::Complete(key_package, public_key_package, commitment.clone()))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
+	use frost_evm::frost_core::frost::keys::{compute_group_commitment, default_identifiers};
+
+	#[test]
+	fn test_dkg() {
+		env_logger::try_init().ok();
+		let members: BTreeSet<_> = default_identifiers(3).into_iter().collect();
+		let threshold = 2;
+		let mut dkgs: HashMap<_, _> = members
+			.iter()
+			.map(|id| (*id, Dkg::new(*id, members.clone(), threshold)))
+			.collect();
+		let mut commitments = Vec::with_capacity(members.len());
+		loop {
+			for from in &members {
+				match dkgs.get_mut(from).unwrap().next_action() {
+					Some(DkgAction::Commit(commitment, proof_of_knowledge)) => {
+						verify_proof_of_knowledge(*from, &commitment, proof_of_knowledge).unwrap();
+						commitments.push(commitment);
+						if commitments.len() == members.len() {
+							let commitment = compute_group_commitment(&commitments);
+							for dkg in dkgs.values_mut() {
+								dkg.on_commit(commitment.clone());
+							}
+						}
+					},
+					Some(DkgAction::Send(msgs)) => {
+						for (to, msg) in msgs {
+							dkgs.get_mut(&to).unwrap().on_message(*from, msg);
+						}
+					},
+					Some(DkgAction::Complete(_key_package, _public_key_package, _commitment)) => {
+						return;
+					},
+					None => {},
+				}
 			}
 		}
-		match &mut self.state {
-			DkgState::Uninitialized => {
-				let (secret_package, round1_package) =
-					part1(self.id, self.members.len() as _, self.threshold, OsRng).unwrap();
-				self.state = DkgState::DkgR1 {
-					secret_package,
-					proofs_of_knowledge: Default::default(),
-					commitments: Default::default(),
-					round2_packages: Default::default(),
-				};
-				self.commitment = Some(round1_package.commitment().clone());
-				return Some(DkgAction::Broadcast(DkgMessage::DkgR1 {
-					proof_of_knowledge: *round1_package.proof_of_knowledge(),
-				}));
-			},
-			DkgState::DkgR1 {
-				secret_package,
-				proofs_of_knowledge,
-				commitments,
-				round2_packages,
-			} => {
-				if commitments.is_some() && proofs_of_knowledge.len() == self.members.len() - 1 {
-					log::debug!("received all packages for dk2 processing transition");
-					let secret_package = secret_package.clone();
-					let proofs_of_knowledge = std::mem::take(proofs_of_knowledge);
-					let mut commitments = commitments.take().unwrap();
-					let round1_packages = proofs_of_knowledge
-						.into_iter()
-						.map(|(peer, proof_of_knowledge)| {
-							(
-								peer,
-								round1::Package::new(
-									commitments.remove(&peer).unwrap(),
-									proof_of_knowledge,
-								),
-							)
-						})
-						.collect();
-					match part2(secret_package, &round1_packages) {
-						Ok((secret_package, round2_package)) => {
-							self.state = DkgState::DkgR2 {
-								secret_package,
-								round1_packages,
-								round2_packages: std::mem::take(round2_packages),
-							};
-							let messages = round2_package
-								.into_iter()
-								.map(|(identifier, round2_package)| {
-									(identifier, DkgMessage::DkgR2 { round2_package })
-								})
-								.collect();
-							return Some(DkgAction::Send(messages));
-						},
-						Err(err) => {
-							return Some(DkgAction::Failure(err));
-						},
-					}
-				}
-			},
-			DkgState::DkgR2 {
-				secret_package,
-				round1_packages,
-				round2_packages,
-			} => {
-				if round2_packages.len() == self.members.len() - 1 {
-					log::debug!("received all packages for dk3 processing transition");
-					let round2_packages = std::mem::take(round2_packages);
-					let commitment = self.commitment.take().unwrap();
-					match part3(secret_package, round1_packages, &round2_packages) {
-						Ok((key_package, public_key_package)) => {
-							return Some(DkgAction::Complete(
-								key_package,
-								public_key_package,
-								commitment,
-							));
-						},
-						Err(err) => {
-							return Some(DkgAction::Failure(err));
-						},
-					}
-				}
-			},
-		}
-		None
 	}
 }

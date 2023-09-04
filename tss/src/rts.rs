@@ -1,5 +1,4 @@
 use anyhow::Result;
-use frost_evm::frost_core::frost::keys::compute_public_key_package;
 use frost_evm::frost_secp256k1::Secp256K1Sha256;
 use frost_evm::k256::elliptic_curve::PrimeField;
 use frost_evm::keys::repairable;
@@ -213,7 +212,7 @@ impl Rts {
 		threshold: u16,
 		commitment: VerifiableSecretSharingCommitment,
 	) -> Self {
-		let public_key_package = compute_public_key_package(&members, &commitment);
+		let public_key_package = PublicKeyPackage::from_commitment(&members, &commitment);
 		Self {
 			id,
 			members,

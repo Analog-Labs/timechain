@@ -177,7 +177,7 @@ services:
     - "host.docker.internal:host-gateway"
 
   ethereum:
-    image: "ethereum/client-go:v1.12.2"
+    image: "ethereum/client-go:v1.10.26"
     command: "--dev --ipcdisable --dev.period 14 --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
     expose:
     - "8545"

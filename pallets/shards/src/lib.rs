@@ -302,7 +302,8 @@ pub mod pallet {
 			if let Some(old_signer) = last_signer {
 				if signer == old_signer {
 					// increment signer_index ensures signer != old_signer
-					signer_index = if signer_index == members.len() { 0 } else { signer_index + 1 };
+					signer_index =
+						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
 					return T::Members::member_public_key(&members[signer_index])
 						.expect("All signers should be registered members");
 				}

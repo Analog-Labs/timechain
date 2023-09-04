@@ -140,3 +140,30 @@ fn task_recurring_cycle_count() {
 		assert_eq!(total_results, mock_task.cycle);
 	});
 }
+
+#[test]
+fn resume_failed_task_after_shard_offline() {
+	let mock_error = TaskError {
+		shard_id: 1,
+		error: "mock_error".to_string(),
+	};
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		// fails 3 time to turn task status to failed
+		for _ in 0..3 {
+			assert_ok!(Tasks::submit_task_error(0, mock_error.clone()));
+		}
+		assert_eq!(Tasks::task_shard(0), Some(1));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert_eq!(Tasks::task_shard(0), None);
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),);
+		assert_eq!(Tasks::task_shard(0), Some(1));
+		
+	});
+}

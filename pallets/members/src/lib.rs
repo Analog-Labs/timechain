@@ -157,11 +157,11 @@ pub mod pallet {
 				peer_id,
 			});
 			let Some((_, res)) = call_res else {
-				log::info!("send signed transaction returned none");
+				log::info!("send registering member returned none");
 				return;
 			};
 			if let Err(e) = res {
-				log::error!("send signed transaction returned an error: {:?}", e)
+				log::error!("send registering member returned an error: {:?}", e)
 			}
 		}
 
@@ -169,11 +169,11 @@ pub mod pallet {
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
 			let call_res = signer.send_signed_transaction(|_| Call::send_heartbeat {});
 			let Some((_, res)) = call_res else {
-				log::info!("send signed transaction returned none");
+				log::info!("send heartbeat returned none");
 				return;
 			};
 			if let Err(e) = res {
-				log::error!("send signed transaction returned an error: {:?}", e)
+				log::error!("send heartbeat returned an error: {:?}", e)
 			}
 		}
 

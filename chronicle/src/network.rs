@@ -21,6 +21,7 @@ use time_primitives::{
 	TssRequest, TssSignature,
 };
 use tss::{Tss, TssAction, TssMessage};
+use std::time::Duration;
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -258,6 +259,7 @@ where
 	/// topics
 	pub async fn run(mut self) {
 		let block = self.client.info().best_hash;
+
 		if let Err(e) = self.tx_submitter.submit_register_member(
 			block,
 			self.task_executor.network(),
@@ -266,8 +268,10 @@ where
 		) {
 			log::error!("error registering member {:?}", e);
 		}
-		let heartbeat_timeout = self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2;
-		log::info!("heartbeat timeout {:?}", heartbeat_timeout);
+
+		let heartbeat_time = (self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2) * 6;
+		let mut heartbeat_tick = tokio::time::interval(Duration::from_secs(heartbeat_time));
+		log::info!("heartbeat timeout {:?}", heartbeat_time);
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {
@@ -310,6 +314,11 @@ where
 						continue;
 					}
 				},
+				_ = heartbeat_tick.tick().fuse() => {
+					if let Err(e) = self.tx_submitter.submit_heartbeat(block, self.public_key.clone()){
+						log::error!("error submitting heartbeat {:?}", e);
+					}
+				}
 			}
 		}
 	}

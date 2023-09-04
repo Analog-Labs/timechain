@@ -385,7 +385,7 @@ struct InnerTaskExecutor<B: Block, R, T> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
 	public_key: PublicKey,
-	running_tasks: BTreeSet<TaskExecution>,
+	running_tasks: BTreeSet<TaskExecution<u32>>,
 	task_spawner: T,
 }
 

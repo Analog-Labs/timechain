@@ -10,12 +10,11 @@ use sp_runtime::traits::Block;
 use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssRequest, TssSignature,
+	TaskExecution, TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
 pub struct TaskSpawnerParams {
-	pub tss: mpsc::Sender<TssRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
@@ -25,7 +24,6 @@ pub struct TaskSpawnerParams {
 
 #[derive(Clone)]
 pub struct Task {
-	tss: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
 }
@@ -53,11 +51,7 @@ impl Task {
 		} else {
 			None
 		};
-		Ok(Self {
-			tss: params.tss,
-			wallet,
-			timegraph,
-		})
+		Ok(Self { wallet, timegraph })
 	}
 
 	async fn execute_function(
@@ -92,28 +86,6 @@ impl Task {
 		}
 	}
 
-	async fn tss_sign(
-		&self,
-		shard_id: ShardId,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		retry_count: TaskRetryCount,
-		result: &[String],
-	) -> Result<TssSignature> {
-		let data = bincode::serialize(&result).context("Failed to serialize task")?;
-		let (tx, rx) = oneshot::channel();
-		self.tss
-			.clone()
-			.send(TssRequest {
-				request_id: (task_id, cycle, retry_count),
-				shard_id,
-				data,
-				tx,
-			})
-			.await?;
-		Ok(rx.await?)
-	}
-
 	async fn execute(
 		self,
 		target_block: u64,
@@ -128,10 +100,7 @@ impl Task {
 			.execute_function(&task.function, target_block)
 			.await
 			.with_context(|| format!("Failed to execute {:?}", task.function))?;
-		let signature = self
-			.tss_sign(shard_id, task_id, task_cycle, retry_count, &result)
-			.await
-			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
+		let signature = [0; 64];
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {

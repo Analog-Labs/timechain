@@ -76,7 +76,6 @@ try-runtime-cli = { git = "https://github.com/paritytech/substrate.git", branch 
 
 # Runtime Workers
 time-primitives = { path = "../primitives", default-features = false }
-time-worker = { path = "../workers/time-worker" }
 
 #Task-Executor
 async-channel = "1.9.0"

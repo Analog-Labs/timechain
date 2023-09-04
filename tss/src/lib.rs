@@ -1,18 +1,19 @@
-#![allow(clippy::large_enum_variant)]
+/*#![allow(clippy::large_enum_variant)]
 use crate::dkg::{Dkg, DkgAction, DkgMessage};
 use crate::roast::{Roast, RoastAction, RoastMessage};
-use crate::rts::{Rts, RtsAction, RtsHelper, RtsMessage};
+use crate::rts::{Rts, RtsAction, RtsHelper, RtsRequest, RtsResponse};
+use anyhow::Result;
 use frost_evm::keys::{
 	KeyPackage, PublicKeyPackage, SecretShare, VerifiableSecretSharingCommitment,
 };
 use frost_evm::{Identifier, Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};*/
 
 pub mod dkg;
 pub mod roast;
 pub mod rts;
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests;
 
 enum TssState<I> {
@@ -32,7 +33,7 @@ enum TssState<I> {
 
 #[derive(Clone)]
 pub enum TssAction<I, P> {
-	Send(Vec<(P, TssMessage<I>)>),
+	Send(Vec<(P, TssRequest<I>)>),
 	Commit(VerifiableSecretSharingCommitment),
 	PublicKey(VerifyingKey),
 	Signature(I, [u8; 32], Signature),
@@ -40,13 +41,18 @@ pub enum TssAction<I, P> {
 
 /// Tss message.
 #[derive(Clone, Deserialize, Serialize)]
-pub enum TssMessage<I> {
+pub enum TssRequest<I> {
 	Dkg { msg: DkgMessage },
-	Rts { msg: RtsMessage },
+	Rts { msg: RtsRequest },
 	Roast { id: I, msg: RoastMessage },
 }
 
-impl<I: std::fmt::Display> std::fmt::Display for TssMessage<I> {
+#[derive(Clone, Deserialize, Serialize)]
+pub enum TssResponse {
+	Rts { msg: RtsResponse },
+}
+
+impl<I: std::fmt::Display> std::fmt::Display for TssRequest<I> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Dkg { msg } => write!(f, "dkg {}", msg),
@@ -132,33 +138,38 @@ where
 		self.threshold as _
 	}
 
-	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) {
-		log::debug!("{} on_message {} {}", self.peer_id, peer_id, msg);
+	pub fn on_request(&mut self, peer_id: P, request: TssRequest<I>) -> Result<TssResponse> {
+		log::debug!("{} on_request {} {}", self.peer_id, peer_id, request);
 		if self.peer_id == peer_id {
-			log::error!("{} dropping message from self", self.peer_id);
-			return;
+			anyhow::bail!("{} received message from self", self.peer_id);
 		}
 		let frost_id = peer_to_frost(&peer_id);
 		if !self.frost_to_peer.contains_key(&frost_id) {
-			log::error!("{} dropping message from {}", self.peer_id, peer_id);
-			return;
+			anyhow::bail!("{} received message unknown peer {}", self.peer_id, peer_id);
 		}
-		match (&mut self.state, msg) {
-			(TssState::Dkg { dkg, .. }, TssMessage::Dkg { msg }) => {
-				dkg.on_message(frost_id, msg);
+		match (&mut self.state, request) {
+			(TssState::Dkg { dkg, .. }, TssRequest::Dkg { msg }) => dkg.on_request(frost_id, msg),
+			(TssState::Roast { rts, .. }, TssRequest::Rts { msg }) => {
+				return rts.on_request(frost_id, msg);
 			},
-			(TssState::Rts { rts }, TssMessage::Rts { msg }) => {
-				rts.on_message(frost_id, msg);
-			},
-			(TssState::Roast { rts, .. }, TssMessage::Rts { msg }) => {
-				rts.on_message(frost_id, msg);
-			},
-			(TssState::Roast { signing_sessions, .. }, TssMessage::Roast { id, msg }) => {
+			(TssState::Roast { signing_sessions, .. }, TssRequest::Roast { id, msg }) => {
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg);
 				} else {
-					log::error!("no signing session for {}", id);
+					anyhow::bail!("invalid signing session");
 				}
+			},
+			(_, msg) => {
+				anyhow::bail!("unexpected request");
+			},
+		}
+	}
+
+	pub fn on_response(&mut self, peer_id: P, response: TssResponse) {
+		let frost_id = peer_to_frost(&peer_id);
+		match (&mut self.state, response) {
+			(TssState::Rts { rts }, TssResponse::Rts { msg }) => {
+				rts.on_response(frost_id, msg);
 			},
 			(_, msg) => {
 				log::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
@@ -221,7 +232,7 @@ where
 						return Some(TssAction::Send(
 							msgs.into_iter()
 								.map(|(peer, msg)| {
-									(self.frost_to_peer(&peer), TssMessage::Dkg { msg })
+									(self.frost_to_peer(&peer), TssRequest::Dkg { msg })
 								})
 								.collect(),
 						));
@@ -232,7 +243,7 @@ where
 								.values()
 								.filter(|peer| **peer != self.peer_id)
 								.cloned()
-								.map(|peer| (peer, TssMessage::Dkg { msg: msg.clone() }))
+								.map(|peer| (peer, TssRequest::Dkg { msg: msg.clone() }))
 								.collect(),
 						));
 					},
@@ -265,7 +276,7 @@ where
 				RtsAction::Send(msgs) => {
 					return Some(TssAction::Send(
 						msgs.into_iter()
-							.map(|(peer, msg)| (self.frost_to_peer(&peer), TssMessage::Rts { msg }))
+							.map(|(peer, msg)| (self.frost_to_peer(&peer), TssRequest::Rts { msg }))
 							.collect(),
 					));
 				},
@@ -349,3 +360,4 @@ where
 		None
 	}
 }
+*/

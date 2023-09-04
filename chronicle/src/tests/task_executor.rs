@@ -63,6 +63,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 	impl MembersApi<Block> for MockApi{
 		fn get_member_peer_id(_: &AccountId) -> Option<PeerId> { None }
+		fn get_heartbeat_timeout() -> u64 { 100 }
 		fn submit_register_member(_: Network, _: PublicKey, _: PeerId) {}
 		fn submit_heartbeat(_: PublicKey) {}
 	}

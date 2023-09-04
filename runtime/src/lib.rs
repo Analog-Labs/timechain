@@ -1447,6 +1447,10 @@ impl_runtime_apis! {
 			Members::member_peer_id(account)
 		}
 
+		fn get_heartbeat_timeout() -> u64 {
+			Members::get_heartbeat_timeout().into()
+		}
+
 		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
 			Members::submit_register_member(network, public_key, peer_id)
 		}

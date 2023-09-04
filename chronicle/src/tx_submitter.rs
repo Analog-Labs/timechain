@@ -153,6 +153,7 @@ where
 	) -> Result<(), ApiError> {
 		if self.register_extension {
 			let mut runtime = self.runtime.runtime_api();
+			runtime.register_extension(KeystoreExt(self.kv.clone()));
 			runtime.register_extension(self.pool.offchain_transaction_pool(block));
 			runtime.submit_register_member(block, network, public_key, peer_id)
 		} else {

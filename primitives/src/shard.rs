@@ -1,4 +1,4 @@
-use crate::{TaskCycle, TaskId};
+use crate::{TaskCycle, TaskId, TaskRetryCount};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
@@ -11,8 +11,7 @@ pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
-pub type BlockNum = u64;
-pub type TssId = (TaskId, TaskCycle, BlockNum);
+pub type TssId = (TaskId, TaskCycle, TaskRetryCount);
 
 /// Used to enforce one network per shard
 #[cfg_attr(feature = "std", derive(Serialize))]

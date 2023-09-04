@@ -17,6 +17,7 @@ fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 }
 
 const A: [u8; 32] = [1u8; 32];
+const B: [u8; 32] = [2u8; 32];
 
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
@@ -567,5 +568,28 @@ fn payable_task_smoke() {
 			mock_result_ok(shard_id)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
+	});
+}
+
+#[test]
+fn write_phase_timeout_reassigns_task() {
+	let shard_id = 1;
+	let task_id = 0;
+	let task_hash = "mock_hash";
+	let a: AccountId = A.into();
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed(a.clone()).into(),
+			mock_payable(Network::Ethereum)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A), 1));
+		roll_to(10);
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A), 1));
+		roll_to(11);
+		assert_eq!(
+			<TaskPhaseState<Test>>::get(task_id),
+			TaskPhase::Write(pubkey_from_bytes(B), 11)
+		);
 	});
 }

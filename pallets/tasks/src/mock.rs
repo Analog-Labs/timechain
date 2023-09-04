@@ -1,4 +1,5 @@
 use crate::{self as task_schedule};
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
@@ -25,8 +26,12 @@ impl ShardsInterface for MockShardInterface {
 
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
 
-	fn random_signer(shard_id: ShardId, _: Option<PublicKey>) -> PublicKey {
-		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
+	fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey {
+		if last_signer.is_some() {
+			PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([(shard_id + 1) as _; 32]))
+		} else {
+			PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
+		}
 	}
 
 	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
@@ -122,6 +127,15 @@ where
 impl frame_system::offchain::SigningTypes for Test {
 	type Public = <Signature as Verify>::Signer;
 	type Signature = Signature;
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Tasks::on_initialize(i);
+	}
 }
 
 // Build genesis storage according to the mock runtime.

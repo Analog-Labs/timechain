@@ -7,13 +7,7 @@ use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{
-	collections::{HashMap, HashSet},
-	future::Future,
-	marker::PhantomData,
-	pin::Pin,
-	sync::Arc,
-};
+use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
 	TaskExecution, TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssRequest, TssSignature,
@@ -190,7 +184,6 @@ pub struct TaskExecutor<B: Block, BE, C, R, T> {
 	runtime: Arc<R>,
 	peer_id: PeerId,
 	running_tasks: HashSet<TaskExecution>,
-	execution_block_map: HashMap<TaskExecution, u64>,
 	task_spawner: T,
 }
 
@@ -219,7 +212,6 @@ where
 			runtime,
 			peer_id,
 			running_tasks: Default::default(),
-			execution_block_map: Default::default(),
 			task_spawner,
 		}
 	}
@@ -239,13 +231,6 @@ where
 				let retry_count = executable_task.retry_count;
 				if self.running_tasks.contains(&executable_task) {
 					log::info!("skipping task {:?}", executable_task);
-					if let Some(executed_block_num) = self.execution_block_map.get(&executable_task)
-					{
-						if executed_block_num + 30 < block_num {
-							log::warn!("clearing execution for task {:?}", executable_task.task_id);
-							self.running_tasks.remove(&executable_task);
-						}
-					}
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
@@ -253,7 +238,6 @@ where
 				if block_height >= target_block_number {
 					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
 					self.running_tasks.insert(executable_task);
-					self.execution_block_map.insert(executable_task, block_num);
 					let storage = self.backend.offchain_storage().unwrap();
 					let task = self.task_spawner.execute(
 						target_block_number,

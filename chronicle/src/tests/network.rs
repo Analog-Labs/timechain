@@ -105,6 +105,9 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>{
 			Some((*account).clone().into())
 		}
+		fn get_heartbeat_timeout() -> u64 {
+			100
+		}
 		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) {}
 		fn submit_heartbeat(_public_key: PublicKey) {}
 	}

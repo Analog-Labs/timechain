@@ -37,6 +37,7 @@ pub mod crypto {
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
+		fn get_heartbeat_timeout() -> u64;
 		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId);
 		fn submit_heartbeat(public_key: PublicKey);
 	}

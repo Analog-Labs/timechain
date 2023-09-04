@@ -176,6 +176,10 @@ pub mod pallet {
 				log::error!("send signed transaction returned an error: {:?}", e)
 			}
 		}
+
+		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {
+			T::HeartbeatTimeout::get()
+		}
 	}
 
 	impl<T: Config> MemberStorage for Pallet<T> {

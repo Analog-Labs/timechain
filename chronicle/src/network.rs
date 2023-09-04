@@ -266,6 +266,8 @@ where
 		) {
 			log::error!("error registering member {:?}", e);
 		}
+		let heartbeat_timeout = self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2;
+		log::info!("heartbeat timeout {:?}", heartbeat_timeout);
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {

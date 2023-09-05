@@ -12,8 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub mod dkg;
 pub mod roast;
 pub mod rts;
-//#[cfg(test)]
-//mod tests;
+#[cfg(test)]
+mod tests;
 
 enum TssState<I> {
 	Dkg(Dkg),
@@ -194,11 +194,9 @@ where
 					log::error!("invalid signing session");
 				}
 			},
+			(TssState::Roast { .. }, None) => {},
 			(_, Some(msg)) => {
 				log::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
-			},
-			(_, _) => {
-				log::error!("invalid state ({}, {})", self.peer_id, peer_id);
 			},
 		}
 	}

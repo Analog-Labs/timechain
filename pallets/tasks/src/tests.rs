@@ -573,9 +573,7 @@ fn payable_task_smoke() {
 
 #[test]
 fn write_phase_timeout_reassigns_task() {
-	let shard_id = 1;
 	let task_id = 0;
-	let task_hash = "mock_hash";
 	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(

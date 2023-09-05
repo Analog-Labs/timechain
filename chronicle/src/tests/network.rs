@@ -23,7 +23,7 @@ use std::time::Duration;
 use time_primitives::{
 	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
-	TssRequest, TssSignature,
+	TssRequest, TssSignature, BlockTimeApi
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -119,6 +119,13 @@ sp_api::mock_impl_runtime_apis! {
 		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) {}
 		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) {}
 	}
+
+	impl BlockTimeApi<Block> for MockApi{
+		fn get_block_time_in_msec() -> u64{
+			100
+		}
+	}
+
 }
 
 impl ProvideRuntimeApi<Block> for MockApi {

@@ -81,8 +81,13 @@ where
 		params.keystore.sr25519_generate_new(TIME_KEY_TYPE, None).unwrap().into()
 	};
 	let (tx, rx) = mpsc::channel(10);
-	let tx_submitter =
-		TransactionSubmitter::new(true, params.keystore, params.tx_pool, params.runtime.clone());
+	let tx_submitter = TransactionSubmitter::new(
+		true,
+		params.keystore,
+		params.tx_pool,
+		params.client.clone(),
+		params.runtime.clone(),
+	);
 
 	let task_spawner = Task::new(TaskSpawnerParams {
 		_marker: PhantomData,
@@ -93,7 +98,6 @@ where
 		keyfile: params.config.keyfile,
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
-		client: params.client.clone(),
 		runtime: params.runtime.clone(),
 		tx_submitter: tx_submitter.clone(),
 	})

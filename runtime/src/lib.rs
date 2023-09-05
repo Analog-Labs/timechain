@@ -1468,8 +1468,20 @@ impl_runtime_apis! {
 			Shards::get_shard_threshold(shard_id)
 		}
 
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
-			Shards::submit_tss_pub_key(shard_id, public_key);
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<Block::Header as Header>::Number> {
+			Shards::get_shard_status(shard_id)
+		}
+
+		fn get_shard_commitment(shard_id: ShardId) -> Vec<[u8; 33]> {
+			Shards::get_shard_commitment(shard_id)
+		}
+
+		fn submit_commitment(shard_id: ShardId, commitment: Vec<[u8; 33]>, proof_of_knowledge: [u8; 65]) {
+			Shards::submit_commitment(shard_id, commitment, proof_of_knowledge)
+		}
+
+		fn submit_online(shard_id: ShardId) {
+			Shards::submit_online(shard_id)
 		}
 	}
 

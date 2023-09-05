@@ -50,6 +50,7 @@ impl core::str::FromStr for Network {
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum ShardStatus<Blocknumber> {
 	Created(Blocknumber),
+	Committed,
 	Online,
 	PartialOffline(u16),
 	Offline,
@@ -101,13 +102,15 @@ impl<B: Copy> ShardStatus<B> {
 }
 
 #[cfg(feature = "std")]
-pub trait SubmitShards<B: sp_runtime::traits::Block> {
-	fn submit_tss_pub_key(
+pub trait SubmitShards {
+	fn submit_commitment(
 		&self,
-		block: B::Hash,
 		shard_id: ShardId,
-		public_key: TssPublicKey,
+		commitment: Vec<[u8; 33]>,
+		proof_of_knowledge: [u8; 65],
 	) -> Result<(), ApiError>;
+
+	fn submit_online(&self, shard_id: ShardId) -> Result<(), ApiError>;
 }
 
 #[cfg(feature = "std")]

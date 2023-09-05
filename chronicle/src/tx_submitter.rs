@@ -1,38 +1,37 @@
+use sc_client_api::HeaderBackend;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ApiError;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiError, ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use time_primitives::{
 	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards,
-	SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi, TssPublicKey,
+	SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi,
 };
 
-pub struct TransactionSubmitter<B, R>
-where
-	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
-{
+type Result<T> = core::result::Result<T, ApiError>;
+
+pub struct TransactionSubmitter<B: Block, C, R> {
 	_block: PhantomData<B>,
 	kv: KeystorePtr,
 	pool: OffchainTransactionPoolFactory<B>,
 	register_extension: bool,
+	client: Arc<C>,
 	runtime: Arc<R>,
 }
 
-impl<B, R> TransactionSubmitter<B, R>
+impl<B, C, R> TransactionSubmitter<B, C, R>
 where
 	B: Block + 'static,
+	C: HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
 {
 	pub fn new(
 		register_extension: bool,
 		kv: KeystorePtr,
 		pool: OffchainTransactionPoolFactory<B>,
+		client: Arc<C>,
 		runtime: Arc<R>,
 	) -> Self {
 		Self {
@@ -40,136 +39,105 @@ where
 			kv,
 			pool,
 			register_extension,
+			client,
 			runtime,
 		}
 	}
-}
 
-impl<B, R> Clone for TransactionSubmitter<B, R>
-where
-	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
-{
-	fn clone(&self) -> TransactionSubmitter<B, R> {
-		TransactionSubmitter::new(
-			self.register_extension,
-			self.kv.clone(),
-			self.pool.clone(),
-			self.runtime.clone(),
-		)
+	fn runtime_api(&self) -> (ApiRef<'_, R::Api>, B::Hash) {
+		let block_hash = self.client.info().best_hash;
+		let mut runtime = self.runtime.runtime_api();
+		if self.register_extension {
+			runtime.register_extension(KeystoreExt(self.kv.clone()));
+			runtime.register_extension(self.pool.offchain_transaction_pool(block_hash));
+		}
+		(runtime, block_hash)
 	}
 }
 
-impl<B, R> SubmitShards<B> for TransactionSubmitter<B, R>
-where
-	B: Block + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
-{
-	fn submit_tss_pub_key(
-		&self,
-		block: <B as Block>::Hash,
-		shard_id: ShardId,
-		public_key: TssPublicKey,
-	) -> Result<(), ApiError> {
-		if self.register_extension {
-			let mut runtime = self.runtime.runtime_api();
-			runtime.register_extension(KeystoreExt(self.kv.clone()));
-			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_tss_public_key(block, shard_id, public_key)
-		} else {
-			self.runtime.runtime_api().submit_tss_public_key(block, shard_id, public_key)
+impl<B: Block, C, R> Clone for TransactionSubmitter<B, C, R> {
+	fn clone(&self) -> Self {
+		Self {
+			_block: self._block,
+			register_extension: self.register_extension,
+			kv: self.kv.clone(),
+			pool: self.pool.clone(),
+			client: self.client.clone(),
+			runtime: self.runtime.clone(),
 		}
 	}
 }
 
-impl<B, R> SubmitTasks<B> for TransactionSubmitter<B, R>
+impl<B, C, R> SubmitShards for TransactionSubmitter<B, C, R>
 where
 	B: Block + 'static,
+	C: HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
+	R::Api: ShardsApi<B>,
 {
-	fn submit_task_hash(
+	fn submit_commitment(
 		&self,
-		block: B::Hash,
 		shard_id: ShardId,
-		task_id: TaskId,
-		hash: String,
-	) -> Result<(), ApiError> {
-		if self.register_extension {
-			let mut runtime = self.runtime.runtime_api();
-			runtime.register_extension(KeystoreExt(self.kv.clone()));
-			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_task_hash(block, shard_id, task_id, hash)
-		} else {
-			self.runtime.runtime_api().submit_task_hash(block, shard_id, task_id, hash)
-		}
+		commitment: Vec<[u8; 33]>,
+		proof_of_knowledge: [u8; 65],
+	) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_commitment(block_hash, shard_id, commitment, proof_of_knowledge)
 	}
+
+	fn submit_online(&self, shard_id: ShardId) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_online(block_hash, shard_id)
+	}
+}
+
+impl<B, C, R> SubmitTasks for TransactionSubmitter<B, C, R>
+where
+	B: Block + 'static,
+	C: HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+{
+	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: String) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_task_hash(block_hash, shard_id, task_id, hash)
+	}
+
 	fn submit_task_result(
 		&self,
-		block: B::Hash,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Result<(), ApiError> {
-		if self.register_extension {
-			let mut runtime = self.runtime.runtime_api();
-			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_task_result(block, task_id, cycle, status)
-		} else {
-			self.runtime.runtime_api().submit_task_result(block, task_id, cycle, status)
-		}
+	) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_task_result(block_hash, task_id, cycle, status)
 	}
-	fn submit_task_error(
-		&self,
-		block: B::Hash,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		error: TaskError,
-	) -> Result<(), ApiError> {
-		if self.register_extension {
-			let mut runtime = self.runtime.runtime_api();
-			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_task_error(block, task_id, cycle, error)
-		} else {
-			self.runtime.runtime_api().submit_task_error(block, task_id, cycle, error)
-		}
+
+	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_task_error(block_hash, task_id, cycle, error)
 	}
 }
 
-impl<B, R> SubmitMembers<B> for TransactionSubmitter<B, R>
+impl<B, C, R> SubmitMembers for TransactionSubmitter<B, C, R>
 where
 	B: Block + 'static,
+	C: HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
+	R::Api: MembersApi<B>,
 {
 	fn submit_register_member(
 		&self,
-		block: B::Hash,
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
-	) -> Result<(), ApiError> {
-		if self.register_extension {
-			let mut runtime = self.runtime.runtime_api();
-			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_register_member(block, network, public_key, peer_id)
-		} else {
-			self.runtime
-				.runtime_api()
-				.submit_register_member(block, network, public_key, peer_id)
-		}
+	) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_register_member(block_hash, network, public_key, peer_id)
 	}
 
-	fn submit_heartbeat(&self, block: B::Hash, public_key: PublicKey) -> Result<(), ApiError> {
-		if self.register_extension {
-			let mut runtime = self.runtime.runtime_api();
-			runtime.register_extension(KeystoreExt(self.kv.clone()));
-			runtime.register_extension(self.pool.offchain_transaction_pool(block));
-			runtime.submit_heartbeat(block, public_key)
-		} else {
-			self.runtime.runtime_api().submit_heartbeat(block, public_key)
-		}
+	fn submit_heartbeat(&self, public_key: PublicKey) -> Result<()> {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_heartbeat(block_hash, public_key)
 	}
 }

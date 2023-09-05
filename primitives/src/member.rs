@@ -15,6 +15,7 @@ impl<B: Copy> HeartbeatInfo<B> {
 	pub fn new(block: B) -> Self {
 		Self { is_online: true, block }
 	}
+
 	pub fn set_offline(&self) -> Self {
 		Self {
 			is_online: false,
@@ -24,14 +25,13 @@ impl<B: Copy> HeartbeatInfo<B> {
 }
 
 #[cfg(feature = "std")]
-pub trait SubmitMembers<B: sp_runtime::traits::Block> {
+pub trait SubmitMembers {
 	fn submit_register_member(
 		&self,
-		block: B::Hash,
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
 	) -> Result<(), ApiError>;
 
-	fn submit_heartbeat(&self, block: B::Hash, public_key: PublicKey) -> Result<(), ApiError>;
+	fn submit_heartbeat(&self, public_key: PublicKey) -> Result<(), ApiError>;
 }

@@ -19,10 +19,10 @@ use std::{
 	sync::Arc,
 };
 use time_primitives::{
-	MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssId,
-	TssRequest as TssSigningRequest, TssSignature,
+	MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers, SubmitShards,
+	TaskExecutor, TssId, TssRequest as TssSigningRequest, TssSignature,
 };
-use tss::{Tss, TssAction, TssRequest, TssResponse};
+use tss::{Tss, TssAction, TssRequest, TssResponse, VerifiableSecretSharingCommitment};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -101,7 +101,7 @@ where
 	R::Api: MembersApi<B> + ShardsApi<B>,
 	N: NetworkRequest,
 	T: TaskExecutor<B>,
-	TxSub: SubmitShards<B> + SubmitMembers<B>,
+	TxSub: SubmitShards + SubmitMembers,
 {
 	pub fn new(worker_params: TimeWorkerParams<B, C, R, N, T, TxSub>) -> Self {
 		let TimeWorkerParams {
@@ -159,7 +159,21 @@ where
 				.collect();
 			self.tss_states
 				.insert(shard_id, Tss::new(local_peer_id, members, threshold, None));
-			self.poll_actions(shard_id, block, block_number);
+			self.poll_actions(shard_id, block_number);
+		}
+		for shard_id in shards.iter().copied() {
+			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+				continue;
+			};
+			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
+				== ShardStatus::Committed
+			{
+				let commitment =
+					self.runtime.runtime_api().get_shard_commitment(block, shard_id).unwrap();
+				let commitment =
+					VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
+				tss.on_commit(commitment);
+			}
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
 			if n > block_number {
@@ -173,7 +187,7 @@ where
 					continue;
 				};
 				tss.on_sign(request_id, data.to_vec());
-				self.poll_actions(shard_id, block, block_number);
+				self.poll_actions(shard_id, block_number);
 			}
 		}
 		while let Some(n) = self.messages.keys().copied().next() {
@@ -194,7 +208,7 @@ where
 					reputation_changes: vec![],
 					sent_feedback: None,
 				});
-				self.poll_actions(shard_id, block, n);
+				self.poll_actions(shard_id, n);
 			}
 		}
 		for shard_id in shards {
@@ -208,7 +222,7 @@ where
 		}
 	}
 
-	fn poll_actions(&mut self, shard_id: ShardId, block: <B as Block>::Hash, block_number: u64) {
+	fn poll_actions(&mut self, shard_id: ShardId, block_number: u64) {
 		let tss = self.tss_states.get_mut(&shard_id).unwrap();
 		while let Some(action) = tss.next_action() {
 			match action {
@@ -247,17 +261,20 @@ where
 						}));
 					}
 				},
-				TssAction::Commit(_commitment, _proof_of_knowledge) => {
-					// TODO: call on_commit
-					todo!()
+				TssAction::Commit(commitment, proof_of_knowledge) => {
+					if let Err(e) = self.tx_submitter.submit_commitment(
+						shard_id,
+						commitment.serialize(),
+						proof_of_knowledge.serialize().into(),
+					) {
+						log::error!("error submitting commitment {:?}", e);
+					}
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					if let Err(e) =
-						self.tx_submitter.submit_tss_pub_key(block, shard_id, public_key)
-					{
-						log::error!("error submitting tss pubkey {:?}", e);
+					if let Err(e) = self.tx_submitter.submit_online(shard_id) {
+						log::error!("error submitting online {:?}", e);
 					}
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
@@ -273,18 +290,12 @@ where
 						tx.send((hash, tss_signature)).ok();
 					}
 				},
-				TssAction::Failure => {
-					// TODO: remove shard
-					todo!()
-				},
 			}
 		}
 	}
 
 	pub async fn run(mut self) {
-		let block = self.client.info().best_hash;
 		if let Err(e) = self.tx_submitter.submit_register_member(
-			block,
 			self.task_executor.network(),
 			self.public_key.clone(),
 			self.peer_id,

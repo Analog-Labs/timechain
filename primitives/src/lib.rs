@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use scale_info::prelude::string::String;
+use sp_runtime::traits::Header;
 use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
@@ -45,7 +46,10 @@ sp_api::decl_runtime_apis! {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey);
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<Block::Header as Header>::Number>;
+		fn get_shard_commitment(shard_id: ShardId) -> Vec<[u8; 33]>;
+		fn submit_commitment(shard_id: ShardId, commitment: Vec<[u8; 33]>, proof_of_knowledge: [u8; 65]);
+		fn submit_online(shard_id: ShardId);
 	}
 
 	pub trait TasksApi {

@@ -2,12 +2,14 @@ use crate::dkg::{Dkg, DkgAction, DkgMessage};
 use crate::roast::{Roast, RoastAction, RoastRequest, RoastSignerResponse};
 use crate::rts::{Rts, RtsAction, RtsHelper, RtsRequest, RtsResponse};
 use anyhow::Result;
-use frost_evm::keys::{
-	KeyPackage, PublicKeyPackage, SecretShare, VerifiableSecretSharingCommitment,
-};
-use frost_evm::{Identifier, Signature, VerifyingKey};
+use frost_evm::keys::{KeyPackage, PublicKeyPackage, SecretShare};
+use frost_evm::Identifier;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
+pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
+pub use frost_evm::keys::VerifiableSecretSharingCommitment;
+pub use frost_evm::{Signature, VerifyingKey};
 
 pub mod dkg;
 pub mod roast;
@@ -24,15 +26,15 @@ enum TssState<I> {
 		public_key_package: PublicKeyPackage,
 		signing_sessions: BTreeMap<I, Roast>,
 	},
+	Failed,
 }
 
 #[derive(Clone)]
 pub enum TssAction<I, P> {
 	Send(Vec<(P, TssRequest<I>)>),
-	Commit(VerifiableSecretSharingCommitment, frost_evm::frost_secp256k1::Signature),
+	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	PublicKey(VerifyingKey),
 	Signature(I, [u8; 32], Signature),
-	Failure,
 }
 
 /// Tss message.
@@ -195,6 +197,7 @@ where
 				}
 			},
 			(TssState::Roast { .. }, None) => {},
+			(TssState::Failed, None) => {},
 			(_, Some(msg)) => {
 				log::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
 			},
@@ -269,7 +272,10 @@ where
 						};
 						return Some(TssAction::PublicKey(public_key));
 					},
-					DkgAction::Failure => return Some(TssAction::Failure),
+					DkgAction::Failure => {
+						self.state = TssState::Failed;
+						return None;
+					},
 				};
 			},
 			TssState::Rts(rts) => match rts.next_action()? {
@@ -295,7 +301,10 @@ where
 					};
 					return Some(TssAction::PublicKey(public_key));
 				},
-				RtsAction::Failure => return Some(TssAction::Failure),
+				RtsAction::Failure => {
+					self.state = TssState::Failed;
+					return None;
+				},
 			},
 			TssState::Roast { signing_sessions, .. } => {
 				let session_ids: Vec<_> = signing_sessions.keys().cloned().collect();
@@ -351,6 +360,7 @@ where
 					}
 				}
 			},
+			TssState::Failed => {},
 		}
 		None
 	}

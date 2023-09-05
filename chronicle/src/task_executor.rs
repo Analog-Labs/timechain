@@ -226,7 +226,7 @@ where
 			Err(payload) => payload.as_str(),
 		};
 		let (hash, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
+			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
 		let block_hash = self.client.info().best_hash;
 		match result {
 			Ok(result) => {

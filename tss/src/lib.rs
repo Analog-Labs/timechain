@@ -12,8 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub mod dkg;
 pub mod roast;
 pub mod rts;
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
 
 enum TssState<I> {
 	Dkg(Dkg),

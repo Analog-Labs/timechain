@@ -285,15 +285,21 @@ mod tests {
 				if let Some(action) = roasts.get_mut(from).unwrap().next_action() {
 					match action {
 						RoastAction::Send(to, commitment) => {
-							roasts.get_mut(&to).unwrap().on_commit(*from, commitment);
+							if let Some(response) =
+								roasts.get_mut(&to).unwrap().on_request(*from, commitment)?
+							{
+								roasts.get_mut(from).unwrap().on_response(to, response);
+							}
 						},
-						RoastAction::SendRequest(request) => {
-							for to in request.commitments.keys() {
-								let response = roasts
-									.get_mut(to)
+						RoastAction::SendMany(peers, request) => {
+							for to in peers {
+								if let Some(response) = roasts
+									.get_mut(&to)
 									.unwrap()
-									.on_request(*from, request.clone())?;
-								roasts.get_mut(from).unwrap().on_response(*to, response);
+									.on_request(*from, request.clone())?
+								{
+									roasts.get_mut(from).unwrap().on_response(to, response);
+								}
 							}
 						},
 						RoastAction::Complete(_hash, _signature) => {

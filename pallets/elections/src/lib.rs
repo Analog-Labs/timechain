@@ -72,7 +72,7 @@ pub mod pallet {
 		fn new_shard_members(network: Network) -> Option<Vec<AccountId>> {
 			let members = Unassigned::<T>::iter_prefix(network)
 				.map(|(m, _)| m)
-				.filter(|m| T::Members::is_member_online(&m))
+				.filter(|m| T::Members::is_member_online(m))
 				.take(T::ShardSize::get() as usize)
 				.collect::<Vec<_>>();
 			if members.len() == T::ShardSize::get() as usize {

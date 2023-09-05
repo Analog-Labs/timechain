@@ -76,17 +76,15 @@ where
 		.to_bytes();
 	log::info!(target: TW_LOG, "Peer identity bytes: {:?}", peer_id);
 
-	let mut public_key: Option<PublicKey> = None;
-	loop {
+	let public_key: PublicKey = loop {
 		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next()
 		{
-			public_key = Some(pubkey.into());
-			break;
+			break pubkey.into();
 		}
 		log::info!("Waiting for public key to be inserted");
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 		continue;
-	}
+	};
 
 	let (tx, rx) = mpsc::channel(10);
 	let tx_submitter =
@@ -112,7 +110,7 @@ where
 		_block: PhantomData,
 		runtime: params.runtime.clone(),
 		network: params.config.network,
-		public_key: public_key.clone().unwrap(),
+		public_key: public_key.clone(),
 		task_spawner,
 	});
 
@@ -123,7 +121,7 @@ where
 		network: params.network,
 		task_executor,
 		tx_submitter,
-		public_key: public_key.unwrap(),
+		public_key,
 		peer_id,
 		tss_request: rx,
 		protocol_request: params.tss_requests,

@@ -160,9 +160,11 @@ pub mod pallet {
 				log::info!("send registering member returned none");
 				return;
 			};
-			if let Err(e) = res {
-				log::error!("send registering member returned an error: {:?}", e)
-			}
+			let Err(e) = res else {
+				log::info!("register member transaction sent");
+				return;
+			};
+			log::error!("send registering member returned an error: {:?}", e)
 		}
 
 		pub fn submit_heartbeat(public_key: PublicKey) {
@@ -172,9 +174,11 @@ pub mod pallet {
 				log::info!("send heartbeat returned none");
 				return;
 			};
-			if let Err(e) = res {
-				log::error!("send heartbeat returned an error: {:?}", e)
-			}
+			let Err(e) = res else {
+				log::info!("submit heartbeat transaction sent");
+				return;
+			};
+			log::error!("send heartbeat returned an error: {:?}", e)
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

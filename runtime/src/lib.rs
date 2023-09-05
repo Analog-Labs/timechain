@@ -1147,6 +1147,7 @@ impl pallet_tasks::Config for Runtime {
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
+	type WritePhaseTimeout = ConstU32<10>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1474,7 +1475,7 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TasksApi<Block> for Runtime {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution<BlockNumber>> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 

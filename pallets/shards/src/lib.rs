@@ -288,7 +288,7 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 
-		fn random_signer(shard_id: ShardId) -> PublicKey {
+		fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey {
 			let seed = u64::from_ne_bytes(
 				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
 					.try_into()
@@ -296,8 +296,19 @@ pub mod pallet {
 			);
 			let mut rng = fastrand::Rng::with_seed(seed);
 			let members = Self::get_shard_members(shard_id);
-			T::Members::member_public_key(&members[rng.usize(..members.len())])
-				.expect("All signers should be registered members")
+			let mut signer_index = rng.usize(..members.len());
+			let signer = T::Members::member_public_key(&members[signer_index])
+				.expect("All signers should be registered members");
+			if let Some(old_signer) = last_signer {
+				if signer == old_signer {
+					// increment signer_index ensures signer != old_signer
+					signer_index =
+						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
+					return T::Members::member_public_key(&members[signer_index])
+						.expect("All signers should be registered members");
+				}
+			}
+			signer
 		}
 
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {

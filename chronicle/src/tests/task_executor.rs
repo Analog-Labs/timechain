@@ -38,7 +38,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn submit_tss_public_key(_: ShardId, _: TssPublicKey) {}
 	}
 	impl TasksApi<Block> for MockApi{
-		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
+		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution<u32>> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
 		fn get_task(_: TaskId) -> Option<TaskDescriptor> { Some(TaskDescriptor{
 				owner: AccountId32::new([0u8; 32]),
 				network: Network::Ethereum,

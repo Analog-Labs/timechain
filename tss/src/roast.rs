@@ -1,21 +1,22 @@
+use anyhow::Result;
 use frost_evm::{
 	keys::{KeyPackage, PublicKeyPackage},
 	round1::{self, SigningCommitments, SigningNonces},
 	round2::{self, SignatureShare},
-	Error, Identifier, Signature, SigningPackage, VerifyingKey,
+	Identifier, Signature, SigningPackage, VerifyingKey,
 };
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub struct RoastRequest {
+pub struct RoastSignerRequest {
 	session_id: u16,
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub struct RoastResponse {
+pub struct RoastSignerResponse {
 	session_id: u16,
 	signature_share: SignatureShare,
 	commitment: SigningCommitments,
@@ -49,8 +50,8 @@ impl RoastSigner {
 	pub fn sign(
 		&mut self,
 		coordinator: Identifier,
-		request: RoastRequest,
-	) -> Result<RoastResponse, Error> {
+		request: RoastSignerRequest,
+	) -> Result<RoastSignerResponse> {
 		let session_id = request.session_id;
 		let signing_package = SigningPackage::new(request.commitments, &self.data);
 		let nonces = self
@@ -59,7 +60,7 @@ impl RoastSigner {
 			.expect("we sent the coordinator a commitment");
 		let signature_share = round2::sign(&signing_package, &nonces, &self.key_package)?;
 		let commitment = self.commit(coordinator);
-		Ok(RoastResponse {
+		Ok(RoastSignerResponse {
 			session_id,
 			signature_share,
 			commitment,
@@ -112,14 +113,14 @@ impl RoastCoordinator {
 		self.commitments.insert(peer, commitment);
 	}
 
-	fn on_response(&mut self, peer: Identifier, message: RoastResponse) {
+	fn on_response(&mut self, peer: Identifier, message: RoastSignerResponse) {
 		if let Some(session) = self.sessions.get_mut(&message.session_id) {
 			self.commitments.insert(peer, message.commitment);
 			session.on_signature_share(peer, message.signature_share);
 		}
 	}
 
-	fn start_session(&mut self) -> Option<RoastRequest> {
+	fn start_session(&mut self) -> Option<RoastSignerRequest> {
 		if self.commitments.len() < self.threshold as _ {
 			log::debug!("commitments {}/{}", self.commitments.len(), self.threshold);
 			return None;
@@ -132,7 +133,7 @@ impl RoastCoordinator {
 			self.commitments.insert(peer, commitment);
 		}
 		self.sessions.insert(session_id, RoastSession::new(commitments.clone()));
-		Some(RoastRequest { session_id, commitments })
+		Some(RoastSignerRequest { session_id, commitments })
 	}
 
 	fn aggregate_signature(&mut self) -> Option<RoastSession> {
@@ -146,10 +147,25 @@ impl RoastCoordinator {
 	}
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub enum RoastRequest {
+	Commit(SigningCommitments),
+	Sign(RoastSignerRequest),
+}
+
+impl std::fmt::Display for RoastRequest {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::Commit(_) => write!(f, "commit"),
+			Self::Sign(_) => write!(f, "sign"),
+		}
+	}
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RoastAction {
-	Send(Identifier, SigningCommitments),
-	SendRequest(RoastRequest),
+	Send(Identifier, RoastRequest),
+	SendMany(Vec<Identifier>, RoastRequest),
 	Complete([u8; 32], Signature),
 }
 
@@ -179,21 +195,25 @@ impl Roast {
 		}
 	}
 
-	pub fn on_commit(&mut self, peer: Identifier, commitment: SigningCommitments) {
-		if let Some(coordinator) = self.coordinator.as_mut() {
-			coordinator.on_commit(peer, commitment);
-		}
-	}
-
 	pub fn on_request(
 		&mut self,
 		peer: Identifier,
 		request: RoastRequest,
-	) -> Result<RoastResponse, Error> {
-		self.signer.sign(peer, request)
+	) -> Result<Option<RoastSignerResponse>> {
+		match request {
+			RoastRequest::Commit(commitment) => {
+				if let Some(coordinator) = self.coordinator.as_mut() {
+					coordinator.on_commit(peer, commitment);
+					Ok(None)
+				} else {
+					anyhow::bail!("not coordinator");
+				}
+			},
+			RoastRequest::Sign(request) => Ok(Some(self.signer.sign(peer, request)?)),
+		}
 	}
 
-	pub fn on_response(&mut self, peer: Identifier, response: RoastResponse) {
+	pub fn on_response(&mut self, peer: Identifier, response: RoastSignerResponse) {
 		if let Some(coordinator) = self.coordinator.as_mut() {
 			coordinator.on_response(peer, response);
 		}
@@ -213,11 +233,15 @@ impl Roast {
 				}
 			}
 			if let Some(request) = coordinator.start_session() {
-				return Some(RoastAction::SendRequest(request));
+				let peers = request.commitments.keys().copied().collect();
+				return Some(RoastAction::SendMany(peers, RoastRequest::Sign(request)));
 			}
 		}
 		if let Some(coordinator) = self.coordinators.pop_last() {
-			return Some(RoastAction::Send(coordinator, self.signer.commit(coordinator)));
+			return Some(RoastAction::Send(
+				coordinator,
+				RoastRequest::Commit(self.signer.commit(coordinator)),
+			));
 		}
 		None
 	}

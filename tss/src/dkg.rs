@@ -13,6 +13,7 @@ pub enum DkgAction {
 	Commit(VerifiableSecretSharingCommitment, Signature),
 	Send(Vec<(Identifier, DkgMessage)>),
 	Complete(KeyPackage, PublicKeyPackage, VerifiableSecretSharingCommitment),
+	Failure,
 }
 
 /// Tss message.
@@ -60,9 +61,13 @@ impl Dkg {
 
 	pub fn next_action(&mut self) -> Option<DkgAction> {
 		let Some(secret_package) = self.secret_package.as_ref() else {
-			// TODO: handle failure
-			let (secret_package, round1_package) =
-				part1(self.id, self.members.len() as _, self.threshold, OsRng).unwrap();
+			let (secret_package, round1_package) = match part1(self.id, self.members.len() as _, self.threshold, OsRng) {
+				Ok(result) => result,
+				Err(error) => {
+					log::error!("dkg failed with {:?}", error);
+					return Some(DkgAction::Failure)
+				}
+			};
 			self.secret_package = Some(secret_package);
 			return Some(DkgAction::Commit(round1_package.commitment().clone(), *round1_package.proof_of_knowledge()));
 		};
@@ -96,8 +101,13 @@ impl Dkg {
 				SigningShare::new(acc.to_scalar() + e.to_scalar())
 			});
 		let secret_share = SecretShare::new(self.id, signing_share, commitment.clone());
-		// TODO: handle failure
-		let key_package = KeyPackage::try_from(secret_share).unwrap();
+		let key_package = match KeyPackage::try_from(secret_share) {
+			Ok(key_package) => key_package,
+			Err(error) => {
+				log::error!("dkg failed with {:?}", error);
+				return Some(DkgAction::Failure);
+			},
+		};
 		let public_key_package = PublicKeyPackage::from_commitment(&self.members, &commitment);
 		Some(DkgAction::Complete(key_package, public_key_package, commitment.clone()))
 	}
@@ -140,6 +150,7 @@ mod tests {
 					Some(DkgAction::Complete(_key_package, _public_key_package, _commitment)) => {
 						return;
 					},
+					Some(DkgAction::Failure) => unreachable!(),
 					None => {},
 				}
 			}

@@ -1,6 +1,5 @@
-/*#![allow(clippy::large_enum_variant)]
 use crate::dkg::{Dkg, DkgAction, DkgMessage};
-use crate::roast::{Roast, RoastAction, RoastMessage};
+use crate::roast::{Roast, RoastAction, RoastRequest, RoastSignerResponse};
 use crate::rts::{Rts, RtsAction, RtsHelper, RtsRequest, RtsResponse};
 use anyhow::Result;
 use frost_evm::keys::{
@@ -8,21 +7,17 @@ use frost_evm::keys::{
 };
 use frost_evm::{Identifier, Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap};*/
+use std::collections::{BTreeMap, BTreeSet};
 
 pub mod dkg;
 pub mod roast;
 pub mod rts;
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests;
 
 enum TssState<I> {
-	Dkg {
-		dkg: Dkg,
-	},
-	Rts {
-		rts: Rts,
-	},
+	Dkg(Dkg),
+	Rts(Rts),
 	Roast {
 		rts: RtsHelper,
 		key_package: KeyPackage,
@@ -34,9 +29,10 @@ enum TssState<I> {
 #[derive(Clone)]
 pub enum TssAction<I, P> {
 	Send(Vec<(P, TssRequest<I>)>),
-	Commit(VerifiableSecretSharingCommitment),
+	Commit(VerifiableSecretSharingCommitment, frost_evm::frost_secp256k1::Signature),
 	PublicKey(VerifyingKey),
 	Signature(I, [u8; 32], Signature),
+	Failure,
 }
 
 /// Tss message.
@@ -44,12 +40,7 @@ pub enum TssAction<I, P> {
 pub enum TssRequest<I> {
 	Dkg { msg: DkgMessage },
 	Rts { msg: RtsRequest },
-	Roast { id: I, msg: RoastMessage },
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-pub enum TssResponse {
-	Rts { msg: RtsResponse },
+	Roast { id: I, msg: RoastRequest },
 }
 
 impl<I: std::fmt::Display> std::fmt::Display for TssRequest<I> {
@@ -58,6 +49,21 @@ impl<I: std::fmt::Display> std::fmt::Display for TssRequest<I> {
 			Self::Dkg { msg } => write!(f, "dkg {}", msg),
 			Self::Rts { msg } => write!(f, "rts {}", msg),
 			Self::Roast { id, msg } => write!(f, "roast {} {}", id, msg),
+		}
+	}
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub enum TssResponse<I> {
+	Rts { msg: RtsResponse },
+	Roast { id: I, msg: RoastSignerResponse },
+}
+
+impl<I: std::fmt::Display> std::fmt::Display for TssResponse<I> {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::Rts { msg } => write!(f, "rts {}", msg),
+			Self::Roast { id, .. } => write!(f, "roast {}", id),
 		}
 	}
 }
@@ -72,7 +78,7 @@ pub struct Tss<I, P> {
 	frost_id: Identifier,
 	frost_to_peer: BTreeMap<Identifier, P>,
 	threshold: u16,
-	is_coordinator: bool,
+	coordinators: BTreeSet<Identifier>,
 	state: TssState<I>,
 }
 
@@ -81,19 +87,25 @@ where
 	I: Clone + Ord + std::fmt::Display,
 	P: Clone + Ord + std::fmt::Display,
 {
-	pub fn new(peer_id: P, members: BTreeSet<P>, threshold: u16) -> Self {
+	pub fn new(
+		peer_id: P,
+		members: BTreeSet<P>,
+		threshold: u16,
+		commitment: Option<VerifiableSecretSharingCommitment>,
+	) -> Self {
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_to_frost(&peer_id);
 		let frost_to_peer: BTreeMap<_, _> =
 			members.into_iter().map(|peer| (peer_to_frost(&peer), peer)).collect();
-		let index = frost_to_peer.iter().position(|(id, _)| *id == frost_id).unwrap();
-		let is_coordinator = index < (frost_to_peer.len() - threshold as usize + 1);
-		let dkg = Dkg::new(frost_id, frost_to_peer.keys().cloned().collect(), threshold);
+		let members: BTreeSet<_> = frost_to_peer.keys().copied().collect();
+		let coordinators: BTreeSet<_> =
+			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
+		let is_coordinator = coordinators.contains(&frost_id);
 		log::debug!(
 			"{} initialize {}/{} coordinator = {}",
 			peer_id,
 			threshold,
-			frost_to_peer.len(),
+			members.len(),
 			is_coordinator
 		);
 		Self {
@@ -101,25 +113,13 @@ where
 			frost_id,
 			frost_to_peer,
 			threshold,
-			is_coordinator,
-			state: TssState::Dkg { dkg },
+			coordinators,
+			state: if let Some(commitment) = commitment {
+				TssState::Rts(Rts::new(frost_id, members, threshold, commitment))
+			} else {
+				TssState::Dkg(Dkg::new(frost_id, members, threshold))
+			},
 		}
-	}
-
-	pub fn recover(
-		peer_id: P,
-		commitments: BTreeMap<P, VerifiableSecretSharingCommitment>,
-		threshold: u16,
-	) -> Self {
-		let members = commitments.keys().cloned().collect();
-		let mut tss = Self::new(peer_id, members, threshold);
-		let commitments = commitments
-			.into_iter()
-			.map(|(peer, commitment)| (peer_to_frost(&peer), commitment))
-			.collect();
-		let rts = Rts::new(tss.frost_id, commitments, threshold);
-		tss.state = TssState::Rts { rts };
-		tss
 	}
 
 	pub fn peer_id(&self) -> &P {
@@ -138,7 +138,11 @@ where
 		self.threshold as _
 	}
 
-	pub fn on_request(&mut self, peer_id: P, request: TssRequest<I>) -> Result<TssResponse> {
+	pub fn on_request(
+		&mut self,
+		peer_id: P,
+		request: TssRequest<I>,
+	) -> Result<Option<TssResponse<I>>> {
 		log::debug!("{} on_request {} {}", self.peer_id, peer_id, request);
 		if self.peer_id == peer_id {
 			anyhow::bail!("{} received message from self", self.peer_id);
@@ -148,59 +152,66 @@ where
 			anyhow::bail!("{} received message unknown peer {}", self.peer_id, peer_id);
 		}
 		match (&mut self.state, request) {
-			(TssState::Dkg { dkg, .. }, TssRequest::Dkg { msg }) => dkg.on_request(frost_id, msg),
+			(TssState::Dkg(dkg), TssRequest::Dkg { msg }) => {
+				dkg.on_message(frost_id, msg);
+				Ok(None)
+			},
 			(TssState::Roast { rts, .. }, TssRequest::Rts { msg }) => {
-				return rts.on_request(frost_id, msg);
+				let msg = rts.on_request(frost_id, msg)?;
+				Ok(Some(TssResponse::Rts { msg }))
 			},
 			(TssState::Roast { signing_sessions, .. }, TssRequest::Roast { id, msg }) => {
 				if let Some(session) = signing_sessions.get_mut(&id) {
-					session.on_message(frost_id, msg);
+					if let Some(msg) = session.on_request(frost_id, msg)? {
+						Ok(Some(TssResponse::Roast { id, msg }))
+					} else {
+						Ok(None)
+					}
 				} else {
 					anyhow::bail!("invalid signing session");
 				}
 			},
 			(_, msg) => {
-				anyhow::bail!("unexpected request");
+				anyhow::bail!("unexpected request {}", msg);
 			},
 		}
 	}
 
-	pub fn on_response(&mut self, peer_id: P, response: TssResponse) {
+	pub fn on_response(&mut self, peer_id: P, response: Option<TssResponse<I>>) {
 		let frost_id = peer_to_frost(&peer_id);
 		match (&mut self.state, response) {
-			(TssState::Rts { rts }, TssResponse::Rts { msg }) => {
-				rts.on_response(frost_id, msg);
+			(TssState::Dkg(_), _) => {},
+			(TssState::Rts(rts), Some(TssResponse::Rts { msg })) => {
+				rts.on_response(frost_id, Some(msg));
 			},
-			(_, msg) => {
+			(TssState::Rts(rts), None) => {
+				rts.on_response(frost_id, None);
+			},
+			(TssState::Roast { signing_sessions, .. }, Some(TssResponse::Roast { id, msg })) => {
+				if let Some(session) = signing_sessions.get_mut(&id) {
+					session.on_response(frost_id, msg);
+				} else {
+					log::error!("invalid signing session");
+				}
+			},
+			(_, Some(msg)) => {
 				log::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
+			},
+			(_, _) => {
+				log::error!("invalid state ({}, {})", self.peer_id, peer_id);
 			},
 		}
 	}
 
-	pub fn commit(&mut self, iter: impl Iterator<Item = (P, VerifiableSecretSharingCommitment)>) {
+	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
 		log::debug!("{} commit", self.peer_id);
-		let mut commitments = HashMap::new();
-		for (peer, commitment) in iter {
-			let peer = peer_to_frost(&peer);
-			if !self.frost_to_peer.contains_key(&peer) {
-				log::error!("received invalid commitments");
-				return;
-			}
-			commitments.insert(peer, commitment);
-		}
-		if commitments.len() != self.frost_to_peer.len() {
-			log::error!("invalid number of commitments");
-			return;
-		}
 		match &mut self.state {
-			TssState::Dkg { dkg, .. } => {
-				dkg.commit(commitments);
-			},
+			TssState::Dkg(dkg) => dkg.on_commit(commitment),
 			_ => log::error!("unexpected commit"),
 		}
 	}
 
-	pub fn sign(&mut self, id: I, data: Vec<u8>) {
+	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
 		log::debug!("{} sign {}", self.peer_id, id);
 		match &mut self.state {
 			TssState::Roast {
@@ -210,11 +221,12 @@ where
 				..
 			} => {
 				let roast = Roast::new(
+					self.frost_id,
 					self.threshold,
 					key_package.clone(),
 					public_key_package.clone(),
 					data,
-					self.is_coordinator,
+					self.coordinators.clone(),
 				);
 				signing_sessions.insert(id, roast);
 			},
@@ -226,7 +238,7 @@ where
 
 	pub fn next_action(&mut self) -> Option<TssAction<I, P>> {
 		match &mut self.state {
-			TssState::Dkg { dkg } => {
+			TssState::Dkg(dkg) => {
 				match dkg.next_action()? {
 					DkgAction::Send(msgs) => {
 						return Some(TssAction::Send(
@@ -237,18 +249,8 @@ where
 								.collect(),
 						));
 					},
-					DkgAction::Broadcast(msg) => {
-						return Some(TssAction::Send(
-							self.frost_to_peer
-								.values()
-								.filter(|peer| **peer != self.peer_id)
-								.cloned()
-								.map(|peer| (peer, TssRequest::Dkg { msg: msg.clone() }))
-								.collect(),
-						));
-					},
-					DkgAction::Commit(commitment) => {
-						return Some(TssAction::Commit(commitment));
+					DkgAction::Commit(commitment, proof_of_knowledge) => {
+						return Some(TssAction::Commit(commitment, proof_of_knowledge));
 					},
 					DkgAction::Complete(key_package, public_key_package, commitment) => {
 						let secret_share = SecretShare::new(
@@ -258,21 +260,21 @@ where
 						);
 						let public_key =
 							VerifyingKey::new(public_key_package.group_public().to_element());
+						let members = self.frost_to_peer.keys().copied().collect();
+						let rts =
+							RtsHelper::new(self.frost_id, members, self.threshold, secret_share);
 						self.state = TssState::Roast {
-							rts: RtsHelper::new(secret_share),
+							rts,
 							key_package,
 							public_key_package,
 							signing_sessions: Default::default(),
 						};
 						return Some(TssAction::PublicKey(public_key));
 					},
-					DkgAction::Failure(error) => {
-						log::error!("dkg failed with error {}", error);
-						return None;
-					},
+					DkgAction::Failure => return Some(TssAction::Failure),
 				};
 			},
-			TssState::Rts { rts } => match rts.next_action()? {
+			TssState::Rts(rts) => match rts.next_action()? {
 				RtsAction::Send(msgs) => {
 					return Some(TssAction::Send(
 						msgs.into_iter()
@@ -285,18 +287,17 @@ where
 						SecretShare::new(self.frost_id, *key_package.secret_share(), commitment);
 					let public_key =
 						VerifyingKey::new(public_key_package.group_public().to_element());
+					let members = self.frost_to_peer.keys().copied().collect();
+					let rts = RtsHelper::new(self.frost_id, members, self.threshold, secret_share);
 					self.state = TssState::Roast {
-						rts: RtsHelper::new(secret_share),
+						rts,
 						key_package,
 						public_key_package,
 						signing_sessions: Default::default(),
 					};
 					return Some(TssAction::PublicKey(public_key));
 				},
-				RtsAction::Failure(error) => {
-					log::error!("rts failed with error {}", error);
-					return None;
-				},
+				RtsAction::Failure => return Some(TssAction::Failure),
 			},
 			TssState::Roast { signing_sessions, .. } => {
 				let session_ids: Vec<_> = signing_sessions.keys().cloned().collect();
@@ -304,15 +305,6 @@ where
 					let session = signing_sessions.get_mut(&id).unwrap();
 					while let Some(action) = session.next_action() {
 						let (peers, send_to_self, msg) = match action {
-							RoastAction::Broadcast(msg) => {
-								let peers = self
-									.frost_to_peer
-									.keys()
-									.filter(|peer| **peer != self.frost_id)
-									.copied()
-									.collect();
-								(peers, true, msg)
-							},
 							RoastAction::Send(peer, msg) => {
 								if peer == self.frost_id {
 									(vec![], true, msg)
@@ -335,7 +327,12 @@ where
 							},
 						};
 						if send_to_self {
-							session.on_message(self.frost_id, msg.clone());
+							if let Some(response) = session
+								.on_request(self.frost_id, msg.clone())
+								.expect("something wrong")
+							{
+								session.on_response(self.frost_id, response);
+							}
 						}
 						if !peers.is_empty() {
 							return Some(TssAction::Send(
@@ -344,7 +341,7 @@ where
 									.map(|peer| {
 										(
 											self.frost_to_peer(&peer),
-											TssMessage::Roast {
+											TssRequest::Roast {
 												id: id.clone(),
 												msg: msg.clone(),
 											},
@@ -360,4 +357,3 @@ where
 		None
 	}
 }
-*/

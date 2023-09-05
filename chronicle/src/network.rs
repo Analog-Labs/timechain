@@ -319,7 +319,8 @@ where
 					}
 				},
 				_ = heartbeat_tick.tick().fuse() => {
-					if let Err(e) = self.tx_submitter.submit_heartbeat(block, self.public_key.clone()){
+					let time_block = self.client.info().best_hash;
+					if let Err(e) = self.tx_submitter.submit_heartbeat(time_block, self.public_key.clone()){
 						log::error!("error submitting heartbeat {:?}", e);
 					}
 				}

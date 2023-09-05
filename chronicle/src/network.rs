@@ -3,7 +3,8 @@ use crate::{PROTOCOL_NAME, TW_LOG};
 use anyhow::Result;
 use futures::{
 	channel::{mpsc, oneshot},
-	FutureExt, StreamExt,
+	stream::FuturesUnordered,
+	Future, FutureExt, StreamExt,
 };
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
@@ -14,19 +15,20 @@ use sp_runtime::traits::{Block, Header, IdentifyAccount};
 use std::{
 	collections::{BTreeMap, HashMap},
 	marker::PhantomData,
+	pin::Pin,
 	sync::Arc,
 };
 use time_primitives::{
 	MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssId,
-	TssRequest, TssSignature,
+	TssRequest as TssSigningRequest, TssSignature,
 };
-use tss::{Tss, TssAction, TssMessage};
+use tss::{Tss, TssAction, TssRequest, TssResponse};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
 	shard_id: ShardId,
 	block_number: u64,
-	payload: TssMessage<TssId>,
+	payload: TssRequest<TssId>,
 }
 
 impl TimeMessage {
@@ -54,7 +56,7 @@ pub struct TimeWorkerParams<B: Block, C, R, N, T, TxSub> {
 	pub tx_submitter: TxSub,
 	pub public_key: PublicKey,
 	pub peer_id: time_primitives::PeerId,
-	pub tss_request: mpsc::Receiver<TssRequest>,
+	pub tss_request: mpsc::Receiver<TssSigningRequest>,
 	pub protocol_request: async_channel::Receiver<IncomingRequest>,
 }
 
@@ -68,12 +70,27 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	tx_submitter: TxSub,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
-	tss_request: mpsc::Receiver<TssRequest>,
+	tss_request: mpsc::Receiver<TssSigningRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
 	tss_states: HashMap<ShardId, Tss<TssId, PeerId>>,
-	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
+	messages:
+		BTreeMap<u64, Vec<(ShardId, PeerId, TssRequest<TssId>, oneshot::Sender<OutgoingResponse>)>>,
 	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
+	outgoing_requests: FuturesUnordered<
+		Pin<
+			Box<
+				dyn Future<
+					Output = (
+						ShardId,
+						PeerId,
+						TssRequest<TssId>,
+						Result<Option<TssResponse<TssId>>>,
+					),
+				>,
+			>,
+		>,
+	>,
 }
 
 impl<B, C, R, N, T, TxSub> TimeWorker<B, C, R, N, T, TxSub>
@@ -114,6 +131,7 @@ where
 			messages: Default::default(),
 			requests: Default::default(),
 			channels: Default::default(),
+			outgoing_requests: Default::default(),
 		}
 	}
 
@@ -139,7 +157,8 @@ where
 					to_peer_id(api.get_member_peer_id(block, &account).unwrap().unwrap())
 				})
 				.collect();
-			self.tss_states.insert(shard_id, Tss::new(local_peer_id, members, threshold));
+			self.tss_states
+				.insert(shard_id, Tss::new(local_peer_id, members, threshold, None));
 			self.poll_actions(shard_id, block, block_number);
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
@@ -153,7 +172,7 @@ where
 					self.channels.remove(&request_id);
 					continue;
 				};
-				tss.sign(request_id, data.to_vec());
+				tss.on_sign(request_id, data.to_vec());
 				self.poll_actions(shard_id, block, block_number);
 			}
 		}
@@ -161,12 +180,20 @@ where
 			if n > block_number {
 				break;
 			}
-			for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
+			for (shard_id, peer_id, msg, pending_response) in self.messages.remove(&n).unwrap() {
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-				log::error!(target: TW_LOG, "dropping message {} {} {}", shard_id, peer_id, msg);
-				continue;
-			};
-				tss.on_message(peer_id, msg);
+					log::error!(target: TW_LOG, "dropping message {} {} {}", shard_id, peer_id, msg);
+					continue;
+				};
+				let result = tss
+					.on_request(peer_id, msg)
+					.map(|msg| bincode::serialize(&msg).unwrap())
+					.map_err(|_| ());
+				let _ = pending_response.send(OutgoingResponse {
+					result,
+					reputation_changes: vec![],
+					sent_feedback: None,
+				});
 				self.poll_actions(shard_id, block, n);
 			}
 		}
@@ -210,22 +237,18 @@ where
 							tx,
 							IfDisconnected::TryConnect,
 						);
-						tokio::task::spawn(async move {
-							if let Ok(Err(err)) = rx.await {
-								log::error!(
-									target: TW_LOG,
-									"shard {}: {} tx {} to {} network error {:?}",
-									shard_id,
-									local_peer_id,
-									msg.payload,
-									peer,
-									err,
-								);
+						self.outgoing_requests.push(Box::pin(async move {
+							let result = async move {
+								let response = rx.await??;
+								Ok(bincode::deserialize(&response)?)
 							}
-						});
+							.await;
+							(shard_id, peer, msg.payload, result)
+						}));
 					}
 				},
-				TssAction::Commit(_commitment) => {
+				TssAction::Commit(_commitment, _proof_of_knowledge) => {
+					// TODO: call on_commit
 					todo!()
 				},
 				TssAction::PublicKey(tss_public_key) => {
@@ -250,12 +273,14 @@ where
 						tx.send((hash, tss_signature)).ok();
 					}
 				},
+				TssAction::Failure => {
+					// TODO: remove shard
+					todo!()
+				},
 			}
 		}
 	}
 
-	/// Our main worker main process - we act on grandpa finality and gossip messages for interested
-	/// topics
 	pub async fn run(mut self) {
 		let block = self.client.info().best_hash;
 		if let Err(e) = self.tx_submitter.submit_register_member(
@@ -283,7 +308,7 @@ where
 					self.on_finality(block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {
-					let Some(TssRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
+					let Some(TssSigningRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
 						continue;
 					};
 					self.requests.entry(block_number).or_default().push((shard_id, request_id, data));
@@ -293,21 +318,45 @@ where
 					let Some(IncomingRequest { peer, payload, pending_response }) = protocol_request else {
 						continue;
 					};
-					let _ = pending_response.send(OutgoingResponse {
-						result: Ok(vec![]),
-						reputation_changes: vec![],
-						sent_feedback: None,
-					});
 					if let Ok(TimeMessage { shard_id, block_number, payload }) = TimeMessage::decode(&payload) {
 						let local_peer_id = to_peer_id(self.peer_id);
 						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
 							shard_id, local_peer_id, payload, peer);
-						self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
+						self.messages.entry(block_number).or_default().push((shard_id, peer, payload, pending_response));
 					} else {
 						log::debug!(target: TW_LOG, "received invalid message");
-						continue;
+						let _ = pending_response.send(OutgoingResponse {
+							result: Err(()),
+							reputation_changes: vec![],
+							sent_feedback: None,
+						});
 					}
 				},
+				outgoing_request = self.outgoing_requests.next().fuse() => {
+					let Some((shard_id, peer, request, result)) = outgoing_request else {
+						continue;
+					};
+					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+						continue;
+					};
+					match result {
+						Ok(response) => {
+							tss.on_response(peer, response);
+						}
+						Err(error) => {
+							let local_peer_id = to_peer_id(self.peer_id);
+							log::error!(
+								target: TW_LOG,
+								"shard {}: {} tx {} to {} network error {:?}",
+								shard_id,
+								local_peer_id,
+								request,
+								peer,
+								error,
+							);
+						}
+					}
+				}
 			}
 		}
 	}

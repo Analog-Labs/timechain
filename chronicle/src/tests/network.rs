@@ -21,9 +21,9 @@ use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
+	AccountId, BlockTimeApi, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
-	TssRequest, TssSignature, BlockTimeApi
+	TssRequest, TssSignature,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

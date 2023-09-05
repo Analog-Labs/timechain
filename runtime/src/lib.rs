@@ -1501,6 +1501,12 @@ impl_runtime_apis! {
 
 	}
 
+	impl time_primitives::BlockTimeApi<Block> for Runtime {
+		fn get_block_time_in_msec() -> u64{
+			MILLISECS_PER_BLOCK
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (

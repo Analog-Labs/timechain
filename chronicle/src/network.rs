@@ -17,11 +17,11 @@ use std::{
 	sync::Arc,
 };
 use time_primitives::{
-	MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards, TaskExecutor, TssId,
-	TssRequest, TssSignature,
+	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards,
+	TaskExecutor, TssId, TssRequest, TssSignature,
 };
+use tokio::time::{interval_at, Duration, Instant};
 use tss::{Tss, TssAction, TssMessage};
-use std::time::Duration;
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -82,7 +82,7 @@ where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest,
 	T: TaskExecutor<B>,
 	TxSub: SubmitShards<B> + SubmitMembers<B>,
@@ -269,9 +269,13 @@ where
 			log::error!("error registering member {:?}", e);
 		}
 
-		let heartbeat_time = (self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2) * 6;
-		let mut heartbeat_tick = tokio::time::interval(Duration::from_secs(heartbeat_time));
-		log::info!("heartbeat timeout {:?}", heartbeat_time);
+		let min_block_time = self.runtime.runtime_api().get_block_time_in_msec(block).unwrap();
+		let heartbeat_time =
+			(self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2) * min_block_time;
+		let heartbeat_duration = Duration::from_millis(heartbeat_time);
+		let mut heartbeat_tick =
+			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
+
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {

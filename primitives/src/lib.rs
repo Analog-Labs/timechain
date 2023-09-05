@@ -56,6 +56,10 @@ sp_api::decl_runtime_apis! {
 		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult);
 		fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError);
 	}
+
+	pub trait BlockTimeApi{
+		fn get_block_time_in_msec() -> u64;
+	}
 }
 
 pub trait MemberEvents {

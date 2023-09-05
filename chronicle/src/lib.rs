@@ -12,7 +12,9 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
-use time_primitives::{MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE};
+use time_primitives::{
+	BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
+};
 
 mod network;
 mod task_executor;
@@ -61,7 +63,7 @@ where
 	B: Block + 'static,
 	C: BlockchainEvents<B> + HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest + NetworkSigner,
 {
 	let peer_id = params
@@ -73,10 +75,11 @@ where
 		.unwrap()
 		.to_bytes();
 	log::info!(target: TW_LOG, "Peer identity bytes: {:?}", peer_id);
-	
+
 	let mut public_key: Option<PublicKey> = None;
 	loop {
-		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next() {
+		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next()
+		{
 			public_key = Some(pubkey.into());
 			break;
 		}

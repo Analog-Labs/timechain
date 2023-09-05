@@ -221,6 +221,7 @@ where
 		};
 		let (hash, signature) =
 			self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
+		let block_hash = self.client.info().best_hash;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(
@@ -372,7 +373,7 @@ struct InnerTaskExecutor<B: Block, R, T> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
 	public_key: PublicKey,
-	running_tasks: BTreeSet<TaskExecution>,
+	running_tasks: BTreeSet<TaskExecution<u32>>,
 	task_spawner: T,
 }
 

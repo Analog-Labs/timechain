@@ -83,14 +83,14 @@ pub enum TaskStatus {
 
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TaskPhase {
-	Write(PublicKey),
+pub enum TaskPhase<BlockNumber> {
+	Write(PublicKey, BlockNumber),
 	Read(Option<String>),
 }
 
-impl TaskPhase {
+impl<B> TaskPhase<B> {
 	pub fn public_key(&self) -> Option<&PublicKey> {
-		if let Self::Write(public_key) = self {
+		if let Self::Write(public_key, _) = self {
 			Some(public_key)
 		} else {
 			None
@@ -106,7 +106,7 @@ impl TaskPhase {
 	}
 }
 
-impl Default for TaskPhase {
+impl<B> Default for TaskPhase<B> {
 	fn default() -> Self {
 		TaskPhase::Read(None)
 	}
@@ -114,19 +114,19 @@ impl Default for TaskPhase {
 
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TaskExecution {
+pub struct TaskExecution<B> {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
 	pub retry_count: TaskRetryCount,
-	pub phase: TaskPhase,
+	pub phase: TaskPhase<B>,
 }
 
-impl TaskExecution {
+impl<B> TaskExecution<B> {
 	pub fn new(
 		task_id: TaskId,
 		cycle: TaskCycle,
 		retry_count: TaskRetryCount,
-		phase: TaskPhase,
+		phase: TaskPhase<B>,
 	) -> Self {
 		Self {
 			task_id,
@@ -138,7 +138,7 @@ impl TaskExecution {
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for TaskExecution {
+impl<B> std::fmt::Display for TaskExecution<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
 	}

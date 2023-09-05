@@ -40,7 +40,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
-		NumberFor, OpaqueKeys,
+		Header as HeaderT, NumberFor, OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Percent, SaturatedConversion,
@@ -53,8 +53,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, MemberStorage, Network, PeerId, PublicKey, ShardId, Signature, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey,
+	AccountId, MemberStorage, Network, PeerId, PublicKey, ShardId, ShardStatus, Signature,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1147,6 +1147,7 @@ impl pallet_tasks::Config for Runtime {
 	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
+	type WritePhaseTimeout = ConstU32<10>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1446,6 +1447,10 @@ impl_runtime_apis! {
 			Members::member_peer_id(account)
 		}
 
+		fn get_heartbeat_timeout() -> u64 {
+			Members::get_heartbeat_timeout().into()
+		}
+
 		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
 			Members::submit_register_member(network, public_key, peer_id)
 		}
@@ -1468,7 +1473,7 @@ impl_runtime_apis! {
 			Shards::get_shard_threshold(shard_id)
 		}
 
-		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<Block::Header as Header>::Number> {
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<<Block as BlockT>::Header as HeaderT>::Number> {
 			Shards::get_shard_status(shard_id)
 		}
 
@@ -1486,7 +1491,7 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TasksApi<Block> for Runtime {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution<BlockNumber>> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 
@@ -1506,6 +1511,12 @@ impl_runtime_apis! {
 			Tasks::submit_task_error(shard_id, cycle, error);
 		}
 
+	}
+
+	impl time_primitives::BlockTimeApi<Block> for Runtime {
+		fn get_block_time_in_msec() -> u64{
+			MILLISECS_PER_BLOCK
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

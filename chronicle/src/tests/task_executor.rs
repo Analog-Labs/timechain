@@ -38,7 +38,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn submit_tss_public_key(_: ShardId, _: TssPublicKey) {}
 	}
 	impl TasksApi<Block> for MockApi{
-		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
+		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution<u32>> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
 		fn get_task(_: TaskId) -> Option<TaskDescriptor> { Some(TaskDescriptor{
 				owner: AccountId32::new([0u8; 32]),
 				network: Network::Ethereum,
@@ -63,6 +63,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 	impl MembersApi<Block> for MockApi{
 		fn get_member_peer_id(_: &AccountId) -> Option<PeerId> { None }
+		fn get_heartbeat_timeout() -> u64 { 100 }
 		fn submit_register_member(_: Network, _: PublicKey, _: PeerId) {}
 		fn submit_heartbeat(_: PublicKey) {}
 	}

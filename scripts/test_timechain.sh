@@ -48,12 +48,8 @@ echo "All keys inserted, initializing test"
 ./scripts/fund_test_wallets.sh &
 
 ###### Ethereum testing #########
-#registering shard for ethereum
-eth_shard=$(node ./js/src/register_shard.js 0 0)
-echo "Registered eth, shard "$eth_shard
-sleep 5
-
 # deploying ethereum smart contract
+sleep 5
 echo "Initiated eth faucet"
 rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network faucet 1000000000000000
 echo "Deploying eth contract"
@@ -65,8 +61,6 @@ minimized_status=$(echo $eth_status)
 eth_block=${BASH_REMATCH[1]}
 
 echo "Ethereum contract registered with address: "$eth_contract" and block "$eth_block 
-
-###hardcoded for testing
 
 # inserting tasks for eth
 echo "inserting view task for Eth"
@@ -82,12 +76,8 @@ echo "Task registered with id: "$eth_tsk_registered
 node ./js/src/await_task_status.js $eth_tsk_registered
 
 ###### Astar testing #########
-# registering shard for astar
-astar_shard=$(node ./js/src/register_shard.js 1 1)
-echo "Registered astar, shard "$astar_shard
-sleep 5
-
 #deploying astar smart contract
+sleep 5
 echo "Initiated Astar faucet"
 rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network faucet 100000000
 echo "Deploying astar contract"

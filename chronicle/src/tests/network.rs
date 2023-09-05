@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
+	AccountId, BlockTimeApi, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
 	TssRequest, TssSignature,
 };
@@ -105,17 +105,27 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>{
 			Some((*account).clone().into())
 		}
+		fn get_heartbeat_timeout() -> u64 {
+			100
+		}
 		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) {}
 		fn submit_heartbeat(_public_key: PublicKey) {}
 	}
 
 	impl TasksApi<Block> for MockApi{
-		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
+		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution<u32>> { vec![] }
 		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
 		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) {}
 		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) {}
 		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) {}
 	}
+
+	impl BlockTimeApi<Block> for MockApi{
+		fn get_block_time_in_msec() -> u64{
+			100
+		}
+	}
+
 }
 
 impl ProvideRuntimeApi<Block> for MockApi {

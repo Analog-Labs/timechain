@@ -3504,7 +3504,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#95298ee77f726ae0a2769e4ab8f9f9f89588f1c3"
+source = "git+https://github.com/analog-labs/frost-evm.git#95298ee77f726ae0a2769e4ab8f9f9f89588f1c3"
 dependencies = [
  "anyhow",
  "frost-core",
@@ -11903,30 +11903,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "time-worker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "bincode",
- "env_logger",
- "frost-evm",
- "futures",
- "log",
- "sc-client-api",
- "sc-consensus",
- "sc-network",
- "sc-network-test",
- "serde",
- "sp-api",
- "sp-consensus",
- "sp-runtime 24.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0)",
- "tesseract-tss",
- "time-primitives",
- "tokio",
-]
-
-[[package]]
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
@@ -11982,7 +11958,6 @@ dependencies = [
  "surf",
  "task-executor",
  "time-primitives",
- "time-worker",
  "timechain-runtime",
  "tokio",
  "try-runtime-cli",

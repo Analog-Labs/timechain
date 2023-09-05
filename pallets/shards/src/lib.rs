@@ -127,6 +127,7 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			T::ShardCreated::shard_created(shard_id, collector);
+			Self::submit_tss_public_key(shard_id, [0; 33]).unwrap();
 		}
 
 		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {

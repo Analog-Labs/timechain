@@ -62,6 +62,7 @@ pub mod pallet {
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn task_shard)]
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
@@ -181,6 +182,7 @@ pub mod pallet {
 				Error::<T>::InvalidTaskState
 			);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
+			TaskRetryCounter::<T>::insert(task_id, 0);
 			Self::deposit_event(Event::TaskResumed(task_id));
 			Ok(())
 		}
@@ -215,7 +217,10 @@ pub mod pallet {
 		}
 
 		fn is_resumable(task_id: TaskId) -> bool {
-			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Stopped))
+			matches!(
+				TaskState::<T>::get(task_id),
+				Some(TaskStatus::Stopped) | Some(TaskStatus::Failed { .. })
+			)
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {

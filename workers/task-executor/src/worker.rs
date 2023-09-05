@@ -7,21 +7,14 @@ use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
 use serde_json::Value;
 use sp_api::{HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
-use std::{
-	collections::{HashMap, HashSet},
-	future::Future,
-	marker::PhantomData,
-	pin::Pin,
-	sync::Arc,
-};
+use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use time_primitives::{
 	CycleStatus, Function, OcwPayload, PeerId, ShardId, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssRequest, TssSignature,
+	TaskExecution, TaskId, TaskRetryCount, TaskSpawner, TimeApi, TssSignature,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
 pub struct TaskSpawnerParams {
-	pub tss: mpsc::Sender<TssRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
@@ -31,7 +24,6 @@ pub struct TaskSpawnerParams {
 
 #[derive(Clone)]
 pub struct Task {
-	tss: mpsc::Sender<TssRequest>,
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
 }
@@ -59,11 +51,7 @@ impl Task {
 		} else {
 			None
 		};
-		Ok(Self {
-			tss: params.tss,
-			wallet,
-			timegraph,
-		})
+		Ok(Self { wallet, timegraph })
 	}
 
 	async fn execute_function(
@@ -98,28 +86,6 @@ impl Task {
 		}
 	}
 
-	async fn tss_sign(
-		&self,
-		shard_id: ShardId,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		retry_count: TaskRetryCount,
-		result: &[String],
-	) -> Result<TssSignature> {
-		let data = bincode::serialize(&result).context("Failed to serialize task")?;
-		let (tx, rx) = oneshot::channel();
-		self.tss
-			.clone()
-			.send(TssRequest {
-				request_id: (task_id, cycle, retry_count),
-				shard_id,
-				data,
-				tx,
-			})
-			.await?;
-		Ok(rx.await?)
-	}
-
 	async fn execute(
 		self,
 		target_block: u64,
@@ -134,10 +100,7 @@ impl Task {
 			.execute_function(&task.function, target_block)
 			.await
 			.with_context(|| format!("Failed to execute {:?}", task.function))?;
-		let signature = self
-			.tss_sign(shard_id, task_id, task_cycle, retry_count, &result)
-			.await
-			.with_context(|| format!("Failed to tss sign on shard {}", shard_id))?;
+		let signature = [0; 64];
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			timegraph
 				.submit_data(TimegraphData {
@@ -190,7 +153,6 @@ pub struct TaskExecutor<B: Block, BE, C, R, T> {
 	runtime: Arc<R>,
 	peer_id: PeerId,
 	running_tasks: HashSet<TaskExecution>,
-	execution_block_map: HashMap<TaskExecution, u64>,
 	task_spawner: T,
 }
 
@@ -219,7 +181,6 @@ where
 			runtime,
 			peer_id,
 			running_tasks: Default::default(),
-			execution_block_map: Default::default(),
 			task_spawner,
 		}
 	}
@@ -239,13 +200,6 @@ where
 				let retry_count = executable_task.retry_count;
 				if self.running_tasks.contains(&executable_task) {
 					log::info!("skipping task {:?}", executable_task);
-					if let Some(executed_block_num) = self.execution_block_map.get(&executable_task)
-					{
-						if executed_block_num + 30 < block_num {
-							log::warn!("clearing execution for task {:?}", executable_task.task_id);
-							self.running_tasks.remove(&executable_task);
-						}
-					}
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
@@ -253,7 +207,6 @@ where
 				if block_height >= target_block_number {
 					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
 					self.running_tasks.insert(executable_task);
-					self.execution_block_map.insert(executable_task, block_num);
 					let storage = self.backend.offchain_storage().unwrap();
 					let task = self.task_spawner.execute(
 						target_block_number,

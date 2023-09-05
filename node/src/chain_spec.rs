@@ -856,15 +856,39 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
-					// dev collector prefund, shard1
+					// dev prefund set-keys1, shard1
 					(
 						hex!["78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"]
 							.into(),
 						ANLOG * 2000000,
 					),
-					// dev collector prefund, shard2
+					// dev prefund set-keys2, shard1
+					(
+						hex!["cee262950a61e921ac72217fd5578c122bfc91ba5c0580dbfbe42148cf35be2b"]
+							.into(),
+						ANLOG * 2000000,
+					),
+					// dev prefund set-keys3, shard1
+					(
+						hex!["a01b6ceec7fb1d32bace8ffcac21ffe6839d3a2ebe26d86923be9dd94c0c9a02"]
+							.into(),
+						ANLOG * 2000000,
+					),
+					// dev prefund set-keys4, shard2
 					(
 						hex!["1e31bbe09138bef48ffaca76214317eb0f7a8fd85959774e41d180f2ad9e741f"]
+							.into(),
+						ANLOG * 2000000,
+					),
+					// dev prefund set-keys5, shard2
+					(
+						hex!["1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659"]
+							.into(),
+						ANLOG * 2000000,
+					),
+					// dev prefund set-keys6, shard2
+					(
+						hex!["72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"]
 							.into(),
 						ANLOG * 2000000 * 1_000_000_000,
 					),

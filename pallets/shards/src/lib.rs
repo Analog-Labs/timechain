@@ -16,6 +16,7 @@ pub mod pallet {
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
@@ -101,6 +102,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, Network),
+		/// Shard commited
+		ShardCommitted(ShardId, Commitment),
 		/// Shard DKG timed out
 		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
@@ -112,7 +115,10 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnknownShard,
-		PublicKeyAlreadyRegistered,
+		UnexpectedCommit,
+		InvalidCommitment,
+		InvalidProofOfKnowledge,
+		UnexpectedReady,
 		ShardAlreadyOffline,
 		OfflineShardMayNotGoOnline,
 	}
@@ -125,30 +131,65 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			shard_id: ShardId,
 			commitment: Commitment,
-			proof_of_knowledge: ProofOfKnowledge,
+			_proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
-			// TODO
-			/*ensure_none(origin)?;
+			let member = ensure_signed(origin)?;
 			ensure!(
-				!matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Offline)),
-				Error::<T>::OfflineShardMayNotGoOnline
+				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
+				Error::<T>::UnexpectedCommit
 			);
-			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
-			);
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);*/
+			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
+			ensure!(commitment.len() == threshold as usize, Error::<T>::InvalidCommitment);
+			for c in &commitment {
+				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
+			}
+			// TODO: verify proof of knowledge
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
+			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
+				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
+					.filter_map(|(_, status)| status.commitment().cloned())
+					.reduce(|mut group_commitment, commitment| {
+						for (group_commitment, commitment) in
+							group_commitment.iter_mut().zip(commitment.iter())
+						{
+							*group_commitment = VerifyingKey::new(
+								VerifyingKey::from_bytes(*group_commitment).unwrap().to_element()
+									+ VerifyingKey::from_bytes(*commitment).unwrap().to_element(),
+							)
+							.to_bytes()
+							.unwrap();
+						}
+						group_commitment
+					})
+					.unwrap();
+				ShardCommitment::<T>::insert(shard_id, commitment.clone());
+				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
+				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
+			}
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::ready())]
 		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			// TODO
+			let member = ensure_signed(origin)?;
+			ensure!(
+				matches!(
+					ShardMembers::<T>::get(shard_id, &member),
+					Some(MemberStatus::Committed(_))
+				),
+				Error::<T>::UnexpectedReady,
+			);
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let commitment = ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
+			if ShardMembers::<T>::iter_prefix(shard_id)
+				.all(|(_, status)| status == MemberStatus::Ready)
+			{
+				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
+				T::TaskScheduler::shard_online(shard_id, network);
+			}
 			Ok(())
 		}
 	}

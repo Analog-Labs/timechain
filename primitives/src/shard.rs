@@ -49,11 +49,25 @@ impl core::str::FromStr for Network {
 	}
 }
 
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {
 	Added,
 	Committed(Commitment),
 	Ready,
+}
+
+impl MemberStatus {
+	pub fn commitment(&self) -> Option<&Commitment> {
+		if let Self::Committed(commitment) = self {
+			Some(commitment)
+		} else {
+			None
+		}
+	}
+
+	pub fn is_committed(&self) -> bool {
+		self.commitment().is_some()
+	}
 }
 
 /// Track status of shard

@@ -18,7 +18,8 @@ pub mod pallet {
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
+		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey, TxError,
+		TxResult,
 	};
 
 	pub trait WeightInfo {
@@ -148,37 +149,31 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
+		pub fn submit_register_member(
+			network: Network,
+			public_key: PublicKey,
+			peer_id: PeerId,
+		) -> TxResult {
 			let signer =
 				Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key.clone()]);
-			let call_res = signer.send_signed_transaction(|_| Call::register_member {
-				network,
-				public_key: public_key.clone(),
-				peer_id,
-			});
-			let Some((_, res)) = call_res else {
-				log::info!("send registering member returned none");
-				return;
-			};
-			let Err(e) = res else {
-				log::info!("register member transaction sent");
-				return;
-			};
-			log::error!("send registering member returned an error: {:?}", e)
+			signer
+				.send_signed_transaction(|_| Call::register_member {
+					network,
+					public_key: public_key.clone(),
+					peer_id,
+				})
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
 		}
 
-		pub fn submit_heartbeat(public_key: PublicKey) {
+		pub fn submit_heartbeat(public_key: PublicKey) -> TxResult {
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
-			let call_res = signer.send_signed_transaction(|_| Call::send_heartbeat {});
-			let Some((_, res)) = call_res else {
-				log::info!("send heartbeat returned none");
-				return;
-			};
-			let Err(e) = res else {
-				log::info!("submit heartbeat transaction sent");
-				return;
-			};
-			log::error!("send heartbeat returned an error: {:?}", e)
+			signer
+				.send_signed_transaction(|_| Call::send_heartbeat {})
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

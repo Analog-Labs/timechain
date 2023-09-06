@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+use crate::{PublicKey, SubmitResult};
 use crate::{TaskCycle, TaskId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -5,14 +7,16 @@ use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
-use sp_api::ApiError;
 use sp_runtime::traits::{Saturating, Zero};
+use sp_std::vec::Vec;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
+pub type TssHash = [u8; 32];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
+pub type ProofOfKnowledge = [u8; 65];
+pub type Commitment = Vec<TssPublicKey>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "std", derive(Deserialize, Serialize))]
@@ -45,14 +49,42 @@ impl core::str::FromStr for Network {
 	}
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub enum MemberStatus {
+	Added,
+	Committed(Commitment),
+	Ready,
+}
+
+impl MemberStatus {
+	pub fn commitment(&self) -> Option<&Commitment> {
+		if let Self::Committed(commitment) = self {
+			Some(commitment)
+		} else {
+			None
+		}
+	}
+
+	pub fn is_committed(&self) -> bool {
+		self.commitment().is_some()
+	}
+}
+
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum ShardStatus<Blocknumber> {
 	Created(Blocknumber),
+	Committed,
 	Online,
 	PartialOffline(u16),
 	Offline,
+}
+
+impl<B> Default for ShardStatus<B> {
+	fn default() -> Self {
+		Self::Offline
+	}
 }
 
 impl<B: Copy> ShardStatus<B> {
@@ -75,6 +107,7 @@ impl<B: Copy> ShardStatus<B> {
 			_ => *self,
 		}
 	}
+
 	pub fn offline_member(&self, max: u16) -> Self {
 		match self {
 			ShardStatus::PartialOffline(count) => {
@@ -101,20 +134,23 @@ impl<B: Copy> ShardStatus<B> {
 }
 
 #[cfg(feature = "std")]
-pub trait SubmitShards<B: sp_runtime::traits::Block> {
-	fn submit_tss_pub_key(
+pub trait SubmitShards {
+	fn submit_commitment(
 		&self,
-		block: B::Hash,
 		shard_id: ShardId,
-		public_key: TssPublicKey,
-	) -> Result<(), ApiError>;
+		member: PublicKey,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	) -> SubmitResult;
+
+	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult;
 }
 
 #[cfg(feature = "std")]
-pub struct TssRequest {
+pub struct TssSigningRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub block_number: u64,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<([u8; 32], TssSignature)>,
+	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }

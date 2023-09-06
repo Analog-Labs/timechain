@@ -24,15 +24,15 @@ mod tx_submitter;
 
 pub const TW_LOG: &str = "chronicle";
 
-/// time protocol name suffix.
-pub const PROTOCOL_NAME: &str = "/time/1";
+/// chronicle protocol name suffix.
+pub const PROTOCOL_NAME: &str = "/chronicle/1";
 
 pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestResponseConfig {
 	RequestResponseConfig {
 		name: PROTOCOL_NAME.into(),
 		fallback_names: vec![],
 		max_request_size: 1024 * 1024,
-		max_response_size: 0,
+		max_response_size: 1024 * 1024,
 		request_timeout: Duration::from_secs(3),
 		inbound_queue: Some(tx),
 	}
@@ -87,8 +87,13 @@ where
 	};
 
 	let (tx, rx) = mpsc::channel(10);
-	let tx_submitter =
-		TransactionSubmitter::new(true, params.keystore, params.tx_pool, params.runtime.clone());
+	let tx_submitter = TransactionSubmitter::new(
+		true,
+		params.keystore,
+		params.tx_pool,
+		params.client.clone(),
+		params.runtime.clone(),
+	);
 
 	let task_spawner = Task::new(TaskSpawnerParams {
 		_marker: PhantomData,
@@ -99,7 +104,6 @@ where
 		keyfile: params.config.keyfile,
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
-		client: params.client.clone(),
 		runtime: params.runtime.clone(),
 		tx_submitter: tx_submitter.clone(),
 	})

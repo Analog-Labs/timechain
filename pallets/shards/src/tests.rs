@@ -1,8 +1,10 @@
 use crate::mock::*;
-use crate::{Error, Event, ShardMembers, ShardNetwork, ShardState};
-use frame_support::{assert_noop, assert_ok};
+use crate::{Event, ShardMembers, ShardNetwork, ShardState};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, MemberEvents, Network, ShardStatus, ShardsInterface};
+use schnorr_evm::k256::ProjectivePoint;
+use schnorr_evm::VerifyingKey;
+use time_primitives::{AccountId, MemberEvents, Network, ShardId, ShardStatus, ShardsInterface};
 
 fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
@@ -21,9 +23,30 @@ fn shard() -> [AccountId; 3] {
 	[a, b, c]
 }
 
+fn public_key() -> [u8; 33] {
+	VerifyingKey::new(ProjectivePoint::GENERATOR).to_bytes().unwrap()
+}
+
+fn create_shard(shard_id: ShardId, shard: &[AccountId], threshold: u16) {
+	let public_key = public_key();
+	Shards::create_shard(Network::Ethereum, shard.to_vec(), threshold);
+	for account in shard {
+		assert_ok!(Shards::commit(
+			RawOrigin::Signed(account.clone()).into(),
+			shard_id,
+			vec![public_key; threshold as usize],
+			[0; 65]
+		));
+	}
+	for account in shard {
+		assert_ok!(Shards::ready(RawOrigin::Signed(account.clone()).into(), shard_id));
+	}
+}
+
 #[test]
 fn test_register_shard() {
 	let shards = shards();
+	let public_key = public_key();
 	new_test_ext().execute_with(|| {
 		for shard in &shards {
 			Shards::create_shard(Network::Ethereum, shard.to_vec(), 1);
@@ -38,46 +61,20 @@ fn test_register_shard() {
 			let shards = Shards::get_shards(&member);
 			assert_eq!(shards.len(), 1);
 		}
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(
-				RawOrigin::None.into(),
-				shard_id as _,
-				[0; 33]
-			));
+		for (shard_id, shard) in shards.iter().enumerate() {
+			for account in shard {
+				assert_ok!(Shards::commit(
+					RawOrigin::Signed(account.clone()).into(),
+					shard_id as _,
+					vec![public_key],
+					[0; 65]
+				));
+			}
 		}
-	});
-}
-
-#[test]
-fn cannot_submit_public_key_if_shard_not_exists() {
-	let shards = shards();
-	new_test_ext().execute_with(|| {
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_noop!(
-				Shards::submit_tss_public_key(RawOrigin::None.into(), shard_id as _, [0; 33]),
-				Error::<Test>::UnknownShard
-			);
-		}
-	});
-}
-
-#[test]
-fn submit_public_key_max_once() {
-	let shards = shards();
-	new_test_ext().execute_with(|| {
-		for shard in &shards {
-			Shards::create_shard(Network::Ethereum, shard.to_vec(), 1);
-		}
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(
-				RawOrigin::None.into(),
-				shard_id as _,
-				[0; 33]
-			));
-			assert_noop!(
-				Shards::submit_tss_public_key(RawOrigin::None.into(), shard_id as _, [1; 33]),
-				Error::<Test>::PublicKeyAlreadyRegistered
-			);
+		for (shard_id, shard) in shards.iter().enumerate() {
+			for account in shard {
+				assert_ok!(Shards::ready(RawOrigin::Signed(account.clone()).into(), shard_id as _));
+			}
 		}
 	});
 }
@@ -95,50 +92,33 @@ fn dkg_times_out() {
 }
 
 #[test]
-fn member_offline_before_group_key_submitted_then_shard_offline() {
-	new_test_ext().execute_with(|| {
-		Shards::create_shard(Network::Ethereum, shard().to_vec(), 1);
-		Shards::member_offline(&shard()[0], Network::Ethereum);
-		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
-		assert_noop!(
-			Shards::submit_tss_public_key(RawOrigin::None.into(), 0, [0; 33]),
-			Error::<Test>::OfflineShardMayNotGoOnline
-		);
-	});
-}
-
-#[test]
 fn member_offline_sets_online_shard_partially_offline() {
+	let shard = shard();
 	new_test_ext().execute_with(|| {
-		Shards::create_shard(Network::Ethereum, shard().to_vec(), 1);
-		assert_ok!(Shards::submit_tss_public_key(RawOrigin::None.into(), 0, [0; 33]));
-		Shards::member_offline(&shard()[0], Network::Ethereum);
+		create_shard(0, &shard, 1);
+		Shards::member_offline(&shard[0], Network::Ethereum);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
 	});
 }
 
 #[test]
 fn member_offline_above_threshold_sets_online_shard_offline() {
+	let shard = shard();
 	new_test_ext().execute_with(|| {
-		Shards::create_shard(
-			Network::Ethereum,
-			shard().to_vec(),
-			shard().len().try_into().unwrap(),
-		);
-		assert_ok!(Shards::submit_tss_public_key(RawOrigin::None.into(), 0, [0; 33]));
-		Shards::member_offline(&shard()[0], Network::Ethereum);
+		create_shard(0, &shard, 3);
+		Shards::member_offline(&shard[0], Network::Ethereum);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 	});
 }
 
 #[test]
 fn member_online_sets_partially_offline_shard_back_online() {
+	let shard = shard();
 	new_test_ext().execute_with(|| {
-		Shards::create_shard(Network::Ethereum, shard().to_vec(), 1);
-		assert_ok!(Shards::submit_tss_public_key(RawOrigin::None.into(), 0, [0; 33]));
-		Shards::member_offline(&shard()[0], Network::Ethereum);
+		create_shard(0, &shard, 1);
+		Shards::member_offline(&shard[0], Network::Ethereum);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
-		Shards::member_online(&shard()[0], Network::Ethereum);
+		Shards::member_online(&shard[0], Network::Ethereum);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
 	});
 }

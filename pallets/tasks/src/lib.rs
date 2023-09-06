@@ -22,7 +22,7 @@ pub mod pallet {
 	use time_primitives::{
 		AccountId, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
 		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface,
+		TasksInterface, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
@@ -392,38 +392,38 @@ pub mod pallet {
 			}
 		}
 
-		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) {
+		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> TxResult {
 			let TaskPhase::Write(public_key, _) = TaskPhaseState::<T>::get(task_id) else {
 				log::error!("task not in write phase");
-				return;
+				return Ok(());
 			};
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
 
-			let call_res = signer.send_signed_transaction(|_| Call::submit_hash {
-				shard_id,
-				task_id,
-				hash: hash.clone(),
-			});
-
-			let Some((_, res)) = call_res else {
-				log::info!("send signed transaction returned none");
-				return;
-			};
-			if let Err(e) = res {
-				log::error!("send signed transaction returned an error: {:?}", e)
-			}
+			signer
+				.send_signed_transaction(|_| Call::submit_hash {
+					shard_id,
+					task_id,
+					hash: hash.clone(),
+				})
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
 		}
 
-		pub fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) {
+		pub fn submit_task_result(
+			task_id: TaskId,
+			cycle: TaskCycle,
+			status: TaskResult,
+		) -> TxResult {
 			let call = Call::submit_result { task_id, cycle, status };
-			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-			log::info!("Submitted Task result {:?}/{:?}: {:?}", task_id, cycle, res);
+			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| TxError::TxPoolError)
 		}
 
-		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) {
+		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult {
 			let call = Call::submit_error { task_id, cycle, error };
-			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-			log::info!("Submitted Task error {:?}: {:?}", task_id, res);
+			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| TxError::TxPoolError)
 		}
 	}
 

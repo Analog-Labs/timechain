@@ -3,7 +3,6 @@ use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
 use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
-use sc_client_api::HeaderBackend;
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -13,39 +12,37 @@ use std::{
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskResult, TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
+	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::sync::Mutex;
 
-pub struct TaskSpawnerParams<B: Block, C, R, TxSub> {
+pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 	pub _marker: PhantomData<B>,
-	pub tss: mpsc::Sender<TssRequest>,
+	pub tss: mpsc::Sender<TssSigningRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
 	pub keyfile: Option<String>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
-	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub tx_submitter: TxSub,
 }
 
-pub struct Task<B, C, R, TxSub> {
+pub struct Task<B, R, TxSub> {
 	_marker: PhantomData<B>,
-	tss: mpsc::Sender<TssRequest>,
+	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
-	client: Arc<C>,
 	runtime: Arc<R>,
 	tx_submitter: TxSub,
 }
 
-impl<B, C, R, TxSub> Clone for Task<B, C, R, TxSub>
+impl<B, R, TxSub> Clone for Task<B, R, TxSub>
 where
 	B: Block,
-	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
+	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -53,22 +50,20 @@ where
 			tss: self.tss.clone(),
 			wallet: self.wallet.clone(),
 			timegraph: self.timegraph.clone(),
-			client: self.client.clone(),
 			runtime: self.runtime.clone(),
 			tx_submitter: self.tx_submitter.clone(),
 		}
 	}
 }
 
-impl<B, C, R, TxSub> Task<B, C, R, TxSub>
+impl<B, R, TxSub> Task<B, R, TxSub>
 where
 	B: Block,
-	C: HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
-	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
+	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
 {
-	pub async fn new(params: TaskSpawnerParams<B, C, R, TxSub>) -> Result<Self> {
+	pub async fn new(params: TaskSpawnerParams<B, R, TxSub>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);
 		let wallet = Arc::new(
 			create_wallet(
@@ -96,7 +91,6 @@ where
 			tss: params.tss,
 			wallet,
 			timegraph,
-			client: params.client,
 			runtime: params.runtime,
 			tx_submitter: params.tx_submitter,
 		})
@@ -151,11 +145,11 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		payload: &str,
-	) -> Result<([u8; 32], TssSignature)> {
+	) -> Result<(TssHash, TssSignature)> {
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
-			.send(TssRequest {
+			.send(TssSigningRequest {
 				request_id: TssId(task_id, cycle),
 				shard_id,
 				block_number,
@@ -166,6 +160,7 @@ where
 		Ok(rx.await?)
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn submit_timegraph(
 		&self,
 		target_block: u64,
@@ -207,6 +202,7 @@ where
 		Ok(())
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn read(
 		self,
 		target_block: u64,
@@ -227,7 +223,6 @@ where
 		};
 		let (hash, signature) =
 			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
-		let block_hash = self.client.info().best_hash;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(
@@ -243,17 +238,13 @@ where
 				)
 				.await?;
 				let result = TaskResult { shard_id, hash, signature };
-				if let Err(e) =
-					self.tx_submitter.submit_task_result(block_hash, task_id, task_cycle, result)
-				{
+				if let Err(e) = self.tx_submitter.submit_task_result(task_id, task_cycle, result) {
 					log::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) =
-					self.tx_submitter.submit_task_error(block_hash, task_id, task_cycle, error)
-				{
+				if let Err(e) = self.tx_submitter.submit_task_error(task_id, task_cycle, error) {
 					log::error!("Error submitting task error {:?}", e);
 				}
 			},
@@ -263,8 +254,7 @@ where
 
 	async fn write(self, shard_id: ShardId, task_id: TaskId, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		let block_hash = self.client.info().best_hash;
-		if let Err(e) = self.tx_submitter.submit_task_hash(block_hash, shard_id, task_id, tx_hash) {
+		if let Err(e) = self.tx_submitter.submit_task_hash(shard_id, task_id, tx_hash) {
 			log::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
@@ -272,13 +262,12 @@ where
 }
 
 #[async_trait::async_trait]
-impl<B, C, R, TxSub> TaskSpawner for Task<B, C, R, TxSub>
+impl<B, R, TxSub> TaskSpawner for Task<B, R, TxSub>
 where
 	B: Block,
-	C: HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
-	TxSub: SubmitTasks<B> + Clone + Send + Sync + 'static,
+	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
 {
 	async fn block_height(&self) -> Result<u64> {
 		let status = self.wallet.status().await?;

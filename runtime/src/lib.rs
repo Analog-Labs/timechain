@@ -40,7 +40,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
-		NumberFor, OpaqueKeys,
+		Header as HeaderT, NumberFor, OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Percent, SaturatedConversion,
@@ -53,8 +53,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, MemberStorage, Network, PeerId, PublicKey, ShardId, Signature, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey,
+	AccountId, Commitment, MemberStorage, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
+	TaskResult, TssPublicKey, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1173,7 +1174,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		Treasury: pallet_treasury,
 		Members: pallet_members,
-		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Shards: pallet_shards,
 		Elections: pallet_elections,
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
@@ -1451,11 +1452,11 @@ impl_runtime_apis! {
 			Members::get_heartbeat_timeout().into()
 		}
 
-		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
+		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) -> TxResult {
 			Members::submit_register_member(network, public_key, peer_id)
 		}
 
-		fn submit_heartbeat(public_key: PublicKey) {
+		fn submit_heartbeat(public_key: PublicKey) -> TxResult {
 			Members::submit_heartbeat(public_key)
 		}
 	}
@@ -1473,8 +1474,25 @@ impl_runtime_apis! {
 			Shards::get_shard_threshold(shard_id)
 		}
 
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) {
-			Shards::submit_tss_pub_key(shard_id, public_key);
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<<Block as BlockT>::Header as HeaderT>::Number> {
+			Shards::get_shard_status(shard_id)
+		}
+
+		fn get_shard_commitment(shard_id: ShardId) -> Commitment {
+			Shards::get_shard_commitment(shard_id)
+		}
+
+		fn submit_commitment(
+			shard_id: ShardId,
+			member: PublicKey,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> TxResult {
+			Shards::submit_commitment(shard_id, member, commitment, proof_of_knowledge)
+		}
+
+		fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult {
+			Shards::submit_online(shard_id, member)
 		}
 	}
 
@@ -1487,16 +1505,16 @@ impl_runtime_apis! {
 			Tasks::get_task(task_id)
 		}
 
-		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) {
-			Tasks::submit_task_hash(shard_id, task_id, hash);
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> TxResult {
+			Tasks::submit_task_hash(shard_id, task_id, hash)
 		}
 
-		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) {
-			Tasks::submit_task_result(task_id, cycle, status);
+		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> TxResult {
+			Tasks::submit_task_result(task_id, cycle, status)
 		}
 
-		fn submit_task_error(shard_id: ShardId, cycle: TaskCycle, error: TaskError) {
-			Tasks::submit_task_error(shard_id, cycle, error);
+		fn submit_task_error(shard_id: ShardId, cycle: TaskCycle, error: TaskError) -> TxResult {
+			Tasks::submit_task_error(shard_id, cycle, error)
 		}
 
 	}

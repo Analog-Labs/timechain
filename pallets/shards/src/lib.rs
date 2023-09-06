@@ -12,21 +12,31 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
-	use frame_system::offchain::{AppCrypto, CreateSignedTransaction};
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::Saturating;
+	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, PublicKey, ShardId,
-		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
+		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
-		fn submit_tss_public_key() -> Weight;
+		fn commit() -> Weight;
+		fn ready() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn submit_tss_public_key() -> Weight {
+		fn commit() -> Weight {
+			Weight::default()
+		}
+
+		fn ready() -> Weight {
 			Weight::default()
 		}
 	}
@@ -69,8 +79,8 @@ pub mod pallet {
 	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ShardPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
+	pub type ShardCommitment<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, Commitment, OptionQuery>;
 
 	#[pallet::storage]
 	pub type MemberShard<T: Config> =
@@ -83,7 +93,7 @@ pub mod pallet {
 		ShardId,
 		Blake2_128Concat,
 		AccountId,
-		(),
+		MemberStatus,
 		OptionQuery,
 	>;
 
@@ -92,6 +102,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, Network),
+		/// Shard commited
+		ShardCommitted(ShardId, Commitment),
 		/// Shard DKG timed out
 		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
@@ -103,7 +115,10 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnknownShard,
-		PublicKeyAlreadyRegistered,
+		UnexpectedCommit,
+		InvalidCommitment,
+		InvalidProofOfKnowledge,
+		UnexpectedReady,
 		ShardAlreadyOffline,
 		OfflineShardMayNotGoOnline,
 	}
@@ -111,26 +126,70 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
-		pub fn submit_tss_public_key(
+		#[pallet::weight(T::WeightInfo::commit())]
+		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
-			public_key: TssPublicKey,
+			commitment: Commitment,
+			_proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let member = ensure_signed(origin)?;
 			ensure!(
-				!matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Offline)),
-				Error::<T>::OfflineShardMayNotGoOnline
+				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
+				Error::<T>::UnexpectedCommit
 			);
+			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
+			ensure!(commitment.len() == threshold as usize, Error::<T>::InvalidCommitment);
+			for c in &commitment {
+				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
+			}
+			// TODO: verify proof of knowledge
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
+			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
+				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
+					.filter_map(|(_, status)| status.commitment().cloned())
+					.reduce(|mut group_commitment, commitment| {
+						for (group_commitment, commitment) in
+							group_commitment.iter_mut().zip(commitment.iter())
+						{
+							*group_commitment = VerifyingKey::new(
+								VerifyingKey::from_bytes(*group_commitment).unwrap().to_element()
+									+ VerifyingKey::from_bytes(*commitment).unwrap().to_element(),
+							)
+							.to_bytes()
+							.unwrap();
+						}
+						group_commitment
+					})
+					.unwrap();
+				ShardCommitment::<T>::insert(shard_id, commitment.clone());
+				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
+				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
+			}
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::ready())]
+		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			let member = ensure_signed(origin)?;
 			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
+				matches!(
+					ShardMembers::<T>::get(shard_id, &member),
+					Some(MemberStatus::Committed(_))
+				),
+				Error::<T>::UnexpectedReady,
 			);
 			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
+			let commitment = ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
+			if ShardMembers::<T>::iter_prefix(shard_id)
+				.all(|(_, status)| status == MemberStatus::Ready)
+			{
+				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
+				T::TaskScheduler::shard_online(shard_id, network);
+			}
 			Ok(())
 		}
 	}
@@ -152,38 +211,6 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
-				return InvalidTransaction::Call.into();
-			}
-
-			match call {
-				Call::submit_tss_public_key { shard_id, public_key: _ } => {
-					log::info!("got unsigned tx for tss pub key {:?}", shard_id);
-					if ShardPublicKey::<T>::get(shard_id).is_some() {
-						return InvalidTransaction::Call.into();
-					}
-				},
-				_ => {
-					return InvalidTransaction::Call.into();
-				},
-			};
-
-			ValidTransaction::with_tag_prefix("shards-pallet")
-				.priority(TransactionPriority::max_value())
-				.longevity(10)
-				.propagate(true)
-				.build()
-		}
-
-		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Ok(())
-		}
-	}
-
 	impl<T: Config> Pallet<T> {
 		/// Remove shard state for shard that just went offline
 		/// Set shard status to offline and keep shard public key if already submitted
@@ -199,10 +226,6 @@ pub mod pallet {
 				})
 				.collect::<Vec<_>>();
 			T::Elections::shard_offline(network, members);
-		}
-
-		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
-			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
 		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
@@ -223,11 +246,43 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 
-		pub fn submit_tss_pub_key(shard_id: ShardId, public_key: TssPublicKey) {
-			use frame_system::offchain::SubmitTransaction;
-			let call = Call::submit_tss_public_key { shard_id, public_key };
-			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-			log::info!("submitted pubkey {:?}", res);
+		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumberFor<T>> {
+			ShardState::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
+			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn submit_commitment(
+			shard_id: ShardId,
+			member: PublicKey,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> TxResult {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
+			signer
+				.send_signed_transaction(|_| Call::commit {
+					shard_id,
+					commitment: commitment.clone(),
+					proof_of_knowledge,
+				})
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
+		}
+
+		pub fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
+			signer
+				.send_signed_transaction(|_| Call::ready { shard_id })
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
 		}
 	}
 
@@ -282,7 +337,7 @@ pub mod pallet {
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			for member in &members {
-				ShardMembers::<T>::insert(shard_id, member, ());
+				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
 				MemberShard::<T>::insert(member, shard_id);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
@@ -312,7 +367,7 @@ pub mod pallet {
 		}
 
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
-			ShardPublicKey::<T>::get(shard_id)
+			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
 		}
 	}
 }

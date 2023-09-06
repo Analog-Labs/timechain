@@ -144,6 +144,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
+#[allow(clippy::too_many_arguments)]
 pub fn new_full(
 	config: Configuration,
 	shard_network: Option<time_primitives::Network>,

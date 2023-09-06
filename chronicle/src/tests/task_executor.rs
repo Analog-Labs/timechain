@@ -14,9 +14,9 @@ use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
-	AccountId, Function, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId, TaskPhase,
-	TaskResult, TaskSpawner, TasksApi, TssPublicKey,
+	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId,
+	TaskPhase, TaskResult, TaskSpawner, TasksApi, TxResult,
 };
 
 lazy_static::lazy_static! {
@@ -35,8 +35,10 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_shards(_: &AccountId) -> Vec<ShardId> { vec![1] }
 		fn get_shard_members(_: ShardId) -> Vec<AccountId> { vec![] }
 		fn get_shard_threshold(_: ShardId) -> u16 { 1 }
-		fn submit_tss_public_key(_: ShardId, _: TssPublicKey) {}
+		fn submit_commitment(_: ShardId, _: PublicKey, _: Commitment, _: ProofOfKnowledge) -> TxResult { Ok(()) }
+		fn submit_online(_: ShardId, _: PublicKey) -> TxResult { Ok(()) }
 	}
+
 	impl TasksApi<Block> for MockApi{
 		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution<u32>> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
 		fn get_task(_: TaskId) -> Option<TaskDescriptor> { Some(TaskDescriptor{
@@ -53,19 +55,15 @@ sp_api::mock_impl_runtime_apis! {
 				hash: "".to_string(),
 			})
 		}
-		fn submit_task_hash(_: ShardId, _: TaskId, _: String) {}
-		fn submit_task_result(_: TaskId, _: TaskCycle, _: TaskResult) {
+		fn submit_task_hash(_: ShardId, _: TaskId, _: String) -> TxResult { Ok(()) }
+		fn submit_task_result(_: TaskId, _: TaskCycle, _: TaskResult) -> TxResult {
 			TASK_STATUS.lock().unwrap().push(true);
+			Ok(())
 		}
-		fn submit_task_error(_: TaskId, _: TaskCycle, _: TaskError) {
+		fn submit_task_error(_: TaskId, _: TaskCycle, _: TaskError) -> TxResult {
 			TASK_STATUS.lock().unwrap().push(false);
+			Ok(())
 		}
-	}
-	impl MembersApi<Block> for MockApi{
-		fn get_member_peer_id(_: &AccountId) -> Option<PeerId> { None }
-		fn get_heartbeat_timeout() -> u64 { 100 }
-		fn submit_register_member(_: Network, _: PublicKey, _: PeerId) {}
-		fn submit_heartbeat(_: PublicKey) {}
 	}
 }
 

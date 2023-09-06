@@ -15,8 +15,8 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskExecutor as OtherTaskExecutor, TaskId,
-	TaskPhase, TaskResult, TaskSpawner, TasksApi, TxResult,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TaskSpawner, TasksApi, TxResult,
 };
 
 lazy_static::lazy_static! {
@@ -143,8 +143,8 @@ async fn task_executor_smoke() -> Result<()> {
 			public_key: pubkey_from_bytes([i; 32]),
 		};
 
-		let task_executor = TaskExecutor::new(params);
-		let _ = task_executor.start_tasks(dummy_block_hash, 1, 1).await;
+		let mut task_executor = TaskExecutor::new(params);
+		task_executor.start_tasks(dummy_block_hash, 1, 1).unwrap();
 
 		log::info!("waiting for result");
 		loop {

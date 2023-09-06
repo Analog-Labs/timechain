@@ -315,9 +315,10 @@ pub mod pallet {
 			ensure_root(origin.clone()).is_ok()
 				|| Tasks::<T>::get(task_id).map_or(false, |task| {
 					if let Ok(origin) = ensure_signed(origin) {
-						return task.owner == origin;
+						task.owner == origin
+					} else {
+						false
 					}
-					return false;
 				})
 		}
 

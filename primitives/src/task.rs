@@ -1,4 +1,7 @@
-use crate::{AccountId, Network, PeerId, ShardId, TssSignature};
+#[cfg(feature = "std")]
+use crate::SubmitResult;
+use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+#[cfg(feature = "std")]
 use anyhow::Result;
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
@@ -30,15 +33,17 @@ impl Function {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct CycleStatus {
+pub struct TaskResult {
 	pub shard_id: ShardId,
+	pub hash: [u8; 32],
 	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskError {
 	pub shard_id: ShardId,
-	pub error: String,
+	pub msg: String,
+	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -77,16 +82,16 @@ pub enum TaskStatus {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, Hash)]
-pub enum TaskPhase {
-	Write(PeerId),
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TaskPhase<BlockNumber> {
+	Write(PublicKey, BlockNumber),
 	Read(Option<String>),
 }
 
-impl TaskPhase {
-	pub fn peer_id(&self) -> Option<PeerId> {
-		if let Self::Write(peer_id) = self {
-			Some(*peer_id)
+impl<B> TaskPhase<B> {
+	pub fn public_key(&self) -> Option<&PublicKey> {
+		if let Self::Write(public_key, _) = self {
+			Some(public_key)
 		} else {
 			None
 		}
@@ -101,27 +106,27 @@ impl TaskPhase {
 	}
 }
 
-impl Default for TaskPhase {
+impl<B> Default for TaskPhase<B> {
 	fn default() -> Self {
 		TaskPhase::Read(None)
 	}
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
-pub struct TaskExecution {
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TaskExecution<B> {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
 	pub retry_count: TaskRetryCount,
-	pub phase: TaskPhase,
+	pub phase: TaskPhase<B>,
 }
 
-impl TaskExecution {
+impl<B> TaskExecution<B> {
 	pub fn new(
 		task_id: TaskId,
 		cycle: TaskCycle,
 		retry_count: TaskRetryCount,
-		phase: TaskPhase,
+		phase: TaskPhase<B>,
 	) -> Self {
 		Self {
 			task_id,
@@ -133,7 +138,7 @@ impl TaskExecution {
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for TaskExecution {
+impl<B> std::fmt::Display for TaskExecution<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
 	}
@@ -144,6 +149,7 @@ impl std::fmt::Display for TaskExecution {
 pub trait TaskSpawner {
 	async fn block_height(&self) -> Result<u64>;
 
+	#[allow(clippy::too_many_arguments)]
 	fn execute_read(
 		&self,
 		target_block: u64,
@@ -153,10 +159,44 @@ pub trait TaskSpawner {
 		function: Function,
 		hash: String,
 		block_num: u64,
-	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
 	fn execute_write(
 		&self,
+		shard_id: ShardId,
+		task_id: TaskId,
 		function: Function,
-	) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'static>>;
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'static {
+	fn network(&self) -> Network;
+
+	async fn start_tasks(
+		&self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()>;
+}
+
+#[cfg(feature = "std")]
+pub trait SubmitTasks {
+	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: String) -> SubmitResult;
+
+	fn submit_task_result(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		status: TaskResult,
+	) -> SubmitResult;
+
+	fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> SubmitResult;
 }

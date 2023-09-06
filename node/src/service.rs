@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use futures::channel::mpsc;
 use futures::prelude::*;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
@@ -8,7 +7,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 
 // Our native executor instance.
@@ -145,27 +144,17 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
+#[allow(clippy::too_many_arguments)]
 pub fn new_full(
 	config: Configuration,
+	shard_network: Option<time_primitives::Network>,
 	connector_url: Option<String>,
 	connector_blockchain: Option<String>,
 	connector_network: Option<String>,
 	keyfile: Option<String>,
-	without_chronicle: bool,
 	timegraph_url: Option<String>,
 	timegraph_ssk: Option<String>,
 ) -> Result<TaskManager, ServiceError> {
-	let peer_id = config
-		.network
-		.node_key
-		.clone()
-		.into_keypair()
-		.unwrap()
-		.public()
-		.try_into_ed25519()
-		.unwrap()
-		.to_bytes();
-	log::info!("Peer identity bytes: {:?}", peer_id);
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -190,7 +179,7 @@ pub fn new_full(
 
 	// registering time p2p protocol
 	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
-	net_config.add_request_response_protocol(time_worker::protocol_config(protocol_tx));
+	net_config.add_request_response_protocol(chronicle::protocol_config(protocol_tx));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -239,7 +228,6 @@ pub fn new_full(
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let keystore = keystore_container.keystore();
 
-	let (sign_data_sender, sign_data_receiver) = mpsc::channel(400);
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
@@ -344,7 +332,7 @@ pub fn new_full(
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			sync: sync_service,
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		};
 
 		// the GRANDPA voter task is considered infallible, i.e.
@@ -354,49 +342,29 @@ pub fn new_full(
 			None,
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-		if !without_chronicle {
-			// injecting our Worker
-			let time_params = time_worker::TimeWorkerParams {
-				_block: PhantomData,
-				runtime: client.clone(),
+
+		if let Some(shard_network) = shard_network {
+			let params = chronicle::ChronicleParams {
 				client: client.clone(),
-				backend: backend.clone(),
-				network,
-				peer_id,
-				tss_request: sign_data_receiver,
-				protocol_request: protocol_rx,
-			};
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"time-worker",
-				None,
-				time_worker::start_timeworker_gadget(time_params),
-			);
-
-			// start the executor for one-time task
-			let task_executor_params = task_executor::TaskExecutorParams {
-				_block: PhantomData,
 				runtime: client.clone(),
-				client,
-				backend,
-				peer_id,
-				task_spawner: futures::executor::block_on(task_executor::Task::new(
-					task_executor::TaskSpawnerParams {
-						tss: sign_data_sender,
-						connector_url,
-						connector_blockchain,
-						connector_network,
-						keyfile,
-						timegraph_url,
-						timegraph_ssk,
-					},
-				))
-				.unwrap(),
+				keystore: keystore_container.keystore(),
+				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+				network,
+				tss_requests: protocol_rx,
+				config: chronicle::ChronicleConfig {
+					network: shard_network,
+					connector_url,
+					connector_blockchain,
+					connector_network,
+					keyfile,
+					timegraph_url,
+					timegraph_ssk,
+				},
 			};
 			task_manager.spawn_essential_handle().spawn_blocking(
-				"task-executor",
+				"chronicle",
 				None,
-				task_executor::start_task_executor_gadget(task_executor_params),
+				chronicle::run_chronicle(params),
 			);
 		}
 	}

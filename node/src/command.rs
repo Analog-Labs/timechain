@@ -214,11 +214,11 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.run_node_until_exit(|config| async move {
 				service::new_full(
 					config,
+					cli.run.network,
 					cli.run.connector_url,
 					cli.run.connector_blockchain,
 					cli.run.connector_network,
 					cli.run.keyfile,
-					cli.run.without_chronicle,
 					cli.run.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
 					cli.run.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
 				)

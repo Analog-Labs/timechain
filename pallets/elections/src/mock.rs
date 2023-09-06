@@ -1,85 +1,44 @@
-use crate::{self as pallet_ocw};
+use crate::{self as pallet_elections};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
-use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature,
+	BuildStorage, MultiSignature,
 };
-use std::collections::HashMap;
-use std::sync::Mutex;
-use time_primitives::{
-	CycleStatus, Network, OcwShardInterface, OcwTaskInterface, PeerId, PublicKey, ShardId,
-	ShardsInterface, TaskCycle, TaskError, TaskId, TasksInterface, TssPublicKey, TIME_KEY_TYPE,
-};
+use time_primitives::{MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-pub type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-lazy_static::lazy_static! {
-	pub static ref SHARD_PUBLIC_KEYS: Mutex<HashMap<ShardId, TssPublicKey>> = Default::default();
-}
+pub struct MockMembers;
 
-pub(crate) const PHRASE: &str =
-	"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
-
-pub struct MockShards;
-
-impl OcwShardInterface for MockShards {
-	fn benchmark_register_shard(
-		_network: Network,
-		_members: Vec<PeerId>,
-		_collector: PublicKey,
-		_threshold: u16,
-	) {
+impl MemberStorage for MockMembers {
+	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
+		None
 	}
-	fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
-		SHARD_PUBLIC_KEYS.lock().unwrap().insert(shard_id, public_key);
-		Ok(())
+	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
+		None
 	}
-}
-
-impl ShardsInterface for MockShards {
-	fn is_shard_online(_: ShardId) -> bool {
+	fn is_member_online(_: &AccountId) -> bool {
 		true
 	}
-	fn collector_pubkey(_: ShardId) -> Option<PublicKey> {
-		let keystore = MemoryKeystore::new();
-		let collector = keystore.sr25519_generate_new(TIME_KEY_TYPE, Some(PHRASE)).unwrap();
-		Some(collector.into())
-	}
-	fn collector_peer_id(_: ShardId) -> Option<PeerId> {
-		Some([0u8; 32])
-	}
 }
 
-pub struct MockTasks;
+pub struct MockTaskScheduler;
 
-impl OcwTaskInterface for MockTasks {
-	fn submit_task_result(_: TaskId, _: TaskCycle, _: CycleStatus) -> DispatchResult {
-		Ok(())
-	}
-
-	fn submit_task_error(_: TaskId, _: TaskError) -> DispatchResult {
-		Ok(())
-	}
-
-	fn submit_task_hash(_: ShardId, _: TaskId, _: String) -> DispatchResult {
-		Ok(())
-	}
-}
-
-impl TasksInterface for MockTasks {
+impl TasksInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: Network) {}
 	fn shard_offline(_: ShardId, _: Network) {}
 }
 
 frame_support::construct_runtime!(
-	pub struct Test {
+	pub struct Test
+	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		Ocw: pallet_ocw::{Pallet, Call, Storage, Event<T>},
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
+		Elections: pallet_elections::{Pallet, Storage},
 	}
 );
 
@@ -125,31 +84,21 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 }
 
-impl pallet_ocw::Config for Test {
+impl pallet_elections::Config for Test {
+	type Shards = Shards;
+	type Members = MockMembers;
+	type ShardSize = ConstU16<3>;
+	type Threshold = ConstU16<2>;
+}
+
+impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AuthorityId = time_primitives::crypto::SigAuthId;
-	type OcwShards = MockShards;
-	type OcwTasks = MockTasks;
-	type Shards = MockShards;
-	type Tasks = MockTasks;
-}
-
-// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
-	}
-	.assimilate_storage(&mut storage)
-	.unwrap();
-	let mut ext: sp_io::TestExternalities = storage.into();
-	ext.execute_with(|| System::set_block_number(1));
-	ext
-}
-
-pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
+	type TaskScheduler = MockTaskScheduler;
+	type Members = MockMembers;
+	type Elections = Elections;
+	type DkgTimeout = ConstU64<10>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
@@ -180,4 +129,21 @@ where
 impl frame_system::offchain::SigningTypes for Test {
 	type Public = <Signature as Verify>::Signer;
 	type Signature = Signature;
+}
+
+// Build genesis storage according to the mock runtime.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
+	let mut ext: sp_io::TestExternalities = storage.into();
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }

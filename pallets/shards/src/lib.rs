@@ -12,20 +12,31 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::Saturating;
+	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		Network, OcwShardInterface, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
+		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
-		fn register_shard() -> Weight;
+		fn commit() -> Weight;
+		fn ready() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn register_shard() -> Weight {
+		fn commit() -> Weight {
+			Weight::default()
+		}
+
+		fn ready() -> Weight {
 			Weight::default()
 		}
 	}
@@ -35,25 +46,19 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>, Public = PublicKey>
+		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
+		type Elections: ElectionsInterface;
+		type Members: MemberStorage;
 		type TaskScheduler: TasksInterface;
-		#[pallet::constant]
-		type MaxMembers: Get<u8>;
-		#[pallet::constant]
-		type MinMembers: Get<u8>;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
-
-	#[pallet::storage]
-	pub type ShardCollectorPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, PublicKey, OptionQuery>;
-
-	#[pallet::storage]
-	pub type ShardCollectorPeerId<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, PeerId, OptionQuery>;
 
 	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
@@ -74,18 +79,31 @@ pub mod pallet {
 	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ShardPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
+	pub type ShardCommitment<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, Commitment, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ShardMembers<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, PeerId, (), OptionQuery>;
+	pub type MemberShard<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, ShardId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type ShardMembers<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ShardId,
+		Blake2_128Concat,
+		AccountId,
+		MemberStatus,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, Network),
+		/// Shard commited
+		ShardCommitted(ShardId, Commitment),
 		/// Shard DKG timed out
 		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
@@ -97,42 +115,81 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnknownShard,
-		PublicKeyAlreadyRegistered,
-		MembershipBelowMinimum,
-		MembershipAboveMaximum,
-		ThresholdAboveMembershipLen,
-		ThresholdMustBeNonZero,
+		UnexpectedCommit,
+		InvalidCommitment,
+		InvalidProofOfKnowledge,
+		UnexpectedReady,
 		ShardAlreadyOffline,
+		OfflineShardMayNotGoOnline,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Root can register new shard via providing
-		/// set of IDs matching one of supported size of shard
-		/// # Param
-		/// * members - supported sized set of shard members Id
-		/// * collector - index of collector if not index 0
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::register_shard())]
-		pub fn register_shard(
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::commit())]
+		pub fn commit(
 			origin: OriginFor<T>,
-			network: Network,
-			members: Vec<PeerId>,
-			collector: PublicKey,
-			threshold: u16,
+			shard_id: ShardId,
+			commitment: Commitment,
+			_proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			let member = ensure_signed(origin)?;
 			ensure!(
-				members.len() >= T::MinMembers::get().into(),
-				Error::<T>::MembershipBelowMinimum
+				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
+				Error::<T>::UnexpectedCommit
 			);
+			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
+			ensure!(commitment.len() == threshold as usize, Error::<T>::InvalidCommitment);
+			for c in &commitment {
+				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
+			}
+			// TODO: verify proof of knowledge
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
+			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
+				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
+					.filter_map(|(_, status)| status.commitment().cloned())
+					.reduce(|mut group_commitment, commitment| {
+						for (group_commitment, commitment) in
+							group_commitment.iter_mut().zip(commitment.iter())
+						{
+							*group_commitment = VerifyingKey::new(
+								VerifyingKey::from_bytes(*group_commitment).unwrap().to_element()
+									+ VerifyingKey::from_bytes(*commitment).unwrap().to_element(),
+							)
+							.to_bytes()
+							.unwrap();
+						}
+						group_commitment
+					})
+					.unwrap();
+				ShardCommitment::<T>::insert(shard_id, commitment.clone());
+				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
+				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
+			}
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::ready())]
+		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			let member = ensure_signed(origin)?;
 			ensure!(
-				members.len() <= T::MaxMembers::get().into(),
-				Error::<T>::MembershipAboveMaximum
+				matches!(
+					ShardMembers::<T>::get(shard_id, &member),
+					Some(MemberStatus::Committed(_))
+				),
+				Error::<T>::UnexpectedReady,
 			);
-			ensure!(members.len() >= threshold as usize, Error::<T>::ThresholdAboveMembershipLen);
-			ensure!(threshold > 0, Error::<T>::ThresholdMustBeNonZero);
-			Self::create_shard(network, members, collector, threshold);
+			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let commitment = ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
+			if ShardMembers::<T>::iter_prefix(shard_id)
+				.all(|(_, status)| status == MemberStatus::Ready)
+			{
+				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
+				T::TaskScheduler::shard_online(shard_id, network);
+			}
 			Ok(())
 		}
 	}
@@ -144,11 +201,7 @@ pub mod pallet {
 			ShardState::<T>::iter().for_each(|(shard_id, status)| {
 				if let Some(created_block) = status.when_created() {
 					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-						// clean up shard state and emit event for timeout
-						ShardState::<T>::remove(shard_id);
-						ShardNetwork::<T>::remove(shard_id);
-						let _ = ShardMembers::<T>::clear_prefix(shard_id, u32::max_value(), None);
-						ShardCollectorPublicKey::<T>::remove(shard_id);
+						Self::remove_shard_offline(shard_id);
 						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
 						writes += 5;
 					}
@@ -159,38 +212,27 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn create_shard(
-			network: Network,
-			members: Vec<PeerId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
-			let shard_id = <ShardIdCounter<T>>::get();
-			<ShardIdCounter<T>>::put(shard_id + 1);
-			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardState<T>>::insert(
-				shard_id,
-				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
-			);
-			<ShardThreshold<T>>::insert(shard_id, threshold);
-			<ShardCollectorPublicKey<T>>::insert(shard_id, collector);
-			//TODO change on dynamic collector assigning
-			<ShardCollectorPeerId<T>>::insert(shard_id, members[0]);
-			for member in &members {
-				<ShardMembers<T>>::insert(shard_id, *member, ());
-			}
-			Self::deposit_event(Event::ShardCreated(shard_id, network));
+		/// Remove shard state for shard that just went offline
+		/// Set shard status to offline and keep shard public key if already submitted
+		fn remove_shard_offline(shard_id: ShardId) {
+			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
+			ShardThreshold::<T>::remove(shard_id);
+			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
+			T::TaskScheduler::shard_offline(shard_id, network);
+			let members = ShardMembers::<T>::drain_prefix(shard_id)
+				.map(|(m, _)| {
+					MemberShard::<T>::remove(&m);
+					m
+				})
+				.collect::<Vec<_>>();
+			T::Elections::shard_offline(network, members);
 		}
 
-		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
-			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
-		}
-
-		pub fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
+		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
 					|(shard_id, member, _)| {
-						if member == peer_id {
+						if member == *account {
 							Some(shard_id)
 						} else {
 							None
@@ -200,42 +242,79 @@ pub mod pallet {
 				.collect()
 		}
 
-		pub fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+		pub fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 
-		// Used in tests
-		pub fn set_shard_offline(shard_id: ShardId) -> DispatchResult {
-			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
-			Self::deposit_event(Event::ShardOffline(shard_id));
-			T::TaskScheduler::shard_offline(shard_id, network);
-			Ok(())
+		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumberFor<T>> {
+			ShardState::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
+			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn submit_commitment(
+			shard_id: ShardId,
+			member: PublicKey,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> TxResult {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
+			signer
+				.send_signed_transaction(|_| Call::commit {
+					shard_id,
+					commitment: commitment.clone(),
+					proof_of_knowledge,
+				})
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
+		}
+
+		pub fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
+			signer
+				.send_signed_transaction(|_| Call::ready { shard_id })
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
 		}
 	}
 
-	impl<T: Config> OcwShardInterface for Pallet<T> {
-		fn benchmark_register_shard(
-			network: Network,
-			members: Vec<PeerId>,
-			collector: PublicKey,
-			threshold: u16,
-		) {
-			Self::create_shard(network, members, collector, threshold);
+	impl<T: Config> MemberEvents for Pallet<T> {
+		fn member_online(id: &AccountId, network: Network) {
+			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
+			let new_status = old_status.online_member();
+			ShardState::<T>::insert(shard_id, new_status);
+			if matches!(new_status, ShardStatus::Online)
+				&& !matches!(old_status, ShardStatus::Online)
+			{
+				T::TaskScheduler::shard_online(shard_id, network);
+			}
 		}
-		fn submit_tss_public_key(shard_id: ShardId, public_key: TssPublicKey) -> DispatchResult {
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			ensure!(
-				ShardPublicKey::<T>::get(shard_id).is_none(),
-				Error::<T>::PublicKeyAlreadyRegistered
-			);
-			<ShardPublicKey<T>>::insert(shard_id, public_key);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
-			Ok(())
+
+		fn member_offline(id: &AccountId, _: Network) {
+			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else  { return };
+			let total_members = Self::get_shard_members(shard_id).len();
+			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
+			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
+			let new_status = old_status.offline_member(max_members_offline);
+			if matches!(new_status, ShardStatus::Offline)
+				&& !matches!(old_status, ShardStatus::Offline)
+			{
+				Self::remove_shard_offline(shard_id);
+				Self::deposit_event(Event::ShardOffline(shard_id));
+			} else if !matches!(new_status, ShardStatus::Offline) {
+				ShardState::<T>::insert(shard_id, new_status);
+			}
 		}
 	}
 
@@ -244,12 +323,51 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
-		fn collector_pubkey(shard_id: ShardId) -> Option<PublicKey> {
-			ShardCollectorPublicKey::<T>::get(shard_id)
+		fn is_shard_member(member: &AccountId) -> bool {
+			MemberShard::<T>::get(member).is_some()
 		}
 
-		fn collector_peer_id(shard_id: ShardId) -> Option<PeerId> {
-			ShardCollectorPeerId::<T>::get(shard_id)
+		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
+			let shard_id = <ShardIdCounter<T>>::get();
+			<ShardIdCounter<T>>::put(shard_id + 1);
+			<ShardNetwork<T>>::insert(shard_id, network);
+			<ShardState<T>>::insert(
+				shard_id,
+				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
+			);
+			<ShardThreshold<T>>::insert(shard_id, threshold);
+			for member in &members {
+				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
+				MemberShard::<T>::insert(member, shard_id);
+			}
+			Self::deposit_event(Event::ShardCreated(shard_id, network));
+		}
+
+		fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey {
+			let seed = u64::from_ne_bytes(
+				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
+					.try_into()
+					.expect("Block hash should convert into [u8; 8]"),
+			);
+			let mut rng = fastrand::Rng::with_seed(seed);
+			let members = Self::get_shard_members(shard_id);
+			let mut signer_index = rng.usize(..members.len());
+			let signer = T::Members::member_public_key(&members[signer_index])
+				.expect("All signers should be registered members");
+			if let Some(old_signer) = last_signer {
+				if signer == old_signer {
+					// increment signer_index ensures signer != old_signer
+					signer_index =
+						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
+					return T::Members::member_public_key(&members[signer_index])
+						.expect("All signers should be registered members");
+				}
+			}
+			signer
+		}
+
+		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
+			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
 		}
 	}
 }

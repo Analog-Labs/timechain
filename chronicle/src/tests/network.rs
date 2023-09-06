@@ -227,8 +227,12 @@ where
 		Network::Ethereum
 	}
 
-	async fn start_tasks(
-		&self,
+	async fn poll_block_height(&mut self) {
+		futures::future::poll_fn(|_| Poll::Pending).await
+	}
+
+	fn start_tasks(
+		&mut self,
 		_block_hash: <B as sp_block>::Hash,
 		_block_num: u64,
 		_shard_id: ShardId,

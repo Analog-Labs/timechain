@@ -188,12 +188,13 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn try_root_or_owner(origin: OriginFor<T>, task_id: TaskId) -> bool {
-			ensure_root(origin.clone()).is_ok() || Tasks::<T>::get(task_id).map_or(false, |task| {
-				if let Ok(origin) = ensure_signed(origin){
-					return task.owner == origin;
-				}
-				return false;
-			})
+			ensure_root(origin.clone()).is_ok()
+				|| Tasks::<T>::get(task_id).map_or(false, |task| {
+					if let Ok(origin) = ensure_signed(origin) {
+						return task.owner == origin;
+					}
+					return false;
+				})
 		}
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {

@@ -89,10 +89,12 @@ fn task_stopped_by_invalid_owner() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_noop!(Tasks::stop_task(RawOrigin::Signed([1; 32].into()).into(), 0), Error::<Test>::InvalidOwner);
+		assert_noop!(
+			Tasks::stop_task(RawOrigin::Signed([1; 32].into()).into(), 0),
+			Error::<Test>::InvalidOwner
+		);
 	});
 }
-
 
 #[test]
 fn resume_failed_task() {

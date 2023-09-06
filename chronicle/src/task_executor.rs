@@ -341,13 +341,13 @@ where
 		self.poll_block_height().await
 	}
 
-	fn start_tasks(
+	fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
 		block_num: u64,
 		shard_id: ShardId,
-	) -> Result<()> {
-		self.start_tasks(block_hash, block_num, shard_id)
+	) -> Result<Vec<TssId>> {
+		self.process_tasks(block_hash, block_num, shard_id)
 	}
 }
 
@@ -392,12 +392,12 @@ where
 		}
 		tokio::time::sleep(Duration::from_secs(10)).await;
 	}
-	pub fn start_tasks(
+	pub fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
 		block_num: u64,
 		shard_id: ShardId,
-	) -> Result<()> {
+	) -> Result<Vec<TssId>> {
 		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 		log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
@@ -461,6 +461,7 @@ where
 				self.running_tasks.insert(executable_task.clone(), handle);
 			}
 		}
+		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		self.running_tasks.retain(|x, handle| {
 			if tasks.contains(x) {
 				true
@@ -469,9 +470,10 @@ where
 					log::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
 					handle.abort();
 				}
+				completed_sessions.push(TssId(x.task_id, x.cycle));
 				false
 			}
 		});
-		Ok(())
+		Ok(completed_sessions)
 	}
 }

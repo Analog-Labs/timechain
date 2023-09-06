@@ -1,6 +1,6 @@
-#[cfg(feature = "std")]
-use crate::SubmitResult;
 use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+#[cfg(feature = "std")]
+use crate::{SubmitResult, TssId};
 #[cfg(feature = "std")]
 use anyhow::Result;
 use codec::{Decode, Encode};
@@ -174,8 +174,12 @@ pub trait TaskSpawner {
 pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 	fn network(&self) -> Network;
 	async fn poll_block_height(&mut self);
-	fn start_tasks(&mut self, block_hash: B::Hash, block_num: u64, shard_id: ShardId)
-		-> Result<()>;
+	fn process_tasks(
+		&mut self,
+		block_hash: B::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<Vec<TssId>>;
 }
 
 #[cfg(feature = "std")]

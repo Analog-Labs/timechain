@@ -477,7 +477,10 @@ where
 			if tasks.contains(x) {
 				true
 			} else {
-				handle.abort();
+				if !handle.is_finished() {
+					log::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
+					handle.abort();
+				}
 				false
 			}
 		});

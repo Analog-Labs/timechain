@@ -195,7 +195,7 @@ pub mod pallet {
 				OcwPayload::SubmitTaskError { task_id, .. } => Some(*task_id),
 				_ => None,
 			};
-			loop {
+			for _ in 0..100 {
 				let call_res = match &payload {
 					OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
 						.send_signed_transaction(|_| Call::submit_tss_public_key {

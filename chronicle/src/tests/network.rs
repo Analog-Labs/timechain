@@ -231,13 +231,13 @@ where
 		futures::future::poll_fn(|_| Poll::Pending).await
 	}
 
-	fn start_tasks(
+	fn process_tasks(
 		&mut self,
 		_block_hash: <B as sp_block>::Hash,
 		_block_num: u64,
 		_shard_id: ShardId,
-	) -> Result<()> {
-		Ok(())
+	) -> Result<Vec<TssId>> {
+		Ok(vec![])
 	}
 }
 

@@ -189,34 +189,50 @@ pub mod pallet {
 				return;
 			};
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
-			let call_res = match payload {
-				OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
-					.send_signed_transaction(|_| Call::submit_tss_public_key {
-						shard_id,
-						public_key,
-					}),
-				OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
-					.send_signed_transaction(|_| Call::submit_task_result {
-						task_id,
-						cycle,
-						status: status.clone(),
-					}),
-
-				OcwPayload::SetShardOffline { shard_id, network } => signer
-					.send_signed_transaction(|_| Call::set_shard_offline { shard_id, network }),
-				OcwPayload::SubmitTaskError { task_id, error } => {
-					signer.send_signed_transaction(|_| Call::submit_task_error {
-						task_id,
-						error: error.clone(),
-					})
-				},
+			let mut counter = 0;
+			let task_id = match &payload {
+				OcwPayload::SubmitTaskResult { task_id, .. } => Some(*task_id),
+				OcwPayload::SubmitTaskError { task_id, .. } => Some(*task_id),
+				_ => None,
 			};
-			let Some((_, res)) = call_res else {
-				log::info!("send signed transaction returned none");
-				return;
-			};
-			if let Err(e) = res {
-				log::error!("send signed transaction returned an error: {:?}", e);
+			loop {
+				let call_res = match &payload {
+					OcwPayload::SubmitTssPublicKey { shard_id, public_key } => signer
+						.send_signed_transaction(|_| Call::submit_tss_public_key {
+							shard_id: *shard_id,
+							public_key: public_key.clone(),
+						}),
+					OcwPayload::SetShardOffline { shard_id, network } => signer
+						.send_signed_transaction(|_| Call::set_shard_offline {
+							shard_id: *shard_id,
+							network: *network,
+						}),
+					OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
+						.send_signed_transaction(|_| Call::submit_task_result {
+							task_id: *task_id,
+							cycle: *cycle,
+							status: status.clone(),
+						}),
+					OcwPayload::SubmitTaskError { task_id, error } => signer
+						.send_signed_transaction(|_| Call::submit_task_error {
+							task_id: *task_id,
+							error: error.clone(),
+						}),
+				};
+				let Some((_, res)) = call_res else {
+					log::info!("send signed transaction returned none");
+					return;
+				};
+				if res.is_err() {
+					log::error!(
+						"send signed transaction for task {:?} returned an error (retry {})",
+						task_id,
+						counter
+					);
+					counter += 1;
+					continue;
+				}
+				break;
 			}
 		}
 	}

@@ -212,10 +212,7 @@ pub mod pallet {
 		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
-			ensure!(
-				Self::is_resumable(task_id),
-				Error::<T>::InvalidTaskState
-			);
+			ensure!(Self::is_resumable(task_id), Error::<T>::InvalidTaskState);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			Self::deposit_event(Event::TaskResumed(task_id));

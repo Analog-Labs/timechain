@@ -156,9 +156,8 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::stop_task())]
 		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			let owner = ensure_signed(origin)?;
-			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
+			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
 			ensure!(
 				TaskState::<T>::get(task_id) == Some(TaskStatus::Created),
 				Error::<T>::InvalidTaskState
@@ -171,9 +170,8 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::resume_task())]
 		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			let owner = ensure_signed(origin)?;
-			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
+			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
 			ensure!(
 				matches!(
 					TaskState::<T>::get(task_id),
@@ -189,6 +187,16 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn try_root_or_owner(origin: OriginFor<T>, task_id: TaskId) -> bool {
+			ensure_root(origin.clone()).is_ok()
+				|| Tasks::<T>::get(task_id).map_or(false, |task| {
+					if let Ok(origin) = ensure_signed(origin) {
+						return task.owner == origin;
+					}
+					return false;
+				})
+		}
+
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
 				.filter(|(task_id, _)| Self::is_runnable(*task_id))

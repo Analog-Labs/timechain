@@ -8,13 +8,13 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
 	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
+	time::Duration,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
 	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
-use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 pub struct TaskSpawnerParams<B: Block, R, TxSub> {
@@ -306,7 +306,7 @@ where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
 	R::Api: TasksApi<B>,
-	T: TaskSpawner,
+	T: TaskSpawner + Send + Sync + 'static,
 {
 	pub _block: PhantomData<B>,
 	pub runtime: Arc<R>,
@@ -316,32 +316,13 @@ where
 }
 
 pub struct TaskExecutor<B: Block, R, T> {
+	_block: PhantomData<B>,
+	runtime: Arc<R>,
+	task_spawner: T,
 	network: Network,
-	task_executor: Arc<Mutex<InnerTaskExecutor<B, R, T>>>,
-}
-
-impl<B, R, T> TaskExecutor<B, R, T>
-where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	T: TaskSpawner + Send + Sync + 'static,
-{
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
-		Self {
-			network: params.network,
-			task_executor: Arc::new(Mutex::new(InnerTaskExecutor::new(params))),
-		}
-	}
-}
-
-impl<B: Block, R, T> Clone for TaskExecutor<B, R, T> {
-	fn clone(&self) -> Self {
-		Self {
-			network: self.network,
-			task_executor: self.task_executor.clone(),
-		}
-	}
+	public_key: PublicKey,
+	running_tasks: BTreeMap<TaskExecution<u32>, JoinHandle<()>>,
+	block_height: u64,
 }
 
 #[async_trait::async_trait]
@@ -353,63 +334,70 @@ where
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	fn network(&self) -> Network {
-		self.network
+		self.network()
 	}
 
-	async fn start_tasks(
-		&self,
-		block_hash: B::Hash,
-		block_num: u64,
-		shard_id: ShardId,
-	) -> Result<()> {
-		self.task_executor
-			.lock()
-			.await
-			.start_tasks(block_hash, block_num, shard_id)
-			.await
-	}
-}
-
-struct InnerTaskExecutor<B: Block, R, T> {
-	_block: PhantomData<B>,
-	runtime: Arc<R>,
-	public_key: PublicKey,
-	running_tasks: BTreeMap<TaskExecution<u32>, JoinHandle<()>>,
-	task_spawner: T,
-}
-
-impl<B, R, T> InnerTaskExecutor<B, R, T>
-where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	T: TaskSpawner,
-{
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
-		let TaskExecutorParams {
-			_block,
-			runtime,
-			network: _,
-			public_key,
-			task_spawner,
-		} = params;
-		Self {
-			_block,
-			runtime,
-			public_key,
-			running_tasks: Default::default(),
-			task_spawner,
-		}
+	async fn poll_block_height(&mut self) {
+		self.poll_block_height().await
 	}
 
-	pub async fn start_tasks(
+	fn start_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<()> {
-		let block_height =
-			self.task_spawner.block_height().await.context("Failed to fetch block height")?;
+		self.start_tasks(block_hash, block_num, shard_id)
+	}
+}
+
+impl<B, R, T> TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + 'static,
+{
+	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+		let TaskExecutorParams {
+			_block,
+			runtime,
+			task_spawner,
+			network,
+			public_key,
+		} = params;
+		Self {
+			_block,
+			runtime,
+			task_spawner,
+			network,
+			public_key,
+			block_height: 0,
+			running_tasks: Default::default(),
+		}
+	}
+
+	pub fn network(&self) -> Network {
+		self.network
+	}
+
+	pub async fn poll_block_height(&mut self) {
+		match self.task_spawner.block_height().await {
+			Ok(block_height) => {
+				self.block_height = block_height;
+			},
+			Err(error) => {
+				log::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
+			},
+		}
+		tokio::time::sleep(Duration::from_secs(10)).await;
+	}
+	pub fn start_tasks(
+		&mut self,
+		block_hash: <B as Block>::Hash,
+		block_num: u64,
+		shard_id: ShardId,
+	) -> Result<()> {
 		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
 		log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
@@ -423,7 +411,7 @@ where
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;
-			if block_height >= target_block_number {
+			if self.block_height >= target_block_number {
 				log::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {

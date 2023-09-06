@@ -171,15 +171,11 @@ pub trait TaskSpawner {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'static {
+pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 	fn network(&self) -> Network;
-
-	async fn start_tasks(
-		&self,
-		block_hash: B::Hash,
-		block_num: u64,
-		shard_id: ShardId,
-	) -> Result<()>;
+	async fn poll_block_height(&mut self);
+	fn start_tasks(&mut self, block_hash: B::Hash, block_num: u64, shard_id: ShardId)
+		-> Result<()>;
 }
 
 #[cfg(feature = "std")]

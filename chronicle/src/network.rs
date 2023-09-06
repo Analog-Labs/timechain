@@ -170,15 +170,19 @@ where
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
 			};
-			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
-				== ShardStatus::Committed
-			{
-				let commitment =
-					self.runtime.runtime_api().get_shard_commitment(block, shard_id).unwrap();
-				let commitment =
-					VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
-				tss.on_commit(commitment);
+			if tss.committed() {
+				continue;
 			}
+			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
+				!= ShardStatus::Committed
+			{
+				continue;
+			}
+			let commitment =
+				self.runtime.runtime_api().get_shard_commitment(block, shard_id).unwrap();
+			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
+			tss.on_commit(commitment);
+			self.poll_actions(shard_id, block_number);
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
 			if n > block_number {
@@ -207,7 +211,7 @@ where
 				let result = tss
 					.on_request(peer_id, msg)
 					.map(|msg| bincode::serialize(&msg).unwrap())
-					.map_err(|_| ());
+					.map_err(|error| log::error!(target: TW_LOG, "invalid request: {:?}", error));
 				let _ = pending_response.send(OutgoingResponse {
 					result,
 					reputation_changes: vec![],
@@ -217,6 +221,11 @@ where
 			}
 		}
 		for shard_id in shards {
+			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
+				!= ShardStatus::Online
+			{
+				continue;
+			}
 			let task_executor = self.task_executor.clone();
 			tokio::task::spawn(async move {
 				log::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
@@ -336,7 +345,6 @@ where
 					};
 					let block_hash = notification.header.hash();
 					let block_number = notification.header.number().to_string().parse().unwrap();
-					log::debug!(target: TW_LOG, "finalized {}", block_number);
 					self.on_finality(block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {

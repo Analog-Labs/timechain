@@ -85,6 +85,7 @@ pub struct Tss<I, P> {
 	threshold: u16,
 	coordinators: BTreeSet<Identifier>,
 	state: TssState<I>,
+	committed: bool,
 }
 
 impl<I, P> Tss<I, P>
@@ -124,6 +125,7 @@ where
 			} else {
 				TssState::Dkg(Dkg::new(frost_id, members, threshold))
 			},
+			committed: false,
 		}
 	}
 
@@ -141,6 +143,10 @@ where
 
 	pub fn threshold(&self) -> usize {
 		self.threshold as _
+	}
+
+	pub fn committed(&self) -> bool {
+		self.committed
 	}
 
 	pub fn on_request(
@@ -210,7 +216,10 @@ where
 	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
 		log::debug!("{} commit", self.peer_id);
 		match &mut self.state {
-			TssState::Dkg(dkg) => dkg.on_commit(commitment),
+			TssState::Dkg(dkg) => {
+				dkg.on_commit(commitment);
+				self.committed = true;
+			},
 			_ => log::error!("unexpected commit"),
 		}
 	}

@@ -3,6 +3,7 @@ use crate::tx_submitter::TransactionSubmitter;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
+use futures::stream::FuturesUnordered;
 use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
 use sc_network::NetworkSigner;
 use sc_network_test::{
@@ -384,7 +385,7 @@ async fn tss_smoke() -> Result<()> {
 
 	let block_number = client[0].chain_info().finalized_number;
 	let message = [1u8; 32];
-	let mut rxs = vec![];
+	let mut rxs = FuturesUnordered::new();
 	for tss in &mut tss {
 		let (tx, rx) = oneshot::channel();
 		tss.send(TssSigningRequest {
@@ -397,10 +398,8 @@ async fn tss_smoke() -> Result<()> {
 		.await?;
 		rxs.push(rx);
 	}
-	for rx in rxs {
-		let signature = rx.await?;
-		verify_tss_signature(public_key, &message, signature.1)?;
-	}
+	let signature = rxs.next().await.unwrap()?;
+	verify_tss_signature(public_key, &message, signature.1)?;
 
 	Ok(())
 }

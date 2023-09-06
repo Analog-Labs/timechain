@@ -24,15 +24,15 @@ mod tx_submitter;
 
 pub const TW_LOG: &str = "chronicle";
 
-/// time protocol name suffix.
-pub const PROTOCOL_NAME: &str = "/time/1";
+/// chronicle protocol name suffix.
+pub const PROTOCOL_NAME: &str = "/chronicle/1";
 
 pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestResponseConfig {
 	RequestResponseConfig {
 		name: PROTOCOL_NAME.into(),
 		fallback_names: vec![],
 		max_request_size: 1024 * 1024,
-		max_response_size: 0,
+		max_response_size: 1024 * 1024,
 		request_timeout: Duration::from_secs(3),
 		inbound_queue: Some(tx),
 	}

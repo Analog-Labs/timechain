@@ -148,6 +148,7 @@ where
 			.runtime_api()
 			.get_shards(block, &self.public_key.clone().into_account())
 			.unwrap();
+		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;

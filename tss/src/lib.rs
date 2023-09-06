@@ -249,6 +249,18 @@ where
 		}
 	}
 
+	pub fn on_complete(&mut self, id: I) {
+		log::debug!("{} complete {}", self.peer_id, id);
+		match &mut self.state {
+			TssState::Roast { signing_sessions, .. } => {
+				signing_sessions.remove(&id);
+			},
+			_ => {
+				log::error!("not ready to complete");
+			},
+		}
+	}
+
 	pub fn next_action(&mut self) -> Option<TssAction<I, P>> {
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
@@ -341,7 +353,6 @@ where
 								(peers, send_to_self, msg)
 							},
 							RoastAction::Complete(hash, signature) => {
-								signing_sessions.remove(&id);
 								return Some(TssAction::Signature(id, hash, signature));
 							},
 						};

@@ -229,6 +229,7 @@ impl Roast {
 					&self.public_key_package,
 				) {
 					let hash = VerifyingKey::message_hash(self.signer.data());
+					self.coordinator.take();
 					return Some(RoastAction::Complete(hash, signature));
 				}
 			}

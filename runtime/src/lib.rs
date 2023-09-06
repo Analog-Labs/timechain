@@ -21,6 +21,7 @@ use frame_support::{
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::{Decode, Encode};
+use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -563,6 +564,7 @@ impl pallet_babe::Config for Runtime {
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominations;
 }
 
 parameter_types! {
@@ -574,6 +576,7 @@ impl pallet_grandpa::Config for Runtime {
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominations;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -708,8 +711,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
-	type VotersBound = MaxOnChainElectingVoters;
-	type TargetsBound = MaxOnChainElectableTargets;
+	type Bounds = ElectionBoundsOnChain;
 }
 
 parameter_types! {
@@ -778,7 +780,6 @@ impl pallet_staking::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
-	type MaxNominations = MaxNominations;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
@@ -807,11 +808,19 @@ impl pallet_staking::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
 	type EventListeners = ();
+	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 }
 
 parameter_types! {
 	pub const MinerMaxLength: u32 = 256;
 	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get().max_block;
+
+	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
+	// carefully set so that an election round fits in one block.
+	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(5_000.into()).targets_count(1_250.into()).build();
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -877,11 +886,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, ()>;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	type MaxElectableTargets = MaxElectableTargets;
-	type MaxElectingVoters = MaxElectingVoters;
 	type MaxWinners = MaxActiveValidators;
 	type BenchmarkingConfig = BenchmarkConfig;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
+	type ElectionBounds = ElectionBoundsMultiPhase;
 }
 
 impl pallet_timestamp::Config for Runtime {

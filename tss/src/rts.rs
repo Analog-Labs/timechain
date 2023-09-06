@@ -264,22 +264,22 @@ impl Rts {
 	}
 
 	pub fn next_action(&mut self) -> Option<RtsAction> {
-		loop {
-			if let Some(session) = self.session.as_mut() {
-				if let Some(sigmas) = session.sigmas() {
-					let secret_share =
-						repairable::repair_share_step_3(&sigmas, self.id, &self.commitment);
-					// TODO: handle failure somehow. maybe try a different set of random peers?
-					let Ok(key_package) = KeyPackage::try_from(secret_share) else {
+		if let Some(session) = self.session.as_mut() {
+			if let Some(sigmas) = session.sigmas() {
+				let secret_share =
+					repairable::repair_share_step_3(&sigmas, self.id, &self.commitment);
+				// TODO: handle failure somehow. maybe try a different set of random peers?
+				let Ok(key_package) = KeyPackage::try_from(secret_share) else {
 						return Some(RtsAction::Failure);
 					};
-					return Some(RtsAction::Complete(
-						key_package,
-						self.public_key_package.clone(),
-						self.commitment.clone(),
-					));
-				} else if let Some(deltas) = session.deltas() {
-					return Some(RtsAction::Send(
+				Some(RtsAction::Complete(
+					key_package,
+					self.public_key_package.clone(),
+					self.commitment.clone(),
+				))
+			} else {
+				session.deltas().map(|deltas| {
+					RtsAction::Send(
 						deltas
 							.map(|(to, deltas)| {
 								(
@@ -291,39 +291,37 @@ impl Rts {
 								)
 							})
 							.collect(),
-					));
-				} else {
-					return None;
-				}
-			} else {
-				let helpers: BTreeSet<_> = self
-					.members
-					.iter()
-					.filter(|helper| **helper != self.id)
-					.filter(|helper| !self.unhelpful.contains(helper))
-					.take(self.threshold as _)
-					.copied()
-					.collect();
-				if helpers.len() != self.threshold as usize {
-					return Some(RtsAction::Failure);
-				}
-				let session_id = self.session_id;
-				self.session = Some(RtsSession::new(helpers.clone()));
-				return Some(RtsAction::Send(
-					helpers
-						.iter()
-						.map(|helper| {
-							(
-								*helper,
-								RtsRequest::Delta {
-									session_id,
-									helpers: helpers.clone(),
-								},
-							)
-						})
-						.collect(),
-				));
+					)
+				})
 			}
+		} else {
+			let helpers: BTreeSet<_> = self
+				.members
+				.iter()
+				.filter(|helper| **helper != self.id)
+				.filter(|helper| !self.unhelpful.contains(helper))
+				.take(self.threshold as _)
+				.copied()
+				.collect();
+			if helpers.len() != self.threshold as usize {
+				return Some(RtsAction::Failure);
+			}
+			let session_id = self.session_id;
+			self.session = Some(RtsSession::new(helpers.clone()));
+			Some(RtsAction::Send(
+				helpers
+					.iter()
+					.map(|helper| {
+						(
+							*helper,
+							RtsRequest::Delta {
+								session_id,
+								helpers: helpers.clone(),
+							},
+						)
+					})
+					.collect(),
+			))
 		}
 	}
 }
@@ -339,7 +337,7 @@ mod tests {
 		let signers = 3;
 		let threshold = 2;
 		let (secret_shares, public_key_package) =
-			generate_with_dealer(signers, threshold, IdentifierList::Default, &mut OsRng).unwrap();
+			generate_with_dealer(signers, threshold, IdentifierList::Default, OsRng).unwrap();
 		let members: BTreeSet<_> = secret_shares.keys().copied().collect();
 		let commitment = secret_shares.values().next().unwrap().commitment();
 		let mut helpers: BTreeMap<_, _> = members

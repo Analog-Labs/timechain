@@ -160,6 +160,7 @@ where
 		Ok(rx.await?)
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn submit_timegraph(
 		&self,
 		target_block: u64,
@@ -201,6 +202,7 @@ where
 		Ok(())
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn read(
 		self,
 		target_block: u64,
@@ -220,7 +222,7 @@ where
 			Err(payload) => payload.as_str(),
 		};
 		let (hash, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
+			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(

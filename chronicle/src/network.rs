@@ -270,7 +270,7 @@ where
 							shard_id,
 							self.public_key.clone(),
 							commitment.serialize(),
-							proof_of_knowledge.serialize().into(),
+							proof_of_knowledge.serialize(),
 						)
 						.unwrap()
 						.unwrap();

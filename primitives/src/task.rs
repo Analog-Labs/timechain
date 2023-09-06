@@ -149,6 +149,7 @@ impl<B> std::fmt::Display for TaskExecution<B> {
 pub trait TaskSpawner {
 	async fn block_height(&self) -> Result<u64>;
 
+	#[allow(clippy::too_many_arguments)]
 	fn execute_read(
 		&self,
 		target_block: u64,

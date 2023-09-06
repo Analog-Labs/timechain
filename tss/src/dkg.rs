@@ -92,7 +92,7 @@ impl Dkg {
 		let signing_share = self
 			.round2_packages
 			.values()
-			.map(|package| package.secret_share().clone())
+			.map(|package| *package.secret_share())
 			.chain(std::iter::once(SigningShare::from_coefficients(
 				secret_package.coefficients(),
 				self.id,
@@ -108,7 +108,7 @@ impl Dkg {
 				return Some(DkgAction::Failure);
 			},
 		};
-		let public_key_package = PublicKeyPackage::from_commitment(&self.members, &commitment);
+		let public_key_package = PublicKeyPackage::from_commitment(&self.members, commitment);
 		Some(DkgAction::Complete(key_package, public_key_package, commitment.clone()))
 	}
 }

@@ -42,7 +42,7 @@ pub mod pallet {
 
 	impl<T: Config> MemberEvents for Pallet<T> {
 		fn member_online(member: &AccountId, network: Network) {
-			if !T::Shards::is_shard_member(&member) {
+			if !T::Shards::is_shard_member(member) {
 				Unassigned::<T>::insert(network, member, ());
 				Self::try_elect_shard(network);
 			}

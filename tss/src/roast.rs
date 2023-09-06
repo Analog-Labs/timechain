@@ -261,7 +261,7 @@ mod tests {
 		let coordinator = 1;
 		let data = b"a message to sing".to_vec();
 		let (secret_shares, public_key_package) =
-			generate_with_dealer(signers, threshold, IdentifierList::Default, &mut OsRng).unwrap();
+			generate_with_dealer(signers, threshold, IdentifierList::Default, OsRng).unwrap();
 		let coordinators: BTreeSet<_> = secret_shares.keys().copied().take(coordinator).collect();
 		let mut roasts: BTreeMap<_, _> = secret_shares
 			.into_iter()

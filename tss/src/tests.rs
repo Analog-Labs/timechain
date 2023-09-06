@@ -131,7 +131,6 @@ impl TssTester {
 								.insert(from, sig)
 								.is_none());
 						},
-						TssAction::Failure => unreachable!(),
 					}
 				}
 			}

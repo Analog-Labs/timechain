@@ -1,3 +1,4 @@
+#![allow(clippy::large_enum_variant)]
 use crate::dkg::{Dkg, DkgAction, DkgMessage};
 use crate::roast::{Roast, RoastAction, RoastRequest, RoastSignerResponse};
 use crate::rts::{Rts, RtsAction, RtsHelper, RtsRequest, RtsResponse};

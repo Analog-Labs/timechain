@@ -17,8 +17,9 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, PublicKey, ShardId,
-		ShardStatus, ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
+		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -69,8 +70,8 @@ pub mod pallet {
 	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ShardPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, TssPublicKey, OptionQuery>;
+	pub type ShardCommitment<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, Commitment, OptionQuery>;
 
 	#[pallet::storage]
 	pub type MemberShard<T: Config> =
@@ -83,7 +84,7 @@ pub mod pallet {
 		ShardId,
 		Blake2_128Concat,
 		AccountId,
-		(),
+		MemberStatus,
 		OptionQuery,
 	>;
 
@@ -111,13 +112,14 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit_tss_public_key())]
-		pub fn submit_tss_public_key(
+		#[pallet::weight(T::WeightInfo::commit())]
+		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
-			public_key: TssPublicKey,
+			commitment: Vec<[u8; 33]>,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			// TODO
+			/*ensure_none(origin)?;
 			ensure!(
 				!matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Offline)),
 				Error::<T>::OfflineShardMayNotGoOnline
@@ -130,7 +132,14 @@ pub mod pallet {
 			<ShardPublicKey<T>>::insert(shard_id, public_key);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 			Self::deposit_event(Event::ShardOnline(shard_id, public_key));
-			T::TaskScheduler::shard_online(shard_id, network);
+			T::TaskScheduler::shard_online(shard_id, network);*/
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::ready())]
+		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			// TODO
 			Ok(())
 		}
 	}
@@ -152,38 +161,6 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
-				return InvalidTransaction::Call.into();
-			}
-
-			match call {
-				Call::submit_tss_public_key { shard_id, public_key: _ } => {
-					log::info!("got unsigned tx for tss pub key {:?}", shard_id);
-					if ShardPublicKey::<T>::get(shard_id).is_some() {
-						return InvalidTransaction::Call.into();
-					}
-				},
-				_ => {
-					return InvalidTransaction::Call.into();
-				},
-			};
-
-			ValidTransaction::with_tag_prefix("shards-pallet")
-				.priority(TransactionPriority::max_value())
-				.longevity(10)
-				.propagate(true)
-				.build()
-		}
-
-		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Ok(())
-		}
-	}
-
 	impl<T: Config> Pallet<T> {
 		/// Remove shard state for shard that just went offline
 		/// Set shard status to offline and keep shard public key if already submitted
@@ -199,10 +176,6 @@ pub mod pallet {
 				})
 				.collect::<Vec<_>>();
 			T::Elections::shard_offline(network, members);
-		}
-
-		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
-			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
 		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
@@ -223,12 +196,19 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
 		}
 
-		pub fn submit_tss_pub_key(shard_id: ShardId, public_key: TssPublicKey) {
-			use frame_system::offchain::SubmitTransaction;
-			let call = Call::submit_tss_public_key { shard_id, public_key };
-			let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-			log::info!("submitted pubkey {:?}", res);
+		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
+
+		pub fn get_shard_status(shard_id: ShardId) -> Option<ShardStatus<BlockNumberFor<T>>> {
+			ShardState::<T>::get(shard_id)
+		}
+
+		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Vec<TssPublicKey>> {
+			ShardCommitment::<T>::get(shard_id)
+		}
+
+		pub fn submit_commitment(public_key: PublicKey, shard_id: ShardId) {}
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
@@ -312,7 +292,7 @@ pub mod pallet {
 		}
 
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
-			ShardPublicKey::<T>::get(shard_id)
+			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
 		}
 	}
 }

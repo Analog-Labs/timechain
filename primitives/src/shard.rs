@@ -8,11 +8,15 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use sp_api::ApiError;
 use sp_runtime::traits::{Saturating, Zero};
+use sp_std::vec::Vec;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
+pub type TssHash = [u8; 32];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
+pub type ProofOfKnowledge = [u8; 65];
+pub type Commitment = Vec<TssPublicKey>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "std", derive(Deserialize, Serialize))]
@@ -43,6 +47,13 @@ impl core::str::FromStr for Network {
 			_ => anyhow::bail!("unsupported network {}", s),
 		})
 	}
+}
+
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub enum MemberStatus {
+	Added,
+	Committed(Commitment),
+	Ready,
 }
 
 /// Track status of shard
@@ -76,6 +87,7 @@ impl<B: Copy> ShardStatus<B> {
 			_ => *self,
 		}
 	}
+
 	pub fn offline_member(&self, max: u16) -> Self {
 		match self {
 			ShardStatus::PartialOffline(count) => {
@@ -106,18 +118,18 @@ pub trait SubmitShards {
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
-		commitment: Vec<[u8; 33]>,
-		proof_of_knowledge: [u8; 65],
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
 	) -> Result<(), ApiError>;
 
 	fn submit_online(&self, shard_id: ShardId) -> Result<(), ApiError>;
 }
 
 #[cfg(feature = "std")]
-pub struct TssRequest {
+pub struct TssSigningRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub block_number: u64,
 	pub data: Vec<u8>,
-	pub tx: oneshot::Sender<([u8; 32], TssSignature)>,
+	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }

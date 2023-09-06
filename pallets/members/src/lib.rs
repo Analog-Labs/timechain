@@ -148,7 +148,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) {
+		pub fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) -> Result<(), TxError> {
 			let signer =
 				Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key.clone()]);
 			let call_res = signer.send_signed_transaction(|_| Call::register_member {
@@ -175,10 +175,10 @@ pub mod pallet {
 				return;
 			};
 			let Err(e) = res else {
-				log::info!("submit heartbeat transaction sent");
+				log::error!("send heartbeat returned an error: {:?}", e)
 				return;
 			};
-			log::error!("send heartbeat returned an error: {:?}", e)
+			log::info!("submit heartbeat transaction sent");
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

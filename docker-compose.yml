@@ -10,9 +10,7 @@ volumes:
   validator7-volume:
   validator8-volume:
   ethereum-volume:
-  ethereum-connector-volume:
   astar-volume:
-  astar-connector-volume:
   pgsql-dbx-volume:
 services:
   bootnode:
@@ -25,7 +23,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-url=ws://ethereum:8545'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--network=ethereum'
@@ -57,7 +55,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-url=ws://ethereum:8545'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--network=ethereum'
@@ -91,7 +89,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-url=ws://ethereum:8545'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--network=ethereum'
@@ -125,7 +123,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://astar-connector:8081'
+    - '--connector-url=ws://astar:9944'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
     - '--network=astar'
@@ -158,7 +156,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://astar-connector:8081'
+    - '--connector-url=ws://astar:9944'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
     - '--network=astar'
@@ -191,7 +189,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://astar-connector:8081'
+    - '--connector-url=ws://astar:9944'
     - '--connector-blockchain=astar'
     - '--connector-network=dev'
     - '--network=astar'
@@ -224,7 +222,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-url=ws://ethereum:8545'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--network=ethereum'
@@ -257,7 +255,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-url=ws://ethereum:8545'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--network=ethereum'
@@ -290,7 +288,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=http://ethereum-connector:8080'
+    - '--connector-url=ws://ethereum:8545'
     - '--connector-blockchain=ethereum'
     - '--connector-network=dev'
     - '--network=ethereum'
@@ -324,23 +322,6 @@ services:
     - astar
     - ethereum
 
-  ethereum-connector:
-    image: "analoglabs/connector-ethereum"
-    platform: linux/amd64
-    command: "--network dev --addr 0.0.0.0:8080 --node-addr http://ethereum:8545"
-    expose:
-    - "8080"
-    ports:
-    - "8080:8080"
-    depends_on:
-    - ethereum
-    volumes:
-    - "ethereum-connector-volume:/data"
-    restart: always
-    profiles:
-    - astar
-    - ethereum
-
   astar:
     image: "staketechnologies/astar-collator:latest"
     platform: linux/amd64
@@ -349,22 +330,6 @@ services:
     - "9944"
     volumes:
     - "astar-volume:/astar"
-    profiles:
-    - astar
-
-  astar-connector:
-    image: "analoglabs/connector-astar"
-    platform: linux/amd64
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr ws://astar:9944"
-    expose:
-    - "8081"
-    ports:
-    - "8081:8081"
-    depends_on:
-    - astar
-    volumes:
-    - "astar-connector-volume:/data"
-    restart: always
     profiles:
     - astar
 

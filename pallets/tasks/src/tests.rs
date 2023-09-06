@@ -46,7 +46,7 @@ fn task_stopped_by_owner() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
 		System::assert_last_event(Event::<Test>::TaskStopped(0).into());
 	});
@@ -59,6 +59,21 @@ fn task_resumed_by_owner() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
+	});
+}
+
+#[test]
+fn task_resumed_by_root() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
 		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0));
@@ -66,6 +81,18 @@ fn task_resumed_by_owner() {
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
 }
+
+#[test]
+fn task_stopped_by_invalid_owner() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_noop!(Tasks::stop_task(RawOrigin::Signed([1; 32].into()).into(), 0), Error::<Test>::InvalidOwner);
+	});
+}
+
 
 #[test]
 fn resume_failed_task() {

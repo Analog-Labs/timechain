@@ -20,7 +20,7 @@ sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "rel
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.0.1" }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.0.1" }
 time-primitives = { path = "../primitives" }
-timegraph-client = "0.1.7"
+timegraph-client = "0.1.9"
 tokio = "1.32.0"
 tss = { path = "../tss" }
 

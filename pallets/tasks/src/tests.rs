@@ -636,12 +636,7 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_online(1, Network::Ethereum);
 		// fails 3 time to turn task status to failed
 		for _ in 0..3 {
-			assert_ok!(Tasks::submit_error(
-				RawOrigin::None.into(),
-				0,
-				0,
-				mock_error.clone()
-			));
+			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, mock_error.clone()));
 		}
 		assert_eq!(Tasks::task_shard(0), Some(1));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));

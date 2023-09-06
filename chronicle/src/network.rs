@@ -227,13 +227,10 @@ where
 			{
 				continue;
 			}
-			let task_executor = self.task_executor.clone();
-			tokio::task::spawn(async move {
-				log::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
-				if let Err(err) = task_executor.start_tasks(block, block_number, shard_id).await {
-					log::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, err);
-				}
-			});
+			log::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
+			if let Err(err) = self.task_executor.start_tasks(block, block_number, shard_id) {
+				log::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, err);
+			}
 		}
 	}
 
@@ -405,6 +402,7 @@ where
 					log::debug!(target: TW_LOG, "submitting heartbeat");
 					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
+				_ = self.task_executor.poll_block_height().fuse() => {}
 			}
 		}
 	}

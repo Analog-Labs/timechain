@@ -253,7 +253,7 @@ fn submit_completed_result_purges_task_from_storage() {
 }
 
 #[test]
-fn shard_offline_drops_failed_tasks() {
+fn shard_offline_doesnt_drops_failed_tasks() {
 	new_test_ext().execute_with(|| {
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
@@ -274,7 +274,7 @@ fn shard_offline_drops_failed_tasks() {
 		}
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len() == 1);
 	});
 }
 
@@ -419,7 +419,6 @@ fn task_resumed_by_owner() {
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
 }
-
 
 #[test]
 fn task_resumed_by_root() {
@@ -619,5 +618,37 @@ fn write_phase_timeout_reassigns_task() {
 			<TaskPhaseState<Test>>::get(task_id),
 			TaskPhase::Write(pubkey_from_bytes(B), 11)
 		);
+	});
+}
+
+#[test]
+fn resume_failed_task_after_shard_offline() {
+	let mock_error = TaskError {
+		shard_id: 1,
+		msg: "test".to_string(),
+		signature: [0; 64],
+	};
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		// fails 3 time to turn task status to failed
+		for _ in 0..3 {
+			assert_ok!(Tasks::submit_error(
+				RawOrigin::None.into(),
+				0,
+				0,
+				mock_error.clone()
+			));
+		}
+		assert_eq!(Tasks::task_shard(0), Some(1));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert_eq!(Tasks::task_shard(0), None);
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Tasks::task_shard(0), Some(1));
 	});
 }

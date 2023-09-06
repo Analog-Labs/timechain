@@ -88,6 +88,7 @@ pub mod pallet {
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn task_shard)]
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
@@ -212,7 +213,7 @@ pub mod pallet {
 			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
 			ensure!(
-				TaskState::<T>::get(task_id) == Some(TaskStatus::Stopped),
+				Self::is_resumable(task_id),
 				Error::<T>::InvalidTaskState
 			);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
@@ -352,7 +353,10 @@ pub mod pallet {
 		}
 
 		fn is_resumable(task_id: TaskId) -> bool {
-			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Stopped))
+			matches!(
+				TaskState::<T>::get(task_id),
+				Some(TaskStatus::Stopped) | Some(TaskStatus::Failed { .. })
+			)
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {

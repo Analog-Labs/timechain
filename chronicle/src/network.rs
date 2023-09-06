@@ -20,7 +20,7 @@ use std::{
 };
 use time_primitives::{
 	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
-	SubmitShards, TaskExecutor, TssId, TssRequest as TssSigningRequest, TssSignature,
+	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, Duration, Instant};
 use tss::{Tss, TssAction, TssRequest, TssResponse, VerifiableSecretSharingCommitment};
@@ -82,13 +82,15 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 		Pin<
 			Box<
 				dyn Future<
-					Output = (
-						ShardId,
-						PeerId,
-						TssRequest<TssId>,
-						Result<Option<TssResponse<TssId>>>,
-					),
-				>,
+						Output = (
+							ShardId,
+							PeerId,
+							TssRequest<TssId>,
+							Result<Option<TssResponse<TssId>>>,
+						),
+					> + Send
+					+ Sync
+					+ 'static,
 			>,
 		>,
 	>,
@@ -263,20 +265,23 @@ where
 					}
 				},
 				TssAction::Commit(commitment, proof_of_knowledge) => {
-					if let Err(e) = self.tx_submitter.submit_commitment(
-						shard_id,
-						commitment.serialize(),
-						proof_of_knowledge.serialize().into(),
-					) {
-						log::error!("error submitting commitment {:?}", e);
-					}
+					self.tx_submitter
+						.submit_commitment(
+							shard_id,
+							self.public_key.clone(),
+							commitment.serialize(),
+							proof_of_knowledge.serialize().into(),
+						)
+						.unwrap()
+						.unwrap();
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
 					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
-					if let Err(e) = self.tx_submitter.submit_online(shard_id) {
-						log::error!("error submitting online {:?}", e);
-					}
+					self.tx_submitter
+						.submit_online(shard_id, self.public_key.clone())
+						.unwrap()
+						.unwrap();
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -296,14 +301,16 @@ where
 	}
 
 	pub async fn run(mut self) {
-		if let Err(e) = self.tx_submitter.submit_register_member(
-			self.task_executor.network(),
-			self.public_key.clone(),
-			self.peer_id,
-		) {
-			log::error!("error registering member {:?}", e);
-		}
+		self.tx_submitter
+			.submit_register_member(
+				self.task_executor.network(),
+				self.public_key.clone(),
+				self.peer_id,
+			)
+			.unwrap()
+			.unwrap();
 
+		let block = self.client.info().best_hash;
 		let min_block_time = self.runtime.runtime_api().get_block_time_in_msec(block).unwrap();
 		let heartbeat_time =
 			(self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2) * min_block_time;
@@ -378,9 +385,7 @@ where
 					}
 				}
 				_ = heartbeat_tick.tick().fuse() => {
-					if let Err(e) = self.tx_submitter.submit_heartbeat(self.public_key.clone()){
-						log::error!("error submitting heartbeat {:?}", e);
-					}
+					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
 			}
 		}

@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+use crate::SubmitResult;
 use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
 #[cfg(feature = "std")]
 use anyhow::Result;
@@ -5,8 +7,6 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
-#[cfg(feature = "std")]
-use sp_api::ApiError;
 use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::future::Future;
@@ -183,24 +183,19 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block>: Clone + Send + Sync + 'sta
 
 #[cfg(feature = "std")]
 pub trait SubmitTasks {
-	fn submit_task_hash(
-		&self,
-		shard_id: ShardId,
-		task_id: TaskId,
-		hash: String,
-	) -> Result<(), ApiError>;
+	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: String) -> SubmitResult;
 
 	fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Result<(), ApiError>;
+	) -> SubmitResult;
 
 	fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Result<(), ApiError>;
+	) -> SubmitResult;
 }

@@ -33,7 +33,11 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_shards`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
-	fn submit_tss_public_key() -> Weight {
+	fn commit() -> Weight {
+		Weight::default()
+	}
+
+	fn ready() -> Weight {
 		Weight::default()
 	}
 }

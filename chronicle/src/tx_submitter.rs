@@ -1,16 +1,14 @@
 use sc_client_api::HeaderBackend;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiError, ApiExt, ApiRef, ProvideRuntimeApi};
+use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use time_primitives::{
-	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitShards,
-	SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi,
+	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitResult,
+	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi,
 };
-
-type Result<T> = core::result::Result<T, ApiError>;
 
 pub struct TransactionSubmitter<B: Block, C, R> {
 	_block: PhantomData<B>,
@@ -78,16 +76,17 @@ where
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
+		member: PublicKey,
 		commitment: Vec<[u8; 33]>,
 		proof_of_knowledge: [u8; 65],
-	) -> Result<()> {
+	) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
-		runtime_api.submit_commitment(block_hash, shard_id, commitment, proof_of_knowledge)
+		runtime_api.submit_commitment(block_hash, shard_id, member, commitment, proof_of_knowledge)
 	}
 
-	fn submit_online(&self, shard_id: ShardId) -> Result<()> {
+	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
-		runtime_api.submit_online(block_hash, shard_id)
+		runtime_api.submit_online(block_hash, shard_id, member)
 	}
 }
 
@@ -98,7 +97,7 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 {
-	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: String) -> Result<()> {
+	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: String) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_task_hash(block_hash, shard_id, task_id, hash)
 	}
@@ -108,12 +107,17 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Result<()> {
+	) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_task_result(block_hash, task_id, cycle, status)
 	}
 
-	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<()> {
+	fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_task_error(block_hash, task_id, cycle, error)
 	}
@@ -131,12 +135,12 @@ where
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
-	) -> Result<()> {
+	) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_register_member(block_hash, network, public_key, peer_id)
 	}
 
-	fn submit_heartbeat(&self, public_key: PublicKey) -> Result<()> {
+	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_heartbeat(block_hash, public_key)
 	}

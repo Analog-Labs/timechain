@@ -12,14 +12,14 @@ use std::{
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskResult, TaskSpawner, TasksApi, TssId, TssRequest, TssSignature,
+	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::sync::Mutex;
 
 pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 	pub _marker: PhantomData<B>,
-	pub tss: mpsc::Sender<TssRequest>,
+	pub tss: mpsc::Sender<TssSigningRequest>,
 	pub connector_url: Option<String>,
 	pub connector_blockchain: Option<String>,
 	pub connector_network: Option<String>,
@@ -32,7 +32,7 @@ pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 
 pub struct Task<B, R, TxSub> {
 	_marker: PhantomData<B>,
-	tss: mpsc::Sender<TssRequest>,
+	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
 	runtime: Arc<R>,
@@ -145,11 +145,11 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		payload: &str,
-	) -> Result<([u8; 32], TssSignature)> {
+	) -> Result<(TssHash, TssSignature)> {
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
-			.send(TssRequest {
+			.send(TssSigningRequest {
 				request_id: TssId(task_id, cycle),
 				shard_id,
 				block_number,
@@ -221,7 +221,6 @@ where
 		};
 		let (hash, signature) =
 			self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
-		let block_hash = self.client.info().best_hash;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(

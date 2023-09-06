@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+use crate::{PublicKey, SubmitResult};
 use crate::{TaskCycle, TaskId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -5,8 +7,6 @@ use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
-use sp_api::ApiError;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 
@@ -67,6 +67,12 @@ pub enum ShardStatus<Blocknumber> {
 	Offline,
 }
 
+impl<B> Default for ShardStatus<B> {
+	fn default() -> Self {
+		Self::Offline
+	}
+}
+
 impl<B: Copy> ShardStatus<B> {
 	pub fn when_created(&self) -> Option<B> {
 		match self {
@@ -118,11 +124,12 @@ pub trait SubmitShards {
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
+		member: PublicKey,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<(), ApiError>;
+	) -> SubmitResult;
 
-	fn submit_online(&self, shard_id: ShardId) -> Result<(), ApiError>;
+	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult;
 }
 
 #[cfg(feature = "std")]

@@ -12,22 +12,30 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
-	use frame_system::offchain::{AppCrypto, CreateSignedTransaction};
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Saturating;
+	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
 		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		TasksInterface, TssPublicKey, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
-		fn submit_tss_public_key() -> Weight;
+		fn commit() -> Weight;
+		fn ready() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn submit_tss_public_key() -> Weight {
+		fn commit() -> Weight {
+			Weight::default()
+		}
+
+		fn ready() -> Weight {
 			Weight::default()
 		}
 	}
@@ -116,7 +124,8 @@ pub mod pallet {
 		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
-			commitment: Vec<[u8; 33]>,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			// TODO
 			/*ensure_none(origin)?;
@@ -200,15 +209,40 @@ pub mod pallet {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shard_status(shard_id: ShardId) -> Option<ShardStatus<BlockNumberFor<T>>> {
-			ShardState::<T>::get(shard_id)
+		pub fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumberFor<T>> {
+			ShardState::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Vec<TssPublicKey>> {
-			ShardCommitment::<T>::get(shard_id)
+		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
+			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn submit_commitment(public_key: PublicKey, shard_id: ShardId) {}
+		pub fn submit_commitment(
+			shard_id: ShardId,
+			member: PublicKey,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> TxResult {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
+			signer
+				.send_signed_transaction(|_| Call::commit {
+					shard_id,
+					commitment: commitment.clone(),
+					proof_of_knowledge,
+				})
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
+		}
+
+		pub fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult {
+			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
+			signer
+				.send_signed_transaction(|_| Call::ready { shard_id })
+				.ok_or(TxError::MissingSigningKey)?
+				.1
+				.map_err(|_| TxError::TxPoolError)
+		}
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
@@ -262,7 +296,7 @@ pub mod pallet {
 			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			for member in &members {
-				ShardMembers::<T>::insert(shard_id, member, ());
+				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
 				MemberShard::<T>::insert(member, shard_id);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));

@@ -1,9 +1,8 @@
+#[cfg(feature = "std")]
+use crate::SubmitResult;
 use crate::{Network, PeerId, PublicKey};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-
-#[cfg(feature = "std")]
-use sp_api::ApiError;
 
 #[derive(Clone, Copy, Debug, Encode, Decode, TypeInfo)]
 pub struct HeartbeatInfo<BlockNumber> {
@@ -31,7 +30,7 @@ pub trait SubmitMembers {
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
-	) -> Result<(), ApiError>;
+	) -> SubmitResult;
 
-	fn submit_heartbeat(&self, public_key: PublicKey) -> Result<(), ApiError>;
+	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult;
 }

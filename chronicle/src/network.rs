@@ -3,6 +3,7 @@ use crate::{PROTOCOL_NAME, TW_LOG};
 use anyhow::Result;
 use futures::{
 	channel::{mpsc, oneshot},
+	future::poll_fn,
 	stream::FuturesUnordered,
 	Future, FutureExt, StreamExt,
 };
@@ -17,6 +18,7 @@ use std::{
 	marker::PhantomData,
 	pin::Pin,
 	sync::Arc,
+	task::Poll,
 };
 use time_primitives::{
 	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
@@ -301,6 +303,7 @@ where
 	}
 
 	pub async fn run(mut self) {
+		log::info!(target: TW_LOG, "starting tss");
 		self.tx_submitter
 			.submit_register_member(
 				self.task_executor.network(),
@@ -317,6 +320,8 @@ where
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
+		// add a future that never resolves to keep outgoing requests alive
+		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
@@ -335,6 +340,7 @@ where
 					self.on_finality(block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {
+					log::debug!(target: TW_LOG, "received signing request");
 					let Some(TssSigningRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
 						continue;
 					};
@@ -342,6 +348,7 @@ where
 					self.channels.insert(request_id, tx);
 				},
 				protocol_request = self.protocol_request.next().fuse() => {
+					log::debug!(target: TW_LOG, "received request");
 					let Some(IncomingRequest { peer, payload, pending_response }) = protocol_request else {
 						continue;
 					};
@@ -360,6 +367,7 @@ where
 					}
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
+					log::debug!(target: TW_LOG, "received response");
 					let Some((shard_id, peer, request, result)) = outgoing_request else {
 						continue;
 					};
@@ -385,6 +393,7 @@ where
 					}
 				}
 				_ = heartbeat_tick.tick().fuse() => {
+					log::debug!(target: TW_LOG, "submitting heartbeat");
 					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
 			}

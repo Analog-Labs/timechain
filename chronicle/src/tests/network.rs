@@ -43,13 +43,14 @@ struct InnerMockApi {
 }
 
 impl InnerMockApi {
-	fn create_shard(&mut self, members: Vec<AccountId>) -> ShardId {
+	fn create_shard(&mut self, members: Vec<AccountId>, threshold: u16) -> ShardId {
 		let id = self.shard_counter;
 		self.shard_counter += 1;
 		for member in members.clone() {
 			self.shards.entry(member).or_default().push(id);
 		}
 		self.members.insert(id, members);
+		self.thresholds.insert(id, threshold);
 		id
 	}
 
@@ -113,8 +114,8 @@ struct MockApi {
 }
 
 impl MockApi {
-	pub fn create_shard(&self, members: Vec<AccountId>) -> ShardId {
-		self.inner.lock().unwrap().create_shard(members)
+	pub fn create_shard(&self, members: Vec<AccountId>, threshold: u16) -> ShardId {
+		self.inner.lock().unwrap().create_shard(members, threshold)
 	}
 
 	pub fn shard_status(&self, shard_id: ShardId) -> ShardStatus<u32> {
@@ -164,7 +165,7 @@ sp_api::mock_impl_runtime_apis! {
 			Some((*account).clone().into())
 		}
 		fn get_heartbeat_timeout() -> u64 {
-			100
+			1000000
 		}
 		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) -> TxResult { Ok(()) }
 		fn submit_heartbeat(_public_key: PublicKey) -> TxResult { Ok(()) }
@@ -180,7 +181,7 @@ sp_api::mock_impl_runtime_apis! {
 
 	impl BlockTimeApi<Block> for MockApi{
 		fn get_block_time_in_msec() -> u64{
-			100
+			1000000000000
 		}
 	}
 
@@ -290,6 +291,7 @@ impl MockNetwork {
 #[tokio::test]
 async fn tss_smoke() -> Result<()> {
 	env_logger::try_init().ok();
+	log_panics::init();
 
 	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
@@ -342,14 +344,14 @@ async fn tss_smoke() -> Result<()> {
 			.run(),
 		);
 	}
+
+	log::info!("waiting for peers to connect");
 	net.run_until_connected().await;
 
 	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
-
 	let peers_account_id: Vec<AccountId> =
 		pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
-
-	let shard_id = api.create_shard(peers_account_id);
+	let shard_id = api.create_shard(peers_account_id, 2);
 
 	tokio::task::spawn(async move {
 		let mut block_timer = tokio::time::interval(Duration::from_secs(1));
@@ -374,6 +376,7 @@ async fn tss_smoke() -> Result<()> {
 		}
 	});
 
+	log::info!("waiting for shard to go online");
 	while api.shard_status(shard_id) != ShardStatus::Online {
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	}

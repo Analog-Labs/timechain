@@ -35,3 +35,4 @@ sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polka
 sc-block-builder = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 substrate-test-runtime-client = {  git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 lazy_static = "1.4.0"
+log-panics = "2.1.0"

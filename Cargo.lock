@@ -1224,6 +1224,7 @@ dependencies = [
  "futures",
  "lazy_static",
  "log",
+ "log-panics",
  "rosetta-client",
  "sc-block-builder",
  "sc-client-api",

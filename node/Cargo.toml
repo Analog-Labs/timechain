@@ -14,7 +14,7 @@ targets = [ "x86_64-unknown-linux-gnu" ]
 name = "timechain-node"
 
 [dependencies]
-clap = { version = "4.3.22", features = [ "derive" ] }
+clap = { version = "4.4.2", features = [ "derive" ] }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 lazy_static = "1.4.0"
@@ -52,7 +52,7 @@ sp-statement-store = { git = "https://github.com/paritytech/polkadot-sdk.git", b
 sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.0.1" }
 
 # node 's RPCs deps
-jsonrpsee = { version = "0.16.2", features = [ "server" ] }
+jsonrpsee = { version = "0.20.0", features = [ "server" ] }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.0.1" }
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.0.1" }
 sc-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.0.1" }

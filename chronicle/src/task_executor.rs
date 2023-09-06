@@ -6,9 +6,8 @@ use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, 
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
-use std::marker::{Send, Sync};
 use std::{
-	collections::BTreeSet, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
+	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -16,6 +15,7 @@ use time_primitives::{
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 	pub _marker: PhantomData<B>,
@@ -374,7 +374,7 @@ struct InnerTaskExecutor<B: Block, R, T> {
 	_block: PhantomData<B>,
 	runtime: Arc<R>,
 	public_key: PublicKey,
-	running_tasks: BTreeSet<TaskExecution<u32>>,
+	running_tasks: BTreeMap<TaskExecution<u32>, JoinHandle<()>>,
 	task_spawner: T,
 }
 
@@ -416,7 +416,7 @@ where
 			let task_id = executable_task.task_id;
 			let cycle = executable_task.cycle;
 			let retry_count = executable_task.retry_count;
-			if self.running_tasks.contains(executable_task) {
+			if self.running_tasks.contains_key(executable_task) {
 				continue;
 			}
 			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
@@ -425,7 +425,6 @@ where
 			let hash = task_descr.hash;
 			if block_height >= target_block_number {
 				log::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
-				self.running_tasks.insert(executable_task.clone());
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
 						log::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -448,7 +447,7 @@ where
 						block_num,
 					)
 				};
-				tokio::task::spawn(async move {
+				let handle = tokio::task::spawn(async move {
 					match task.await {
 						Ok(()) => {
 							log::info!(
@@ -471,9 +470,17 @@ where
 						},
 					}
 				});
+				self.running_tasks.insert(executable_task.clone(), handle);
 			}
 		}
-		self.running_tasks.retain(|x| tasks.contains(x));
+		self.running_tasks.retain(|x, handle| {
+			if tasks.contains(x) {
+				true
+			} else {
+				handle.abort();
+				false
+			}
+		});
 		Ok(())
 	}
 }

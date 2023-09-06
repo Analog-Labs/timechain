@@ -156,9 +156,8 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::stop_task())]
 		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			let owner = ensure_signed(origin)?;
+			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
 			ensure!(
 				TaskState::<T>::get(task_id) == Some(TaskStatus::Created),
 				Error::<T>::InvalidTaskState
@@ -171,9 +170,8 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::resume_task())]
 		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			let owner = ensure_signed(origin)?;
+			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(task.owner == owner, Error::<T>::InvalidOwner);
 			ensure!(
 				matches!(
 					TaskState::<T>::get(task_id),

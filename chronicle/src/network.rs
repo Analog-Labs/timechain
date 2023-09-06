@@ -228,8 +228,19 @@ where
 				continue;
 			}
 			log::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
-			if let Err(err) = self.task_executor.start_tasks(block, block_number, shard_id) {
-				log::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, err);
+			let complete_sessions =
+				match self.task_executor.process_tasks(block, block_number, shard_id) {
+					Ok(complete_sessions) => complete_sessions,
+					Err(error) => {
+						log::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, error);
+						continue;
+					},
+				};
+			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+				continue;
+			};
+			for session in complete_sessions {
+				tss.on_complete(session);
 			}
 		}
 	}

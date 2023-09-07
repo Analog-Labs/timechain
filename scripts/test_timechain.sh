@@ -8,7 +8,7 @@ astar_url="ws://127.0.0.1:9944"
 astar_blockchain="astar"
 astar_network="dev"
 
-current_block_regex='current_block_identifier: BlockIdentifier { index: ([0-9]+),'
+current_block_regex='BlockIdentifier { index: ([0-9]+),'
 
 insert_key() {
   if curl -f "http://localhost:$2" -H "Content-Type:application/json;charset=utf-8" -d "{
@@ -55,7 +55,7 @@ rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_networ
 echo "Deploying eth contract"
 contract_result=$(rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network deploy-contract ./contracts/test_contract.sol)
 eth_contract=$(echo $contract_result | grep -oEi '0x[0-9a-zA-Z]+')
-eth_status=$(rosetta-cli --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network network status)
+eth_status=$(rosetta-wallet --url=$eth_url --blockchain=$eth_blockchain --network=$eth_network status)
 minimized_status=$(echo $eth_status)
 [[ $minimized_status =~ $current_block_regex ]]
 eth_block=${BASH_REMATCH[1]}
@@ -83,7 +83,7 @@ rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_
 echo "Deploying astar contract"
 deployed_contract_astr=$(rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network deploy-contract ./contracts/test_contract.sol)
 astar_contract=$(echo $deployed_contract_astr | grep -oEi '0x[0-9a-zA-Z]+')
-astar_status=$(rosetta-cli --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network network status)
+astar_status=$(rosetta-wallet --url=$astar_url --blockchain=$astar_blockchain --network=$astar_network status)
 minimized_status=$(echo $astar_status)
 [[ $minimized_status =~ $current_block_regex ]]
 astar_block=${BASH_REMATCH[1]}

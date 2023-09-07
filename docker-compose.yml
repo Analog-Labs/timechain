@@ -23,17 +23,16 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://ethereum:8545'
-    - '--connector-blockchain=ethereum'
-    - '--connector-network=dev'
-    - '--network=ethereum'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
     - '--keyfile=/etc/eth_keyfile1'
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     environment:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
-    - ethereum-connector
+    - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile1:/etc/eth_keyfile1'
     - 'bootnode-volume:/data'
@@ -55,10 +54,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://ethereum:8545'
-    - '--connector-blockchain=ethereum'
-    - '--connector-network=dev'
-    - '--network=ethereum'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
     - '--keyfile=/etc/eth_keyfile2'
     - '--bob'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
@@ -67,7 +65,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
     depends_on:
     - bootnode
-    - ethereum-connector
+    - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile2:/etc/eth_keyfile2'
     - 'validator1-volume:/data'
@@ -89,10 +87,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://ethereum:8545'
-    - '--connector-blockchain=ethereum'
-    - '--connector-network=dev'
-    - '--network=ethereum'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
     - '--keyfile=/etc/eth_keyfile3'
     - '--charlie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
@@ -101,7 +98,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - ethereum-connector
+    - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile3:/etc/eth_keyfile3'
     - 'validator2-volume:/data'
@@ -123,10 +120,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://astar:9944'
-    - '--connector-blockchain=astar'
-    - '--connector-network=dev'
-    - '--network=astar'
+    - '--url=ws://astar:9944'
+    - '--blockchain=astar'
+    - '--network=dev'
     - '--keyfile=/etc/astar_keyfile1'
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
@@ -135,7 +131,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - astar-connector
+    - astar
     volumes:
     - './dummy_wallets/astar_keyfile1:/etc/astar_keyfile1'
     - 'validator3-volume:/data'
@@ -156,10 +152,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://astar:9944'
-    - '--connector-blockchain=astar'
-    - '--connector-network=dev'
-    - '--network=astar'
+    - '--url=ws://astar:9944'
+    - '--blockchain=astar'
+    - '--network=dev'
     - '--keyfile=/etc/astar_keyfile2'
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
@@ -168,7 +163,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - astar-connector
+    - astar
     volumes:
     - './dummy_wallets/astar_keyfile2:/etc/astar_keyfile2'
     - 'validator4-volume:/data'
@@ -189,10 +184,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://astar:9944'
-    - '--connector-blockchain=astar'
-    - '--connector-network=dev'
-    - '--network=astar'
+    - '--url=ws://astar:9944'
+    - '--blockchain=astar'
+    - '--network=dev'
     - '--keyfile=/etc/astar_keyfile3'
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
@@ -201,7 +195,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - astar-connector
+    - ethereum
     volumes:
     - './dummy_wallets/astar_keyfile3:/etc/astar_keyfile3'
     - 'validator5-volume:/data'
@@ -222,10 +216,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://ethereum:8545'
-    - '--connector-blockchain=ethereum'
-    - '--connector-network=dev'
-    - '--network=ethereum'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
     - '--keyfile=/etc/eth_keyfile4'
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
@@ -234,7 +227,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - ethereum-connector
+    - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile4:/etc/eth_keyfile4'
     - 'validator6-volume:/data'
@@ -255,10 +248,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://ethereum:8545'
-    - '--connector-blockchain=ethereum'
-    - '--connector-network=dev'
-    - '--network=ethereum'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
     - '--keyfile=/etc/eth_keyfile5'
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
@@ -267,7 +259,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - ethereum-connector
+    - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile5:/etc/eth_keyfile5'
     - 'validator7-volume:/data'
@@ -288,10 +280,9 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--connector-url=ws://ethereum:8545'
-    - '--connector-blockchain=ethereum'
-    - '--connector-network=dev'
-    - '--network=ethereum'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
     - '--keyfile=/etc/eth_keyfile6'
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
@@ -300,7 +291,7 @@ services:
       RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
     depends_on:
     - bootnode
-    - ethereum-connector
+    - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile6:/etc/eth_keyfile6'
     - 'validator8-volume:/data'

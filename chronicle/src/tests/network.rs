@@ -166,7 +166,7 @@ sp_api::mock_impl_runtime_apis! {
 			Some((*account).clone().into())
 		}
 		fn get_heartbeat_timeout() -> u64 {
-			1000000
+			1000
 		}
 		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) -> TxResult { Ok(()) }
 		fn submit_heartbeat(_public_key: PublicKey) -> TxResult { Ok(()) }
@@ -175,7 +175,7 @@ sp_api::mock_impl_runtime_apis! {
 	impl TasksApi<Block> for MockApi{
 		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution<u32>> { vec![] }
 		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
-		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: String) -> TxResult { Ok(()) }
+		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: Vec<u8>) -> TxResult { Ok(()) }
 		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) -> TxResult { Ok(()) }
 		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) -> TxResult { Ok(()) }
 	}

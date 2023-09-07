@@ -55,7 +55,7 @@ sp_api::mock_impl_runtime_apis! {
 				hash: "".to_string(),
 			})
 		}
-		fn submit_task_hash(_: ShardId, _: TaskId, _: String) -> TxResult { Ok(()) }
+		fn submit_task_hash(_: ShardId, _: TaskId, _: Vec<u8>) -> TxResult { Ok(()) }
 		fn submit_task_result(_: TaskId, _: TaskCycle, _: TaskResult) -> TxResult {
 			TASK_STATUS.lock().unwrap().push(true);
 			Ok(())

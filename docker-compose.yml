@@ -315,7 +315,7 @@ services:
     expose:
     - "8545"
     ports:
-    - "8545"
+    - "8545:8545"
     volumes:
     - "ethereum-volume:/root"
     profiles:
@@ -335,7 +335,7 @@ services:
     - '--enable-evm-rpc'
     - '--base-path=/astar'
     expose:
-    - "9944"
+    - "9944:9944"
     ports:
     - "9944"
     volumes:

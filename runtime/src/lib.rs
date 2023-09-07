@@ -1513,7 +1513,7 @@ impl_runtime_apis! {
 			Tasks::get_task(task_id)
 		}
 
-		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> TxResult {
+		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> TxResult {
 			Tasks::submit_task_hash(shard_id, task_id, hash)
 		}
 

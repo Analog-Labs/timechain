@@ -15,7 +15,6 @@ pub mod pallet {
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer, SubmitTransaction,
 	};
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::string::String;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
@@ -271,7 +270,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			shard_id: ShardId,
 			task_id: TaskId,
-			hash: String,
+			hash: Vec<u8>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
@@ -403,7 +402,7 @@ pub mod pallet {
 			}
 		}
 
-		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: String) -> TxResult {
+		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> TxResult {
 			let TaskPhase::Write(public_key, _) = TaskPhaseState::<T>::get(task_id) else {
 				log::error!("task not in write phase");
 				return Ok(());

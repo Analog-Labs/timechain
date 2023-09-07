@@ -2,7 +2,7 @@ use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
-use rosetta_client::{create_wallet, types::PartialBlockIdentifier, EthereumExt, Wallet};
+use rosetta_client::{types::PartialBlockIdentifier, Wallet};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -66,10 +66,10 @@ where
 	pub async fn new(params: TaskSpawnerParams<B, R, TxSub>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);
 		let wallet = Arc::new(
-			create_wallet(
-				params.connector_blockchain,
-				params.connector_network,
-				params.connector_url,
+			Wallet::new(
+				params.network.into(),
+				&params.connector_network.unwrap(),
+				&params.connector_url.unwrap(),
 				path,
 			)
 			.await?,
@@ -100,7 +100,7 @@ where
 		&self,
 		function: &Function,
 		target_block_number: u64,
-	) -> Result<String> {
+	) -> Result<Vec<u8>> {
 		let block = PartialBlockIdentifier {
 			index: Some(target_block_number),
 			hash: None,
@@ -115,26 +115,21 @@ where
 					.wallet
 					.eth_view_call(address, function_signature, input, Some(block))
 					.await?;
-				serde_json::to_string(&data.result)?
+				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmTxReceipt { tx } => {
-				let data = self.wallet.eth_transaction_receipt(tx).await?;
-				serde_json::to_string(&data.result)?
+				let data = self.wallet.eth_transaction_receipt(&tx).await?;
+				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmDeploy { bytecode } => {
-				self.wallet.eth_deploy_contract(bytecode.clone()).await?.hash
+				self.wallet.eth_deploy_contract(bytecode.clone()).await?
 			},
 			Function::EvmCall {
 				address,
 				function_signature,
 				input,
 				amount,
-			} => {
-				self.wallet
-					.eth_send_call(address, function_signature, input, *amount)
-					.await?
-					.hash
-			},
+			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
 		})
 	}
 
@@ -144,7 +139,7 @@ where
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		payload: &str,
+		payload: &[u8],
 	) -> Result<(TssHash, TssSignature)> {
 		let (tx, rx) = oneshot::channel();
 		self.tss
@@ -153,7 +148,7 @@ where
 				request_id: TssId(task_id, cycle),
 				shard_id,
 				block_number,
-				data: payload.as_bytes().to_vec(),
+				data: payload.to_vec(),
 				tx,
 			})
 			.await?;
@@ -170,12 +165,12 @@ where
 		function: &Function,
 		collection: String,
 		block_num: u64,
-		payload: &str,
+		payload: &[u8],
 		signature: TssSignature,
 	) -> Result<()> {
 		if let Some(timegraph) = self.timegraph.as_ref() {
 			if matches!(function, Function::EvmViewCall { .. }) {
-				let result_json = serde_json::from_str(payload)?;
+				let result_json = serde_json::from_slice(payload)?;
 				let formatted_result = match result_json {
 					Value::Array(val) => val
 						.iter()
@@ -218,8 +213,8 @@ where
 			.await
 			.map_err(|err| format!("{:?}", err));
 		let payload = match &result {
-			Ok(payload) => payload.as_str(),
-			Err(payload) => payload.as_str(),
+			Ok(payload) => payload.as_slice(),
+			Err(payload) => payload.as_bytes(),
 		};
 		let (hash, signature) =
 			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
@@ -421,7 +416,7 @@ where
 					self.task_spawner.execute_write(shard_id, task_id, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
-						Function::EvmTxReceipt { tx: tx.to_string() }
+						Function::EvmTxReceipt { tx }
 					} else {
 						function
 					};

@@ -23,7 +23,7 @@ pub enum Function {
 	EvmDeploy { bytecode: Vec<u8> },
 	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
 	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
-	EvmTxReceipt { tx: String },
+	EvmTxReceipt { tx: Vec<u8> },
 }
 
 impl Function {
@@ -85,7 +85,7 @@ pub enum TaskStatus {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase<BlockNumber> {
 	Write(PublicKey, BlockNumber),
-	Read(Option<String>),
+	Read(Option<Vec<u8>>),
 }
 
 impl<B> TaskPhase<B> {
@@ -97,9 +97,9 @@ impl<B> TaskPhase<B> {
 		}
 	}
 
-	pub fn tx_hash(&self) -> Option<&str> {
+	pub fn tx_hash(&self) -> Option<&[u8]> {
 		if let Self::Read(Some(tx_hash)) = self {
-			Some(tx_hash.as_str())
+			Some(&tx_hash)
 		} else {
 			None
 		}
@@ -184,7 +184,7 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 
 #[cfg(feature = "std")]
 pub trait SubmitTasks {
-	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: String) -> SubmitResult;
+	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> SubmitResult;
 
 	fn submit_task_result(
 		&self,

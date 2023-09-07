@@ -1,8 +1,8 @@
-eth_url="http://127.0.0.1:8080"
+eth_url="ws://127.0.0.1:8545/ws"
 eth_blockchain="ethereum"
 eth_network="dev"
 
-astar_url="http://127.0.0.1:8081"
+astar_url="ws://127.0.0.1:9944"
 astar_blockchain="astar"
 astar_network="dev"
 

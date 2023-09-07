@@ -335,9 +335,9 @@ services:
     - '--enable-evm-rpc'
     - '--base-path=/astar'
     expose:
-    - "9944:9944"
-    ports:
     - "9944"
+    ports:
+    - "9944:9944"
     volumes:
     - "astar-volume:/astar"
     profiles:

@@ -34,10 +34,25 @@ enum TssState<I> {
 
 #[derive(Clone)]
 pub enum TssAction<I, P> {
-	Send(Vec<(P, TssRequest<I>)>),
+	Send(Vec<(P, TssMessage<I>)>),
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	PublicKey(VerifyingKey),
 	Signature(I, [u8; 32], Signature),
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub enum TssMessage<I> {
+	Request(TssRequest<I>),
+	Response(TssResponse<I>),
+}
+
+impl<I: std::fmt::Display> std::fmt::Display for TssMessage<I> {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::Request(msg) => write!(f, "req {}", msg),
+			Self::Response(msg) => write!(f, "rsp {}", msg),
+		}
+	}
 }
 
 /// Tss message.
@@ -149,11 +164,24 @@ where
 		self.committed
 	}
 
-	pub fn on_request(
-		&mut self,
-		peer_id: P,
-		request: TssRequest<I>,
-	) -> Result<Option<TssResponse<I>>> {
+	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) -> Option<TssMessage<I>> {
+		match msg {
+			TssMessage::Request(request) => match self.on_request(peer_id, request) {
+				Ok(Some(response)) => Some(TssMessage::Response(response)),
+				Ok(None) => None,
+				Err(error) => {
+					log::info!("received invalid request: {:?}", error);
+					None
+				},
+			},
+			TssMessage::Response(response) => {
+				self.on_response(peer_id, response);
+				None
+			},
+		}
+	}
+
+	fn on_request(&mut self, peer_id: P, request: TssRequest<I>) -> Result<Option<TssResponse<I>>> {
 		log::debug!("{} on_request {} {}", self.peer_id, peer_id, request);
 		if self.peer_id == peer_id {
 			anyhow::bail!("{} received message from self", self.peer_id);
@@ -188,26 +216,23 @@ where
 		}
 	}
 
-	pub fn on_response(&mut self, peer_id: P, response: Option<TssResponse<I>>) {
+	fn on_response(&mut self, peer_id: P, response: TssResponse<I>) {
 		let frost_id = peer_to_frost(&peer_id);
 		match (&mut self.state, response) {
 			(TssState::Dkg(_), _) => {},
-			(TssState::Rts(rts), Some(TssResponse::Rts { msg })) => {
+			(TssState::Rts(rts), TssResponse::Rts { msg }) => {
 				rts.on_response(frost_id, Some(msg));
+				// TODO: make rts asynchronous
+				// rts.on_response(frost_id, None);
 			},
-			(TssState::Rts(rts), None) => {
-				rts.on_response(frost_id, None);
-			},
-			(TssState::Roast { signing_sessions, .. }, Some(TssResponse::Roast { id, msg })) => {
+			(TssState::Roast { signing_sessions, .. }, TssResponse::Roast { id, msg }) => {
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_response(frost_id, msg);
 				} else {
 					log::error!("invalid signing session");
 				}
 			},
-			(TssState::Roast { .. }, None) => {},
-			(TssState::Failed, None) => {},
-			(_, Some(msg)) => {
+			(_, msg) => {
 				log::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
 			},
 		}
@@ -269,7 +294,10 @@ where
 						return Some(TssAction::Send(
 							msgs.into_iter()
 								.map(|(peer, msg)| {
-									(self.frost_to_peer(&peer), TssRequest::Dkg { msg })
+									(
+										self.frost_to_peer(&peer),
+										TssMessage::Request(TssRequest::Dkg { msg }),
+									)
 								})
 								.collect(),
 						));
@@ -306,7 +334,12 @@ where
 				RtsAction::Send(msgs) => {
 					return Some(TssAction::Send(
 						msgs.into_iter()
-							.map(|(peer, msg)| (self.frost_to_peer(&peer), TssRequest::Rts { msg }))
+							.map(|(peer, msg)| {
+								(
+									self.frost_to_peer(&peer),
+									TssMessage::Request(TssRequest::Rts { msg }),
+								)
+							})
 							.collect(),
 					));
 				},
@@ -371,10 +404,10 @@ where
 									.map(|peer| {
 										(
 											self.frost_to_peer(&peer),
-											TssRequest::Roast {
+											TssMessage::Request(TssRequest::Roast {
 												id: id.clone(),
 												msg: msg.clone(),
-											},
+											}),
 										)
 									})
 									.collect(),

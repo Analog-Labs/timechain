@@ -25,13 +25,13 @@ use time_primitives::{
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, Duration, Instant};
-use tss::{Tss, TssAction, TssRequest, TssResponse, VerifiableSecretSharingCommitment};
+use tss::{Tss, TssAction, TssMessage, VerifiableSecretSharingCommitment};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
 	shard_id: ShardId,
 	block_number: u64,
-	payload: TssRequest<TssId>,
+	payload: TssMessage<TssId>,
 }
 
 impl TimeMessage {
@@ -76,21 +76,14 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
 	tss_states: HashMap<ShardId, Tss<TssId, PeerId>>,
-	messages:
-		BTreeMap<u64, Vec<(ShardId, PeerId, TssRequest<TssId>, oneshot::Sender<OutgoingResponse>)>>,
+	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
 	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	outgoing_requests: FuturesUnordered<
 		Pin<
 			Box<
-				dyn Future<
-						Output = (
-							ShardId,
-							PeerId,
-							TssRequest<TssId>,
-							Result<Option<TssResponse<TssId>>>,
-						),
-					> + Send
+				dyn Future<Output = (ShardId, PeerId, TssMessage<TssId>, Result<()>)>
+					+ Send
 					+ Sync
 					+ 'static,
 			>,
@@ -204,20 +197,19 @@ where
 			if n > block_number {
 				break;
 			}
-			for (shard_id, peer_id, msg, pending_response) in self.messages.remove(&n).unwrap() {
+			for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 					log::error!(target: TW_LOG, "dropping message {} {} {}", shard_id, peer_id, msg);
 					continue;
 				};
-				let result = tss
-					.on_request(peer_id, msg)
-					.map(|msg| bincode::serialize(&msg).unwrap())
-					.map_err(|error| log::error!(target: TW_LOG, "invalid request: {:?}", error));
-				let _ = pending_response.send(OutgoingResponse {
-					result,
-					reputation_changes: vec![],
-					sent_feedback: None,
-				});
+				if let Some(payload) = tss.on_message(peer_id, msg) {
+					let msg = TimeMessage {
+						shard_id,
+						block_number: 0,
+						payload,
+					};
+					self.send_message(peer_id, msg);
+				}
 				self.poll_actions(shard_id, n);
 			}
 		}
@@ -246,42 +238,16 @@ where
 	}
 
 	fn poll_actions(&mut self, shard_id: ShardId, block_number: u64) {
-		let tss = self.tss_states.get_mut(&shard_id).unwrap();
-		while let Some(action) = tss.next_action() {
+		while let Some(action) = self.tss_states.get_mut(&shard_id).unwrap().next_action() {
 			match action {
 				TssAction::Send(msgs) => {
-					let local_peer_id = to_peer_id(self.peer_id);
 					for (peer, payload) in msgs {
-						log::debug!(
-							target: TW_LOG,
-							"shard {}: {} tx {} to {}",
-							shard_id,
-							local_peer_id,
-							payload,
-							peer
-						);
 						let msg = TimeMessage {
 							shard_id,
 							block_number,
 							payload,
 						};
-						let bytes = msg.encode();
-						let (tx, rx) = oneshot::channel();
-						self.network.start_request(
-							peer,
-							PROTOCOL_NAME.into(),
-							bytes,
-							tx,
-							IfDisconnected::TryConnect,
-						);
-						self.outgoing_requests.push(Box::pin(async move {
-							let result = async move {
-								let response = rx.await??;
-								Ok(bincode::deserialize(&response)?)
-							}
-							.await;
-							(shard_id, peer, msg.payload, result)
-						}));
+						self.send_message(peer, msg);
 					}
 				},
 				TssAction::Commit(commitment, proof_of_knowledge) => {
@@ -318,6 +284,35 @@ where
 				},
 			}
 		}
+	}
+
+	fn send_message(&mut self, peer_id: PeerId, message: TimeMessage) {
+		let local_peer_id = to_peer_id(self.peer_id);
+		log::debug!(
+			target: TW_LOG,
+			"shard {}: {} tx {} to {}",
+			message.shard_id,
+			local_peer_id,
+			message.payload,
+			peer_id
+		);
+		let bytes = message.encode();
+		let (tx, rx) = oneshot::channel();
+		self.network.start_request(
+			peer_id,
+			PROTOCOL_NAME.into(),
+			bytes,
+			tx,
+			IfDisconnected::TryConnect,
+		);
+		self.outgoing_requests.push(Box::pin(async move {
+			let result = async move {
+				let response = rx.await??;
+				Ok(bincode::deserialize(&response)?)
+			}
+			.await;
+			(message.shard_id, peer_id, message.payload, result)
+		}));
 	}
 
 	pub async fn run(mut self) {
@@ -369,18 +364,19 @@ where
 					let Some(IncomingRequest { peer, payload, pending_response }) = protocol_request else {
 						continue;
 					};
+					// Don't try to do anything other than reply immediately as substrate will close the substream.
+					let _ = pending_response.send(OutgoingResponse {
+						result: Ok(vec![]),
+						reputation_changes: vec![],
+						sent_feedback: None,
+					});
 					if let Ok(TimeMessage { shard_id, block_number, payload }) = TimeMessage::decode(&payload) {
 						let local_peer_id = to_peer_id(self.peer_id);
 						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
 							shard_id, local_peer_id, payload, peer);
-						self.messages.entry(block_number).or_default().push((shard_id, peer, payload, pending_response));
+						self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
 					} else {
 						log::debug!(target: TW_LOG, "received invalid message");
-						let _ = pending_response.send(OutgoingResponse {
-							result: Err(()),
-							reputation_changes: vec![],
-							sent_feedback: None,
-						});
 					}
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
@@ -388,25 +384,17 @@ where
 					let Some((shard_id, peer, request, result)) = outgoing_request else {
 						continue;
 					};
-					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-						continue;
-					};
-					match result {
-						Ok(response) => {
-							tss.on_response(peer, response);
-						}
-						Err(error) => {
-							let local_peer_id = to_peer_id(self.peer_id);
-							log::error!(
-								target: TW_LOG,
-								"shard {}: {} tx {} to {} network error {:?}",
-								shard_id,
-								local_peer_id,
-								request,
-								peer,
-								error,
-							);
-						}
+					if let Err(error) = result {
+						let local_peer_id = to_peer_id(self.peer_id);
+						log::error!(
+							target: TW_LOG,
+							"shard {}: {} tx {} to {} network error {:?}",
+							shard_id,
+							local_peer_id,
+							request,
+							peer,
+							error,
+						);
 					}
 				}
 				_ = heartbeat_tick.tick().fuse() => {

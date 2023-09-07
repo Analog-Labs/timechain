@@ -35,7 +35,7 @@ const await_task_status = async (_keyspair, who) => {
             console.log("task_id:" ,task_id, "success with ok results:", stored_result.length);
             break;
         } else if (task_state_unwraped.isFailed){
-            console.log("Task failed with error", task_state_unwraped);
+            console.log("Task failed with error", task_state_unwraped.toHuman());
             break;
         }else{
             console.log("Task not finished, Iterating again, results stored: ", stored_result.length);

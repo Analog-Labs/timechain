@@ -32,8 +32,8 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 		name: PROTOCOL_NAME.into(),
 		fallback_names: vec![],
 		max_request_size: 1024 * 1024,
-		max_response_size: 1024 * 1024,
-		request_timeout: Duration::from_secs(60),
+		max_response_size: 0,
+		request_timeout: Duration::from_secs(3),
 		inbound_queue: Some(tx),
 	}
 }

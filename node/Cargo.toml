@@ -10,18 +10,15 @@ version = "0.0.1"
 
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]
+
 [[bin]]
 name = "timechain-node"
 
 [dependencies]
+async-channel = "1.9.0"
 clap = { version = "4.4.2", features = [ "derive" ] }
 futures = "0.3.28"
 hex-literal = "0.4.1"
-lazy_static = "1.4.0"
-log = "0.4.20"
-serde_json = "1.0"
-snow = "0.9.3"
-tokio = "1.32.0"
 
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 pallet-im-online = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
@@ -52,35 +49,26 @@ sp-statement-store = { git = "https://github.com/paritytech/polkadot-sdk.git", b
 sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 
 # node 's RPCs deps
-jsonrpsee = { version = "0.20.0", features = [ "server" ] }
+jsonrpsee = { version = "0.16.2", features = [ "server" ] }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
 
 # Local Dependencies
-runtime-common = { path = "../runtime/common" }
+chronicle = { path = "../chronicle" }
+time-primitives = { path = "../primitives" }
 timechain-runtime = { path = "../runtime", version = "0.0.1" }
 
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", optional = true }
-
-# Runtime Workers
-time-primitives = { path = "../primitives", default-features = false }
-
-#Task-Executor
-async-channel = "1.9.0"
-log-panics = "2.1.0"
-chronicle = { path = "../chronicle" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }

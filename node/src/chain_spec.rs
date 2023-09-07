@@ -1,6 +1,5 @@
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use runtime_common::currency::{Balance, ANLOG, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -11,9 +10,9 @@ use sp_runtime::{
 	Perbill,
 };
 use timechain_runtime::{
-	AccountId, BalancesConfig, CouncilConfig, GrandpaConfig, ImOnlineConfig,
+	AccountId, Balance, BalancesConfig, CouncilConfig, GrandpaConfig, ImOnlineConfig,
 	RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
 };
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;

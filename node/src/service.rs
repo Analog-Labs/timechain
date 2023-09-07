@@ -149,16 +149,9 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-#[allow(clippy::too_many_arguments)]
 pub fn new_full(
 	config: Configuration,
-	shard_network: Option<time_primitives::Network>,
-	connector_url: Option<String>,
-	connector_blockchain: Option<String>,
-	connector_network: Option<String>,
-	keyfile: Option<String>,
-	timegraph_url: Option<String>,
-	timegraph_ssk: Option<String>,
+	chronicle_config: Option<chronicle::ChronicleConfig>,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -348,7 +341,7 @@ pub fn new_full(
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 
-		if let Some(shard_network) = shard_network {
+		if let Some(config) = chronicle_config {
 			let params = chronicle::ChronicleParams {
 				client: client.clone(),
 				runtime: client.clone(),
@@ -356,15 +349,7 @@ pub fn new_full(
 				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 				network,
 				tss_requests: protocol_rx,
-				config: chronicle::ChronicleConfig {
-					network: shard_network,
-					connector_url,
-					connector_blockchain,
-					connector_network,
-					keyfile,
-					timegraph_url,
-					timegraph_ssk,
-				},
+				config,
 			};
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"chronicle",

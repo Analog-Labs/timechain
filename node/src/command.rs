@@ -197,13 +197,14 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.run_node_until_exit(|config| async move {
 				service::new_full(
 					config,
-					cli.run.network,
-					cli.run.connector_url,
-					cli.run.connector_blockchain,
-					cli.run.connector_network,
-					cli.run.keyfile,
-					cli.run.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
-					cli.run.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
+					cli.run.chronicle.map(|args| chronicle::ChronicleConfig {
+						blockchain: args.blockchain,
+						network: args.network,
+						url: args.url,
+						keyfile: args.keyfile,
+						timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
+						timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
+					}),
 				)
 				.map_err(sc_cli::Error::Service)
 			})

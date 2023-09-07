@@ -2,7 +2,7 @@ use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt};
-use rosetta_client::{types::PartialBlockIdentifier, Wallet};
+use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -20,9 +20,9 @@ use tokio::task::JoinHandle;
 pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 	pub _marker: PhantomData<B>,
 	pub tss: mpsc::Sender<TssSigningRequest>,
-	pub connector_url: Option<String>,
-	pub connector_blockchain: Option<String>,
-	pub connector_network: Option<String>,
+	pub connector_blockchain: Network,
+	pub connector_network: String,
+	pub connector_url: String,
 	pub keyfile: Option<String>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
@@ -65,14 +65,12 @@ where
 {
 	pub async fn new(params: TaskSpawnerParams<B, R, TxSub>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);
+		let blockchain = match params.connector_blockchain {
+			Network::Ethereum => Blockchain::Ethereum,
+			Network::Astar => Blockchain::Astar,
+		};
 		let wallet = Arc::new(
-			Wallet::new(
-				params.network.into(),
-				&params.connector_network.unwrap(),
-				&params.connector_url.unwrap(),
-				path,
-			)
-			.await?,
+			Wallet::new(blockchain, &params.connector_network, &params.connector_url, path).await?,
 		);
 		let timegraph = if let Some(url) = params.timegraph_url {
 			Some(Arc::new(Timegraph::new(
@@ -416,7 +414,7 @@ where
 					self.task_spawner.execute_write(shard_id, task_id, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
-						Function::EvmTxReceipt { tx }
+						Function::EvmTxReceipt { tx: tx.to_vec() }
 					} else {
 						function
 					};

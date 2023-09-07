@@ -12,18 +12,21 @@ pub struct Cli {
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
-	/// The shard network. If it is not provided the chronicle won't be started.
-	#[clap(long)]
-	pub network: Option<time_primitives::Network>,
-	/// The address of Analog Connector.
-	#[clap(long)]
-	pub connector_url: Option<String>,
+	#[clap(flatten)]
+	pub chronicle: Option<ChronicleArgs>,
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct ChronicleArgs {
 	/// The chain used by Analog Connector.
 	#[clap(long)]
-	pub connector_blockchain: Option<String>,
+	pub blockchain: time_primitives::Network,
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
-	pub connector_network: Option<String>,
+	pub network: String,
+	/// The address of Analog Connector.
+	#[clap(long)]
+	pub url: String,
 	/// key file for connector wallet
 	#[clap(long)]
 	pub keyfile: Option<String>,

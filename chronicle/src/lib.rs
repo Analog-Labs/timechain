@@ -39,10 +39,9 @@ pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestRes
 }
 
 pub struct ChronicleConfig {
-	pub network: Network,
-	pub connector_url: Option<String>,
-	pub connector_blockchain: Option<String>,
-	pub connector_network: Option<String>,
+	pub blockchain: Network,
+	pub network: String,
+	pub url: String,
 	pub keyfile: Option<String>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
@@ -98,9 +97,9 @@ where
 	let task_spawner = Task::new(TaskSpawnerParams {
 		_marker: PhantomData,
 		tss: tx,
-		connector_url: params.config.connector_url,
-		connector_blockchain: params.config.connector_blockchain,
-		connector_network: params.config.connector_network,
+		connector_blockchain: params.config.blockchain,
+		connector_network: params.config.network,
+		connector_url: params.config.url,
 		keyfile: params.config.keyfile,
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
@@ -113,7 +112,7 @@ where
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
 		_block: PhantomData,
 		runtime: params.runtime.clone(),
-		network: params.config.network,
+		network: params.config.blockchain,
 		public_key: public_key.clone(),
 		task_spawner,
 	});

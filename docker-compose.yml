@@ -1,16 +1,4 @@
 version: '3.9'
-volumes:
-  bootnode-volume:
-  validator1-volume:
-  validator2-volume:
-  validator3-volume:
-  validator4-volume:
-  validator5-volume:
-  validator6-volume:
-  validator7-volume:
-  validator8-volume:
-  ethereum-volume:
-  astar-volume:
 services:
   bootnode:
     image: 'analoglabs/timechain-node'
@@ -34,7 +22,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile1:/etc/eth_keyfile1'
-    - 'bootnode-volume:/data'
     ports:
     - '9943:9944'
     extra_hosts:
@@ -67,7 +54,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile2:/etc/eth_keyfile2'
-    - 'validator1-volume:/data'
     ports:
     - '9945:9944'
     extra_hosts:
@@ -100,7 +86,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile3:/etc/eth_keyfile3'
-    - 'validator2-volume:/data'
     ports:
     - '9947:9944'
     extra_hosts:
@@ -133,7 +118,6 @@ services:
     - astar
     volumes:
     - './dummy_wallets/astar_keyfile1:/etc/astar_keyfile1'
-    - 'validator3-volume:/data'
     ports:
     - '9949:9944'
     extra_hosts:
@@ -165,7 +149,6 @@ services:
     - astar
     volumes:
     - './dummy_wallets/astar_keyfile2:/etc/astar_keyfile2'
-    - 'validator4-volume:/data'
     ports:
     - '9951:9944'
     extra_hosts:
@@ -197,7 +180,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/astar_keyfile3:/etc/astar_keyfile3'
-    - 'validator5-volume:/data'
     ports:
     - '9953:9944'
     extra_hosts:
@@ -229,7 +211,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile4:/etc/eth_keyfile4'
-    - 'validator6-volume:/data'
     ports:
     - '9955:9944'
     extra_hosts:
@@ -261,7 +242,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile5:/etc/eth_keyfile5'
-    - 'validator7-volume:/data'
     ports:
     - '9957:9944'
     extra_hosts:
@@ -293,7 +273,6 @@ services:
     - ethereum
     volumes:
     - './dummy_wallets/eth_keyfile6:/etc/eth_keyfile6'
-    - 'validator8-volume:/data'
     ports:
     - '9959:9944'
     extra_hosts:
@@ -316,8 +295,6 @@ services:
     - "8545"
     ports:
     - "8545:8545"
-    volumes:
-    - "ethereum-volume:/root"
     profiles:
     - astar
     - ethereum
@@ -338,7 +315,5 @@ services:
     - "9944"
     ports:
     - "9944:9944"
-    volumes:
-    - "astar-volume:/astar"
     profiles:
     - astar

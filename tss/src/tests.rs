@@ -1,4 +1,4 @@
-use crate::{Tss, TssAction, TssRequest, TssResponse};
+use crate::{Tss, TssAction, TssMessage, TssRequest, TssResponse};
 use frost_evm::frost_core::frost::keys::compute_group_commitment;
 //use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
 //use frost_evm::keys::SigningShare;
@@ -35,8 +35,7 @@ impl TssEvents {
 }
 
 type RequestFaultInjector = Box<dyn FnMut(Peer, Peer, TssRequest<Id>) -> Option<TssRequest<Id>>>;
-type ResponseFaultInjector =
-	Box<dyn FnMut(Peer, Peer, Option<TssResponse<Id>>) -> Option<Option<TssResponse<Id>>>>;
+type ResponseFaultInjector = Box<dyn FnMut(Peer, Peer, TssResponse<Id>) -> Option<TssResponse<Id>>>;
 
 struct TssTester {
 	tss: Vec<Tss<Id, Peer>>,
@@ -102,6 +101,9 @@ impl TssTester {
 						},
 						TssAction::Send(msgs) => {
 							for (to, msg) in msgs {
+								let TssMessage::Request(msg) = msg else {
+									continue;
+								};
 								if let Some(msg) = (self.request_fault_injector)(from, to, msg) {
 									let msg = match self.tss[to as usize].on_request(from, msg) {
 										Ok(msg) => msg,
@@ -109,6 +111,9 @@ impl TssTester {
 											log::error!("request error {}", error);
 											continue;
 										},
+									};
+									let Some(msg) = msg else {
+										continue;
 									};
 									if let Some(msg) = (self.response_fault_injector)(to, from, msg)
 									{

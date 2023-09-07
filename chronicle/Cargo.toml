@@ -10,7 +10,7 @@ async-trait = "0.1.73"
 bincode = "1.3.3"
 futures = "0.3.28"
 log = "0.4.20"
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "prepare-for-tc" }
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
 sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sc-network = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }

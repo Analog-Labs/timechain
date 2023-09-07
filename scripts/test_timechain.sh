@@ -45,7 +45,7 @@ done
 echo "All keys inserted, initializing test"
 
 ### Fund test accounts
-funds=$(./scripts/fund_test_wallets.sh &)
+./scripts/fund_test_wallets.sh &
 
 ###### Ethereum testing #########
 # deploying ethereum smart contract

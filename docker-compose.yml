@@ -11,7 +11,6 @@ volumes:
   validator8-volume:
   ethereum-volume:
   astar-volume:
-  pgsql-dbx-volume:
 services:
   bootnode:
     image: 'analoglabs/timechain-node'
@@ -23,7 +22,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545/ws'
+    - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
     - '--keyfile=/etc/eth_keyfile1'
@@ -54,7 +53,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545/ws'
+    - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
     - '--keyfile=/etc/eth_keyfile2'
@@ -87,7 +86,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545/ws'
+    - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
     - '--keyfile=/etc/eth_keyfile3'
@@ -216,7 +215,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545/ws'
+    - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
     - '--keyfile=/etc/eth_keyfile4'
@@ -248,7 +247,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545/ws'
+    - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
     - '--keyfile=/etc/eth_keyfile5'
@@ -280,7 +279,7 @@ services:
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
     - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545/ws'
+    - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
     - '--keyfile=/etc/eth_keyfile6'
@@ -303,8 +302,16 @@ services:
     - ethereum
 
   ethereum:
-    image: "ethereum/client-go:v1.12.2"
-    command: "--dev --ipcdisable --dev.period 14 --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3 --ws --ws.addr=0.0.0.0 --ws.port=8545 --ws.origins=* --ws.api=eth,debug,admin,txpool,web3 --ws.rpcprefix=/ws" 
+    image: 'ethereum/client-go:v1.12.2'
+    command:
+    - '--dev'
+    - '--ipcdisable'
+    - '--dev.period=14'
+    - '--ws'
+    - '--ws.addr=0.0.0.0'
+    - '--ws.port=8545'
+    - '--ws.origins=*'
+    - '--ws.api=eth,debug,admin,txpool,web3'
     expose:
     - "8545"
     ports:
@@ -318,7 +325,15 @@ services:
   astar:
     image: "staketechnologies/astar-collator:latest"
     platform: linux/amd64
-    command: "astar-collator --chain dev --rpc-port 9944 --rpc-cors all --rpc-external --alice --enable-evm-rpc --base-path /astar"
+    command:
+    - 'astar-collator'
+    - '--chain=dev'
+    - '--rpc-port=9944'
+    - '--rpc-cors=all'
+    - '--rpc-external'
+    - '--alice'
+    - '--enable-evm-rpc'
+    - '--base-path=/astar'
     expose:
     - "9944"
     ports:
@@ -327,18 +342,3 @@ services:
     - "astar-volume:/astar"
     profiles:
     - astar
-
-  pgsql:
-    hostname: pgsql
-    image: postgres:14-bullseye
-    environment:
-      - POSTGRES_DB=poc3
-      - POSTGRES_USER=poc3
-      - POSTGRES_PASSWORD=poc3
-      - DB_PORT=5436
-      - PGDATA=/var/lib/postgresql/data/pgdata
-    command: -p 5436
-    volumes:
-      - pgsql-dbx-volume:/var/lib/postgresql/data
-    ports:
-      - "5436:5436"

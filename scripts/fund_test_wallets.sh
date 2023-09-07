@@ -1,4 +1,4 @@
-eth_url="ws://127.0.0.1:8545/ws"
+eth_url="ws://127.0.0.1:8545"
 eth_blockchain="ethereum"
 eth_network="dev"
 

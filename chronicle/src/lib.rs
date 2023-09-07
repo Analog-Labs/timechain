@@ -82,7 +82,6 @@ where
 		}
 		log::info!("Waiting for public key to be inserted");
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-		continue;
 	};
 
 	let (tx, rx) = mpsc::channel(10);
@@ -94,20 +93,30 @@ where
 		params.runtime.clone(),
 	);
 
-	let task_spawner = Task::new(TaskSpawnerParams {
+	let task_spawner_params = TaskSpawnerParams {
 		_marker: PhantomData,
 		tss: tx,
-		connector_blockchain: params.config.blockchain,
-		connector_network: params.config.network,
-		connector_url: params.config.url,
+		blockchain: params.config.blockchain,
+		network: params.config.network,
+		url: params.config.url,
 		keyfile: params.config.keyfile,
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
 		runtime: params.runtime.clone(),
 		tx_submitter: tx_submitter.clone(),
-	})
-	.await
-	.unwrap();
+	};
+	let task_spawner = loop {
+		match Task::new(task_spawner_params.clone()).await {
+			Ok(task_spawner) => break task_spawner,
+			Err(error) => {
+				log::error!(
+					"Initializing wallet returned an error {:?}, retrying in one second",
+					error
+				);
+				tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+			},
+		}
+	};
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
 		_block: PhantomData,

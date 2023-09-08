@@ -1,5 +1,6 @@
 ### Build stage
-FROM docker.io/paritytech/ci-linux:production as builder
+### Uses custom substrate builder (Dockerfile in infra repo)
+FROM analoglabs/substrate-builder:latest as builder
 
 WORKDIR /build
 

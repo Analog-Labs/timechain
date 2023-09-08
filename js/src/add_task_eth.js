@@ -28,25 +28,29 @@ const pallet_task_add = async (_keyspair, who) => {
     const chan = new Channel(0 /* default */);
     const input_task = {
         network: 0,
-        cycle: 4,
-        start: 0,
-        period: 2,
+        cycle: 10000,
+        start: 15,
+        period: 5,
         hash: 'QmYFw5aYPKQ9oSw3L3UUed9fBqT4oTW5BZzAnPFGyuQir3',
         function: {
             EVMViewWithoutAbi: {
                 address: stringToHex('0x3de7086ce750513ef79d14eacbd1282c4e4b0cea'),
                 function_signature: "function get_votes_stats() external view returns (uint[] memory)",
-                input: 2,
+                input: [],
             }
         },
     }
     await api.isReady;
     console.log("api.tx.task_meta ---> ", api.tx.taskSchedule);
     const unsub = await api.tx.tasks.createTask(input_task).signAndSend(keyspair, ({ status, events, dispatchError }) => {
-        console.log(`Current status is ${status}`);
+        if (status.isInBlock || status.isFinalized) {
+            const filtered_events = events.filter(({ event }) => api.events.tasks.TaskCreated.is(event))
+            if (filtered_events.length >= 1) {
+                console.log("registered_task:", filtered_events[0].event.data.toJSON().pop());
+                process.exit(0);
+            }
+        }
     });
-    
-    await chan.get().then(value => console.log(value), error => console.error(error));
 };
 
 pallet_task_add();

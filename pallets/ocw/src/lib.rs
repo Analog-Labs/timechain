@@ -16,7 +16,9 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::traits::One;
 	use sp_runtime::traits::{Block, Header, IdentifyAccount};
+	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use time_primitives::{
 		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
@@ -188,7 +190,8 @@ pub mod pallet {
 			let Some(collector) = ShardCollector::<T>::get(payload.shard_id()) else {
 				return;
 			};
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector]);
+			let signer =
+				Signer::<T, T::AuthorityId>::any_account().with_filter(vec![collector.clone()]);
 			let mut counter = 0;
 			let task_id = match &payload {
 				OcwPayload::SubmitTaskResult { task_id, .. } => Some(*task_id),
@@ -230,6 +233,11 @@ pub mod pallet {
 						counter
 					);
 					counter += 1;
+					//increasing nonce in offchain context.
+					let account_id = collector.clone().into_account();
+					let mut account_data = frame_system::Account::<T>::get(&account_id);
+					account_data.nonce = account_data.nonce.saturating_add(One::one());
+					frame_system::Account::<T>::insert(&account_id, account_data);
 					continue;
 				}
 				break;

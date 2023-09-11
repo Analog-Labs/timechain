@@ -206,7 +206,7 @@ where
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
 				let target_block_number = if let Some(last_block) = last_executed_block {
 					last_block + task_descr.period
-				}else{
+				} else {
 					task_descr.trigger(cycle)
 				};
 				if block_height >= target_block_number {
@@ -236,7 +236,12 @@ where
 								let status = CycleStatus { shard_id, signature };
 								time_primitives::write_message(
 									storage,
-									&OcwPayload::SubmitTaskResult { task_id, cycle, status, block: target_block_number},
+									&OcwPayload::SubmitTaskResult {
+										task_id,
+										cycle,
+										status,
+										block: target_block_number,
+									},
 								);
 							},
 							Err(error) => {

@@ -21,9 +21,9 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use time_primitives::{
-		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
-		OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId,
-		TssPublicKey, LastExecutedBlockNum, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
+		msg_key, AccountId, CycleStatus, LastExecutedBlockNum, Network, OcwPayload,
+		OcwShardInterface, OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle,
+		TaskError, TaskId, TssPublicKey, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -211,7 +211,7 @@ pub mod pallet {
 							shard_id: *shard_id,
 							network: *network,
 						}),
-					OcwPayload::SubmitTaskResult { task_id, cycle, status, block} => signer
+					OcwPayload::SubmitTaskResult { task_id, cycle, status, block } => signer
 						.send_signed_transaction(|_| Call::submit_task_result {
 							task_id: *task_id,
 							cycle: *cycle,

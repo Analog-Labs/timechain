@@ -74,12 +74,22 @@ pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
 	pub retry_count: TaskRetryCount,
-	pub last_block_num: Option<LastExecutedBlockNum>
+	pub last_block_num: Option<LastExecutedBlockNum>,
 }
 
 impl TaskExecution {
-	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount, last_block_num:  Option<LastExecutedBlockNum>) -> Self {
-		Self { task_id, cycle, retry_count, last_block_num }
+	pub fn new(
+		task_id: TaskId,
+		cycle: TaskCycle,
+		retry_count: TaskRetryCount,
+		last_block_num: Option<LastExecutedBlockNum>,
+	) -> Self {
+		Self {
+			task_id,
+			cycle,
+			retry_count,
+			last_block_num,
+		}
 	}
 }
 

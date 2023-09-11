@@ -15,9 +15,9 @@ pub mod pallet {
 	use sp_runtime::Saturating;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
-		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskStatus, LastExecutedBlockNum
+		CycleStatus, LastExecutedBlockNum, Network, OcwSubmitTaskResult, ScheduleInterface,
+		ShardId, ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
+		TaskExecution, TaskId, TaskStatus,
 	};
 
 	pub trait WeightInfo {
@@ -173,7 +173,11 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::resume_task())]
-		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId, new_block: Option<LastExecutedBlockNum>) -> DispatchResult {
+		pub fn resume_task(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			new_block: Option<LastExecutedBlockNum>,
+		) -> DispatchResult {
 			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
 			ensure!(

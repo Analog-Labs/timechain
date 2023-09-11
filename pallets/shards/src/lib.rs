@@ -97,6 +97,17 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	pub type PastSigners<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ShardId,
+		Blake2_128Concat,
+		PublicKey,
+		(),
+		OptionQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -343,7 +354,7 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 
-		fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey {
+		fn random_signer(shard_id: ShardId) -> PublicKey {
 			let seed = u64::from_ne_bytes(
 				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
 					.try_into()
@@ -352,17 +363,21 @@ pub mod pallet {
 			let mut rng = fastrand::Rng::with_seed(seed);
 			let members = Self::get_shard_members(shard_id);
 			let mut signer_index = rng.usize(..members.len());
-			let signer = T::Members::member_public_key(&members[signer_index])
+			let mut signer = T::Members::member_public_key(&members[signer_index])
 				.expect("All signers should be registered members");
-			if let Some(old_signer) = last_signer {
-				if signer == old_signer {
-					// increment signer_index ensures signer != old_signer
-					signer_index =
-						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
-					return T::Members::member_public_key(&members[signer_index])
-						.expect("All signers should be registered members");
-				}
+			if members.len() == 1 {
+				// only one possible signer for shard size 1
+				return signer;
 			}
+			let mut retry_count = 0;
+			while PastSigners::<T>::get(shard_id, &signer).is_some() && retry_count <= members.len()
+			{
+				signer_index = if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
+				signer = T::Members::member_public_key(&members[signer_index])
+					.expect("All signers should be registered members");
+				retry_count += 1;
+			}
+			PastSigners::<T>::insert(shard_id, &signer, ());
 			signer
 		}
 

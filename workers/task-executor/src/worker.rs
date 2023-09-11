@@ -71,7 +71,8 @@ impl Task {
 			} => {
 				let data = self
 					.wallet
-					.eth_view_call(address, function_signature, input, Some(block))
+					//fetch latest data since no tss
+					.eth_view_call(address, function_signature, input, None)
 					.await?;
 				let result = match data.result {
 					Value::Array(val) => val

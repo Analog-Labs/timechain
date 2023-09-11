@@ -1,5 +1,4 @@
 use crate::{self as task_schedule};
-use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
@@ -127,15 +126,6 @@ where
 impl frame_system::offchain::SigningTypes for Test {
 	type Public = <Signature as Verify>::Signer;
 	type Signature = Signature;
-}
-
-/// To from `now` to block `n`.
-pub fn roll_to(n: u64) {
-	let now = System::block_number();
-	for i in now + 1..=n {
-		System::set_block_number(i);
-		Tasks::on_initialize(i);
-	}
 }
 
 // Build genesis storage according to the mock runtime.

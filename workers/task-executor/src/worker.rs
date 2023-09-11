@@ -59,10 +59,6 @@ impl Task {
 		function: &Function,
 		target_block_number: u64,
 	) -> Result<Vec<String>> {
-		let block = PartialBlockIdentifier {
-			index: Some(target_block_number),
-			hash: None,
-		};
 		match function {
 			Function::EVMViewWithoutAbi {
 				address,
@@ -71,7 +67,8 @@ impl Task {
 			} => {
 				let data = self
 					.wallet
-					.eth_view_call(address, function_signature, input, Some(block))
+					//fetch latest data since no tss
+					.eth_view_call(address, function_signature, input, None)
 					.await?;
 				let result = match data.result {
 					Value::Array(val) => val

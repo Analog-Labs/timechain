@@ -30,7 +30,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn get_shard_tasks(&self, _shard_id: ShardId) -> Vec<TaskExecution> {
-			vec![TaskExecution::new(1,0,0)]
+			vec![TaskExecution::new(1,0,0,Some(0))]
 		}
 
 		fn get_task(&self, _task_id: TaskId) -> Option<TaskDescriptor> {

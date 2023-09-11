@@ -13,6 +13,7 @@ use std::pin::Pin;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
 pub type TaskRetryCount = u8;
+pub type LastExecutedBlockNum = u64;
 
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -73,18 +74,19 @@ pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
 	pub retry_count: TaskRetryCount,
+	pub last_block_num: Option<LastExecutedBlockNum>
 }
 
 impl TaskExecution {
-	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount) -> Self {
-		Self { task_id, cycle, retry_count }
+	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount, last_block_num:  Option<LastExecutedBlockNum>) -> Self {
+		Self { task_id, cycle, retry_count, last_block_num }
 	}
 }
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for TaskExecution {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
+		write!(f, "{}/{}/{}/{:?}", self.task_id, self.cycle, self.retry_count, self.last_block_num)
 	}
 }
 

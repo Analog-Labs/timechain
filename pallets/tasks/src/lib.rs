@@ -17,7 +17,7 @@ pub mod pallet {
 	use time_primitives::{
 		CycleStatus, Network, OcwSubmitTaskResult, ScheduleInterface, ShardId,
 		ShardStatusInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskStatus,
+		TaskExecution, TaskId, TaskStatus, LastExecutedBlockNum
 	};
 
 	pub trait WeightInfo {
@@ -52,6 +52,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 	}
+
+	#[pallet::storage]
+	pub type LastExecutedBlock<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, LastExecutedBlockNum, OptionQuery>;
 
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> =
@@ -169,7 +173,7 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::resume_task())]
-		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
+		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId, new_block: Option<LastExecutedBlockNum>) -> DispatchResult {
 			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
 			ensure!(
@@ -179,6 +183,9 @@ pub mod pallet {
 				),
 				Error::<T>::InvalidTaskState
 			);
+			if let Some(block) = new_block {
+				LastExecutedBlock::<T>::insert(task_id, block);
+			}
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			Self::deposit_event(Event::TaskResumed(task_id));
@@ -205,6 +212,7 @@ pub mod pallet {
 						task_id,
 						TaskCycleState::<T>::get(task_id),
 						TaskRetryCounter::<T>::get(task_id),
+						LastExecutedBlock::<T>::get(task_id),
 					)
 				})
 				.collect()
@@ -284,12 +292,14 @@ pub mod pallet {
 			task_id: TaskId,
 			cycle: TaskCycle,
 			status: CycleStatus,
+			block: LastExecutedBlockNum,
 		) -> DispatchResult {
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let incremented_cycle = cycle.saturating_plus_one();
 			TaskCycleState::<T>::insert(task_id, incremented_cycle);
 			TaskResults::<T>::insert(task_id, incremented_cycle, status.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
+			LastExecutedBlock::<T>::insert(task_id, block);
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 					ShardTasks::<T>::remove(shard_id, task_id);

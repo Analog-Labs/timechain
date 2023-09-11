@@ -1,4 +1,4 @@
-use crate::{CycleStatus, Network, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey};
+use crate::{CycleStatus, Network, ShardId, TaskCycle, TaskError, TaskId, TssPublicKey, LastExecutedBlockNum};
 use codec::{Decode, Encode};
 use sp_runtime::offchain::{OffchainStorage, STORAGE_PREFIX};
 
@@ -17,7 +17,7 @@ pub fn msg_key(id: u64) -> [u8; 14] {
 #[derive(Clone, Debug, PartialEq, Decode, Encode)]
 pub enum OcwPayload {
 	SubmitTssPublicKey { shard_id: ShardId, public_key: TssPublicKey },
-	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, status: CycleStatus },
+	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, status: CycleStatus,  block: LastExecutedBlockNum},
 	SubmitTaskError { task_id: TaskId, error: TaskError },
 	SetShardOffline { shard_id: ShardId, network: Network },
 }

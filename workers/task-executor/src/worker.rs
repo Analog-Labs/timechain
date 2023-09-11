@@ -198,12 +198,17 @@ where
 				let task_id = executable_task.task_id;
 				let cycle = executable_task.cycle;
 				let retry_count = executable_task.retry_count;
+				let last_executed_block = executable_task.last_block_num;
 				if self.running_tasks.contains(&executable_task) {
 					log::info!("skipping task {:?}", executable_task);
 					continue;
 				}
 				let task_descr = self.runtime.runtime_api().get_task(block_id, task_id)?.unwrap();
-				let target_block_number = task_descr.trigger(cycle);
+				let target_block_number = if let Some(last_block) = last_executed_block {
+					last_block + task_descr.period
+				}else{
+					task_descr.trigger(cycle)
+				};
 				if block_height >= target_block_number {
 					log::info!(target: TW_LOG, "Running Task {} on shard {}", executable_task, shard_id);
 					self.running_tasks.insert(executable_task);
@@ -231,7 +236,7 @@ where
 								let status = CycleStatus { shard_id, signature };
 								time_primitives::write_message(
 									storage,
-									&OcwPayload::SubmitTaskResult { task_id, cycle, status },
+									&OcwPayload::SubmitTaskResult { task_id, cycle, status, block: target_block_number},
 								);
 							},
 							Err(error) => {

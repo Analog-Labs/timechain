@@ -23,7 +23,7 @@ pub mod pallet {
 	use time_primitives::{
 		msg_key, AccountId, CycleStatus, Network, OcwPayload, OcwShardInterface,
 		OcwSubmitTaskResult, PublicKey, ShardCreated, ShardId, TaskCycle, TaskError, TaskId,
-		TssPublicKey, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
+		TssPublicKey, LastExecutedBlockNum, OCW_LOCK, OCW_READ_ID, OCW_WRITE_ID,
 	};
 
 	pub trait WeightInfo {
@@ -115,9 +115,10 @@ pub mod pallet {
 			task_id: TaskId,
 			cycle: TaskCycle,
 			status: CycleStatus,
+			block: LastExecutedBlockNum,
 		) -> DispatchResult {
 			Self::ensure_signed_by_collector(origin, status.shard_id)?;
-			T::Tasks::submit_task_result(task_id, cycle, status)
+			T::Tasks::submit_task_result(task_id, cycle, status, block)
 		}
 
 		/// Turns shard offline
@@ -210,11 +211,12 @@ pub mod pallet {
 							shard_id: *shard_id,
 							network: *network,
 						}),
-					OcwPayload::SubmitTaskResult { task_id, cycle, status } => signer
+					OcwPayload::SubmitTaskResult { task_id, cycle, status, block} => signer
 						.send_signed_transaction(|_| Call::submit_task_result {
 							task_id: *task_id,
 							cycle: *cycle,
 							status: status.clone(),
+							block: *block,
 						}),
 					OcwPayload::SubmitTaskError { task_id, error } => signer
 						.send_signed_transaction(|_| Call::submit_task_error {

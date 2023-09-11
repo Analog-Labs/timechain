@@ -59,10 +59,6 @@ impl Task {
 		function: &Function,
 		target_block_number: u64,
 	) -> Result<Vec<String>> {
-		let block = PartialBlockIdentifier {
-			index: Some(target_block_number),
-			hash: None,
-		};
 		match function {
 			Function::EVMViewWithoutAbi {
 				address,

@@ -329,7 +329,7 @@ pub struct TaskExecutor<B: Block, R, T> {
 	task_spawner: T,
 	network: Network,
 	public_key: PublicKey,
-	running_tasks: BTreeMap<TaskExecution<u32>, JoinHandle<()>>,
+	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 	block_height: u64,
 }
 

@@ -109,7 +109,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type TaskPhaseState<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase<BlockNumberFor<T>>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
+
+	#[pallet::storage]
+	pub type WritePhaseStart<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	pub type TaskRetryCounter<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, u8, ValueQuery>;
@@ -275,10 +279,11 @@ pub mod pallet {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::UnassignedTask);
-			let TaskPhase::Write(public_key, _) = TaskPhaseState::<T>::get(task_id) else {
+			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				return Err(Error::<T>::NotWritePhase.into());
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
+			WritePhaseStart::<T>::remove(task_id);
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
@@ -288,19 +293,15 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			TaskPhaseState::<T>::iter().for_each(|(task_id, status)| {
-				if let TaskPhase::Write(_, created_block) = status {
-					if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
-						if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-							TaskPhaseState::<T>::insert(
-								task_id,
-								TaskPhase::Write(
-									T::Shards::random_signer(shard_id),
-									frame_system::Pallet::<T>::block_number(),
-								),
-							);
-							writes += 1;
-						}
+			WritePhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
+				if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
+					if let Some(shard_id) = TaskShard::<T>::get(task_id) {
+						TaskPhaseState::<T>::insert(
+							task_id,
+							TaskPhase::Write(T::Shards::random_signer(shard_id)),
+						);
+						WritePhaseStart::<T>::insert(task_id, n);
+						writes += 2;
 					}
 				}
 			});
@@ -320,7 +321,7 @@ pub mod pallet {
 				})
 		}
 
-		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution<BlockNumberFor<T>>> {
+		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
 				.filter(|(task_id, _)| Self::is_runnable(*task_id))
 				.map(|(task_id, _)| {
@@ -391,10 +392,11 @@ pub mod pallet {
 				{
 					TaskPhaseState::<T>::insert(
 						task_id,
-						TaskPhase::Write(
-							T::Shards::random_signer(shard_id),
-							frame_system::Pallet::<T>::block_number(),
-						),
+						TaskPhase::Write(T::Shards::random_signer(shard_id)),
+					);
+					WritePhaseStart::<T>::insert(
+						task_id,
+						frame_system::Pallet::<T>::block_number(),
 					);
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
@@ -404,7 +406,7 @@ pub mod pallet {
 		}
 
 		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> TxResult {
-			let TaskPhase::Write(public_key, _) = TaskPhaseState::<T>::get(task_id) else {
+			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				log::error!("task not in write phase");
 				return Ok(());
 			};

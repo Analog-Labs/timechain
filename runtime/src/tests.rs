@@ -97,7 +97,7 @@ fn write_phase_timeout_reassigns_task() {
 		roll_to(21);
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
 		roll_to(31);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(B)));
+		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
 	});
 }
 

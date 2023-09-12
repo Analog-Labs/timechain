@@ -173,7 +173,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl TasksApi<Block> for MockApi{
-		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution<u32>> { vec![] }
+		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
 		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
 		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: Vec<u8>) -> TxResult { Ok(()) }
 		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) -> TxResult { Ok(()) }

@@ -1505,7 +1505,7 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TasksApi<Block> for Runtime {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution<BlockNumber>> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 

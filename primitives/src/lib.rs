@@ -98,7 +98,7 @@ pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
-	fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey;
+	fn random_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 

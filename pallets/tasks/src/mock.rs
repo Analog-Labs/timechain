@@ -25,12 +25,8 @@ impl ShardsInterface for MockShardInterface {
 
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
 
-	fn random_signer(shard_id: ShardId, last_signer: Option<PublicKey>) -> PublicKey {
-		if last_signer.is_some() {
-			PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([(shard_id + 1) as _; 32]))
-		} else {
-			PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
-		}
+	fn random_signer(shard_id: ShardId) -> PublicKey {
+		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
 	}
 
 	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {

@@ -296,8 +296,10 @@ pub mod pallet {
 			WritePhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
 				if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
 					if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-						let new_signer = T::Shards::random_signer(shard_id, None);
-						TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(new_signer));
+						TaskPhaseState::<T>::insert(
+							task_id,
+							TaskPhase::Write(T::Shards::random_signer(shard_id)),
+						);
 						WritePhaseStart::<T>::insert(task_id, n);
 						writes += 2;
 					}
@@ -388,8 +390,10 @@ pub mod pallet {
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 				{
-					let signer = T::Shards::random_signer(shard_id, None);
-					TaskPhaseState::<T>::insert(task_id, TaskPhase::Write(signer));
+					TaskPhaseState::<T>::insert(
+						task_id,
+						TaskPhase::Write(T::Shards::random_signer(shard_id)),
+					);
 					WritePhaseStart::<T>::insert(
 						task_id,
 						frame_system::Pallet::<T>::block_number(),

@@ -3982,7 +3982,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/frost-evm#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
+source = "git+https://github.com/Analog-labs/frost-evm.git#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
@@ -10222,7 +10222,7 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/frost-evm#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
+source = "git+https://github.com/Analog-labs/frost-evm.git#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
 dependencies = [
  "k256",
  "serde",

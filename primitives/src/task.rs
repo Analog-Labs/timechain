@@ -99,7 +99,7 @@ impl TaskPhase {
 
 	pub fn tx_hash(&self) -> Option<&[u8]> {
 		if let Self::Read(Some(tx_hash)) = self {
-			Some(&tx_hash)
+			Some(tx_hash)
 		} else {
 			None
 		}

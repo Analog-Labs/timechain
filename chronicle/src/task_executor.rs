@@ -131,7 +131,7 @@ where
 				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmTxReceipt { tx } => {
-				let data = self.wallet.eth_transaction_receipt(&tx).await?;
+				let data = self.wallet.eth_transaction_receipt(tx).await?;
 				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmDeploy { bytecode } => {

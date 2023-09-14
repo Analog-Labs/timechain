@@ -106,7 +106,7 @@ pub(crate) async fn deploy_astar_contract(astar_config: WalletConfig) -> Result<
 }
 
 pub(crate) async fn fund_wallets(config: WalletConfig) {
-	println!("funding walllets");
+	println!("funding {:?} walllets", config.blockchain);
 	let read_files = std::fs::read_dir("./dummy_wallets").unwrap();
 	let is_eth = config.blockchain == Blockchain::Ethereum;
 	for file in read_files {

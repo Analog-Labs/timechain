@@ -3,13 +3,15 @@ use crate::tasks as Tasks;
 use anyhow::{Context, Result};
 use clap::Parser;
 use ethers_solc::{artifacts::Source, CompilerInput, Solc};
-use rosetta_client::{create_wallet, EthereumExt};
+use polkadot::runtime_types::time_primitives::shard::Network;
+use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
 use subxt::rpc::{rpc_params, RpcParams};
 use subxt::{OnlineClient, PolkadotConfig};
 
 mod tasks;
+
 #[subxt::subxt(runtime_metadata_path = "../infra/metadata.scale")]
 pub mod polkadot {}
 
@@ -24,16 +26,36 @@ struct Args {
 #[derive(Parser, Debug)]
 enum TestCommand {
 	Basic,
-	SetKeys,
-	FundEthWallets,
-	FundAstarWallets,
+	BatchTaskEth { tasks: u64, max_cycle: u64 },
+	BatchTaskAstar { tasks: u64, max_cycle: u64 },
 	DeployEthContract,
 	DeployAstarContract,
+	FundEthWallets,
+	FundAstarWallets,
+	InsertTask(InsertTaskParams),
+	SetKeys,
+	WatchTask { task_id: u64 },
+}
+
+#[derive(Parser, Debug)]
+struct InsertTaskParams {
+	#[arg(default_value_t=String::from(""))]
+	address: String,
+	#[arg(default_value_t = 2)]
+	cycle: u64,
+	#[arg(default_value_t = 20)]
+	start: u64,
+	#[arg(default_value_t = 2)]
+	period: u64,
+	#[arg(default_value_t=String::from("ethereum"))]
+	network: String,
+	#[arg(default_value_t = false)]
+	is_payable: bool,
 }
 
 #[derive(Clone, Debug)]
 struct WalletConfig {
-	pub blockchain: String,
+	pub blockchain: Blockchain,
 	pub network: String,
 	pub url: String,
 }
@@ -45,18 +67,27 @@ async fn main() {
 	let api = OnlineClient::<PolkadotConfig>::from_url(url).await.unwrap();
 
 	let eth_config = WalletConfig {
-		blockchain: "ethereum".to_string(),
+		blockchain: Blockchain::Ethereum,
 		network: "dev".to_string(),
 		url: "ws://127.0.0.1:8545".to_string(),
 	};
 
 	let astar_config = WalletConfig {
-		blockchain: "astar".to_string(),
+		blockchain: Blockchain::Astar,
 		network: "dev".to_string(),
 		url: "ws://127.0.0.1:9944".to_string(),
 	};
 
 	match args.cmd {
+		TestCommand::Basic => {
+			basic_test_timechain(&api, eth_config, astar_config).await;
+		},
+		TestCommand::BatchTaskEth { tasks, max_cycle } => {
+			batch_test(&api, tasks, max_cycle, eth_config).await;
+		},
+		TestCommand::BatchTaskAstar { tasks, max_cycle } => {
+			batch_test(&api, tasks, max_cycle, astar_config).await;
+		},
 		TestCommand::SetKeys => {
 			set_keys().await;
 		},
@@ -72,56 +103,110 @@ async fn main() {
 			}
 		},
 		TestCommand::DeployAstarContract => {
-			if let Err(e) = deploy_astar_contract(astar_config).await{
+			if let Err(e) = deploy_astar_contract(astar_config).await {
 				println!("error {:?}", e);
 			}
 		},
-		TestCommand::Basic => {
-			basic_test_timechain(&api, eth_config, astar_config).await;
+		TestCommand::InsertTask(params) => {
+			let task_id = Tasks::insert_evm_task(
+				&api,
+				params.address,
+				params.cycle,
+				params.start,
+				params.period,
+				if params.network == "ethereum" { Network::Ethereum } else { Network::Astar },
+				params.is_payable,
+			)
+			.await
+			.unwrap();
+			println!("Registered task_id {:?}", task_id);
+		},
+		TestCommand::WatchTask { task_id } => {
+			while let false = Tasks::watch_task(&api, task_id).await {
+				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			}
 		},
 	}
 }
 
-async fn basic_test_timechain(api: &OnlineClient<PolkadotConfig>, eth_config: WalletConfig, astar_config: WalletConfig) {
+async fn basic_test_timechain(
+	api: &OnlineClient<PolkadotConfig>,
+	eth_config: WalletConfig,
+	astar_config: WalletConfig,
+) {
 	set_keys().await;
 	fund_wallets(eth_config.clone()).await;
 	let (contract_address, start_block) = deploy_eth_contract(eth_config).await.unwrap();
-	Tasks::insert_evm_task(api, contract_address, 4, start_block, 2).await;
+
+	//eth viewcall task
+	let task_id = Tasks::insert_evm_task(
+		api,
+		contract_address.clone(),
+		2,
+		start_block,
+		2,
+		Network::Ethereum,
+		false,
+	)
+	.await
+	.unwrap();
+	while let false = Tasks::watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+
+	//eth payable task
+	let task_id =
+		Tasks::insert_evm_task(api, contract_address, 1, start_block, 0, Network::Ethereum, true)
+			.await
+			.unwrap();
+	while let false = Tasks::watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+
+	//astar testing
+	fund_wallets(astar_config.clone()).await;
+	let (contract_address, start_block) = deploy_astar_contract(astar_config).await.unwrap();
+	let task_id =
+		Tasks::insert_evm_task(api, contract_address, 2, start_block, 2, Network::Astar, false)
+			.await
+			.unwrap();
+	while let false = Tasks::watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
 }
 
-async fn fund_wallets(config: WalletConfig) {
-	tokio::spawn(async move {
-		let read_files = std::fs::read_dir("./dummy_wallets").unwrap();
-		let is_eth = config.blockchain == "ethereum";
-		let is_astar = config.blockchain == "astar";
-		for file in read_files {
-			let file = file.unwrap().path();
-			if is_eth && file.to_str().unwrap().contains("eth") {
-				let cloned_config = config.clone();
-				let wallet = create_wallet(
-					Some(cloned_config.blockchain),
-					Some(cloned_config.network),
-					Some(cloned_config.url),
-					Some(&file),
-				)
-				.await
-				.unwrap();
-				let _ = wallet.faucet(1000000000000).await;
-			} else if is_astar && file.to_str().unwrap().contains("astar") {
-				let cloned_config = config.clone();
-				let wallet = create_wallet(
-					Some(cloned_config.blockchain),
-					Some(cloned_config.network),
-					Some(cloned_config.url),
-					Some(&file),
-				)
-				.await
-				.unwrap();
-				let _ = wallet.faucet(100000000).await;
-			}
-			println!("file {:?}", file);
-		}
-	}).await;
+async fn batch_test(
+	api: &OnlineClient<PolkadotConfig>,
+	total_tasks: u64,
+	max_cycle: u64,
+	config: WalletConfig,
+) {
+	set_keys().await;
+	fund_wallets(config.clone()).await;
+	let mut task_ids = vec![];
+	let (contract_address, start_block) = if config.blockchain == Blockchain::Ethereum {
+		deploy_eth_contract(config).await.unwrap()
+	} else {
+		deploy_astar_contract(config).await.unwrap()
+	};
+
+	for _ in 0..total_tasks {
+		let task_id = Tasks::insert_evm_task(
+			api,
+			contract_address.clone(),
+			max_cycle,
+			start_block,
+			2,
+			Network::Ethereum,
+			false,
+		)
+		.await
+		.unwrap();
+		task_ids.push(task_id);
+	}
+	while let false = Tasks::watch_batch(api, task_ids[0], task_ids.len() as u64, max_cycle).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
 }
 
 async fn set_keys() {
@@ -157,21 +242,53 @@ async fn set_keys() {
 	}
 }
 
+async fn fund_wallets(config: WalletConfig) {
+	println!("funding walllets");
+	let read_files = std::fs::read_dir("./dummy_wallets").unwrap();
+	let is_eth = config.blockchain == Blockchain::Ethereum;
+	for file in read_files {
+		let file = file.unwrap().path();
+		let cloned_config = config.clone();
+		let wallet = Wallet::new(
+			cloned_config.blockchain,
+			&cloned_config.network,
+			&cloned_config.url,
+			Some(&file),
+		)
+		.await
+		.unwrap();
+		let file_string = file.to_str().unwrap();
+		if is_eth && file_string.contains("eth") {
+			// keyfile 1 needed to be funded for contract deployment
+			if file_string.contains("1") {
+				let _ = wallet.faucet(10000000000000000).await;
+			} else {
+				tokio::spawn(async move {
+					let _ = wallet.faucet(10000000000000000).await;
+				});
+			}
+		} else if !is_eth && file_string.contains("astar") {
+			// if run in above way throws low priority error must await
+			wallet.faucet(10000000000000000000).await.unwrap();
+		}
+	}
+}
+
 async fn deploy_eth_contract(eth_config: WalletConfig) -> Result<(String, u64)> {
-	let wallet = create_wallet(
-		Some(eth_config.blockchain),
-		Some(eth_config.network),
-		Some(eth_config.url),
-		None,
+	println!("Deploying eth contract");
+	let wallet = Wallet::new(
+		eth_config.blockchain,
+		&eth_config.network,
+		&eth_config.url,
+		Some(Path::new("./dummy_wallets/eth_keyfile1")),
 	)
 	.await
 	.unwrap();
 
 	let bytes = compile_file("./contracts/test_contract.sol")?;
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash.hash).await?;
+	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
 	let contract_address = tx_receipt
-		.result
 		.get("contractAddress")
 		.and_then(|v| v.as_str().map(str::to_string))
 		.ok_or(anyhow::anyhow!("Unable to get contract address"))?;
@@ -182,27 +299,27 @@ async fn deploy_eth_contract(eth_config: WalletConfig) -> Result<(String, u64)> 
 }
 
 async fn deploy_astar_contract(astar_config: WalletConfig) -> Result<(String, u64)> {
-	let wallet = create_wallet(
-		Some(astar_config.blockchain),
-		Some(astar_config.network),
-		Some(astar_config.url),
-		None,
+	println!("Deploying astar contract");
+	let wallet = Wallet::new(
+		astar_config.blockchain,
+		&astar_config.network,
+		&astar_config.url,
+		Some(Path::new("./dummy_wallets/astar_keyfile1")),
 	)
 	.await
 	.unwrap();
 
 	let bytes = compile_file("./contracts/test_contract.sol")?;
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash.hash).await?;
+	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
 	let contract_address = tx_receipt
-		.result
 		.get("contractAddress")
 		.and_then(|v| v.as_str().map(str::to_string))
 		.ok_or(anyhow::anyhow!("Unable to get contract address"))?;
 	let status = wallet.status().await?;
 
 	println!("Deploy contract address {:?} on {:?}", contract_address, status.index);
-	Ok((contract_address.to_string(), status.index))
+	Ok((contract_address.to_string(), status.index + 5))
 }
 
 fn compile_file(path: &str) -> Result<Vec<u8>> {

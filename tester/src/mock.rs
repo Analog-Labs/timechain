@@ -3,6 +3,7 @@ use ethers_solc::{artifacts::Source, CompilerInput, Solc};
 use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::process::Command;
 use subxt::rpc::{rpc_params, RpcParams};
 use subxt::{OnlineClient, PolkadotConfig};
 
@@ -135,6 +136,14 @@ pub(crate) async fn fund_wallets(config: WalletConfig) {
 			wallet.faucet(10000000000000000000).await.unwrap();
 		}
 	}
+}
+
+pub(crate) fn drop_node(node_name: String) {
+	let output = Command::new("docker")
+		.args(&["stop", &node_name])
+		.output()
+		.expect("failed to execute process");
+	println!("output of node drop {:?}", output);
 }
 
 pub(crate) fn compile_file(path: &str) -> Result<Vec<u8>> {

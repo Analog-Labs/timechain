@@ -25,6 +25,7 @@ enum TestCommand {
 	Basic,
 	BatchTaskEth { tasks: u64, max_cycle: u64 },
 	BatchTaskAstar { tasks: u64, max_cycle: u64 },
+	NodeDropTest,
 	DeployEthContract,
 	DeployAstarContract,
 	FundEthWallets,
@@ -78,6 +79,9 @@ async fn main() {
 		TestCommand::BatchTaskAstar { tasks, max_cycle } => {
 			batch_test(&api, tasks, max_cycle, astar_config).await;
 		},
+		TestCommand::NodeDropTest => {
+			node_drop_test(&api, eth_config).await;
+		},
 		TestCommand::SetKeys => {
 			set_keys().await;
 		},
@@ -123,14 +127,21 @@ async fn basic_test_timechain(
 	eth_config: WalletConfig,
 	astar_config: WalletConfig,
 ) {
-	
 	// set astar env
 	let (astar_contract_address, astar_start_block) = setup_env(astar_config).await;
 
 	// astar viewcall task
-	let task_id = insert_evm_task(api, astar_contract_address, 2, astar_start_block, 2, Network::Astar, false)
-		.await
-		.unwrap();
+	let task_id = insert_evm_task(
+		api,
+		astar_contract_address,
+		2, //cycle
+		astar_start_block,
+		2, //period
+		Network::Astar,
+		false,
+	)
+	.await
+	.unwrap();
 	while let false = watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
@@ -139,10 +150,17 @@ async fn basic_test_timechain(
 	let (eth_contract_address, eth_start_block) = setup_env(eth_config).await;
 
 	// eth viewcall task
-	let task_id =
-		insert_evm_task(api, eth_contract_address.clone(), 2, eth_start_block, 2, Network::Ethereum, false)
-			.await
-			.unwrap();
+	let task_id = insert_evm_task(
+		api,
+		eth_contract_address.clone(),
+		2, //cycle
+		eth_start_block,
+		2, //period
+		Network::Ethereum,
+		false,
+	)
+	.await
+	.unwrap();
 	while let false = watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
@@ -173,7 +191,7 @@ async fn batch_test(
 			contract_address.clone(),
 			max_cycle,
 			start_block,
-			2,
+			2, //period
 			Network::Ethereum,
 			false,
 		)
@@ -182,6 +200,30 @@ async fn batch_test(
 		task_ids.push(task_id);
 	}
 	while let false = watch_batch(api, task_ids[0], task_ids.len() as u64, max_cycle).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+}
+
+async fn node_drop_test(api: &OnlineClient<PolkadotConfig>, config: WalletConfig) {
+	let (contract_address, start_block) = setup_env(config.clone()).await;
+
+	let task_id = insert_evm_task(
+		api,
+		contract_address.clone(),
+		5, //cycle
+		start_block,
+		5, //period
+		Network::Ethereum,
+		false,
+	)
+	.await
+	.unwrap();
+	//wait for some cycles to run
+	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+	//drop 1 node
+	drop_node("testnet-validator1-1".to_string());
+	//watch task
+	while let false = watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }

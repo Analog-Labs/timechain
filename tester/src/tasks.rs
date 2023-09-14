@@ -5,7 +5,7 @@ use crate::polkadot::runtime_types::time_primitives::task::{
 };
 use crate::polkadot::tasks::events::TaskCreated;
 use anyhow::Result;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 

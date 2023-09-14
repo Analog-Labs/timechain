@@ -124,22 +124,14 @@ async fn basic_test_timechain(
 	eth_config: WalletConfig,
 	astar_config: WalletConfig,
 ) {
-
 	//set eth env
 	let (contract_address, start_block) = setup_env(eth_config).await;
 
 	//eth viewcall task
-	let task_id = insert_evm_task(
-		api,
-		contract_address.clone(),
-		2,
-		start_block,
-		2,
-		Network::Ethereum,
-		false,
-	)
-	.await
-	.unwrap();
+	let task_id =
+		insert_evm_task(api, contract_address.clone(), 2, start_block, 2, Network::Ethereum, false)
+			.await
+			.unwrap();
 	while let false = watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
@@ -156,10 +148,9 @@ async fn basic_test_timechain(
 	//set astar env
 	let (contract_address, start_block) = setup_env(astar_config).await;
 
-	let task_id =
-		insert_evm_task(api, contract_address, 2, start_block, 2, Network::Astar, false)
-			.await
-			.unwrap();
+	let task_id = insert_evm_task(api, contract_address, 2, start_block, 2, Network::Astar, false)
+		.await
+		.unwrap();
 	while let false = watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
@@ -171,9 +162,8 @@ async fn batch_test(
 	max_cycle: u64,
 	config: WalletConfig,
 ) {
-
 	let (contract_address, start_block) = setup_env(config.clone()).await;
-	
+
 	let mut task_ids = vec![];
 
 	for _ in 0..total_tasks {

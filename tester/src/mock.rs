@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use ethers_solc::{artifacts::Source, CompilerInput, Solc};
+use rosetta_client::{Blockchain, Wallet};
+use std::collections::BTreeMap;
 use std::path::Path;
 use subxt::rpc::{rpc_params, RpcParams};
-use std::collections::BTreeMap;
-use rosetta_client::{Wallet, Blockchain};
 use subxt::{OnlineClient, PolkadotConfig};
 
 #[derive(Clone, Debug)]
@@ -21,7 +21,7 @@ pub(crate) async fn setup_env(config: WalletConfig) -> (String, u64) {
 	} else {
 		deploy_astar_contract(config).await.unwrap()
 	};
-    (contract_address, start_block)
+	(contract_address, start_block)
 }
 
 pub(crate) async fn set_keys() {

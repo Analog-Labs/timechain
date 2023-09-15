@@ -38,7 +38,7 @@ pub(crate) async fn set_keys() {
 	];
 	while success_sets < 6 {
 		success_sets = 0;
-		for i in 0..6 {
+		for (i, key) in keys.iter().enumerate() {
 			let suri = format!("owner word vocal dose decline sunset battle example forget excite gentle waste//{}//time", i+1);
 			let node_port = start_port + (i * 2);
 			let url = format!("ws://127.0.0.1:{}", node_port);
@@ -46,7 +46,7 @@ pub(crate) async fn set_keys() {
 				println!("failed to connect to node {}", i+1);
 				continue;
 			};
-			let params: RpcParams = rpc_params!["time", suri, keys[i]];
+			let params: RpcParams = rpc_params!["time", suri, key];
 			let _: () = api.rpc().request("author_insertKey", params).await.unwrap();
 			success_sets += 1;
 			println!("submitted key for node: {}", i + 1);
@@ -124,7 +124,7 @@ pub(crate) async fn fund_wallets(config: WalletConfig) {
 		let file_string = file.to_str().unwrap();
 		if is_eth && file_string.contains("eth") {
 			// keyfile 1 needed to be funded for contract deployment
-			if file_string.contains("1") {
+			if file_string.contains('1') {
 				let _ = wallet.faucet(10000000000000000).await;
 			} else {
 				tokio::spawn(async move {
@@ -140,7 +140,7 @@ pub(crate) async fn fund_wallets(config: WalletConfig) {
 
 pub(crate) fn drop_node(node_name: String) {
 	let output = Command::new("docker")
-		.args(&["stop", &node_name])
+		.args(["stop", &node_name])
 		.output()
 		.expect("failed to execute process");
 	println!("output of node drop {:?}", output);

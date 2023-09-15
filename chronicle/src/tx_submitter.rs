@@ -41,7 +41,19 @@ where
 			runtime,
 		}
 	}
+}
 
+// TODO: move to primitives if approach is accepted
+pub trait GetRuntimeApi<Api, Hash> {
+	fn runtime_api(&self) -> (ApiRef<'_, Api>, Hash);
+}
+
+impl<B, C, R> GetRuntimeApi<R::Api, B::Hash> for TransactionSubmitter<B, C, R>
+where
+	B: Block + 'static,
+	C: HeaderBackend<B> + Send + Sync + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+{
 	fn runtime_api(&self) -> (ApiRef<'_, R::Api>, B::Hash) {
 		let block_hash = self.client.info().best_hash;
 		let mut runtime = self.runtime.runtime_api();

@@ -11,11 +11,15 @@ use std::{
 	time::Duration,
 };
 use time_primitives::{
-	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
+	Function, Network, PublicKey, ShardId, ShardsApi, SubmitTasks, TaskCycle, TaskError,
+	TaskExecution, TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature,
+	TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::task::JoinHandle;
+
+// tmp
+use crate::tx_submitter::GetRuntimeApi;
 
 pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 	pub _marker: PhantomData<B>,
@@ -59,7 +63,8 @@ pub struct Task<B, R, TxSub> {
 impl<B, R, TxSub> Clone for Task<B, R, TxSub>
 where
 	B: Block,
-	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	TxSub: GetRuntimeApi<R::Api, B::Hash> + SubmitTasks + Clone + Send + Sync + 'static,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -77,8 +82,8 @@ impl<B, R, TxSub> Task<B, R, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
+	R::Api: TasksApi<B> + ShardsApi<B>,
+	TxSub: GetRuntimeApi<R::Api, B::Hash> + SubmitTasks + Clone + Send + Sync + 'static,
 {
 	pub async fn new(params: TaskSpawnerParams<B, R, TxSub>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);
@@ -154,6 +159,18 @@ where
 		cycle: TaskCycle,
 		payload: &[u8],
 	) -> Result<(TssHash, TssSignature)> {
+		let (_, block_hash) = self.tx_submitter.runtime_api();
+		let shard_size = self
+			.runtime
+			.runtime_api()
+			.get_shard_members(block_hash, shard_id)
+			.unwrap()
+			.len();
+		if shard_size == 1 {
+			// return 0 hash and 0 signature when shard size is 1
+			return Ok(([0u8; 32], [0u8; 64]));
+		}
+		// if shard size == 1, return hash and regular signature
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
@@ -274,8 +291,8 @@ impl<B, R, TxSub> TaskSpawner for Task<B, R, TxSub>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
+	R::Api: TasksApi<B> + ShardsApi<B>,
+	TxSub: GetRuntimeApi<R::Api, B::Hash> + SubmitTasks + Clone + Send + Sync + 'static,
 {
 	async fn block_height(&self) -> Result<u64> {
 		let status = self.wallet.status().await?;
@@ -313,7 +330,7 @@ pub struct TaskExecutorParams<B: Block, R, T>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TasksApi<B>,
+	R::Api: TasksApi<B> + ShardsApi<B>,
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	pub _block: PhantomData<B>,
@@ -338,7 +355,7 @@ impl<B, R, T> time_primitives::TaskExecutor<B> for TaskExecutor<B, R, T>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
+	R::Api: TasksApi<B> + ShardsApi<B>,
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	fn network(&self) -> Network {
@@ -363,7 +380,7 @@ impl<B, R, T> TaskExecutor<B, R, T>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
+	R::Api: TasksApi<B> + ShardsApi<B>,
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {

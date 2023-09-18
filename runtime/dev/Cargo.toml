@@ -1,5 +1,5 @@
 [package]
-name = "timechain-runtime"
+name = "dev-runtime"
 authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
 description = "A blockchain using the proof of time consensus protocol"
 edition = "2021"
@@ -70,13 +70,13 @@ frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", b
 frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true }
 
 # Local Dependencies
-pallet-members = { path = "../pallets/members", version = "0.0.1", default-features = false }
-pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
-pallet-elections = { path = "../pallets/elections", default-features = false }
-pallet-tasks = { path = "../pallets/tasks", version = "0.0.1", default-features = false }
+pallet-members = { path = "../../pallets/members", version = "0.0.1", default-features = false }
+pallet-shards = { path = "../../pallets/shards", version = "4.0.0-dev", default-features = false }
+pallet-elections = { path = "../../pallets/elections", default-features = false }
+pallet-tasks = { path = "../../pallets/tasks", version = "0.0.1", default-features = false }
 pallet-treasury = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-runtime-common = { path = "./common", default-features = false }
-time-primitives = { path = "../primitives", default-features = false }
+runtime-common = { path = "../common", default-features = false }
+time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 separator = "0.4.1"

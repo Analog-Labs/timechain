@@ -10,9 +10,9 @@ use sp_runtime::{
 	Perbill,
 };
 use timechain_runtime::{
-	AccountId, Balance, BalancesConfig, CouncilConfig, GrandpaConfig, ImOnlineConfig,
-	RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig, SudoConfig,
-	SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
+	AccountId, Balance, BalancesConfig, CouncilConfig, ElectionsConfig, GrandpaConfig,
+	ImOnlineConfig, RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
 };
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -371,6 +371,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						COMMUNITY_SUPPLY,
 					),
 				],
+				false,
 			)
 		},
 		// Bootnodes
@@ -678,6 +679,7 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 						COMMUNITY_SUPPLY,
 					),
 				],
+				false,
 			)
 		},
 		// Bootnodes
@@ -762,6 +764,7 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 						ANLOG * 2000000,
 					),
 				],
+				true,
 			)
 		},
 		// Bootnodes
@@ -785,6 +788,7 @@ fn generate_analog_genesis(
 	council_key: AccountId,
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
+	dev: bool,
 ) -> GenesisConfig {
 	let initial_nominators: Vec<AccountId> = vec![];
 	let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
@@ -800,7 +804,7 @@ fn generate_analog_genesis(
 			(x.clone(), x.clone(), locked, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
-
+	let (shard_size, shard_threshold) = if dev { (1, 1) } else { (3, 2) };
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -814,6 +818,11 @@ fn generate_analog_genesis(
 		babe: timechain_runtime::BabeConfig {
 			authorities: vec![],
 			epoch_config: Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			..Default::default()
+		},
+		elections: ElectionsConfig {
+			shard_size,
+			shard_threshold,
 			..Default::default()
 		},
 		grandpa: GrandpaConfig {

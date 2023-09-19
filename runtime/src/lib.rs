@@ -1138,8 +1138,6 @@ impl pallet_members::Config for Runtime {
 impl pallet_elections::Config for Runtime {
 	type Members = Members;
 	type Shards = Shards;
-	type ShardSize = ConstU16<3>;
-	type Threshold = ConstU16<2>;
 }
 
 impl pallet_shards::Config for Runtime {

@@ -10,6 +10,7 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::BuildGenesisConfig;
+	use frame_system::pallet_prelude::*;
 	use sp_std::marker::PhantomData;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -22,6 +23,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type Shards: ShardsInterface + MemberEvents;
 		type Members: MemberStorage;
 	}
@@ -69,6 +71,36 @@ pub mod pallet {
 		fn build(&self) {
 			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
+		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Set shard config: size, threshold
+		ShardConfigSet(u16, u16),
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		SizeGEQThreshold,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::DbWeight::get().writes(2))]
+		pub fn set_shard_config(
+			origin: OriginFor<T>,
+			shard_size: u16,
+			shard_threshold: u16,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(shard_size >= shard_threshold, Error::<T>::SizeGEQThreshold);
+			ShardSize::<T>::put(shard_size);
+			ShardThreshold::<T>::put(shard_threshold);
+			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
+			Ok(())
 		}
 	}
 

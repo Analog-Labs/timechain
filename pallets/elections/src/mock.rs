@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
-		Elections: pallet_elections::{Pallet, Storage, Config<T>},
+		Elections: pallet_elections::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
@@ -85,6 +85,7 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_elections::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type Shards = Shards;
 	type Members = MockMembers;
 }

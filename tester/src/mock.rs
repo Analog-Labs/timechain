@@ -3,7 +3,7 @@ use ethers_solc::{artifacts::Source, CompilerInput, Solc};
 use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use subxt::rpc::{rpc_params, RpcParams};
 use subxt::{OnlineClient, PolkadotConfig};
 
@@ -142,8 +142,19 @@ pub(crate) fn drop_node(node_name: String) {
 	let output = Command::new("docker")
 		.args(["stop", &node_name])
 		.output()
-		.expect("failed to execute process");
+		.expect("failed to drop node");
 	println!("output of node drop {:?}", output);
+}
+
+pub(crate) fn start_node(service_name: String) {
+	tokio::spawn(async move {
+		let _status = Command::new("docker")
+			.args(["compose", "up", "-d", &service_name])
+			.stdin(Stdio::null())
+			.stdout(Stdio::null())
+			.spawn()
+			.expect("failed to execute process");
+	});
 }
 
 pub(crate) fn compile_file(path: &str) -> Result<Vec<u8>> {

@@ -838,8 +838,8 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 				// Initial PoA authorities
 				vec![
 					authority_keys_from_seed("Alice"),
-					authority_keys_from_seed("Bob"),
-					authority_keys_from_seed("Charlie"),
+					// authority_keys_from_seed("Bob"),
+					// authority_keys_from_seed("Charlie"),
 					authority_keys_from_seed("Dave"),
 					authority_keys_from_seed("Eve"),
 					authority_keys_from_seed("Ferdie"),

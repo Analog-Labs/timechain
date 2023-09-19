@@ -1,5 +1,6 @@
 use crate::mock::*;
 use crate::tasks::*;
+use shards as Shards;
 
 use clap::Parser;
 use polkadot::runtime_types::time_primitives::shard::Network;
@@ -7,9 +8,13 @@ use rosetta_client::Blockchain;
 use subxt::{OnlineClient, PolkadotConfig};
 
 mod mock;
+mod shards;
 mod tasks;
 
-#[subxt::subxt(runtime_metadata_path = "../infra/metadata.scale")]
+#[subxt::subxt(
+	runtime_metadata_path = "../infra/metadata.scale",
+	derive_for_all_types = "PartialEq, Clone"
+)]
 pub mod polkadot {}
 
 #[derive(Parser, Debug)]
@@ -26,6 +31,7 @@ enum TestCommand {
 	BatchTaskEth { tasks: u64, max_cycle: u64 },
 	BatchTaskAstar { tasks: u64, max_cycle: u64 },
 	NodeDropTest,
+	KeyRecovery,
 	DeployEthContract,
 	DeployAstarContract,
 	FundEthWallets,
@@ -82,6 +88,9 @@ async fn main() {
 		TestCommand::NodeDropTest => {
 			node_drop_test(&api, eth_config).await;
 		},
+		TestCommand::KeyRecovery => {
+			key_recovery_after_drop(&api, eth_config).await;
+		},
 		TestCommand::SetKeys => {
 			set_keys().await;
 		},
@@ -115,7 +124,7 @@ async fn main() {
 			.unwrap();
 		},
 		TestCommand::WatchTask { task_id } => {
-			while let false = watch_task(&api, task_id).await {
+			while !watch_task(&api, task_id).await {
 				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 			}
 		},
@@ -142,7 +151,7 @@ async fn basic_test_timechain(
 	)
 	.await
 	.unwrap();
-	while let false = watch_task(api, task_id).await {
+	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
@@ -161,7 +170,7 @@ async fn basic_test_timechain(
 	)
 	.await
 	.unwrap();
-	while let false = watch_task(api, task_id).await {
+	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
@@ -170,7 +179,7 @@ async fn basic_test_timechain(
 		insert_evm_task(api, eth_contract_address, 1, eth_start_block, 0, Network::Ethereum, true)
 			.await
 			.unwrap();
-	while let false = watch_task(api, task_id).await {
+	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }
@@ -199,7 +208,7 @@ async fn batch_test(
 		.unwrap();
 		task_ids.push(task_id);
 	}
-	while let false = watch_batch(api, task_ids[0], task_ids.len() as u64, max_cycle).await {
+	while !watch_batch(api, task_ids[0], task_ids.len() as u64, max_cycle).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }
@@ -223,7 +232,46 @@ async fn node_drop_test(api: &OnlineClient<PolkadotConfig>, config: WalletConfig
 	//drop 1 node
 	drop_node("testnet-validator1-1".to_string());
 	//watch task
-	while let false = watch_task(api, task_id).await {
+	while !watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+}
+
+async fn key_recovery_after_drop(api: &OnlineClient<PolkadotConfig>, config: WalletConfig) {
+	let (contract_address, start_block) = setup_env(config.clone()).await;
+
+	let task_id = insert_evm_task(
+		api,
+		contract_address.clone(),
+		10, //cycle
+		start_block,
+		5, //period
+		Network::Ethereum,
+		false,
+	)
+	.await
+	.unwrap();
+	// wait for some cycles to run, Note: tasks are running in background
+	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+
+	// drop 2 nodes
+	drop_node("testnet-validator1-1".to_string());
+	drop_node("testnet-validator2-1".to_string());
+	println!("dropped 2 nodes");
+
+	// wait for some time
+	while Shards::is_shard_online(api, Network::Ethereum).await {
+		println!("Waiting for shard offline");
+		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;
+	}
+	println!("Ethereum shard is offline");
+
+	// start nodes again
+	start_node("validator1".to_string());
+	start_node("validator2".to_string());
+
+	// watch task
+	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }

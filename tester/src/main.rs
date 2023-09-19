@@ -264,7 +264,7 @@ async fn key_recovery_after_drop(api: &OnlineClient<PolkadotConfig>, config: Wal
 		println!("Waiting for shard offline");
 		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;
 	}
-	println!("Ethereum shard is offline");
+	println!("Shard is offline, starting nodes");
 
 	// start nodes again
 	start_node("validator1".to_string());

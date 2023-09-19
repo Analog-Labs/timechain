@@ -7000,6 +7000,7 @@ dependencies = [
  "pallet-shards",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-core 21.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
  "sp-io 23.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
  "sp-keystore 0.27.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",

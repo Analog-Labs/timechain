@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
-		Elections: pallet_elections::{Pallet, Storage},
+		Elections: pallet_elections::{Pallet, Storage, Config<T>},
 	}
 );
 
@@ -87,8 +87,6 @@ impl pallet_balances::Config for Test {
 impl pallet_elections::Config for Test {
 	type Shards = Shards;
 	type Members = MockMembers;
-	type ShardSize = ConstU16<3>;
-	type Threshold = ConstU16<2>;
 }
 
 impl pallet_shards::Config for Test {
@@ -139,6 +137,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
+	pallet_elections::GenesisConfig::<Test>::default()
+		.assimilate_storage(&mut storage)
+		.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

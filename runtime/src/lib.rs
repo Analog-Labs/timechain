@@ -1139,6 +1139,7 @@ impl pallet_members::Config for Runtime {
 pub const ShardSize: u16 = 3;
 pub const ShardThreshold: u16 = 2;
 impl pallet_elections::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type Members = Members;
 	type Shards = Shards;
 }

@@ -1,4 +1,6 @@
-use crate::{mock::*, Unassigned};
+use crate::{mock::*, Error, Event, ShardSize, ShardThreshold, Unassigned};
+use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
 use time_primitives::{ElectionsInterface, MemberEvents, Network};
 
 #[test]
@@ -57,6 +59,22 @@ fn shard_offline_automatically_creates_new_shard() {
 		Elections::shard_offline(Network::Ethereum, [a, b, c].to_vec());
 		System::assert_last_event(
 			pallet_shards::Event::<Test>::ShardCreated(1, Network::Ethereum).into(),
+		);
+	});
+}
+
+#[test]
+fn set_shard_config_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(ShardSize::<Test>::get(), 3);
+		assert_eq!(ShardThreshold::<Test>::get(), 2);
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 2, 1));
+		System::assert_last_event(Event::<Test>::ShardConfigSet(2, 1).into());
+		assert_eq!(ShardSize::<Test>::get(), 2);
+		assert_eq!(ShardThreshold::<Test>::get(), 1);
+		assert_noop!(
+			Elections::set_shard_config(RawOrigin::Root.into(), 1, 2),
+			Error::<Test>::SizeGEQThreshold
 		);
 	});
 }

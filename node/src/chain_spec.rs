@@ -11,8 +11,8 @@ use sp_runtime::{
 };
 use timechain_runtime::{
 	AccountId, Balance, BalancesConfig, CouncilConfig, ElectionsConfig, GrandpaConfig,
-	ImOnlineConfig, RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
+	ImOnlineConfig, RuntimeGenesisConfig as GenesisConfig, ShardSize, ShardThreshold, Signature,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
 };
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -960,7 +960,7 @@ fn generate_analog_genesis(
 			(x.clone(), x.clone(), locked, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
-	let (shard_size, shard_threshold) = if dev { (1, 1) } else { (3, 2) };
+	let (shard_size, shard_threshold) = if dev { (1, 1) } else { (ShardSize, ShardThreshold) };
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.

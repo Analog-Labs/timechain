@@ -1135,6 +1135,9 @@ impl pallet_members::Config for Runtime {
 	type HeartbeatTimeout = ConstU32<50>;
 }
 
+// Set in elections::GenesisConfig in node/chain_spec
+pub const ShardSize: u16 = 3;
+pub const ShardThreshold: u16 = 2;
 impl pallet_elections::Config for Runtime {
 	type Members = Members;
 	type Shards = Shards;

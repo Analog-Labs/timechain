@@ -1,0 +1,9 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'docker_service_discovery' 
+    file_sd_configs:
+    - files:
+      - /prometheus-docker-sd/docker-targets.json

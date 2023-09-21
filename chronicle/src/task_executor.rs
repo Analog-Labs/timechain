@@ -85,6 +85,7 @@ where
 		let blockchain = match params.blockchain {
 			Network::Ethereum => Blockchain::Ethereum,
 			Network::Astar => Blockchain::Astar,
+			Network::Polygon => Blockchain::Polygon,
 		};
 		let wallet = Arc::new(Wallet::new(blockchain, &params.network, &params.url, path).await?);
 		let timegraph = if let Some(url) = params.timegraph_url {

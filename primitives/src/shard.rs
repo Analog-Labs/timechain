@@ -19,6 +19,7 @@ pub type TssId = (TaskId, TaskCycle, TaskRetryCount);
 pub enum Network {
 	Ethereum,
 	Astar,
+	Polygon,
 }
 
 /// Track status of shard

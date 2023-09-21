@@ -81,6 +81,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnknownShard,
+		WrongNetwork,
 		PublicKeyAlreadyRegistered,
 		MembershipBelowMinimum,
 		MembershipAboveMaximum,
@@ -168,6 +169,8 @@ pub mod pallet {
 
 		fn set_shard_offline(shard_id: ShardId, network: Network) -> DispatchResult {
 			let shard_state = ShardState::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let shard_network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(shard_network == network, Error::<T>::WrongNetwork);
 			ensure!(!matches!(shard_state, ShardStatus::Offline), Error::<T>::ShardAlreadyOffline);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Offline);
 			Self::deposit_event(Event::ShardOffline(shard_id));

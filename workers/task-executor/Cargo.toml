@@ -9,7 +9,7 @@ async-trait = "0.1.73"
 bincode = "1.3.3"
 futures = "0.3.28"
 log = "0.4.20"
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "staging" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 serde_json = "1.0.105"
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }

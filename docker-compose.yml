@@ -17,7 +17,7 @@ services:
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - ethereum
     volumes:
@@ -48,7 +48,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - ethereum
@@ -80,7 +80,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - ethereum
@@ -112,7 +112,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - astar
@@ -143,7 +143,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - astar
@@ -174,7 +174,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - ethereum
@@ -205,7 +205,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - ethereum
@@ -236,7 +236,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - ethereum
@@ -267,7 +267,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
+      RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - bootnode
     - ethereum

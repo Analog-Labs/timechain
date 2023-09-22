@@ -8,7 +8,6 @@ pub struct Cli {
 }
 
 #[derive(Debug, clap::Parser)]
-#[group(skip)]
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
@@ -17,13 +16,21 @@ pub struct RunCmd {
 }
 
 #[derive(Debug, clap::Parser)]
+/// workaround for https://github.com/clap-rs/clap/issues/5092
+#[group(requires_all = ["blockchain", "network", "url"], multiple = true)]
 pub struct ChronicleArgs {
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
 	/// The chain used by Analog Connector.
 	#[clap(long)]
 	pub blockchain: time_primitives::Network,
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
 	pub network: String,
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
 	/// The address of Analog Connector.
 	#[clap(long)]
 	pub url: String,

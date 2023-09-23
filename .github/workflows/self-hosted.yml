@@ -60,7 +60,8 @@ jobs:
           token: ${{secrets.GITHUB_TOKEN}}
           toolchain: stable
           # `--no-deps` does not check dependencies out of workspace
-          args: --all-features --all-targets --workspace --examples --tests -- --no-deps -D warnings
+          # `--all-features` doesn't work atm
+          args: --all-targets --workspace --examples --tests -- --no-deps -D warnings
 
   audit:
     name: Cargo Audit

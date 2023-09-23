@@ -20,9 +20,7 @@ fn register_member_works() {
 			pubkey_from_bytes(A),
 			A,
 		));
-		System::assert_last_event(
-			Event::<Test>::RegisteredMember(a.clone(), Network::Ethereum, A).into(),
-		);
+		System::assert_last_event(Event::<Test>::MemberOnline(a.clone()).into());
 		assert_eq!(Members::member_peer_id(&a), Some(A));
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));

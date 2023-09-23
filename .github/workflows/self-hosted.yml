@@ -60,7 +60,7 @@ jobs:
           token: ${{secrets.GITHUB_TOKEN}}
           toolchain: stable
           # `--no-deps` does not check dependencies out of workspace
-          args: --all-targets --workspace --examples -- --no-deps -W clippy::all -A clippy::type_complexity
+          args: --all-features --all-targets --workspace --examples --tests -- --no-deps -D warnings
 
   audit:
     name: Cargo Audit

@@ -405,13 +405,8 @@ pub mod pallet {
 			}
 		}
 
-<<<<<<< HEAD
-		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> TxResult {
-			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
-=======
 		pub fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult {
-			let TaskPhase::Write(public_key, _) = TaskPhaseState::<T>::get(task_id) else {
->>>>>>> b14de822 (Make api consistent.)
+			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				log::error!("task not in write phase");
 				return Ok(());
 			};

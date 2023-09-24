@@ -42,8 +42,8 @@ pub(crate) async fn set_keys() {
 			let suri = format!("owner word vocal dose decline sunset battle example forget excite gentle waste//{}//time", i+1);
 			let node_port = start_port + (i * 2);
 			let url = format!("ws://127.0.0.1:{}", node_port);
-			let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url).await else{
-				println!("failed to connect to node {}", i+1);
+			let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url).await else {
+				println!("failed to connect to node {}", i + 1);
 				continue;
 			};
 			let params: RpcParams = rpc_params!["time", suri, key];
@@ -64,7 +64,7 @@ pub(crate) async fn deploy_eth_contract(eth_config: WalletConfig) -> Result<(Str
 		eth_config.blockchain,
 		&eth_config.network,
 		&eth_config.url,
-		Some(Path::new("./dummy_wallets/eth_keyfile1")),
+		Some(Path::new("./config/wallets/eth_keyfile1")),
 	)
 	.await
 	.unwrap();
@@ -88,7 +88,7 @@ pub(crate) async fn deploy_astar_contract(astar_config: WalletConfig) -> Result<
 		astar_config.blockchain,
 		&astar_config.network,
 		&astar_config.url,
-		Some(Path::new("./dummy_wallets/astar_keyfile1")),
+		Some(Path::new("./config/wallets/astar_keyfile1")),
 	)
 	.await
 	.unwrap();
@@ -108,7 +108,7 @@ pub(crate) async fn deploy_astar_contract(astar_config: WalletConfig) -> Result<
 
 pub(crate) async fn fund_wallets(config: WalletConfig) {
 	println!("funding {:?} walllets", config.blockchain);
-	let read_files = std::fs::read_dir("./dummy_wallets").unwrap();
+	let read_files = std::fs::read_dir("./config/wallets").unwrap();
 	let is_eth = config.blockchain == Blockchain::Ethereum;
 	for file in read_files {
 		let file = file.unwrap().path();

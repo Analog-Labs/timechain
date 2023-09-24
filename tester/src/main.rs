@@ -12,7 +12,7 @@ mod shards;
 mod tasks;
 
 #[subxt::subxt(
-	runtime_metadata_path = "../infra/metadata.scale",
+	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod polkadot {}

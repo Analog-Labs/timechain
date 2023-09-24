@@ -37,7 +37,11 @@ if ! rustup target list | grep -q "$rustTarget"; then
 fi
 
 # Build docker image
-cargo build -p timechain-node --target "$rustTarget" --release
+cargo build -p timechain-node -p tester --target "$rustTarget" --release
 mkdir -p target/docker
+
 mv "target/$rustTarget/release/timechain-node" target/docker
 docker build target/docker -f config/docker/Dockerfile -t analoglabs/timechain-node
+
+mv "target/$rustTarget/release/tester" target/docker
+docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/timechain-tester

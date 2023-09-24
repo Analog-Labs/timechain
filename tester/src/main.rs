@@ -19,8 +19,10 @@ pub mod polkadot {}
 
 #[derive(Parser, Debug)]
 struct Args {
-	#[arg(long, default_value = "ws://127.0.0.1:9944")]
+	#[arg(long, default_value = "ws://validator:9944")]
 	url: String,
+	#[arg(long)]
+	network: String,
 	#[clap(subcommand)]
 	cmd: TestCommand,
 }
@@ -28,15 +30,12 @@ struct Args {
 #[derive(Parser, Debug)]
 enum TestCommand {
 	Basic,
-	BatchTaskEth { tasks: u64, max_cycle: u64 },
-	BatchTaskAstar { tasks: u64, max_cycle: u64 },
+	BatchTask { tasks: u64, max_cycle: u64 },
 	NodeDropTest,
 	KeyRecovery,
 	ShardRestart,
-	DeployEthContract,
-	DeployAstarContract,
-	FundEthWallets,
-	FundAstarWallets,
+	DeployContract,
+	FundWallet,
 	InsertTask(InsertTaskParams),
 	SetKeys,
 	WatchTask { task_id: u64 },
@@ -52,8 +51,6 @@ struct InsertTaskParams {
 	start: u64,
 	#[arg(default_value_t = 2)]
 	period: u64,
-	#[arg(default_value_t=String::from("ethereum"))]
-	network: String,
 	#[arg(default_value_t = false)]
 	is_payable: bool,
 }
@@ -64,53 +61,50 @@ async fn main() {
 	let url = args.url;
 	let api = OnlineClient::<PolkadotConfig>::from_url(url).await.unwrap();
 
-	let eth_config = WalletConfig {
-		blockchain: Blockchain::Ethereum,
-		network: "dev".to_string(),
-		url: "ws://127.0.0.1:8545".to_string(),
-	};
-
-	let astar_config = WalletConfig {
-		blockchain: Blockchain::Astar,
-		network: "dev".to_string(),
-		url: "ws://127.0.0.1:9955".to_string(),
+	let (network, config) = match args.network.as_str() {
+		"ethereum" => (
+			Network::Ethereum,
+			WalletConfig {
+				blockchain: Blockchain::Ethereum,
+				network: "dev".to_string(),
+				url: "ws://ethereum:8545".to_string(),
+			},
+		),
+		"astar" => (
+			Network::Astar,
+			WalletConfig {
+				blockchain: Blockchain::Astar,
+				network: "dev".to_string(),
+				url: "ws://astar:9944".to_string(),
+			},
+		),
+		network => panic!("unsupported network {}", network),
 	};
 
 	match args.cmd {
 		TestCommand::Basic => {
-			basic_test_timechain(&api, eth_config, astar_config).await;
+			basic_test_timechain(&api, network, config).await;
 		},
-		TestCommand::BatchTaskEth { tasks, max_cycle } => {
-			batch_test(&api, tasks, max_cycle, eth_config).await;
-		},
-		TestCommand::BatchTaskAstar { tasks, max_cycle } => {
-			batch_test(&api, tasks, max_cycle, astar_config).await;
+		TestCommand::BatchTask { tasks, max_cycle } => {
+			batch_test(&api, tasks, max_cycle, config).await;
 		},
 		TestCommand::NodeDropTest => {
-			node_drop_test(&api, eth_config).await;
+			node_drop_test(&api, config).await;
 		},
 		TestCommand::KeyRecovery => {
-			key_recovery_after_drop(&api, eth_config).await;
+			key_recovery_after_drop(&api, config).await;
 		},
 		TestCommand::ShardRestart => {
-			task_update_after_shard_offline(&api, eth_config).await;
+			task_update_after_shard_offline(&api, config).await;
 		},
 		TestCommand::SetKeys => {
 			set_keys().await;
 		},
-		TestCommand::FundEthWallets => {
-			fund_wallets(eth_config).await;
+		TestCommand::FundWallet => {
+			fund_wallet(config).await;
 		},
-		TestCommand::FundAstarWallets => {
-			fund_wallets(astar_config).await;
-		},
-		TestCommand::DeployEthContract => {
-			if let Err(e) = deploy_eth_contract(eth_config).await {
-				println!("error {:?}", e);
-			}
-		},
-		TestCommand::DeployAstarContract => {
-			if let Err(e) = deploy_astar_contract(astar_config).await {
+		TestCommand::DeployContract => {
+			if let Err(e) = deploy_contract(config).await {
 				println!("error {:?}", e);
 			}
 		},
@@ -121,7 +115,7 @@ async fn main() {
 				params.cycle,
 				params.start,
 				params.period,
-				if params.network == "ethereum" { Network::Ethereum } else { Network::Astar },
+				network,
 				params.is_payable,
 			)
 			.await
@@ -137,20 +131,18 @@ async fn main() {
 
 async fn basic_test_timechain(
 	api: &OnlineClient<PolkadotConfig>,
-	eth_config: WalletConfig,
-	astar_config: WalletConfig,
+	network: Network,
+	config: WalletConfig,
 ) {
-	// set astar env
-	let (astar_contract_address, astar_start_block) = setup_env(astar_config).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
-	// astar viewcall task
 	let task_id = insert_evm_task(
 		api,
-		astar_contract_address,
+		contract_address.clone(),
 		2, //cycle
-		astar_start_block,
+		start_block,
 		2, //period
-		Network::Astar,
+		network.clone(),
 		false,
 	)
 	.await
@@ -159,30 +151,9 @@ async fn basic_test_timechain(
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
-	// set eth env
-	let (eth_contract_address, eth_start_block) = setup_env(eth_config).await;
-
-	// eth viewcall task
-	let task_id = insert_evm_task(
-		api,
-		eth_contract_address.clone(),
-		2, //cycle
-		eth_start_block,
-		2, //period
-		Network::Ethereum,
-		false,
-	)
-	.await
-	.unwrap();
-	while !watch_task(api, task_id).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-	}
-
-	// eth payable task
-	let task_id =
-		insert_evm_task(api, eth_contract_address, 1, eth_start_block, 0, Network::Ethereum, true)
-			.await
-			.unwrap();
+	let task_id = insert_evm_task(api, contract_address, 1, start_block, 0, network, true)
+		.await
+		.unwrap();
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}

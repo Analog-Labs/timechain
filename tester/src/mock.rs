@@ -14,9 +14,9 @@ pub(crate) struct WalletConfig {
 	pub url: String,
 }
 
-pub(crate) async fn setup_env(config: WalletConfig) -> (String, u64) {
-	set_keys().await;
-	fund_wallet(config.clone()).await;
+pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
+	set_keys(config).await;
+	fund_wallet(config).await;
 	deploy_contract(config).await.unwrap()
 }
 
@@ -34,7 +34,7 @@ async fn insert_key(url: &str, key_type: &str, suri: &str, public_key: &str) {
 	}
 }
 
-pub(crate) async fn set_keys() {
+pub(crate) async fn set_keys(config: &WalletConfig) {
 	let suri = |i: u8| {
 		format!("owner word vocal dose decline sunset battle example forget excite gentle waste//{i}//time")
 	};
@@ -46,22 +46,25 @@ pub(crate) async fn set_keys() {
 		"0x1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659",
 		"0x72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69",
 	];
-	insert_key("ws://chronicle-eth:9944", "time", &suri(1), keys[0]).await;
-	insert_key("ws://chronicle-astar:9944", "time", &suri(2), keys[1]).await;
+	match config.blockchain {
+		Blockchain::Ethereum => {
+			insert_key("ws://chronicle-eth:9944", "time", &suri(1), keys[0]).await;
+		},
+		Blockchain::Astar => {
+			insert_key("ws://chronicle-astar:9944", "time", &suri(2), keys[1]).await;
+		},
+		_ => unreachable!(),
+	}
 }
 
-pub(crate) async fn deploy_contract(eth_config: WalletConfig) -> Result<(String, u64)> {
+pub(crate) async fn deploy_contract(config: &WalletConfig) -> Result<(String, u64)> {
 	println!("Deploying eth contract");
-	let wallet = Wallet::new(
-		eth_config.blockchain,
-		&eth_config.network,
-		&eth_config.url,
-		Some(Path::new("./config/wallets/keyfile")),
-	)
-	.await
-	.unwrap();
+	let wallet =
+		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
+			.await
+			.unwrap();
 
-	let bytes = compile_file("./contracts/test_contract.sol")?;
+	let bytes = compile_file("/etc/test_contract.sol")?;
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
 	let contract_address = tx_receipt
@@ -74,16 +77,12 @@ pub(crate) async fn deploy_contract(eth_config: WalletConfig) -> Result<(String,
 	Ok((contract_address.to_string(), status.index))
 }
 
-pub(crate) async fn fund_wallet(config: WalletConfig) {
+pub(crate) async fn fund_wallet(config: &WalletConfig) {
 	println!("funding wallet for {:?}", config.blockchain);
-	let wallet = Wallet::new(
-		config.blockchain,
-		&config.network,
-		&config.url,
-		Some("./config/wallets/keyfile".as_ref()),
-	)
-	.await
-	.unwrap();
+	let wallet =
+		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
+			.await
+			.unwrap();
 	wallet.faucet(10000000000000000000).await.unwrap();
 }
 

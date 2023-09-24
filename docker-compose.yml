@@ -102,6 +102,9 @@ services:
     image: 'analoglabs/timechain-tester'
     profiles:
     - tester
+    volumes:
+    - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
 
   prometheus:
     image: prom/prometheus:v2.36.2

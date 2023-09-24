@@ -83,28 +83,28 @@ async fn main() {
 
 	match args.cmd {
 		TestCommand::Basic => {
-			basic_test_timechain(&api, network, config).await;
+			basic_test_timechain(&api, network, &config).await;
 		},
 		TestCommand::BatchTask { tasks, max_cycle } => {
-			batch_test(&api, tasks, max_cycle, config).await;
+			batch_test(&api, tasks, max_cycle, &config).await;
 		},
 		TestCommand::NodeDropTest => {
-			node_drop_test(&api, config).await;
+			node_drop_test(&api, &config).await;
 		},
 		TestCommand::KeyRecovery => {
-			key_recovery_after_drop(&api, config).await;
+			key_recovery_after_drop(&api, &config).await;
 		},
 		TestCommand::ShardRestart => {
-			task_update_after_shard_offline(&api, config).await;
+			task_update_after_shard_offline(&api, &config).await;
 		},
 		TestCommand::SetKeys => {
-			set_keys().await;
+			set_keys(&config).await;
 		},
 		TestCommand::FundWallet => {
-			fund_wallet(config).await;
+			fund_wallet(&config).await;
 		},
 		TestCommand::DeployContract => {
-			if let Err(e) = deploy_contract(config).await {
+			if let Err(e) = deploy_contract(&config).await {
 				println!("error {:?}", e);
 			}
 		},
@@ -132,7 +132,7 @@ async fn main() {
 async fn basic_test_timechain(
 	api: &OnlineClient<PolkadotConfig>,
 	network: Network,
-	config: WalletConfig,
+	config: &WalletConfig,
 ) {
 	let (contract_address, start_block) = setup_env(config).await;
 
@@ -163,9 +163,9 @@ async fn batch_test(
 	api: &OnlineClient<PolkadotConfig>,
 	total_tasks: u64,
 	max_cycle: u64,
-	config: WalletConfig,
+	config: &WalletConfig,
 ) {
-	let (contract_address, start_block) = setup_env(config.clone()).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let mut task_ids = vec![];
 
@@ -188,8 +188,8 @@ async fn batch_test(
 	}
 }
 
-async fn node_drop_test(api: &OnlineClient<PolkadotConfig>, config: WalletConfig) {
-	let (contract_address, start_block) = setup_env(config.clone()).await;
+async fn node_drop_test(api: &OnlineClient<PolkadotConfig>, config: &WalletConfig) {
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let task_id = insert_evm_task(
 		api,
@@ -212,8 +212,11 @@ async fn node_drop_test(api: &OnlineClient<PolkadotConfig>, config: WalletConfig
 	}
 }
 
-async fn task_update_after_shard_offline(api: &OnlineClient<PolkadotConfig>, config: WalletConfig) {
-	let (contract_address, start_block) = setup_env(config.clone()).await;
+async fn task_update_after_shard_offline(
+	api: &OnlineClient<PolkadotConfig>,
+	config: &WalletConfig,
+) {
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let task_id = insert_evm_task(
 		api,
@@ -251,8 +254,8 @@ async fn task_update_after_shard_offline(api: &OnlineClient<PolkadotConfig>, con
 	}
 }
 
-async fn key_recovery_after_drop(api: &OnlineClient<PolkadotConfig>, config: WalletConfig) {
-	let (contract_address, start_block) = setup_env(config.clone()).await;
+async fn key_recovery_after_drop(api: &OnlineClient<PolkadotConfig>, config: &WalletConfig) {
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let task_id = insert_evm_task(
 		api,

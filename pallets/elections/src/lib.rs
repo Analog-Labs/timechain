@@ -83,7 +83,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		SizeGEQThreshold,
+		ThresholdLargerThanSize,
 	}
 
 	#[pallet::call]
@@ -96,7 +96,7 @@ pub mod pallet {
 			shard_threshold: u16,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(shard_size >= shard_threshold, Error::<T>::SizeGEQThreshold);
+			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
 			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));

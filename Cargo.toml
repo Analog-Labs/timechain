@@ -9,8 +9,8 @@ members = [
 	"primitives",
 	"runtime",
 	"runtime/common",
+	"tester",
 	"tss",
-	"tester"
 ]
 resolver = "2"
 

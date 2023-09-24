@@ -227,3 +227,64 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - astar
+
+  prometheus:
+    image: prom/prometheus:v2.36.2
+    volumes:
+    - ./config/prometheus/:/etc/prometheus/
+    - prometheus-docker-sd:/prometheus-docker-sd:ro
+    command:
+    - '--config.file=/etc/prometheus/prometheus.yaml'
+    - '--storage.tsdb.path=/prometheus'
+    - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+    - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+    - 9090:9090
+    restart: always
+    profiles:
+    - metrics
+
+  prometheus-docker-sd:
+    image: "stucky/prometheus-docker-sd:latest"
+    restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - prometheus-docker-sd:/prometheus-docker-sd:rw
+    profiles:
+    - metrics
+
+  loki:
+    image: grafana/loki:2.9.0
+    ports:
+    - 3100:3100
+    command: -config.file=/etc/loki/local-config.yaml
+    profiles:
+    - metrics
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    volumes:
+    - ./config/promtail/promtail.yaml:/etc/promtail/docker-config.yaml
+    - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/docker-config.yaml
+    profiles:
+    - metrics
+
+  grafana:
+    image: grafana/grafana
+    ports:
+    - 3000:3000
+    volumes:
+    - ./config/grafana/:/etc/grafana/provisioning/
+    environment:
+    - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+    - prometheus
+    - loki
+    restart: always
+    profiles:
+    - metrics
+
+volumes:
+  prometheus-docker-sd:

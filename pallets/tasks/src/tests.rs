@@ -573,6 +573,7 @@ fn submit_task_result_inserts_at_input_cycle() {
 fn payable_task_smoke() {
 	let shard_id = 1;
 	let task_id = 0;
+	let task_cycle = 0;
 	let task_hash = "mock_hash";
 	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
@@ -580,19 +581,19 @@ fn payable_task_smoke() {
 			RawOrigin::Signed(a.clone()).into(),
 			mock_payable(Network::Ethereum)
 		));
-		Tasks::shard_online(1, Network::Ethereum);
+		Tasks::shard_online(shard_id, Network::Ethereum);
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed(a).into(),
-			shard_id,
 			task_id,
+			task_cycle,
 			task_hash.into()
 		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::None.into(),
 			task_id,
-			0,
+			task_cycle,
 			mock_result_ok(shard_id)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));

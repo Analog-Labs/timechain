@@ -106,7 +106,7 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 Build chain:<br>
 `./scripts/build_docker.sh`<br>
 Build tester:<br>
-`cargo build -p tester --release`
+`cargo build -p tester --release`<br>
 Deploy on docker:<br>
 `docker compose --profile ethereum --profile astar up`<br>
 Test:<br>

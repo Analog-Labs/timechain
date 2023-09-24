@@ -27,7 +27,7 @@ pub(crate) async fn setup_env(config: WalletConfig) -> (String, u64) {
 
 pub(crate) async fn set_keys() {
 	let mut success_sets = 0;
-	let start_port = 9943;
+	let start_port = 9980;
 	let keys = [
 		"0x78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d",
 		"0xcee262950a61e921ac72217fd5578c122bfc91ba5c0580dbfbe42148cf35be2b",
@@ -40,7 +40,7 @@ pub(crate) async fn set_keys() {
 		success_sets = 0;
 		for (i, key) in keys.iter().enumerate() {
 			let suri = format!("owner word vocal dose decline sunset battle example forget excite gentle waste//{}//time", i+1);
-			let node_port = start_port + (i * 2);
+			let node_port = start_port + i;
 			let url = format!("ws://127.0.0.1:{}", node_port);
 			let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url).await else {
 				println!("failed to connect to node {}", i + 1);

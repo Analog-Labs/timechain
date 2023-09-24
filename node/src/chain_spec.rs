@@ -708,10 +708,10 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Analog Local",
+		"Analog Dev",
 		// ID
-		"analog_local",
-		ChainType::Local,
+		"analog_dev",
+		ChainType::Development,
 		move || {
 			generate_analog_genesis(
 				wasm_binary,
@@ -720,25 +720,11 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 				// Council account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
-				vec![
-					authority_keys_from_seed("Alice"),
-					// authority_keys_from_seed("Bob"),
-					authority_keys_from_seed("Charlie"),
-					authority_keys_from_seed("Dave"),
-					authority_keys_from_seed("Eve"),
-					authority_keys_from_seed("Ferdie"),
-					// Just enable six accounts for local testing
-					// Reserve following accounts for quickly create shard
-					// authority_keys_from_seed("Henry"),
-					// authority_keys_from_seed("Ivan"),
-					// authority_keys_from_seed("Jack"),
-					// authority_keys_from_seed("Lisa"),
-					// authority_keys_from_seed("Mona"),
-					// authority_keys_from_seed("Nash"),
-				],
+				vec![authority_keys_from_seed("Alice")],
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 2000000),
 					// dev prefund set-keys1, shard1
 					(
 						hex!["78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"]
@@ -773,34 +759,8 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 					(
 						hex!["72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"]
 							.into(),
-						ANLOG * 2000000 * 1_000_000_000,
+						ANLOG * 2000000,
 					),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 1000000),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-						ANLOG * 1000000,
-					),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash//stash"), ANLOG * 1000000),
 				],
 			)
 		},

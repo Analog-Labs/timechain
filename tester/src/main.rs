@@ -19,7 +19,7 @@ pub mod polkadot {}
 
 #[derive(Parser, Debug)]
 struct Args {
-	#[arg(long, default_value = "ws://127.0.0.1:9943")]
+	#[arg(long, default_value = "ws://127.0.0.1:9944")]
 	url: String,
 	#[clap(subcommand)]
 	cmd: TestCommand,
@@ -73,7 +73,7 @@ async fn main() {
 	let astar_config = WalletConfig {
 		blockchain: Blockchain::Astar,
 		network: "dev".to_string(),
-		url: "ws://127.0.0.1:9944".to_string(),
+		url: "ws://127.0.0.1:9955".to_string(),
 	};
 
 	match args.cmd {

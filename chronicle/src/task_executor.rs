@@ -260,9 +260,9 @@ where
 		Ok(())
 	}
 
-	async fn write(self, shard_id: ShardId, task_id: TaskId, function: Function) -> Result<()> {
+	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.tx_submitter.submit_task_hash(shard_id, task_id, tx_hash) {
+		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash) {
 			log::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
@@ -426,7 +426,7 @@ where
 						log::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					self.task_spawner.execute_write(shard_id, task_id, function)
+					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
 						Function::EvmTxReceipt { tx: tx.to_vec() }

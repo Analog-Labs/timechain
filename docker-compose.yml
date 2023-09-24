@@ -16,6 +16,8 @@ services:
     - '--keyfile=/etc/eth_keyfile1'
     - '--alice'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -26,6 +28,8 @@ services:
     - '9943:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - astar
     - ethereum
@@ -47,6 +51,8 @@ services:
     - '--bob'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -58,6 +64,8 @@ services:
     - '9945:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - astar
     - ethereum
@@ -79,6 +87,8 @@ services:
     - '--charlie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -90,6 +100,8 @@ services:
     - '9947:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - astar
     - ethereum
@@ -111,6 +123,8 @@ services:
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -122,6 +136,8 @@ services:
     - '9949:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - astar
 
@@ -142,6 +158,8 @@ services:
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -153,6 +171,8 @@ services:
     - '9951:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - astar
 
@@ -173,6 +193,8 @@ services:
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -184,6 +206,8 @@ services:
     - '9953:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - astar
   
@@ -204,6 +228,8 @@ services:
     - '--dave'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -215,6 +241,8 @@ services:
     - '9955:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - ethereum
 
@@ -235,6 +263,8 @@ services:
     - '--eve'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -246,6 +276,8 @@ services:
     - '9957:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - ethereum
 
@@ -266,6 +298,8 @@ services:
     - '--ferdie'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
     - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--prometheus-port=9090'
+    - '--prometheus-external'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -277,6 +311,8 @@ services:
     - '9959:9944'
     extra_hosts:
     - "host.docker.internal:host-gateway"
+    labels:
+      prometheus-scrape.enabled: "true"
     profiles:
     - ethereum
 
@@ -317,3 +353,4 @@ services:
     - "9944:9944"
     profiles:
     - astar
+

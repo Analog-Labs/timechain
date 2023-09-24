@@ -184,7 +184,7 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 
 #[cfg(feature = "std")]
 pub trait SubmitTasks {
-	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> SubmitResult;
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 
 	fn submit_task_result(
 		&self,

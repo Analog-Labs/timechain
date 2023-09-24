@@ -11,8 +11,8 @@ use sp_runtime::{
 };
 use timechain_runtime::{
 	AccountId, Balance, BalancesConfig, CouncilConfig, ElectionsConfig, GrandpaConfig,
-	ImOnlineConfig, RuntimeGenesisConfig as GenesisConfig, ShardSize, ShardThreshold, Signature,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
+	ImOnlineConfig, RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, ANLOG, SHARD_SIZE, SHARD_THRESHOLD, TOKEN_DECIMALS, WASM_BINARY,
 };
 const TOKEN_SYMBOL: &str = "ANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -699,7 +699,7 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 }
 
 /// Generate a chain spec for local developement and testing.
-pub fn analog_dev_config() -> Result<ChainSpec, String> {
+pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
@@ -764,7 +764,7 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 						ANLOG * 2000000,
 					),
 				],
-				true,
+				disable_tss,
 			)
 		},
 		// Bootnodes
@@ -788,7 +788,7 @@ fn generate_analog_genesis(
 	council_key: AccountId,
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
-	dev: bool,
+	disable_tss: bool,
 ) -> GenesisConfig {
 	let initial_nominators: Vec<AccountId> = vec![];
 	let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
@@ -804,7 +804,8 @@ fn generate_analog_genesis(
 			(x.clone(), x.clone(), locked, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
-	let (shard_size, shard_threshold) = if dev { (1, 1) } else { (ShardSize, ShardThreshold) };
+	let (shard_size, shard_threshold) =
+		if disable_tss { (1, 1) } else { (SHARD_SIZE, SHARD_THRESHOLD) };
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.

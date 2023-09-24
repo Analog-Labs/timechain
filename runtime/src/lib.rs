@@ -1136,8 +1136,9 @@ impl pallet_members::Config for Runtime {
 }
 
 // Set in elections::GenesisConfig in node/chain_spec
-pub const ShardSize: u16 = 3;
-pub const ShardThreshold: u16 = 2;
+pub const SHARD_SIZE: u16 = 3;
+pub const SHARD_THRESHOLD: u16 = 2;
+
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Members = Members;

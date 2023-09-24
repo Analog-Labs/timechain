@@ -4,7 +4,7 @@ services:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
-    - '--chain=dev'
+    - '--chain=notss'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -54,11 +54,11 @@ services:
     profiles:
     - astar
 
-  chronicle-eth1:
+  chronicle-eth:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
-    - '--chain=dev'
+    - '--chain=notss'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -77,71 +77,13 @@ services:
     ports:
     - '9980:9944'
     volumes:
-    - './config/wallets/eth_keyfile1:/etc/keyfile'
+    - './config/wallets/keyfile:/etc/keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
 
-  chronicle-eth2:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/keyfile'
-    environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
-    depends_on:
-    - validator
-    - ethereum
-    ports:
-    - '9981:9944'
-    volumes:
-    - './config/wallets/eth_keyfile2:/etc/keyfile'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - ethereum
-
-  chronicle-eth3:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/keyfile'
-    environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
-    depends_on:
-    - validator
-    - ethereum
-    ports:
-    - '9982:9944'
-    volumes:
-    - './config/wallets/eth_keyfile3:/etc/keyfile'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - ethereum
-
-  chronicle-astar1:
+  chronicle-astar:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
@@ -164,65 +106,7 @@ services:
     ports:
     - '9983:9944'
     volumes:
-    - './config/wallets/astar_keyfile1:/etc/keyfile'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - astar
-  
-  chronicle-astar2:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
-    - '--keyfile=/etc/keyfile'
-    environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
-    depends_on:
-    - validator
-    - astar
-    ports:
-    - '9984:9944'
-    volumes:
-    - './config/wallets/astar_keyfile2:/etc/keyfile'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - astar
-  
-  chronicle-astar3:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
-    - '--keyfile=/etc/keyfile'
-    environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
-    depends_on:
-    - validator
-    - astar
-    ports:
-    - '9985:9944'
-    volumes:
-    - './config/wallets/astar_keyfile3:/etc/keyfile'
+    - './config/wallets/keyfile:/etc/keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

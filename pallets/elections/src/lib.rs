@@ -59,7 +59,7 @@ pub mod pallet {
 	impl<T> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
-				_p: PhantomData::default(),
+				_p: PhantomData,
 				shard_size: 3,
 				shard_threshold: 2,
 			}

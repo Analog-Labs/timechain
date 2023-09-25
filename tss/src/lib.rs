@@ -103,7 +103,7 @@ pub fn construct_proof_of_knowledge(
 		identifier,
 		coefficients,
 		commitment,
-		&mut OsRng,
+		OsRng,
 	)?)
 }
 

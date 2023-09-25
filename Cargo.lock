@@ -3977,7 +3977,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
+source = "git+https://github.com/Analog-labs/frost-evm.git#99b6419f5a75c18907ff51a45470150376f72843"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
@@ -10498,9 +10498,10 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
+source = "git+https://github.com/Analog-labs/frost-evm.git#99b6419f5a75c18907ff51a45470150376f72843"
 dependencies = [
  "k256",
+ "rand_core 0.6.4",
  "serde",
  "sha3",
 ]
@@ -13832,7 +13833,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 

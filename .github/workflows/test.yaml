@@ -1,0 +1,53 @@
+##########################################################
+#
+#  Workflow for running test on the self-hosted machine.
+#  
+#  Workflow is triggered on each pull request with
+#  label `!ci-test-basic`
+#
+##########################################################
+
+name: Run benchmarks
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - '**/*.md'
+    
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-test:
+    runs-on: [self-hosted]
+    if: ${{
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name,'!ci-test-basic')
+      }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Install protobuf
+        run: sudo apt update && sudo apt install -y protobuf-compiler
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build binary
+        uses: actions/checkout@v3
+        run: |
+          docker compose --profile ethereum down -v 
+          ./scripts/build_docker.sh 
+          docker compose --profile ethereum up
+      - name: Run test
+        uses: actions/checkout@v3
+        run: docker compose run tester --network ethereum basic
+          

@@ -71,8 +71,7 @@ async fn main() {
 	while let false = is_chain_init(&api).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		println!("waiting for chain to start");
-	};
-
+	}
 
 	let (network, config) = match args.network.as_str() {
 		"ethereum" => (

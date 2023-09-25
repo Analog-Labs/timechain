@@ -67,7 +67,7 @@ async fn main() {
 		break api;
 	};
 
-	// wait for some blocks for node to properly run
+	// wait for some blocks so that tx pool is init in worker
 	while let false = is_chain_init(&api).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		println!("waiting for chain to start");

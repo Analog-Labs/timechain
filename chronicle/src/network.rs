@@ -25,7 +25,10 @@ use time_primitives::{
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, Duration, Instant};
-use tss::{TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
+use tss::{
+	ProofOfKnowledge, SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment,
+	VerifyingKey,
+};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -52,7 +55,7 @@ pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 
 enum Tss {
 	Enabled(tss::Tss<TssId, PeerId>),
-	Disabled(Option<TssAction<TssId, PeerId>>, bool),
+	Disabled(SigningKey, Option<TssAction<TssId, PeerId>>, bool),
 }
 
 impl Tss {
@@ -63,13 +66,12 @@ impl Tss {
 		commitment: Option<VerifiableSecretSharingCommitment>,
 	) -> Self {
 		if members.len() == 1 {
-			Tss::Disabled(
-				Some(TssAction::Commit(
-					VerifiableSecretSharingCommitment::new(),
-					Default::default(),
-				)),
-				false,
-			)
+			let key = SigningKey::random();
+			let public = key.public();
+			let commitment =
+				VerifiableSecretSharingCommitment::deserialize(vec![public.to_element()]).unwrap();
+			let proof_of_knowledge = ProofOfKnowledge::deserialize([0; 65]).unwrap();
+			Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false)
 		} else {
 			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
 		}
@@ -78,15 +80,15 @@ impl Tss {
 	fn committed(&self) -> bool {
 		match self {
 			Self::Enabled(tss) => tss.committed(),
-			Self::Disabled(_, committed) => *committed,
+			Self::Disabled(_, _, committed) => *committed,
 		}
 	}
 
 	fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
 		match self {
 			Self::Enabled(tss) => tss.on_commit(commitment),
-			Self::Disabled(actions, committed) => {
-				*actions = Some(TssAction::PublicKey(VerifyingKey::from_bytes([1; 33]).unwrap()));
+			Self::Disabled(key, actions, committed) => {
+				*actions = Some(TssAction::PublicKey(key.public()));
 				*committed = true;
 			},
 		}
@@ -95,12 +97,9 @@ impl Tss {
 	fn on_sign(&mut self, request_id: TssId, data: Vec<u8>) {
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
-			Self::Disabled(actions, _) => {
-				*actions = Some(TssAction::Signature(
-					request_id,
-					[0; 32],
-					Signature::from_bytes([0; 64]).unwrap(),
-				));
+			Self::Disabled(key, actions, _) => {
+				let hash = VerifyingKey::message_hash(&data);
+				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
 			},
 		}
 	}
@@ -108,21 +107,21 @@ impl Tss {
 	fn on_complete(&mut self, request_id: TssId) {
 		match self {
 			Self::Enabled(tss) => tss.on_complete(request_id),
-			Self::Disabled(_, _) => {},
+			Self::Disabled(_, _, _) => {},
 		}
 	}
 
 	fn on_message(&mut self, peer_id: PeerId, msg: TssMessage<TssId>) -> Option<TssMessage<TssId>> {
 		match self {
 			Self::Enabled(tss) => tss.on_message(peer_id, msg),
-			Self::Disabled(_, _) => None,
+			Self::Disabled(_, _, _) => None,
 		}
 	}
 
 	fn next_action(&mut self) -> Option<TssAction<TssId, PeerId>> {
 		match self {
 			Self::Enabled(tss) => tss.next_action(),
-			Self::Disabled(action, _) => action.take(),
+			Self::Disabled(_, action, _) => action.take(),
 		}
 	}
 }

@@ -109,9 +109,9 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 {
-	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> SubmitResult {
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
-		runtime_api.submit_task_hash(block_hash, shard_id, task_id, hash)
+		runtime_api.submit_task_hash(block_hash, task_id, cycle, hash)
 	}
 
 	fn submit_task_result(

@@ -1,284 +1,22 @@
 version: '3.9'
 services:
-  bootnode:
+  validator:
     image: 'analoglabs/timechain-node'
     command:
-    - '--validator'
     - '--base-path=/data'
     - '--chain=dev'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/eth_keyfile1'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
     - '--alice'
+    - '--validator'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
-    depends_on:
-    - ethereum
-    volumes:
-    - './dummy_wallets/eth_keyfile1:/etc/eth_keyfile1'
     ports:
-    - '9943:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - astar
-    - ethereum
-
-  validator1:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/eth_keyfile2'
-    - '--bob'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000002'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug,task-executor=debug'
-    depends_on:
-    - bootnode
-    - ethereum
-    volumes:
-    - './dummy_wallets/eth_keyfile2:/etc/eth_keyfile2'
-    ports:
-    - '9945:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - astar
-    - ethereum
-
-  validator2:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/eth_keyfile3'
-    - '--charlie'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000003'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - ethereum
-    volumes:
-    - './dummy_wallets/eth_keyfile3:/etc/eth_keyfile3'
-    ports:
-    - '9947:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - astar
-    - ethereum
-
-  validator3:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
-    - '--keyfile=/etc/astar_keyfile1'
-    - '--dave'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - astar
-    volumes:
-    - './dummy_wallets/astar_keyfile1:/etc/astar_keyfile1'
-    ports:
-    - '9949:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - astar
-
-  validator4:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
-    - '--keyfile=/etc/astar_keyfile2'
-    - '--eve'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - astar
-    volumes:
-    - './dummy_wallets/astar_keyfile2:/etc/astar_keyfile2'
-    ports:
-    - '9951:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - astar
-
-  validator5:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
-    - '--keyfile=/etc/astar_keyfile3'
-    - '--ferdie'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - ethereum
-    volumes:
-    - './dummy_wallets/astar_keyfile3:/etc/astar_keyfile3'
-    ports:
-    - '9953:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - astar
-  
-  validator6:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/eth_keyfile4'
-    - '--dave'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000004'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - ethereum
-    volumes:
-    - './dummy_wallets/eth_keyfile4:/etc/eth_keyfile4'
-    ports:
-    - '9955:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - ethereum
-
-  validator7:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/eth_keyfile5'
-    - '--eve'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000005'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - ethereum
-    volumes:
-    - './dummy_wallets/eth_keyfile5:/etc/eth_keyfile5'
-    ports:
-    - '9957:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - ethereum
-
-  validator8:
-    image: 'analoglabs/timechain-node'
-    command:
-    - '--validator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--offchain-worker=Always'
-    - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
-    - '--keyfile=/etc/eth_keyfile6'
-    - '--ferdie'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000006'
-    - '--bootnodes=/dns4/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    environment:
-      RUST_LOG: 'tesseract_tss=debug,time-worker=debug'
-    depends_on:
-    - bootnode
-    - ethereum
-    volumes:
-    - './dummy_wallets/eth_keyfile6:/etc/eth_keyfile6'
-    ports:
-    - '9959:9944'
-    extra_hosts:
-    - "host.docker.internal:host-gateway"
-    profiles:
-    - ethereum
+    - '9944:9944'
+    labels:
+      prometheus-scrape.enabled: 'true'
 
   ethereum:
     image: 'ethereum/client-go:v1.12.2'
@@ -292,28 +30,261 @@ services:
     - '--ws.origins=*'
     - '--ws.api=eth,debug,admin,txpool,web3'
     expose:
-    - "8545"
+    - '8545'
     ports:
-    - "8545:8545"
+    - '8545:8545'
     profiles:
-    - astar
     - ethereum
 
   astar:
     image: "staketechnologies/astar-collator:latest"
-    platform: linux/amd64
     command:
     - 'astar-collator'
+    - '--base-path=/data'
     - '--chain=dev'
-    - '--rpc-port=9944'
     - '--rpc-cors=all'
     - '--rpc-external'
     - '--alice'
     - '--enable-evm-rpc'
-    - '--base-path=/astar'
+    - '--no-mdns'
     expose:
-    - "9944"
+    - '9944'
     ports:
-    - "9944:9944"
+    - '9955:9944'
     profiles:
     - astar
+
+  chronicle-eth1:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
+    - '--keyfile=/etc/keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+    depends_on:
+    - validator
+    - ethereum
+    ports:
+    - '9980:9944'
+    volumes:
+    - './config/wallets/eth_keyfile1:/etc/keyfile'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - ethereum
+
+  chronicle-eth2:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
+    - '--keyfile=/etc/keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+    depends_on:
+    - validator
+    - ethereum
+    ports:
+    - '9981:9944'
+    volumes:
+    - './config/wallets/eth_keyfile2:/etc/keyfile'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - ethereum
+
+  chronicle-eth3:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--url=ws://ethereum:8545'
+    - '--blockchain=ethereum'
+    - '--network=dev'
+    - '--keyfile=/etc/keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+    depends_on:
+    - validator
+    - ethereum
+    ports:
+    - '9982:9944'
+    volumes:
+    - './config/wallets/eth_keyfile3:/etc/keyfile'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - ethereum
+
+  chronicle-astar1:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--url=ws://astar:9944'
+    - '--blockchain=astar'
+    - '--network=dev'
+    - '--keyfile=/etc/keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+    depends_on:
+    - validator
+    - astar
+    ports:
+    - '9983:9944'
+    volumes:
+    - './config/wallets/astar_keyfile1:/etc/keyfile'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - astar
+  
+  chronicle-astar2:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--url=ws://astar:9944'
+    - '--blockchain=astar'
+    - '--network=dev'
+    - '--keyfile=/etc/keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+    depends_on:
+    - validator
+    - astar
+    ports:
+    - '9984:9944'
+    volumes:
+    - './config/wallets/astar_keyfile2:/etc/keyfile'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - astar
+  
+  chronicle-astar3:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--base-path=/data'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--url=ws://astar:9944'
+    - '--blockchain=astar'
+    - '--network=dev'
+    - '--keyfile=/etc/keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+    depends_on:
+    - validator
+    - astar
+    ports:
+    - '9985:9944'
+    volumes:
+    - './config/wallets/astar_keyfile3:/etc/keyfile'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - astar
+
+  prometheus:
+    image: prom/prometheus:v2.36.2
+    volumes:
+    - ./config/prometheus/:/etc/prometheus/
+    - prometheus-docker-sd:/prometheus-docker-sd:ro
+    command:
+    - '--config.file=/etc/prometheus/prometheus.yaml'
+    - '--storage.tsdb.path=/prometheus'
+    - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+    - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+    - 9090:9090
+    restart: always
+    profiles:
+    - metrics
+
+  prometheus-docker-sd:
+    image: "stucky/prometheus-docker-sd:latest"
+    restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - prometheus-docker-sd:/prometheus-docker-sd:rw
+    profiles:
+    - metrics
+
+  loki:
+    image: grafana/loki:2.9.0
+    ports:
+    - 3100:3100
+    command: -config.file=/etc/loki/local-config.yaml
+    profiles:
+    - metrics
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    volumes:
+    - ./config/promtail/promtail.yaml:/etc/promtail/docker-config.yaml
+    - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/docker-config.yaml
+    profiles:
+    - metrics
+
+  grafana:
+    image: grafana/grafana
+    ports:
+    - 3000:3000
+    volumes:
+    - ./config/grafana/:/etc/grafana/provisioning/
+    environment:
+    - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+    - prometheus
+    - loki
+    restart: always
+    profiles:
+    - metrics
+
+volumes:
+  prometheus-docker-sd:

@@ -40,4 +40,4 @@ fi
 cargo build -p timechain-node --target "$rustTarget" --release
 mkdir -p target/docker
 mv "target/$rustTarget/release/timechain-node" target/docker
-docker build target/docker -f docker/Dockerfile -t analoglabs/timechain-node
+docker build target/docker -f config/docker/Dockerfile -t analoglabs/timechain-node

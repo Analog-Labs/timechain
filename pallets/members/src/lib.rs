@@ -78,6 +78,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		RegisteredMember(AccountId, Network, PeerId),
 		HeartbeatReceived(AccountId),
+		MemberOnline(AccountId),
+		MemberOffline(AccountId),
 	}
 
 	#[pallet::error]
@@ -91,12 +93,10 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			Heartbeat::<T>::iter().for_each(|(account, heart)| {
+			Heartbeat::<T>::iter().for_each(|(member, heart)| {
 				if heart.is_online && n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
-					if let Some(network) = MemberNetwork::<T>::get(&account) {
-						T::Elections::member_offline(&account, network);
-					}
-					Heartbeat::<T>::insert(&account, heart.set_offline());
+					Heartbeat::<T>::insert(&member, heart.set_offline());
+					Self::member_offline(&member);
 					writes += 1;
 				}
 			});
@@ -124,8 +124,8 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
-			T::Elections::member_online(&member, network);
-			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
+			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
+			Self::member_online(&member);
 			Ok(())
 		}
 
@@ -138,17 +138,29 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
+			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !heart.is_online {
-				if let Some(network) = MemberNetwork::<T>::get(&member) {
-					T::Elections::member_online(&member, network);
-				}
+				Self::member_online(&member);
 			}
-			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn member_online(member: &AccountId) {
+			Self::deposit_event(Event::MemberOnline(member.clone()));
+			if let Some(network) = MemberNetwork::<T>::get(member) {
+				T::Elections::member_online(member, network);
+			}
+		}
+
+		fn member_offline(member: &AccountId) {
+			Self::deposit_event(Event::MemberOffline(member.clone()));
+			if let Some(network) = MemberNetwork::<T>::get(member) {
+				T::Elections::member_offline(member, network);
+			}
+		}
+
 		pub fn submit_register_member(
 			network: Network,
 			public_key: PublicKey,

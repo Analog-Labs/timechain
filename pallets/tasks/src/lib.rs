@@ -272,13 +272,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_hash())]
 		pub fn submit_hash(
 			origin: OriginFor<T>,
-			shard_id: ShardId,
 			task_id: TaskId,
+			cycle: TaskCycle,
 			hash: Vec<u8>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			ensure!(TaskShard::<T>::get(task_id) == Some(shard_id), Error::<T>::UnassignedTask);
+			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				return Err(Error::<T>::NotWritePhase.into());
 			};
@@ -405,7 +405,7 @@ pub mod pallet {
 			}
 		}
 
-		pub fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> TxResult {
+		pub fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult {
 			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				log::error!("task not in write phase");
 				return Ok(());
@@ -414,8 +414,8 @@ pub mod pallet {
 
 			signer
 				.send_signed_transaction(|_| Call::submit_hash {
-					shard_id,
 					task_id,
+					cycle,
 					hash: hash.clone(),
 				})
 				.ok_or(TxError::MissingSigningKey)?

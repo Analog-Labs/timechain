@@ -30,7 +30,7 @@ const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
 
 /// Tokens to take from team supply to bootstrap validators
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500000;
-const VALIDATOR_SUPPLY: Balance = 16 * PER_VALIDATOR_STASH;
+const VALIDATOR_SUPPLY: Balance = 10 * PER_VALIDATOR_STASH;
 
 const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 50000;
 
@@ -42,8 +42,8 @@ const CONTROLLER_SUPPLY: Balance = ANLOG * 50000;
 const TESTUSER_SUPPLY: Balance = ANLOG * 100000;
 
 /// Temporary fix before time keys becomes a session keys
-const PER_WORKER_STASH: Balance = ANLOG * 100000;
-const WORKER_SUPPLY: Balance = 12 * PER_WORKER_STASH;
+const PER_CHRONICLE_STASH: Balance = ANLOG * 100000;
+const CHRONICLE_SUPPLY: Balance = 12 * PER_CHRONICLE_STASH;
 
 /// Minimum needed validators, currently lowered to improve stability
 const MIN_VALIDATOR_COUNT: u32 = 4;
@@ -107,44 +107,6 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 				hex!["143cda6b33902c40050d7b85b9393f5db16eeafe1f728d50ac57404c85442a10"].into(),
 				// Initial authorities at genesis
 				vec![
-					// boot 0
-					(
-						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
-						hex!["2052373b15df90bf555e1498b2ff4f9157ab8b32b028cd8db5e1229750537919"].into(),
-
-						hex!["f04c936f39f1a69250ab608fb411df41fe98f80f0182a42a06fbdde5d4d71121"].unchecked_into(),
-						hex!["20841efc57a630ae0e3fb5593e8c0526bdbbfa6b2cf877394b4bd5e15d3ca921"].unchecked_into(),
-						hex!["44fc1e9d86c8c455340ab1fcdaf2da6c5103db1e2306f97e8ddc94d49bab355d"].unchecked_into(),
-					),
-					// boot 1
-					(
-						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
-						hex!["aabf500afa16987bfa9804d700765ac1745778caf12a4f8bc944fa8b712fa20a"].into(),
-
-						hex!["a420376e1ffa452c37f2ab02320c8156edf99a4855e9992e580bd08c82411e5b"].unchecked_into(),
-						hex!["fcbadd4a3b4e86713e1894b18413589a02acc93df989830be0c8ff9a4083c73c"].unchecked_into(),
-						hex!["2c51eb1e1d82051b9c7bf785fa64f6281586ac315c7f29ae9dce602efc5c0d40"].unchecked_into(),
-					),
-
-					// archive 0
-					(
-						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
-						hex!["18ea951f5a1362e7b6ad61b0c1dba56924610d734949c56459b2f930f2dfb466"].into(),
-
-						hex!["fc6a5f381265178388907b4318284754a64f63cea7eae535dd8bd88af714d977"].unchecked_into(),
-						hex!["c280c069882832700743c82856a4a69c9f57e678b56b0f6e26a897a56d42360f"].unchecked_into(),
-						hex!["f60d10ac6734437aa2b6e7c6c0669b8427f396990fb9abaaef896ee99f16ef06"].unchecked_into(),
-					),
-					// archive 1
-					(
-						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
-						hex!["b84c0fdb87eb3ba32ab919cf93b238ea6e7f11cd44988ea15240a52f9b707647"].into(),
-
-						hex!["eebaa541e6e739ec228feabe6896c5892f462cafcff7a05614fa69e654c17c5a"].unchecked_into(),
-						hex!["d20c7286d69cca523f2b85f520faaed13358ecc3bade0cf699c5acdc9e795d7e"].unchecked_into(),
-						hex!["1a4a01258ff2bb14b6f21d6ffece9418ad8152b3164e8378152238812fbf130f"].unchecked_into(),
-					),
-
 					// node 0
 					(
 						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
@@ -235,24 +197,6 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						hex!["5df818825438f2d039f89b8d00e8bcef18199e94ecaf91e5567653972b21fbcc"].unchecked_into(),
 						hex!["e662001cee21b418a8b22975621137183e7d17536114d98c3c694cbbc1cd8950"].unchecked_into(),
 					),
-					// node 10
-					(
-						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
-						hex!["40c1ed1f8ecf374e3dc7fa034091684919f42d7df1fb0031da41bb52ad295c7f"].into(),
-
-						hex!["187674e20a50dde97f2dcb079b17fd338f61aa4e5033e0123a49dfd44d01f957"].unchecked_into(),
-						hex!["15c31b81c06635c035065217c94f3d9edc8fbe150ad0cbda459c38e082aeb9e8"].unchecked_into(),
-						hex!["22c93ab4b7231bbc3347525cd397bd5c3c84270281aefcad689829fdde1ad912"].unchecked_into(),
-					),
-					// node 11
-					(
-						hex!["b4a1be5fbb1a1be77cfc4825c2d362cacf998aae252f2952d282369a0ac37b79"].into(),
-						hex!["368a2abb02892c86d9b683826678da60449f8f94c2f3ef1e43f356865618dd20"].into(),
-
-						hex!["40cba8652980e686b3108a49e76be791c68cbbf5dc6fd7ae0197c53cea4dae0e"].unchecked_into(),
-						hex!["898e0d42621a21aca94b7786e1845d7d597481cff038de7f96d76c9a8844619e"].unchecked_into(),
-						hex!["e2c37a223378bd5032923fb9a94c4738168dbbe8df647c4191021bed07e39b6a"].unchecked_into(),
-					),
 				],
 				// Pre-funded accounts
 				vec![
@@ -276,29 +220,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						TESTUSER_SUPPLY
 					),
 
-					// Validator stashes (does not run chronicle)
-					(
-						hex!["2052373b15df90bf555e1498b2ff4f9157ab8b32b028cd8db5e1229750537919"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
-					(
-						hex!["aabf500afa16987bfa9804d700765ac1745778caf12a4f8bc944fa8b712fa20a"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
-					(
-						hex!["18ea951f5a1362e7b6ad61b0c1dba56924610d734949c56459b2f930f2dfb466"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
-					(
-						hex!["b84c0fdb87eb3ba32ab919cf93b238ea6e7f11cd44988ea15240a52f9b707647"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
-
-					// Sharded validator stashes (sheduled to run chronicle)
+					// Validator stashes
 					(
 						hex!["de6504921718b9b63c8318b4dda71f9d1678b0b16d4d44e7d835025b4985e64f"]
 							.into(),
@@ -349,77 +271,67 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 							.into(),
 						PER_VALIDATOR_STASH
 					),
-					(
-						hex!["40c1ed1f8ecf374e3dc7fa034091684919f42d7df1fb0031da41bb52ad295c7f"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
-					(
-						hex!["368a2abb02892c86d9b683826678da60449f8f94c2f3ef1e43f356865618dd20"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
 
-					// Chronicle offchain worker accounts (temporary fix)
+					// Chronicle nodes
 					(
 						hex!["88cadc7969ef201cfb2330db226f10e3886a4f89d683b25d76b66be211be8635"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["e43162d2056b35fb3dedc16360fe0af27ce78755f455457db482617b512d6946"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["8416c30931f34dc5baa7c8a43092b86584fc6b0227250487776ca83d37eeb605"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["5407c3fa0dd96e139cf88f40d7bc94690796275e837022d27970f40b7c893444"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["66547c4284385991d51819a59eab53cb3228041550b078fab7895834488f2d2d"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["488a19d03330cf97c183a9a28ce5af00ca130dff6f9ffcb3b3006d52a6d77450"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["f87f1b28f8d8861ab9b8d8c7535412d74e8116691153404f94d8b85b188a1b50"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["acb3c8576b20c541b1b6d90691a11b9a501b387cb26945b0ff439a55de7e9f39"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["f8114592f3437a96a025ce94a7a14ee61a1bda114f9fdd3531e699246742b924"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["f611cb5d58813ca34013f03cf2bd3c01ce4beae66eb50699a46593b1fced2f49"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["fe747c857e6787c1130a6dd9dea775693220c4927e7012ad2c90de3ae8b45570"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["9ab8a9caa2dd36760afa1dabe9cc49d86a21e418c765096673c033eb4f571100"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 
 					// Tokenomics and supply
@@ -446,7 +358,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 					(
 						hex!["62e926d7df56786c766af140cdc9da839c50e60fa0d6722488a1ad235f1c5d1a"]
 							.into(),
-						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - TESTUSER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
+						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - TESTUSER_SUPPLY - VALIDATOR_SUPPLY - CHRONICLE_SUPPLY,
 					),
 					(
 						hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"]
@@ -480,7 +392,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 
 /// Generate a chain spec for Analog staging environment.
 pub fn analog_staging_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Staging wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -592,24 +504,6 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 						hex!["cafe9fe1a583b7a086afcf7e66ec5ea97457dd23fdd126b5ddfb9d39310c6434"].unchecked_into(),
 						hex!["1e2c106b946396d63e156b10f5cbbcc7f0d0d7813825b55bf82517ac60496138"].unchecked_into(),
 					),
-					// node 10
-					(
-						hex!["ced65a5c8089791384cfa2e92825744b77622f2f32267614e864f9ba65f5135f"].into(),
-						hex!["e6f7dc583749bf82a9049a6fe75cac57a1253076297acc916e3979be97c1c661"].into(),
-
-						hex!["d0a72f83ad2c8e369527a0b56ac1eb150c8dce8f8f32cd8f22b24a99e6b8fb2b"].unchecked_into(),
-						hex!["692c06c6e67edc900bb7037247bd50de0ea146d503f66a13a480fc5917c32e52"].unchecked_into(),
-						hex!["7c3b7801ebac75c57aa365e41fdbb1e628924c53fd2f5fbd1ef6639e05184a28"].unchecked_into(),
-					),
-					// node 11
-					(
-						hex!["ced65a5c8089791384cfa2e92825744b77622f2f32267614e864f9ba65f5135f"].into(),
-						hex!["cc66b6e901a1515e18dd71b6c045ad9d60b38bdb49ed5adb26becd6e7e1d6070"].into(),
-
-						hex!["76fc19544013717aea6ed679b2f0303c4f54d2e0af220e50f2d8ce1d25b84947"].unchecked_into(),
-						hex!["98828d6bd182ea052a90db93705e58c71ffe5c93a05aeb0d469ea43ed54f94c0"].unchecked_into(),
-						hex!["1aca4b3c7fe34eced140412a8559426e1c8adbb69f35ea0d5fe88a0a3b350748"].unchecked_into(),
-					),
 				],
 				// Pre-funded accounts
 				vec![
@@ -684,77 +578,67 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 							.into(),
 						PER_VALIDATOR_STASH
 					),
-					(
-						hex!["e6f7dc583749bf82a9049a6fe75cac57a1253076297acc916e3979be97c1c661"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
-					(
-						hex!["cc66b6e901a1515e18dd71b6c045ad9d60b38bdb49ed5adb26becd6e7e1d6070"]
-							.into(),
-						PER_VALIDATOR_STASH
-					),
 
-					// Chronicle offchain worker accounts (temporary fix)
+					// Chronicle account
 					(
 						hex!["d863c016582aeac712e14871f86ca402c129c99639a2b443ec1d5b4980945a7b"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["7aa4684cfe708788c61024fec3c40c3d2a91e978f29454fb6671c7b6f0c7a86d"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["1868e9232bd2cac078aecf2591e88c134ffed012a227e0eee749e03eed321518"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["8426681de5bffff3f13c3a7e9c3cd2c8e0d9d3851d64a5a159dcb44bf7c07430"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["72e8384fc6fdd083387b6a526706712ccee1912b07c8a481cb5f4c79bafaec4d"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["a68ed4a9449abf15a66233953f13beaf377c6e9b2d5750dc662be0c0132ce901"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["4e17b80ce9fc678cee1f3b5705fefff0847f093d65af838aafc47c7785409c0e"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["4a133a460ec1f5b42baf6ebc9e66433e3d8b96ffa9a860ea1cd152338cdf0403"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["8063b6e00240d67994ae972678e006d6c6bb1f52accb0036f7eaffa610d09219"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["16a6992d5e0e0792b6af63654333b1c7ee0868d715e0c8cef198965713ea1b0c"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["629e4705affcb9a38aee0d25af0bee848dc914b99d71817827f8bb2944b3d350"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 					(
 						hex!["001b3f53b227672d413acb61e49c8de70b82f68632a18ed6b85ed704bf994919"]
 							.into(),
-						PER_WORKER_STASH
+						PER_CHRONICLE_STASH
 					),
 
 					// Tokenomics and supply
@@ -781,7 +665,7 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 					(
 						hex!["a894a617e4cae275c9982f4b1777ede374d38f42f55b4d6f48fe647e55494e22"]
 							.into(),
-						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - TESTUSER_SUPPLY - VALIDATOR_SUPPLY - WORKER_SUPPLY,
+						TEAM_SUPPLY - SUDO_SUPPLY - CONTROLLER_SUPPLY - TESTUSER_SUPPLY - VALIDATOR_SUPPLY - CHRONICLE_SUPPLY,
 					),
 					(
 						hex!["cc382667871c8eac8ab337058361d3e6f8c7d04990e4a2c9a4024993e502b418"]
@@ -824,10 +708,10 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Analog Local",
+		"Analog Dev",
 		// ID
-		"analog_local",
-		ChainType::Local,
+		"analog_dev",
+		ChainType::Development,
 		move || {
 			generate_analog_genesis(
 				wasm_binary,
@@ -836,25 +720,11 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 				// Council account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Initial PoA authorities
-				vec![
-					authority_keys_from_seed("Alice"),
-					authority_keys_from_seed("Bob"),
-					authority_keys_from_seed("Charlie"),
-					authority_keys_from_seed("Dave"),
-					authority_keys_from_seed("Eve"),
-					authority_keys_from_seed("Ferdie"),
-					// Just enable six accounts for local testing
-					// Reserve following accounts for quickly create shard
-					// authority_keys_from_seed("Henry"),
-					// authority_keys_from_seed("Ivan"),
-					// authority_keys_from_seed("Jack"),
-					// authority_keys_from_seed("Lisa"),
-					// authority_keys_from_seed("Mona"),
-					// authority_keys_from_seed("Nash"),
-				],
+				vec![authority_keys_from_seed("Alice")],
 				// Pre-funded accounts
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), ANLOG * 2000000),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 2000000),
 					// dev prefund set-keys1, shard1
 					(
 						hex!["78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"]
@@ -889,34 +759,8 @@ pub fn analog_dev_config() -> Result<ChainSpec, String> {
 					(
 						hex!["72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"]
 							.into(),
-						ANLOG * 2000000 * 1_000_000_000,
+						ANLOG * 2000000,
 					),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack"), ANLOG * 10000000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), ANLOG * 1000000),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-						ANLOG * 1000000,
-					),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Henry//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Ivan//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Jack//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Lisa//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Mona//stash"), ANLOG * 1000000),
-					(get_account_id_from_seed::<sr25519::Public>("Nash//stash"), ANLOG * 1000000),
 				],
 			)
 		},

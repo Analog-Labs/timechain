@@ -103,14 +103,12 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 
 
 ## Test Timechain
-Build chain:<br>
+Build images:<br>
 `./scripts/build_docker.sh`<br>
-Build tester:<br>
-`cargo build -p tester --release`
-Deploy on docker:<br>
-`docker compose --profile ethereum --profile astar up`<br>
+Run with docker:<br>
+`docker compose --profile ethereum up`<br>
 Test:<br>
-`target/release/tester basic`
+`docker compose run tester --network ethereum basic`
 
 
 ## Upcoming features

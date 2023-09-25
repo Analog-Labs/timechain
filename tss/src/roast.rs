@@ -5,7 +5,7 @@ use frost_evm::{
 	round2::{self, SignatureShare},
 	Identifier, Signature, SigningPackage, VerifyingKey,
 };
-use rand::rngs::OsRng;
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 

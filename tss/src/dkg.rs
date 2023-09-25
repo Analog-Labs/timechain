@@ -4,7 +4,7 @@ use frost_evm::keys::{
 	KeyPackage, PublicKeyPackage, SecretShare, SigningShare, VerifiableSecretSharingCommitment,
 };
 use frost_evm::{Identifier, Scalar};
-use rand::rngs::OsRng;
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
@@ -61,15 +61,19 @@ impl Dkg {
 
 	pub fn next_action(&mut self) -> Option<DkgAction> {
 		let Some(secret_package) = self.secret_package.as_ref() else {
-			let (secret_package, round1_package) = match part1(self.id, self.members.len() as _, self.threshold, OsRng) {
-				Ok(result) => result,
-				Err(error) => {
-					log::error!("dkg failed with {:?}", error);
-					return Some(DkgAction::Failure)
-				}
-			};
+			let (secret_package, round1_package) =
+				match part1(self.id, self.members.len() as _, self.threshold, OsRng) {
+					Ok(result) => result,
+					Err(error) => {
+						log::error!("dkg failed with {:?}", error);
+						return Some(DkgAction::Failure);
+					},
+				};
 			self.secret_package = Some(secret_package);
-			return Some(DkgAction::Commit(round1_package.commitment().clone(), *round1_package.proof_of_knowledge()));
+			return Some(DkgAction::Commit(
+				round1_package.commitment().clone(),
+				*round1_package.proof_of_knowledge(),
+			));
 		};
 		let Some(commitment) = self.commitment.as_ref() else {
 			return None;

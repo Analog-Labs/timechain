@@ -3956,7 +3956,7 @@ dependencies = [
 [[package]]
 name = "frost-core"
 version = "0.6.0"
-source = "git+https://github.com/dvc94ch/frost?branch=expose-internals#f810c254e301f2224ac95f31c63b2cb199d08269"
+source = "git+https://github.com/dvc94ch/frost?branch=expose-internals#69a83a7d05f77d42f5e10ca5f853e4b5be2f006b"
 dependencies = [
  "byteorder",
  "criterion",
@@ -3977,7 +3977,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
+source = "git+https://github.com/Analog-labs/frost-evm.git#727f5083753403c00f4b978e6f6319f07a1105b8"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
@@ -3987,7 +3987,7 @@ dependencies = [
 [[package]]
 name = "frost-secp256k1"
 version = "0.6.0"
-source = "git+https://github.com/dvc94ch/frost?branch=expose-internals#f810c254e301f2224ac95f31c63b2cb199d08269"
+source = "git+https://github.com/dvc94ch/frost?branch=expose-internals#69a83a7d05f77d42f5e10ca5f853e4b5be2f006b"
 dependencies = [
  "frost-core",
  "k256",
@@ -6995,6 +6995,7 @@ dependencies = [
  "pallet-shards",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-core 21.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
  "sp-io 23.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
  "sp-keystore 0.27.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
@@ -10497,9 +10498,10 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#45cf8b7b6ffc8ac10effb88dd2eff52c7fd44b6d"
+source = "git+https://github.com/Analog-labs/frost-evm.git#727f5083753403c00f4b978e6f6319f07a1105b8"
 dependencies = [
  "k256",
+ "rand_core 0.6.4",
  "serde",
  "sha3",
 ]
@@ -13774,7 +13776,7 @@ dependencies = [
  "env_logger",
  "frost-evm",
  "log",
- "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
 ]
 
@@ -13831,7 +13833,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 

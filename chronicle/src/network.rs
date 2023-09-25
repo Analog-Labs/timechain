@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block, Header, IdentifyAccount};
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap},
 	marker::PhantomData,
 	pin::Pin,
 	sync::Arc,
@@ -25,7 +25,7 @@ use time_primitives::{
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, Duration, Instant};
-use tss::{Tss, TssAction, TssMessage, VerifiableSecretSharingCommitment};
+use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -48,6 +48,83 @@ pub(crate) fn to_peer_id(peer_id: time_primitives::PeerId) -> PeerId {
 	PeerId::from_public_key(
 		&sc_network::config::ed25519::PublicKey::try_from_bytes(&peer_id).unwrap().into(),
 	)
+}
+
+enum Tss {
+	Enabled(tss::Tss<TssId, PeerId>),
+	Disabled(SigningKey, Option<TssAction<TssId, PeerId>>, bool),
+}
+
+impl Tss {
+	fn new(
+		peer_id: PeerId,
+		members: BTreeSet<PeerId>,
+		threshold: u16,
+		commitment: Option<VerifiableSecretSharingCommitment>,
+	) -> Self {
+		if members.len() == 1 {
+			let key = SigningKey::random();
+			let public = key.public().to_bytes().unwrap();
+			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
+			let proof_of_knowledge = tss::construct_proof_of_knowledge(
+				peer_id,
+				&[*key.to_scalar().as_ref()],
+				&commitment,
+			)
+			.unwrap();
+			Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false)
+		} else {
+			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
+		}
+	}
+
+	fn committed(&self) -> bool {
+		match self {
+			Self::Enabled(tss) => tss.committed(),
+			Self::Disabled(_, _, committed) => *committed,
+		}
+	}
+
+	fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
+		match self {
+			Self::Enabled(tss) => tss.on_commit(commitment),
+			Self::Disabled(key, actions, committed) => {
+				*actions = Some(TssAction::PublicKey(key.public()));
+				*committed = true;
+			},
+		}
+	}
+
+	fn on_sign(&mut self, request_id: TssId, data: Vec<u8>) {
+		match self {
+			Self::Enabled(tss) => tss.on_sign(request_id, data),
+			Self::Disabled(key, actions, _) => {
+				let hash = VerifyingKey::message_hash(&data);
+				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
+			},
+		}
+	}
+
+	fn on_complete(&mut self, request_id: TssId) {
+		match self {
+			Self::Enabled(tss) => tss.on_complete(request_id),
+			Self::Disabled(_, _, _) => {},
+		}
+	}
+
+	fn on_message(&mut self, peer_id: PeerId, msg: TssMessage<TssId>) -> Option<TssMessage<TssId>> {
+		match self {
+			Self::Enabled(tss) => tss.on_message(peer_id, msg),
+			Self::Disabled(_, _, _) => None,
+		}
+	}
+
+	fn next_action(&mut self) -> Option<TssAction<TssId, PeerId>> {
+		match self {
+			Self::Enabled(tss) => tss.next_action(),
+			Self::Disabled(_, action, _) => action.take(),
+		}
+	}
 }
 
 pub struct TimeWorkerParams<B: Block, C, R, N, T, TxSub> {
@@ -75,7 +152,7 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
-	tss_states: HashMap<ShardId, Tss<TssId, PeerId>>,
+	tss_states: HashMap<ShardId, Tss>,
 	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
 	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,

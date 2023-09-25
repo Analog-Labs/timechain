@@ -4,14 +4,15 @@ use crate::roast::{Roast, RoastAction, RoastRequest, RoastSignerResponse};
 use crate::rts::{Rts, RtsAction, RtsHelper, RtsRequest, RtsResponse};
 use anyhow::Result;
 use frost_evm::keys::{KeyPackage, PublicKeyPackage, SecretShare};
-use frost_evm::Identifier;
+use frost_evm::{Identifier, Scalar};
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub use frost_evm::frost_core::frost::keys::compute_group_commitment;
-pub use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
 pub use frost_evm::keys::VerifiableSecretSharingCommitment;
+pub use frost_evm::schnorr::SigningKey;
 pub use frost_evm::{Signature, VerifyingKey};
 
 mod dkg;
@@ -90,6 +91,33 @@ impl<I: std::fmt::Display> std::fmt::Display for TssResponse<I> {
 
 fn peer_to_frost(peer: impl std::fmt::Display) -> Identifier {
 	Identifier::derive(peer.to_string().as_bytes()).expect("non zero")
+}
+
+pub fn construct_proof_of_knowledge(
+	peer: impl std::fmt::Display,
+	coefficients: &[Scalar],
+	commitment: &VerifiableSecretSharingCommitment,
+) -> Result<ProofOfKnowledge> {
+	let identifier = peer_to_frost(peer);
+	Ok(frost_evm::frost_core::frost::keys::dkg::construct_proof_of_knowledge(
+		identifier,
+		coefficients,
+		commitment,
+		OsRng,
+	)?)
+}
+
+pub fn verify_proof_of_knowledge(
+	peer: impl std::fmt::Display,
+	commitment: &VerifiableSecretSharingCommitment,
+	proof_of_knowledge: ProofOfKnowledge,
+) -> Result<()> {
+	let identifier = peer_to_frost(peer);
+	Ok(frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge(
+		identifier,
+		commitment,
+		proof_of_knowledge,
+	)?)
 }
 
 /// Tss state machine.

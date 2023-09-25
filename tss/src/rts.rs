@@ -6,7 +6,7 @@ use frost_evm::keys::{
 	KeyPackage, PublicKeyPackage, SecretShare, VerifiableSecretSharingCommitment,
 };
 use frost_evm::{Identifier, Scalar};
-use rand::rngs::OsRng;
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -270,8 +270,8 @@ impl Rts {
 					repairable::repair_share_step_3(&sigmas, self.id, &self.commitment);
 				// TODO: handle failure somehow. maybe try a different set of random peers?
 				let Ok(key_package) = KeyPackage::try_from(secret_share) else {
-						return Some(RtsAction::Failure);
-					};
+					return Some(RtsAction::Failure);
+				};
 				Some(RtsAction::Complete(
 					key_package,
 					self.public_key_package.clone(),

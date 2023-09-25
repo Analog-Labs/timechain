@@ -15,8 +15,6 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     labels:
       prometheus-scrape.enabled: 'true'
-    environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
     ports:
       - 9944:9944
 
@@ -72,8 +70,6 @@ services:
     - './config/wallets/keyfile:/etc/keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
-    ports:
-      - '9945:9944'
     profiles:
     - ethereum
 

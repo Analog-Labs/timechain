@@ -430,7 +430,11 @@ pub mod pallet {
 		) -> TxResult {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 			signer
-				.send_signed_transaction(|_| Call::submit_result { task_id, cycle, status: status.clone() })
+				.send_signed_transaction(|_| Call::submit_result {
+					task_id,
+					cycle,
+					status: status.clone(),
+				})
 				.ok_or(TxError::MissingSigningKey)?
 				.1
 				.map_err(|_| TxError::TxPoolError)
@@ -439,7 +443,11 @@ pub mod pallet {
 		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult {
 			let signer = Signer::<T, T::AuthorityId>::any_account();
 			signer
-				.send_signed_transaction(|_| Call::submit_error { task_id, cycle, error: error.clone() })
+				.send_signed_transaction(|_| Call::submit_error {
+					task_id,
+					cycle,
+					error: error.clone(),
+				})
 				.ok_or(TxError::MissingSigningKey)?
 				.1
 				.map_err(|_| TxError::TxPoolError)

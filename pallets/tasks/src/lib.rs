@@ -12,7 +12,7 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer, SubmitTransaction,
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
@@ -230,7 +230,7 @@ pub mod pallet {
 			cycle: TaskCycle,
 			status: TaskResult,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_signed(origin)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -254,7 +254,7 @@ pub mod pallet {
 			cycle: TaskCycle,
 			error: TaskError,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_signed(origin)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			let new_retry_count = retry_count.saturating_plus_one();
@@ -428,14 +428,20 @@ pub mod pallet {
 			cycle: TaskCycle,
 			status: TaskResult,
 		) -> TxResult {
-			let call = Call::submit_result { task_id, cycle, status };
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+			signer
+				.send_signed_transaction(|_| Call::submit_result { task_id, cycle, status: status.clone() })
+				.ok_or(TxError::MissingSigningKey)?
+				.1
 				.map_err(|_| TxError::TxPoolError)
 		}
 
 		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult {
-			let call = Call::submit_error { task_id, cycle, error };
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+			signer
+				.send_signed_transaction(|_| Call::submit_error { task_id, cycle, error: error.clone() })
+				.ok_or(TxError::MissingSigningKey)?
+				.1
 				.map_err(|_| TxError::TxPoolError)
 		}
 	}
@@ -506,7 +512,7 @@ pub mod pallet {
 			}
 
 			ValidTransaction::with_tag_prefix("tasks-pallet")
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				.longevity(10)
 				.propagate(false)
 				.build()

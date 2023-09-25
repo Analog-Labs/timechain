@@ -70,7 +70,7 @@ fn test_create_task() {
 			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_resultRawOrigin::Signed([0; 32].into()).into(), 0, 0, mock_result_ok(1)));
 		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
 	});
 }
@@ -245,7 +245,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 0, 0, mock_result_ok(1)));
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -261,7 +261,7 @@ fn shard_offline_doesnt_drops_failed_tasks() {
 		));
 		for _ in 0..4 {
 			assert_ok!(Tasks::submit_error(
-				RawOrigin::None.into(),
+				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
 				TaskError {
@@ -291,7 +291,7 @@ fn submit_task_error_increments_retry_count() {
 			signature: [0; 64],
 		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, error.clone()));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
 	});
@@ -311,7 +311,7 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 			signature: [0; 64],
 		};
 		for _ in 1..4 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, error.clone()));
 		}
 		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, error).into());
 	});
@@ -331,10 +331,10 @@ fn submit_task_result_resets_retry_count() {
 			signature: [0; 64],
 		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, error.clone()));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 0, 0, mock_result_ok(1)));
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
 }
@@ -523,7 +523,7 @@ fn task_recurring_cycle_count() {
 				let task_id = task.task_id;
 				let cycle = task.cycle;
 				assert_ok!(Tasks::submit_result(
-					RawOrigin::None.into(),
+					RawOrigin::Signed([0; 32].into()).into(),
 					task_id,
 					cycle,
 					mock_result_ok(1)
@@ -561,7 +561,7 @@ fn submit_task_result_inserts_at_input_cycle() {
 			mock_task(Network::Ethereum, 5)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 0, 0, mock_result_ok(1)));
 		assert_eq!(TaskCycleState::<Test>::get(0), 1);
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
 		assert!(TaskResults::<Test>::get(0, 1).is_none());
@@ -591,7 +591,7 @@ fn payable_task_smoke() {
 		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));
 		assert_ok!(Tasks::submit_result(
-			RawOrigin::None.into(),
+			RawOrigin::Signed(a)
 			task_id,
 			task_cycle,
 			mock_result_ok(shard_id)
@@ -615,7 +615,7 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_online(1, Network::Ethereum);
 		// fails 3 time to turn task status to failed
 		for _ in 0..3 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, mock_error.clone()));
+			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, mock_error.clone()));
 		}
 		assert_eq!(Tasks::task_shard(0), Some(1));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));

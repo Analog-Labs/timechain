@@ -25,10 +25,7 @@ use time_primitives::{
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, Duration, Instant};
-use tss::{
-	ProofOfKnowledge, SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment,
-	VerifyingKey,
-};
+use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
@@ -69,7 +66,12 @@ impl Tss {
 			let key = SigningKey::random();
 			let public = key.public().to_bytes().unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
-			let proof_of_knowledge = ProofOfKnowledge::deserialize([0; 65]).unwrap();
+			let proof_of_knowledge = tss::construct_proof_of_knowledge(
+				peer_id,
+				&[*key.to_scalar().as_ref()],
+				&commitment,
+			)
+			.unwrap();
 			Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false)
 		} else {
 			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))

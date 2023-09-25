@@ -74,7 +74,7 @@ fn set_shard_config_works() {
 		assert_eq!(ShardThreshold::<Test>::get(), 1);
 		assert_noop!(
 			Elections::set_shard_config(RawOrigin::Root.into(), 1, 2),
-			Error::<Test>::SizeGEQThreshold
+			Error::<Test>::ThresholdLargerThanSize
 		);
 	});
 }

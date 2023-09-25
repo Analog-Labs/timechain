@@ -120,7 +120,8 @@ services:
     - 9090:9090
     restart: always
     profiles:
-    - metrics
+    - prometheus
+    - grafana
 
   prometheus-docker-sd:
     image: "stucky/prometheus-docker-sd:latest"
@@ -129,7 +130,8 @@ services:
     - /var/run/docker.sock:/var/run/docker.sock
     - prometheus-docker-sd:/prometheus-docker-sd:rw
     profiles:
-    - metrics
+    - prometheus
+    - grafana
 
   loki:
     image: grafana/loki:2.9.0
@@ -137,7 +139,8 @@ services:
     - 3100:3100
     command: -config.file=/etc/loki/local-config.yaml
     profiles:
-    - metrics
+    - loki
+    - grafana
 
   promtail:
     image: grafana/promtail:2.9.0
@@ -147,7 +150,8 @@ services:
     - /var/run/docker.sock:/var/run/docker.sock
     command: -config.file=/etc/promtail/docker-config.yaml
     profiles:
-    - metrics
+    - loki
+    - grafana
 
   grafana:
     image: grafana/grafana
@@ -162,7 +166,7 @@ services:
     - loki
     restart: always
     profiles:
-    - metrics
+    - grafana
 
 volumes:
   prometheus-docker-sd:

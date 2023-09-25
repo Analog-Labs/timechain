@@ -1498,7 +1498,6 @@ dependencies = [
  "env_logger",
  "futures",
  "lazy_static",
- "log",
  "log-panics",
  "rosetta-client 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
  "sc-block-builder",
@@ -1520,6 +1519,7 @@ dependencies = [
  "time-primitives",
  "timegraph-client",
  "tokio",
+ "tracing",
  "tss",
 ]
 
@@ -13775,9 +13775,9 @@ dependencies = [
  "anyhow",
  "env_logger",
  "frost-evm",
- "log",
  "rand_core 0.6.4",
  "serde",
+ "tracing",
 ]
 
 [[package]]

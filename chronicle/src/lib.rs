@@ -73,14 +73,14 @@ where
 		.try_into_ed25519()
 		.unwrap()
 		.to_bytes();
-	log::info!(target: TW_LOG, "Peer identity bytes: {:?}", peer_id);
+	tracing::info!(target: TW_LOG, "Peer identity bytes: {:?}", peer_id);
 
 	let public_key: PublicKey = loop {
 		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next()
 		{
 			break pubkey.into();
 		}
-		log::info!("Waiting for public key to be inserted");
+		tracing::info!("Waiting for public key to be inserted");
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	};
 
@@ -109,7 +109,7 @@ where
 		match Task::new(task_spawner_params.clone()).await {
 			Ok(task_spawner) => break task_spawner,
 			Err(error) => {
-				log::error!(
+				tracing::error!(
 					"Initializing wallet returned an error {:?}, retrying in one second",
 					error
 				);

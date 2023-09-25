@@ -10,9 +10,9 @@ version = "0.0.1"
 [dependencies]
 anyhow = "1.0.75"
 frost-evm = { git = "https://github.com/analog-labs/frost-evm.git", version = "0.1.0", features = ["serde"] }
-log = "0.4.20"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 serde = { version = "1.0.188", features = [ "derive" ] }
+tracing = "0.1.37"
 
 [dev-dependencies]
 env_logger = "0.10.0"

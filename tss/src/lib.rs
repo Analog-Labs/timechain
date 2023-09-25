@@ -150,7 +150,7 @@ where
 		let coordinators: BTreeSet<_> =
 			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
 		let is_coordinator = coordinators.contains(&frost_id);
-		log::debug!(
+		tracing::debug!(
 			"{} initialize {}/{} coordinator = {}",
 			peer_id,
 			threshold,
@@ -198,7 +198,7 @@ where
 				Ok(Some(response)) => Some(TssMessage::Response(response)),
 				Ok(None) => None,
 				Err(error) => {
-					log::info!("received invalid request: {:?}", error);
+					tracing::info!("received invalid request: {:?}", error);
 					None
 				},
 			},
@@ -210,7 +210,7 @@ where
 	}
 
 	fn on_request(&mut self, peer_id: P, request: TssRequest<I>) -> Result<Option<TssResponse<I>>> {
-		log::debug!("{} on_request {} {}", self.peer_id, peer_id, request);
+		tracing::debug!("{} on_request {} {}", self.peer_id, peer_id, request);
 		if self.peer_id == peer_id {
 			anyhow::bail!("{} received message from self", self.peer_id);
 		}
@@ -257,28 +257,28 @@ where
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_response(frost_id, msg);
 				} else {
-					log::error!("invalid signing session");
+					tracing::error!("invalid signing session");
 				}
 			},
 			(_, msg) => {
-				log::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
+				tracing::error!("invalid state ({}, {}, {})", self.peer_id, peer_id, msg);
 			},
 		}
 	}
 
 	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
-		log::debug!("{} commit", self.peer_id);
+		tracing::debug!("{} commit", self.peer_id);
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
 				dkg.on_commit(commitment);
 				self.committed = true;
 			},
-			_ => log::error!("unexpected commit"),
+			_ => tracing::error!("unexpected commit"),
 		}
 	}
 
 	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
-		log::debug!("{} sign {}", self.peer_id, id);
+		tracing::debug!("{} sign {}", self.peer_id, id);
 		match &mut self.state {
 			TssState::Roast {
 				key_package,
@@ -297,19 +297,19 @@ where
 				signing_sessions.insert(id, roast);
 			},
 			_ => {
-				log::error!("not ready to sign");
+				tracing::error!("not ready to sign");
 			},
 		}
 	}
 
 	pub fn on_complete(&mut self, id: I) {
-		log::debug!("{} complete {}", self.peer_id, id);
+		tracing::debug!("{} complete {}", self.peer_id, id);
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
 				signing_sessions.remove(&id);
 			},
 			_ => {
-				log::error!("not ready to complete");
+				tracing::error!("not ready to complete");
 			},
 		}
 	}
@@ -352,7 +352,8 @@ where
 						};
 						return Some(TssAction::PublicKey(public_key));
 					},
-					DkgAction::Failure => {
+					DkgAction::Failure(error) => {
+						tracing::error!("dkg failed with {:?}", error);
 						self.state = TssState::Failed;
 						return None;
 					},

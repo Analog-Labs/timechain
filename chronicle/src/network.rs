@@ -67,9 +67,8 @@ impl Tss {
 	) -> Self {
 		if members.len() == 1 {
 			let key = SigningKey::random();
-			let public = key.public();
-			let commitment =
-				VerifiableSecretSharingCommitment::deserialize(vec![public.to_element()]).unwrap();
+			let public = key.public().to_bytes().unwrap();
+			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
 			let proof_of_knowledge = ProofOfKnowledge::deserialize([0; 65]).unwrap();
 			Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false)
 		} else {

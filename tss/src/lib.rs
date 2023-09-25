@@ -12,6 +12,7 @@ pub use frost_evm::frost_core::frost::keys::compute_group_commitment;
 pub use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
 pub use frost_evm::keys::VerifiableSecretSharingCommitment;
+pub use frost_evm::schnorr::SigningKey;
 pub use frost_evm::{Signature, VerifyingKey};
 
 mod dkg;

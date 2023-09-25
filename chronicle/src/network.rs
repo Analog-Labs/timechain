@@ -212,7 +212,7 @@ where
 
 	fn on_finality(&mut self, block: <B as Block>::Hash, block_number: u64) {
 		let local_peer_id = to_peer_id(self.peer_id);
-		log::debug!(target: TW_LOG, "{}: on_finality {}", local_peer_id, block.to_string());
+		tracing::debug!(target: TW_LOG, "{}: on_finality {}", local_peer_id, block.to_string());
 		let shards = self
 			.runtime
 			.runtime_api()
@@ -225,7 +225,7 @@ where
 			}
 			let api = self.runtime.runtime_api();
 			let members = api.get_shard_members(block, shard_id).unwrap();
-			log::debug!(target: TW_LOG, "shard {}: {} joining shard", shard_id, local_peer_id);
+			tracing::debug!(target: TW_LOG, "shard {}: {} joining shard", shard_id, local_peer_id);
 			let threshold = api.get_shard_threshold(block, shard_id).unwrap();
 			let members = members
 				.into_iter()
@@ -260,9 +260,9 @@ where
 				break;
 			}
 			for (shard_id, request_id, data) in self.requests.remove(&n).unwrap() {
-				log::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);
+				tracing::debug!(target: TW_LOG, "shard {}: req {:?}: sign", shard_id, request_id);
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-					log::error!(target: TW_LOG, "trying to run task on unknown shard {}, dropping channel", shard_id);
+					tracing::error!(target: TW_LOG, "trying to run task on unknown shard {}, dropping channel", shard_id);
 					self.channels.remove(&request_id);
 					continue;
 				};
@@ -276,7 +276,7 @@ where
 			}
 			for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-					log::error!(target: TW_LOG, "dropping message {} {} {}", shard_id, peer_id, msg);
+					tracing::error!(target: TW_LOG, "dropping message {} {} {}", shard_id, peer_id, msg);
 					continue;
 				};
 				if let Some(payload) = tss.on_message(peer_id, msg) {
@@ -296,12 +296,12 @@ where
 			{
 				continue;
 			}
-			log::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
+			tracing::info!(target: TW_LOG, "shard {}: running task executor", shard_id);
 			let complete_sessions =
 				match self.task_executor.process_tasks(block, block_number, shard_id) {
 					Ok(complete_sessions) => complete_sessions,
 					Err(error) => {
-						log::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, error);
+						tracing::error!(target: TW_LOG, "shard {}: failed to start tasks: {:?}", shard_id, error);
 						continue;
 					},
 				};
@@ -340,7 +340,7 @@ where
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();
-					log::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
+					tracing::info!(target: TW_LOG, "shard {}: public key {:?}", shard_id, public_key);
 					self.tx_submitter
 						.submit_online(shard_id, self.public_key.clone())
 						.unwrap()
@@ -348,7 +348,7 @@ where
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
-					log::debug!(
+					tracing::debug!(
 						target: TW_LOG,
 						"shard {}: req {:?}: signature {:?}",
 						shard_id,
@@ -365,7 +365,7 @@ where
 
 	fn send_message(&mut self, peer_id: PeerId, message: TimeMessage) {
 		let local_peer_id = to_peer_id(self.peer_id);
-		log::debug!(
+		tracing::debug!(
 			target: TW_LOG,
 			"shard {}: {} tx {} to {}",
 			message.shard_id,
@@ -393,7 +393,7 @@ where
 	}
 
 	pub async fn run(mut self) {
-		log::info!(target: TW_LOG, "starting tss");
+		tracing::info!(target: TW_LOG, "starting tss");
 		self.tx_submitter
 			.submit_register_member(
 				self.task_executor.network(),
@@ -418,7 +418,7 @@ where
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
 					let Some(notification) = notification else {
-						log::debug!(
+						tracing::debug!(
 							target: TW_LOG,
 							"no new finality notifications"
 						);
@@ -429,7 +429,7 @@ where
 					self.on_finality(block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {
-					log::debug!(target: TW_LOG, "received signing request");
+					tracing::debug!(target: TW_LOG, "received signing request");
 					let Some(TssSigningRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
 						continue;
 					};
@@ -437,7 +437,7 @@ where
 					self.channels.insert(request_id, tx);
 				},
 				protocol_request = self.protocol_request.next().fuse() => {
-					log::debug!(target: TW_LOG, "received request");
+					tracing::debug!(target: TW_LOG, "received request");
 					let Some(IncomingRequest { peer, payload, pending_response }) = protocol_request else {
 						continue;
 					};
@@ -449,21 +449,21 @@ where
 					});
 					if let Ok(TimeMessage { shard_id, block_number, payload }) = TimeMessage::decode(&payload) {
 						let local_peer_id = to_peer_id(self.peer_id);
-						log::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
+						tracing::debug!(target: TW_LOG, "shard {}: {} rx {} from {}",
 							shard_id, local_peer_id, payload, peer);
 						self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
 					} else {
-						log::debug!(target: TW_LOG, "received invalid message");
+						tracing::debug!(target: TW_LOG, "received invalid message");
 					}
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
-					log::debug!(target: TW_LOG, "received response");
+					tracing::debug!(target: TW_LOG, "received response");
 					let Some((shard_id, peer, request, result)) = outgoing_request else {
 						continue;
 					};
 					if let Err(error) = result {
 						let local_peer_id = to_peer_id(self.peer_id);
-						log::error!(
+						tracing::error!(
 							target: TW_LOG,
 							"shard {}: {} tx {} to {} network error {:?}",
 							shard_id,
@@ -475,7 +475,7 @@ where
 					}
 				}
 				_ = heartbeat_tick.tick().fuse() => {
-					log::debug!(target: TW_LOG, "submitting heartbeat");
+					tracing::debug!(target: TW_LOG, "submitting heartbeat");
 					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
 				_ = self.task_executor.poll_block_height().fuse() => {}

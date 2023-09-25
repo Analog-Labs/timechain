@@ -233,7 +233,7 @@ impl Rts {
 	}
 
 	fn abort_session(&mut self, peer: Identifier) {
-		log::info!("aborting session {}", self.session_id);
+		tracing::info!("aborting session {}", self.session_id);
 		self.unhelpful.insert(peer);
 		self.session.take();
 		self.session_id += 1;

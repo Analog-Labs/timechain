@@ -48,4 +48,4 @@ jobs:
           context: .
           push: true
           tags: ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
-          file: docker/Dockerfile.release
+          file: config/docker/Dockerfile.release

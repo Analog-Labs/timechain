@@ -184,16 +184,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
-			if let Function::EvmCall {
-				address, function_signature, ..
-			} = &schedule.function
-			{
-				// TODO: hardcode or read constants from a file?
-				let expected_gateway_address = String::from("0x0");
-				let expected_send_msg_signature = String::from("0xx");
-				if matches!(address, expected_gateway_address)
-					&& matches!(function_signature, expected_send_msg_signature)
-				{
+			if let Function::EvmCall { function_signature, .. } = &schedule.function {
+				let send_message = String::from("send_message(uint[],uint[])");
+				if matches!(function_signature, send_message) {
 					TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 				}
 			}

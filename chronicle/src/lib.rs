@@ -15,6 +15,7 @@ use std::time::Duration;
 use time_primitives::{
 	BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
 };
+use tracing::{event, span, Level};
 
 mod network;
 mod task_executor;
@@ -65,22 +66,24 @@ where
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest + NetworkSigner,
 {
-	let peer_id = params
-		.network
-		.sign_with_local_identity([])
-		.unwrap()
-		.public_key
-		.try_into_ed25519()
-		.unwrap()
-		.to_bytes();
-	tracing::info!(target: TW_LOG, "Peer identity bytes: {:?}", peer_id);
+	let public_key = params.network.sign_with_local_identity([]).unwrap().public_key;
+	let peer_id = public_key.clone().try_into_ed25519().unwrap().to_bytes();
+	let libp2p_peer_id = public_key.to_peer_id();
+	let span = span!(
+		target: TW_LOG,
+		Level::INFO,
+		"run_chronicle",
+		peer_id = format!("{:?}", peer_id),
+		libp2p_peer_id = libp2p_peer_id.to_string(),
+	);
+	event!(target: TW_LOG, parent: &span, Level::INFO, "Peer identity bytes: {:?}", peer_id);
 
 	let public_key: PublicKey = loop {
 		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next()
 		{
 			break pubkey.into();
 		}
-		tracing::info!("Waiting for public key to be inserted");
+		event!(target: TW_LOG, parent: &span, Level::INFO, "Waiting for public key to be inserted");
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	};
 
@@ -109,7 +112,10 @@ where
 		match Task::new(task_spawner_params.clone()).await {
 			Ok(task_spawner) => break task_spawner,
 			Err(error) => {
-				tracing::error!(
+				event!(
+					target: TW_LOG,
+					parent: &span,
+					Level::INFO,
 					"Initializing wallet returned an error {:?}, retrying in one second",
 					error
 				);
@@ -139,5 +145,5 @@ where
 		protocol_request: params.tss_requests,
 	});
 
-	time_worker.run().await;
+	time_worker.run(&span).await;
 }

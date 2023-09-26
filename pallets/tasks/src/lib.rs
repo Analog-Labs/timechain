@@ -19,9 +19,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
-		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TssSignature, TxError, TxResult,
+		AccountId, Function, Network, PublicKey, ShardId, ShardsInterface, TaskCycle,
+		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
+		TaskResult, TaskStatus, TasksInterface, TssSignature, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
@@ -112,16 +112,8 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
 
 	#[pallet::storage]
-	pub type TaskSigned<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		TaskId,
-		_,
-		Blake2_128Concat,
-		AccountId,
-		TssSignature,
-		OptionQuery,
-	>;
+	pub type TaskSignature<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TssSignature, OptionQuery>;
 
 	#[pallet::storage]
 	pub type WritePhaseStart<T: Config> =
@@ -172,12 +164,16 @@ pub mod pallet {
 		InvalidCycle,
 		/// Cycle must be greater than zero
 		CycleMustBeGreaterThanZero,
+		/// Not sign phase
+		NotSignPhase,
 		/// Not write phase
 		NotWritePhase,
 		/// Invalid signer
 		InvalidSigner,
 		/// Task not assigned
 		UnassignedTask,
+		/// Task already signed
+		TaskSigned,
 	}
 
 	#[pallet::call]
@@ -188,6 +184,19 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
+			if let Function::EvmCall {
+				address, function_signature, ..
+			} = &schedule.function
+			{
+				// TODO: hardcode or read constants from a file?
+				let expected_gateway_address = String::from("0x0");
+				let expected_send_msg_signature = String::from("0xx");
+				if matches!(address, expected_gateway_address)
+					&& matches!(function_signature, expected_send_msg_signature)
+				{
+					TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
+				}
+			}
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {
@@ -300,17 +309,30 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Submit Signature
+		/// TODO: create public function for worker to call this
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::submit_result())]
-		pub fn send_message(
+		#[pallet::weight(T::WeightInfo::submit_hash())] // TODO update bench, weights
+		pub fn submit_signature(
 			origin: OriginFor<T>,
 			task_id: TaskId,
-			contract: AccountId,
 			signature: TssSignature,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
-			// TODO: in the write phase call a `send_message`
-			TaskSigned::<T>::insert(task_id, contract, signature);
+			ensure_none(origin)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			let TaskPhase::Sign = TaskPhaseState::<T>::get(task_id) else {
+				return Err(Error::<T>::NotSignPhase.into());
+			};
+			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
+				return Err(Error::<T>::UnassignedTask.into());
+			};
+			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
+			TaskPhaseState::<T>::insert(
+				task_id,
+				TaskPhase::Write(T::Shards::random_signer(shard_id)),
+			);
+			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
 		}
 	}

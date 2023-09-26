@@ -84,6 +84,7 @@ pub enum TaskStatus {
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
+	Sign,
 	Write(PublicKey),
 	Read(Option<Vec<u8>>),
 }

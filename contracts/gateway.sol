@@ -3,5 +3,5 @@ pragma solidity >=0.4.22;
 
 contract Gateway {
     // message: Vec<u8>, TssSignature inputs
-    function send_message(unint[] memory, uint[] memory) {=}
+    function send_message(uint[] memory, uint[] memory) public {}
 }

@@ -15,7 +15,7 @@ pub(crate) struct WalletConfig {
 }
 
 pub(crate) async fn is_chain_init(api: &OnlineClient<PolkadotConfig>) -> bool {
-	let Ok(block) = api.blocks().at_latest().await else{
+	let Ok(block) = api.blocks().at_latest().await else {
 		return false;
 	};
 	let num = block.header().number;

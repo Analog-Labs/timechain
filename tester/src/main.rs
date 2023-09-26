@@ -60,7 +60,7 @@ async fn main() {
 	let args = Args::parse();
 	let url = args.url;
 	let api = loop {
-		let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url.clone()).await else{
+		let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url.clone()).await else {
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 			continue;
 		};

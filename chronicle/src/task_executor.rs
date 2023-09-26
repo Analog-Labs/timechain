@@ -247,13 +247,13 @@ where
 				.await?;
 				let result = TaskResult { shard_id, hash, signature };
 				if let Err(e) = self.tx_submitter.submit_task_result(task_id, task_cycle, result) {
-					log::error!("Error submitting task result {:?}", e);
+					tracing::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
 				if let Err(e) = self.tx_submitter.submit_task_error(task_id, task_cycle, error) {
-					log::error!("Error submitting task error {:?}", e);
+					tracing::error!("Error submitting task error {:?}", e);
 				}
 			},
 		}
@@ -263,7 +263,7 @@ where
 	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
 		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash) {
-			log::error!("Error submitting task hash {:?}", e);
+			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}
@@ -395,11 +395,12 @@ where
 				self.block_height = block_height;
 			},
 			Err(error) => {
-				log::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
+				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
 			},
 		}
 		tokio::time::sleep(Duration::from_secs(10)).await;
 	}
+
 	pub fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
@@ -407,7 +408,7 @@ where
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
 		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
-		log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
+		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
 			let cycle = executable_task.cycle;
@@ -420,10 +421,10 @@ where
 			let function = task_descr.function;
 			let hash = task_descr.hash;
 			if self.block_height >= target_block_number {
-				log::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
+				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
-						log::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
 					self.task_spawner.execute_write(task_id, cycle, function)
@@ -446,7 +447,7 @@ where
 				let handle = tokio::task::spawn(async move {
 					match task.await {
 						Ok(()) => {
-							log::info!(
+							tracing::info!(
 								target: TW_LOG,
 								"Task {}/{}/{} completed",
 								task_id,
@@ -455,7 +456,7 @@ where
 							);
 						},
 						Err(error) => {
-							log::error!(
+							tracing::error!(
 								target: TW_LOG,
 								"Task {}/{}/{} failed {:?}",
 								task_id,
@@ -475,7 +476,7 @@ where
 				true
 			} else {
 				if !handle.is_finished() {
-					log::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
+					tracing::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
 					handle.abort();
 				}
 				completed_sessions.push(TssId(x.task_id, x.cycle));

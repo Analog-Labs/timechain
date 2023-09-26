@@ -3,7 +3,7 @@ use frost_evm::keys::dkg::*;
 use frost_evm::keys::{
 	KeyPackage, PublicKeyPackage, SecretShare, SigningShare, VerifiableSecretSharingCommitment,
 };
-use frost_evm::{Identifier, Scalar};
+use frost_evm::{Error, Identifier, Scalar};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
@@ -13,7 +13,7 @@ pub enum DkgAction {
 	Commit(VerifiableSecretSharingCommitment, Signature),
 	Send(Vec<(Identifier, DkgMessage)>),
 	Complete(KeyPackage, PublicKeyPackage, VerifiableSecretSharingCommitment),
-	Failure,
+	Failure(Error),
 }
 
 /// Tss message.
@@ -65,8 +65,7 @@ impl Dkg {
 				match part1(self.id, self.members.len() as _, self.threshold, OsRng) {
 					Ok(result) => result,
 					Err(error) => {
-						log::error!("dkg failed with {:?}", error);
-						return Some(DkgAction::Failure);
+						return Some(DkgAction::Failure(error));
 					},
 				};
 			self.secret_package = Some(secret_package);
@@ -108,8 +107,7 @@ impl Dkg {
 		let key_package = match KeyPackage::try_from(secret_share) {
 			Ok(key_package) => key_package,
 			Err(error) => {
-				log::error!("dkg failed with {:?}", error);
-				return Some(DkgAction::Failure);
+				return Some(DkgAction::Failure(error));
 			},
 		};
 		let public_key_package = PublicKeyPackage::from_commitment(&self.members, commitment);
@@ -154,7 +152,7 @@ mod tests {
 					Some(DkgAction::Complete(_key_package, _public_key_package, _commitment)) => {
 						return;
 					},
-					Some(DkgAction::Failure) => unreachable!(),
+					Some(DkgAction::Failure(_)) => unreachable!(),
 					None => {},
 				}
 			}

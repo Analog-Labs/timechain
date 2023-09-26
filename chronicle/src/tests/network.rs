@@ -27,6 +27,7 @@ use time_primitives::{
 	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
 	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
 };
+use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -333,24 +334,25 @@ async fn tss_smoke() -> Result<()> {
 			api.clone(),
 		);
 
-		tokio::task::spawn(
-			TimeWorker::new(TimeWorkerParams {
-				_block: PhantomData,
-				client: net.peer(i).client().as_client(),
-				runtime: api.clone(),
-				network: net.peer(i).network_service().clone(),
-				peer_id: peers[i],
-				tss_request: tss_rx,
-				protocol_request: protocol_rx,
-				task_executor: task_executor.clone(),
-				tx_submitter: tx_submitter.clone(),
-				public_key: pub_keys[i].clone(),
-			})
-			.run(),
-		);
+		let worker = TimeWorker::new(TimeWorkerParams {
+			_block: PhantomData,
+			client: net.peer(i).client().as_client(),
+			runtime: api.clone(),
+			network: net.peer(i).network_service().clone(),
+			peer_id: peers[i],
+			tss_request: tss_rx,
+			protocol_request: protocol_rx,
+			task_executor: task_executor.clone(),
+			tx_submitter: tx_submitter.clone(),
+			public_key: pub_keys[i].clone(),
+		});
+		tokio::task::spawn(async move {
+			let span = span!(Level::INFO, "span");
+			worker.run(&span).await
+		});
 	}
 
-	log::info!("waiting for peers to connect");
+	tracing::info!("waiting for peers to connect");
 	net.run_until_connected().await;
 
 	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
@@ -381,7 +383,7 @@ async fn tss_smoke() -> Result<()> {
 		}
 	});
 
-	log::info!("waiting for shard to go online");
+	tracing::info!("waiting for shard to go online");
 	while api.shard_status(shard_id) != ShardStatus::Online {
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	}

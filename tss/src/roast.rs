@@ -122,7 +122,7 @@ impl RoastCoordinator {
 
 	fn start_session(&mut self) -> Option<RoastSignerRequest> {
 		if self.commitments.len() < self.threshold as _ {
-			log::debug!("commitments {}/{}", self.commitments.len(), self.threshold);
+			tracing::debug!("commitments {}/{}", self.commitments.len(), self.threshold);
 			return None;
 		}
 		let session_id = self.session_id;

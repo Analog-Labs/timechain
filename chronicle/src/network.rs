@@ -26,7 +26,6 @@ use time_primitives::{
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
 use tracing::{event, span, Level, Span};
-
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
 #[derive(Deserialize, Serialize)]

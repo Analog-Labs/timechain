@@ -146,7 +146,7 @@ async fn task_executor_smoke() -> Result<()> {
 		let mut task_executor = TaskExecutor::new(params);
 		task_executor.process_tasks(dummy_block_hash, 1, 1).unwrap();
 
-		log::info!("waiting for result");
+		tracing::info!("waiting for result");
 		loop {
 			let Some(status) = TASK_STATUS.lock().unwrap().pop() else {
 				tokio::time::sleep(Duration::from_secs(1)).await;

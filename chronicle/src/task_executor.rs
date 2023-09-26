@@ -400,6 +400,7 @@ where
 		}
 		tokio::time::sleep(Duration::from_secs(10)).await;
 	}
+
 	pub fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,

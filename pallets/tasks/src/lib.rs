@@ -479,6 +479,12 @@ pub mod pallet {
 			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 				.map_err(|_| TxError::TxPoolError)
 		}
+
+		pub fn submit_task_signature(task_id: TaskId, signature: TssSignature) -> TxResult {
+			let call = Call::submit_signature { task_id, signature };
+			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| TxError::TxPoolError)
+		}
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {

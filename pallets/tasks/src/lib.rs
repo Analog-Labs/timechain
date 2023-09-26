@@ -303,7 +303,6 @@ pub mod pallet {
 		}
 
 		/// Submit Signature
-		/// TODO: create public function for worker to call this
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::submit_hash())] // TODO update bench, weights
 		pub fn submit_signature(

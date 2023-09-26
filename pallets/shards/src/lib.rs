@@ -299,8 +299,8 @@ pub mod pallet {
 
 	impl<T: Config> MemberEvents for Pallet<T> {
 		fn member_online(id: &AccountId, network: Network) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
+			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			let new_status = old_status.online_member();
 			ShardState::<T>::insert(shard_id, new_status);
 			if matches!(new_status, ShardStatus::Online)
@@ -311,9 +311,9 @@ pub mod pallet {
 		}
 
 		fn member_offline(id: &AccountId, _: Network) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else  { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else  { return };
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else  { return };
+			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
 			let total_members = Self::get_shard_members(shard_id).len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
 			let Ok(max_members_offline) = max_members_offline.try_into() else { return };

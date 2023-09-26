@@ -14,6 +14,13 @@ pub(crate) struct WalletConfig {
 	pub url: String,
 }
 
+pub(crate) async fn is_chain_init(api: &OnlineClient<PolkadotConfig>) -> bool {
+	let Ok(block) = api.blocks().at_latest().await else {
+		return false;
+	};
+	let num = block.header().number;
+	num >= 5
+}
 pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
 	set_keys(config).await;
 	fund_wallet(config).await;

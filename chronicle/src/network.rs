@@ -451,26 +451,37 @@ where
 		}));
 	}
 
-    pub async fn run(mut self, span: &Span) {
-        event!(
+	pub async fn run(mut self, span: &Span) {
+		event!(
 			target: TW_LOG,
 			parent: span,
 			Level::DEBUG,
 			"starting tss",
 		);
-        while let Err(e) = self
-            .tx_submitter
-            .submit_register_member(
-                self.task_executor.network(),
-                self.public_key.clone(),
-                self.peer_id,
-            )
-            .unwrap()
-        {
-            log::error!("Error while submitting member {:?}, retrying again in 1 min", e);
-            sleep(Duration::from_secs(10)).await;
-        }
-        log::info!("Registered Member successfully");
+		while let Err(e) = self
+			.tx_submitter
+			.submit_register_member(
+				self.task_executor.network(),
+				self.public_key.clone(),
+				self.peer_id,
+			)
+			.unwrap()
+		{
+			event!(
+				target: TW_LOG,
+				parent: span,
+				Level::ERROR,
+				"Error while submitting member {:?}, retrying again in 10 secs",
+				e
+			);
+			sleep(Duration::from_secs(10)).await;
+		}
+		event!(
+			target: TW_LOG,
+			parent: span,
+			Level::INFO,
+			"Registered Member successfully",
+		);
 
 		let block = self.client.info().best_hash;
 		let min_block_time = self.runtime.runtime_api().get_block_time_in_msec(block).unwrap();

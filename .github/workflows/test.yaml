@@ -49,5 +49,7 @@ jobs:
           docker compose --profile ethereum up -d
           docker compose --profile astar up -d
       - name: Run test
-        run: docker compose run tester --network ethereum basic
+        run: |  
+          docker compose run tester --network ethereum basic
+          docker compose run tester --network astar basic
           

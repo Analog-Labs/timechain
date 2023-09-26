@@ -77,7 +77,7 @@ services:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
-    - '--chain=dev'
+    - '--chain=notss'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'

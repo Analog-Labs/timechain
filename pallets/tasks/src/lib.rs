@@ -21,7 +21,7 @@ pub mod pallet {
 	use time_primitives::{
 		AccountId, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
 		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TxError, TxResult,
+		TasksInterface, TssSignature, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
@@ -110,6 +110,18 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TaskPhaseState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
+
+	#[pallet::storage]
+	pub type TaskSigned<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		_,
+		Blake2_128Concat,
+		AccountId,
+		TssSignature,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub type WritePhaseStart<T: Config> =
@@ -285,6 +297,20 @@ pub mod pallet {
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			WritePhaseStart::<T>::remove(task_id);
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
+			Ok(())
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::submit_result())]
+		pub fn send_message(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			contract: AccountId,
+			signature: TssSignature,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			// TODO: in the write phase call a `send_message`
+			TaskSigned::<T>::insert(task_id, contract, signature);
 			Ok(())
 		}
 	}

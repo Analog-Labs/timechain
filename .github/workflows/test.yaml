@@ -7,7 +7,7 @@
 #
 ##########################################################
 
-name: Run benchmarks
+name: Run Tests
 
 on:
   pull_request:

@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   run-test:
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, benchmark-agent-1]
     if: ${{
       github.event_name == 'push' ||
       contains(github.event.pull_request.labels.*.name,'!ci-test-basic')

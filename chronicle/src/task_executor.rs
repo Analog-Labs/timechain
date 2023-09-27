@@ -157,7 +157,7 @@ where
 		self.tss
 			.clone()
 			.send(TssSigningRequest {
-				request_id: TssId(task_id, cycle),
+				request_id: TssId(shard_id, task_id, cycle),
 				shard_id,
 				block_number,
 				data: payload.to_vec(),
@@ -500,7 +500,7 @@ where
 					tracing::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
 					handle.abort();
 				}
-				completed_sessions.push(TssId(x.task_id, x.cycle));
+				completed_sessions.push(TssId(shard_id, x.task_id, x.cycle));
 				false
 			}
 		});

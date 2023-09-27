@@ -4,7 +4,7 @@ services:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
-    - '--chain=notss'
+    - '--chain=${CHAIN_SPEC}'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -50,7 +50,7 @@ services:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
-    - '--chain=notss'
+    - '--chain=${CHAIN_SPEC}'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -77,7 +77,7 @@ services:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
-    - '--chain=notss'
+    - '--chain=${CHAIN_SPEC}'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'

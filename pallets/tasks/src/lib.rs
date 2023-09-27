@@ -186,7 +186,7 @@ pub mod pallet {
 			let task_id = TaskIdCounter::<T>::get();
 			if let Function::EvmCall { function_signature, .. } = &schedule.function {
 				let send_message = String::from("send_message(uint[],uint[])");
-				if matches!(function_signature, send_message) {
+				if function_signature == &send_message {
 					TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 				}
 			}
@@ -310,7 +310,7 @@ pub mod pallet {
 			task_id: TaskId,
 			signature: TssSignature,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			let TaskPhase::Sign = TaskPhaseState::<T>::get(task_id) else {
 				return Err(Error::<T>::NotSignPhase.into());
@@ -429,6 +429,7 @@ pub mod pallet {
 
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
+					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Sign)
 				{
 					TaskPhaseState::<T>::insert(
 						task_id,
@@ -494,8 +495,11 @@ pub mod pallet {
 		}
 
 		pub fn submit_task_signature(task_id: TaskId, signature: TssSignature) -> TxResult {
-			let call = Call::submit_signature { task_id, signature };
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+			signer
+				.send_signed_transaction(|_| Call::submit_signature { task_id, signature })
+				.ok_or(TxError::MissingSigningKey)?
+				.1
 				.map_err(|_| TxError::TxPoolError)
 		}
 	}

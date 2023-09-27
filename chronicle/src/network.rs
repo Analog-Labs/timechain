@@ -247,16 +247,16 @@ where
 				let commitment =
 					VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
 				tss.on_commit(commitment);
-				self.poll_actions(span,shard_id, block_number);
+				self.poll_actions(&span, shard_id, block_number);
 			} else {
 				let members = api.get_shard_members(block, shard_id).unwrap();
 				event!(
-				target: TW_LOG,
-				parent: &span,
-				Level::DEBUG,
-				shard_id,
-				"joining shard",
-			);
+					target: TW_LOG,
+					parent: &span,
+					Level::DEBUG,
+					shard_id,
+					"joining shard",
+				);
 				let threshold = api.get_shard_threshold(block, shard_id).unwrap();
 				let members = members
 					.into_iter()
@@ -272,7 +272,7 @@ where
 				};
 				self.tss_states
 					.insert(shard_id, Tss::new(local_peer_id, members, threshold, ss_commitment));
-				self.poll_actions(span, shard_id, block_number);
+				self.poll_actions(&span, shard_id, block_number);
 			}
 		}
 		while let Some(n) = self.requests.keys().copied().next() {

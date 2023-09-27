@@ -1189,7 +1189,7 @@ construct_runtime!(
 		Members: pallet_members,
 		Shards: pallet_shards,
 		Elections: pallet_elections,
-		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 	}
 );
 

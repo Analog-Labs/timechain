@@ -64,6 +64,9 @@ sp_api::mock_impl_runtime_apis! {
 			TASK_STATUS.lock().unwrap().push(false);
 			Ok(())
 		}
+		fn submit_task_signature(_: TaskId, _: TaskCycle, _: TssSignature) -> TxResult {
+			Ok(())
+		}
 	}
 }
 

@@ -1530,6 +1530,10 @@ impl_runtime_apis! {
 			Tasks::submit_task_error(shard_id, cycle, error)
 		}
 
+		fn submit_task_signature(task_id: TaskId, signature: TssSignature) -> TxResult {
+			Tasks::submit_task_signature(task_id, signature)
+		}
+
 	}
 
 	impl time_primitives::BlockTimeApi<Block> for Runtime {

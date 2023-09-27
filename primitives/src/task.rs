@@ -200,4 +200,6 @@ pub trait SubmitTasks {
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult;
 }

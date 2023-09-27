@@ -179,6 +179,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: Vec<u8>) -> TxResult { Ok(()) }
 		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) -> TxResult { Ok(()) }
 		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) -> TxResult { Ok(()) }
+		fn submit_task_signature(_task_id: TaskId, _signature: TssSignature) -> TxResult { Ok(()) }
 	}
 
 	impl BlockTimeApi<Block> for MockApi{

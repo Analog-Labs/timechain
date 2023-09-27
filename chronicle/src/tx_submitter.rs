@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use time_primitives::{
 	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitResult,
-	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi,
+	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi, TssSignature,
 };
 
 pub struct TransactionSubmitter<B: Block, C, R> {
@@ -120,6 +120,11 @@ where
 	) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_task_error(block_hash, task_id, cycle, error)
+	}
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
+		let (runtime_api, block_hash) = self.runtime_api();
+		runtime_api.submit_task_signature(block_hash, task_id, signature)
 	}
 }
 

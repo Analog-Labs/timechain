@@ -260,6 +260,15 @@ where
 		Ok(())
 	}
 
+	async fn sign(self, task_id: TaskId, signature: TssSignature) -> Result<()> {
+		// is signature an input or is there a function call to get/make it
+		// sign the payload
+		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, signature) {
+			tracing::error!("Error submitting task signature{:?}", e);
+		}
+		Ok(())
+	}
+
 	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
 		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash) {

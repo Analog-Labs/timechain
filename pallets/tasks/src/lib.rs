@@ -21,7 +21,7 @@ pub mod pallet {
 	use time_primitives::{
 		AccountId, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
 		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TxError, TxResult,
+		TasksInterface, TssSignature, TxError, TxResult,
 	};
 
 	pub trait WeightInfo {
@@ -152,6 +152,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Unknown Task
 		UnknownTask,
+		/// Unknown Shard
+		UnknownShard,
+		/// Invalid Signature
+		InvalidSignature,
 		/// Invalid Task State
 		InvalidTaskState,
 		/// Invalid Owner
@@ -231,6 +235,11 @@ pub mod pallet {
 			status: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			if TaskResults::<T>::get(task_id, cycle).is_some() {
+				return Ok(());
+			}
+			Self::validate_signature(status.shard_id, status.hash, status.signature)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -255,6 +264,12 @@ pub mod pallet {
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			Self::validate_signature(
+				error.shard_id,
+				schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
+				error.signature,
+			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			let new_retry_count = retry_count.saturating_plus_one();
@@ -367,6 +382,26 @@ pub mod pallet {
 			task.function.is_payable()
 		}
 
+		fn validate_signature(
+			shard_id: ShardId,
+			hash: [u8; 32],
+			signature: TssSignature,
+		) -> DispatchResult {
+			let Some(public_key) = T::Shards::tss_public_key(shard_id) else {
+				return Err(Error::<T>::UnknownShard.into());
+			};
+			let Ok(signature) = schnorr_evm::Signature::from_bytes(signature) else {
+				return Err(Error::<T>::InvalidSignature.into());
+			};
+			let Ok(public_key) = schnorr_evm::VerifyingKey::from_bytes(public_key) else {
+				return Err(Error::<T>::UnknownShard.into());
+			};
+			if public_key.verify_prehashed(hash, &signature).is_err() {
+				return Err(Error::<T>::InvalidSignature.into());
+			}
+			Ok(())
+		}
+
 		fn shard_task_count(shard_id: ShardId) -> usize {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
@@ -469,65 +504,6 @@ pub mod pallet {
 				}
 			});
 			Self::schedule_tasks(network);
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
-				return InvalidTransaction::Call.into();
-			}
-
-			let (task_id, cycle, shard_id, hash, signature) = match call {
-				Call::submit_result { task_id, cycle, status } => {
-					log::info!("Got unsigned tx for submit_result {:?}/{:?}", task_id, cycle);
-					(task_id, cycle, status.shard_id, status.hash, status.signature)
-				},
-				Call::submit_error { task_id, cycle, error } => {
-					log::info!("Got unsigned tx for submit_error {:?}", task_id);
-					(
-						task_id,
-						cycle,
-						error.shard_id,
-						schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
-						error.signature,
-					)
-				},
-				_ => {
-					return InvalidTransaction::Call.into();
-				},
-			};
-
-			if Tasks::<T>::get(task_id).is_none() {
-				return InvalidTransaction::Call.into();
-			}
-			if TaskResults::<T>::get(task_id, cycle).is_some() {
-				return InvalidTransaction::Call.into();
-			}
-			let Some(public_key) = T::Shards::tss_public_key(shard_id) else {
-				return InvalidTransaction::Call.into();
-			};
-			let Ok(signature) = schnorr_evm::Signature::from_bytes(signature) else {
-				return InvalidTransaction::Call.into();
-			};
-			let Ok(public_key) = schnorr_evm::VerifyingKey::from_bytes(public_key) else {
-				return InvalidTransaction::Call.into();
-			};
-			if public_key.verify_prehashed(hash, &signature).is_err() {
-				return InvalidTransaction::Call.into();
-			}
-
-			ValidTransaction::with_tag_prefix("tasks-pallet")
-				.priority(TransactionPriority::MAX)
-				.longevity(10)
-				.propagate(false)
-				.build()
-		}
-
-		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Ok(())
 		}
 	}
 }

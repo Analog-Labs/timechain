@@ -12,7 +12,8 @@ use std::{
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
+	TaskId, TaskPhase, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature,
+	TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::task::JoinHandle;
@@ -311,7 +312,7 @@ where
 		task_id: TaskId,
 		signature: TssSignature,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().sign(target_block, task_id, signature).boxed()
+		self.clone().sign(task_id, signature).boxed()
 	}
 
 	fn execute_write(

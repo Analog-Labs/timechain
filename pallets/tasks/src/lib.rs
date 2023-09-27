@@ -15,6 +15,7 @@ pub mod pallet {
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;

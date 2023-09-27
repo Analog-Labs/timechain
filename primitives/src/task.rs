@@ -168,6 +168,12 @@ pub trait TaskSpawner {
 		task_id: TaskId,
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
+
+	fn execute_sign(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }
 
 #[cfg(feature = "std")]

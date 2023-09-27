@@ -153,6 +153,7 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	peer_id: time_primitives::PeerId,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
+	executor_states: HashMap<ShardId, T>,
 	tss_states: HashMap<ShardId, Tss>,
 	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
 	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
@@ -176,7 +177,7 @@ where
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest,
-	T: TaskExecutor<B>,
+	T: TaskExecutor<B> + Clone,
 	TxSub: SubmitShards + SubmitMembers,
 {
 	pub fn new(worker_params: TimeWorkerParams<B, C, R, N, T, TxSub>) -> Self {
@@ -203,6 +204,7 @@ where
 			peer_id,
 			tss_request,
 			protocol_request,
+			executor_states: Default::default(),
 			tss_states: Default::default(),
 			messages: Default::default(),
 			requests: Default::default(),
@@ -332,6 +334,9 @@ where
 			{
 				continue;
 			}
+			let executor =
+				self.executor_states.entry(shard_id).or_insert(self.task_executor.clone());
+			futures::executor::block_on(executor.poll_block_height());
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -339,21 +344,20 @@ where
 				shard_id,
 				"running task executor"
 			);
-			let complete_sessions =
-				match self.task_executor.process_tasks(block, block_number, shard_id) {
-					Ok(complete_sessions) => complete_sessions,
-					Err(error) => {
-						event!(
-							target: TW_LOG,
-							parent: &span,
-							Level::INFO,
-							shard_id,
-							"failed to start tasks: {:?}",
-							error,
-						);
-						continue;
-					},
-				};
+			let complete_sessions = match executor.process_tasks(block, block_number, shard_id) {
+				Ok(complete_sessions) => complete_sessions,
+				Err(error) => {
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::INFO,
+						shard_id,
+						"failed to start tasks: {:?}",
+						error,
+					);
+					continue;
+				},
+			};
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
 			};
@@ -595,7 +599,6 @@ where
 					);
 					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
-				_ = self.task_executor.poll_block_height().fuse() => {}
 			}
 		}
 	}

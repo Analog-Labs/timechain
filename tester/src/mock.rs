@@ -48,10 +48,19 @@ pub(crate) async fn set_keys(config: &WalletConfig) {
 	];
 	match config.blockchain {
 		Blockchain::Ethereum => {
-			insert_key("ws://chronicle-eth:9944", "time", &suri(1), keys[0]).await;
+			let key_index = 0;
+			let total_nodes = get_running_nodes("chronicle-eth");
+			let start_index =
+			for i in key_index..total_nodes{
+				insert_key("ws://chronicle-eth:9944", "time", &suri(i+1), keys[i as usize]).await;
+			}
 		},
 		Blockchain::Astar => {
-			insert_key("ws://chronicle-astar:9944", "time", &suri(2), keys[1]).await;
+			let key_index = 3;
+			let total_nodes = get_running_nodes("chronicle-eth") + key_index;
+			for i in key_index..total_nodes {
+				insert_key("ws://chronicle-astar:9944", "time", &suri(i+1), keys[i as usize]).await;
+			}
 		},
 		_ => unreachable!(),
 	}
@@ -84,6 +93,17 @@ pub(crate) async fn fund_wallet(config: &WalletConfig) {
 			.await
 			.unwrap();
 	wallet.faucet(10000000000000000000).await.unwrap();
+}
+
+pub(crate) fn get_running_nodes(filter: &str) -> u8 {
+	let output = Command::new("sh")
+		.arg("-c")
+		.arg(format!("docker ps | grep {} -c", filter))
+		.output()
+		.unwrap();
+	let mut number_str = std::str::from_utf8(&output.stdout).unwrap().to_string();
+	number_str.pop();
+	number_str.parse().unwrap()
 }
 
 pub(crate) fn drop_node(node_name: String) {

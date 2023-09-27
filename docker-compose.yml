@@ -105,6 +105,7 @@ services:
     profiles:
     - tester
     volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
 

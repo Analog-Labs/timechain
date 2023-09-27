@@ -306,6 +306,14 @@ where
 			.boxed()
 	}
 
+	fn execute_sign(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		self.clone().sign(target_block, task_id, signature).boxed()
+	}
+
 	fn execute_write(
 		&self,
 		shard_id: ShardId,
@@ -437,6 +445,9 @@ where
 						continue;
 					}
 					self.task_spawner.execute_write(task_id, cycle, function)
+				} else if matches!(executable_task.phase, TaskPhase::Sign) {
+					// TODO: replace 0u8 with signature
+					self.task_spawner.execute_sign(task_id, [0u8; 64])
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
 						Function::EvmTxReceipt { tx: tx.to_vec() }

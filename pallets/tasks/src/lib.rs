@@ -387,18 +387,15 @@ pub mod pallet {
 			hash: [u8; 32],
 			signature: TssSignature,
 		) -> DispatchResult {
-			let Some(public_key) = T::Shards::tss_public_key(shard_id) else {
-				return Err(Error::<T>::UnknownShard.into());
-			};
-			let Ok(signature) = schnorr_evm::Signature::from_bytes(signature) else {
-				return Err(Error::<T>::InvalidSignature.into());
-			};
-			let Ok(public_key) = schnorr_evm::VerifyingKey::from_bytes(public_key) else {
-				return Err(Error::<T>::UnknownShard.into());
-			};
-			if public_key.verify_prehashed(hash, &signature).is_err() {
-				return Err(Error::<T>::InvalidSignature.into());
-			}
+			let public_key =
+				T::Shards::tss_public_key(shard_id).map_err(|_| Error::<T>::UnknownShard.into())?;
+			let signature = schnorr_evm::Signature::from_bytes(signature)
+				.map_err(|_| Error::<T>::InvalidSignature.into())?;
+			let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)
+				.map_err(|_| Error::<T>::UnknownShard.into())?;
+			schnorr_public_key
+				.verify_prehashed(hash, &signature)
+				.map_err(|_| Error::<T>::InvalidSignature.into())?;
 			Ok(())
 		}
 

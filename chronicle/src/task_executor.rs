@@ -7,8 +7,7 @@ use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
-	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
-	time::Duration,
+	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -333,6 +332,26 @@ pub struct TaskExecutor<B: Block, R, T> {
 	block_height: u64,
 }
 
+impl<B, R, T> Clone for TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + Clone + 'static,
+{
+	fn clone(&self) -> Self {
+		Self {
+			_block: PhantomData,
+			runtime: self.runtime.clone(),
+			task_spawner: self.task_spawner.clone(),
+			network: self.network.clone(),
+			public_key: self.public_key.clone(),
+			running_tasks: Default::default(),
+			block_height: self.block_height,
+		}
+	}
+}
+
 #[async_trait::async_trait]
 impl<B, R, T> time_primitives::TaskExecutor<B> for TaskExecutor<B, R, T>
 where
@@ -398,7 +417,6 @@ where
 				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
 			},
 		}
-		tokio::time::sleep(Duration::from_secs(10)).await;
 	}
 
 	pub fn process_tasks(
@@ -414,6 +432,7 @@ where
 			let cycle = executable_task.cycle;
 			let retry_count = executable_task.retry_count;
 			if self.running_tasks.contains_key(executable_task) {
+				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
 			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
@@ -468,6 +487,8 @@ where
 					}
 				});
 				self.running_tasks.insert(executable_task.clone(), handle);
+			}else{
+				tracing::info!("Schedule is scheduled for future {:?}", task_id);
 			}
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());

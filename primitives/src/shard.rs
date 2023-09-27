@@ -20,7 +20,7 @@ pub type Commitment = Vec<TssPublicKey>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "std", derive(Deserialize, Serialize))]
-pub struct TssId(pub TaskId, pub TaskCycle);
+pub struct TssId(pub ShardId, pub TaskId, pub TaskCycle);
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for TssId {

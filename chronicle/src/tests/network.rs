@@ -395,7 +395,7 @@ async fn tss_smoke() -> Result<()> {
 	for tss in &mut tss {
 		let (tx, rx) = oneshot::channel();
 		tss.send(TssSigningRequest {
-			request_id: TssId(1, 1),
+			request_id: TssId(1, 1, 1),
 			shard_id: 0,
 			block_number,
 			data: message.to_vec(),

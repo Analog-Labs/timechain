@@ -7,7 +7,7 @@ use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
-	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc
+	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -487,7 +487,7 @@ where
 					}
 				});
 				self.running_tasks.insert(executable_task.clone(), handle);
-			}else{
+			} else {
 				tracing::info!("Schedule is scheduled for future {:?}", task_id);
 			}
 		}

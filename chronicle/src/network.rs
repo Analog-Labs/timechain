@@ -234,46 +234,46 @@ where
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
-			if self.tss_states.get(&shard_id).is_some() {
-				continue;
-			}
 			let api = self.runtime.runtime_api();
-			let members = api.get_shard_members(block, shard_id).unwrap();
-			event!(
+
+			if let Some(tss) = self.tss_states.get_mut(&shard_id) {
+				if tss.committed() {
+					continue;
+				}
+				if api.get_shard_status(block, shard_id).unwrap() != ShardStatus::Committed {
+					continue;
+				}
+				let commitment = api.get_shard_commitment(block, shard_id).unwrap();
+				let commitment =
+					VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
+				tss.on_commit(commitment);
+				self.poll_actions(span,shard_id, block_number);
+			} else {
+				let members = api.get_shard_members(block, shard_id).unwrap();
+				event!(
 				target: TW_LOG,
 				parent: &span,
 				Level::DEBUG,
 				shard_id,
 				"joining shard",
 			);
-			let threshold = api.get_shard_threshold(block, shard_id).unwrap();
-			let members = members
-				.into_iter()
-				.map(|account| {
-					to_peer_id(api.get_member_peer_id(block, &account).unwrap().unwrap())
-				})
-				.collect();
-			self.tss_states
-				.insert(shard_id, Tss::new(local_peer_id, members, threshold, None));
-			self.poll_actions(&span, shard_id, block_number);
-		}
-		for shard_id in shards.iter().copied() {
-			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-				continue;
-			};
-			if tss.committed() {
-				continue;
+				let threshold = api.get_shard_threshold(block, shard_id).unwrap();
+				let members = members
+					.into_iter()
+					.map(|account| {
+						to_peer_id(api.get_member_peer_id(block, &account).unwrap().unwrap())
+					})
+					.collect();
+				let commitment = api.get_shard_commitment(block, shard_id).unwrap();
+				let ss_commitment = if commitment.is_empty() {
+					None
+				} else {
+					Some(VerifiableSecretSharingCommitment::deserialize(commitment).unwrap())
+				};
+				self.tss_states
+					.insert(shard_id, Tss::new(local_peer_id, members, threshold, ss_commitment));
+				self.poll_actions(span, shard_id, block_number);
 			}
-			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
-				!= ShardStatus::Committed
-			{
-				continue;
-			}
-			let commitment =
-				self.runtime.runtime_api().get_shard_commitment(block, shard_id).unwrap();
-			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
-			tss.on_commit(commitment);
-			self.poll_actions(&span, shard_id, block_number);
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
 			if n > block_number {

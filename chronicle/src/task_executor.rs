@@ -8,6 +8,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
 	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
+	time::Duration,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -417,6 +418,7 @@ where
 				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
 			},
 		}
+		tokio::time::sleep(Duration::from_secs(10)).await;
 	}
 
 	pub fn process_tasks(

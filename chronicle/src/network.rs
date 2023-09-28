@@ -24,7 +24,7 @@ use time_primitives::{
 	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
-use tokio::time::{inerval, interval_at, sleep, Duration, Instant};
+use tokio::time::{interval, interval_at, sleep, Duration, Instant};
 
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -347,7 +347,7 @@ where
 				shard_id,
 				"running task executor"
 			);
-			let complete_sessions = match executor.process_tasks(block, block_number, shard_id) {
+			let complete_sessions = match executor.process_tasks(block, self.block_height, block_number, shard_id) {
 				Ok(complete_sessions) => complete_sessions,
 				Err(error) => {
 					event!(

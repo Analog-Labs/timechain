@@ -228,9 +228,7 @@ where
 		Network::Ethereum
 	}
 
-	async fn poll_block_height(&mut self) {
-
-	}
+	async fn poll_block_height(&mut self) {}
 
 	fn process_tasks(
 		&mut self,

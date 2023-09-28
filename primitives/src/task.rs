@@ -173,10 +173,11 @@ pub trait TaskSpawner {
 #[async_trait::async_trait]
 pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 	fn network(&self) -> Network;
-	async fn poll_block_height(&mut self);
+	async fn poll_block_height(&mut self) -> Option<u64>;
 	fn process_tasks(
 		&mut self,
 		block_hash: B::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>>;

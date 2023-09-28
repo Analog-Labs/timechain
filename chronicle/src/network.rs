@@ -603,7 +603,14 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
+					if let Err(e) = self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap(){
+							event!(
+							target: TW_LOG,
+							parent: span,
+							Level::DEBUG,
+							"Error submitting heartbeat {:?}",e
+						);
+					};
 				}
 				_ = block_height_tick.tick().fuse() => {
 					let block_height = self.task_executor.poll_block_height().await;

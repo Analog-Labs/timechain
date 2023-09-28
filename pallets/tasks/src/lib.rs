@@ -12,10 +12,10 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SignMessage, Signer,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_runtime::{traits::IdentifyAccount, traits::One, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -441,17 +441,12 @@ pub mod pallet {
 				log::error!("task not in write phase");
 				return Ok(());
 			};
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
-
-			signer
-				.send_signed_transaction(|_| Call::submit_hash {
-					task_id,
-					cycle,
-					hash: hash.clone(),
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let call = Call::submit_hash {
+				task_id,
+				cycle,
+				hash: hash.clone(),
+			};
+			Self::submit_tx_with_retries(Some(public_key), call)
 		}
 
 		pub fn submit_task_result(
@@ -459,29 +454,54 @@ pub mod pallet {
 			cycle: TaskCycle,
 			status: TaskResult,
 		) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-			signer
-				.send_signed_transaction(|_| Call::submit_result {
-					task_id,
-					cycle,
-					status: status.clone(),
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let call = Call::submit_result {
+				task_id,
+				cycle,
+				status: status.clone(),
+			};
+			Self::submit_tx_with_retries(None, call)
 		}
 
 		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-			signer
-				.send_signed_transaction(|_| Call::submit_error {
-					task_id,
-					cycle,
-					error: error.clone(),
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let call = Call::submit_error {
+				task_id,
+				cycle,
+				error: error.clone(),
+			};
+			Self::submit_tx_with_retries(None, call)
+		}
+
+		fn submit_tx_with_retries(acc_filter: Option<PublicKey>, call: Call<T>) -> TxResult {
+			let (signer, account_id) = if let Some(filter) = acc_filter {
+				let signer =
+					Signer::<T, T::AuthorityId>::any_account().with_filter(vec![filter.clone()]);
+				(signer, filter.into_account())
+			} else {
+				let signer = Signer::<T, T::AuthorityId>::any_account();
+				let signer_pub =
+					signer.sign_message(b"temp_msg").ok_or(TxError::MissingSigningKey)?.0.public;
+				(signer, signer_pub.clone().into_account())
+			};
+			for i in 0..100 {
+				let result = signer
+					.send_signed_transaction(|_| call.clone())
+					.ok_or(TxError::MissingSigningKey)?
+					.1
+					.map_err(|_| TxError::TxPoolError);
+				if i == 99 {
+					return result;
+				}
+
+				let Err(_) = result else {
+					return result;
+				};
+				log::error!("failed to send tx, retrying {}", i);
+				let mut account_data = frame_system::Account::<T>::get(&account_id);
+				account_data.nonce = account_data.nonce.saturating_add(One::one());
+				frame_system::Account::<T>::insert(&account_id, account_data);
+				continue;
+			}
+			Ok(())
 		}
 	}
 

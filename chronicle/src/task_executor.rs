@@ -343,7 +343,7 @@ where
 			_block: PhantomData,
 			runtime: self.runtime.clone(),
 			task_spawner: self.task_spawner.clone(),
-			network: self.network.clone(),
+			network: self.network,
 			public_key: self.public_key.clone(),
 			running_tasks: Default::default(),
 		}
@@ -407,14 +407,13 @@ where
 	}
 
 	pub async fn poll_block_height(&mut self) -> Option<u64> {
-		let block_height = match self.task_spawner.block_height().await {
+		match self.task_spawner.block_height().await {
 			Ok(block_height) => Some(block_height),
 			Err(error) => {
 				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
 				None
 			},
-		};
-		block_height
+		}
 	}
 
 	pub fn process_tasks(

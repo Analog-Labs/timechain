@@ -347,20 +347,21 @@ where
 				shard_id,
 				"running task executor"
 			);
-			let complete_sessions = match executor.process_tasks(block, self.block_height, block_number, shard_id) {
-				Ok(complete_sessions) => complete_sessions,
-				Err(error) => {
-					event!(
-						target: TW_LOG,
-						parent: &span,
-						Level::INFO,
-						shard_id,
-						"failed to start tasks: {:?}",
-						error,
-					);
-					continue;
-				},
-			};
+			let complete_sessions =
+				match executor.process_tasks(block, self.block_height, block_number, shard_id) {
+					Ok(complete_sessions) => complete_sessions,
+					Err(error) => {
+						event!(
+							target: TW_LOG,
+							parent: &span,
+							Level::INFO,
+							shard_id,
+							"failed to start tasks: {:?}",
+							error,
+						);
+						continue;
+					},
+				};
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
 			};

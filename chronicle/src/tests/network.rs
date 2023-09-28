@@ -228,11 +228,14 @@ where
 		Network::Ethereum
 	}
 
-	async fn poll_block_height(&mut self) {}
+	async fn poll_block_height(&mut self) -> Option<u64> {
+		None
+	}
 
 	fn process_tasks(
 		&mut self,
 		_block_hash: <B as sp_block>::Hash,
+		_target_block_height: u64,
 		_block_num: u64,
 		_shard_id: ShardId,
 	) -> Result<Vec<TssId>> {

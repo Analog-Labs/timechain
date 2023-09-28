@@ -24,7 +24,8 @@ use time_primitives::{
 	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
-use tokio::time::{interval_at, sleep, Duration, Instant};
+use tokio::time::{inerval, interval_at, sleep, Duration, Instant};
+
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -151,6 +152,7 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	tx_submitter: TxSub,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
+	block_height: u64,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
 	executor_states: HashMap<ShardId, T>,
@@ -202,6 +204,7 @@ where
 			tx_submitter,
 			public_key,
 			peer_id,
+			block_height: 0,
 			tss_request,
 			protocol_request,
 			executor_states: Default::default(),
@@ -493,6 +496,8 @@ where
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
+
+		let mut block_height_tick = interval(Duration::from_secs(10));
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
@@ -599,7 +604,12 @@ where
 					);
 					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
-				_ = self.task_executor.poll_block_height().fuse() => {}
+				_ = block_height_tick.tick().fuse() => {
+					let block_height = self.task_executor.poll_block_height().await;
+					if let Some(block_height) = block_height{
+						self.block_height = block_height
+					}
+				}
 			}
 		}
 	}

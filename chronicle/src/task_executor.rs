@@ -8,7 +8,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
 	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
-	time::Duration,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -330,7 +329,6 @@ pub struct TaskExecutor<B: Block, R, T> {
 	network: Network,
 	public_key: PublicKey,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
-	block_height: u64,
 }
 
 impl<B, R, T> Clone for TaskExecutor<B, R, T>
@@ -348,7 +346,6 @@ where
 			network: self.network.clone(),
 			public_key: self.public_key.clone(),
 			running_tasks: Default::default(),
-			block_height: self.block_height,
 		}
 	}
 }
@@ -365,17 +362,18 @@ where
 		self.network()
 	}
 
-	async fn poll_block_height(&mut self) {
+	async fn poll_block_height(&mut self) -> Option<u64> {
 		self.poll_block_height().await
 	}
 
 	fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
-		self.process_tasks(block_hash, block_num, shard_id)
+		self.process_tasks(block_hash, target_block_height, block_num, shard_id)
 	}
 }
 
@@ -400,7 +398,6 @@ where
 			task_spawner,
 			network,
 			public_key,
-			block_height: 0,
 			running_tasks: Default::default(),
 		}
 	}
@@ -409,21 +406,21 @@ where
 		self.network
 	}
 
-	pub async fn poll_block_height(&mut self) {
-		match self.task_spawner.block_height().await {
-			Ok(block_height) => {
-				self.block_height = block_height;
-			},
+	pub async fn poll_block_height(&mut self) -> Option<u64> {
+		let block_height = match self.task_spawner.block_height().await {
+			Ok(block_height) => Some(block_height),
 			Err(error) => {
 				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
+				None
 			},
-		}
-		tokio::time::sleep(Duration::from_secs(10)).await;
+		};
+		block_height
 	}
 
 	pub fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
@@ -441,7 +438,7 @@ where
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;
-			if self.block_height >= target_block_number {
+			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
@@ -490,7 +487,12 @@ where
 				});
 				self.running_tasks.insert(executable_task.clone(), handle);
 			} else {
-				tracing::info!("Schedule is scheduled for future {:?}", task_id);
+				tracing::info!(
+					"Task is scheduled for future {:?}/{:?}/{:?}",
+					task_id,
+					target_block_height,
+					target_block_number
+				);
 			}
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());

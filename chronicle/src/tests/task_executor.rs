@@ -144,7 +144,7 @@ async fn task_executor_smoke() -> Result<()> {
 		};
 
 		let mut task_executor = TaskExecutor::new(params);
-		task_executor.process_tasks(dummy_block_hash, 1, 1).unwrap();
+		task_executor.process_tasks(dummy_block_hash, 1, 1, 1).unwrap();
 
 		tracing::info!("waiting for result");
 		loop {

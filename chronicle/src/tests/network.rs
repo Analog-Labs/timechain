@@ -352,7 +352,6 @@ async fn tss_smoke() -> Result<()> {
 		});
 	}
 
-	println!("waiting for peers");
 	tracing::info!("waiting for peers to connect");
 	net.run_until_connected().await;
 
@@ -361,7 +360,6 @@ async fn tss_smoke() -> Result<()> {
 		pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
 	let shard_id = api.create_shard(peers_account_id, 2);
 
-	println!("shard created {:?}", shard_id);
 	tokio::task::spawn(async move {
 		let mut block_timer = tokio::time::interval(Duration::from_secs(1));
 		loop {

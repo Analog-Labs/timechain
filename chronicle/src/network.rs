@@ -229,6 +229,7 @@ where
 			.get_shards(block, &self.public_key.clone().into_account())
 			.unwrap();
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
+		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
@@ -336,7 +337,6 @@ where
 			}
 			let executor =
 				self.executor_states.entry(shard_id).or_insert(self.task_executor.clone());
-			futures::executor::block_on(executor.poll_block_height());
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -599,6 +599,7 @@ where
 					);
 					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
 				}
+				_ = self.task_executor.poll_block_height().fuse() => {}
 			}
 		}
 	}

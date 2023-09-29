@@ -61,17 +61,12 @@ async fn main() {
 	let url = args.url;
 	let api = loop {
 		let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url.clone()).await else {
+			println!("waiting for chain to start");
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 			continue;
 		};
 		break api;
 	};
-
-	// wait for some blocks so that tx pool is init in worker
-	while let false = is_chain_init(&api).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-		println!("waiting for chain to start");
-	}
 
 	let (network, config) = match args.network.as_str() {
 		"ethereum" => (

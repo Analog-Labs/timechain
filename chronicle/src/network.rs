@@ -24,7 +24,7 @@ use time_primitives::{
 	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
-use tokio::time::{interval_at, Duration, Instant};
+use tokio::time::{interval_at, sleep, Duration, Instant};
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -457,14 +457,30 @@ where
 			Level::DEBUG,
 			"starting tss",
 		);
-		self.tx_submitter
+		while let Err(e) = self
+			.tx_submitter
 			.submit_register_member(
 				self.task_executor.network(),
 				self.public_key.clone(),
 				self.peer_id,
 			)
 			.unwrap()
-			.unwrap();
+		{
+			event!(
+				target: TW_LOG,
+				parent: span,
+				Level::ERROR,
+				"Error while submitting member {:?}, retrying again in 10 secs",
+				e
+			);
+			sleep(Duration::from_secs(10)).await;
+		}
+		event!(
+			target: TW_LOG,
+			parent: span,
+			Level::INFO,
+			"Registered Member successfully",
+		);
 
 		let block = self.client.info().best_hash;
 		let min_block_time = self.runtime.runtime_api().get_block_time_in_msec(block).unwrap();

@@ -306,7 +306,7 @@ pub mod pallet {
 
 		/// Submit Signature
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::submit_hash())] // TODO update bench, weights
+		#[pallet::weight(T::WeightInfo::submit_signature())] // TODO update bench, weights
 		pub fn submit_signature(
 			origin: OriginFor<T>,
 			task_id: TaskId,

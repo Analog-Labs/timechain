@@ -15,7 +15,6 @@ pub mod pallet {
 		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
 	};
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::string::String;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
@@ -32,6 +31,7 @@ pub mod pallet {
 		fn submit_result() -> Weight;
 		fn submit_error() -> Weight;
 		fn submit_hash() -> Weight;
+		fn submit_signature() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -56,6 +56,10 @@ pub mod pallet {
 		}
 
 		fn submit_hash() -> Weight {
+			Weight::default()
+		}
+
+		fn submit_signature() -> Weight {
 			Weight::default()
 		}
 	}
@@ -185,11 +189,8 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
-			if let Function::EvmCall { function_signature, .. } = &schedule.function {
-				let send_message = String::from("send_message(uint[],uint[])");
-				if function_signature == &send_message {
-					TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-				}
+			if matches!(schedule.function, Function::SendMessage { .. }) {
+				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 			}
 			Tasks::<T>::insert(
 				task_id,
@@ -312,6 +313,7 @@ pub mod pallet {
 			signature: TssSignature,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			let TaskPhase::Sign = TaskPhaseState::<T>::get(task_id) else {
 				return Err(Error::<T>::NotSignPhase.into());
@@ -319,12 +321,7 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
-			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
-			TaskPhaseState::<T>::insert(
-				task_id,
-				TaskPhase::Write(T::Shards::random_signer(shard_id)),
-			);
-			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			Self::start_write_phase(task_id, shard_id);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
 		}
@@ -337,11 +334,7 @@ pub mod pallet {
 			WritePhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
 				if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
 					if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-						TaskPhaseState::<T>::insert(
-							task_id,
-							TaskPhase::Write(T::Shards::random_signer(shard_id)),
-						);
-						WritePhaseStart::<T>::insert(task_id, n);
+						Self::start_write_phase(task_id, shard_id);
 						writes += 2;
 					}
 				}
@@ -360,6 +353,14 @@ pub mod pallet {
 						false
 					}
 				})
+		}
+
+		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {
+			TaskPhaseState::<T>::insert(
+				task_id,
+				TaskPhase::Write(T::Shards::random_signer(shard_id)),
+			);
+			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 		}
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {

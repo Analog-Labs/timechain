@@ -144,6 +144,7 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
+			Function::SendMessage { .. } => todo!(), //TODO how to send_message
 		})
 	}
 
@@ -261,9 +262,25 @@ where
 		Ok(())
 	}
 
-	async fn sign(self, task_id: TaskId, signature: TssSignature) -> Result<()> {
-		// is signature an input or is there a function call to get/make it
-		// sign the payload
+	async fn sign(
+		self,
+		target_block: u64,
+		shard_id: ShardId,
+		task_id: TaskId,
+		task_cycle: TaskCycle,
+		function: Function,
+		block_num: u64,
+	) -> Result<()> {
+		let result = self
+			.execute_function(&function, target_block)
+			.await
+			.map_err(|err| format!("{:?}", err));
+		let payload = match &result {
+			Ok(payload) => payload.as_slice(),
+			Err(payload) => payload.as_bytes(),
+		};
+		let (_, signature) =
+			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
 		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, signature) {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
@@ -309,10 +326,16 @@ where
 
 	fn execute_sign(
 		&self,
+		target_block: u64,
+		shard_id: ShardId,
 		task_id: TaskId,
-		signature: TssSignature,
+		cycle: TaskCycle,
+		function: Function,
+		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().sign(task_id, signature).boxed()
+		self.clone()
+			.sign(target_block, shard_id, task_id, cycle, function, block_num)
+			.boxed()
 	}
 
 	fn execute_write(
@@ -447,8 +470,14 @@ where
 					}
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else if matches!(executable_task.phase, TaskPhase::Sign) {
-					// TODO: replace 0u8 with signature
-					self.task_spawner.execute_sign(task_id, [0u8; 64])
+					self.task_spawner.execute_sign(
+						target_block_number,
+						shard_id,
+						task_id,
+						cycle,
+						function,
+						block_num,
+					)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
 						Function::EvmTxReceipt { tx: tx.to_vec() }

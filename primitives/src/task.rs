@@ -24,6 +24,7 @@ pub enum Function {
 	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
 	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
 	EvmTxReceipt { tx: Vec<u8> },
+	SendMessage { message: Vec<u8>, input: String },
 }
 
 impl Function {
@@ -171,8 +172,12 @@ pub trait TaskSpawner {
 
 	fn execute_sign(
 		&self,
+		target_block: u64,
+		shard_id: ShardId,
 		task_id: TaskId,
-		signature: TssSignature,
+		cycle: TaskCycle,
+		function: Function,
+		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }
 

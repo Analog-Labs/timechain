@@ -1,3 +1,4 @@
+//! Elects new shards from new members.
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 

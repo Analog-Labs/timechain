@@ -1,3 +1,18 @@
+//! Coordinates task creation, execution, and error handling.
+//!
+//! ## Task Phases
+//!
+//! ```mermaid
+//! ---
+//! title: Task Phases
+//! ---
+//! stateDiagram-v2
+//!     SignPayload --> SubmitTransaction: sign
+//!     SubmitTransaction --> SignTransactionReceipt: write
+//!     SignTransactionReceipt --> Finished: read
+//! ```
+//! [source](https://github.com/Analog-Labs/testnet/pull/525#issuecomment-1735262629)
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]

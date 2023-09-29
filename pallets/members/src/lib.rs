@@ -1,3 +1,5 @@
+//! Manages individuals and tracks if online.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 

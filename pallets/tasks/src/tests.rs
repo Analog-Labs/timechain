@@ -39,6 +39,7 @@ fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 		function: Function::SendMessage {
 			contract_address: Default::default(),
 			payload: Default::default(),
+			signature: Default::default(),
 		},
 		cycle,
 		start: 0,

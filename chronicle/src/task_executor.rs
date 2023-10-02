@@ -144,16 +144,19 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
-			Function::SendMessage { contract_address, payload } => {
-				fn to_eth_call_args(
-					_contract_address: Vec<u8>,
-					_payload: Vec<u8>,
-				) -> (String, String, Vec<String>, u128) {
-					todo!()
-				}
-				let (addr, fn_sig, input, amount) =
-					to_eth_call_args(contract_address.to_vec(), payload.to_vec());
-				self.wallet.eth_send_call(&addr, &fn_sig, input.as_slice(), amount).await?
+			Function::SendMessage {
+				contract_address,
+				payload,
+				signature,
+			} => {
+				self.wallet
+					.eth_send_call(
+						&contract_address,
+						&String::from("send_message(uint256[],uint256[])"),
+						vec![payload.clone(), signature.clone()].as_slice(),
+						0u128,
+					)
+					.await?
 			},
 		})
 	}

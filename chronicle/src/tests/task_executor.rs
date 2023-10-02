@@ -1,7 +1,7 @@
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::executor::block_on;
-use futures::{future, FutureExt};
+use futures::{future, stream, FutureExt, Stream};
 use sc_block_builder::BlockBuilderProvider;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
@@ -88,6 +88,10 @@ impl MockTask {
 impl TaskSpawner for MockTask {
 	async fn block_height(&self) -> Result<u64> {
 		Ok(0)
+	}
+
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
+		Box::pin(stream::iter(vec![1]))
 	}
 
 	fn execute_read(

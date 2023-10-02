@@ -1,14 +1,14 @@
 use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
-use futures::{FutureExt, SinkExt};
+use futures::{future::ready, FutureExt, SinkExt, Stream, StreamExt};
 use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
+use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
 	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
-	time::Duration,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -322,6 +322,19 @@ where
 		Ok(status.index)
 	}
 
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
+		let transformed_stream = self.wallet.listen().await.unwrap().unwrap().filter_map(|event| {
+			ready(match event {
+				ClientEvent::NewFinalized(block_or_identifier) => match block_or_identifier {
+					BlockOrIdentifier::Identifier(identifier) => Some(identifier.index),
+					BlockOrIdentifier::Block(block) => Some(block.block_identifier.index),
+				},
+				_ => None,
+			})
+		});
+		Box::pin(transformed_stream)
+	}
+
 	fn execute_read(
 		&self,
 		target_block: u64,
@@ -384,7 +397,25 @@ pub struct TaskExecutor<B: Block, R, T> {
 	network: Network,
 	public_key: PublicKey,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
-	block_height: u64,
+}
+
+impl<B, R, T> Clone for TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + Clone + 'static,
+{
+	fn clone(&self) -> Self {
+		Self {
+			_block: PhantomData,
+			runtime: self.runtime.clone(),
+			task_spawner: self.task_spawner.clone(),
+			network: self.network,
+			public_key: self.public_key.clone(),
+			running_tasks: Default::default(),
+		}
+	}
 }
 
 #[async_trait::async_trait]
@@ -399,17 +430,18 @@ where
 		self.network()
 	}
 
-	async fn poll_block_height(&mut self) {
+	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
 		self.poll_block_height().await
 	}
 
 	fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
-		self.process_tasks(block_hash, block_num, shard_id)
+		self.process_tasks(block_hash, target_block_height, block_num, shard_id)
 	}
 }
 
@@ -434,7 +466,6 @@ where
 			task_spawner,
 			network,
 			public_key,
-			block_height: 0,
 			running_tasks: Default::default(),
 		}
 	}
@@ -443,21 +474,16 @@ where
 		self.network
 	}
 
-	pub async fn poll_block_height(&mut self) {
-		match self.task_spawner.block_height().await {
-			Ok(block_height) => {
-				self.block_height = block_height;
-			},
-			Err(error) => {
-				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
-			},
-		}
-		tokio::time::sleep(Duration::from_secs(10)).await;
+	pub async fn poll_block_height<'b>(
+		&'b mut self,
+	) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+		self.task_spawner.get_block_stream().await
 	}
 
 	pub fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
@@ -468,13 +494,14 @@ where
 			let cycle = executable_task.cycle;
 			let retry_count = executable_task.retry_count;
 			if self.running_tasks.contains_key(executable_task) {
+				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
 			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;
-			if self.block_height >= target_block_number {
+			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
@@ -531,6 +558,13 @@ where
 					}
 				});
 				self.running_tasks.insert(executable_task.clone(), handle);
+			} else {
+				tracing::info!(
+					"Task is scheduled for future {:?}/{:?}/{:?}",
+					task_id,
+					target_block_height,
+					target_block_number
+				);
 			}
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());

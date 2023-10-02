@@ -25,6 +25,7 @@ use time_primitives::{
 	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
+
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -151,8 +152,10 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	tx_submitter: TxSub,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
+	block_height: u64,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	protocol_request: async_channel::Receiver<IncomingRequest>,
+	executor_states: HashMap<ShardId, T>,
 	tss_states: HashMap<ShardId, Tss>,
 	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
 	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
@@ -176,7 +179,7 @@ where
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest,
-	T: TaskExecutor<B>,
+	T: TaskExecutor<B> + Clone,
 	TxSub: SubmitShards + SubmitMembers,
 {
 	pub fn new(worker_params: TimeWorkerParams<B, C, R, N, T, TxSub>) -> Self {
@@ -201,8 +204,10 @@ where
 			tx_submitter,
 			public_key,
 			peer_id,
+			block_height: 0,
 			tss_request,
 			protocol_request,
+			executor_states: Default::default(),
 			tss_states: Default::default(),
 			messages: Default::default(),
 			requests: Default::default(),
@@ -227,6 +232,7 @@ where
 			.get_shards(block, &self.public_key.clone().into_account())
 			.unwrap();
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
+		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
@@ -332,6 +338,8 @@ where
 			{
 				continue;
 			}
+			let executor =
+				self.executor_states.entry(shard_id).or_insert(self.task_executor.clone());
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -340,7 +348,7 @@ where
 				"running task executor"
 			);
 			let complete_sessions =
-				match self.task_executor.process_tasks(block, block_number, shard_id) {
+				match executor.process_tasks(block, self.block_height, block_number, shard_id) {
 					Ok(complete_sessions) => complete_sessions,
 					Err(error) => {
 						event!(
@@ -451,6 +459,9 @@ where
 	}
 
 	pub async fn run(mut self, span: &Span) {
+		let mut cloned_executor = self.task_executor.clone();
+		let mut block_stream = cloned_executor.poll_block_height().await.fuse();
+
 		event!(
 			target: TW_LOG,
 			parent: span,
@@ -489,6 +500,7 @@ where
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
+
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
@@ -593,9 +605,20 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap().unwrap();
+					if let Err(e) = self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap(){
+							event!(
+							target: TW_LOG,
+							parent: span,
+							Level::DEBUG,
+							"Error submitting heartbeat {:?}",e
+						);
+					};
 				}
-				_ = self.task_executor.poll_block_height().fuse() => {}
+				data = block_stream.next() => {
+					if let Some(index) = data {
+						self.block_height = index;
+					}
+				}
 			}
 		}
 	}

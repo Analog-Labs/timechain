@@ -1,7 +1,7 @@
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::executor::block_on;
-use futures::{future, FutureExt};
+use futures::{future, stream, FutureExt, Stream};
 use sc_block_builder::BlockBuilderProvider;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
@@ -93,6 +93,10 @@ impl TaskSpawner for MockTask {
 		Ok(0)
 	}
 
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
+		Box::pin(stream::iter(vec![1]))
+	}
+
 	fn execute_read(
 		&self,
 		_target_block: u64,
@@ -147,7 +151,7 @@ async fn task_executor_smoke() -> Result<()> {
 		};
 
 		let mut task_executor = TaskExecutor::new(params);
-		task_executor.process_tasks(dummy_block_hash, 1, 1).unwrap();
+		task_executor.process_tasks(dummy_block_hash, 1, 1, 1).unwrap();
 
 		tracing::info!("waiting for result");
 		loop {

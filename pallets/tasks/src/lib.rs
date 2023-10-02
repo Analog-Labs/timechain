@@ -12,10 +12,10 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SignMessage, Signer,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_runtime::{traits::IdentifyAccount, traits::One, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -161,6 +161,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Unknown Task
 		UnknownTask,
+		/// Unknown Shard
+		UnknownShard,
+		/// Invalid Signature
+		InvalidSignature,
 		/// Invalid Task State
 		InvalidTaskState,
 		/// Invalid Owner
@@ -247,6 +251,11 @@ pub mod pallet {
 			status: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			if TaskResults::<T>::get(task_id, cycle).is_some() {
+				return Ok(());
+			}
+			Self::validate_signature(status.shard_id, status.hash, status.signature)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -271,6 +280,12 @@ pub mod pallet {
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			Self::validate_signature(
+				error.shard_id,
+				schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
+				error.signature,
+			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			let new_retry_count = retry_count.saturating_plus_one();
@@ -409,6 +424,22 @@ pub mod pallet {
 			task.function.is_payable()
 		}
 
+		fn validate_signature(
+			shard_id: ShardId,
+			hash: [u8; 32],
+			signature: TssSignature,
+		) -> DispatchResult {
+			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let signature = schnorr_evm::Signature::from_bytes(signature)
+				.map_err(|_| Error::<T>::InvalidSignature)?;
+			let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)
+				.map_err(|_| Error::<T>::UnknownShard)?;
+			schnorr_public_key
+				.verify_prehashed(hash, &signature)
+				.map_err(|_| Error::<T>::InvalidSignature)?;
+			Ok(())
+		}
+
 		fn shard_task_count(shard_id: ShardId) -> usize {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
@@ -453,17 +484,12 @@ pub mod pallet {
 				log::error!("task not in write phase");
 				return Ok(());
 			};
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
-
-			signer
-				.send_signed_transaction(|_| Call::submit_hash {
-					task_id,
-					cycle,
-					hash: hash.clone(),
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let call = Call::submit_hash {
+				task_id,
+				cycle,
+				hash: hash.clone(),
+			};
+			Self::submit_tx_with_retries(Some(public_key), call)
 		}
 
 		pub fn submit_task_result(
@@ -471,29 +497,54 @@ pub mod pallet {
 			cycle: TaskCycle,
 			status: TaskResult,
 		) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-			signer
-				.send_signed_transaction(|_| Call::submit_result {
-					task_id,
-					cycle,
-					status: status.clone(),
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let call = Call::submit_result {
+				task_id,
+				cycle,
+				status: status.clone(),
+			};
+			Self::submit_tx_with_retries(None, call)
 		}
 
 		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-			signer
-				.send_signed_transaction(|_| Call::submit_error {
-					task_id,
-					cycle,
-					error: error.clone(),
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let call = Call::submit_error {
+				task_id,
+				cycle,
+				error: error.clone(),
+			};
+			Self::submit_tx_with_retries(None, call)
+		}
+
+		fn submit_tx_with_retries(acc_filter: Option<PublicKey>, call: Call<T>) -> TxResult {
+			let (signer, account_id) = if let Some(filter) = acc_filter {
+				let signer =
+					Signer::<T, T::AuthorityId>::any_account().with_filter(vec![filter.clone()]);
+				(signer, filter.into_account())
+			} else {
+				let signer = Signer::<T, T::AuthorityId>::any_account();
+				let signer_pub =
+					signer.sign_message(b"temp_msg").ok_or(TxError::MissingSigningKey)?.0.public;
+				(signer, signer_pub.clone().into_account())
+			};
+			for i in 0..100 {
+				let result = signer
+					.send_signed_transaction(|_| call.clone())
+					.ok_or(TxError::MissingSigningKey)?
+					.1
+					.map_err(|_| TxError::TxPoolError);
+				if i == 99 {
+					return result;
+				}
+
+				if result.is_ok() {
+					return Ok(());
+				}
+				log::error!("failed to send tx, retrying {}", i);
+				let mut account_data = frame_system::Account::<T>::get(&account_id);
+				account_data.nonce = account_data.nonce.saturating_add(One::one());
+				frame_system::Account::<T>::insert(&account_id, account_data);
+				continue;
+			}
+			Err(TxError::TxPoolError)
 		}
 
 		pub fn submit_task_signature(task_id: TaskId, signature: TssSignature) -> TxResult {
@@ -521,65 +572,6 @@ pub mod pallet {
 				}
 			});
 			Self::schedule_tasks(network);
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
-				return InvalidTransaction::Call.into();
-			}
-
-			let (task_id, cycle, shard_id, hash, signature) = match call {
-				Call::submit_result { task_id, cycle, status } => {
-					log::info!("Got unsigned tx for submit_result {:?}/{:?}", task_id, cycle);
-					(task_id, cycle, status.shard_id, status.hash, status.signature)
-				},
-				Call::submit_error { task_id, cycle, error } => {
-					log::info!("Got unsigned tx for submit_error {:?}", task_id);
-					(
-						task_id,
-						cycle,
-						error.shard_id,
-						schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
-						error.signature,
-					)
-				},
-				_ => {
-					return InvalidTransaction::Call.into();
-				},
-			};
-
-			if Tasks::<T>::get(task_id).is_none() {
-				return InvalidTransaction::Call.into();
-			}
-			if TaskResults::<T>::get(task_id, cycle).is_some() {
-				return InvalidTransaction::Call.into();
-			}
-			let Some(public_key) = T::Shards::tss_public_key(shard_id) else {
-				return InvalidTransaction::Call.into();
-			};
-			let Ok(signature) = schnorr_evm::Signature::from_bytes(signature) else {
-				return InvalidTransaction::Call.into();
-			};
-			let Ok(public_key) = schnorr_evm::VerifyingKey::from_bytes(public_key) else {
-				return InvalidTransaction::Call.into();
-			};
-			if public_key.verify_prehashed(hash, &signature).is_err() {
-				return InvalidTransaction::Call.into();
-			}
-
-			ValidTransaction::with_tag_prefix("tasks-pallet")
-				.priority(TransactionPriority::MAX)
-				.longevity(10)
-				.propagate(false)
-				.build()
-		}
-
-		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Ok(())
 		}
 	}
 }

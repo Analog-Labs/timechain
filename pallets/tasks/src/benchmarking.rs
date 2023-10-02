@@ -116,7 +116,6 @@ benchmarks! {
 			function: Function::SendMessage {
 				contract_address: Default::default(),
 				payload: Default::default(),
-				signature: Default::default(),
 			},
 			cycle: 1,
 			start: 0,

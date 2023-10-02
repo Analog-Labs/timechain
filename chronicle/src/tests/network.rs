@@ -3,6 +3,7 @@ use crate::tx_submitter::TransactionSubmitter;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
+use futures::stream;
 use futures::stream::FuturesUnordered;
 use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
 use sc_network::NetworkSigner;
@@ -19,6 +20,7 @@ use sp_runtime::generic::BlockId;
 use sp_runtime::traits::{Block as sp_block, IdentifyAccount};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
@@ -228,8 +230,8 @@ where
 		Network::Ethereum
 	}
 
-	async fn poll_block_height(&mut self) -> Option<u64> {
-		None
+	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+		Box::pin(stream::iter(vec![1]))
 	}
 
 	fn process_tasks(

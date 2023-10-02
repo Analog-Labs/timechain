@@ -8,12 +8,10 @@ use sp_api::ApiError;
 use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
-mod extra;
 mod member;
 mod shard;
 mod task;
 
-pub use crate::extra::*;
 pub use crate::member::*;
 pub use crate::shard::*;
 pub use crate::task::*;

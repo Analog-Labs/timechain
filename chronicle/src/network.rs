@@ -7,6 +7,8 @@ use futures::{
 	stream::FuturesUnordered,
 	Future, FutureExt, StreamExt,
 };
+use rosetta_client::{Blockchain, Wallet};
+use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
@@ -16,15 +18,16 @@ use sp_runtime::traits::{Block, Header, IdentifyAccount};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
 	marker::PhantomData,
+	path::Path,
 	pin::Pin,
 	sync::Arc,
 	task::Poll,
 };
 use time_primitives::{
-	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
-	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
+	BlockTimeApi, MembersApi, Network, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
+	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest, WalletParams,
 };
-use tokio::time::{interval, interval_at, sleep, Duration, Instant};
+use tokio::time::{interval_at, sleep, Duration, Instant};
 
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -458,7 +461,15 @@ where
 		}));
 	}
 
-	pub async fn run(mut self, span: &Span) {
+	pub async fn run(mut self, span: &Span, params: WalletParams) {
+		let path = params.keyfile.as_ref().map(Path::new);
+		let blockchain = match params.blockchain {
+			Network::Ethereum => Blockchain::Ethereum,
+			Network::Astar => Blockchain::Astar,
+		};
+		let wallet = Wallet::new(blockchain, &params.network, &params.url, path).await.unwrap();
+		let mut block_stream = wallet.listen().await.unwrap().unwrap();
+
 		event!(
 			target: TW_LOG,
 			parent: span,
@@ -498,7 +509,6 @@ where
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
 
-		let mut block_height_tick = interval(Duration::from_secs(10));
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
@@ -612,11 +622,36 @@ where
 						);
 					};
 				}
-				_ = block_height_tick.tick().fuse() => {
-					let block_height = self.task_executor.poll_block_height().await;
-					if let Some(block_height) = block_height{
-						self.block_height = block_height
+				event = block_stream.next().fuse() => {
+					match event {
+						Some(event) => {
+							match event {
+								ClientEvent::NewHead(block_or_identifier) =>{
+									match block_or_identifier {
+										BlockOrIdentifier::Identifier(bx_identifier) => {
+											self.block_height = bx_identifier.index;
+										},
+										BlockOrIdentifier::Block(block) => {
+											self.block_height = block.block_identifier.index;
+										},
+									}
+								}
+								ClientEvent::Close(_) => {
+									event!(
+										target: TW_LOG,
+										parent: span,
+										Level::DEBUG,
+										"Block Stream Closed"
+									);
+								}
+								_ => {}
+							}
+						},
+						None => {
+
+						}
 					}
+
 				}
 			}
 		}

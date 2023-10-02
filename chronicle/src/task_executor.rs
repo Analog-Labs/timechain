@@ -12,6 +12,7 @@ use std::{
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
 	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
+	WalletParams,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::task::JoinHandle;
@@ -19,10 +20,7 @@ use tokio::task::JoinHandle;
 pub struct TaskSpawnerParams<B: Block, R, TxSub> {
 	pub _marker: PhantomData<B>,
 	pub tss: mpsc::Sender<TssSigningRequest>,
-	pub blockchain: Network,
-	pub network: String,
-	pub url: String,
-	pub keyfile: Option<String>,
+	pub wallet_params: WalletParams,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 	pub runtime: Arc<R>,
@@ -34,10 +32,7 @@ impl<B: Block, R, TxSub: Clone> Clone for TaskSpawnerParams<B, R, TxSub> {
 		Self {
 			_marker: self._marker,
 			tss: self.tss.clone(),
-			blockchain: self.blockchain,
-			network: self.network.clone(),
-			url: self.url.clone(),
-			keyfile: self.keyfile.clone(),
+			wallet_params: self.wallet_params.clone(),
 			timegraph_url: self.timegraph_url.clone(),
 			timegraph_ssk: self.timegraph_ssk.clone(),
 			runtime: self.runtime.clone(),
@@ -80,12 +75,15 @@ where
 	TxSub: SubmitTasks + Clone + Send + Sync + 'static,
 {
 	pub async fn new(params: TaskSpawnerParams<B, R, TxSub>) -> Result<Self> {
-		let path = params.keyfile.as_ref().map(Path::new);
-		let blockchain = match params.blockchain {
+		let path = params.wallet_params.keyfile.as_ref().map(Path::new);
+		let blockchain = match params.wallet_params.blockchain {
 			Network::Ethereum => Blockchain::Ethereum,
 			Network::Astar => Blockchain::Astar,
 		};
-		let wallet = Arc::new(Wallet::new(blockchain, &params.network, &params.url, path).await?);
+		let wallet = Arc::new(
+			Wallet::new(blockchain, &params.wallet_params.network, &params.wallet_params.url, path)
+				.await?,
+		);
 		let timegraph = if let Some(url) = params.timegraph_url {
 			Some(Arc::new(Timegraph::new(
 				url,

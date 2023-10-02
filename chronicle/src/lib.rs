@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 use time_primitives::{
-	BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
+	BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, WalletParams, TIME_KEY_TYPE,
 };
 use tracing::{event, span, Level};
 
@@ -96,13 +96,17 @@ where
 		params.runtime.clone(),
 	);
 
-	let task_spawner_params = TaskSpawnerParams {
-		_marker: PhantomData,
-		tss: tx,
+	let wallet_params = WalletParams {
 		blockchain: params.config.blockchain,
 		network: params.config.network,
 		url: params.config.url,
 		keyfile: params.config.keyfile,
+	};
+
+	let task_spawner_params = TaskSpawnerParams {
+		_marker: PhantomData,
+		tss: tx,
+		wallet_params: wallet_params.clone(),
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
 		runtime: params.runtime.clone(),
@@ -145,5 +149,5 @@ where
 		protocol_request: params.tss_requests,
 	});
 
-	time_worker.run(&span).await;
+	time_worker.run(&span, wallet_params).await;
 }

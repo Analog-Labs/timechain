@@ -1490,6 +1490,7 @@ dependencies = [
  "lazy_static",
  "log-panics",
  "rosetta-client 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",

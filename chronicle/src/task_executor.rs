@@ -1,8 +1,9 @@
 use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
-use futures::{FutureExt, SinkExt};
+use futures::{FutureExt, SinkExt, Stream, StreamExt, future::ready};
 use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
+use rosetta_core::{ClientEvent, BlockOrIdentifier};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
@@ -281,6 +282,25 @@ where
 		Ok(status.index)
 	}
 
+	async fn get_block_stream<'a >(&'a self) -> Pin<Box<dyn Stream<Item=u64> + Send + 'a>> {
+		let transformed_stream = self.wallet.listen().await.unwrap().unwrap().filter_map(|event| ready(match event {
+			ClientEvent::NewFinalized(block_or_identifier) => {
+				match block_or_identifier {
+					BlockOrIdentifier::Identifier(identifier) => {
+						Some(identifier.index)
+					}
+					BlockOrIdentifier::Block(block) => {
+						Some(block.block_identifier.index)
+					}
+				}
+			},
+			_ => {
+				None
+			}
+		}));
+		Box::pin(transformed_stream)
+	}
+
 	fn execute_read(
 		&self,
 		target_block: u64,
@@ -362,7 +382,7 @@ where
 		self.network()
 	}
 
-	async fn poll_block_height(&mut self) -> Option<u64> {
+	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item=u64> + Send+ 'b>> {
 		self.poll_block_height().await
 	}
 
@@ -406,14 +426,8 @@ where
 		self.network
 	}
 
-	pub async fn poll_block_height(&mut self) -> Option<u64> {
-		match self.task_spawner.block_height().await {
-			Ok(block_height) => Some(block_height),
-			Err(error) => {
-				tracing::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
-				None
-			},
-		}
+	pub async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item=u64> + Send + 'b>> {
+		self.task_spawner.get_block_stream().await
 	}
 
 	pub fn process_tasks(

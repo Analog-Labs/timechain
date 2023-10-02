@@ -284,21 +284,16 @@ where
 	) -> Result<()> {
 		// TSS sign before executing the function
 		let Function::SendMessage { contract_address, mut payload } = function else {
-			return Err(anyhow!("Only sign for SendMessage functions"));
+			return Err(anyhow!("Only may sign for SendMessage functions"));
 		};
-		let sign_payload = payload[0].as_bytes();
-		let (_, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, sign_payload).await?;
+		let (_, signature) = self
+			.tss_sign(block_num, shard_id, task_id, task_cycle, payload[0].as_bytes())
+			.await?;
+		// payload for execution is vec![payload, tss_signature]
 		payload.push(hex::encode(&signature));
 		// TODO: what to do if the execution fails?
 		let _ = self
-			.execute_function(
-				&Function::SendMessage {
-					contract_address,
-					payload, //is vec![payload, tss_signature]
-				},
-				target_block,
-			)
+			.execute_function(&Function::SendMessage { contract_address, payload }, target_block)
 			.await
 			.map_err(|err| format!("{:?}", err));
 		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, signature) {

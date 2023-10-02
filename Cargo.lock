@@ -1487,6 +1487,7 @@ dependencies = [
  "bincode",
  "env_logger",
  "futures",
+ "hex 0.4.3",
  "lazy_static",
  "log-panics",
  "rosetta-client 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",

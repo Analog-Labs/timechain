@@ -144,16 +144,14 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
-			Function::SendMessage {
-				contract_address,
-				payload,
-				signature,
-			} => {
+			Function::SendMessage { contract_address, payload } => {
+				// may not work, check if needs to be uint[] or maybe
+				// it should include spaces (is this not the selector?)
 				self.wallet
 					.eth_send_call(
 						&contract_address,
 						&String::from("send_message(uint256[],uint256[])"),
-						vec![payload.clone(), signature.clone()].as_slice(),
+						payload.as_slice(),
 						0u128,
 					)
 					.await?
@@ -284,16 +282,25 @@ where
 		function: Function,
 		block_num: u64,
 	) -> Result<()> {
-		let result = self
-			.execute_function(&function, target_block)
+		// TSS sign before executing the function
+		let Function::SendMessage { contract_address, mut payload } = function else {
+			return Err(anyhow!("Only sign for SendMessage functions"));
+		};
+		let sign_payload = payload[0].as_bytes();
+		let (_, signature) =
+			self.tss_sign(block_num, shard_id, task_id, task_cycle, sign_payload).await?;
+		payload.push(hex::encode(&signature));
+		// TODO: what to do if the execution fails?
+		let _ = self
+			.execute_function(
+				&Function::SendMessage {
+					contract_address,
+					payload, //is vec![payload, tss_signature]
+				},
+				target_block,
+			)
 			.await
 			.map_err(|err| format!("{:?}", err));
-		let payload = match &result {
-			Ok(payload) => payload.as_slice(),
-			Err(payload) => payload.as_bytes(),
-		};
-		let (_, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
 		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, signature) {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}

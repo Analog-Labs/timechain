@@ -492,16 +492,16 @@ pub mod pallet {
 					return result;
 				}
 
-				let Err(_) = result else {
-					return result;
-				};
+				if result.is_ok() {
+					return Ok(());
+				}
 				log::error!("failed to send tx, retrying {}", i);
 				let mut account_data = frame_system::Account::<T>::get(&account_id);
 				account_data.nonce = account_data.nonce.saturating_add(One::one());
 				frame_system::Account::<T>::insert(&account_id, account_data);
 				continue;
 			}
-			Ok(())
+			Err(TxError::TxPoolError)
 		}
 	}
 

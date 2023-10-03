@@ -34,6 +34,11 @@ pub struct ChronicleArgs {
 	/// The address of Analog Connector.
 	#[clap(long)]
 	pub url: String,
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
+	/// keyfile having an account with funds for timechain.
+	#[clap(long)]
+	pub timechain_keyfile: String,
 	/// key file for connector wallet
 	#[clap(long)]
 	pub keyfile: Option<String>,

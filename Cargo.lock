@@ -1506,6 +1506,7 @@ dependencies = [
  "sp-keystore 0.27.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
  "sp-runtime 24.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
  "substrate-test-runtime-client",
+ "subxt",
  "surf",
  "time-primitives",
  "timegraph-client",

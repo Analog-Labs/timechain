@@ -18,6 +18,7 @@ use time_primitives::{
 use tracing::{event, span, Level};
 
 mod network;
+mod subxt_submitter;
 mod task_executor;
 #[cfg(test)]
 mod tests;

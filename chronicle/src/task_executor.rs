@@ -144,14 +144,16 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
-			Function::SendMessage { contract_address, payload } => {
-				// may not work, check if needs to be uint[] or maybe
-				// it should include spaces (is this not the selector?)
+			Function::SendMessage {
+				contract_address,
+				payload,
+				signature,
+			} => {
 				self.wallet
 					.eth_send_call(
-						&contract_address,
-						&String::from("send_message(uint256[],uint256[])"),
-						payload.as_slice(),
+						&hex::encode(contract_address),
+						&String::from("send_message(uint[],uint[])"),
+						vec![hex::encode(payload), signature.clone()].as_slice(),
 						0u128,
 					)
 					.await?
@@ -279,24 +281,26 @@ where
 		shard_id: ShardId,
 		task_id: TaskId,
 		task_cycle: TaskCycle,
-		function: Function,
+		contract_address: Vec<u8>,
+		payload: Vec<u8>,
 		block_num: u64,
 	) -> Result<()> {
-		// TSS sign before executing the function
-		let Function::SendMessage { contract_address, mut payload } = function else {
-			return Err(anyhow!("Only may sign for SendMessage functions"));
-		};
-		let (_, signature) = self
-			.tss_sign(block_num, shard_id, task_id, task_cycle, payload[0].as_bytes())
-			.await?;
-		// payload for execution is vec![payload, tss_signature]
-		payload.push(hex::encode(&signature));
-		// TODO: what to do if the execution fails?
-		let _ = self
-			.execute_function(&Function::SendMessage { contract_address, payload }, target_block)
+		let (_, sig) = self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
+		let result = self
+			.execute_function(
+				&Function::SendMessage {
+					contract_address,
+					payload,
+					signature: hex::encode(&sig),
+				},
+				target_block,
+			)
 			.await
 			.map_err(|err| format!("{:?}", err));
-		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, signature) {
+		if let Err(e) = result {
+			tracing::error!("Error executing SendMessage function {:?}", e);
+		}
+		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, sig) {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())
@@ -358,11 +362,12 @@ where
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		function: Function,
+		contract_address: Vec<u8>,
+		payload: Vec<u8>,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		self.clone()
-			.sign(target_block, shard_id, task_id, cycle, function, block_num)
+			.sign(target_block, shard_id, task_id, cycle, contract_address, payload, block_num)
 			.boxed()
 	}
 
@@ -505,21 +510,43 @@ where
 			let hash = task_descr.hash;
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
-				let task = if let Some(public_key) = executable_task.phase.public_key() {
-					if *public_key != self.public_key {
-						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
+					// get the contract_address and payload from the Function::SendMessage
+					// and if not, continue because wrong function
+					let Function::SendMessage { contract_address, payload, .. } = function else {
+						tracing::info!(target: TW_LOG, "Skipping SIGN for task {} due to not SendMessage function", task_id);
 						continue;
-					}
-					self.task_spawner.execute_write(task_id, cycle, function)
-				} else if matches!(executable_task.phase, TaskPhase::Sign) {
+					};
 					self.task_spawner.execute_sign(
 						target_block_number,
 						shard_id,
 						task_id,
 						cycle,
-						function,
+						contract_address,
+						payload,
 						block_num,
 					)
+				} else if let Some(public_key) = executable_task.phase.public_key() {
+					if *public_key != self.public_key {
+						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+						continue;
+					}
+					let function = if let Function::SendMessage {
+						contract_address,
+						payload,
+						signature,
+					} = function
+					{
+						Function::EvmCall {
+							address: hex::encode(&contract_address),
+							function_signature: String::from("send_message(uint[],uint[])"),
+							input: vec![hex::encode(&payload), signature],
+							amount: 0u128,
+						}
+					} else {
+						function
+					};
+					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
 						Function::EvmTxReceipt { tx: tx.to_vec() }

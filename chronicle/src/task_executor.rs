@@ -144,19 +144,10 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
-			Function::SendMessage {
-				contract_address,
-				payload,
-				signature,
-			} => {
-				self.wallet
-					.eth_send_call(
-						&hex::encode(contract_address),
-						&String::from("send_message(uint[],uint[])"),
-						vec![hex::encode(payload), signature.clone()].as_slice(),
-						0u128,
-					)
-					.await?
+			Function::SendMessage { .. } => {
+				return Err(anyhow!(
+					"SendMessage must be transformed into EvmCall prior to execution"
+				))
 			},
 		})
 	}
@@ -277,29 +268,13 @@ where
 
 	async fn sign(
 		self,
-		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task_cycle: TaskCycle,
-		contract_address: Vec<u8>,
 		payload: Vec<u8>,
 		block_num: u64,
 	) -> Result<()> {
 		let (_, sig) = self.tss_sign(block_num, shard_id, task_id, task_cycle, &payload).await?;
-		let result = self
-			.execute_function(
-				&Function::SendMessage {
-					contract_address,
-					payload,
-					signature: hex::encode(&sig),
-				},
-				target_block,
-			)
-			.await
-			.map_err(|err| format!("{:?}", err));
-		if let Err(e) = result {
-			tracing::error!("Error executing SendMessage function {:?}", e);
-		}
 		if let Err(e) = self.tx_submitter.submit_task_signature(task_id, sig) {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
@@ -358,17 +333,13 @@ where
 
 	fn execute_sign(
 		&self,
-		target_block: u64,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		contract_address: Vec<u8>,
 		payload: Vec<u8>,
 		block_num: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone()
-			.sign(target_block, shard_id, task_id, cycle, contract_address, payload, block_num)
-			.boxed()
+		self.clone().sign(shard_id, task_id, cycle, payload, block_num).boxed()
 	}
 
 	fn execute_write(
@@ -511,41 +482,35 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					// get the contract_address and payload from the Function::SendMessage
-					// and if not, continue because wrong function
-					let Function::SendMessage { contract_address, payload, .. } = function else {
+					let Function::SendMessage { payload, .. } = function else {
 						tracing::info!(target: TW_LOG, "Skipping SIGN for task {} due to not SendMessage function", task_id);
 						continue;
 					};
-					self.task_spawner.execute_sign(
-						target_block_number,
-						shard_id,
-						task_id,
-						cycle,
-						contract_address,
-						payload,
-						block_num,
-					)
+					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_num)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let function = if let Function::SendMessage {
-						contract_address,
-						payload,
-						signature,
-					} = function
-					{
-						Function::EvmCall {
-							address: hex::encode(&contract_address),
-							function_signature: String::from("send_message(uint[],uint[])"),
-							input: vec![hex::encode(&payload), signature],
-							amount: 0u128,
-						}
-					} else {
-						function
-					};
+					let function =
+						if let Function::SendMessage { contract_address, payload } = function {
+							let signature = self
+								.runtime
+								.runtime_api()
+								.get_task_signature(block_hash, task_id)?
+								.unwrap();
+							Function::EvmCall {
+								address: hex::encode(&contract_address),
+								function_signature: String::from("send_message(uint[],uint[])"),
+								input: vec![&payload, &signature.to_vec()]
+									.into_iter()
+									.map(|x| hex::encode(x))
+									.collect(),
+								amount: 0u128,
+							}
+						} else {
+							function
+						};
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

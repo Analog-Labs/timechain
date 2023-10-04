@@ -378,6 +378,10 @@ pub mod pallet {
 			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 		}
 
+		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
+			TaskSignature::<T>::get(task)
+		}
+
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
 				.filter(|(task_id, _)| Self::is_runnable(*task_id))

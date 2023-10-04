@@ -1522,6 +1522,10 @@ impl_runtime_apis! {
 			Tasks::get_task(task_id)
 		}
 
+		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
+			Tasks::get_task_signature(task_id)
+		}
+
 		fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult {
 			Tasks::submit_task_hash(task_id, cycle, hash)
 		}

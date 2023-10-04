@@ -1,6 +1,7 @@
 use crate::network::{TimeWorker, TimeWorkerParams};
 use crate::task_executor::{Task, TaskExecutor, TaskExecutorParams, TaskSpawnerParams};
 use crate::tx_submitter::TransactionSubmitter;
+use crate::subxt_submitter::TransactionSubmit;
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
@@ -44,6 +45,7 @@ pub struct ChronicleConfig {
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
+	pub timechain_keyfile: String,
 	pub keyfile: Option<String>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
@@ -89,13 +91,15 @@ where
 	};
 
 	let (tx, rx) = mpsc::channel(10);
-	let tx_submitter = TransactionSubmitter::new(
-		true,
-		params.keystore,
-		params.tx_pool,
-		params.client.clone(),
-		params.runtime.clone(),
-	);
+	// let tx_submitter = TransactionSubmitter::new(
+	// 	true,
+	// 	params.keystore,
+	// 	params.tx_pool,
+	// 	params.client.clone(),
+	// 	params.runtime.clone(),
+	// );
+
+	let subxt_tx_submitter = TransactionSubmit::new(params.config.timechain_keyfile, None).await;
 
 	let task_spawner_params = TaskSpawnerParams {
 		_marker: PhantomData,
@@ -107,7 +111,7 @@ where
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
 		runtime: params.runtime.clone(),
-		tx_submitter: tx_submitter.clone(),
+		tx_submitter: subxt_tx_submitter.clone(),
 	};
 	let task_spawner = loop {
 		match Task::new(task_spawner_params.clone()).await {
@@ -139,7 +143,7 @@ where
 		client: params.client.clone(),
 		network: params.network,
 		task_executor,
-		tx_submitter,
+		tx_submitter: subxt_tx_submitter,
 		public_key,
 		peer_id,
 		tss_request: rx,

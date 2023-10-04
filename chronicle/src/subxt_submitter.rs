@@ -6,6 +6,7 @@ use time_primitives::{
 	Commitment, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, SubmitMembers, SubmitResult,
 	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult,
 };
+use std::sync::Arc;
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::shard;
 use timechain_runtime::runtime_types::time_primitives::task;
@@ -17,20 +18,22 @@ use timechain_runtime::runtime_types::time_primitives::task;
 pub mod timechain_runtime {}
 
 pub type KeyPair = sp_core::sr25519::Pair;
+
 pub struct TransactionSubmit {
 	client: OnlineClient<PolkadotConfig>,
-	signer: PairSigner<PolkadotConfig, sr25519::Pair>,
+	signer: Arc<PairSigner<PolkadotConfig, sr25519::Pair>>,
 }
 
 impl TransactionSubmit {
-	async fn new(keyfile: String, password: Option<&str>) -> Self {
+	pub async fn new(keyfile: String, password: Option<&str>) -> Self {
+		tracing::info!("keyfile provided {:?}", keyfile);
 		let content = fs::read_to_string(keyfile).unwrap();
 		let seed_account: sr25519::Pair = sr25519::Pair::from_string(&content, password).unwrap();
 		let seed_account_signer = PairSigner::<PolkadotConfig, sr25519::Pair>::new(seed_account);
 		let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
 		Self {
 			client: api,
-			signer: seed_account_signer,
+			signer: Arc::new(seed_account_signer),
 		}
 	}
 
@@ -38,7 +41,17 @@ impl TransactionSubmit {
 	where
 		Call: TxPayload,
 	{
-		futures::executor::block_on(self.client.tx().sign_and_submit_default(call, &self.signer));
+		let data = futures::executor::block_on(self.client.tx().sign_and_submit_default(call, self.signer.as_ref()));
+		tracing::info!("submitting transaction for call returned {:?}", data);
+	}
+}
+
+impl Clone for TransactionSubmit {
+	fn clone(&self) -> Self {
+		Self {
+			client: self.client.clone(),
+			signer: Arc::clone(&self.signer),
+		}
 	}
 }
 

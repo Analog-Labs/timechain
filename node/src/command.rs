@@ -202,6 +202,7 @@ pub fn run() -> sc_cli::Result<()> {
 						blockchain: args.blockchain,
 						network: args.network,
 						url: args.url,
+						timechain_keyfile: args.timechain_keyfile,
 						keyfile: args.keyfile,
 						timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
 						timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),

@@ -60,7 +60,7 @@ services:
     - '--url=ws://ethereum:8545'
     - '--blockchain=ethereum'
     - '--network=dev'
-    - '--timechain-keyfile=/etc/timechain-keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -69,7 +69,7 @@ services:
     - ethereum
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain-keyfile:/etc/timechain-keyfile:ro'
+    - './config/wallets/timechain_keyfile:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

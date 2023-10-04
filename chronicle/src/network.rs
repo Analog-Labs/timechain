@@ -101,6 +101,7 @@ impl Tss {
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {
+				tracing::info!("tss_signature_pubkey {:?}", key.public().to_bytes());
 				let hash = VerifyingKey::message_hash(&data);
 				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
 			},
@@ -412,6 +413,9 @@ where
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
+					tracing::info!("tss_signature_hash {:?}", hash);
+					tracing::info!("tss_signature_sig {:?}", hash);
+					tracing::info!("tss_signature_shard_id {:?}", shard_id);
 					event!(
 						target: TW_LOG,
 						parent: span,

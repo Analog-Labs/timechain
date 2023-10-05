@@ -58,7 +58,7 @@ use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, Commitment, MemberStorage, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TssPublicKey, TxResult,
+	TaskResult, TssPublicKey, TssSignature, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

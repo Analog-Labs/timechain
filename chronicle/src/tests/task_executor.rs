@@ -16,7 +16,7 @@ use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
 	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
-	TaskSpawner, TasksApi, TxResult,
+	TaskSpawner, TasksApi, TssSignature, TxResult,
 };
 
 lazy_static::lazy_static! {

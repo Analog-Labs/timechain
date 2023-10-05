@@ -290,6 +290,10 @@ where
 					BlockOrIdentifier::Identifier(identifier) => Some(identifier.index),
 					BlockOrIdentifier::Block(block) => Some(block.block_identifier.index),
 				},
+				ClientEvent::Close(reason) => {
+					tracing::info!("stream future closed {}", reason);
+					None
+				}
 				_ => None,
 			})
 		});

@@ -459,9 +459,6 @@ where
 	}
 
 	pub async fn run(mut self, span: &Span) {
-		let mut cloned_executor = self.task_executor.clone();
-		let mut block_stream = cloned_executor.poll_block_height().await.fuse();
-
 		event!(
 			target: TW_LOG,
 			parent: span,
@@ -506,6 +503,9 @@ where
 
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
+			let mut cloned_executor = self.task_executor.clone();
+			let mut block_stream = cloned_executor.poll_block_height().await.fuse();
+
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
 					let Some(notification) = notification else {
@@ -616,7 +616,11 @@ where
 				}
 				data = block_stream.next() => {
 					if let Some(index) = data {
+						tracing::info!("block update {:?}", index);
 						self.block_height = index;
+					}else{
+						//reinit stream
+						continue;
 					}
 				}
 			}

@@ -20,7 +20,8 @@ sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "mas
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-subxt = "0.31.0"
+subxt = "0.32.0"
+subxt-signer = { version = "0.32.0", features = ["subxt"]}
 time-primitives = { path = "../primitives" }
 timegraph-client = "0.1.9"
 tokio = "1.32.0"

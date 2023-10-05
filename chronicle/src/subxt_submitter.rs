@@ -20,7 +20,7 @@ pub mod timechain_runtime {}
 pub type KeyPair = sp_core::sr25519::Pair;
 
 pub struct TransactionSubmit {
-	client: OnlineClient<PolkadotConfig>,
+	client: Arc<OnlineClient<PolkadotConfig>>,
 	signer: Arc<PairSigner<PolkadotConfig, sr25519::Pair>>,
 }
 
@@ -30,9 +30,9 @@ impl TransactionSubmit {
 		let content = fs::read_to_string(keyfile).unwrap();
 		let seed_account: sr25519::Pair = sr25519::Pair::from_string(&content, password).unwrap();
 		let seed_account_signer = PairSigner::<PolkadotConfig, sr25519::Pair>::new(seed_account);
-		let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
+		let api = OnlineClient::<PolkadotConfig>::from_url("ws://127.0.0.1:9944").await.unwrap();
 		Self {
-			client: api,
+			client: Arc::new(api),
 			signer: Arc::new(seed_account_signer),
 		}
 	}
@@ -49,7 +49,7 @@ impl TransactionSubmit {
 impl Clone for TransactionSubmit {
 	fn clone(&self) -> Self {
 		Self {
-			client: self.client.clone(),
+			client: Arc::clone(&self.client),
 			signer: Arc::clone(&self.signer),
 		}
 	}
@@ -113,6 +113,7 @@ impl SubmitTasks for TransactionSubmit {
 	) -> SubmitResult {
 		let status: task::TaskResult = unsafe { std::mem::transmute(status) };
 		let tx = timechain_runtime::tx().tasks().submit_result(task_id, cycle, status);
+		tracing::info!("{:?}", tx);
 		self.submit_tx(&tx);
 		Ok(Ok(()))
 	}

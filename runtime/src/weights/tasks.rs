@@ -94,7 +94,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		Default::default()
 	}
 
-	fn submit_task_signature() -> Weight {
+	fn submit_signature() -> Weight {
 		Default::default()
 	}
 }

@@ -230,8 +230,10 @@ where
 		Network::Ethereum
 	}
 
-	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
-		Box::pin(stream::iter(vec![1]))
+	async fn poll_block_height<'b>(
+		&'b mut self,
+	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
+		Box::pin(stream::iter(vec![Some(1)]))
 	}
 
 	fn process_tasks(

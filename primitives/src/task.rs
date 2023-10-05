@@ -151,7 +151,8 @@ impl std::fmt::Display for TaskExecution {
 pub trait TaskSpawner {
 	async fn block_height(&self) -> Result<u64>;
 
-	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>>;
+	async fn get_block_stream<'a>(&'a self)
+		-> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'a>>;
 
 	#[allow(clippy::too_many_arguments)]
 	fn execute_read(
@@ -177,7 +178,9 @@ pub trait TaskSpawner {
 #[async_trait::async_trait]
 pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 	fn network(&self) -> Network;
-	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>>;
+	async fn poll_block_height<'b>(
+		&'b mut self,
+	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>>;
 	fn process_tasks(
 		&mut self,
 		block_hash: B::Hash,

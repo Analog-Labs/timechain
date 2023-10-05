@@ -283,17 +283,19 @@ where
 		Ok(status.index)
 	}
 
-	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
+	async fn get_block_stream<'a>(
+		&'a self,
+	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'a>> {
 		let transformed_stream = self.wallet.listen().await.unwrap().unwrap().filter_map(|event| {
 			ready(match event {
 				ClientEvent::NewFinalized(block_or_identifier) => match block_or_identifier {
-					BlockOrIdentifier::Identifier(identifier) => Some(identifier.index),
-					BlockOrIdentifier::Block(block) => Some(block.block_identifier.index),
+					BlockOrIdentifier::Identifier(identifier) => Some(Some(identifier.index)),
+					BlockOrIdentifier::Block(block) => Some(Some(block.block_identifier.index)),
 				},
 				ClientEvent::Close(reason) => {
 					tracing::info!("stream future closed {}", reason);
-					None
-				}
+					Some(None)
+				},
 				_ => None,
 			})
 		});
@@ -381,7 +383,9 @@ where
 		self.network()
 	}
 
-	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+	async fn poll_block_height<'b>(
+		&'b mut self,
+	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
 		self.poll_block_height().await
 	}
 
@@ -427,7 +431,7 @@ where
 
 	pub async fn poll_block_height<'b>(
 		&'b mut self,
-	) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
 		self.task_spawner.get_block_stream().await
 	}
 

@@ -90,8 +90,10 @@ impl TaskSpawner for MockTask {
 		Ok(0)
 	}
 
-	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
-		Box::pin(stream::iter(vec![1]))
+	async fn get_block_stream<'a>(
+		&'a self,
+	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'a>> {
+		Box::pin(stream::iter(vec![Some(1)]))
 	}
 
 	fn execute_read(

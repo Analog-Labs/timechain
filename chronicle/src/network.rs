@@ -615,12 +615,26 @@ where
 					};
 				}
 				data = block_stream.next() => {
-					if let Some(index) = data {
-						tracing::info!("block update {:?}", index);
-						self.block_height = index;
-					}else{
-						//reinit stream
-						continue;
+					match data {
+						Some(Some(index)) => {
+							event!(
+								target: TW_LOG,
+								parent: span,
+								Level::DEBUG,
+								"block update {:?}", index
+							);
+							self.block_height = index;
+						},
+						Some(None) => {
+							event!(
+								target: TW_LOG,
+								parent: span,
+								Level::DEBUG,
+								"reinit stream"
+							);
+							continue;
+						}
+						_ => {}
 					}
 				}
 			}

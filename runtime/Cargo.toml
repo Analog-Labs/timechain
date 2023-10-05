@@ -105,6 +105,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
+	"pallet-elections/std",
 	"pallet-members/std",
 	"pallet-offences/std",
 	"pallet-session/std",

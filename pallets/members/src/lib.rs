@@ -12,10 +12,10 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
+		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SignMessage, Signer,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{IdentifyAccount, Saturating};
+	use sp_runtime::traits::{IdentifyAccount, One, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
 		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey, TxError,
@@ -78,6 +78,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		RegisteredMember(AccountId, Network, PeerId),
 		HeartbeatReceived(AccountId),
+		MemberOnline(AccountId),
+		MemberOffline(AccountId),
 	}
 
 	#[pallet::error]
@@ -91,12 +93,10 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			Heartbeat::<T>::iter().for_each(|(account, heart)| {
+			Heartbeat::<T>::iter().for_each(|(member, heart)| {
 				if heart.is_online && n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
-					if let Some(network) = MemberNetwork::<T>::get(&account) {
-						T::Elections::member_offline(&account, network);
-					}
-					Heartbeat::<T>::insert(&account, heart.set_offline());
+					Heartbeat::<T>::insert(&member, heart.set_offline());
+					Self::member_offline(&member);
 					writes += 1;
 				}
 			});
@@ -124,8 +124,8 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
-			T::Elections::member_online(&member, network);
-			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
+			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
+			Self::member_online(&member);
 			Ok(())
 		}
 
@@ -138,17 +138,29 @@ pub mod pallet {
 				&member,
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
+			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !heart.is_online {
-				if let Some(network) = MemberNetwork::<T>::get(&member) {
-					T::Elections::member_online(&member, network);
-				}
+				Self::member_online(&member);
 			}
-			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn member_online(member: &AccountId) {
+			Self::deposit_event(Event::MemberOnline(member.clone()));
+			if let Some(network) = MemberNetwork::<T>::get(member) {
+				T::Elections::member_online(member, network);
+			}
+		}
+
+		fn member_offline(member: &AccountId) {
+			Self::deposit_event(Event::MemberOffline(member.clone()));
+			if let Some(network) = MemberNetwork::<T>::get(member) {
+				T::Elections::member_offline(member, network);
+			}
+		}
+
 		pub fn submit_register_member(
 			network: Network,
 			public_key: PublicKey,
@@ -169,11 +181,30 @@ pub mod pallet {
 
 		pub fn submit_heartbeat(public_key: PublicKey) -> TxResult {
 			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
-			signer
-				.send_signed_transaction(|_| Call::send_heartbeat {})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
+			let signer_pub =
+				signer.sign_message(b"temp_msg").ok_or(TxError::MissingSigningKey)?.0.public;
+			let account_id = signer_pub.into_account();
+
+			for i in 0..100 {
+				let result = signer
+					.send_signed_transaction(|_| Call::send_heartbeat {})
+					.ok_or(TxError::MissingSigningKey)?
+					.1
+					.map_err(|_| TxError::TxPoolError);
+				if i == 99 {
+					return result;
+				}
+
+				if result.is_ok() {
+					return Ok(());
+				}
+				log::error!("failed to send tx, retrying {}", i);
+				let mut account_data = frame_system::Account::<T>::get(&account_id);
+				account_data.nonce = account_data.nonce.saturating_add(One::one());
+				frame_system::Account::<T>::insert(&account_id, account_data);
+				continue;
+			}
+			Err(TxError::TxPoolError)
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

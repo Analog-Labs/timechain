@@ -1,0 +1,55 @@
+##########################################################
+#
+#  Workflow for running test on the self-hosted machine.
+#  
+#  Workflow is triggered on each pull request with
+#  label `!ci-test-basic`
+#
+##########################################################
+
+name: Run Tests
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - '**/*.md'
+    
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-test:
+    runs-on: [self-hosted, benchmark-agent-1]
+    if: ${{
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name,'!ci-test-basic')
+      }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Install protobuf
+        run: sudo apt update && sudo apt install -y protobuf-compiler
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build binary
+        run: |
+          docker compose --profile ethereum down -v
+          docker compose --profile astar down -v 
+          ./scripts/build_docker.sh 
+          docker compose --profile ethereum up -d
+          docker compose --profile astar up -d
+      - name: Run test
+        run: |  
+          docker compose run tester --network ethereum basic
+          docker compose run tester --network astar basic
+          

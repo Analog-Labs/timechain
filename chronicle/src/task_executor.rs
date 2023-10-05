@@ -1,14 +1,14 @@
 use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
-use futures::{FutureExt, SinkExt};
+use futures::{future::ready, FutureExt, SinkExt, Stream, StreamExt};
 use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
+use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::{
 	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
-	time::Duration,
 };
 use time_primitives::{
 	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
@@ -132,7 +132,7 @@ where
 				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmTxReceipt { tx } => {
-				let data = self.wallet.eth_transaction_receipt(&tx).await?;
+				let data = self.wallet.eth_transaction_receipt(tx).await?;
 				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmDeploy { bytecode } => {
@@ -248,23 +248,23 @@ where
 				.await?;
 				let result = TaskResult { shard_id, hash, signature };
 				if let Err(e) = self.tx_submitter.submit_task_result(task_id, task_cycle, result) {
-					log::error!("Error submitting task result {:?}", e);
+					tracing::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
 				if let Err(e) = self.tx_submitter.submit_task_error(task_id, task_cycle, error) {
-					log::error!("Error submitting task error {:?}", e);
+					tracing::error!("Error submitting task error {:?}", e);
 				}
 			},
 		}
 		Ok(())
 	}
 
-	async fn write(self, shard_id: ShardId, task_id: TaskId, function: Function) -> Result<()> {
+	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.tx_submitter.submit_task_hash(shard_id, task_id, tx_hash) {
-			log::error!("Error submitting task hash {:?}", e);
+		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash) {
+			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}
@@ -281,6 +281,19 @@ where
 	async fn block_height(&self) -> Result<u64> {
 		let status = self.wallet.status().await?;
 		Ok(status.index)
+	}
+
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
+		let transformed_stream = self.wallet.listen().await.unwrap().unwrap().filter_map(|event| {
+			ready(match event {
+				ClientEvent::NewFinalized(block_or_identifier) => match block_or_identifier {
+					BlockOrIdentifier::Identifier(identifier) => Some(identifier.index),
+					BlockOrIdentifier::Block(block) => Some(block.block_identifier.index),
+				},
+				_ => None,
+			})
+		});
+		Box::pin(transformed_stream)
 	}
 
 	fn execute_read(
@@ -331,7 +344,25 @@ pub struct TaskExecutor<B: Block, R, T> {
 	network: Network,
 	public_key: PublicKey,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
-	block_height: u64,
+}
+
+impl<B, R, T> Clone for TaskExecutor<B, R, T>
+where
+	B: Block,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: TasksApi<B>,
+	T: TaskSpawner + Send + Sync + Clone + 'static,
+{
+	fn clone(&self) -> Self {
+		Self {
+			_block: PhantomData,
+			runtime: self.runtime.clone(),
+			task_spawner: self.task_spawner.clone(),
+			network: self.network,
+			public_key: self.public_key.clone(),
+			running_tasks: Default::default(),
+		}
+	}
 }
 
 #[async_trait::async_trait]
@@ -346,17 +377,18 @@ where
 		self.network()
 	}
 
-	async fn poll_block_height(&mut self) {
+	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
 		self.poll_block_height().await
 	}
 
 	fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
-		self.process_tasks(block_hash, block_num, shard_id)
+		self.process_tasks(block_hash, target_block_height, block_num, shard_id)
 	}
 }
 
@@ -381,7 +413,6 @@ where
 			task_spawner,
 			network,
 			public_key,
-			block_height: 0,
 			running_tasks: Default::default(),
 		}
 	}
@@ -390,44 +421,41 @@ where
 		self.network
 	}
 
-	pub async fn poll_block_height(&mut self) {
-		match self.task_spawner.block_height().await {
-			Ok(block_height) => {
-				self.block_height = block_height;
-			},
-			Err(error) => {
-				log::error!(target: TW_LOG, "failed to fetch block height: {:?}", error);
-			},
-		}
-		tokio::time::sleep(Duration::from_secs(10)).await;
+	pub async fn poll_block_height<'b>(
+		&'b mut self,
+	) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+		self.task_spawner.get_block_stream().await
 	}
+
 	pub fn process_tasks(
 		&mut self,
 		block_hash: <B as Block>::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
 		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
-		log::info!(target: TW_LOG, "got task ====== {:?}", tasks);
+		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
 			let cycle = executable_task.cycle;
 			let retry_count = executable_task.retry_count;
 			if self.running_tasks.contains_key(executable_task) {
+				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
 			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;
-			if self.block_height >= target_block_number {
-				log::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
+			if target_block_height >= target_block_number {
+				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
-						log::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					self.task_spawner.execute_write(shard_id, task_id, function)
+					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
 						Function::EvmTxReceipt { tx: tx.to_vec() }
@@ -447,7 +475,7 @@ where
 				let handle = tokio::task::spawn(async move {
 					match task.await {
 						Ok(()) => {
-							log::info!(
+							tracing::info!(
 								target: TW_LOG,
 								"Task {}/{}/{} completed",
 								task_id,
@@ -456,7 +484,7 @@ where
 							);
 						},
 						Err(error) => {
-							log::error!(
+							tracing::error!(
 								target: TW_LOG,
 								"Task {}/{}/{} failed {:?}",
 								task_id,
@@ -468,6 +496,13 @@ where
 					}
 				});
 				self.running_tasks.insert(executable_task.clone(), handle);
+			} else {
+				tracing::info!(
+					"Task is scheduled for future {:?}/{:?}/{:?}",
+					task_id,
+					target_block_height,
+					target_block_number
+				);
 			}
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
@@ -476,7 +511,7 @@ where
 				true
 			} else {
 				if !handle.is_finished() {
-					log::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
+					tracing::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
 					handle.abort();
 				}
 				completed_sessions.push(TssId(x.task_id, x.cycle));

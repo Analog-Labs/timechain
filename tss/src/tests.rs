@@ -108,7 +108,7 @@ impl TssTester {
 									let msg = match self.tss[to as usize].on_request(from, msg) {
 										Ok(msg) => msg,
 										Err(error) => {
-											log::error!("request error {}", error);
+											tracing::error!("request error {}", error);
 											continue;
 										},
 									};
@@ -123,11 +123,11 @@ impl TssTester {
 							}
 						},
 						TssAction::PublicKey(pubkey) => {
-							log::info!("{} action pubkey", from);
+							tracing::info!("{} action pubkey", from);
 							assert!(self.events.pubkeys.insert(from, pubkey).is_none());
 						},
 						TssAction::Signature(id, _hash, sig) => {
-							log::info!("{} action {} signature", from, id);
+							tracing::info!("{} action {} signature", from, id);
 							assert!(self
 								.events
 								.signatures

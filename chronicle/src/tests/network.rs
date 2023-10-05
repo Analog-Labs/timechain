@@ -3,6 +3,7 @@ use crate::tx_submitter::TransactionSubmitter;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
+use futures::stream;
 use futures::stream::FuturesUnordered;
 use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
 use sc_network::NetworkSigner;
@@ -19,6 +20,7 @@ use sp_runtime::generic::BlockId;
 use sp_runtime::traits::{Block as sp_block, IdentifyAccount};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
@@ -27,6 +29,7 @@ use time_primitives::{
 	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
 	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
 };
+use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -227,13 +230,14 @@ where
 		Network::Ethereum
 	}
 
-	async fn poll_block_height(&mut self) {
-		futures::future::poll_fn(|_| Poll::Pending).await
+	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+		Box::pin(stream::iter(vec![1]))
 	}
 
 	fn process_tasks(
 		&mut self,
 		_block_hash: <B as sp_block>::Hash,
+		_target_block_height: u64,
 		_block_num: u64,
 		_shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
@@ -333,24 +337,25 @@ async fn tss_smoke() -> Result<()> {
 			api.clone(),
 		);
 
-		tokio::task::spawn(
-			TimeWorker::new(TimeWorkerParams {
-				_block: PhantomData,
-				client: net.peer(i).client().as_client(),
-				runtime: api.clone(),
-				network: net.peer(i).network_service().clone(),
-				peer_id: peers[i],
-				tss_request: tss_rx,
-				protocol_request: protocol_rx,
-				task_executor: task_executor.clone(),
-				tx_submitter: tx_submitter.clone(),
-				public_key: pub_keys[i].clone(),
-			})
-			.run(),
-		);
+		let worker = TimeWorker::new(TimeWorkerParams {
+			_block: PhantomData,
+			client: net.peer(i).client().as_client(),
+			runtime: api.clone(),
+			network: net.peer(i).network_service().clone(),
+			peer_id: peers[i],
+			tss_request: tss_rx,
+			protocol_request: protocol_rx,
+			task_executor: task_executor.clone(),
+			tx_submitter: tx_submitter.clone(),
+			public_key: pub_keys[i].clone(),
+		});
+		tokio::task::spawn(async move {
+			let span = span!(Level::INFO, "span");
+			worker.run(&span).await
+		});
 	}
 
-	log::info!("waiting for peers to connect");
+	tracing::info!("waiting for peers to connect");
 	net.run_until_connected().await;
 
 	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
@@ -381,7 +386,7 @@ async fn tss_smoke() -> Result<()> {
 		}
 	});
 
-	log::info!("waiting for shard to go online");
+	tracing::info!("waiting for shard to go online");
 	while api.shard_status(shard_id) != ShardStatus::Online {
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	}

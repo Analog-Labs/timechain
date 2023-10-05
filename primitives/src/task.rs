@@ -4,6 +4,8 @@ use crate::{SubmitResult, TssId};
 #[cfg(feature = "std")]
 use anyhow::Result;
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use futures::Stream;
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -99,7 +101,7 @@ impl TaskPhase {
 
 	pub fn tx_hash(&self) -> Option<&[u8]> {
 		if let Self::Read(Some(tx_hash)) = self {
-			Some(&tx_hash)
+			Some(tx_hash)
 		} else {
 			None
 		}
@@ -149,6 +151,8 @@ impl std::fmt::Display for TaskExecution {
 pub trait TaskSpawner {
 	async fn block_height(&self) -> Result<u64>;
 
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>>;
+
 	#[allow(clippy::too_many_arguments)]
 	fn execute_read(
 		&self,
@@ -173,10 +177,11 @@ pub trait TaskSpawner {
 #[async_trait::async_trait]
 pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 	fn network(&self) -> Network;
-	async fn poll_block_height(&mut self);
+	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>>;
 	fn process_tasks(
 		&mut self,
 		block_hash: B::Hash,
+		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>>;
@@ -184,7 +189,7 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 
 #[cfg(feature = "std")]
 pub trait SubmitTasks {
-	fn submit_task_hash(&self, shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> SubmitResult;
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 
 	fn submit_task_result(
 		&self,

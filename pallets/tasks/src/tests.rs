@@ -50,10 +50,33 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 }
 
 fn mock_result_ok(shard_id: ShardId) -> TaskResult {
+	// these values are taken after running a valid instance of submitting result
 	TaskResult {
 		shard_id,
-		hash: [0; 32],
-		signature: [0; 64],
+		hash: [
+			11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91,
+			0, 219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+		],
+		signature: [
+			196, 97, 193, 244, 167, 64, 220, 164, 96, 72, 191, 222, 230, 48, 188, 45, 36, 98, 135,
+			148, 210, 252, 64, 5, 143, 222, 105, 229, 85, 45, 214, 253, 198, 248, 57, 75, 26, 186,
+			131, 195, 9, 4, 74, 33, 247, 130, 248, 71, 140, 237, 153, 82, 248, 124, 78, 245, 18,
+			185, 126, 32, 11, 210, 193, 48,
+		],
+	}
+}
+
+fn mock_error_result(shard_id: ShardId) -> TaskError {
+	// these values are taken after running a valid instance of submitting error
+	TaskError {
+		shard_id,
+		msg: "Invalid input length".into(),
+		signature: [
+			46, 103, 15, 236, 204, 108, 113, 94, 241, 4, 159, 152, 118, 95, 232, 215, 91, 198, 214,
+			239, 85, 16, 143, 134, 114, 200, 38, 136, 205, 23, 145, 90, 178, 216, 139, 123, 140,
+			95, 106, 243, 245, 5, 76, 210, 119, 221, 28, 253, 217, 79, 71, 255, 90, 216, 164, 157,
+			68, 116, 211, 23, 223, 79, 30, 250,
+		],
 	}
 }
 
@@ -70,7 +93,12 @@ fn test_create_task() {
 			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1)
+		));
 		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
 	});
 }
@@ -245,7 +273,12 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1)
+		));
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -261,14 +294,10 @@ fn shard_offline_doesnt_drops_failed_tasks() {
 		));
 		for _ in 0..4 {
 			assert_ok!(Tasks::submit_error(
-				RawOrigin::None.into(),
+				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				TaskError {
-					shard_id: 1,
-					msg: "test".to_string(),
-					signature: [0; 64],
-				}
+				mock_error_result(1)
 			));
 		}
 		Tasks::shard_offline(1, Network::Ethereum);
@@ -285,13 +314,13 @@ fn submit_task_error_increments_retry_count() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		let error = TaskError {
-			shard_id: 1,
-			msg: "test".to_string(),
-			signature: [0; 64],
-		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
+			assert_ok!(Tasks::submit_error(
+				RawOrigin::Signed([0; 32].into()).into(),
+				0,
+				0,
+				mock_error_result(1)
+			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
 	});
@@ -300,18 +329,19 @@ fn submit_task_error_increments_retry_count() {
 #[test]
 fn submit_task_error_over_max_retry_count_is_task_failure() {
 	new_test_ext().execute_with(|| {
+		let error = mock_error_result(1);
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		let error = TaskError {
-			shard_id: 1,
-			msg: "test".to_string(),
-			signature: [0; 64],
-		};
 		for _ in 1..4 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
+			assert_ok!(Tasks::submit_error(
+				RawOrigin::Signed([0; 32].into()).into(),
+				0,
+				0,
+				error.clone()
+			));
 		}
 		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, error).into());
 	});
@@ -325,16 +355,21 @@ fn submit_task_result_resets_retry_count() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		let error = TaskError {
-			shard_id: 1,
-			msg: "test".to_string(),
-			signature: [0; 64],
-		};
 		for _ in 1..=10 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, error.clone()));
+			assert_ok!(Tasks::submit_error(
+				RawOrigin::Signed([0; 32].into()).into(),
+				0,
+				0,
+				mock_error_result(1)
+			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1)
+		));
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
 }
@@ -523,7 +558,7 @@ fn task_recurring_cycle_count() {
 				let task_id = task.task_id;
 				let cycle = task.cycle;
 				assert_ok!(Tasks::submit_result(
-					RawOrigin::None.into(),
+					RawOrigin::Signed([0; 32].into()).into(),
 					task_id,
 					cycle,
 					mock_result_ok(1)
@@ -561,7 +596,12 @@ fn submit_task_result_inserts_at_input_cycle() {
 			mock_task(Network::Ethereum, 5)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_ok!(Tasks::submit_result(RawOrigin::None.into(), 0, 0, mock_result_ok(1)));
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1)
+		));
 		assert_eq!(TaskCycleState::<Test>::get(0), 1);
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
 		assert!(TaskResults::<Test>::get(0, 1).is_none());
@@ -573,6 +613,7 @@ fn submit_task_result_inserts_at_input_cycle() {
 fn payable_task_smoke() {
 	let shard_id = 1;
 	let task_id = 0;
+	let task_cycle = 0;
 	let task_hash = "mock_hash";
 	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
@@ -580,19 +621,19 @@ fn payable_task_smoke() {
 			RawOrigin::Signed(a.clone()).into(),
 			mock_payable(Network::Ethereum)
 		));
-		Tasks::shard_online(1, Network::Ethereum);
+		Tasks::shard_online(shard_id, Network::Ethereum);
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
 		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed(a).into(),
-			shard_id,
+			RawOrigin::Signed(a.clone()).into(),
 			task_id,
+			task_cycle,
 			task_hash.into()
 		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));
 		assert_ok!(Tasks::submit_result(
-			RawOrigin::None.into(),
+			RawOrigin::Signed(a).into(),
 			task_id,
-			0,
+			task_cycle,
 			mock_result_ok(shard_id)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
@@ -601,11 +642,7 @@ fn payable_task_smoke() {
 
 #[test]
 fn resume_failed_task_after_shard_offline() {
-	let mock_error = TaskError {
-		shard_id: 1,
-		msg: "test".to_string(),
-		signature: [0; 64],
-	};
+	let mock_error = mock_error_result(1);
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -614,7 +651,12 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_online(1, Network::Ethereum);
 		// fails 3 time to turn task status to failed
 		for _ in 0..3 {
-			assert_ok!(Tasks::submit_error(RawOrigin::None.into(), 0, 0, mock_error.clone()));
+			assert_ok!(Tasks::submit_error(
+				RawOrigin::Signed([0; 32].into()).into(),
+				0,
+				0,
+				mock_error.clone()
+			));
 		}
 		assert_eq!(Tasks::task_shard(0), Some(1));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));

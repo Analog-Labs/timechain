@@ -24,7 +24,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::{Decode, Encode};
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
-use pallet_election_provider_multi_phase::SolutionAccuracyOf;
+use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -817,6 +817,9 @@ parameter_types! {
 	pub const MinerMaxLength: u32 = 256;
 	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get().max_block;
 
+	pub const SignedFixedDeposit: Balance = deposit(2, 0);
+	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
+
 	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
@@ -876,7 +879,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MinerConfig = Self;
 	type SignedMaxSubmissions = ConstU32<10>;
 	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositBase =
+		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = SignedDepositByte;
 	type SignedMaxRefunds = ConstU32<3>;
 	type SignedDepositWeight = ();
@@ -1135,11 +1139,14 @@ impl pallet_members::Config for Runtime {
 	type HeartbeatTimeout = ConstU32<50>;
 }
 
+// Set in elections::GenesisConfig in node/chain_spec
+pub const SHARD_SIZE: u16 = 3;
+pub const SHARD_THRESHOLD: u16 = 2;
+
 impl pallet_elections::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type Members = Members;
 	type Shards = Shards;
-	type ShardSize = ConstU16<3>;
-	type Threshold = ConstU16<2>;
 }
 
 impl pallet_shards::Config for Runtime {
@@ -1186,7 +1193,7 @@ construct_runtime!(
 		Members: pallet_members,
 		Shards: pallet_shards,
 		Elections: pallet_elections,
-		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -1515,8 +1522,8 @@ impl_runtime_apis! {
 			Tasks::get_task(task_id)
 		}
 
-		fn submit_task_hash(shard_id: ShardId, task_id: TaskId, hash: Vec<u8>) -> TxResult {
-			Tasks::submit_task_hash(shard_id, task_id, hash)
+		fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult {
+			Tasks::submit_task_hash(task_id, cycle, hash)
 		}
 
 		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> TxResult {

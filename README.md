@@ -103,16 +103,12 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 
 
 ## Test Timechain
-Must have `rosetta-cli` and `rosetta-wallet` installed:
-Commands:<br>
-`cargo install --git https://github.com/Analog-Labs/chain-connectors rosetta-cli`<br>
-`cargo install --git https://github.com/Analog-Labs/chain-connectors rosetta-wallet`<br>
-Build chain:<br>
+Build images:<br>
 `./scripts/build_docker.sh`<br>
-Deploy on docker:<br>
-`docker compose --profile astar up`<br>
+Run with docker:<br>
+`docker compose --profile ethereum up`<br>
 Test:<br>
-`./scripts/test_timechain.sh`
+`docker compose run tester --network ethereum basic`
 
 
 ## Upcoming features

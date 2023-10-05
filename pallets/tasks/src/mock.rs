@@ -30,7 +30,11 @@ impl ShardsInterface for MockShardInterface {
 	}
 
 	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
-		None
+		// this value is taken from running a valid tss cycle
+		Some([
+			2, 163, 23, 136, 62, 90, 175, 126, 10, 65, 254, 12, 65, 67, 97, 247, 152, 34, 231, 253,
+			55, 115, 250, 33, 58, 75, 46, 99, 112, 78, 22, 197, 74,
+		])
 	}
 }
 

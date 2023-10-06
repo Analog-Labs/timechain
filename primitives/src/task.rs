@@ -179,7 +179,7 @@ pub trait TaskSpawner {
 pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 	fn network(&self) -> Network;
 	async fn poll_block_height<'b>(
-		&'b mut self,
+		&'b self,
 	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>>;
 	fn process_tasks(
 		&mut self,

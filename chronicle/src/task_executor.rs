@@ -384,7 +384,7 @@ where
 	}
 
 	async fn poll_block_height<'b>(
-		&'b mut self,
+		&'b self,
 	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
 		self.poll_block_height().await
 	}
@@ -430,7 +430,7 @@ where
 	}
 
 	pub async fn poll_block_height<'b>(
-		&'b mut self,
+		&'b self,
 	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
 		self.task_spawner.get_block_stream().await
 	}

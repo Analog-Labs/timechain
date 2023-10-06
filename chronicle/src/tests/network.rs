@@ -231,7 +231,7 @@ where
 	}
 
 	async fn poll_block_height<'b>(
-		&'b mut self,
+		&'b self,
 	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
 		Box::pin(stream::iter(vec![Some(1)]))
 	}

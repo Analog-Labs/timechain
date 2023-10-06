@@ -17,7 +17,7 @@ use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
 	marker::PhantomData,
 	pin::Pin,
-	sync::{Arc, Mutex},
+	sync::Arc,
 	task::Poll,
 };
 use time_primitives::{
@@ -148,7 +148,7 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	client: Arc<C>,
 	runtime: Arc<R>,
 	network: N,
-	task_executor: Arc<Mutex<T>>,
+	task_executor: Arc<T>,
 	tx_submitter: TxSub,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
@@ -200,7 +200,7 @@ where
 			client,
 			runtime,
 			network,
-			task_executor: Arc::new(Mutex::new(task_executor)),
+			task_executor: Arc::new(task_executor),
 			tx_submitter,
 			public_key,
 			peer_id,
@@ -338,7 +338,7 @@ where
 			{
 				continue;
 			}
-			let cloned_executor = self.task_executor.lock().unwrap().clone();
+			let cloned_executor = (*self.task_executor).clone();
 			let executor = self.executor_states.entry(shard_id).or_insert(cloned_executor);
 			event!(
 				target: TW_LOG,
@@ -460,7 +460,7 @@ where
 
 
 	pub async fn run(mut self, span: &Span) {
-		let mut executor = self.task_executor.lock().unwrap();
+		let executor = self.task_executor.clone();
 		let network = executor.network();
 		let mut block_stream = executor.poll_block_height().await.fuse();
 
@@ -505,29 +505,6 @@ where
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {
-				data = block_stream.next() => {
-					match data {
-						Some(Some(index)) => {
-							event!(
-								target: TW_LOG,
-								parent: span,
-								Level::DEBUG,
-								"block update {:?}", index
-							);
-							self.block_height = index;
-						},
-						Some(None) => {
-							event!(
-								target: TW_LOG,
-								parent: span,
-								Level::DEBUG,
-								"reinit stream"
-							);
-							continue;
-						}
-						_ => {}
-					}
-				},
 				notification = finality_notifications.next().fuse() => {
 					let Some(notification) = notification else {
 						event!(
@@ -634,6 +611,30 @@ where
 							"Error submitting heartbeat {:?}",e
 						);
 					};
+				},
+				data = block_stream.next() => {
+					match data {
+						Some(Some(index)) => {
+							event!(
+								target: TW_LOG,
+								parent: span,
+								Level::DEBUG,
+								"block update {:?}", index
+							);
+							self.block_height = index;
+						},
+						Some(None) => {
+							event!(
+								target: TW_LOG,
+								parent: span,
+								Level::DEBUG,
+								"reinit stream"
+							);
+							block_stream = executor.poll_block_height().await.fuse();
+							continue;
+						}
+						_ => {}
+					}
 				},
 			}
 		}

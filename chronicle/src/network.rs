@@ -458,7 +458,6 @@ where
 		}));
 	}
 
-
 	pub async fn run(mut self, span: &Span) {
 		let executor = self.task_executor.clone();
 		let network = executor.network();

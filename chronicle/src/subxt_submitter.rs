@@ -1,6 +1,6 @@
 use std::fs;
 use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::{ bip39::Mnemonic, sr25519::Keypair };
+use subxt_signer::{ bip39::Mnemonic, sr25519::Keypair, SecretUri };
 use time_primitives::{
 	Commitment, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, SubmitMembers, SubmitResult,
 	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult,
@@ -10,6 +10,7 @@ use std::sync::Arc;
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::shard;
 use timechain_runtime::runtime_types::time_primitives::task;
+use std::str::FromStr;
 
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
@@ -28,8 +29,8 @@ impl TransactionSubmit {
 	pub async fn new(keyfile: String, password: Option<&str>) -> Self {
 		let content = fs::read_to_string(keyfile).unwrap();
 		tracing::info!("content {}", content);
-		let mnemonic = Mnemonic::parse(content).unwrap();
-		let keypair = Keypair::from_seed(&content, None).unwrap();
+		let secret = SecretUri::from_str(&content).unwrap();
+		let keypair = Keypair::from_uri(&secret).unwrap();
 		// let seed_account: sr25519::Pair = sr25519::Pair::from_string(&content, password).unwrap();
 		// let seed_account_signer = PairSigner::<PolkadotConfig, sr25519::Pair>::new(seed_account);
 

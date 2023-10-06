@@ -66,6 +66,7 @@ impl<B: Block, C, R> Clone for TransactionSubmitter<B, C, R> {
 	}
 }
 
+#[async_trait::async_trait]
 impl<B, C, R> SubmitShards for TransactionSubmitter<B, C, R>
 where
 	B: Block + 'static,
@@ -73,7 +74,7 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: ShardsApi<B>,
 {
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		member: PublicKey,
@@ -84,12 +85,13 @@ where
 		runtime_api.submit_commitment(block_hash, shard_id, member, commitment, proof_of_knowledge)
 	}
 
-	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
+	async fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_online(block_hash, shard_id, member)
 	}
 }
 
+#[async_trait::async_trait]
 impl<B, C, R> SubmitTasks for TransactionSubmitter<B, C, R>
 where
 	B: Block + 'static,
@@ -97,12 +99,12 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 {
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
+	async fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_task_hash(block_hash, task_id, cycle, hash)
 	}
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
@@ -112,7 +114,7 @@ where
 		runtime_api.submit_task_result(block_hash, task_id, cycle, status)
 	}
 
-	fn submit_task_error(
+	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
@@ -123,6 +125,7 @@ where
 	}
 }
 
+#[async_trait::async_trait]
 impl<B, C, R> SubmitMembers for TransactionSubmitter<B, C, R>
 where
 	B: Block + 'static,
@@ -130,7 +133,7 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B>,
 {
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: Network,
 		public_key: PublicKey,
@@ -140,7 +143,7 @@ where
 		runtime_api.submit_register_member(block_hash, network, public_key, peer_id)
 	}
 
-	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
+	async fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_heartbeat(block_hash, public_key)
 	}

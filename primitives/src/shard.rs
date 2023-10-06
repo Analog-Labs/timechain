@@ -134,8 +134,9 @@ impl<B: Copy> ShardStatus<B> {
 }
 
 #[cfg(feature = "std")]
+#[async_trait::async_trait]
 pub trait SubmitShards {
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		member: PublicKey,
@@ -143,7 +144,7 @@ pub trait SubmitShards {
 		proof_of_knowledge: ProofOfKnowledge,
 	) -> SubmitResult;
 
-	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult;
+	async fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult;
 }
 
 #[cfg(feature = "std")]

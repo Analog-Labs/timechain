@@ -188,17 +188,18 @@ pub trait TaskExecutor<B: sp_runtime::traits::Block> {
 }
 
 #[cfg(feature = "std")]
+#[async_trait::async_trait]
 pub trait SubmitTasks {
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
+	async fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
 	) -> SubmitResult;
 
-	fn submit_task_error(
+	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,

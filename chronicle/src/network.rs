@@ -216,7 +216,7 @@ where
 		}
 	}
 
-	fn on_finality(&mut self, span: &Span, block: <B as Block>::Hash, block_number: u64) {
+	async fn on_finality(&mut self, span: &Span, block: <B as Block>::Hash, block_number: u64) {
 		let local_peer_id = to_peer_id(self.peer_id);
 		let span = span!(
 			target: TW_LOG,
@@ -255,7 +255,7 @@ where
 				.collect();
 			self.tss_states
 				.insert(shard_id, Tss::new(local_peer_id, members, threshold, None));
-			self.poll_actions(&span, shard_id, block_number);
+			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		for shard_id in shards.iter().copied() {
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
@@ -273,7 +273,7 @@ where
 				self.runtime.runtime_api().get_shard_commitment(block, shard_id).unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
 			tss.on_commit(commitment);
-			self.poll_actions(&span, shard_id, block_number);
+			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
 			if n > block_number {
@@ -301,7 +301,7 @@ where
 					continue;
 				};
 				tss.on_sign(request_id, data.to_vec());
-				self.poll_actions(&span, shard_id, block_number);
+				self.poll_actions(&span, shard_id, block_number).await;
 			}
 		}
 		while let Some(n) = self.messages.keys().copied().next() {
@@ -329,7 +329,7 @@ where
 					};
 					self.send_message(&span, peer_id, msg);
 				}
-				self.poll_actions(&span, shard_id, n);
+				self.poll_actions(&span, shard_id, n).await;
 			}
 		}
 		for shard_id in shards {
@@ -371,7 +371,7 @@ where
 		}
 	}
 
-	fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: u64) {
+	async fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: u64) {
 		while let Some(action) = self.tss_states.get_mut(&shard_id).unwrap().next_action() {
 			match action {
 				TssAction::Send(msgs) => {
@@ -392,6 +392,7 @@ where
 							commitment.serialize(),
 							proof_of_knowledge.serialize(),
 						)
+						.await
 						.unwrap()
 						.unwrap();
 				},
@@ -406,7 +407,7 @@ where
 						public_key,
 					);
 					self.tx_submitter
-						.submit_online(shard_id, self.public_key.clone())
+						.submit_online(shard_id, self.public_key.clone()).await
 						.unwrap()
 						.unwrap();
 				},
@@ -474,7 +475,7 @@ where
 				self.task_executor.network(),
 				self.public_key.clone(),
 				self.peer_id,
-			)
+			).await
 			.unwrap()
 		{
 			event!(
@@ -519,7 +520,7 @@ where
 					};
 					let block_hash = notification.header.hash();
 					let block_number = notification.header.number().to_string().parse().unwrap();
-					self.on_finality(span, block_hash, block_number);
+					self.on_finality(span, block_hash, block_number).await;
 				},
 				tss_request = self.tss_request.next().fuse() => {
 					let Some(TssSigningRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
@@ -605,7 +606,7 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					if let Err(e) = self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap(){
+					if let Err(e) = self.tx_submitter.submit_heartbeat(self.public_key.clone()).await.unwrap(){
 							event!(
 							target: TW_LOG,
 							parent: span,

@@ -246,13 +246,13 @@ where
 				)
 				.await?;
 				let result = TaskResult { shard_id, hash, signature };
-				if let Err(e) = self.tx_submitter.submit_task_result(task_id, task_cycle, result) {
+				if let Err(e) = self.tx_submitter.submit_task_result(task_id, task_cycle, result).await {
 					tracing::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) = self.tx_submitter.submit_task_error(task_id, task_cycle, error) {
+				if let Err(e) = self.tx_submitter.submit_task_error(task_id, task_cycle, error).await {
 					tracing::error!("Error submitting task error {:?}", e);
 				}
 			},
@@ -262,7 +262,7 @@ where
 
 	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash) {
+		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash).await {
 			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())

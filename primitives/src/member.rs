@@ -24,13 +24,14 @@ impl<B: Copy> HeartbeatInfo<B> {
 }
 
 #[cfg(feature = "std")]
+#[async_trait::async_trait]
 pub trait SubmitMembers {
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
 	) -> SubmitResult;
 
-	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult;
+	async fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult;
 }

@@ -185,25 +185,24 @@ pub mod pallet {
 				signer.sign_message(b"temp_msg").ok_or(TxError::MissingSigningKey)?.0.public;
 			let account_id = signer_pub.into_account();
 
-			for i in 0..100 {
+			for _ in 0..100 {
 				let result = signer
 					.send_signed_transaction(|_| Call::send_heartbeat {})
 					.ok_or(TxError::MissingSigningKey)?
 					.1
 					.map_err(|_| TxError::TxPoolError);
-				if i == 99 {
-					return result;
-				}
 
 				if result.is_ok() {
+					log::info!("Successfully sent heartbeat tx");
 					return Ok(());
 				}
-				log::error!("failed to send tx, retrying {}", i);
+
 				let mut account_data = frame_system::Account::<T>::get(&account_id);
 				account_data.nonce = account_data.nonce.saturating_add(One::one());
 				frame_system::Account::<T>::insert(&account_id, account_data);
 				continue;
 			}
+			log::error!("failed to send tx");
 			Err(TxError::TxPoolError)
 		}
 

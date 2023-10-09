@@ -2,7 +2,7 @@ use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{future::ready, FutureExt, SinkExt, Stream, StreamExt};
-use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
+use rosetta_client::{Blockchain, Wallet};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
@@ -112,12 +112,7 @@ where
 	async fn execute_function(
 		&self,
 		function: &Function,
-		target_block_number: u64,
 	) -> Result<Vec<u8>> {
-		let block = PartialBlockIdentifier {
-			index: Some(target_block_number),
-			hash: None,
-		};
 		Ok(match function {
 			Function::EvmViewCall {
 				address,
@@ -126,7 +121,7 @@ where
 			} => {
 				let data = self
 					.wallet
-					.eth_view_call(address, function_signature, input, Some(block))
+					.eth_view_call(address, function_signature, input, None)
 					.await?;
 				serde_json::to_string(&data)?.into_bytes()
 			},
@@ -222,7 +217,7 @@ where
 		block_num: u64,
 	) -> Result<()> {
 		let result = self
-			.execute_function(&function, target_block)
+			.execute_function(&function)
 			.await
 			.map_err(|err| format!("{:?}", err));
 		let payload = match &result {
@@ -261,7 +256,7 @@ where
 	}
 
 	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
-		let tx_hash = self.execute_function(&function, 0).await?;
+		let tx_hash = self.execute_function(&function).await?;
 		if let Err(e) = self.tx_submitter.submit_task_hash(task_id, cycle, tx_hash) {
 			tracing::error!("Error submitting task hash {:?}", e);
 		}

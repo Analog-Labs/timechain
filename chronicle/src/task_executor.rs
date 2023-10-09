@@ -109,20 +109,15 @@ where
 		})
 	}
 
-	async fn execute_function(
-		&self,
-		function: &Function,
-	) -> Result<Vec<u8>> {
+	async fn execute_function(&self, function: &Function) -> Result<Vec<u8>> {
 		Ok(match function {
 			Function::EvmViewCall {
 				address,
 				function_signature,
 				input,
 			} => {
-				let data = self
-					.wallet
-					.eth_view_call(address, function_signature, input, None)
-					.await?;
+				let data =
+					self.wallet.eth_view_call(address, function_signature, input, None).await?;
 				serde_json::to_string(&data)?.into_bytes()
 			},
 			Function::EvmTxReceipt { tx } => {
@@ -216,10 +211,7 @@ where
 		collection: String,
 		block_num: u64,
 	) -> Result<()> {
-		let result = self
-			.execute_function(&function)
-			.await
-			.map_err(|err| format!("{:?}", err));
+		let result = self.execute_function(&function).await.map_err(|err| format!("{:?}", err));
 		let payload = match &result {
 			Ok(payload) => payload.as_slice(),
 			Err(payload) => payload.as_bytes(),

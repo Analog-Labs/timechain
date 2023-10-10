@@ -8769,6 +8769,7 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-tungstenite",
+ "tracing",
  "vergen",
 ]
 
@@ -8794,6 +8795,7 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-tungstenite",
+ "tracing",
  "vergen",
 ]
 
@@ -8894,7 +8896,6 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
- "log",
  "rosetta-config-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
  "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
  "rosetta-ethereum-rpc-client 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
@@ -8902,6 +8903,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -8918,7 +8920,6 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
- "log",
  "rosetta-config-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "rosetta-ethereum-rpc-client 0.1.0 (git+https://github.com/analog-labs/chain-connectors)",
@@ -8926,6 +8927,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -8948,6 +8950,7 @@ dependencies = [
  "sp-keyring 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subxt",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -8969,6 +8972,7 @@ dependencies = [
  "sp-keyring 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subxt",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

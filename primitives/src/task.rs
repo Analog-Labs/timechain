@@ -1,19 +1,11 @@
+#[cfg(feature = "std")]
+use crate::SubmitResult;
 use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
-#[cfg(feature = "std")]
-use crate::{SubmitResult, TssId};
-#[cfg(feature = "std")]
-use anyhow::Result;
 use codec::{Decode, Encode};
-#[cfg(feature = "std")]
-use futures::Stream;
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
 use sp_std::vec::Vec;
-#[cfg(feature = "std")]
-use std::future::Future;
-#[cfg(feature = "std")]
-use std::pin::Pin;
 
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -144,47 +136,6 @@ impl std::fmt::Display for TaskExecution {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
 	}
-}
-
-#[cfg(feature = "std")]
-#[async_trait::async_trait]
-pub trait TaskSpawner {
-	async fn block_height(&self) -> Result<u64>;
-
-	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>>;
-
-	#[allow(clippy::too_many_arguments)]
-	fn execute_read(
-		&self,
-		target_block: u64,
-		shard_id: ShardId,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		function: Function,
-		hash: String,
-		block_num: u64,
-	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
-
-	fn execute_write(
-		&self,
-		shard_id: ShardId,
-		task_id: TaskId,
-		function: Function,
-	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
-}
-
-#[cfg(feature = "std")]
-#[async_trait::async_trait]
-pub trait TaskExecutor<B: sp_runtime::traits::Block> {
-	fn network(&self) -> Network;
-	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>>;
-	fn process_tasks(
-		&mut self,
-		block_hash: B::Hash,
-		target_block_height: u64,
-		block_num: u64,
-		shard_id: ShardId,
-	) -> Result<Vec<TssId>>;
 }
 
 #[cfg(feature = "std")]

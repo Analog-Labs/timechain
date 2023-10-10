@@ -2,48 +2,44 @@ use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
-use sp_api::ProvideRuntimeApi;
-use sp_runtime::traits::Block;
-use std::{collections::BTreeMap, marker::PhantomData, pin::Pin, sync::Arc};
-use time_primitives::{Function, Network, PublicKey, ShardId, TaskExecution, TasksApi, TssId};
+use std::{collections::BTreeMap, marker::PhantomData, pin::Pin};
+use time_primitives::{Function, Network, PublicKey, ShardId, TaskExecution, Tasks, TssId};
 use tokio::task::JoinHandle;
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B: Block, R, T>
+pub struct TaskExecutorParams<B, S, T>
 where
-	B: Block,
-	R: ProvideRuntimeApi<B>,
-	R::Api: TasksApi<B>,
+	B: sp_runtime::traits::Block,
+	S: Tasks<B> + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + 'static,
 {
-	pub _block: PhantomData<B>,
-	pub runtime: Arc<R>,
+	pub _marker: PhantomData<B>,
+	pub substrate: S,
 	pub task_spawner: T,
 	pub network: Network,
 	pub public_key: PublicKey,
 }
 
-pub struct TaskExecutor<B: Block, R, T> {
-	_block: PhantomData<B>,
-	runtime: Arc<R>,
+pub struct TaskExecutor<B, S, T> {
+	_marker: PhantomData<B>,
+	substrate: S,
 	task_spawner: T,
 	network: Network,
 	public_key: PublicKey,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
-impl<B, R, T> Clone for TaskExecutor<B, R, T>
+impl<B, S, T> Clone for TaskExecutor<B, S, T>
 where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
+	B: sp_runtime::traits::Block,
+	S: Tasks<B> + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + Clone + 'static,
 {
 	fn clone(&self) -> Self {
 		Self {
-			_block: PhantomData,
-			runtime: self.runtime.clone(),
+			_marker: self._marker,
+			substrate: self.substrate.clone(),
 			task_spawner: self.task_spawner.clone(),
 			network: self.network,
 			public_key: self.public_key.clone(),
@@ -52,11 +48,10 @@ where
 	}
 }
 
-impl<B, R, T> super::TaskExecutor<B> for TaskExecutor<B, R, T>
+impl<B, S, T> super::TaskExecutor<B> for TaskExecutor<B, S, T>
 where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
+	B: sp_runtime::traits::Block,
+	S: Tasks<B> + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	fn network(&self) -> Network {
@@ -69,7 +64,7 @@ where
 
 	fn process_tasks(
 		&mut self,
-		block_hash: <B as Block>::Hash,
+		block_hash: B::Hash,
 		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
@@ -78,24 +73,23 @@ where
 	}
 }
 
-impl<B, R, T> TaskExecutor<B, R, T>
+impl<B, S, T> TaskExecutor<B, S, T>
 where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
+	B: sp_runtime::traits::Block,
+	S: Tasks<B> + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + 'static,
 {
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<B, S, T>) -> Self {
 		let TaskExecutorParams {
-			_block,
-			runtime,
+			_marker,
+			substrate,
 			task_spawner,
 			network,
 			public_key,
 		} = params;
 		Self {
-			_block,
-			runtime,
+			_marker,
+			substrate,
 			task_spawner,
 			network,
 			public_key,
@@ -105,12 +99,12 @@ where
 
 	pub fn process_tasks(
 		&mut self,
-		block_hash: <B as Block>::Hash,
+		block_hash: B::Hash,
 		target_block_height: u64,
 		block_num: u64,
 		shard_id: ShardId,
 	) -> Result<Vec<TssId>> {
-		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
+		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id)?;
 		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
@@ -120,7 +114,7 @@ where
 				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
-			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
+			let task_descr = self.substrate.get_task(block_hash, task_id)?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;

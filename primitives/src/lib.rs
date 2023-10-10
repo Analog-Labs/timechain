@@ -47,6 +47,8 @@ pub enum TxError {
 pub type TxResult = Result<(), TxError>;
 #[cfg(feature = "std")]
 pub type SubmitResult = Result<TxResult, ApiError>;
+#[cfg(feature = "std")]
+pub type ApiResult<T> = Result<T, ApiError>;
 
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {

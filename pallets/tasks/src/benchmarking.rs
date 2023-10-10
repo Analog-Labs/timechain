@@ -49,8 +49,8 @@ benchmarks! {
 			period: 1,
 			hash: "".to_string(),
 		});
-		let _ = Pallet::<T>::stop_task(RawOrigin::Signed(whitelisted_caller()).into(), 0, 0);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0)
+		let _ = Pallet::<T>::stop_task(RawOrigin::Signed(whitelisted_caller()).into(), 0);
+	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0)
 	verify { }
 
 	submit_result {

@@ -234,7 +234,7 @@ where
 	async fn poll_block_height<'b>(
 		&'b self,
 	) -> Pin<Box<dyn Stream<Item = BlockEvent> + Send + 'b>> {
-		Box::pin(stream::iter(vec![BlockEvent::Closed]))
+		Box::pin(stream::iter(vec![BlockEvent::Block(1)]))
 	}
 
 	fn process_tasks(

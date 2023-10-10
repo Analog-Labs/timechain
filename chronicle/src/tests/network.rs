@@ -25,9 +25,10 @@ use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, BlockTimeApi, Commitment, MembersApi, Network, PeerId, ProofOfKnowledge, PublicKey,
-	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
+	AccountId, BlockEvent, BlockTimeApi, Commitment, MembersApi, Network, PeerId, ProofOfKnowledge,
+	PublicKey, ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError,
+	TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey, TssSignature,
+	TssSigningRequest, TxResult,
 };
 use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
@@ -232,8 +233,8 @@ where
 
 	async fn poll_block_height<'b>(
 		&'b self,
-	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
-		Box::pin(stream::iter(vec![Some(1)]))
+	) -> Pin<Box<dyn Stream<Item = BlockEvent> + Send + 'b>> {
+		Box::pin(stream::iter(vec![BlockEvent::Closed]))
 	}
 
 	fn process_tasks(

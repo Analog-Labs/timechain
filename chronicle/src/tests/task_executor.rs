@@ -14,8 +14,8 @@ use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
-	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	AccountId, BlockEvent, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId,
+	ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
 	TaskSpawner, TasksApi, TxResult,
 };
 
@@ -90,10 +90,8 @@ impl TaskSpawner for MockTask {
 		Ok(0)
 	}
 
-	async fn get_block_stream<'a>(
-		&'a self,
-	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'a>> {
-		Box::pin(stream::iter(vec![Some(1)]))
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = BlockEvent> + Send + 'a>> {
+		Box::pin(stream::iter(vec![BlockEvent::Closed]))
 	}
 
 	fn execute_read(

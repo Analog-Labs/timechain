@@ -1,6 +1,7 @@
 use crate::TW_LOG;
 use anyhow::{anyhow, Context, Result};
 use futures::channel::{mpsc, oneshot};
+use futures::stream::once;
 use futures::{future::ready, FutureExt, SinkExt, Stream, StreamExt};
 use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
@@ -11,8 +12,9 @@ use std::{
 	collections::BTreeMap, future::Future, marker::PhantomData, path::Path, pin::Pin, sync::Arc,
 };
 use time_primitives::{
-	Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError, TaskExecution,
-	TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature, TssSigningRequest,
+	BlockEvent, Function, Network, PublicKey, ShardId, SubmitTasks, TaskCycle, TaskError,
+	TaskExecution, TaskId, TaskResult, TaskSpawner, TasksApi, TssHash, TssId, TssSignature,
+	TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 use tokio::task::JoinHandle;
@@ -283,23 +285,39 @@ where
 		Ok(status.index)
 	}
 
-	async fn get_block_stream<'a>(
-		&'a self,
-	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'a>> {
-		let transformed_stream = self.wallet.listen().await.unwrap().unwrap().filter_map(|event| {
-			ready(match event {
-				ClientEvent::NewFinalized(block_or_identifier) => match block_or_identifier {
-					BlockOrIdentifier::Identifier(identifier) => Some(Some(identifier.index)),
-					BlockOrIdentifier::Block(block) => Some(Some(block.block_identifier.index)),
-				},
-				ClientEvent::Close(reason) => {
-					tracing::info!("stream future closed {}", reason);
-					Some(None)
-				},
-				_ => None,
-			})
-		});
-		Box::pin(transformed_stream)
+	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = BlockEvent> + Send + 'a>> {
+		match self.wallet.listen().await {
+			Ok(Some(stream)) => {
+				let transformed_stream = stream.filter_map(|event| {
+					ready(match event {
+						ClientEvent::NewFinalized(block_or_identifier) => match block_or_identifier
+						{
+							BlockOrIdentifier::Identifier(identifier) => {
+								Some(BlockEvent::Block(identifier.index))
+							},
+							BlockOrIdentifier::Block(block) => {
+								Some(BlockEvent::Block(block.block_identifier.index))
+							},
+						},
+						ClientEvent::Close(reason) => {
+							tracing::info!("stream future closed {}", reason);
+							Some(BlockEvent::Closed)
+						},
+						_ => None,
+					})
+				});
+				Box::pin(transformed_stream)
+			},
+			Ok(None) => {
+				tracing::error!("Stream got closed with no reason provided");
+				Box::pin(once(async { BlockEvent::Closed }))
+			},
+			Err(e) => {
+				tracing::error!("Error listening to wallet, retrying after 5 secs: {:?}", e);
+				tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+				Box::pin(once(async { BlockEvent::Closed }))
+			},
+		}
 	}
 
 	fn execute_read(
@@ -385,7 +403,7 @@ where
 
 	async fn poll_block_height<'b>(
 		&'b self,
-	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
+	) -> Pin<Box<dyn Stream<Item = BlockEvent> + Send + 'b>> {
 		self.poll_block_height().await
 	}
 
@@ -431,7 +449,7 @@ where
 
 	pub async fn poll_block_height<'b>(
 		&'b self,
-	) -> Pin<Box<dyn Stream<Item = Option<u64>> + Send + 'b>> {
+	) -> Pin<Box<dyn Stream<Item = BlockEvent> + Send + 'b>> {
 		self.task_spawner.get_block_stream().await
 	}
 

@@ -106,3 +106,9 @@ pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
 }
+
+#[derive(Debug)]
+pub enum BlockEvent {
+	Block(u64),
+	Closed,
+}

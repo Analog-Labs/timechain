@@ -21,11 +21,10 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
-	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
+	BlockEvent, BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi,
+	SubmitMembers, SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
-
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -612,28 +611,17 @@ where
 					};
 				},
 				data = block_stream.next() => {
-					match data {
-						Some(Some(index)) => {
-							event!(
-								target: TW_LOG,
-								parent: span,
-								Level::DEBUG,
-								"block update {:?}", index
-							);
-							self.block_height = index;
-						},
-						Some(None) => {
-							event!(
-								target: TW_LOG,
-								parent: span,
-								Level::DEBUG,
-								"reinit stream"
-							);
-							block_stream = executor.poll_block_height().await.fuse();
-							continue;
-						}
-						_ => {}
-					}
+					let Some(BlockEvent::Block(index)) = data else {
+						block_stream = executor.poll_block_height().await.fuse();
+						continue;
+					};
+					self.block_height = index;
+					event!(
+						target: TW_LOG,
+						parent: span,
+						Level::DEBUG,
+						"got block from connector {:?}", index
+					);
 				},
 			}
 		}

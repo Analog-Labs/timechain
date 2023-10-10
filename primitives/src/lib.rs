@@ -24,6 +24,7 @@ pub type AccountId = AccountId32;
 pub type PublicKey = MultiSigner;
 pub type Signature = MultiSignature;
 pub type BlockNumber = u32;
+pub type BlockHash = sp_core::H256;
 
 pub mod crypto {
 	use sp_runtime::app_crypto::{app_crypto, sr25519};

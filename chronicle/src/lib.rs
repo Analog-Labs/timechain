@@ -1,4 +1,4 @@
-//use crate::network::{TimeWorker, TimeWorkerParams};
+use crate::network::{TimeWorker, TimeWorkerParams};
 use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
@@ -10,15 +10,14 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 use time_primitives::{
-	BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
+	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
 };
 use tracing::{event, span, Level};
 
-//mod network;
+mod network;
 mod substrate;
 mod tasks;
 #[cfg(test)]
@@ -61,7 +60,7 @@ pub struct ChronicleParams<B: Block, C, R, N> {
 
 pub async fn run_chronicle<B, C, R, N>(params: ChronicleParams<B, C, R, N>)
 where
-	B: Block + 'static,
+	B: Block<Hash = BlockHash> + 'static,
 	C: BlockchainEvents<B> + HeaderBackend<B> + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
@@ -98,7 +97,6 @@ where
 	);
 
 	let task_spawner_params = TaskSpawnerParams {
-		_marker: PhantomData,
 		tss: tx,
 		blockchain: params.config.blockchain,
 		network: params.config.network,
@@ -125,15 +123,13 @@ where
 	};
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		_marker: PhantomData,
 		network: params.config.blockchain,
 		public_key: public_key.clone(),
 		task_spawner,
-		substrate,
+		substrate: substrate.clone(),
 	});
 
-	/*let time_worker = TimeWorker::new(TimeWorkerParams {
-		_block: PhantomData,
+	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network: params.network,
 		task_executor,
 		substrate,
@@ -143,5 +139,5 @@ where
 		protocol_request: params.tss_requests,
 	});
 
-	time_worker.run(&span).await;*/
+	time_worker.run(&span).await;
 }

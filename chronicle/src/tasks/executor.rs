@@ -2,27 +2,26 @@ use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
-use std::{collections::BTreeMap, marker::PhantomData, pin::Pin};
-use time_primitives::{Function, Network, PublicKey, ShardId, TaskExecution, Tasks, TssId};
+use std::{collections::BTreeMap, pin::Pin};
+use time_primitives::{
+	BlockHash, BlockNumber, Function, Network, PublicKey, ShardId, TaskExecution, Tasks, TssId,
+};
 use tokio::task::JoinHandle;
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B, S, T>
+pub struct TaskExecutorParams<S, T>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + 'static,
 {
-	pub _marker: PhantomData<B>,
 	pub substrate: S,
 	pub task_spawner: T,
 	pub network: Network,
 	pub public_key: PublicKey,
 }
 
-pub struct TaskExecutor<B, S, T> {
-	_marker: PhantomData<B>,
+pub struct TaskExecutor<S, T> {
 	substrate: S,
 	task_spawner: T,
 	network: Network,
@@ -30,15 +29,13 @@ pub struct TaskExecutor<B, S, T> {
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
-impl<B, S, T> Clone for TaskExecutor<B, S, T>
+impl<S, T> Clone for TaskExecutor<S, T>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + Clone + 'static,
 {
 	fn clone(&self) -> Self {
 		Self {
-			_marker: self._marker,
 			substrate: self.substrate.clone(),
 			task_spawner: self.task_spawner.clone(),
 			network: self.network,
@@ -48,10 +45,9 @@ where
 	}
 }
 
-impl<B, S, T> super::TaskExecutor<B> for TaskExecutor<B, S, T>
+impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + 'static,
 {
 	fn network(&self) -> Network {
@@ -64,31 +60,28 @@ where
 
 	fn process_tasks(
 		&mut self,
-		block_hash: B::Hash,
-		target_block_height: u64,
-		block_num: u64,
+		block_hash: BlockHash,
+		block_number: BlockNumber,
 		shard_id: ShardId,
+		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
-		self.process_tasks(block_hash, target_block_height, block_num, shard_id)
+		self.process_tasks(block_hash, block_number, shard_id, target_block_height)
 	}
 }
 
-impl<B, S, T> TaskExecutor<B, S, T>
+impl<S, T> TaskExecutor<S, T>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 	T: TaskSpawner + Send + Sync + 'static,
 {
-	pub fn new(params: TaskExecutorParams<B, S, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<S, T>) -> Self {
 		let TaskExecutorParams {
-			_marker,
 			substrate,
 			task_spawner,
 			network,
 			public_key,
 		} = params;
 		Self {
-			_marker,
 			substrate,
 			task_spawner,
 			network,
@@ -99,10 +92,10 @@ where
 
 	pub fn process_tasks(
 		&mut self,
-		block_hash: B::Hash,
-		target_block_height: u64,
-		block_num: u64,
+		block_hash: BlockHash,
+		block_number: BlockNumber,
 		shard_id: ShardId,
+		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id)?;
 		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
@@ -139,7 +132,7 @@ where
 						cycle,
 						function,
 						hash,
-						block_num,
+						block_number,
 					)
 				};
 				let handle = tokio::task::spawn(async move {

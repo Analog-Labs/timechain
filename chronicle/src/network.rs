@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+use crate::substrate::SubstrateClient;
 use crate::tasks::TaskExecutor;
 use crate::{PROTOCOL_NAME, TW_LOG};
 use anyhow::Result;
@@ -8,22 +9,18 @@ use futures::{
 	stream::FuturesUnordered,
 	Future, FutureExt, StreamExt,
 };
-use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, OutgoingResponse};
 use sc_network::{IfDisconnected, NetworkRequest, PeerId};
 use serde::{Deserialize, Serialize};
-use sp_api::ProvideRuntimeApi;
-use sp_runtime::traits::{Block, Header, IdentifyAccount};
+use sp_runtime::traits::IdentifyAccount;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
-	marker::PhantomData,
 	pin::Pin,
-	sync::Arc,
 	task::Poll,
 };
 use time_primitives::{
-	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
-	SubmitShards, TssId, TssSignature, TssSigningRequest,
+	BlockHash, BlockNumber, Members, PublicKey, ShardId, ShardStatus, Shards, TssId, TssSignature,
+	TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
 use tracing::{event, span, Level, Span};
@@ -32,7 +29,7 @@ use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, 
 #[derive(Deserialize, Serialize)]
 struct TimeMessage {
 	shard_id: ShardId,
-	block_number: u64,
+	block_number: BlockNumber,
 	payload: TssMessage<TssId>,
 }
 
@@ -129,13 +126,10 @@ impl Tss {
 	}
 }
 
-pub struct TimeWorkerParams<B: Block, C, R, N, T, TxSub> {
-	pub _block: PhantomData<B>,
-	pub client: Arc<C>,
-	pub runtime: Arc<R>,
-	pub network: N,
+pub struct TimeWorkerParams<S, T, N> {
+	pub substrate: S,
 	pub task_executor: T,
-	pub tx_submitter: TxSub,
+	pub network: N,
 	pub public_key: PublicKey,
 	pub peer_id: time_primitives::PeerId,
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
@@ -143,13 +137,10 @@ pub struct TimeWorkerParams<B: Block, C, R, N, T, TxSub> {
 }
 
 /// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
-	_block: PhantomData<B>,
-	client: Arc<C>,
-	runtime: Arc<R>,
-	network: N,
+pub struct TimeWorker<S, T, N> {
+	substrate: S,
 	task_executor: T,
-	tx_submitter: TxSub,
+	network: N,
 	public_key: PublicKey,
 	peer_id: time_primitives::PeerId,
 	block_height: u64,
@@ -157,8 +148,8 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	protocol_request: async_channel::Receiver<IncomingRequest>,
 	executor_states: HashMap<ShardId, T>,
 	tss_states: HashMap<ShardId, Tss>,
-	messages: BTreeMap<u64, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
-	requests: BTreeMap<u64, Vec<(ShardId, TssId, Vec<u8>)>>,
+	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
+	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	outgoing_requests: FuturesUnordered<
 		Pin<
@@ -172,36 +163,26 @@ pub struct TimeWorker<B: Block, C, R, N, T, TxSub> {
 	>,
 }
 
-impl<B, C, R, N, T, TxSub> TimeWorker<B, C, R, N, T, TxSub>
+impl<S, T, N> TimeWorker<S, T, N>
 where
-	B: Block + 'static,
-	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
-	R: ProvideRuntimeApi<B> + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + BlockTimeApi<B>,
-	N: NetworkRequest,
+	S: SubstrateClient + Shards + Members + Clone + Send + Sync + 'static,
 	T: TaskExecutor + Clone,
-	TxSub: SubmitShards + SubmitMembers,
+	N: NetworkRequest,
 {
-	pub fn new(worker_params: TimeWorkerParams<B, C, R, N, T, TxSub>) -> Self {
+	pub fn new(worker_params: TimeWorkerParams<S, T, N>) -> Self {
 		let TimeWorkerParams {
-			_block,
-			client,
-			runtime,
-			network,
+			substrate,
 			task_executor,
-			tx_submitter,
+			network,
 			public_key,
 			peer_id,
 			tss_request,
 			protocol_request,
 		} = worker_params;
 		Self {
-			_block,
-			client,
-			runtime,
-			network,
+			substrate,
 			task_executor,
-			tx_submitter,
+			network,
 			public_key,
 			peer_id,
 			block_height: 0,
@@ -216,7 +197,7 @@ where
 		}
 	}
 
-	fn on_finality(&mut self, span: &Span, block: <B as Block>::Hash, block_number: u64) {
+	fn on_finality(&mut self, span: &Span, block: BlockHash, block_number: BlockNumber) {
 		let local_peer_id = to_peer_id(self.peer_id);
 		let span = span!(
 			target: TW_LOG,
@@ -227,8 +208,7 @@ where
 			block_number,
 		);
 		let shards = self
-			.runtime
-			.runtime_api()
+			.substrate
 			.get_shards(block, &self.public_key.clone().into_account())
 			.unwrap();
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
@@ -237,8 +217,7 @@ where
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
 			}
-			let api = self.runtime.runtime_api();
-			let members = api.get_shard_members(block, shard_id).unwrap();
+			let members = self.substrate.get_shard_members(block, shard_id).unwrap();
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -246,11 +225,11 @@ where
 				shard_id,
 				"joining shard",
 			);
-			let threshold = api.get_shard_threshold(block, shard_id).unwrap();
+			let threshold = self.substrate.get_shard_threshold(block, shard_id).unwrap();
 			let members = members
 				.into_iter()
 				.map(|account| {
-					to_peer_id(api.get_member_peer_id(block, &account).unwrap().unwrap())
+					to_peer_id(self.substrate.get_member_peer_id(block, &account).unwrap().unwrap())
 				})
 				.collect();
 			self.tss_states
@@ -264,13 +243,10 @@ where
 			if tss.committed() {
 				continue;
 			}
-			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
-				!= ShardStatus::Committed
-			{
+			if self.substrate.get_shard_status(block, shard_id).unwrap() != ShardStatus::Committed {
 				continue;
 			}
-			let commitment =
-				self.runtime.runtime_api().get_shard_commitment(block, shard_id).unwrap();
+			let commitment = self.substrate.get_shard_commitment(block, shard_id).unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number);
@@ -333,9 +309,7 @@ where
 			}
 		}
 		for shard_id in shards {
-			if self.runtime.runtime_api().get_shard_status(block, shard_id).unwrap()
-				!= ShardStatus::Online
-			{
+			if self.substrate.get_shard_status(block, shard_id).unwrap() != ShardStatus::Online {
 				continue;
 			}
 			let executor =
@@ -348,7 +322,7 @@ where
 				"running task executor"
 			);
 			let complete_sessions =
-				match executor.process_tasks(block, self.block_height, block_number, shard_id) {
+				match executor.process_tasks(block, block_number, shard_id, self.block_height) {
 					Ok(complete_sessions) => complete_sessions,
 					Err(error) => {
 						event!(
@@ -371,7 +345,7 @@ where
 		}
 	}
 
-	fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: u64) {
+	fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: BlockNumber) {
 		while let Some(action) = self.tss_states.get_mut(&shard_id).unwrap().next_action() {
 			match action {
 				TssAction::Send(msgs) => {
@@ -385,7 +359,7 @@ where
 					}
 				},
 				TssAction::Commit(commitment, proof_of_knowledge) => {
-					self.tx_submitter
+					self.substrate
 						.submit_commitment(
 							shard_id,
 							self.public_key.clone(),
@@ -405,7 +379,7 @@ where
 						"public key {:?}",
 						public_key,
 					);
-					self.tx_submitter
+					self.substrate
 						.submit_online(shard_id, self.public_key.clone())
 						.unwrap()
 						.unwrap();
@@ -466,7 +440,7 @@ where
 			"starting tss",
 		);
 		while let Err(e) = self
-			.tx_submitter
+			.substrate
 			.submit_register_member(
 				self.task_executor.network(),
 				self.public_key.clone(),
@@ -490,10 +464,8 @@ where
 			"Registered Member successfully",
 		);
 
-		let block = self.client.info().best_hash;
-		let min_block_time = self.runtime.runtime_api().get_block_time_in_msec(block).unwrap();
-		let heartbeat_time =
-			(self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 3) * min_block_time;
+		let min_block_time = self.substrate.get_block_time_in_ms().unwrap();
+		let heartbeat_time = (self.substrate.get_heartbeat_timeout().unwrap() / 2) * min_block_time;
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
@@ -502,12 +474,12 @@ where
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
 		let task_executor = self.task_executor.clone();
-		let mut block_stream = task_executor.block_stream().fuse();
-		let mut finality_notifications = self.client.finality_notification_stream();
+		let mut block_stream = task_executor.block_stream();
+		let mut finality_notifications = self.substrate.finality_notification_stream();
 		loop {
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
-					let Some(notification) = notification else {
+					let Some((block_hash, block_number)) = notification else {
 						event!(
 							target: TW_LOG,
 							parent: span,
@@ -516,8 +488,6 @@ where
 						);
 						continue;
 					};
-					let block_hash = notification.header.hash();
-					let block_number = notification.header.number().to_string().parse().unwrap();
 					self.on_finality(span, block_hash, block_number);
 				},
 				tss_request = self.tss_request.next().fuse() => {
@@ -604,7 +574,7 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					if let Err(e) = self.tx_submitter.submit_heartbeat(self.public_key.clone()).unwrap(){
+					if let Err(e) = self.substrate.submit_heartbeat(self.public_key.clone()).unwrap(){
 							event!(
 							target: TW_LOG,
 							parent: span,
@@ -613,9 +583,8 @@ where
 						);
 					};
 				}
-				data = block_stream.next() => {
+				data = block_stream.next().fuse() => {
 					if let Some(index) = data {
-						tracing::info!("index received {}", index);
 						self.block_height = index;
 					}
 				}

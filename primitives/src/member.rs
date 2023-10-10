@@ -1,5 +1,5 @@
 #[cfg(feature = "std")]
-use crate::SubmitResult;
+use crate::{AccountId, ApiResult, BlockHash, SubmitResult};
 use crate::{Network, PeerId, PublicKey};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -24,7 +24,15 @@ impl<B: Copy> HeartbeatInfo<B> {
 }
 
 #[cfg(feature = "std")]
-pub trait SubmitMembers {
+pub trait Members {
+	fn get_member_peer_id(
+		&self,
+		block: BlockHash,
+		account: &AccountId,
+	) -> ApiResult<Option<PeerId>>;
+
+	fn get_heartbeat_timeout(&self) -> ApiResult<u64>;
+
 	fn submit_register_member(
 		&self,
 		network: Network,

@@ -1,6 +1,6 @@
 use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
 #[cfg(feature = "std")]
-use crate::{ApiResult, SubmitResult};
+use crate::{ApiResult, BlockHash, SubmitResult};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -139,10 +139,11 @@ impl std::fmt::Display for TaskExecution {
 }
 
 #[cfg(feature = "std")]
-pub trait Tasks<B: sp_runtime::traits::Block> {
-	fn get_shard_tasks(&self, block: B::Hash, shard_id: ShardId) -> ApiResult<Vec<TaskExecution>>;
+pub trait Tasks {
+	fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId)
+		-> ApiResult<Vec<TaskExecution>>;
 
-	fn get_task(&self, block: B::Hash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
+	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 

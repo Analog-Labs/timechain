@@ -1,5 +1,5 @@
 #[cfg(feature = "std")]
-use crate::{PublicKey, SubmitResult};
+use crate::{AccountId, ApiResult, BlockHash, BlockNumber, PublicKey, SubmitResult};
 use crate::{TaskCycle, TaskId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -136,7 +136,21 @@ impl<B: Copy> ShardStatus<B> {
 }
 
 #[cfg(feature = "std")]
-pub trait SubmitShards {
+pub trait Shards {
+	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;
+
+	fn get_shard_members(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Vec<AccountId>>;
+
+	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16>;
+
+	fn get_shard_status(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<ShardStatus<BlockNumber>>;
+
+	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment>;
+
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
@@ -152,7 +166,7 @@ pub trait SubmitShards {
 pub struct TssSigningRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
-	pub block_number: u64,
+	pub block_number: BlockNumber,
 	pub data: Vec<u8>,
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }

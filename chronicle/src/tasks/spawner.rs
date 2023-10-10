@@ -6,24 +6,21 @@ use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use serde_json::Value;
 use std::{
 	future::Future,
-	marker::PhantomData,
 	path::Path,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
 };
 use time_primitives::{
-	Function, Network, ShardId, TaskCycle, TaskError, TaskId, TaskResult, Tasks, TssHash, TssId,
-	TssSignature, TssSigningRequest,
+	BlockNumber, Function, Network, ShardId, TaskCycle, TaskError, TaskId, TaskResult, Tasks,
+	TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
-pub struct TaskSpawnerParams<B, S>
+pub struct TaskSpawnerParams<S>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 {
-	pub _marker: PhantomData<B>,
 	pub tss: mpsc::Sender<TssSigningRequest>,
 	pub blockchain: Network,
 	pub network: String,
@@ -34,14 +31,12 @@ where
 	pub substrate: S,
 }
 
-impl<B, S> Clone for TaskSpawnerParams<B, S>
+impl<S> Clone for TaskSpawnerParams<S>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 {
 	fn clone(&self) -> Self {
 		Self {
-			_marker: self._marker,
 			tss: self.tss.clone(),
 			blockchain: self.blockchain,
 			network: self.network.clone(),
@@ -54,22 +49,19 @@ where
 	}
 }
 
-pub struct TaskSpawner<B, S> {
-	_marker: PhantomData<B>,
+pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
 	substrate: S,
 }
 
-impl<B, S> Clone for TaskSpawner<B, S>
+impl<S> Clone for TaskSpawner<S>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 {
 	fn clone(&self) -> Self {
 		Self {
-			_marker: self._marker,
 			tss: self.tss.clone(),
 			wallet: self.wallet.clone(),
 			timegraph: self.timegraph.clone(),
@@ -78,12 +70,11 @@ where
 	}
 }
 
-impl<B, S> TaskSpawner<B, S>
+impl<S> TaskSpawner<S>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 {
-	pub async fn new(params: TaskSpawnerParams<B, S>) -> Result<Self> {
+	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);
 		let blockchain = match params.blockchain {
 			Network::Ethereum => Blockchain::Ethereum,
@@ -104,7 +95,6 @@ where
 			None
 		};
 		Ok(Self {
-			_marker: params._marker,
 			tss: params.tss,
 			wallet,
 			timegraph,
@@ -151,7 +141,7 @@ where
 
 	async fn tss_sign(
 		&self,
-		block_number: u64,
+		block_number: BlockNumber,
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
@@ -180,7 +170,7 @@ where
 		task_cycle: TaskCycle,
 		function: &Function,
 		collection: String,
-		block_num: u64,
+		block_num: BlockNumber,
 		payload: &[u8],
 		signature: TssSignature,
 	) -> Result<()> {
@@ -201,7 +191,7 @@ where
 						task_id,
 						task_cycle,
 						target_block_number: target_block,
-						timechain_block_number: block_num,
+						timechain_block_number: block_num as _,
 						shard_id,
 						signature,
 						data: formatted_result,
@@ -222,7 +212,7 @@ where
 		task_cycle: TaskCycle,
 		function: Function,
 		collection: String,
-		block_num: u64,
+		block_num: BlockNumber,
 	) -> Result<()> {
 		let result = self
 			.execute_function(&function, target_block)
@@ -272,10 +262,9 @@ where
 	}
 }
 
-impl<B, S> super::TaskSpawner for TaskSpawner<B, S>
+impl<S> super::TaskSpawner for TaskSpawner<S>
 where
-	B: sp_runtime::traits::Block,
-	S: Tasks<B> + Clone + Send + Sync + 'static,
+	S: Tasks + Clone + Send + Sync + 'static,
 {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(BlockStream::new(&self.wallet))
@@ -289,7 +278,7 @@ where
 		cycle: TaskCycle,
 		function: Function,
 		collection: String,
-		block_num: u64,
+		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		self.clone()
 			.read(target_block, shard_id, task_id, cycle, function, collection, block_num)

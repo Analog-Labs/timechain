@@ -64,7 +64,7 @@ sp_api::mock_impl_runtime_apis! {
 			TASK_STATUS.lock().unwrap().push(false);
 			Ok(())
 		}
-		fn submit_task_signature(_: TaskId, _: TaskCycle, _: TssSignature) -> TxResult {
+		fn submit_task_signature(_: TaskId, _: TssSignature) -> TxResult {
 			Ok(())
 		}
 	}
@@ -116,6 +116,17 @@ impl TaskSpawner for MockTask {
 		_: ShardId,
 		_: TaskId,
 		_: Function,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		future::ready(Ok(())).boxed()
+	}
+
+	fn execute_sign(
+		&self,
+		_: ShardId,
+		_: TaskId,
+		_: TaskCycle,
+		_: Vec<u8>,
+		_: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		future::ready(Ok(())).boxed()
 	}

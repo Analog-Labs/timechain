@@ -505,7 +505,7 @@ where
 								function_signature: String::from("send_message(uint[],uint[])"),
 								input: vec![&payload, &signature.to_vec()]
 									.into_iter()
-									.map(|x| hex::encode(x))
+									.map(hex::encode)
 									.collect(),
 								amount: 0u128,
 							}

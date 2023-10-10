@@ -6,11 +6,12 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use time_primitives::{
-	MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers, SubmitResult,
-	SubmitShards, SubmitTasks, TaskCycle, TaskError, TaskId, TaskResult, TasksApi,
+	ApiResult, MembersApi, Network, PeerId, PublicKey, ShardId, ShardsApi, SubmitMembers,
+	SubmitResult, SubmitShards, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
+	TaskResult, Tasks, TasksApi,
 };
 
-pub struct TransactionSubmitter<B: Block, C, R> {
+pub struct Substrate<B: Block, C, R> {
 	_block: PhantomData<B>,
 	kv: KeystorePtr,
 	pool: OffchainTransactionPoolFactory<B>,
@@ -19,7 +20,7 @@ pub struct TransactionSubmitter<B: Block, C, R> {
 	runtime: Arc<R>,
 }
 
-impl<B, C, R> TransactionSubmitter<B, C, R>
+impl<B, C, R> Substrate<B, C, R>
 where
 	B: Block + 'static,
 	C: HeaderBackend<B> + Send + Sync + 'static,
@@ -53,7 +54,7 @@ where
 	}
 }
 
-impl<B: Block, C, R> Clone for TransactionSubmitter<B, C, R> {
+impl<B: Block, C, R> Clone for Substrate<B, C, R> {
 	fn clone(&self) -> Self {
 		Self {
 			_block: self._block,
@@ -66,7 +67,7 @@ impl<B: Block, C, R> Clone for TransactionSubmitter<B, C, R> {
 	}
 }
 
-impl<B, C, R> SubmitShards for TransactionSubmitter<B, C, R>
+impl<B, C, R> SubmitShards for Substrate<B, C, R>
 where
 	B: Block + 'static,
 	C: HeaderBackend<B> + Send + Sync + 'static,
@@ -90,13 +91,23 @@ where
 	}
 }
 
-impl<B, C, R> SubmitTasks for TransactionSubmitter<B, C, R>
+impl<B, C, R> Tasks<B> for Substrate<B, C, R>
 where
 	B: Block + 'static,
 	C: HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B>,
 {
+	fn get_shard_tasks(&self, block: B::Hash, shard_id: ShardId) -> ApiResult<Vec<TaskExecution>> {
+		let (runtime_api, _) = self.runtime_api();
+		runtime_api.get_shard_tasks(block, shard_id)
+	}
+
+	fn get_task(&self, block: B::Hash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>> {
+		let (runtime_api, _) = self.runtime_api();
+		runtime_api.get_task(block, task_id)
+	}
+
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		let (runtime_api, block_hash) = self.runtime_api();
 		runtime_api.submit_task_hash(block_hash, task_id, cycle, hash)
@@ -123,7 +134,7 @@ where
 	}
 }
 
-impl<B, C, R> SubmitMembers for TransactionSubmitter<B, C, R>
+impl<B, C, R> SubmitMembers for Substrate<B, C, R>
 where
 	B: Block + 'static,
 	C: HeaderBackend<B> + 'static,

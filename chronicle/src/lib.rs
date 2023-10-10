@@ -1,7 +1,7 @@
-use crate::network::{TimeWorker, TimeWorkerParams};
+//use crate::network::{TimeWorker, TimeWorkerParams};
+use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
-use crate::tx_submitter::TransactionSubmitter;
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
@@ -18,11 +18,11 @@ use time_primitives::{
 };
 use tracing::{event, span, Level};
 
-mod network;
+//mod network;
+mod substrate;
 mod tasks;
 #[cfg(test)]
 mod tests;
-mod tx_submitter;
 
 pub const TW_LOG: &str = "chronicle";
 
@@ -89,7 +89,7 @@ where
 	};
 
 	let (tx, rx) = mpsc::channel(10);
-	let tx_submitter = TransactionSubmitter::new(
+	let substrate = Substrate::new(
 		true,
 		params.keystore,
 		params.tx_pool,
@@ -106,8 +106,7 @@ where
 		keyfile: params.config.keyfile,
 		timegraph_url: params.config.timegraph_url,
 		timegraph_ssk: params.config.timegraph_ssk,
-		runtime: params.runtime.clone(),
-		tx_submitter: tx_submitter.clone(),
+		substrate: substrate.clone(),
 	};
 	let task_spawner = loop {
 		match TaskSpawner::new(task_spawner_params.clone()).await {
@@ -126,25 +125,23 @@ where
 	};
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		_block: PhantomData,
-		runtime: params.runtime.clone(),
+		_marker: PhantomData,
 		network: params.config.blockchain,
 		public_key: public_key.clone(),
 		task_spawner,
+		substrate,
 	});
 
-	let time_worker = TimeWorker::new(TimeWorkerParams {
+	/*let time_worker = TimeWorker::new(TimeWorkerParams {
 		_block: PhantomData,
-		runtime: params.runtime.clone(),
-		client: params.client.clone(),
 		network: params.network,
 		task_executor,
-		tx_submitter,
+		substrate,
 		public_key,
 		peer_id,
 		tss_request: rx,
 		protocol_request: params.tss_requests,
 	});
 
-	time_worker.run(&span).await;
+	time_worker.run(&span).await;*/
 }

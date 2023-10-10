@@ -179,7 +179,7 @@ where
 	R: ProvideRuntimeApi<B> + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest,
-	T: TaskExecutor<B> + Clone,
+	T: TaskExecutor + Clone,
 	TxSub: SubmitShards + SubmitMembers,
 {
 	pub fn new(worker_params: TimeWorkerParams<B, C, R, N, T, TxSub>) -> Self {

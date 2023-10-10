@@ -35,6 +35,7 @@ impl std::fmt::Display for TssId {
 pub enum Network {
 	Ethereum,
 	Astar,
+	Polygon,
 }
 
 impl core::str::FromStr for Network {
@@ -44,6 +45,7 @@ impl core::str::FromStr for Network {
 		Ok(match s {
 			"ethereum" => Self::Ethereum,
 			"astar" => Self::Astar,
+			"polygon" => Self::Polygon,
 			_ => anyhow::bail!("unsupported network {}", s),
 		})
 	}

@@ -232,10 +232,12 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::resume_task())]
-		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId, start: u64) -> DispatchResult {
+			let mut task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
 			ensure!(Self::is_resumable(task_id), Error::<T>::InvalidTaskState);
+			task.start = start;
+			Tasks::<T>::insert(task_id, task);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			Self::deposit_event(Event::TaskResumed(task_id));

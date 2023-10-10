@@ -462,7 +462,7 @@ fn task_resumed_by_owner() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
-		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0));
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
@@ -477,7 +477,7 @@ fn task_resumed_by_root() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
-		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0));
+		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0, 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
@@ -501,7 +501,7 @@ fn task_stopped_by_invalid_owner() {
 fn cannot_resume_if_task_dne() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),
+			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0),
 			Error::<Test>::UnknownTask
 		);
 	});
@@ -516,7 +516,7 @@ fn cannot_resume_task_if_not_owner() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_noop!(
-			Tasks::resume_task(RawOrigin::Signed([1; 32].into()).into(), 0),
+			Tasks::resume_task(RawOrigin::Signed([1; 32].into()).into(), 0, 0),
 			Error::<Test>::InvalidOwner
 		);
 	});
@@ -530,7 +530,7 @@ fn cannot_resume_running_task() {
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_noop!(
-			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0),
+			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0),
 			Error::<Test>::InvalidTaskState
 		);
 	});
@@ -547,7 +547,7 @@ fn task_stopped_and_moved_on_shard_offline() {
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		Tasks::shard_offline(1, Network::Ethereum);
 		Tasks::shard_online(2, Network::Ethereum);
-		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0));
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
 		assert_eq!(
 			Tasks::get_shard_tasks(2),
@@ -677,7 +677,7 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert_eq!(Tasks::task_shard(0), None);
 		Tasks::shard_online(1, Network::Ethereum);
-		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0));
 		assert_eq!(Tasks::task_shard(0), Some(1));
 	});
 }

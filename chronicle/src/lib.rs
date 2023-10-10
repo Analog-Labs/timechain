@@ -1,5 +1,6 @@
 use crate::network::{TimeWorker, TimeWorkerParams};
-use crate::task_executor::{Task, TaskExecutor, TaskExecutorParams, TaskSpawnerParams};
+use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
+use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
 use crate::tx_submitter::TransactionSubmitter;
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
@@ -18,7 +19,7 @@ use time_primitives::{
 use tracing::{event, span, Level};
 
 mod network;
-mod task_executor;
+mod tasks;
 #[cfg(test)]
 mod tests;
 mod tx_submitter;
@@ -109,7 +110,7 @@ where
 		tx_submitter: tx_submitter.clone(),
 	};
 	let task_spawner = loop {
-		match Task::new(task_spawner_params.clone()).await {
+		match TaskSpawner::new(task_spawner_params.clone()).await {
 			Ok(task_spawner) => break task_spawner,
 			Err(error) => {
 				event!(

@@ -165,7 +165,7 @@ pub struct TimeWorker<S, T, N> {
 
 impl<S, T, N> TimeWorker<S, T, N>
 where
-	S: SubstrateClient + Shards + Members + Clone + Send + Sync + 'static,
+	S: SubstrateClient + Shards + Members,
 	T: TaskExecutor + Clone,
 	N: NetworkRequest,
 {

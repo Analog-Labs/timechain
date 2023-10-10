@@ -17,10 +17,8 @@ use time_primitives::{
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
-pub struct TaskSpawnerParams<S>
-where
-	S: Tasks + Clone + Send + Sync + 'static,
-{
+#[derive(Clone)]
+pub struct TaskSpawnerParams<S> {
 	pub tss: mpsc::Sender<TssSigningRequest>,
 	pub blockchain: Network,
 	pub network: String,
@@ -31,24 +29,7 @@ where
 	pub substrate: S,
 }
 
-impl<S> Clone for TaskSpawnerParams<S>
-where
-	S: Tasks + Clone + Send + Sync + 'static,
-{
-	fn clone(&self) -> Self {
-		Self {
-			tss: self.tss.clone(),
-			blockchain: self.blockchain,
-			network: self.network.clone(),
-			url: self.url.clone(),
-			keyfile: self.keyfile.clone(),
-			timegraph_url: self.timegraph_url.clone(),
-			timegraph_ssk: self.timegraph_ssk.clone(),
-			substrate: self.substrate.clone(),
-		}
-	}
-}
-
+#[derive(Clone)]
 pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
@@ -56,23 +37,9 @@ pub struct TaskSpawner<S> {
 	substrate: S,
 }
 
-impl<S> Clone for TaskSpawner<S>
-where
-	S: Tasks + Clone + Send + Sync + 'static,
-{
-	fn clone(&self) -> Self {
-		Self {
-			tss: self.tss.clone(),
-			wallet: self.wallet.clone(),
-			timegraph: self.timegraph.clone(),
-			substrate: self.substrate.clone(),
-		}
-	}
-}
-
 impl<S> TaskSpawner<S>
 where
-	S: Tasks + Clone + Send + Sync + 'static,
+	S: Tasks + Send,
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
 		let path = params.keyfile.as_ref().map(Path::new);

@@ -60,8 +60,8 @@ pub struct ChronicleParams<B: Block, C, R, N> {
 
 pub async fn run_chronicle<B, C, R, N>(params: ChronicleParams<B, C, R, N>)
 where
-	B: Block<Hash = BlockHash> + 'static,
-	C: BlockchainEvents<B> + HeaderBackend<B> + Send + Sync + 'static,
+	B: Block<Hash = BlockHash>,
+	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest + NetworkSigner,
@@ -93,7 +93,7 @@ where
 		params.keystore,
 		params.tx_pool,
 		params.client.clone(),
-		params.runtime.clone(),
+		params.runtime,
 	);
 
 	let task_spawner_params = TaskSpawnerParams {

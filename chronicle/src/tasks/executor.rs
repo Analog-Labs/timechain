@@ -10,11 +10,7 @@ use tokio::task::JoinHandle;
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<S, T>
-where
-	S: Tasks + Clone + Send + Sync + 'static,
-	T: TaskSpawner + Send + Sync + 'static,
-{
+pub struct TaskExecutorParams<S, T> {
 	pub substrate: S,
 	pub task_spawner: T,
 	pub network: Network,
@@ -29,11 +25,7 @@ pub struct TaskExecutor<S, T> {
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
-impl<S, T> Clone for TaskExecutor<S, T>
-where
-	S: Tasks + Clone + Send + Sync + 'static,
-	T: TaskSpawner + Send + Sync + Clone + 'static,
-{
+impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 	fn clone(&self) -> Self {
 		Self {
 			substrate: self.substrate.clone(),
@@ -47,8 +39,8 @@ where
 
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	S: Tasks + Clone + Send + Sync + 'static,
-	T: TaskSpawner + Send + Sync + 'static,
+	S: Tasks,
+	T: TaskSpawner,
 {
 	fn network(&self) -> Network {
 		self.network
@@ -71,8 +63,8 @@ where
 
 impl<S, T> TaskExecutor<S, T>
 where
-	S: Tasks + Clone + Send + Sync + 'static,
-	T: TaskSpawner + Send + Sync + 'static,
+	S: Tasks,
+	T: TaskSpawner,
 {
 	pub fn new(params: TaskExecutorParams<S, T>) -> Self {
 		let TaskExecutorParams {

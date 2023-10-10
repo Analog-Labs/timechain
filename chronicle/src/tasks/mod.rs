@@ -1,7 +1,9 @@
 use anyhow::Result;
 use futures::{Future, Stream};
 use std::pin::Pin;
-use time_primitives::{Function, Network, ShardId, TaskCycle, TaskId, TssId};
+use time_primitives::{
+	BlockHash, BlockNumber, Function, Network, ShardId, TaskCycle, TaskId, TssId,
+};
 
 pub mod executor;
 pub mod spawner;
@@ -21,7 +23,7 @@ pub trait TaskSpawner {
 		cycle: TaskCycle,
 		function: Function,
 		hash: String,
-		block_num: u64,
+		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
 	fn execute_write(
@@ -32,16 +34,16 @@ pub trait TaskSpawner {
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }
 
-pub trait TaskExecutor<B: sp_runtime::traits::Block> {
+pub trait TaskExecutor {
 	fn network(&self) -> Network;
 
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 
 	fn process_tasks(
 		&mut self,
-		block_hash: B::Hash,
-		target_block_height: u64,
-		block_num: u64,
+		block_hash: BlockHash,
+		block_number: BlockNumber,
 		shard_id: ShardId,
+		target_block_height: u64,
 	) -> Result<Vec<TssId>>;
 }

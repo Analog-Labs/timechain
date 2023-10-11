@@ -309,6 +309,7 @@ where
 	}
 }
 
+#[allow(clippy::type_complexity)]
 struct BlockStream<'a> {
 	wallet: &'a Arc<Wallet>,
 	opening: Option<

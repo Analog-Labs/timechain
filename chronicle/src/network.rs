@@ -615,6 +615,7 @@ where
 				}
 				data = block_stream.next() => {
 					if let Some(index) = data {
+						tracing::info!("index received {}", index);
 						self.block_height = index;
 					}
 				}

@@ -18,7 +18,7 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::generic::BlockId;
-use sp_runtime::traits::{Block as sp_block, IdentifyAccount};
+use sp_runtime::traits::IdentifyAccount;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};

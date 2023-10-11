@@ -1,26 +1,26 @@
 use super::TaskSpawner;
-use crate::{TaskExecutor, TaskExecutorParams};
 use crate::substrate::Substrate;
+use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::executor::block_on;
 use futures::{future, stream, FutureExt, Stream};
 use sc_block_builder::BlockBuilderProvider;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sc_transaction_pool_api::RejectAllTxPool;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
+use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::AccountId32;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
-use sc_transaction_pool_api::RejectAllTxPool;
-use sp_keystore::testing::MemoryKeystore;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use time_primitives::{
-	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi,
-	TxResult, BlockNumber
+	AccountId, BlockNumber, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId,
+	ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TasksApi, TxResult,
 };
 
 lazy_static::lazy_static! {
@@ -135,7 +135,7 @@ async fn task_executor_smoke() -> Result<()> {
 		MemoryKeystore::new().into(),
 		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		client.clone(),
-		client,
+		api,
 	);
 
 	//import block
@@ -151,7 +151,7 @@ async fn task_executor_smoke() -> Result<()> {
 			task_spawner,
 			network: Network::Ethereum,
 			public_key: pubkey_from_bytes([i; 32]),
-			substrate
+			substrate: substrate.clone(),
 		};
 
 		let mut task_executor = TaskExecutor::new(params);

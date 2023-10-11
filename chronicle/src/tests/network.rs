@@ -1,6 +1,6 @@
 use crate::network::{TimeWorker, TimeWorkerParams};
-use crate::tasks::TaskExecutor;
 use crate::substrate::Substrate;
+use crate::tasks::TaskExecutor;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -25,9 +25,10 @@ use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, BlockTimeApi, Commitment, MembersApi, Network, PeerId, ProofOfKnowledge, PublicKey,
-	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult, BlockHash, BlockNumber
+	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MembersApi, Network, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor,
+	TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey, TssSignature,
+	TssSigningRequest, TxResult,
 };
 use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
@@ -211,12 +212,10 @@ fn verify_tss_signature(
 }
 
 #[derive(Clone)]
-struct MockTaskExecutor {
-}
+struct MockTaskExecutor {}
 
 #[async_trait::async_trait]
-impl TaskExecutor for MockTaskExecutor
-{
+impl TaskExecutor for MockTaskExecutor {
 	fn network(&self) -> Network {
 		Network::Ethereum
 	}
@@ -227,10 +226,10 @@ impl TaskExecutor for MockTaskExecutor
 
 	fn process_tasks(
 		&mut self,
-		block_hash: BlockHash,
-		block_number: BlockNumber,
-		shard_id: ShardId,
-		target_block_height: u64,
+		_block_hash: BlockHash,
+		_block_number: BlockNumber,
+		_shard_id: ShardId,
+		_target_block_height: u64,
 	) -> Result<Vec<TssId>> {
 		Ok(vec![])
 	}
@@ -296,7 +295,7 @@ async fn tss_smoke() -> Result<()> {
 	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
 
-	let task_executor = MockTaskExecutor{};
+	let task_executor = MockTaskExecutor {};
 
 	let mut peers = vec![];
 	let mut pub_keys = vec![];
@@ -388,7 +387,7 @@ async fn tss_smoke() -> Result<()> {
 		tss.send(TssSigningRequest {
 			request_id: TssId(1, 1),
 			shard_id: 0,
-			block_number,
+			block_number: block_number.try_into().unwrap(),
 			data: message.to_vec(),
 			tx,
 		})

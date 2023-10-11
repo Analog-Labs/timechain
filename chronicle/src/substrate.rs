@@ -46,7 +46,7 @@ where
 	}
 
 	fn best_block(&self) -> B::Hash {
-		self.client.info().best_hash
+		self.client.info().finalized_hash
 	}
 
 	fn runtime_api(&self) -> ApiRef<'_, R::Api> {

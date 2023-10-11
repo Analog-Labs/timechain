@@ -186,7 +186,7 @@ sp_api::mock_impl_runtime_apis! {
 
 	impl BlockTimeApi<Block> for MockApi{
 		fn get_block_time_in_msec() -> u64{
-			6000
+			1000000000000
 		}
 	}
 

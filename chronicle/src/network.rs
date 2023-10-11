@@ -474,7 +474,7 @@ where
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
 		let task_executor = self.task_executor.clone();
-		let mut block_stream = task_executor.block_stream();
+		let mut block_stream = task_executor.block_stream().fuse();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		loop {
 			futures::select! {
@@ -583,7 +583,7 @@ where
 						);
 					};
 				}
-				data = block_stream.next().fuse() => {
+				data = block_stream.next() => {
 					if let Some(index) = data {
 						self.block_height = index;
 					}

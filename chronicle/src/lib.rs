@@ -1,45 +1,31 @@
-use crate::network::{TimeWorker, TimeWorkerParams};
+use crate::shards::protocol::{NetworkConfig, TssEndpoint};
+use crate::shards::service::{TimeWorker, TimeWorkerParams};
 use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
+use anyhow::Result;
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
-use sc_network::config::{IncomingRequest, RequestResponseConfig};
-use sc_network::{NetworkRequest, NetworkSigner};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::sync::Arc;
-use std::time::Duration;
 use time_primitives::{
 	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
 };
 use tracing::{event, span, Level};
 
-mod network;
+mod shards;
 mod substrate;
 mod tasks;
-#[cfg(test)]
-mod tests;
 
 pub const TW_LOG: &str = "chronicle";
 
-/// chronicle protocol name suffix.
-pub const PROTOCOL_NAME: &str = "/chronicle/1";
-
-pub fn protocol_config(tx: async_channel::Sender<IncomingRequest>) -> RequestResponseConfig {
-	RequestResponseConfig {
-		name: PROTOCOL_NAME.into(),
-		fallback_names: vec![],
-		max_request_size: 1024 * 1024,
-		max_response_size: 0,
-		request_timeout: Duration::from_secs(3),
-		inbound_queue: Some(tx),
-	}
-}
-
 pub struct ChronicleConfig {
+	pub secret: Option<[u8; 32]>,
+	pub bind_port: Option<u16>,
+	pub pkarr_relay: Option<String>,
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
@@ -48,35 +34,42 @@ pub struct ChronicleConfig {
 	pub timegraph_ssk: Option<String>,
 }
 
-pub struct ChronicleParams<B: Block, C, R, N> {
+pub struct ChronicleParams<B: Block, C, R> {
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub keystore: KeystorePtr,
 	pub tx_pool: OffchainTransactionPoolFactory<B>,
-	pub network: N,
-	pub tss_requests: async_channel::Receiver<IncomingRequest>,
+	pub endpoint: TssEndpoint,
 	pub config: ChronicleConfig,
 }
 
-pub async fn run_chronicle<B, C, R, N>(params: ChronicleParams<B, C, R, N>)
+pub async fn run_chronicle<B, C, R>(params: ChronicleParams<B, C, R>) -> Result<()>
 where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
-	N: NetworkRequest + NetworkSigner,
 {
-	let public_key = params.network.sign_with_local_identity([]).unwrap().public_key;
-	let peer_id = public_key.clone().try_into_ed25519().unwrap().to_bytes();
-	let libp2p_peer_id = public_key.to_peer_id();
+	let (net_tx, net_rx) = mpsc::channel(10);
+	let endpoint = Arc::new(
+		TssEndpoint::new(
+			NetworkConfig {
+				secret: params.config.secret,
+				bind_port: params.config.bind_port,
+				relay: params.config.pkarr_relay,
+			},
+			net_tx,
+		)
+		.await?,
+	);
+	let peer_id = endpoint.peer_id();
 	let span = span!(
 		target: TW_LOG,
 		Level::INFO,
 		"run_chronicle",
-		peer_id = format!("{:?}", peer_id),
-		libp2p_peer_id = libp2p_peer_id.to_string(),
+		peer_id = format!("{peer_id:?}"),
 	);
-	event!(target: TW_LOG, parent: &span, Level::INFO, "Peer identity bytes: {:?}", peer_id);
+	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
 	let public_key: PublicKey = loop {
 		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next()
@@ -87,7 +80,7 @@ where
 		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 	};
 
-	let (tx, rx) = mpsc::channel(10);
+	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let substrate = Substrate::new(
 		true,
 		params.keystore,
@@ -97,7 +90,7 @@ where
 	);
 
 	let task_spawner_params = TaskSpawnerParams {
-		tss: tx,
+		tss: tss_tx,
 		blockchain: params.config.blockchain,
 		network: params.config.network,
 		url: params.config.url,
@@ -130,14 +123,14 @@ where
 	});
 
 	let time_worker = TimeWorker::new(TimeWorkerParams {
-		network: params.network,
+		endpoint,
 		task_executor,
 		substrate,
 		public_key,
-		peer_id,
-		tss_request: rx,
-		protocol_request: params.tss_requests,
+		tss_request: tss_rx,
+		net_request: net_rx,
 	});
 
 	time_worker.run(&span).await;
+	Ok(())
 }

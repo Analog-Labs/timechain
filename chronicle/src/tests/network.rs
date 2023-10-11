@@ -1,6 +1,6 @@
 use crate::network::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskExecutor;
-use crate::tx_submitter::TransactionSubmitter;
+use crate::substrate::Substrate;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -20,7 +20,6 @@ use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::generic::BlockId;
 use sp_runtime::traits::{Block as sp_block, IdentifyAccount};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
@@ -28,7 +27,7 @@ use std::time::Duration;
 use time_primitives::{
 	AccountId, BlockTimeApi, Commitment, MembersApi, Network, PeerId, ProofOfKnowledge, PublicKey,
 	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
+	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult, BlockHash, BlockNumber
 };
 use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
@@ -212,20 +211,11 @@ fn verify_tss_signature(
 }
 
 #[derive(Clone)]
-struct MockTaskExecutor<B> {
-	_block: PhantomData<B>,
-}
-
-impl<B: sp_block> MockTaskExecutor<B> {
-	fn new() -> Self {
-		Self { _block: PhantomData }
-	}
+struct MockTaskExecutor {
 }
 
 #[async_trait::async_trait]
-impl<B> TaskExecutor<B> for MockTaskExecutor<B>
-where
-	B: sp_block,
+impl TaskExecutor for MockTaskExecutor
 {
 	fn network(&self) -> Network {
 		Network::Ethereum
@@ -237,10 +227,10 @@ where
 
 	fn process_tasks(
 		&mut self,
-		_block_hash: <B as sp_block>::Hash,
-		_target_block_height: u64,
-		_block_num: u64,
-		_shard_id: ShardId,
+		block_hash: BlockHash,
+		block_number: BlockNumber,
+		shard_id: ShardId,
+		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
 		Ok(vec![])
 	}
@@ -306,7 +296,7 @@ async fn tss_smoke() -> Result<()> {
 	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
 
-	let task_executor = MockTaskExecutor::<Block>::new();
+	let task_executor = MockTaskExecutor{};
 
 	let mut peers = vec![];
 	let mut pub_keys = vec![];
@@ -330,7 +320,7 @@ async fn tss_smoke() -> Result<()> {
 		peers.push(peer_id);
 		tss.push(tss_tx);
 
-		let tx_submitter = TransactionSubmitter::new(
+		let substrate = Substrate::new(
 			false,
 			MemoryKeystore::new().into(),
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
@@ -339,15 +329,12 @@ async fn tss_smoke() -> Result<()> {
 		);
 
 		let worker = TimeWorker::new(TimeWorkerParams {
-			_block: PhantomData,
-			client: net.peer(i).client().as_client(),
-			runtime: api.clone(),
 			network: net.peer(i).network_service().clone(),
 			peer_id: peers[i],
 			tss_request: tss_rx,
 			protocol_request: protocol_rx,
 			task_executor: task_executor.clone(),
-			tx_submitter: tx_submitter.clone(),
+			substrate: substrate.clone(),
 			public_key: pub_keys[i].clone(),
 		});
 		tokio::task::spawn(async move {

@@ -1,5 +1,6 @@
 use super::TaskSpawner;
 use crate::{TaskExecutor, TaskExecutorParams};
+use crate::substrate::Substrate;
 use anyhow::Result;
 use futures::executor::block_on;
 use futures::{future, stream, FutureExt, Stream};
@@ -8,16 +9,18 @@ use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_runtime::AccountId32;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
+use sc_transaction_pool_api::RejectAllTxPool;
+use sp_keystore::testing::MemoryKeystore;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use time_primitives::{
 	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
 	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi,
-	TxResult,
+	TxResult, BlockNumber
 };
 
 lazy_static::lazy_static! {
@@ -99,7 +102,7 @@ impl TaskSpawner for MockTask {
 		_cycle: TaskCycle,
 		_function: Function,
 		_hash: String,
-		_block_num: u64,
+		_block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		TASK_STATUS.lock().unwrap().push(self.is_ok);
 		future::ready(Ok(())).boxed()
@@ -127,6 +130,14 @@ async fn task_executor_smoke() -> Result<()> {
 	};
 	let api = Arc::new(MockApi);
 
+	let substrate = Substrate::new(
+		false,
+		MemoryKeystore::new().into(),
+		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		client.clone(),
+		client,
+	);
+
 	//import block
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
 	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
@@ -137,11 +148,10 @@ async fn task_executor_smoke() -> Result<()> {
 		let task_spawner = MockTask::new(is_task_ok);
 
 		let params = TaskExecutorParams {
-			_block: PhantomData,
-			runtime: api.clone(),
 			task_spawner,
 			network: Network::Ethereum,
 			public_key: pubkey_from_bytes([i; 32]),
+			substrate
 		};
 
 		let mut task_executor = TaskExecutor::new(params);

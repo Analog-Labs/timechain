@@ -496,7 +496,7 @@ where
 		let block = self.client.info().best_hash;
 		let min_block_time = self.runtime.runtime_api().get_block_time_in_msec(block).unwrap();
 		let heartbeat_time =
-			(self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 2) * min_block_time;
+			(self.runtime.runtime_api().get_heartbeat_timeout(block).unwrap() / 3) * min_block_time;
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);

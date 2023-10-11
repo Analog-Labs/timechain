@@ -483,11 +483,9 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					let Function::SendMessage { payload, .. } = function else {
-						tracing::info!(target: TW_LOG, "Skipping SIGN for task {} due to not SendMessage function", task_id);
-						continue;
-					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_num)
+					if let Function::SendMessage { payload, .. } = function {
+						self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_num)
+					}
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);

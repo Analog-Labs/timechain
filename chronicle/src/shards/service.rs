@@ -1,6 +1,5 @@
-#![allow(clippy::type_complexity)]
-use super::protocol::{Message, TssEndpoint};
-use super::tss::{PeerId, Tss};
+use super::tss::{Tss, TssAction, TssMessage, VerifiableSecretSharingCommitment};
+use super::{Message, Network, PeerId};
 use crate::substrate::SubstrateClient;
 use crate::tasks::TaskExecutor;
 use crate::TW_LOG;
@@ -9,13 +8,12 @@ use futures::{
 	channel::{mpsc, oneshot},
 	future::poll_fn,
 	stream::FuturesUnordered,
-	Future, FutureExt, StreamExt,
+	Future, FutureExt, Stream, StreamExt,
 };
 use sp_runtime::traits::IdentifyAccount;
 use std::{
 	collections::{BTreeMap, HashMap},
 	pin::Pin,
-	sync::Arc,
 	task::Poll,
 };
 use time_primitives::{
@@ -24,67 +22,60 @@ use time_primitives::{
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
 use tracing::{event, span, Level, Span};
-use tss::{TssAction, TssMessage, VerifiableSecretSharingCommitment};
 
-pub struct TimeWorkerParams<S, T> {
+pub struct TimeWorkerParams<S, T, Tx, Rx> {
 	pub substrate: S,
-	pub endpoint: Arc<TssEndpoint>,
 	pub task_executor: T,
+	pub network: Tx,
 	pub public_key: PublicKey,
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
-	pub net_request: mpsc::Receiver<(PeerId, Message)>,
+	pub net_request: Rx,
 }
 
-/// Our structure, which holds refs to everything we need to operate
-pub struct TimeWorker<S, T> {
+pub struct TimeWorker<S, T, Tx, Rx> {
 	substrate: S,
-	endpoint: Arc<TssEndpoint>,
 	task_executor: T,
+	network: Tx,
 	public_key: PublicKey,
-	block_height: u64,
-	executor_states: HashMap<ShardId, T>,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
-	net_request: mpsc::Receiver<(PeerId, Message)>,
+	net_request: Rx,
+	block_height: u64,
 	tss_states: HashMap<ShardId, Tss>,
-	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage<TssId>)>>,
+	executor_states: HashMap<ShardId, T>,
+	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
 	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	outgoing_requests: FuturesUnordered<
-		Pin<
-			Box<
-				dyn Future<Output = (ShardId, PeerId, TssMessage<TssId>, Result<()>)>
-					+ Send
-					+ Sync
-					+ 'static,
-			>,
-		>,
+		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,
 	>,
 }
 
-impl<S, T> TimeWorker<S, T>
+impl<S, T, Tx, Rx> TimeWorker<S, T, Tx, Rx>
 where
 	S: SubstrateClient + Shards + Members,
 	T: TaskExecutor + Clone,
+	Tx: Network + Clone,
+	Rx: Stream<Item = (PeerId, Message)> + Send + Unpin,
 {
-	pub fn new(worker_params: TimeWorkerParams<S, T>) -> Self {
+	pub fn new(worker_params: TimeWorkerParams<S, T, Tx, Rx>) -> Self {
 		let TimeWorkerParams {
 			substrate,
 			task_executor,
-			endpoint,
+			network,
 			public_key,
 			tss_request,
 			net_request,
 		} = worker_params;
 		Self {
 			substrate,
-			endpoint,
 			task_executor,
+			network,
 			public_key,
-			block_height: 0,
-			executor_states: Default::default(),
 			tss_request,
 			net_request,
+			block_height: 0,
 			tss_states: Default::default(),
+			executor_states: Default::default(),
 			messages: Default::default(),
 			requests: Default::default(),
 			channels: Default::default(),
@@ -125,7 +116,7 @@ where
 				.map(|account| self.substrate.get_member_peer_id(block, &account).unwrap().unwrap())
 				.collect();
 			self.tss_states
-				.insert(shard_id, Tss::new(self.endpoint.peer_id(), members, threshold, None));
+				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));
 			self.poll_actions(&span, shard_id, block_number);
 		}
 		for shard_id in shards.iter().copied() {
@@ -305,10 +296,11 @@ where
 			message.payload,
 			peer_id
 		);
-		let endpoint = self.endpoint.clone();
+		let endpoint = self.network.clone();
 		self.outgoing_requests.push(Box::pin(async move {
-			let result = endpoint.send(&peer_id, &message).await;
-			(message.shard_id, peer_id, message.payload, result)
+			let shard_id = message.shard_id;
+			let result = endpoint.send(peer_id, message).await;
+			(shard_id, peer_id, result)
 		}));
 	}
 
@@ -324,7 +316,7 @@ where
 			.submit_register_member(
 				self.task_executor.network(),
 				self.public_key.clone(),
-				self.endpoint.peer_id(),
+				self.network.peer_id(),
 			)
 			.unwrap()
 		{
@@ -403,7 +395,7 @@ where
 					self.messages.entry(block_number).or_default().push((shard_id, peer, payload));
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
-					let Some((shard_id, peer, request, result)) = outgoing_request else {
+					let Some((shard_id, peer, result)) = outgoing_request else {
 						continue;
 					};
 					let span = span!(
@@ -419,8 +411,7 @@ where
 							parent: &span,
 							Level::INFO,
 							shard_id,
-							"tx {} to {:?} network error {:?}",
-							request,
+							"tx to {:?} network error {:?}",
 							peer,
 							error,
 						);

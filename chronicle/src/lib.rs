@@ -1,11 +1,12 @@
-use crate::shards::protocol::{NetworkConfig, TssEndpoint};
-use crate::shards::service::{TimeWorker, TimeWorkerParams};
+use crate::shards::{NetworkConfig, TimeWorker, TimeWorkerParams};
 use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
 use anyhow::Result;
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
+use sc_network::request_responses::IncomingRequest;
+use sc_network::{NetworkRequest, NetworkSigner};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::{Keystore, KeystorePtr};
@@ -19,6 +20,8 @@ use tracing::{event, span, Level};
 mod shards;
 mod substrate;
 mod tasks;
+
+pub use crate::shards::protocol_config;
 
 pub const TW_LOG: &str = "chronicle";
 
@@ -34,35 +37,33 @@ pub struct ChronicleConfig {
 	pub timegraph_ssk: Option<String>,
 }
 
-pub struct ChronicleParams<B: Block, C, R> {
+pub struct ChronicleParams<B: Block, C, R, N> {
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
 	pub keystore: KeystorePtr,
 	pub tx_pool: OffchainTransactionPoolFactory<B>,
-	pub endpoint: TssEndpoint,
+	pub network: Option<(N, async_channel::Receiver<IncomingRequest>)>,
 	pub config: ChronicleConfig,
 }
 
-pub async fn run_chronicle<B, C, R>(params: ChronicleParams<B, C, R>) -> Result<()>
+pub async fn run_chronicle<B, C, R, N>(params: ChronicleParams<B, C, R, N>) -> Result<()>
 where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
+	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
-	let (net_tx, net_rx) = mpsc::channel(10);
-	let endpoint = Arc::new(
-		TssEndpoint::new(
-			NetworkConfig {
-				secret: params.config.secret,
-				bind_port: params.config.bind_port,
-				relay: params.config.pkarr_relay,
-			},
-			net_tx,
-		)
-		.await?,
-	);
-	let peer_id = endpoint.peer_id();
+	let (network, net_request) = crate::shards::network(
+		params.network,
+		NetworkConfig {
+			secret: params.config.secret,
+			bind_port: params.config.bind_port,
+			relay: params.config.pkarr_relay,
+		},
+	)
+	.await?;
+	let peer_id = network.peer_id();
 	let span = span!(
 		target: TW_LOG,
 		Level::INFO,
@@ -123,12 +124,12 @@ where
 	});
 
 	let time_worker = TimeWorker::new(TimeWorkerParams {
-		endpoint,
+		network,
 		task_executor,
 		substrate,
 		public_key,
 		tss_request: tss_rx,
-		net_request: net_rx,
+		net_request,
 	});
 
 	time_worker.run(&span).await;

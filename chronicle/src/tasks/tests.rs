@@ -1,3 +1,4 @@
+use super::TaskSpawner;
 use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::executor::block_on;
@@ -15,8 +16,8 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use time_primitives::{
 	AccountId, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId, ShardsApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
-	TaskSpawner, TasksApi, TssSignature, TxResult,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi,
+	TxResult,
 };
 
 lazy_static::lazy_static! {
@@ -89,11 +90,7 @@ impl MockTask {
 
 #[async_trait::async_trait]
 impl TaskSpawner for MockTask {
-	async fn block_height(&self) -> Result<u64> {
-		Ok(0)
-	}
-
-	async fn get_block_stream<'a>(&'a self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'a>> {
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(stream::iter(vec![1]))
 	}
 
@@ -111,15 +108,6 @@ impl TaskSpawner for MockTask {
 		future::ready(Ok(())).boxed()
 	}
 
-	fn execute_write(
-		&self,
-		_: ShardId,
-		_: TaskId,
-		_: Function,
-	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		future::ready(Ok(())).boxed()
-	}
-
 	fn execute_sign(
 		&self,
 		_: ShardId,
@@ -127,6 +115,15 @@ impl TaskSpawner for MockTask {
 		_: TaskCycle,
 		_: Vec<u8>,
 		_: u64,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		future::ready(Ok(())).boxed()
+	}
+
+	fn execute_write(
+		&self,
+		_: ShardId,
+		_: TaskId,
+		_: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		future::ready(Ok(())).boxed()
 	}

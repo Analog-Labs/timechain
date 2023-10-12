@@ -1,4 +1,5 @@
 use crate::network::{TimeWorker, TimeWorkerParams};
+use crate::tasks::TaskExecutor;
 use crate::tx_submitter::TransactionSubmitter;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
@@ -186,7 +187,7 @@ sp_api::mock_impl_runtime_apis! {
 
 	impl BlockTimeApi<Block> for MockApi{
 		fn get_block_time_in_msec() -> u64{
-			1000000000000
+			6000
 		}
 	}
 
@@ -223,7 +224,7 @@ impl<B: sp_block> MockTaskExecutor<B> {
 }
 
 #[async_trait::async_trait]
-impl<B> time_primitives::TaskExecutor<B> for MockTaskExecutor<B>
+impl<B> TaskExecutor<B> for MockTaskExecutor<B>
 where
 	B: sp_block,
 {
@@ -231,7 +232,7 @@ where
 		Network::Ethereum
 	}
 
-	async fn poll_block_height<'b>(&'b mut self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'b>> {
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(stream::iter(vec![1]))
 	}
 

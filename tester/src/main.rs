@@ -37,8 +37,23 @@ enum TestCommand {
 	DeployContract,
 	FundWallet,
 	InsertTask(InsertTaskParams),
+	InsertSignTask(InsertSignTaskParams),
 	SetKeys,
 	WatchTask { task_id: u64 },
+}
+
+#[derive(Parser, Debug)]
+struct InsertSignTaskParams {
+	#[arg(default_value_t = 2)]
+	cycle: u64,
+	#[arg(default_value_t = 20)]
+	start: u64,
+	#[arg(default_value_t = 2)]
+	period: u64,
+	#[arg(default_value_t = Vec::new())]
+	contract_address: Vec<u8>,
+	#[arg(default_value_t = Vec::new())]
+	payload: Vec<u8>,
 }
 
 #[derive(Parser, Debug)]
@@ -124,6 +139,19 @@ async fn main() {
 				params.period,
 				network,
 				params.is_payable,
+			)
+			.await
+			.unwrap();
+		},
+		TestCommand::InsertSignTask(params) => {
+			insert_sign_task(
+				&api,
+				params.cycle,
+				params.start,
+				params.period,
+				network,
+				params.contract_address,
+				params.payload,
 			)
 			.await
 			.unwrap();

@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+use crate::tasks::TaskExecutor;
 use crate::{PROTOCOL_NAME, TW_LOG};
 use anyhow::Result;
 use futures::{
@@ -22,10 +23,9 @@ use std::{
 };
 use time_primitives::{
 	BlockTimeApi, MembersApi, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitMembers,
-	SubmitShards, TaskExecutor, TssId, TssSignature, TssSigningRequest,
+	SubmitShards, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
-
 use tracing::{event, span, Level, Span};
 use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -459,9 +459,6 @@ where
 	}
 
 	pub async fn run(mut self, span: &Span) {
-		let mut cloned_executor = self.task_executor.clone();
-		let mut block_stream = cloned_executor.poll_block_height().await.fuse();
-
 		event!(
 			target: TW_LOG,
 			parent: span,
@@ -504,6 +501,8 @@ where
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
+		let task_executor = self.task_executor.clone();
+		let mut block_stream = task_executor.block_stream().fuse();
 		let mut finality_notifications = self.client.finality_notification_stream();
 		loop {
 			futures::select! {
@@ -616,6 +615,7 @@ where
 				}
 				data = block_stream.next() => {
 					if let Some(index) = data {
+						tracing::info!("index received {}", index);
 						self.block_height = index;
 					}
 				}

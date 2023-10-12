@@ -1,25 +1,9 @@
+use super::{Message, Network, NetworkConfig, PeerId, PROTOCOL_NAME};
 use anyhow::Result;
 use futures::channel::mpsc;
-use futures::SinkExt;
+use futures::{Future, FutureExt, SinkExt};
 use p2p::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
-use serde::{Deserialize, Serialize};
-use time_primitives::{BlockNumber, PeerId, ShardId, TssId};
-use tss::TssMessage;
-
-const ALPN: &[u8] = b"analog-labs/chronicle/1";
-
-#[derive(Deserialize, Serialize)]
-pub struct Message {
-	pub shard_id: ShardId,
-	pub block_number: BlockNumber,
-	pub payload: TssMessage<TssId>,
-}
-
-pub struct NetworkConfig {
-	pub secret: Option<[u8; 32]>,
-	pub relay: Option<String>,
-	pub bind_port: Option<u16>,
-}
+use std::pin::Pin;
 
 pub struct TssEndpoint {
 	endpoint: Endpoint,
@@ -62,7 +46,7 @@ impl TssEndpoint {
 		builder.register_notification_handler(TssProtocolHandler::new(tx));
 		let handler = builder.build();
 
-		let mut builder = Endpoint::builder(ALPN.to_vec());
+		let mut builder = Endpoint::builder(PROTOCOL_NAME.as_bytes().to_vec());
 		if let Some(secret) = config.secret {
 			builder.secret(secret);
 		}
@@ -78,13 +62,19 @@ impl TssEndpoint {
 		let endpoint = builder.build().await?;
 		Ok(Self { endpoint })
 	}
+}
 
-	pub fn peer_id(&self) -> PeerId {
+impl Network for TssEndpoint {
+	fn peer_id(&self) -> PeerId {
 		*self.endpoint.peer_id().as_bytes()
 	}
 
-	pub async fn send(&self, peer: &PeerId, msg: &Message) -> Result<()> {
-		let peer = p2p::PeerId::from_bytes(peer).unwrap();
-		self.endpoint.notify::<TssProtocol>(&peer, msg).await
+	fn send(&self, peer: PeerId, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+		let endpoint = self.endpoint.clone();
+		async move {
+			let peer = p2p::PeerId::from_bytes(&peer).unwrap();
+			endpoint.notify::<TssProtocol>(&peer, &msg).await
+		}
+		.boxed()
 	}
 }

@@ -1,4 +1,4 @@
-use crate::network::{TimeWorker, TimeWorkerParams};
+use super::service::{TimeWorker, TimeWorkerParams};
 use crate::substrate::Substrate;
 use crate::tasks::TaskExecutor;
 use anyhow::Result;
@@ -327,11 +327,14 @@ async fn tss_smoke() -> Result<()> {
 			api.clone(),
 		);
 
+		let n = net.peer(i).network_service().clone();
+		let (n, net_request) =
+			crate::shards::network(Some((n, protocol_rx)), Default::default()).await?;
+
 		let worker = TimeWorker::new(TimeWorkerParams {
-			network: net.peer(i).network_service().clone(),
-			peer_id: peers[i],
+			network: n,
 			tss_request: tss_rx,
-			protocol_request: protocol_rx,
+			net_request,
 			task_executor: task_executor.clone(),
 			substrate: substrate.clone(),
 			public_key: pub_keys[i].clone(),

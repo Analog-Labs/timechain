@@ -1,11 +1,15 @@
+use super::PeerId;
 use std::collections::BTreeSet;
 
-pub use time_primitives::{PeerId, TssId};
-pub use tss::{SigningKey, TssAction, TssMessage, VerifiableSecretSharingCommitment, VerifyingKey};
+pub use time_primitives::TssId;
+pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
+
+pub type TssMessage = tss::TssMessage<TssId>;
+pub type TssAction = tss::TssAction<TssId, PeerId>;
 
 pub enum Tss {
 	Enabled(tss::Tss<TssId, String>),
-	Disabled(SigningKey, Option<TssAction<TssId, String>>, bool),
+	Disabled(SigningKey, Option<tss::TssAction<TssId, String>>, bool),
 }
 
 impl Tss {
@@ -30,7 +34,7 @@ impl Tss {
 				&commitment,
 			)
 			.unwrap();
-			Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false)
+			Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), false)
 		} else {
 			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
 		}
@@ -47,7 +51,7 @@ impl Tss {
 		match self {
 			Self::Enabled(tss) => tss.on_commit(commitment),
 			Self::Disabled(key, actions, committed) => {
-				*actions = Some(TssAction::PublicKey(key.public()));
+				*actions = Some(tss::TssAction::PublicKey(key.public()));
 				*committed = true;
 			},
 		}
@@ -58,7 +62,8 @@ impl Tss {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {
 				let hash = VerifyingKey::message_hash(&data);
-				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
+				*actions =
+					Some(tss::TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
 			},
 		}
 	}
@@ -70,11 +75,7 @@ impl Tss {
 		}
 	}
 
-	pub fn on_message(
-		&mut self,
-		peer_id: PeerId,
-		msg: TssMessage<TssId>,
-	) -> Option<TssMessage<TssId>> {
+	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Option<TssMessage> {
 		let peer_id = p2p::PeerId::from_bytes(&peer_id).unwrap().to_string();
 		match self {
 			Self::Enabled(tss) => tss.on_message(peer_id, msg),
@@ -82,13 +83,13 @@ impl Tss {
 		}
 	}
 
-	pub fn next_action(&mut self) -> Option<TssAction<TssId, PeerId>> {
+	pub fn next_action(&mut self) -> Option<TssAction> {
 		let action = match self {
 			Self::Enabled(tss) => tss.next_action(),
 			Self::Disabled(_, action, _) => action.take(),
 		}?;
 		Some(match action {
-			TssAction::Send(msgs) => TssAction::Send(
+			tss::TssAction::Send(msgs) => TssAction::Send(
 				msgs.into_iter()
 					.map(|(peer, msg)| {
 						let peer: p2p::PeerId = peer.parse().unwrap();
@@ -96,11 +97,11 @@ impl Tss {
 					})
 					.collect(),
 			),
-			TssAction::Commit(commitment, proof_of_knowledge) => {
+			tss::TssAction::Commit(commitment, proof_of_knowledge) => {
 				TssAction::Commit(commitment, proof_of_knowledge)
 			},
-			TssAction::PublicKey(public_key) => TssAction::PublicKey(public_key),
-			TssAction::Signature(id, hash, sig) => TssAction::Signature(id, hash, sig),
+			tss::TssAction::PublicKey(public_key) => TssAction::PublicKey(public_key),
+			tss::TssAction::Signature(id, hash, sig) => TssAction::Signature(id, hash, sig),
 		})
 	}
 }

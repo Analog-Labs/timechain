@@ -50,10 +50,10 @@ struct InsertSignTaskParams {
 	start: u64,
 	#[arg(default_value_t = 2)]
 	period: u64,
-	#[arg(default_value_t = Vec::new())]
-	contract_address: Vec<u8>,
-	#[arg(default_value_t = Vec::new())]
-	payload: Vec<u8>,
+	#[arg(default_value_t = String::new())]
+	contract_address: String,
+	#[arg(default_value_t = String::new())]
+	payload: String,
 }
 
 #[derive(Parser, Debug)]
@@ -150,8 +150,8 @@ async fn main() {
 				params.start,
 				params.period,
 				network,
-				params.contract_address,
-				params.payload,
+				params.contract_address.into_bytes().to_vec(),
+				params.payload.into_bytes().to_vec(),
 			)
 			.await
 			.unwrap();

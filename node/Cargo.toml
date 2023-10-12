@@ -20,47 +20,47 @@ clap = { version = "4.4.4", features = [ "derive" ] }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-pallet-im-online = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-executor = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-network = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-service = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sc-telemetry = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-inherents = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-statement-store = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+pallet-im-online = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+pallet-transaction-payment = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-chain-spec = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sc-client-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-consensus-babe = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-consensus-grandpa = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-executor = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-network = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-offchain = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-service = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sc-telemetry = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-transaction-pool = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-transaction-pool-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-consensus-babe = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-consensus-grandpa = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-inherents = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-keyring = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-statement-store = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-timestamp = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 
 # node 's RPCs deps
 jsonrpsee = { version = "0.16.2", features = [ "server" ] }
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+pallet-transaction-payment-rpc = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-basic-authorship = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sc-rpc-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-blockchain = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+substrate-frame-rpc-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+frame-benchmarking-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 # Local Dependencies
 chronicle = { path = "../chronicle" }
@@ -68,10 +68,10 @@ time-primitives = { path = "../primitives" }
 timechain-runtime = { path = "../runtime", version = "0.0.1" }
 
 # CLI-specific dependencies
-try-runtime-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", optional = true }
+try-runtime-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", optional = true }
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+substrate-build-script-utils = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 
 [features]
 default = []

@@ -17,20 +17,20 @@ codec = { package = "parity-scale-codec", version = "3.6", default-features = fa
 	"derive",
 ] }
 fastrand = { version = "2.0.0", default-features = false }
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
+frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 schnorr-evm = { git = "https://github.com/analog-labs/frost-evm", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", version = "4.0.0-dev" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 [features]
 default = [ "std" ]

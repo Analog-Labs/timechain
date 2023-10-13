@@ -9,6 +9,7 @@ members = [
 	"primitives",
 	"runtime",
 	"runtime/common",
+	"tc-subxt",
 	"tester",
 	"tss",
 ]

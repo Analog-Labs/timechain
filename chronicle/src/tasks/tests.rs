@@ -135,6 +135,7 @@ async fn task_executor_smoke() -> Result<()> {
 		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		client.clone(),
 		api,
+		None,
 	);
 
 	//import block

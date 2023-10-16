@@ -7,6 +7,7 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
+use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
 	Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi, SubmitResult, TaskCycle,
@@ -20,6 +21,7 @@ pub struct Substrate<B: Block, C, R> {
 	pool: OffchainTransactionPoolFactory<B>,
 	client: Arc<C>,
 	runtime: Arc<R>,
+	subxt_client: Option<SubxtClient>,
 }
 
 impl<B, C, R> Substrate<B, C, R>
@@ -34,6 +36,7 @@ where
 		pool: OffchainTransactionPoolFactory<B>,
 		client: Arc<C>,
 		runtime: Arc<R>,
+		subxt_client: Option<SubxtClient>,
 	) -> Self {
 		Self {
 			_block: PhantomData,
@@ -42,6 +45,7 @@ where
 			pool,
 			client,
 			runtime,
+			subxt_client,
 		}
 	}
 
@@ -68,6 +72,7 @@ impl<B: Block, C, R> Clone for Substrate<B, C, R> {
 			pool: self.pool.clone(),
 			client: self.client.clone(),
 			runtime: self.runtime.clone(),
+			subxt_client: self.subxt_client.clone(),
 		}
 	}
 }
@@ -224,8 +229,17 @@ where
 		public_key: PublicKey,
 		peer_id: PeerId,
 	) -> SubmitResult {
-		self.runtime_api()
-			.submit_register_member(self.best_block(), network, public_key, peer_id)
+		if let Some(subxt_client) = self.subxt_client.clone() {
+			futures::executor::block_on(subxt_client.register_member(network, public_key, peer_id));
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_register_member(
+				self.best_block(),
+				network,
+				public_key,
+				peer_id,
+			)
+		}
 	}
 
 	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {

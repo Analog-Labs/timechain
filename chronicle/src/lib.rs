@@ -14,6 +14,8 @@ use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
+use tc_subxt::SubxtClient;
 use time_primitives::{
 	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
 };
@@ -35,6 +37,7 @@ pub struct ChronicleConfig {
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
+	pub timechain_keyfile: String,
 	pub keyfile: Option<PathBuf>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
@@ -95,12 +98,14 @@ where
 	};
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
+	let subxt_client = SubxtClient::new(params.config.timechain_keyfile).await;
 	let substrate = Substrate::new(
 		true,
 		params.keystore,
 		params.tx_pool,
 		params.client.clone(),
 		params.runtime,
+		Some(subxt_client),
 	);
 
 	let task_spawner_params = TaskSpawnerParams {

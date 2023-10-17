@@ -31,9 +31,9 @@ sc-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch
 sc-network-test = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 schnorr-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
+sc-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false}
-sc-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 substrate-test-runtime-client = {  git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-lazy_static = "1.4.0"
 log-panics = "2.1.0"
+lazy_static = "1.4.0"

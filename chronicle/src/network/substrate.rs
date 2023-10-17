@@ -103,10 +103,13 @@ impl Stream for SubstrateNetworkAdapter {
 						sent_feedback: None,
 					});
 					let Some(peer) = parse_peer_id(peer) else {
+						tracing::info!("invalid peer id");
 						continue;
 					};
 					if let Ok(msg) = bincode::deserialize(&payload) {
 						return Poll::Ready(Some((peer, msg)));
+					} else {
+						tracing::info!("invalid message");
 					}
 				},
 				Poll::Ready(None) => return Poll::Ready(None),

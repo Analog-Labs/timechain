@@ -329,7 +329,7 @@ async fn tss_smoke() -> Result<()> {
 
 		let n = net.peer(i).network_service().clone();
 		let (n, net_request) =
-			crate::shards::network(Some((n, protocol_rx)), Default::default()).await?;
+			crate::network::create_network(Some((n, protocol_rx)), Default::default()).await?;
 
 		let worker = TimeWorker::new(TimeWorkerParams {
 			network: n,

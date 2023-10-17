@@ -1,5 +1,5 @@
-use super::tss::{Tss, TssAction, TssMessage, VerifiableSecretSharingCommitment};
-use super::{Message, Network, PeerId};
+use super::tss::{Tss, TssAction, VerifiableSecretSharingCommitment};
+use crate::network::{Message, Network, PeerId, TssMessage};
 use crate::substrate::SubstrateClient;
 use crate::tasks::TaskExecutor;
 use crate::TW_LOG;

@@ -4,7 +4,7 @@ use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSi
 use timechain_runtime::runtime_types::time_primitives::shard;
 impl SubxtClient {
 	pub fn register_member(
-		&self,
+		&mut self,
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
@@ -14,7 +14,8 @@ impl SubxtClient {
 		let tx = timechain_runtime::tx().members().register_member(network, public_key, peer_id);
 		self.make_transaction(&tx)
 	}
-	pub fn submit_heartbeat(&self, public_key: PublicKey) -> Vec<u8> {
+	pub fn submit_heartbeat(&mut self, public_key: PublicKey) -> Vec<u8> {
+		println!("////////////submit_heartbeat///////////////");
 		let tx = timechain_runtime::tx().members().send_heartbeat();
 		self.make_transaction(&tx)
 	}

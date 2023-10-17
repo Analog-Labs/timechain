@@ -17,7 +17,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
+	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, SubmitTransactionApi,
+	TasksApi, TIME_KEY_TYPE,
 };
 use tracing::{event, span, Level};
 
@@ -57,7 +58,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B> + SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
 	let secret = if let Some(path) = params.config.secret {

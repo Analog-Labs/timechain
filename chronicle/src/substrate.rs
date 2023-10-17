@@ -10,8 +10,9 @@ use std::sync::Arc;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
-	Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi, SubmitResult, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, Tasks, TasksApi,
+	Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi, SubmitResult,
+	SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
+	Tasks, TasksApi,
 };
 
 pub struct Substrate<B: Block, C, R> {
@@ -115,7 +116,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: ShardsApi<B>,
+	R::Api: ShardsApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {
 		self.runtime_api().get_shards(block, account)
@@ -148,17 +149,34 @@ where
 		commitment: Vec<[u8; 33]>,
 		proof_of_knowledge: [u8; 65],
 	) -> SubmitResult {
-		self.runtime_api().submit_commitment(
-			self.best_block(),
-			shard_id,
-			member,
-			commitment,
-			proof_of_knowledge,
-		)
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
+			let bytes =
+				subxt_client.submit_commitment(shard_id, member, commitment, proof_of_knowledge);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
+			};
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_commitment(
+				self.best_block(),
+				shard_id,
+				member,
+				commitment,
+				proof_of_knowledge,
+			)
+		}
 	}
 
 	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
-		self.runtime_api().submit_online(self.best_block(), shard_id, member)
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
+			let bytes = subxt_client.submit_ready(shard_id, member);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
+			};
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_online(self.best_block(), shard_id, member)
+		}
 	}
 }
 
@@ -167,7 +185,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: TasksApi<B>,
+	R::Api: TasksApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_shard_tasks(
 		&self,
@@ -182,7 +200,15 @@ where
 	}
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
-		self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
+			let bytes = subxt_client.submit_task_hash(task_id, cycle, hash);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
+			};
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
+		}
 	}
 
 	fn submit_task_result(
@@ -191,7 +217,15 @@ where
 		cycle: TaskCycle,
 		status: TaskResult,
 	) -> SubmitResult {
-		self.runtime_api().submit_task_result(self.best_block(), task_id, cycle, status)
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
+			let bytes = subxt_client.submit_task_result(task_id, cycle, status);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
+			};
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_task_result(self.best_block(), task_id, cycle, status)
+		}
 	}
 
 	fn submit_task_error(
@@ -200,7 +234,15 @@ where
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult {
-		self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
+			let bytes = subxt_client.submit_task_error(task_id, cycle, error);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
+			};
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)
+		}
 	}
 }
 
@@ -209,7 +251,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: MembersApi<B>,
+	R::Api: MembersApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_member_peer_id(
 		&self,
@@ -229,10 +271,10 @@ where
 		public_key: PublicKey,
 		peer_id: PeerId,
 	) -> SubmitResult {
-		if let Some(subxt_client) = self.subxt_client.clone() {
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.register_member(network, public_key, peer_id);
-			if let Err(e) = sp_io::offchain::submit_transaction(bytes) {
-				tracing::error!("error submitting transaction {:?}", e);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
 			};
 			Ok(Ok(()))
 		} else {
@@ -246,6 +288,14 @@ where
 	}
 
 	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
-		self.runtime_api().submit_heartbeat(self.best_block(), public_key)
+		if let Some(mut subxt_client) = self.subxt_client.clone() {
+			let bytes = subxt_client.submit_heartbeat(public_key);
+			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
+				tracing::info!("Error occured while registering member {:?}", e);
+			};
+			Ok(Ok(()))
+		} else {
+			self.runtime_api().submit_heartbeat(self.best_block(), public_key)
+		}
 	}
 }

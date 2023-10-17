@@ -1,4 +1,5 @@
-use crate::shards::{NetworkConfig, TimeWorker, TimeWorkerParams};
+use crate::network::NetworkConfig;
+use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
@@ -18,11 +19,12 @@ use time_primitives::{
 };
 use tracing::{event, span, Level};
 
+mod network;
 mod shards;
 mod substrate;
 mod tasks;
 
-pub use crate::shards::protocol_config;
+pub use crate::network::protocol_config;
 
 pub const TW_LOG: &str = "chronicle";
 
@@ -65,7 +67,7 @@ where
 	} else {
 		None
 	};
-	let (network, net_request) = crate::shards::network(
+	let (network, net_request) = crate::network::create_network(
 		params.network,
 		NetworkConfig {
 			secret,

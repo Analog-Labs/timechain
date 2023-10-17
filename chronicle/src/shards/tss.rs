@@ -1,4 +1,4 @@
-use super::PeerId;
+use crate::network::PeerId;
 use std::collections::BTreeSet;
 
 pub use time_primitives::TssId;

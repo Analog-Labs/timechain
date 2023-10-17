@@ -45,6 +45,7 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
 	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
+	#[allow(clippy::type_complexity)]
 	outgoing_requests: FuturesUnordered<
 		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,
 	>,
@@ -180,7 +181,7 @@ where
 					);
 					continue;
 				};
-				if let Some(payload) = tss.on_message(peer_id.clone(), msg) {
+				if let Some(payload) = tss.on_message(peer_id, msg) {
 					let msg = Message {
 						shard_id,
 						block_number: 0,

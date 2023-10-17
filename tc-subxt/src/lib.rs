@@ -1,5 +1,6 @@
 use std::fs;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use subxt::tx::TxPayload;
 use subxt::{
@@ -20,7 +21,7 @@ pub type KeyPair = sp_core::sr25519::Pair;
 pub struct SubxtClient {
 	client: Arc<OnlineClient<PolkadotConfig>>,
 	signer: Arc<Keypair>,
-	nonce: u64,
+	nonce: Arc<AtomicU64>,
 }
 
 impl SubxtClient {
@@ -28,13 +29,14 @@ impl SubxtClient {
 	where
 		Call: TxPayload,
 	{
+		let nonce = self.get_nonce();
 		let tx_bytes = self
 			.client
 			.tx()
-			.create_signed_with_nonce(call, self.signer.as_ref(), self.nonce, Default::default())
+			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())
 			.unwrap()
 			.into_encoded();
-		self.nonce += 1;
+		self.increment_nonce();
 		tx_bytes
 	}
 
@@ -49,7 +51,7 @@ impl SubxtClient {
 		Self {
 			client: Arc::new(api),
 			signer: Arc::new(keypair),
-			nonce,
+			nonce: Arc::new(AtomicU64::new(0)),
 		}
 	}
 
@@ -59,6 +61,15 @@ impl SubxtClient {
 			.await
 			.unwrap();
 	}
+	// A method to increment the nonce, as an example
+	pub fn increment_nonce(&self) {
+		self.nonce.fetch_add(1, Ordering::SeqCst);
+	}
+
+	// A method to get the current value of the nonce
+	pub fn get_nonce(&self) -> u64 {
+		self.nonce.load(Ordering::SeqCst)
+	}
 }
 
 impl Clone for SubxtClient {
@@ -66,7 +77,7 @@ impl Clone for SubxtClient {
 		Self {
 			client: self.client.clone(),
 			signer: self.signer.clone(),
-			nonce: self.nonce,
+			nonce: self.nonce.clone(),
 		}
 	}
 }

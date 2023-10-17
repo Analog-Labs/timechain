@@ -1527,11 +1527,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
- "async-trait",
  "bincode",
  "env_logger",
  "futures",
- "getrandom 0.2.10",
  "lazy_static",
  "log-panics",
  "p2p",

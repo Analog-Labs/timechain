@@ -61,12 +61,11 @@ impl SubxtClient {
 			.await
 			.unwrap();
 	}
-	// A method to increment the nonce, as an example
+
 	pub fn increment_nonce(&self) {
 		self.nonce.fetch_add(1, Ordering::SeqCst);
 	}
 
-	// A method to get the current value of the nonce
 	pub fn get_nonce(&self) -> u64 {
 		self.nonce.load(Ordering::SeqCst)
 	}

@@ -2,7 +2,7 @@ use crate::shards::{NetworkConfig, TimeWorker, TimeWorkerParams};
 use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use futures::channel::mpsc;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::request_responses::IncomingRequest;
@@ -11,6 +11,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block;
+use std::path::PathBuf;
 use std::sync::Arc;
 use time_primitives::{
 	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
@@ -26,13 +27,13 @@ pub use crate::shards::protocol_config;
 pub const TW_LOG: &str = "chronicle";
 
 pub struct ChronicleConfig {
-	pub secret: Option<[u8; 32]>,
+	pub secret: Option<PathBuf>,
 	pub bind_port: Option<u16>,
 	pub pkarr_relay: Option<String>,
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
-	pub keyfile: Option<String>,
+	pub keyfile: Option<PathBuf>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 }
@@ -54,10 +55,20 @@ where
 	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
+	let secret = if let Some(path) = params.config.secret {
+		Some(
+			std::fs::read(path)
+				.context("secret doesn't exist")?
+				.try_into()
+				.map_err(|_| anyhow::anyhow!("invalid secret"))?,
+		)
+	} else {
+		None
+	};
 	let (network, net_request) = crate::shards::network(
 		params.network,
 		NetworkConfig {
-			secret: params.config.secret,
+			secret,
 			bind_port: params.config.bind_port,
 			relay: params.config.pkarr_relay,
 		},

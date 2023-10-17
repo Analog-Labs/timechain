@@ -348,15 +348,14 @@ pub fn new_full(
 				runtime: client.clone(),
 				keystore: keystore_container.keystore(),
 				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-				network,
-				tss_requests: protocol_rx,
+				network: Some((network, protocol_rx)),
 				config,
 			};
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"chronicle",
-				None,
-				chronicle::run_chronicle(params),
-			);
+			task_manager
+				.spawn_essential_handle()
+				.spawn_blocking("chronicle", None, async move {
+					chronicle::run_chronicle(params).await.unwrap()
+				});
 		}
 	}
 

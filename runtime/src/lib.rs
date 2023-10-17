@@ -1542,6 +1542,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
+		fn submit_transaction(encoded_transaction: Vec<u8>) {
+			sp_io::offchain::submit_transaction(encoded_transaction);
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (

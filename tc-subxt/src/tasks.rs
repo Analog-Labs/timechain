@@ -4,8 +4,8 @@ use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult};
 use timechain_runtime::runtime_types::time_primitives::task;
 
 impl SubxtClient {
-	pub fn submit_tash_error(
-		&self,
+	pub fn submit_task_error(
+		&mut self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
@@ -15,13 +15,18 @@ impl SubxtClient {
 		self.make_transaction(&tx)
 	}
 
-	pub fn submit_tash_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8> {
+	pub fn submit_task_hash(
+		&mut self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> Vec<u8> {
 		let tx = timechain_runtime::tx().tasks().submit_hash(task_id, cycle, hash);
 		self.make_transaction(&tx)
 	}
 
 	pub fn submit_task_result(
-		&self,
+		&mut self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,

@@ -80,6 +80,10 @@ sp_api::decl_runtime_apis! {
 	pub trait BlockTimeApi{
 		fn get_block_time_in_msec() -> u64;
 	}
+
+	pub trait SubmitTransactionApi{
+		fn submit_transaction(encoded_tx: Vec<u8>);
+	}
 }
 
 pub trait MemberEvents {

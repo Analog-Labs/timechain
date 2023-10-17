@@ -214,7 +214,6 @@ fn verify_tss_signature(
 #[derive(Clone)]
 struct MockTaskExecutor {}
 
-#[async_trait::async_trait]
 impl TaskExecutor for MockTaskExecutor {
 	fn network(&self) -> Network {
 		Network::Ethereum

@@ -88,7 +88,6 @@ impl MockTask {
 	}
 }
 
-#[async_trait::async_trait]
 impl TaskSpawner for MockTask {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(stream::iter(vec![1]))

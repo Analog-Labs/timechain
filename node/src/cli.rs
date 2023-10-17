@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
 	#[clap(subcommand)]
@@ -36,13 +38,22 @@ pub struct ChronicleArgs {
 	pub url: String,
 	/// key file for connector wallet
 	#[clap(long)]
-	pub keyfile: Option<String>,
+	pub keyfile: Option<PathBuf>,
 	/// The timegraph url (or TIMEGTAPH_URL environment variable).
 	#[clap(long)]
 	pub timegraph_url: Option<String>,
 	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
 	#[clap(long)]
 	pub timegraph_ssk: Option<String>,
+	/// The secret to use for p2p networking.
+	#[clap(long)]
+	pub secret: Option<PathBuf>,
+	/// The port to bind to for p2p networking.
+	#[clap(long)]
+	pub bind_port: Option<u16>,
+	/// The pkarr relay for looking up nodes.
+	#[clap(long)]
+	pub pkarr_relay: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]

@@ -392,7 +392,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 }
 
 /// Generate a chain spec for Analog staging environment.
-pub fn analog_staging_config() -> Result<ChainSpec, String> {
+pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Staging wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
@@ -679,7 +679,7 @@ pub fn analog_staging_config() -> Result<ChainSpec, String> {
 						COMMUNITY_SUPPLY,
 					),
 				],
-				false,
+				disable_tss,
 			)
 		},
 		// Bootnodes

@@ -20,7 +20,7 @@ pub use time_primitives::PeerId;
 
 pub type TssMessage = tss::TssMessage<TssId>;
 
-pub const PROTOCOL_NAME: &str = "analog-labs/chronicle/1";
+pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 
 #[derive(Default)]
 pub struct NetworkConfig {

@@ -6,7 +6,7 @@ use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use serde_json::Value;
 use std::{
 	future::Future,
-	path::Path,
+	path::PathBuf,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -23,7 +23,7 @@ pub struct TaskSpawnerParams<S> {
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
-	pub keyfile: Option<String>,
+	pub keyfile: Option<PathBuf>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 	pub substrate: S,
@@ -42,13 +42,15 @@ where
 	S: Tasks + Send,
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
-		let path = params.keyfile.as_ref().map(Path::new);
 		let blockchain = match params.blockchain {
 			Network::Ethereum => Blockchain::Ethereum,
 			Network::Astar => Blockchain::Astar,
 			Network::Polygon => Blockchain::Polygon,
 		};
-		let wallet = Arc::new(Wallet::new(blockchain, &params.network, &params.url, path).await?);
+		let wallet = Arc::new(
+			Wallet::new(blockchain, &params.network, &params.url, params.keyfile.as_deref())
+				.await?,
+		);
 		let timegraph = if let Some(url) = params.timegraph_url {
 			Some(Arc::new(Timegraph::new(
 				url,

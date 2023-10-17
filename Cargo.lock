@@ -1529,7 +1529,6 @@ dependencies = [
  "async-channel",
  "async-trait",
  "bincode",
- "data-encoding",
  "env_logger",
  "futures",
  "getrandom 0.2.10",

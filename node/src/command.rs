@@ -206,6 +206,9 @@ pub fn run() -> sc_cli::Result<()> {
 						keyfile: args.keyfile,
 						timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
 						timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
+						secret: args.secret,
+						bind_port: args.bind_port,
+						pkarr_relay: args.pkarr_relay,
 					}),
 				)
 				.map_err(sc_cli::Error::Service)

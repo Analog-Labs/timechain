@@ -230,7 +230,10 @@ where
 		peer_id: PeerId,
 	) -> SubmitResult {
 		if let Some(subxt_client) = self.subxt_client.clone() {
-			futures::executor::block_on(subxt_client.register_member(network, public_key, peer_id));
+			let bytes = subxt_client.register_member(network, public_key, peer_id);
+			if let Err(e) = sp_io::offchain::submit_transaction(bytes) {
+				tracing::error!("error submitting transaction {:?}", e);
+			};
 			Ok(Ok(()))
 		} else {
 			self.runtime_api().submit_register_member(

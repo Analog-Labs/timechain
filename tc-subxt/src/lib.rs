@@ -68,12 +68,12 @@ impl SubxtClient {
 	}
 
 	pub fn public_key(&self) -> PublicKey {
-		//self.signer.public_key().into()
-		todo!()
+		let public_key = self.signer.public_key();
+		PublicKey::Sr25519(unsafe { std::mem::transmute(public_key) })
 	}
 
 	pub fn account_id(&self) -> AccountId {
-		//self.public_key().into_account_id()
-		todo!()
+		let account_id: subxt::utils::AccountId32 = self.signer.public_key().into();
+		unsafe { std::mem::transmute(account_id) }
 	}
 }

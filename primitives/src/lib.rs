@@ -82,7 +82,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait SubmitTransactionApi{
-		fn submit_transaction(encoded_tx: Vec<u8>);
+		fn submit_transaction(encoded_tx: Vec<u8>) -> TxResult;
 	}
 }
 

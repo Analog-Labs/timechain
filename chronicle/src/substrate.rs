@@ -12,7 +12,7 @@ use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
 	Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi, SubmitResult,
 	SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
-	Tasks, TasksApi, TxError,
+	Tasks, TasksApi,
 };
 
 pub struct Substrate<B: Block, C, R> {
@@ -156,7 +156,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_commitment(
 				self.best_block(),
@@ -175,7 +175,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_online(self.best_block(), shard_id, member)
 		}
@@ -208,7 +208,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
 		}
@@ -226,7 +226,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_task_result(self.best_block(), task_id, cycle, status)
 		}
@@ -244,7 +244,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)
 		}
@@ -282,7 +282,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_register_member(
 				self.best_block(),
@@ -300,7 +300,7 @@ where
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			Ok(submit_res.map_err(|_| TxError::TxPoolError))
+			submit_res
 		} else {
 			self.runtime_api().submit_heartbeat(self.best_block(), public_key)
 		}

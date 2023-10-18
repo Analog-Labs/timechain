@@ -14,7 +14,6 @@ use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, SubmitTransactionApi,

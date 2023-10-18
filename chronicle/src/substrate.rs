@@ -2,7 +2,6 @@ use futures::stream::{Stream, StreamExt};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ApiRef, HeaderT, ProvideRuntimeApi};
-use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::pin::Pin;
@@ -18,11 +17,10 @@ use time_primitives::{
 pub struct Substrate<B: Block, C, R> {
 	_block: PhantomData<B>,
 	register_extensions: bool,
-	kv: KeystorePtr,
 	pool: OffchainTransactionPoolFactory<B>,
 	client: Arc<C>,
 	runtime: Arc<R>,
-	subxt_client: Option<SubxtClient>,
+	subxt_client: SubxtClient,
 }
 
 impl<B, C, R> Substrate<B, C, R>
@@ -30,19 +28,18 @@ where
 	B: Block,
 	C: HeaderBackend<B>,
 	R: ProvideRuntimeApi<B>,
+	R::Api: SubmitTransactionApi<B>,
 {
 	pub fn new(
 		register_extensions: bool,
-		kv: KeystorePtr,
 		pool: OffchainTransactionPoolFactory<B>,
 		client: Arc<C>,
 		runtime: Arc<R>,
-		subxt_client: Option<SubxtClient>,
+		subxt_client: SubxtClient,
 	) -> Self {
 		Self {
 			_block: PhantomData,
 			register_extensions,
-			kv,
 			pool,
 			client,
 			runtime,
@@ -57,10 +54,17 @@ where
 	fn runtime_api(&self) -> ApiRef<'_, R::Api> {
 		let mut runtime = self.runtime.runtime_api();
 		if self.register_extensions {
-			runtime.register_extension(KeystoreExt(self.kv.clone()));
 			runtime.register_extension(self.pool.offchain_transaction_pool(self.best_block()));
 		}
 		runtime
+	}
+
+	fn submit_transaction(&self, tx: Vec<u8>) -> SubmitResult {
+		let submit_res = self.runtime_api().submit_transaction(self.best_block(), tx);
+		if let Ok(_) = submit_res {
+			self.subxt_client.increment_nonce();
+		}
+		submit_res
 	}
 }
 
@@ -69,7 +73,6 @@ impl<B: Block, C, R> Clone for Substrate<B, C, R> {
 		Self {
 			_block: self._block,
 			register_extensions: self.register_extensions,
-			kv: self.kv.clone(),
 			pool: self.pool.clone(),
 			client: self.client.clone(),
 			runtime: self.runtime.clone(),
@@ -84,6 +87,10 @@ pub trait SubstrateClient {
 	fn finality_notification_stream(
 		&self,
 	) -> Pin<Box<dyn Stream<Item = (BlockHash, BlockNumber)> + Send + 'static>>;
+
+	fn public_key(&self) -> PublicKey;
+
+	fn account_id(&self) -> AccountId;
 }
 
 impl<B, C, R> SubstrateClient for Substrate<B, C, R>
@@ -91,7 +98,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BlockTimeApi<B>,
+	R::Api: BlockTimeApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_block_time_in_ms(&self) -> ApiResult<u64> {
 		self.runtime_api().get_block_time_in_msec(self.best_block())
@@ -108,6 +115,14 @@ where
 				(block_hash, block_number)
 			})
 			.boxed()
+	}
+
+	fn public_key(&self) -> PublicKey {
+		self.subxt_client.public_key()
+	}
+
+	fn account_id(&self) -> AccountId {
+		self.subxt_client.account_id()
 	}
 }
 
@@ -145,40 +160,16 @@ where
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
-		member: PublicKey,
 		commitment: Vec<[u8; 33]>,
 		proof_of_knowledge: [u8; 65],
 	) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes =
-				subxt_client.submit_commitment(shard_id, member, commitment, proof_of_knowledge);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_commitment(
-				self.best_block(),
-				shard_id,
-				member,
-				commitment,
-				proof_of_knowledge,
-			)
-		}
+		let tx = self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge);
+		self.submit_transaction(tx)
 	}
 
-	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_ready(shard_id, member);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_online(self.best_block(), shard_id, member)
-		}
+	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
+		let tx = self.subxt_client.submit_ready(shard_id);
+		self.submit_transaction(tx)
 	}
 }
 
@@ -202,16 +193,8 @@ where
 	}
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_task_hash(task_id, cycle, hash);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
-		}
+		let tx = self.subxt_client.submit_task_hash(task_id, cycle, hash);
+		self.submit_transaction(tx)
 	}
 
 	fn submit_task_result(
@@ -220,16 +203,8 @@ where
 		cycle: TaskCycle,
 		status: TaskResult,
 	) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_task_result(task_id, cycle, status);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_task_result(self.best_block(), task_id, cycle, status)
-		}
+		let tx = self.subxt_client.submit_task_result(task_id, cycle, status);
+		self.submit_transaction(tx)
 	}
 
 	fn submit_task_error(
@@ -238,16 +213,8 @@ where
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_task_error(task_id, cycle, error);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)
-		}
+		let tx = self.subxt_client.submit_task_error(task_id, cycle, error);
+		self.submit_transaction(tx)
 	}
 }
 
@@ -270,39 +237,15 @@ where
 		self.runtime_api().get_heartbeat_timeout(self.best_block())
 	}
 
-	fn submit_register_member(
-		&self,
-		network: Network,
-		public_key: PublicKey,
-		peer_id: PeerId,
-	) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.register_member(network, public_key, peer_id);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_register_member(
-				self.best_block(),
-				network,
-				public_key,
-				peer_id,
-			)
-		}
+	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult {
+		let tx =
+			self.subxt_client
+				.register_member(network, self.subxt_client.public_key(), peer_id);
+		self.submit_transaction(tx)
 	}
 
-	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
-		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_heartbeat(public_key);
-			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
-			if let Ok(_) = submit_res {
-				subxt_client.increment_nonce();
-			}
-			submit_res
-		} else {
-			self.runtime_api().submit_heartbeat(self.best_block(), public_key)
-		}
+	fn submit_heartbeat(&self) -> SubmitResult {
+		let tx = self.subxt_client.submit_heartbeat();
+		self.submit_transaction(tx)
 	}
 }

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use subxt::tx::TxPayload;
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
 use subxt_signer::{sr25519::Keypair, SecretUri};
+use time_primitives::{AccountId, PublicKey};
 
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
@@ -28,7 +29,7 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	fn make_transaction<Call>(&mut self, call: &Call) -> Vec<u8>
+	fn make_transaction<Call>(&self, call: &Call) -> Vec<u8>
 	where
 		Call: TxPayload,
 	{
@@ -64,5 +65,15 @@ impl SubxtClient {
 
 	pub fn increment_nonce(&self) {
 		self.nonce.fetch_add(1, Ordering::SeqCst);
+	}
+
+	pub fn public_key(&self) -> PublicKey {
+		//self.signer.public_key().into()
+		todo!()
+	}
+
+	pub fn account_id(&self) -> AccountId {
+		//self.public_key().into_account_id()
+		todo!()
 	}
 }

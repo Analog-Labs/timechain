@@ -1,6 +1,6 @@
 #[cfg(feature = "std")]
 use crate::{AccountId, ApiResult, BlockHash, SubmitResult};
-use crate::{Network, PeerId, PublicKey};
+use crate::{Network, PeerId};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
@@ -33,12 +33,7 @@ pub trait Members {
 
 	fn get_heartbeat_timeout(&self) -> ApiResult<u64>;
 
-	fn submit_register_member(
-		&self,
-		network: Network,
-		public_key: PublicKey,
-		peer_id: PeerId,
-	) -> SubmitResult;
+	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult;
 
-	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult;
+	fn submit_heartbeat(&self) -> SubmitResult;
 }

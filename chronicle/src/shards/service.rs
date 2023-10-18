@@ -10,14 +10,13 @@ use futures::{
 	stream::FuturesUnordered,
 	Future, FutureExt, Stream, StreamExt,
 };
-use sp_runtime::traits::IdentifyAccount;
 use std::{
 	collections::{BTreeMap, HashMap},
 	pin::Pin,
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, Members, PublicKey, ShardId, ShardStatus, Shards, TssId, TssSignature,
+	BlockHash, BlockNumber, Members, ShardId, ShardStatus, Shards, TssId, TssSignature,
 	TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
@@ -27,7 +26,6 @@ pub struct TimeWorkerParams<S, T, Tx, Rx> {
 	pub substrate: S,
 	pub task_executor: T,
 	pub network: Tx,
-	pub public_key: PublicKey,
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
 	pub net_request: Rx,
 }
@@ -36,7 +34,6 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	substrate: S,
 	task_executor: T,
 	network: Tx,
-	public_key: PublicKey,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	net_request: Rx,
 	block_height: u64,
@@ -63,7 +60,6 @@ where
 			substrate,
 			task_executor,
 			network,
-			public_key,
 			tss_request,
 			net_request,
 		} = worker_params;
@@ -71,7 +67,6 @@ where
 			substrate,
 			task_executor,
 			network,
-			public_key,
 			tss_request,
 			net_request,
 			block_height: 0,
@@ -93,10 +88,7 @@ where
 			block = block.to_string(),
 			block_number,
 		);
-		let shards = self
-			.substrate
-			.get_shards(block, &self.public_key.clone().into_account())
-			.unwrap();
+		let shards = self.substrate.get_shards(block, &self.substrate.account_id()).unwrap();
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
@@ -246,7 +238,6 @@ where
 					self.substrate
 						.submit_commitment(
 							shard_id,
-							self.public_key.clone(),
 							commitment.serialize(),
 							proof_of_knowledge.serialize(),
 						)
@@ -263,10 +254,7 @@ where
 						"public key {:?}",
 						public_key,
 					);
-					self.substrate
-						.submit_online(shard_id, self.public_key.clone())
-						.unwrap()
-						.unwrap();
+					self.substrate.submit_online(shard_id).unwrap().unwrap();
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -314,11 +302,7 @@ where
 		);
 		while let Err(e) = self
 			.substrate
-			.submit_register_member(
-				self.task_executor.network(),
-				self.public_key.clone(),
-				self.network.peer_id(),
-			)
+			.submit_register_member(self.task_executor.network(), self.network.peer_id())
 			.unwrap()
 		{
 			event!(
@@ -425,7 +409,7 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					if let Err(e) = self.substrate.submit_heartbeat(self.public_key.clone()).unwrap(){
+					if let Err(e) = self.substrate.submit_heartbeat().unwrap(){
 							event!(
 							target: TW_LOG,
 							parent: span,

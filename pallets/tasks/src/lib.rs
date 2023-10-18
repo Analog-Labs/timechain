@@ -11,17 +11,14 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
-	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SignMessage, Signer,
-	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::IdentifyAccount, traits::One, Saturating};
+	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Network, PublicKey, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
+		AccountId, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
 		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TssSignature, TxError, TxResult,
+		TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -64,13 +61,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		CreateSignedTransaction<Call<Self>, Public = PublicKey>
-		+ frame_system::Config<AccountId = AccountId>
-	{
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Shards: ShardsInterface;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
@@ -436,74 +429,6 @@ pub mod pallet {
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
-		}
-
-		pub fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult {
-			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
-				log::error!("task not in write phase");
-				return Ok(());
-			};
-			let call = Call::submit_hash {
-				task_id,
-				cycle,
-				hash: hash.clone(),
-			};
-			Self::submit_tx_with_retries(Some(public_key), call)
-		}
-
-		pub fn submit_task_result(
-			task_id: TaskId,
-			cycle: TaskCycle,
-			status: TaskResult,
-		) -> TxResult {
-			let call = Call::submit_result {
-				task_id,
-				cycle,
-				status: status.clone(),
-			};
-			Self::submit_tx_with_retries(None, call)
-		}
-
-		pub fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult {
-			let call = Call::submit_error {
-				task_id,
-				cycle,
-				error: error.clone(),
-			};
-			Self::submit_tx_with_retries(None, call)
-		}
-
-		fn submit_tx_with_retries(acc_filter: Option<PublicKey>, call: Call<T>) -> TxResult {
-			let (signer, account_id) = if let Some(filter) = acc_filter {
-				let signer =
-					Signer::<T, T::AuthorityId>::any_account().with_filter(vec![filter.clone()]);
-				(signer, filter.into_account())
-			} else {
-				let signer = Signer::<T, T::AuthorityId>::any_account();
-				let signer_pub =
-					signer.sign_message(b"temp_msg").ok_or(TxError::MissingSigningKey)?.0.public;
-				(signer, signer_pub.clone().into_account())
-			};
-			for i in 0..100 {
-				let result = signer
-					.send_signed_transaction(|_| call.clone())
-					.ok_or(TxError::MissingSigningKey)?
-					.1
-					.map_err(|_| TxError::TxPoolError);
-				if i == 99 {
-					return result;
-				}
-
-				if result.is_ok() {
-					return Ok(());
-				}
-				log::error!("failed to send tx, retrying {}", i);
-				let mut account_data = frame_system::Account::<T>::get(&account_id);
-				account_data.nonce = account_data.nonce.saturating_add(One::one());
-				frame_system::Account::<T>::insert(&account_id, account_data);
-				continue;
-			}
-			Err(TxError::TxPoolError)
 		}
 	}
 

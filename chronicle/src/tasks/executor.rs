@@ -1,10 +1,11 @@
+use crate::substrate::SubstrateClient;
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, PublicKey, ShardId, TaskExecution, Tasks, TssId,
+	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, Tasks, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -14,14 +15,12 @@ pub struct TaskExecutorParams<S, T> {
 	pub substrate: S,
 	pub task_spawner: T,
 	pub network: Network,
-	pub public_key: PublicKey,
 }
 
 pub struct TaskExecutor<S, T> {
 	substrate: S,
 	task_spawner: T,
 	network: Network,
-	public_key: PublicKey,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
@@ -31,7 +30,6 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 			substrate: self.substrate.clone(),
 			task_spawner: self.task_spawner.clone(),
 			network: self.network,
-			public_key: self.public_key.clone(),
 			running_tasks: Default::default(),
 		}
 	}
@@ -39,7 +37,7 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	S: Tasks,
+	S: Tasks + SubstrateClient,
 	T: TaskSpawner,
 {
 	fn network(&self) -> Network {
@@ -63,7 +61,7 @@ where
 
 impl<S, T> TaskExecutor<S, T>
 where
-	S: Tasks,
+	S: Tasks + SubstrateClient,
 	T: TaskSpawner,
 {
 	pub fn new(params: TaskExecutorParams<S, T>) -> Self {
@@ -71,13 +69,11 @@ where
 			substrate,
 			task_spawner,
 			network,
-			public_key,
 		} = params;
 		Self {
 			substrate,
 			task_spawner,
 			network,
-			public_key,
 			running_tasks: Default::default(),
 		}
 	}
@@ -106,7 +102,7 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if let Some(public_key) = executable_task.phase.public_key() {
-					if *public_key != self.public_key {
+					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}

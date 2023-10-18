@@ -55,8 +55,6 @@ sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
 		fn get_heartbeat_timeout() -> u64;
-		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) -> TxResult;
-		fn submit_heartbeat(public_key: PublicKey) -> TxResult;
 	}
 
 	pub trait ShardsApi {
@@ -65,16 +63,11 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumber>;
 		fn get_shard_commitment(shard_id: ShardId) -> Commitment;
-		fn submit_commitment(shard_id: ShardId, member: PublicKey, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge) -> TxResult;
-		fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult;
 	}
 
 	pub trait TasksApi {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult;
-		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> TxResult;
-		fn submit_task_error(task_id: TaskId, cycle: TaskCycle, error: TaskError) -> TxResult;
 	}
 
 	pub trait BlockTimeApi{

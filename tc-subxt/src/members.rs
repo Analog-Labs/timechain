@@ -5,7 +5,7 @@ use timechain_runtime::runtime_types::time_primitives::shard;
 
 impl SubxtClient {
 	pub fn register_member(
-		&mut self,
+		&self,
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
@@ -16,7 +16,7 @@ impl SubxtClient {
 		self.make_transaction(&tx)
 	}
 
-	pub fn submit_heartbeat(&mut self, _: PublicKey) -> Vec<u8> {
+	pub fn submit_heartbeat(&self) -> Vec<u8> {
 		let tx = timechain_runtime::tx().members().send_heartbeat();
 		self.make_transaction(&tx)
 	}

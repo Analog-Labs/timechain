@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -18,6 +19,15 @@ mod shards;
 mod tasks;
 pub type KeyPair = sp_core::sr25519::Pair;
 
+#[derive(Debug)]
+pub enum TcSubxtError {
+	InvalidFilePath,
+	InvalidMnemonic,
+	ClientIsntActive,
+	InvalidAccountNonce,
+}
+
+#[derive(Clone)]
 pub struct SubxtClient {
 	client: Arc<OnlineClient<PolkadotConfig>>,
 	signer: Arc<Keypair>,
@@ -30,29 +40,31 @@ impl SubxtClient {
 		Call: TxPayload,
 	{
 		let nonce = self.get_nonce();
-		let tx_bytes = self
-			.client
+		self.client
 			.tx()
 			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())
 			.unwrap()
-			.into_encoded();
-		self.increment_nonce();
-		tx_bytes
+			.into_encoded()
 	}
 
-	pub async fn new(keyfile: String) -> Self {
-		let content = fs::read_to_string(keyfile).expect("file path not found");
-		let secret =
-			SecretUri::from_str(&content).expect("cannot create secret from content of file");
-		let keypair = Keypair::from_uri(&secret).expect("cannot create keypair from secret");
+	pub async fn new(keyfile: PathBuf) -> Result<Self, TcSubxtError> {
+		let content = fs::read_to_string(keyfile).map_err(|_| TcSubxtError::InvalidFilePath)?;
+		let secret = SecretUri::from_str(&content).map_err(|_| TcSubxtError::InvalidMnemonic)?;
+		let keypair = Keypair::from_uri(&secret).map_err(|_| TcSubxtError::InvalidMnemonic)?;
 		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
-		let api = OnlineClient::<PolkadotConfig>::from_url("ws://127.0.0.1:9944").await.unwrap();
-		let nonce = api.tx().account_nonce(&account_id).await.unwrap();
-		Self {
+		let api = OnlineClient::<PolkadotConfig>::from_url("ws://127.0.0.1:9944")
+			.await
+			.map_err(|_| TcSubxtError::ClientIsntActive)?;
+		let nonce = api
+			.tx()
+			.account_nonce(&account_id)
+			.await
+			.map_err(|_| TcSubxtError::InvalidAccountNonce)?;
+		Ok(Self {
 			client: Arc::new(api),
 			signer: Arc::new(keypair),
 			nonce: Arc::new(AtomicU64::new(0)),
-		}
+		})
 	}
 
 	pub async fn submit_transaction(&self, transaction: &[u8]) {
@@ -68,15 +80,5 @@ impl SubxtClient {
 
 	pub fn get_nonce(&self) -> u64 {
 		self.nonce.load(Ordering::SeqCst)
-	}
-}
-
-impl Clone for SubxtClient {
-	fn clone(&self) -> Self {
-		Self {
-			client: self.client.clone(),
-			signer: self.signer.clone(),
-			nonce: self.nonce.clone(),
-		}
 	}
 }

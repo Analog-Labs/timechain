@@ -316,7 +316,7 @@ async fn tss_smoke() -> Result<()> {
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 			net.peer(i).client().as_client(),
 			api.clone(),
-			SubxtClient::new(&Path::new("/mock/mock.txt")).await.unwrap(),
+			SubxtClient::new(Path::new("/mock/mock.txt")).await.unwrap(),
 		);
 
 		let n = net.peer(i).network_service().clone();

@@ -12,9 +12,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
-	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer,
-	};
 	use frame_system::pallet_prelude::*;
 	use schnorr_evm::VerifyingKey;
 	use sp_runtime::Saturating;
@@ -23,7 +20,7 @@ pub mod pallet {
 	use time_primitives::{
 		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
 		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey, TxError, TxResult,
+		TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -46,13 +43,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		CreateSignedTransaction<Call<Self>, Public = PublicKey>
-		+ frame_system::Config<AccountId = sp_runtime::AccountId32>
-	{
+	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
 		type TaskScheduler: TasksInterface;
@@ -267,33 +260,6 @@ pub mod pallet {
 
 		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
 			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
-		}
-
-		pub fn submit_commitment(
-			shard_id: ShardId,
-			member: PublicKey,
-			commitment: Commitment,
-			proof_of_knowledge: ProofOfKnowledge,
-		) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
-			signer
-				.send_signed_transaction(|_| Call::commit {
-					shard_id,
-					commitment: commitment.clone(),
-					proof_of_knowledge,
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
-		}
-
-		pub fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![member]);
-			signer
-				.send_signed_transaction(|_| Call::ready { shard_id })
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
 		}
 	}
 

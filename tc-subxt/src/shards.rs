@@ -4,7 +4,7 @@ use crate::{timechain_runtime, SubxtClient};
 
 impl SubxtClient {
 	pub fn submit_commitment(
-		&mut self,
+		&self,
 		shard_id: ShardId,
 		commitment: Vec<[u8; 33]>,
 		proof_of_knowledge: [u8; 65],
@@ -15,7 +15,7 @@ impl SubxtClient {
 		self.make_transaction(&tx)
 	}
 
-	pub fn submit_ready(&mut self, shard_id: ShardId) -> Vec<u8> {
+	pub fn submit_ready(&self, shard_id: ShardId) -> Vec<u8> {
 		let tx = timechain_runtime::tx().shards().ready(shard_id);
 		self.make_transaction(&tx)
 	}

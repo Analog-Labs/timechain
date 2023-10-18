@@ -38,7 +38,7 @@ pub struct ChronicleConfig {
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
-	pub timechain_keyfile: String,
+	pub timechain_keyfile: Option<PathBuf>,
 	pub keyfile: Option<PathBuf>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
@@ -99,14 +99,22 @@ where
 	};
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let subxt_client = SubxtClient::new(params.config.timechain_keyfile).await;
+	let subxt_client = if let Some(path) = params.config.timechain_keyfile {
+		Some(
+			SubxtClient::new(path)
+				.await
+				.map_err(|e| anyhow::anyhow!("Error building subxt client {:?}", e))?,
+		)
+	} else {
+		None
+	};
 	let substrate = Substrate::new(
 		true,
 		params.keystore,
 		params.tx_pool,
 		params.client.clone(),
 		params.runtime,
-		Some(subxt_client),
+		subxt_client,
 	);
 
 	let task_spawner_params = TaskSpawnerParams {

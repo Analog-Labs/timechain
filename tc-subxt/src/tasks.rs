@@ -1,4 +1,4 @@
-use crate::{timechain_runtime, SubxtClient};
+use crate::{timechain_runtime, SubxtClient, TcSubxtError};
 
 use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult};
 use timechain_runtime::runtime_types::time_primitives::task;
@@ -9,7 +9,7 @@ impl SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Vec<u8> {
+	) -> Result<Vec<u8>, TcSubxtError> {
 		let error: task::TaskError = unsafe { std::mem::transmute(error) };
 		let tx = timechain_runtime::tx().tasks().submit_error(task_id, cycle, error);
 		self.make_transaction(&tx)
@@ -20,7 +20,7 @@ impl SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		hash: Vec<u8>,
-	) -> Vec<u8> {
+	) -> Result<Vec<u8>, TcSubxtError> {
 		let tx = timechain_runtime::tx().tasks().submit_hash(task_id, cycle, hash);
 		self.make_transaction(&tx)
 	}
@@ -30,7 +30,7 @@ impl SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Vec<u8> {
+	) -> Result<Vec<u8>, TcSubxtError> {
 		let status: task::TaskResult = unsafe { std::mem::transmute(status) };
 		let tx = timechain_runtime::tx().tasks().submit_result(task_id, cycle, status);
 		self.make_transaction(&tx)

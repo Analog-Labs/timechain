@@ -47,7 +47,7 @@ pub enum TxError {
 
 pub type TxResult = Result<(), TxError>;
 #[cfg(feature = "std")]
-pub type SubmitResult = Result<TxResult, ApiError>;
+pub type SubmitResult = anyhow::Result<TxResult>;
 #[cfg(feature = "std")]
 pub type ApiResult<T> = Result<T, ApiError>;
 

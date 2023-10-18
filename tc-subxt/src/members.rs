@@ -1,4 +1,4 @@
-use crate::{timechain_runtime, SubxtClient};
+use crate::{timechain_runtime, SubxtClient, TcSubxtError};
 use time_primitives::{Network, PeerId, PublicKey};
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::shard;
@@ -8,13 +8,13 @@ impl SubxtClient {
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
-	) -> Vec<u8> {
+	) -> Result<Vec<u8>, TcSubxtError> {
 		let network: shard::Network = unsafe { std::mem::transmute(network) };
 		let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
 		let tx = timechain_runtime::tx().members().register_member(network, public_key, peer_id);
 		self.make_transaction(&tx)
 	}
-	pub fn submit_heartbeat(&mut self, _: PublicKey) -> Vec<u8> {
+	pub fn submit_heartbeat(&mut self, _: PublicKey) -> Result<Vec<u8>, TcSubxtError> {
 		let tx = timechain_runtime::tx().members().send_heartbeat();
 		self.make_transaction(&tx)
 	}

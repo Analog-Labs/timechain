@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use futures::stream::{Stream, StreamExt};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -150,34 +151,37 @@ where
 		proof_of_knowledge: [u8; 65],
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes =
-				subxt_client.submit_commitment(shard_id, member, commitment, proof_of_knowledge);
+			let bytes = subxt_client
+				.submit_commitment(shard_id, member, commitment, proof_of_knowledge)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_commitment(
+			Ok(self.runtime_api().submit_commitment(
 				self.best_block(),
 				shard_id,
 				member,
 				commitment,
 				proof_of_knowledge,
-			)
+			)?)
 		}
 	}
 
 	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_ready(shard_id, member);
+			let bytes = subxt_client
+				.submit_ready(shard_id, member)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_online(self.best_block(), shard_id, member)
+			Ok(self.runtime_api().submit_online(self.best_block(), shard_id, member)?)
 		}
 	}
 }
@@ -203,14 +207,17 @@ where
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_task_hash(task_id, cycle, hash);
+			let bytes = subxt_client
+				.submit_task_hash(task_id, cycle, hash)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
+
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
+			Ok(self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)?)
 		}
 	}
 
@@ -221,14 +228,19 @@ where
 		status: TaskResult,
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_task_result(task_id, cycle, status);
+			let bytes = subxt_client
+				.submit_task_result(task_id, cycle, status)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
+
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_task_result(self.best_block(), task_id, cycle, status)
+			Ok(self
+				.runtime_api()
+				.submit_task_result(self.best_block(), task_id, cycle, status)?)
 		}
 	}
 
@@ -239,14 +251,17 @@ where
 		error: TaskError,
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_task_error(task_id, cycle, error);
+			let bytes = subxt_client
+				.submit_task_error(task_id, cycle, error)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
+
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)
+			Ok(self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)?)
 		}
 	}
 }
@@ -277,32 +292,38 @@ where
 		peer_id: PeerId,
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.register_member(network, public_key, peer_id);
+			let bytes = subxt_client
+				.register_member(network, public_key, peer_id)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
+
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_register_member(
+			Ok(self.runtime_api().submit_register_member(
 				self.best_block(),
 				network,
 				public_key,
 				peer_id,
-			)
+			)?)
 		}
 	}
 
 	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
-			let bytes = subxt_client.submit_heartbeat(public_key);
+			let bytes = subxt_client
+				.submit_heartbeat(public_key)
+				.map_err(|e| anyhow!("Error while building commitment {:?}", e))?;
+
 			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
 			if let Ok(_) = submit_res {
 				subxt_client.increment_nonce();
 			}
-			submit_res
+			Ok(submit_res?)
 		} else {
-			self.runtime_api().submit_heartbeat(self.best_block(), public_key)
+			Ok(self.runtime_api().submit_heartbeat(self.best_block(), public_key)?)
 		}
 	}
 }

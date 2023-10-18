@@ -18,10 +18,11 @@ pub type KeyPair = sp_core::sr25519::Pair;
 
 #[derive(Debug)]
 pub enum TcSubxtError {
+	ClientOffline,
 	InvalidFilePath,
 	InvalidMnemonic,
-	ClientIsntActive,
 	InvalidAccountNonce,
+	TxBuildingFailed,
 }
 
 #[derive(Clone)]
@@ -32,16 +33,17 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	pub fn make_transaction<Call>(&mut self, call: &Call) -> Vec<u8>
+	pub fn make_transaction<Call>(&mut self, call: &Call) -> Result<Vec<u8>, TcSubxtError>
 	where
 		Call: TxPayload,
 	{
 		let nonce = self.get_nonce();
-		self.client
+		Ok(self
+			.client
 			.tx()
 			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())
-			.unwrap()
-			.into_encoded()
+			.map_err(|_| TcSubxtError::TxBuildingFailed)?
+			.into_encoded())
 	}
 
 	pub async fn new(keyfile: PathBuf) -> Result<Self, TcSubxtError> {
@@ -51,7 +53,7 @@ impl SubxtClient {
 		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
 		let api = OnlineClient::<PolkadotConfig>::from_url("ws://127.0.0.1:9944")
 			.await
-			.map_err(|_| TcSubxtError::ClientIsntActive)?;
+			.map_err(|_| TcSubxtError::ClientOffline)?;
 		let nonce = api
 			.tx()
 			.account_nonce(&account_id)

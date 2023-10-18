@@ -1,14 +1,11 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use subxt::tx::TxPayload;
-use subxt::{
-	backend::Backend, constants::ConstantsClient, tx::SubmittableExtrinsic, OnlineClient,
-	PolkadotConfig,
-};
-use subxt_signer::{bip39::Mnemonic, sr25519::Keypair, SecretUri};
+use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
+use subxt_signer::{sr25519::Keypair, SecretUri};
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"
@@ -63,7 +60,7 @@ impl SubxtClient {
 		Ok(Self {
 			client: Arc::new(api),
 			signer: Arc::new(keypair),
-			nonce: Arc::new(AtomicU64::new(0)),
+			nonce: Arc::new(AtomicU64::new(nonce)),
 		})
 	}
 

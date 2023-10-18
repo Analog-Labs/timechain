@@ -40,7 +40,7 @@ pub struct ChronicleArgs {
 	#[arg(required = false)]
 	/// keyfile having an account with funds for timechain.
 	#[clap(long)]
-	pub timechain_keyfile: String,
+	pub timechain_keyfile: Option<PathBuf>,
 	/// key file for connector wallet
 	#[clap(long)]
 	pub keyfile: Option<PathBuf>,

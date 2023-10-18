@@ -12,7 +12,7 @@ use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
 	Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi, SubmitResult,
 	SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
-	Tasks, TasksApi,
+	Tasks, TasksApi, TxError,
 };
 
 pub struct Substrate<B: Block, C, R> {
@@ -152,10 +152,11 @@ where
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes =
 				subxt_client.submit_commitment(shard_id, member, commitment, proof_of_knowledge);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_commitment(
 				self.best_block(),
@@ -170,10 +171,11 @@ where
 	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.submit_ready(shard_id, member);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_online(self.best_block(), shard_id, member)
 		}
@@ -202,10 +204,11 @@ where
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.submit_task_hash(task_id, cycle, hash);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
 		}
@@ -219,10 +222,11 @@ where
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.submit_task_result(task_id, cycle, status);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_task_result(self.best_block(), task_id, cycle, status)
 		}
@@ -236,10 +240,11 @@ where
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.submit_task_error(task_id, cycle, error);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_task_error(self.best_block(), task_id, cycle, error)
 		}
@@ -273,10 +278,11 @@ where
 	) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.register_member(network, public_key, peer_id);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_register_member(
 				self.best_block(),
@@ -290,10 +296,11 @@ where
 	fn submit_heartbeat(&self, public_key: PublicKey) -> SubmitResult {
 		if let Some(mut subxt_client) = self.subxt_client.clone() {
 			let bytes = subxt_client.submit_heartbeat(public_key);
-			if let Err(e) = self.runtime_api().submit_transaction(self.best_block(), bytes) {
-				tracing::info!("Error occured while registering member {:?}", e);
-			};
-			Ok(Ok(()))
+			let submit_res = self.runtime_api().submit_transaction(self.best_block(), bytes);
+			if let Ok(_) = submit_res {
+				subxt_client.increment_nonce();
+			}
+			Ok(submit_res.map_err(|_| TxError::TxPoolError))
 		} else {
 			self.runtime_api().submit_heartbeat(self.best_block(), public_key)
 		}

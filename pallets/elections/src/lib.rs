@@ -137,7 +137,7 @@ pub mod pallet {
 			let shard_size = ShardSize::<T>::get() as usize;
 			let members = Unassigned::<T>::iter_prefix(network)
 				.map(|(m, _)| m)
-				.filter(|m| T::Members::is_member_online(m))
+				.filter(T::Members::is_member_online)
 				.take(shard_size)
 				.collect::<Vec<_>>();
 			if members.len() == shard_size {

@@ -15,7 +15,6 @@ impl SubxtClient {
 		self.make_transaction(&tx)
 	}
 	pub fn submit_heartbeat(&mut self, public_key: PublicKey) -> Vec<u8> {
-		println!("////////////submit_heartbeat///////////////");
 		let tx = timechain_runtime::tx().members().send_heartbeat();
 		self.make_transaction(&tx)
 	}

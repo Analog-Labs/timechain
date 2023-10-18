@@ -92,7 +92,6 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU64<10>;

@@ -20,19 +20,21 @@ use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::generic::BlockId;
 use sp_runtime::traits::IdentifyAccount;
 use std::collections::HashMap;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MembersApi, Network, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey, TssSignature,
-	TssSigningRequest, TxResult,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, SubmitTransactionApi, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey,
+	TssSignature, TssSigningRequest, TxResult,
 };
 use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
 
+use tc_subxt::SubxtClient;
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }
@@ -153,16 +155,6 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_shard_commitment(&self, shard_id: ShardId) -> Commitment {
 			self.inner.lock().unwrap().get_shard_commitment(shard_id)
 		}
-
-		fn submit_commitment(&self, shard_id: ShardId, member: PublicKey, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge) -> TxResult {
-			self.inner.lock().unwrap().submit_commitment(shard_id, member, commitment, proof_of_knowledge);
-			Ok(())
-		}
-
-		fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> TxResult {
-			self.inner.lock().unwrap().submit_online(shard_id, member);
-			Ok(())
-		}
 	}
 
 	impl MembersApi<Block> for MockApi {
@@ -172,16 +164,11 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_heartbeat_timeout() -> u64 {
 			1000
 		}
-		fn submit_register_member(_network: Network, _public_key: PublicKey, _peer_id: PeerId) -> TxResult { Ok(()) }
-		fn submit_heartbeat(_public_key: PublicKey) -> TxResult { Ok(()) }
 	}
 
 	impl TasksApi<Block> for MockApi{
 		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
 		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
-		fn submit_task_hash(_shard_id: ShardId, _task_id: TaskId, _hash: Vec<u8>) -> TxResult { Ok(()) }
-		fn submit_task_result(_task_id: TaskId, _cycle: TaskCycle, _status: TaskResult) -> TxResult { Ok(()) }
-		fn submit_task_error(_task_id: TaskId, _cycle: TaskCycle, _error: TaskError) -> TxResult { Ok(()) }
 	}
 
 	impl BlockTimeApi<Block> for MockApi{
@@ -190,6 +177,11 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::SubmitTransactionApi<Block> for MockApi {
+		fn submit_transaction(encoded_transaction: Vec<u8>) -> TxResult {
+			Ok(())
+		}
+	}
 }
 
 impl ProvideRuntimeApi<Block> for MockApi {
@@ -320,11 +312,10 @@ async fn tss_smoke() -> Result<()> {
 
 		let substrate = Substrate::new(
 			false,
-			MemoryKeystore::new().into(),
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 			net.peer(i).client().as_client(),
 			api.clone(),
-			None,
+			SubxtClient::new(&Path::new("/mock/mock.txt")).await.unwrap(),
 		);
 
 		let n = net.peer(i).network_service().clone();
@@ -337,7 +328,6 @@ async fn tss_smoke() -> Result<()> {
 			net_request,
 			task_executor: task_executor.clone(),
 			substrate: substrate.clone(),
-			public_key: pub_keys[i].clone(),
 		});
 		tokio::task::spawn(async move {
 			let span = span!(Level::INFO, "span");

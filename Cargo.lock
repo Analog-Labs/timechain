@@ -421,35 +421,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-scale"
-version = "0.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51bd73bb6ddb72630987d37fa963e99196896c0d0ea81b7c894567e74a2f83af"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "ark-secret-scalar"
-version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
- "digest 0.10.7",
- "rand_core 0.6.4",
- "zeroize",
-]
-
-[[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
@@ -458,7 +429,7 @@ dependencies = [
  "ark-ff",
  "ark-serialize",
  "ark-std",
- "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
+ "ark-transcript",
  "digest 0.10.7",
  "rand_core 0.6.4",
  "zeroize",
@@ -495,19 +466,6 @@ checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
-]
-
-[[package]]
-name = "ark-transcript"
-version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
-dependencies = [
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "digest 0.10.7",
- "rand_core 0.6.4",
- "sha3",
 ]
 
 [[package]]
@@ -987,27 +945,6 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.1"
-source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
-dependencies = [
- "ark-bls12-381",
- "ark-ec",
- "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "dleq_vrf 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
- "fflonk",
- "merlin 3.0.0",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "ring 0.1.0 (git+https://github.com/w3f/ring-proof)",
- "sha2 0.10.8",
- "zeroize",
-]
-
-[[package]]
-name = "bandersnatch_vrfs"
-version = "0.0.1"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
  "ark-bls12-381",
@@ -1016,12 +953,12 @@ dependencies = [
  "ark-ff",
  "ark-serialize",
  "ark-std",
- "dleq_vrf 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
+ "dleq_vrf",
  "fflonk",
  "merlin 3.0.0",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "ring 0.1.0 (git+https://github.com/w3f/ring-proof?rev=8657210)",
+ "ring 0.1.0",
  "sha2 0.10.8",
  "zeroize",
 ]
@@ -1886,21 +1823,6 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "ark-std",
- "fflonk",
- "merlin 3.0.0",
- "rand_chacha 0.3.1",
-]
-
-[[package]]
-name = "common"
-version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#edd1e90b847e560bf60fc2e8712235ccfa11a9a9"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2981,32 +2903,15 @@ dependencies = [
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-scale 0.0.11",
- "ark-secret-scalar 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
- "ark-serialize",
- "ark-std",
- "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
- "arrayvec 0.7.4",
- "rand_core 0.6.4",
- "zeroize",
-]
-
-[[package]]
-name = "dleq_vrf"
-version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
  "ark-ec",
  "ark-ff",
- "ark-scale 0.0.10",
- "ark-secret-scalar 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
+ "ark-scale",
+ "ark-secret-scalar",
  "ark-serialize",
  "ark-std",
- "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
+ "ark-transcript",
  "arrayvec 0.7.4",
  "rand_core 0.6.4",
  "zeroize",
@@ -9429,23 +9334,7 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "blake2",
- "common 0.1.0 (git+https://github.com/w3f/ring-proof?rev=8657210)",
- "fflonk",
- "merlin 3.0.0",
-]
-
-[[package]]
-name = "ring"
-version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#edd1e90b847e560bf60fc2e8712235ccfa11a9a9"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "ark-std",
- "blake2",
- "common 0.1.0 (git+https://github.com/w3f/ring-proof)",
+ "common",
  "fflonk",
  "merlin 3.0.0",
 ]
@@ -9552,7 +9441,7 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9565,13 +9454,13 @@ dependencies = [
  "js-sys",
  "log",
  "num-traits",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server-astar 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server-bitcoin 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server-ethereum 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server-polkadot 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-tx-ethereum 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-tx-polkadot 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server-astar 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server-bitcoin 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server-polkadot 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-tx-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-tx-polkadot 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -9591,10 +9480,10 @@ dependencies = [
 [[package]]
 name = "rosetta-config-astar"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "subxt 0.32.1",
 ]
 
@@ -9610,10 +9499,10 @@ dependencies = [
 [[package]]
 name = "rosetta-config-bitcoin"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
 ]
 
 [[package]]
@@ -9630,11 +9519,11 @@ dependencies = [
 [[package]]
 name = "rosetta-config-ethereum"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
- "rosetta-config-astar 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-astar 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde",
 ]
 
@@ -9652,10 +9541,10 @@ dependencies = [
 [[package]]
 name = "rosetta-config-polkadot"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde",
  "subxt 0.32.1",
 ]
@@ -9679,14 +9568,14 @@ dependencies = [
 [[package]]
 name = "rosetta-core"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-trait",
  "fluent-uri",
  "futures-util",
- "rosetta-crypto 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-types 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-crypto 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-types 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde",
  "serde_json",
  "thiserror",
@@ -9722,7 +9611,7 @@ dependencies = [
 [[package]]
 name = "rosetta-crypto"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "bech32 0.9.1",
@@ -9766,7 +9655,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -9809,7 +9698,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9861,7 +9750,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-astar"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -9871,11 +9760,11 @@ dependencies = [
  "hex 0.4.3",
  "log",
  "parity-scale-codec",
- "rosetta-config-astar 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-config-ethereum 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server-ethereum 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-astar 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-config-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde",
  "serde_json",
  "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -9903,15 +9792,15 @@ dependencies = [
 [[package]]
 name = "rosetta-server-bitcoin"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
  "async-trait",
  "bitcoincore-rpc-async",
  "hex 0.4.3",
- "rosetta-config-bitcoin 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-bitcoin 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde_json",
  "tokio",
 ]
@@ -9943,7 +9832,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-ethereum"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -9953,10 +9842,10 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
- "rosetta-config-ethereum 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-ethereum-rpc-client 0.1.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-ethereum-rpc-client 0.1.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde",
  "serde_json",
  "tokio",
@@ -9989,16 +9878,16 @@ dependencies = [
 [[package]]
 name = "rosetta-server-polkadot"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
  "async-trait",
  "hex 0.4.3",
  "parity-scale-codec",
- "rosetta-config-polkadot 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-server 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-polkadot 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "scale-info",
  "serde",
  "serde_json",
@@ -10025,13 +9914,13 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "ethabi",
  "ethers-core",
- "rosetta-config-ethereum 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-ethereum 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde_json",
  "sha3",
 ]
@@ -10053,14 +9942,14 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-polkadot"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "blake2-rfc",
  "bs58 0.5.0",
  "parity-scale-codec",
- "rosetta-config-polkadot 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-config-polkadot 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "serde_json",
 ]
 
@@ -10076,7 +9965,7 @@ dependencies = [
 [[package]]
 name = "rosetta-types"
 version = "0.4.0"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "serde",
  "serde_json",
@@ -12566,7 +12455,7 @@ version = "21.0.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
 dependencies = [
  "array-bytes 6.1.0",
- "bandersnatch_vrfs 0.0.1 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
+ "bandersnatch_vrfs",
  "bitflags 1.3.2",
  "blake2",
  "bounded-collections",
@@ -14285,8 +14174,7 @@ checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
 name = "tc-subxt"
 version = "0.1.0"
 dependencies = [
- "rosetta-server 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
- "sp-core 21.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
+ "anyhow",
  "subxt 0.32.1",
  "subxt-signer 0.32.1",
  "time-primitives",
@@ -14338,7 +14226,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ethers-solc",
- "rosetta-client 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
+ "rosetta-client 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "subxt 0.31.0",
  "subxt-signer 0.31.0",
  "surf",

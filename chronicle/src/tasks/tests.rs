@@ -136,7 +136,7 @@ async fn task_executor_smoke() -> Result<()> {
 		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		client.clone(),
 		api,
-		SubxtClient::new(&Path::new("/mock/mock.txt")).await.unwrap(),
+		SubxtClient::new(Path::new("/mock/mock.txt")).await.unwrap(),
 	);
 
 	//import block

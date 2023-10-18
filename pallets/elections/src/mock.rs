@@ -93,7 +93,6 @@ impl pallet_elections::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type TaskScheduler = MockTaskScheduler;
 	type Members = MockMembers;
 	type Elections = Elections;

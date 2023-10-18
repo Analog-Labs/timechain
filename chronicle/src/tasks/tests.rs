@@ -12,17 +12,18 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::AccountId32;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
+use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, BlockNumber, Commitment, Function, Network, ProofOfKnowledge, PublicKey, ShardId,
 	ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
 	TasksApi, TxResult,
 };
-
 lazy_static::lazy_static! {
 	pub static ref TASK_STATUS: Mutex<Vec<bool>> = Default::default();
 }
@@ -39,8 +40,6 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_shards(_: &AccountId) -> Vec<ShardId> { vec![1] }
 		fn get_shard_members(_: ShardId) -> Vec<AccountId> { vec![] }
 		fn get_shard_threshold(_: ShardId) -> u16 { 1 }
-		fn submit_commitment(_: ShardId, _: PublicKey, _: Commitment, _: ProofOfKnowledge) -> TxResult { Ok(()) }
-		fn submit_online(_: ShardId, _: PublicKey) -> TxResult { Ok(()) }
 	}
 
 	impl TasksApi<Block> for MockApi{
@@ -59,13 +58,15 @@ sp_api::mock_impl_runtime_apis! {
 				hash: "".to_string(),
 			})
 		}
-		fn submit_task_hash(_: ShardId, _: TaskId, _: Vec<u8>) -> TxResult { Ok(()) }
-		fn submit_task_result(_: TaskId, _: TaskCycle, _: TaskResult) -> TxResult {
-			TASK_STATUS.lock().unwrap().push(true);
-			Ok(())
+	}
+
+	impl time_primitives::BlockTimeApi<Block> for MockApi{
+		fn get_block_time_in_msec() -> u64{
+			6000
 		}
-		fn submit_task_error(_: TaskId, _: TaskCycle, _: TaskError) -> TxResult {
-			TASK_STATUS.lock().unwrap().push(false);
+	}
+	impl time_primitives::SubmitTransactionApi<Block> for MockApi {
+		fn submit_transaction(encoded_transaction: Vec<u8>) -> TxResult {
 			Ok(())
 		}
 	}
@@ -131,11 +132,10 @@ async fn task_executor_smoke() -> Result<()> {
 
 	let substrate = Substrate::new(
 		false,
-		MemoryKeystore::new().into(),
 		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		client.clone(),
 		api,
-		None,
+		SubxtClient::new(&Path::new("/mock/mock.txt")).await.unwrap(),
 	);
 
 	//import block
@@ -150,7 +150,6 @@ async fn task_executor_smoke() -> Result<()> {
 		let params = TaskExecutorParams {
 			task_spawner,
 			network: Network::Ethereum,
-			public_key: pubkey_from_bytes([i; 32]),
 			substrate: substrate.clone(),
 		};
 

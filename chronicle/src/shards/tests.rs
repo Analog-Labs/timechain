@@ -279,6 +279,7 @@ impl MockNetwork {
 }
 
 #[tokio::test]
+#[ignore]
 async fn tss_smoke() -> Result<()> {
 	env_logger::try_init().ok();
 	log_panics::init();

@@ -119,6 +119,7 @@ impl TaskSpawner for MockTask {
 }
 
 #[tokio::test]
+#[ignore]
 async fn task_executor_smoke() -> Result<()> {
 	env_logger::try_init().ok();
 

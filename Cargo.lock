@@ -421,6 +421,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-scale"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51bd73bb6ddb72630987d37fa963e99196896c0d0ea81b7c894567e74a2f83af"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "ark-secret-scalar"
+version = "0.0.2"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+ "zeroize",
+]
+
+[[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
@@ -429,7 +458,7 @@ dependencies = [
  "ark-ff",
  "ark-serialize",
  "ark-std",
- "ark-transcript",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
  "digest 0.10.7",
  "rand_core 0.6.4",
  "zeroize",
@@ -466,6 +495,19 @@ checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
+]
+
+[[package]]
+name = "ark-transcript"
+version = "0.0.2"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
+dependencies = [
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+ "sha3",
 ]
 
 [[package]]
@@ -811,9 +853,9 @@ dependencies = [
 
 [[package]]
 name = "async-task"
-version = "4.4.1"
+version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9441c6b2fe128a7c2bf680a44c34d0df31ce09e5b7e401fcca3faa483dbc921"
+checksum = "b4eb2cdb97421e01129ccb49169d8279ed21e829929144f4a22a6e54ac549ca1"
 
 [[package]]
 name = "async-tls"
@@ -945,6 +987,27 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.1"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
+dependencies = [
+ "ark-bls12-381",
+ "ark-ec",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "dleq_vrf 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
+ "fflonk",
+ "merlin 3.0.0",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "ring 0.1.0 (git+https://github.com/w3f/ring-proof)",
+ "sha2 0.10.8",
+ "zeroize",
+]
+
+[[package]]
+name = "bandersnatch_vrfs"
+version = "0.0.1"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
  "ark-bls12-381",
@@ -953,12 +1016,12 @@ dependencies = [
  "ark-ff",
  "ark-serialize",
  "ark-std",
- "dleq_vrf",
+ "dleq_vrf 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
  "fflonk",
  "merlin 3.0.0",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "ring 0.1.0",
+ "ring 0.1.0 (git+https://github.com/w3f/ring-proof?rev=8657210)",
  "sha2 0.10.8",
  "zeroize",
 ]
@@ -1578,7 +1641,6 @@ dependencies = [
  "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "substrate-test-runtime-client",
  "surf",
- "tc-subxt",
  "time-primitives",
  "timegraph-client",
  "tokio",
@@ -1823,6 +1885,21 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "fflonk",
+ "merlin 3.0.0",
+ "rand_chacha 0.3.1",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+source = "git+https://github.com/w3f/ring-proof#edd1e90b847e560bf60fc2e8712235ccfa11a9a9"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2545,7 +2622,7 @@ dependencies = [
  "hashbrown 0.14.1",
  "lock_api",
  "once_cell",
- "parking_lot_core 0.9.8",
+ "parking_lot_core 0.9.9",
 ]
 
 [[package]]
@@ -2903,15 +2980,32 @@ dependencies = [
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-scale 0.0.11",
+ "ark-secret-scalar 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
+ "ark-serialize",
+ "ark-std",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=4b09416)",
+ "arrayvec 0.7.4",
+ "rand_core 0.6.4",
+ "zeroize",
+]
+
+[[package]]
+name = "dleq_vrf"
+version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
  "ark-ec",
  "ark-ff",
- "ark-scale",
- "ark-secret-scalar",
+ "ark-scale 0.0.10",
+ "ark-secret-scalar 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
  "ark-serialize",
  "ark-std",
- "ark-transcript",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
  "arrayvec 0.7.4",
  "rand_core 0.6.4",
  "zeroize",
@@ -4979,16 +5073,16 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.57"
+version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fad5b825842d2b38bd206f3e81d6957625fd7f0a361e345c30e01a0ae2dd613"
+checksum = "8326b86b6cff230b97d0d312a6c40a60726df3332e721f72a1b035f451663b20"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows 0.48.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -5273,7 +5367,7 @@ checksum = "28b29a3cd74f0f4598934efe3aeba42bae0eb4680554128851ebbecb02af14e6"
 [[package]]
 name = "iroh-metrics"
 version = "0.7.0"
-source = "git+https://github.com/n0-computer/iroh#5813e09445cb7520aab49f6bf3c25a269c01e9b0"
+source = "git+https://github.com/n0-computer/iroh#16773b08cba7454c6a4e984f37d1324700fb481b"
 dependencies = [
  "erased_set",
  "hyper",
@@ -5287,7 +5381,7 @@ dependencies = [
 [[package]]
 name = "iroh-net"
 version = "0.7.0"
-source = "git+https://github.com/n0-computer/iroh#5813e09445cb7520aab49f6bf3c25a269c01e9b0"
+source = "git+https://github.com/n0-computer/iroh#16773b08cba7454c6a4e984f37d1324700fb481b"
 dependencies = [
  "aead 0.5.2",
  "anyhow",
@@ -5450,12 +5544,6 @@ dependencies = [
  "jsonrpsee-proc-macros 0.20.2",
  "jsonrpsee-types 0.20.2",
  "jsonrpsee-ws-client 0.20.2",
- "jsonrpsee-client-transport 0.20.1",
- "jsonrpsee-core 0.20.1",
- "jsonrpsee-http-client 0.20.1",
- "jsonrpsee-proc-macros 0.20.1",
- "jsonrpsee-types 0.20.1",
- "jsonrpsee-ws-client 0.20.1",
  "tracing",
 ]
 
@@ -5543,7 +5631,6 @@ dependencies = [
  "futures-util",
  "hyper",
  "jsonrpsee-types 0.20.2",
- "jsonrpsee-types 0.20.1",
  "rustc-hash",
  "serde",
  "serde_json",
@@ -5576,17 +5663,12 @@ name = "jsonrpsee-http-client"
 version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02308562f2e8162a32f8d6c3dc19c29c858d5d478047c886a5c3c25b5f7fa868"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0dd865d0072764cb937b0110a92b5f53e995f7101cb346beca03d93a2dea79de"
 dependencies = [
  "async-trait",
  "hyper",
  "hyper-rustls",
  "jsonrpsee-core 0.20.2",
  "jsonrpsee-types 0.20.2",
- "jsonrpsee-core 0.20.1",
- "jsonrpsee-types 0.20.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -6406,9 +6488,9 @@ checksum = "da2479e8c062e40bf0066ffa0bc823de0a9368974af99c9f6df941d2c231e03f"
 
 [[package]]
 name = "lock_api"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1cc9717a20b1bb222f333e6a92fd32f7d8a18ddc5a3191a11af45dcbf4dcd16"
+checksum = "3c168f8615b12bc01f9c17e2eb0cc07dcae1940121185446edc3744920e8ef45"
 dependencies = [
  "autocfg",
  "scopeguard",
@@ -7935,9 +8017,9 @@ checksum = "e1ad0aff30c1da14b1254fcb2af73e1fa9a28670e584a626f53a369d0e157304"
 
 [[package]]
 name = "parking"
-version = "2.1.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e52c774a4c39359c1d1c52e43f73dd91a75a614652c825408eec30c95a9b2067"
+checksum = "bb813b8af86854136c6922af0598d719255ecb2179515e6e7730d468f05c9cae"
 
 [[package]]
 name = "parking_lot"
@@ -7957,7 +8039,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.8",
+ "parking_lot_core 0.9.9",
 ]
 
 [[package]]
@@ -7976,13 +8058,13 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.9.8"
+version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93f00c865fe7cabf650081affecd3871070f26767e7b2070a3ffae14c654b447"
+checksum = "4c42a9226546d68acdd9c0a280d17ce19bfe27a46bf68784e4066115788d008e"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.3.5",
+ "redox_syscall 0.4.1",
  "smallvec",
  "windows-targets 0.48.5",
 ]
@@ -8281,7 +8363,7 @@ dependencies = [
  "rand 0.8.5",
  "reqwest",
  "self_cell",
- "simple-dns 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "simple-dns 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "tokio",
  "url",
@@ -9157,6 +9239,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox_syscall"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4722d768eff46b75989dd134e5c353f0d6296e5aaa3132e776cbdb56be7731aa"
+dependencies = [
+ "bitflags 1.3.2",
+]
+
+[[package]]
 name = "redox_users"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9337,7 +9428,23 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "blake2",
- "common",
+ "common 0.1.0 (git+https://github.com/w3f/ring-proof?rev=8657210)",
+ "fflonk",
+ "merlin 3.0.0",
+]
+
+[[package]]
+name = "ring"
+version = "0.1.0"
+source = "git+https://github.com/w3f/ring-proof#edd1e90b847e560bf60fc2e8712235ccfa11a9a9"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "blake2",
+ "common 0.1.0 (git+https://github.com/w3f/ring-proof)",
  "fflonk",
  "merlin 3.0.0",
 ]
@@ -9444,8 +9551,7 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
-source = "git+https://github.com/Analog-Labs/chain-connectors/#29ee67a9675214088b4613d62bd1d782aa7813d0"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9479,16 +9585,15 @@ dependencies = [
  "anyhow",
  "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
  "subxt 0.32.1",
- "subxt 0.31.0",
 ]
 
 [[package]]
 name = "rosetta-config-astar"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
- "rosetta-core 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
  "subxt 0.32.1",
 ]
 
@@ -9504,7 +9609,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-bitcoin"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
@@ -9524,7 +9629,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-ethereum"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "rosetta-config-astar 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
@@ -9546,7 +9651,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-polkadot"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "rosetta-core 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
@@ -9573,7 +9678,7 @@ dependencies = [
 [[package]]
 name = "rosetta-core"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9616,7 +9721,7 @@ dependencies = [
 [[package]]
 name = "rosetta-crypto"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "bech32 0.9.1",
@@ -9660,7 +9765,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -9703,7 +9808,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9755,7 +9860,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-astar"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -9797,7 +9902,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-bitcoin"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -9837,7 +9942,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-ethereum"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -9883,7 +9988,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-polkadot"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -9919,7 +10024,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "ethabi",
@@ -9947,7 +10052,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-polkadot"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "anyhow",
  "blake2-rfc",
@@ -9970,7 +10075,7 @@ dependencies = [
 [[package]]
 name = "rosetta-types"
 version = "0.4.0"
-source = "git+https://github.com/analog-labs/chain-connectors#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
+source = "git+https://github.com/Analog-Labs/chain-connectors/#7481f4d36ab0c5ff117c83fff1d279c620d8c9f3"
 dependencies = [
  "serde",
  "serde_json",
@@ -11960,30 +12065,30 @@ dependencies = [
 
 [[package]]
 name = "simple-dns"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17534bea826abaf69dfe7a56f63950d5f8d20adfc2439e9f2af368e2fcd74098"
+checksum = "cae9a3fcdadafb6d97f4c0e007e4247b114ee0f119f650c3cbf3a8b3a1479694"
 dependencies = [
  "bitflags 2.4.1",
 ]
 
 [[package]]
 name = "simple-dns"
-version = "0.5.6"
-source = "git+https://github.com/balliegojr/simple-dns#99637a407cecf498b9c52aaa2ef3ba32c00dd722"
+version = "0.5.7"
+source = "git+https://github.com/balliegojr/simple-dns#2bd58d3d8694b7f86bca57900fa30e6d33c1c6d9"
 dependencies = [
  "bitflags 2.4.1",
 ]
 
 [[package]]
 name = "simple-mdns"
-version = "0.4.2"
-source = "git+https://github.com/balliegojr/simple-dns#99637a407cecf498b9c52aaa2ef3ba32c00dd722"
+version = "0.5.0"
+source = "git+https://github.com/balliegojr/simple-dns#2bd58d3d8694b7f86bca57900fa30e6d33c1c6d9"
 dependencies = [
  "lazy_static",
  "log",
  "radix_trie",
- "simple-dns 0.5.6 (git+https://github.com/balliegojr/simple-dns)",
+ "simple-dns 0.5.7 (git+https://github.com/balliegojr/simple-dns)",
  "socket2 0.5.4",
  "tokio",
 ]
@@ -12460,7 +12565,7 @@ version = "21.0.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
 dependencies = [
  "array-bytes 6.1.0",
- "bandersnatch_vrfs",
+ "bandersnatch_vrfs 0.0.1 (git+https://github.com/w3f/ring-vrf?rev=f4fe253)",
  "bitflags 1.3.2",
  "blake2",
  "bounded-collections",
@@ -13961,6 +14066,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "subxt-signer"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d82e5abb896d5f5a6581d5b86a5e7f015e318122498d8163211e8f61f83b54d2"
+dependencies = [
+ "bip39",
+ "hex 0.4.3",
+ "hmac 0.12.1",
+ "parity-scale-codec",
+ "pbkdf2 0.12.2",
+ "regex",
+ "schnorrkel 0.10.2",
+ "secp256k1 0.27.0",
+ "secrecy",
+ "sha2 0.10.8",
+ "sp-core-hashing 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subxt 0.32.1",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "surf"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14210,9 +14337,9 @@ dependencies = [
  "anyhow",
  "clap",
  "ethers-solc",
- "rosetta-client 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-client 0.4.0 (git+https://github.com/Analog-Labs/chain-connectors/)",
  "subxt 0.31.0",
- "subxt-signer",
+ "subxt-signer 0.31.0",
  "surf",
  "tokio",
 ]

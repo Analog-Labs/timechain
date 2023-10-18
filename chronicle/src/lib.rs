@@ -81,7 +81,7 @@ where
 		target: TW_LOG,
 		Level::INFO,
 		"run_chronicle",
-		peer_id = format!("{peer_id:?}"),
+		?peer_id,
 	);
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 

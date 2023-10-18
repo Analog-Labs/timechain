@@ -19,6 +19,7 @@ serde_json = "1.0.105"
 sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+tc-subxt = { path = "../tc-subxt" }
 time-primitives = { path = "../primitives" }
 timegraph-client = "0.1.9"
 tokio = "1.32.0"

@@ -2,7 +2,6 @@ use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
-use sp_api::ProvideRuntimeApi;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	BlockHash, BlockNumber, Function, Network, PublicKey, ShardId, TaskExecution, TaskPhase, Tasks,
@@ -120,11 +119,7 @@ where
 					}
 					let function =
 						if let Function::SendMessage { contract_address, payload } = function {
-							let signature = self
-								.runtime
-								.runtime_api()
-								.get_task_signature(block_hash, task_id)?
-								.unwrap();
+							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
 							Function::EvmCall {
 								address: hex::encode(&contract_address),
 								function_signature: String::from("send_message(uint[],uint[])"),

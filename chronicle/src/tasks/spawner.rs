@@ -280,7 +280,7 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		payload: Vec<u8>,
-		block_num: u64,
+		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		self.clone().sign(shard_id, task_id, cycle, payload, block_num).boxed()
 	}

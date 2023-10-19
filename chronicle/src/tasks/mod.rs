@@ -32,7 +32,7 @@ pub trait TaskSpawner {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		payload: Vec<u8>,
-		block_num: u64,
+		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
 	fn execute_write(

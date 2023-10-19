@@ -176,6 +176,10 @@ where
 		self.runtime_api().get_task(block, task_id)
 	}
 
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>> {
+		self.runtime_api().get_task_signature(self.best_block(), task_id)
+	}
+
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		self.runtime_api().submit_task_hash(self.best_block(), task_id, cycle, hash)
 	}

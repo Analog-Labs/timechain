@@ -147,6 +147,8 @@ pub trait Tasks {
 
 	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
 
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
+
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 
 	fn submit_task_result(

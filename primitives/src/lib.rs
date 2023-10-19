@@ -24,6 +24,7 @@ pub type AccountId = AccountId32;
 pub type PublicKey = MultiSigner;
 pub type Signature = MultiSignature;
 pub type BlockNumber = u32;
+pub type BlockHash = sp_core::H256;
 
 pub mod crypto {
 	use sp_runtime::app_crypto::{app_crypto, sr25519};
@@ -47,6 +48,8 @@ pub enum TxError {
 pub type TxResult = Result<(), TxError>;
 #[cfg(feature = "std")]
 pub type SubmitResult = Result<TxResult, ApiError>;
+#[cfg(feature = "std")]
+pub type ApiResult<T> = Result<T, ApiError>;
 
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {

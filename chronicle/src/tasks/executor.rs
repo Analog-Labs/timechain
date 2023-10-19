@@ -3,49 +3,34 @@ use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
 use sp_api::ProvideRuntimeApi;
-use sp_runtime::traits::Block;
-use std::{collections::BTreeMap, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Function, Network, PublicKey, ShardId, TaskExecution, TaskPhase, TasksApi, TssId,
+	BlockHash, BlockNumber, Function, Network, PublicKey, ShardId, TaskExecution, TaskPhase, Tasks,
+	TssId,
 };
 use tokio::task::JoinHandle;
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
-pub struct TaskExecutorParams<B: Block, R, T>
-where
-	B: Block,
-	R: ProvideRuntimeApi<B>,
-	R::Api: TasksApi<B>,
-	T: TaskSpawner + Send + Sync + 'static,
-{
-	pub _block: PhantomData<B>,
-	pub runtime: Arc<R>,
+pub struct TaskExecutorParams<S, T> {
+	pub substrate: S,
 	pub task_spawner: T,
 	pub network: Network,
 	pub public_key: PublicKey,
 }
 
-pub struct TaskExecutor<B: Block, R, T> {
-	_block: PhantomData<B>,
-	runtime: Arc<R>,
+pub struct TaskExecutor<S, T> {
+	substrate: S,
 	task_spawner: T,
 	network: Network,
 	public_key: PublicKey,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
-impl<B, R, T> Clone for TaskExecutor<B, R, T>
-where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	T: TaskSpawner + Send + Sync + Clone + 'static,
-{
+impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 	fn clone(&self) -> Self {
 		Self {
-			_block: PhantomData,
-			runtime: self.runtime.clone(),
+			substrate: self.substrate.clone(),
 			task_spawner: self.task_spawner.clone(),
 			network: self.network,
 			public_key: self.public_key.clone(),
@@ -54,12 +39,10 @@ where
 	}
 }
 
-impl<B, R, T> super::TaskExecutor<B> for TaskExecutor<B, R, T>
+impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	T: TaskSpawner + Send + Sync + 'static,
+	S: Tasks,
+	T: TaskSpawner,
 {
 	fn network(&self) -> Network {
 		self.network
@@ -71,33 +54,29 @@ where
 
 	fn process_tasks(
 		&mut self,
-		block_hash: <B as Block>::Hash,
-		target_block_height: u64,
-		block_num: u64,
+		block_hash: BlockHash,
+		block_number: BlockNumber,
 		shard_id: ShardId,
+		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
-		self.process_tasks(block_hash, target_block_height, block_num, shard_id)
+		self.process_tasks(block_hash, block_number, shard_id, target_block_height)
 	}
 }
 
-impl<B, R, T> TaskExecutor<B, R, T>
+impl<S, T> TaskExecutor<S, T>
 where
-	B: Block,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B>,
-	T: TaskSpawner + Send + Sync + 'static,
+	S: Tasks,
+	T: TaskSpawner,
 {
-	pub fn new(params: TaskExecutorParams<B, R, T>) -> Self {
+	pub fn new(params: TaskExecutorParams<S, T>) -> Self {
 		let TaskExecutorParams {
-			_block,
-			runtime,
+			substrate,
 			task_spawner,
 			network,
 			public_key,
 		} = params;
 		Self {
-			_block,
-			runtime,
+			substrate,
 			task_spawner,
 			network,
 			public_key,
@@ -107,12 +86,12 @@ where
 
 	pub fn process_tasks(
 		&mut self,
-		block_hash: <B as Block>::Hash,
-		target_block_height: u64,
-		block_num: u64,
+		block_hash: BlockHash,
+		block_number: BlockNumber,
 		shard_id: ShardId,
+		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
-		let tasks = self.runtime.runtime_api().get_shard_tasks(block_hash, shard_id)?;
+		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id)?;
 		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
@@ -122,7 +101,7 @@ where
 				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
-			let task_descr = self.runtime.runtime_api().get_task(block_hash, task_id)?.unwrap();
+			let task_descr = self.substrate.get_task(block_hash, task_id)?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.hash;
@@ -133,7 +112,7 @@ where
 						continue; // create_task ensures never hits this branch
 						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_num)
+					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.public_key {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -172,7 +151,7 @@ where
 						cycle,
 						function,
 						hash,
-						block_num,
+						block_number,
 					)
 				};
 				let handle = tokio::task::spawn(async move {

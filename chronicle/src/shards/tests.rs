@@ -1,6 +1,6 @@
-use crate::network::{TimeWorker, TimeWorkerParams};
+use super::service::{TimeWorker, TimeWorkerParams};
+use crate::substrate::Substrate;
 use crate::tasks::TaskExecutor;
-use crate::tx_submitter::TransactionSubmitter;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -18,17 +18,17 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_keystore::testing::MemoryKeystore;
 use sp_runtime::generic::BlockId;
-use sp_runtime::traits::{Block as sp_block, IdentifyAccount};
+use sp_runtime::traits::IdentifyAccount;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use time_primitives::{
-	AccountId, BlockTimeApi, Commitment, MembersApi, Network, PeerId, ProofOfKnowledge, PublicKey,
-	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
+	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MembersApi, Network, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor,
+	TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssId, TssPublicKey, TssSignature,
+	TssSigningRequest, TxResult,
 };
 use tracing::{span, Level};
 use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
@@ -213,21 +213,9 @@ fn verify_tss_signature(
 }
 
 #[derive(Clone)]
-struct MockTaskExecutor<B> {
-	_block: PhantomData<B>,
-}
+struct MockTaskExecutor {}
 
-impl<B: sp_block> MockTaskExecutor<B> {
-	fn new() -> Self {
-		Self { _block: PhantomData }
-	}
-}
-
-#[async_trait::async_trait]
-impl<B> TaskExecutor<B> for MockTaskExecutor<B>
-where
-	B: sp_block,
-{
+impl TaskExecutor for MockTaskExecutor {
 	fn network(&self) -> Network {
 		Network::Ethereum
 	}
@@ -238,10 +226,10 @@ where
 
 	fn process_tasks(
 		&mut self,
-		_block_hash: <B as sp_block>::Hash,
-		_target_block_height: u64,
-		_block_num: u64,
+		_block_hash: BlockHash,
+		_block_number: BlockNumber,
 		_shard_id: ShardId,
+		_target_block_height: u64,
 	) -> Result<Vec<TssId>> {
 		Ok(vec![])
 	}
@@ -307,7 +295,7 @@ async fn tss_smoke() -> Result<()> {
 	let mut net = MockNetwork::default();
 	let api = Arc::new(MockApi::default());
 
-	let task_executor = MockTaskExecutor::<Block>::new();
+	let task_executor = MockTaskExecutor {};
 
 	let mut peers = vec![];
 	let mut pub_keys = vec![];
@@ -331,7 +319,7 @@ async fn tss_smoke() -> Result<()> {
 		peers.push(peer_id);
 		tss.push(tss_tx);
 
-		let tx_submitter = TransactionSubmitter::new(
+		let substrate = Substrate::new(
 			false,
 			MemoryKeystore::new().into(),
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
@@ -339,16 +327,16 @@ async fn tss_smoke() -> Result<()> {
 			api.clone(),
 		);
 
+		let n = net.peer(i).network_service().clone();
+		let (n, net_request) =
+			crate::network::create_network(Some((n, protocol_rx)), Default::default()).await?;
+
 		let worker = TimeWorker::new(TimeWorkerParams {
-			_block: PhantomData,
-			client: net.peer(i).client().as_client(),
-			runtime: api.clone(),
-			network: net.peer(i).network_service().clone(),
-			peer_id: peers[i],
+			network: n,
 			tss_request: tss_rx,
-			protocol_request: protocol_rx,
+			net_request,
 			task_executor: task_executor.clone(),
-			tx_submitter: tx_submitter.clone(),
+			substrate: substrate.clone(),
 			public_key: pub_keys[i].clone(),
 		});
 		tokio::task::spawn(async move {
@@ -402,7 +390,7 @@ async fn tss_smoke() -> Result<()> {
 		tss.send(TssSigningRequest {
 			request_id: TssId(1, 1),
 			shard_id: 0,
-			block_number,
+			block_number: block_number.try_into().unwrap(),
 			data: message.to_vec(),
 			tx,
 		})

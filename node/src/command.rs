@@ -38,7 +38,8 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
 			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
-			"staging" => Box::new(chain_spec::analog_staging_config()?),
+			"staging" => Box::new(chain_spec::analog_staging_config(false)?),
+			"staging-notss" => Box::new(chain_spec::analog_staging_config(true)?),
 			"" | "dev" => Box::new(chain_spec::analog_dev_config(false)?),
 			"notss" => Box::new(chain_spec::analog_dev_config(true)?),
 			path => {
@@ -205,6 +206,9 @@ pub fn run() -> sc_cli::Result<()> {
 						keyfile: args.keyfile,
 						timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
 						timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
+						secret: args.secret,
+						bind_port: args.bind_port,
+						pkarr_relay: args.pkarr_relay,
 					}),
 				)
 				.map_err(sc_cli::Error::Service)

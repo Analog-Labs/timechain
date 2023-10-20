@@ -7,7 +7,7 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
-use tc_subxt::{AccountInterface, SubxtClient};
+use tc_subxt::AccountInterface;
 use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
 	MembersPayload, Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi,

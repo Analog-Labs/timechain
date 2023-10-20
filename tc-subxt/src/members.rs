@@ -1,10 +1,10 @@
 use crate::{timechain_runtime, SubxtClient};
-use time_primitives::{Network, PeerId, PublicKey};
+use time_primitives::{MembersPayload, Network, PeerId, PublicKey};
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::shard;
 
-impl SubxtClient {
-	pub fn register_member(
+impl MembersPayload for SubxtClient {
+	fn submit_register_member(
 		&self,
 		network: Network,
 		public_key: PublicKey,
@@ -16,7 +16,7 @@ impl SubxtClient {
 		self.make_transaction(&tx)
 	}
 
-	pub fn submit_heartbeat(&self) -> Vec<u8> {
+	fn submit_heartbeat(&self) -> Vec<u8> {
 		let tx = timechain_runtime::tx().members().send_heartbeat();
 		self.make_transaction(&tx)
 	}

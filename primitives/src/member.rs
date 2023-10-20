@@ -1,6 +1,6 @@
 #[cfg(feature = "std")]
 use crate::{AccountId, ApiResult, BlockHash, SubmitResult};
-use crate::{Network, PeerId};
+use crate::{Network, PeerId, PublicKey};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
@@ -36,4 +36,15 @@ pub trait Members {
 	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult;
 
 	fn submit_heartbeat(&self) -> SubmitResult;
+}
+
+#[cfg(feature = "std")]
+pub trait MembersPayload {
+	fn submit_register_member(
+		&self,
+		network: Network,
+		public_key: PublicKey,
+		peer_id: PeerId,
+	) -> Vec<u8>;
+	fn submit_heartbeat(&self) -> Vec<u8>;
 }

@@ -161,3 +161,12 @@ pub trait Tasks {
 		error: TaskError,
 	) -> SubmitResult;
 }
+
+#[cfg(feature = "std")]
+pub trait TasksPayload {
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8>;
+
+	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8>;
+
+	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8>;
+}

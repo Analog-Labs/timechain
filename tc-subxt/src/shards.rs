@@ -1,9 +1,9 @@
-use time_primitives::ShardId;
+use time_primitives::{ShardId, ShardsPayload};
 
 use crate::{timechain_runtime, SubxtClient};
 
-impl SubxtClient {
-	pub fn submit_commitment(
+impl ShardsPayload for SubxtClient {
+	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Vec<[u8; 33]>,
@@ -15,7 +15,7 @@ impl SubxtClient {
 		self.make_transaction(&tx)
 	}
 
-	pub fn submit_ready(&self, shard_id: ShardId) -> Vec<u8> {
+	fn submit_online(&self, shard_id: ShardId) -> Vec<u8> {
 		let tx = timechain_runtime::tx().shards().ready(shard_id);
 		self.make_transaction(&tx)
 	}

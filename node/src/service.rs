@@ -346,7 +346,6 @@ pub fn new_full(
 			let params = chronicle::ChronicleParams {
 				client: client.clone(),
 				runtime: client.clone(),
-				keystore: keystore_container.keystore(),
 				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 				network: Some((network, protocol_rx)),
 				config,

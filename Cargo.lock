@@ -811,9 +811,9 @@ dependencies = [
 
 [[package]]
 name = "async-task"
-version = "4.4.1"
+version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9441c6b2fe128a7c2bf680a44c34d0df31ce09e5b7e401fcca3faa483dbc921"
+checksum = "b4eb2cdb97421e01129ccb49169d8279ed21e829929144f4a22a6e54ac549ca1"
 
 [[package]]
 name = "async-tls"
@@ -1579,6 +1579,7 @@ dependencies = [
  "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "substrate-test-runtime-client",
  "surf",
+ "tc-subxt",
  "time-primitives",
  "timegraph-client",
  "tokio",
@@ -2545,7 +2546,7 @@ dependencies = [
  "hashbrown 0.14.1",
  "lock_api",
  "once_cell",
- "parking_lot_core 0.9.8",
+ "parking_lot_core 0.9.9",
 ]
 
 [[package]]
@@ -4979,16 +4980,16 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.57"
+version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fad5b825842d2b38bd206f3e81d6957625fd7f0a361e345c30e01a0ae2dd613"
+checksum = "8326b86b6cff230b97d0d312a6c40a60726df3332e721f72a1b035f451663b20"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows 0.48.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -5273,7 +5274,7 @@ checksum = "28b29a3cd74f0f4598934efe3aeba42bae0eb4680554128851ebbecb02af14e6"
 [[package]]
 name = "iroh-metrics"
 version = "0.7.0"
-source = "git+https://github.com/n0-computer/iroh#5813e09445cb7520aab49f6bf3c25a269c01e9b0"
+source = "git+https://github.com/n0-computer/iroh#16773b08cba7454c6a4e984f37d1324700fb481b"
 dependencies = [
  "erased_set",
  "hyper",
@@ -5287,7 +5288,7 @@ dependencies = [
 [[package]]
 name = "iroh-net"
 version = "0.7.0"
-source = "git+https://github.com/n0-computer/iroh#5813e09445cb7520aab49f6bf3c25a269c01e9b0"
+source = "git+https://github.com/n0-computer/iroh#16773b08cba7454c6a4e984f37d1324700fb481b"
 dependencies = [
  "aead 0.5.2",
  "anyhow",
@@ -6394,9 +6395,9 @@ checksum = "da2479e8c062e40bf0066ffa0bc823de0a9368974af99c9f6df941d2c231e03f"
 
 [[package]]
 name = "lock_api"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1cc9717a20b1bb222f333e6a92fd32f7d8a18ddc5a3191a11af45dcbf4dcd16"
+checksum = "3c168f8615b12bc01f9c17e2eb0cc07dcae1940121185446edc3744920e8ef45"
 dependencies = [
  "autocfg",
  "scopeguard",
@@ -7923,9 +7924,9 @@ checksum = "e1ad0aff30c1da14b1254fcb2af73e1fa9a28670e584a626f53a369d0e157304"
 
 [[package]]
 name = "parking"
-version = "2.1.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e52c774a4c39359c1d1c52e43f73dd91a75a614652c825408eec30c95a9b2067"
+checksum = "bb813b8af86854136c6922af0598d719255ecb2179515e6e7730d468f05c9cae"
 
 [[package]]
 name = "parking_lot"
@@ -7945,7 +7946,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.8",
+ "parking_lot_core 0.9.9",
 ]
 
 [[package]]
@@ -7964,13 +7965,13 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.9.8"
+version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93f00c865fe7cabf650081affecd3871070f26767e7b2070a3ffae14c654b447"
+checksum = "4c42a9226546d68acdd9c0a280d17ce19bfe27a46bf68784e4066115788d008e"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.3.5",
+ "redox_syscall 0.4.1",
  "smallvec",
  "windows-targets 0.48.5",
 ]
@@ -8269,7 +8270,7 @@ dependencies = [
  "rand 0.8.5",
  "reqwest",
  "self_cell",
- "simple-dns 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "simple-dns 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "tokio",
  "url",
@@ -9140,6 +9141,15 @@ name = "redox_syscall"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
+dependencies = [
+ "bitflags 1.3.2",
+]
+
+[[package]]
+name = "redox_syscall"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4722d768eff46b75989dd134e5c353f0d6296e5aaa3132e776cbdb56be7731aa"
 dependencies = [
  "bitflags 1.3.2",
 ]
@@ -11946,30 +11956,30 @@ dependencies = [
 
 [[package]]
 name = "simple-dns"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17534bea826abaf69dfe7a56f63950d5f8d20adfc2439e9f2af368e2fcd74098"
+checksum = "cae9a3fcdadafb6d97f4c0e007e4247b114ee0f119f650c3cbf3a8b3a1479694"
 dependencies = [
  "bitflags 2.4.1",
 ]
 
 [[package]]
 name = "simple-dns"
-version = "0.5.6"
-source = "git+https://github.com/balliegojr/simple-dns#99637a407cecf498b9c52aaa2ef3ba32c00dd722"
+version = "0.5.7"
+source = "git+https://github.com/balliegojr/simple-dns#2bd58d3d8694b7f86bca57900fa30e6d33c1c6d9"
 dependencies = [
  "bitflags 2.4.1",
 ]
 
 [[package]]
 name = "simple-mdns"
-version = "0.4.2"
-source = "git+https://github.com/balliegojr/simple-dns#99637a407cecf498b9c52aaa2ef3ba32c00dd722"
+version = "0.5.0"
+source = "git+https://github.com/balliegojr/simple-dns#2bd58d3d8694b7f86bca57900fa30e6d33c1c6d9"
 dependencies = [
  "lazy_static",
  "log",
  "radix_trie",
- "simple-dns 0.5.6 (git+https://github.com/balliegojr/simple-dns)",
+ "simple-dns 0.5.7 (git+https://github.com/balliegojr/simple-dns)",
  "socket2 0.5.4",
  "tokio",
 ]
@@ -13947,6 +13957,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "subxt-signer"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d82e5abb896d5f5a6581d5b86a5e7f015e318122498d8163211e8f61f83b54d2"
+dependencies = [
+ "bip39",
+ "hex 0.4.3",
+ "hmac 0.12.1",
+ "parity-scale-codec",
+ "pbkdf2 0.12.2",
+ "regex",
+ "schnorrkel 0.10.2",
+ "secp256k1 0.27.0",
+ "secrecy",
+ "sha2 0.10.8",
+ "sp-core-hashing 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subxt 0.32.1",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "surf"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14140,6 +14172,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
 
 [[package]]
+name = "tc-subxt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "subxt 0.32.1",
+ "subxt-signer 0.32.1",
+ "time-primitives",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14187,7 +14229,7 @@ dependencies = [
  "ethers-solc",
  "rosetta-client 0.4.0 (git+https://github.com/analog-labs/chain-connectors)",
  "subxt 0.31.0",
- "subxt-signer",
+ "subxt-signer 0.31.0",
  "surf",
  "tokio",
 ]

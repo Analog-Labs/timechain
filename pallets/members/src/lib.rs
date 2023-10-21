@@ -11,15 +11,11 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
-	use frame_system::offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SignMessage, Signer,
-	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{IdentifyAccount, One, Saturating};
+	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey, TxError,
-		TxResult,
+		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -41,13 +37,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		CreateSignedTransaction<Call<Self>, Public = PublicKey>
-		+ frame_system::Config<AccountId = AccountId>
-	{
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 		type Elections: MemberEvents;
 		#[pallet::constant]
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
@@ -159,52 +151,6 @@ pub mod pallet {
 			if let Some(network) = MemberNetwork::<T>::get(member) {
 				T::Elections::member_offline(member, network);
 			}
-		}
-
-		pub fn submit_register_member(
-			network: Network,
-			public_key: PublicKey,
-			peer_id: PeerId,
-		) -> TxResult {
-			let signer =
-				Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key.clone()]);
-			signer
-				.send_signed_transaction(|_| Call::register_member {
-					network,
-					public_key: public_key.clone(),
-					peer_id,
-				})
-				.ok_or(TxError::MissingSigningKey)?
-				.1
-				.map_err(|_| TxError::TxPoolError)
-		}
-
-		pub fn submit_heartbeat(public_key: PublicKey) -> TxResult {
-			let signer = Signer::<T, T::AuthorityId>::any_account().with_filter(vec![public_key]);
-			let signer_pub =
-				signer.sign_message(b"temp_msg").ok_or(TxError::MissingSigningKey)?.0.public;
-			let account_id = signer_pub.into_account();
-
-			for i in 0..100 {
-				let result = signer
-					.send_signed_transaction(|_| Call::send_heartbeat {})
-					.ok_or(TxError::MissingSigningKey)?
-					.1
-					.map_err(|_| TxError::TxPoolError);
-				if i == 99 {
-					return result;
-				}
-
-				if result.is_ok() {
-					return Ok(());
-				}
-				log::error!("failed to send tx, retrying {}", i);
-				let mut account_data = frame_system::Account::<T>::get(&account_id);
-				account_data.nonce = account_data.nonce.saturating_add(One::one());
-				frame_system::Account::<T>::insert(&account_id, account_data);
-				continue;
-			}
-			Err(TxError::TxPoolError)
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

@@ -1,5 +1,5 @@
 #[cfg(feature = "std")]
-use crate::{AccountId, ApiResult, BlockHash, BlockNumber, PublicKey, SubmitResult};
+use crate::{AccountId, ApiResult, BlockHash, BlockNumber, SubmitResult};
 use crate::{TaskCycle, TaskId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -154,12 +154,11 @@ pub trait Shards {
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
-		member: PublicKey,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
 	) -> SubmitResult;
 
-	fn submit_online(&self, shard_id: ShardId, member: PublicKey) -> SubmitResult;
+	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
 }
 
 #[cfg(feature = "std")]

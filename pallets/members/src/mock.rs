@@ -103,7 +103,6 @@ impl pallet_balances::Config for Test {
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Elections = MockShards;
 	type HeartbeatTimeout = ConstU64<10>;
 }

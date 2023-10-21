@@ -50,7 +50,6 @@ use sp_runtime::{
 };
 
 use frame_system::EnsureRootWithSuccess;
-use scale_info::prelude::string::String;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -1134,7 +1133,6 @@ parameter_types! {
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Elections = Elections;
 	type HeartbeatTimeout = ConstU32<50>;
 }
@@ -1152,7 +1150,6 @@ impl pallet_elections::Config for Runtime {
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Members = Members;
 	type Elections = Elections;
 	type TaskScheduler = Tasks;
@@ -1162,7 +1159,6 @@ impl pallet_shards::Config for Runtime {
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU32<10>;
@@ -1468,14 +1464,6 @@ impl_runtime_apis! {
 		fn get_heartbeat_timeout() -> u64 {
 			Members::get_heartbeat_timeout().into()
 		}
-
-		fn submit_register_member(network: Network, public_key: PublicKey, peer_id: PeerId) -> TxResult {
-			Members::submit_register_member(network, public_key, peer_id)
-		}
-
-		fn submit_heartbeat(public_key: PublicKey) -> TxResult {
-			Members::submit_heartbeat(public_key)
-		}
 	}
 
 	impl time_primitives::ShardsApi<Block> for Runtime {
@@ -1498,19 +1486,6 @@ impl_runtime_apis! {
 		fn get_shard_commitment(shard_id: ShardId) -> Commitment {
 			Shards::get_shard_commitment(shard_id)
 		}
-
-		fn submit_commitment(
-			shard_id: ShardId,
-			member: PublicKey,
-			commitment: Commitment,
-			proof_of_knowledge: ProofOfKnowledge,
-		) -> TxResult {
-			Shards::submit_commitment(shard_id, member, commitment, proof_of_knowledge)
-		}
-
-		fn submit_online(shard_id: ShardId, member: PublicKey) -> TxResult {
-			Shards::submit_online(shard_id, member)
-		}
 	}
 
 	impl time_primitives::TasksApi<Block> for Runtime {
@@ -1525,28 +1500,17 @@ impl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
 		}
-
-		fn submit_task_hash(task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> TxResult {
-			Tasks::submit_task_hash(task_id, cycle, hash)
-		}
-
-		fn submit_task_result(task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> TxResult {
-			Tasks::submit_task_result(task_id, cycle, status)
-		}
-
-		fn submit_task_error(shard_id: ShardId, cycle: TaskCycle, error: TaskError) -> TxResult {
-			Tasks::submit_task_error(shard_id, cycle, error)
-		}
-
-		fn submit_task_signature(task_id: TaskId, signature: TssSignature) -> TxResult {
-			Tasks::submit_task_signature(task_id, signature)
-		}
-
 	}
 
 	impl time_primitives::BlockTimeApi<Block> for Runtime {
 		fn get_block_time_in_msec() -> u64{
 			MILLISECS_PER_BLOCK
+		}
+	}
+
+	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
+		fn submit_transaction(encoded_transaction: Vec<u8>) -> TxResult {
+			sp_io::offchain::submit_transaction(encoded_transaction).map_err(|_| TxError::TxPoolError)
 		}
 	}
 

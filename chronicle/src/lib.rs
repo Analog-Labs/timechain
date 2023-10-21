@@ -10,12 +10,12 @@ use sc_network::request_responses::IncomingRequest;
 use sc_network::{NetworkRequest, NetworkSigner};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tc_subxt::SubxtClient;
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, Network, PublicKey, ShardsApi, TasksApi, TIME_KEY_TYPE,
+	BlockHash, BlockTimeApi, MembersApi, Network, ShardsApi, SubmitTransactionApi, TasksApi,
 };
 use tracing::{event, span, Level};
 
@@ -35,6 +35,7 @@ pub struct ChronicleConfig {
 	pub blockchain: Network,
 	pub network: String,
 	pub url: String,
+	pub timechain_keyfile: PathBuf,
 	pub keyfile: Option<PathBuf>,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
@@ -43,7 +44,6 @@ pub struct ChronicleConfig {
 pub struct ChronicleParams<B: Block, C, R, N> {
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
-	pub keystore: KeystorePtr,
 	pub tx_pool: OffchainTransactionPoolFactory<B>,
 	pub network: Option<(N, async_channel::Receiver<IncomingRequest>)>,
 	pub config: ChronicleConfig,
@@ -54,7 +54,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B>,
+	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B> + SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
 	let secret = if let Some(path) = params.config.secret {
@@ -85,23 +85,10 @@ where
 	);
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
-	let public_key: PublicKey = loop {
-		if let Some(pubkey) = params.keystore.sr25519_public_keys(TIME_KEY_TYPE).into_iter().next()
-		{
-			break pubkey.into();
-		}
-		event!(target: TW_LOG, parent: &span, Level::INFO, "Waiting for public key to be inserted");
-		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-	};
-
 	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let substrate = Substrate::new(
-		true,
-		params.keystore,
-		params.tx_pool,
-		params.client.clone(),
-		params.runtime,
-	);
+	let subxt_client = SubxtClient::new(&params.config.timechain_keyfile).await?;
+	let substrate =
+		Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);
 
 	let task_spawner_params = TaskSpawnerParams {
 		tss: tss_tx,
@@ -131,7 +118,6 @@ where
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
 		network: params.config.blockchain,
-		public_key: public_key.clone(),
 		task_spawner,
 		substrate: substrate.clone(),
 	});
@@ -140,7 +126,6 @@ where
 		network,
 		task_executor,
 		substrate,
-		public_key,
 		tss_request: tss_rx,
 		net_request,
 	});

@@ -16,7 +16,7 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
+		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
 		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
 		TasksInterface, TssSignature,
 	};

@@ -1,6 +1,6 @@
 use crate::{timechain_runtime, SubxtClient};
 
-use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult};
+use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult, TssSignature};
 use timechain_runtime::runtime_types::time_primitives::task;
 
 impl SubxtClient {
@@ -12,6 +12,11 @@ impl SubxtClient {
 	) -> Vec<u8> {
 		let error: task::TaskError = unsafe { std::mem::transmute(error) };
 		let tx = timechain_runtime::tx().tasks().submit_error(task_id, cycle, error);
+		self.make_transaction(&tx)
+	}
+
+	pub fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8> {
+		let tx = timechain_runtime::tx().tasks().submit_task_signature(task_id, signature);
 		self.make_transaction(&tx)
 	}
 

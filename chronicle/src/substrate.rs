@@ -222,7 +222,8 @@ where
 	}
 
 	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
-		self.runtime_api().submit_task_signature(self.best_block(), task_id, signature)
+		let tx = self.subxt_client.submit_task_signature(task_id, signature);
+		self.submit_transaction(tx)
 	}
 }
 

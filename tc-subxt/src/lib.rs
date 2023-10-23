@@ -22,6 +22,7 @@ mod tasks;
 pub use subxt::utils::H256;
 
 pub trait AccountInterface {
+	fn nonce(&self) -> u64;
 	fn increment_nonce(&self);
 	fn public_key(&self) -> PublicKey;
 	fn account_id(&self) -> AccountId;
@@ -68,6 +69,7 @@ impl SubxtClient {
 		Ok(hash)
 	}
 }
+
 impl AccountInterface for SubxtClient {
 	fn nonce(&self) -> u64 {
 		self.nonce.load(Ordering::SeqCst)

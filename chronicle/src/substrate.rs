@@ -41,7 +41,14 @@ where
 	C: HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: SubmitTransactionApi<B>,
-	S: AccountInterface,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	fn best_block(&self) -> B::Hash {
 		self.client.info().best_hash
@@ -89,7 +96,7 @@ where
 					commitment,
 					proof_of_knowledge,
 				} => self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge),
-				Tx::Ready { shard_id } => self.subxt_client.submit_ready(shard_id),
+				Tx::Ready { shard_id } => self.subxt_client.submit_online(shard_id),
 				Tx::TaskHash { task_id, cycle, hash } => {
 					self.subxt_client.submit_task_hash(task_id, cycle, hash)
 				},
@@ -100,7 +107,7 @@ where
 					self.subxt_client.submit_task_error(task_id, cycle, error)
 				},
 				Tx::RegisterMember { network, public_key, peer_id } => {
-					self.subxt_client.register_member(network, public_key, peer_id)
+					self.subxt_client.submit_register_member(network, public_key, peer_id)
 				},
 				Tx::Heartbeat => self.subxt_client.submit_heartbeat(),
 			};
@@ -148,7 +155,14 @@ where
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: BlockTimeApi<B> + SubmitTransactionApi<B>,
-	S: AccountInterface,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	fn get_block_time_in_ms(&self) -> ApiResult<u64> {
 		self.runtime_api().get_block_time_in_msec(self.best_block())
@@ -182,7 +196,14 @@ where
 	C: HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: ShardsApi<B> + SubmitTransactionApi<B>,
-	S: ShardsPayload + AccountInterface,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {
 		self.runtime_api().get_shards(block, account)
@@ -232,7 +253,14 @@ where
 	C: HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B> + SubmitTransactionApi<B>,
-	S: TasksPayload + AccountInterface,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	fn get_shard_tasks(
 		&self,
@@ -275,7 +303,14 @@ where
 	C: HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + SubmitTransactionApi<B>,
-	S: MembersPayload + AccountInterface,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	fn get_member_peer_id(
 		&self,

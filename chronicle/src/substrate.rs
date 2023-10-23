@@ -1,3 +1,4 @@
+use futures::channel::mpsc;
 use futures::stream::{Stream, StreamExt};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -14,6 +15,16 @@ use time_primitives::{
 	Tasks, TasksApi,
 };
 
+enum Tx {
+	SubmitCommitment { shard_id: ShardId, commitment: Vec<[u8; 33]>, proof_of_knowledge: [u8; 65] },
+	SubmitReady { shard_id: ShardId },
+	SubmitTaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
+	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
+	SubmitTaskError { task_id: TaskId, cycle: TaskCycle, error: TaskError },
+	SubmitRegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId },
+	SubmitHeartbeat,
+}
+
 pub struct Substrate<B: Block, C, R> {
 	_block: PhantomData<B>,
 	register_extensions: bool,
@@ -21,13 +32,14 @@ pub struct Substrate<B: Block, C, R> {
 	client: Arc<C>,
 	runtime: Arc<R>,
 	subxt_client: SubxtClient,
+	tx: mpsc::UnboundedSender<Tx>,
 }
 
 impl<B, C, R> Substrate<B, C, R>
 where
 	B: Block,
-	C: HeaderBackend<B>,
-	R: ProvideRuntimeApi<B>,
+	C: HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: SubmitTransactionApi<B>,
 {
 	pub fn new(
@@ -37,14 +49,18 @@ where
 		runtime: Arc<R>,
 		subxt_client: SubxtClient,
 	) -> Self {
-		Self {
+		let (tx, rx) = mpsc::unbounded();
+		let s = Self {
 			_block: PhantomData,
 			register_extensions,
 			pool,
 			client,
 			runtime,
 			subxt_client,
-		}
+			tx,
+		};
+		tokio::task::spawn(s.clone().tx_submitter(rx));
+		s
 	}
 
 	fn best_block(&self) -> B::Hash {
@@ -59,12 +75,40 @@ where
 		runtime
 	}
 
-	fn submit_transaction(&self, tx: Vec<u8>) -> SubmitResult {
-		let submit_res = self.runtime_api().submit_transaction(self.best_block(), tx);
-		if submit_res.is_ok() {
-			self.subxt_client.increment_nonce();
+	fn submit_transaction(&self, tx: Tx) -> SubmitResult {
+		self.tx.unbounded_send(tx).unwrap();
+		Ok(Ok(()))
+	}
+
+	async fn tx_submitter(self, mut rx: mpsc::UnboundedReceiver<Tx>) {
+		while let Some(tx) = rx.next().await {
+			let tx = match tx {
+				Tx::SubmitCommitment {
+					shard_id,
+					commitment,
+					proof_of_knowledge,
+				} => self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge),
+				Tx::SubmitReady { shard_id } => self.subxt_client.submit_ready(shard_id),
+				Tx::SubmitTaskHash { task_id, cycle, hash } => {
+					self.subxt_client.submit_task_hash(task_id, cycle, hash)
+				},
+				Tx::SubmitTaskResult { task_id, cycle, result } => {
+					self.subxt_client.submit_task_result(task_id, cycle, result)
+				},
+				Tx::SubmitTaskError { task_id, cycle, error } => {
+					self.subxt_client.submit_task_error(task_id, cycle, error)
+				},
+				Tx::SubmitRegisterMember { network, public_key, peer_id } => {
+					self.subxt_client.register_member(network, public_key, peer_id)
+				},
+				Tx::SubmitHeartbeat => self.subxt_client.submit_heartbeat(),
+			};
+			let result = self.runtime_api().submit_transaction(self.best_block(), tx);
+			match result {
+				Ok(_) => self.subxt_client.increment_nonce(),
+				Err(err) => tracing::error!("{}", err),
+			}
 		}
-		submit_res
 	}
 }
 
@@ -77,6 +121,7 @@ impl<B: Block, C, R> Clone for Substrate<B, C, R> {
 			client: self.client.clone(),
 			runtime: self.runtime.clone(),
 			subxt_client: self.subxt_client.clone(),
+			tx: self.tx.clone(),
 		}
 	}
 }
@@ -96,8 +141,8 @@ pub trait SubstrateClient {
 impl<B, C, R> SubstrateClient for Substrate<B, C, R>
 where
 	B: Block<Hash = BlockHash>,
-	C: BlockchainEvents<B> + HeaderBackend<B>,
-	R: ProvideRuntimeApi<B>,
+	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: BlockTimeApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_block_time_in_ms(&self) -> ApiResult<u64> {
@@ -129,8 +174,8 @@ where
 impl<B, C, R> Shards for Substrate<B, C, R>
 where
 	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B>,
-	R: ProvideRuntimeApi<B>,
+	C: HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: ShardsApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {
@@ -163,21 +208,23 @@ where
 		commitment: Vec<[u8; 33]>,
 		proof_of_knowledge: [u8; 65],
 	) -> SubmitResult {
-		let tx = self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge);
-		self.submit_transaction(tx)
+		self.submit_transaction(Tx::SubmitCommitment {
+			shard_id,
+			commitment,
+			proof_of_knowledge,
+		})
 	}
 
 	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
-		let tx = self.subxt_client.submit_ready(shard_id);
-		self.submit_transaction(tx)
+		self.submit_transaction(Tx::SubmitReady { shard_id })
 	}
 }
 
 impl<B, C, R> Tasks for Substrate<B, C, R>
 where
 	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B>,
-	R: ProvideRuntimeApi<B>,
+	C: HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: TasksApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_shard_tasks(
@@ -193,18 +240,16 @@ where
 	}
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
-		let tx = self.subxt_client.submit_task_hash(task_id, cycle, hash);
-		self.submit_transaction(tx)
+		self.submit_transaction(Tx::SubmitTaskHash { task_id, cycle, hash })
 	}
 
 	fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		status: TaskResult,
+		result: TaskResult,
 	) -> SubmitResult {
-		let tx = self.subxt_client.submit_task_result(task_id, cycle, status);
-		self.submit_transaction(tx)
+		self.submit_transaction(Tx::SubmitTaskResult { task_id, cycle, result })
 	}
 
 	fn submit_task_error(
@@ -213,16 +258,15 @@ where
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult {
-		let tx = self.subxt_client.submit_task_error(task_id, cycle, error);
-		self.submit_transaction(tx)
+		self.submit_transaction(Tx::SubmitTaskError { task_id, cycle, error })
 	}
 }
 
 impl<B, C, R> Members for Substrate<B, C, R>
 where
 	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B>,
-	R: ProvideRuntimeApi<B>,
+	C: HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: MembersApi<B> + SubmitTransactionApi<B>,
 {
 	fn get_member_peer_id(
@@ -238,14 +282,11 @@ where
 	}
 
 	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult {
-		let tx =
-			self.subxt_client
-				.register_member(network, self.subxt_client.public_key(), peer_id);
-		self.submit_transaction(tx)
+		let public_key = self.subxt_client.public_key();
+		self.submit_transaction(Tx::SubmitRegisterMember { network, public_key, peer_id })
 	}
 
 	fn submit_heartbeat(&self) -> SubmitResult {
-		let tx = self.subxt_client.submit_heartbeat();
-		self.submit_transaction(tx)
+		self.submit_transaction(Tx::SubmitHeartbeat)
 	}
 }

@@ -8,3 +8,4 @@ anyhow = "1.0.75"
 subxt = "0.32.0"
 subxt-signer = { version = "0.32.0", features = ["subxt"]}
 time-primitives = { path = "../primitives" }
+tracing = "0.1.37"

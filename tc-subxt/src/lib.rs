@@ -34,6 +34,7 @@ impl SubxtClient {
 		Call: TxPayload,
 	{
 		let nonce = self.nonce.fetch_add(1, Ordering::SeqCst);
+		tracing::info!("current nonce {}", nonce);
 		self.client
 			.tx()
 			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())

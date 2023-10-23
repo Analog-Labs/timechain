@@ -14178,6 +14178,7 @@ dependencies = [
  "subxt 0.32.1",
  "subxt-signer 0.32.1",
  "time-primitives",
+ "tracing",
 ]
 
 [[package]]

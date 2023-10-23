@@ -60,11 +60,7 @@ where
 	}
 
 	fn submit_transaction(&self, tx: Vec<u8>) -> SubmitResult {
-		let submit_res = self.runtime_api().submit_transaction(self.best_block(), tx);
-		if submit_res.is_ok() {
-			self.subxt_client.increment_nonce();
-		}
-		submit_res
+		self.runtime_api().submit_transaction(self.best_block(), tx)
 	}
 }
 

@@ -33,7 +33,7 @@ impl SubxtClient {
 	where
 		Call: TxPayload,
 	{
-		let nonce = self.nonce.load(Ordering::SeqCst);
+		let nonce = self.nonce.fetch_add(1, Ordering::SeqCst);
 		self.client
 			.tx()
 			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())
@@ -61,10 +61,6 @@ impl SubxtClient {
 			.submit()
 			.await?;
 		Ok(hash)
-	}
-
-	pub fn increment_nonce(&self) {
-		self.nonce.fetch_add(1, Ordering::SeqCst);
 	}
 
 	pub fn public_key(&self) -> PublicKey {

@@ -20,7 +20,8 @@ use tc_subxt::AccountInterface;
 use time_primitives::{
 	AccountId, BlockNumber, Commitment, Function, MembersPayload, Network, PeerId,
 	ProofOfKnowledge, PublicKey, ShardId, ShardsApi, ShardsPayload, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi, TasksPayload, TxResult,
+	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi, TasksPayload, TssSignature,
+	TxResult,
 };
 lazy_static::lazy_static! {
 	pub static ref TASK_STATUS: Mutex<Vec<bool>> = Default::default();
@@ -117,6 +118,10 @@ struct MockSubxt;
 
 impl TasksPayload for MockSubxt {
 	fn submit_task_hash(&self, _: TaskId, _: TaskCycle, _: Vec<u8>) -> Vec<u8> {
+		vec![]
+	}
+
+	pub fn submit_task_signature(&self, _: TaskId, _: TssSignature) -> Vec<u8> {
 		vec![]
 	}
 

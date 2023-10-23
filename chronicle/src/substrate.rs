@@ -16,13 +16,13 @@ use time_primitives::{
 };
 
 enum Tx {
-	SubmitCommitment { shard_id: ShardId, commitment: Vec<[u8; 33]>, proof_of_knowledge: [u8; 65] },
-	SubmitReady { shard_id: ShardId },
-	SubmitTaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
-	SubmitTaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
-	SubmitTaskError { task_id: TaskId, cycle: TaskCycle, error: TaskError },
-	SubmitRegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId },
-	SubmitHeartbeat,
+	Commitment { shard_id: ShardId, commitment: Vec<[u8; 33]>, proof_of_knowledge: [u8; 65] },
+	Ready { shard_id: ShardId },
+	TaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
+	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
+	TaskError { task_id: TaskId, cycle: TaskCycle, error: TaskError },
+	RegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId },
+	Heartbeat,
 }
 
 pub struct Substrate<B: Block, C, R> {
@@ -83,25 +83,25 @@ where
 	async fn tx_submitter(self, mut rx: mpsc::UnboundedReceiver<Tx>) {
 		while let Some(tx) = rx.next().await {
 			let tx = match tx {
-				Tx::SubmitCommitment {
+				Tx::Commitment {
 					shard_id,
 					commitment,
 					proof_of_knowledge,
 				} => self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge),
-				Tx::SubmitReady { shard_id } => self.subxt_client.submit_ready(shard_id),
-				Tx::SubmitTaskHash { task_id, cycle, hash } => {
+				Tx::Ready { shard_id } => self.subxt_client.submit_ready(shard_id),
+				Tx::TaskHash { task_id, cycle, hash } => {
 					self.subxt_client.submit_task_hash(task_id, cycle, hash)
 				},
-				Tx::SubmitTaskResult { task_id, cycle, result } => {
+				Tx::TaskResult { task_id, cycle, result } => {
 					self.subxt_client.submit_task_result(task_id, cycle, result)
 				},
-				Tx::SubmitTaskError { task_id, cycle, error } => {
+				Tx::TaskError { task_id, cycle, error } => {
 					self.subxt_client.submit_task_error(task_id, cycle, error)
 				},
-				Tx::SubmitRegisterMember { network, public_key, peer_id } => {
+				Tx::RegisterMember { network, public_key, peer_id } => {
 					self.subxt_client.register_member(network, public_key, peer_id)
 				},
-				Tx::SubmitHeartbeat => self.subxt_client.submit_heartbeat(),
+				Tx::Heartbeat => self.subxt_client.submit_heartbeat(),
 			};
 			let result = self.runtime_api().submit_transaction(self.best_block(), tx);
 			match result {
@@ -211,7 +211,7 @@ where
 		commitment: Vec<[u8; 33]>,
 		proof_of_knowledge: [u8; 65],
 	) -> SubmitResult {
-		self.submit_transaction(Tx::SubmitCommitment {
+		self.submit_transaction(Tx::Commitment {
 			shard_id,
 			commitment,
 			proof_of_knowledge,
@@ -219,7 +219,7 @@ where
 	}
 
 	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
-		self.submit_transaction(Tx::SubmitReady { shard_id })
+		self.submit_transaction(Tx::Ready { shard_id })
 	}
 }
 
@@ -243,7 +243,7 @@ where
 	}
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
-		self.submit_transaction(Tx::SubmitTaskHash { task_id, cycle, hash })
+		self.submit_transaction(Tx::TaskHash { task_id, cycle, hash })
 	}
 
 	fn submit_task_result(
@@ -252,7 +252,7 @@ where
 		cycle: TaskCycle,
 		result: TaskResult,
 	) -> SubmitResult {
-		self.submit_transaction(Tx::SubmitTaskResult { task_id, cycle, result })
+		self.submit_transaction(Tx::TaskResult { task_id, cycle, result })
 	}
 
 	fn submit_task_error(
@@ -261,7 +261,7 @@ where
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult {
-		self.submit_transaction(Tx::SubmitTaskError { task_id, cycle, error })
+		self.submit_transaction(Tx::TaskError { task_id, cycle, error })
 	}
 }
 
@@ -286,10 +286,10 @@ where
 
 	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult {
 		let public_key = self.subxt_client.public_key();
-		self.submit_transaction(Tx::SubmitRegisterMember { network, public_key, peer_id })
+		self.submit_transaction(Tx::RegisterMember { network, public_key, peer_id })
 	}
 
 	fn submit_heartbeat(&self) -> SubmitResult {
-		self.submit_transaction(Tx::SubmitHeartbeat)
+		self.submit_transaction(Tx::Heartbeat)
 	}
 }

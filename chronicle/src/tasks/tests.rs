@@ -163,6 +163,10 @@ impl AccountInterface for MockSubxt {
 		let bytes = [0; 32];
 		bytes.into()
 	}
+
+	fn nonce(&self) -> u64 {
+		0
+	}
 }
 
 #[tokio::test]

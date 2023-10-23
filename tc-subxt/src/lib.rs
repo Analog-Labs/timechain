@@ -33,10 +33,9 @@ impl SubxtClient {
 	where
 		Call: TxPayload,
 	{
-		let nonce = self.nonce.load(Ordering::SeqCst);
 		self.client
 			.tx()
-			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())
+			.create_signed_with_nonce(call, self.signer.as_ref(), self.nonce(), Default::default())
 			.unwrap()
 			.into_encoded()
 	}
@@ -61,6 +60,10 @@ impl SubxtClient {
 			.submit()
 			.await?;
 		Ok(hash)
+	}
+
+	pub fn nonce(&self) -> u64 {
+		self.nonce.load(Ordering::SeqCst)
 	}
 
 	pub fn increment_nonce(&self) {

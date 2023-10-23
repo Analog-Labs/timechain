@@ -106,7 +106,10 @@ where
 			let result = self.runtime_api().submit_transaction(self.best_block(), tx);
 			match result {
 				Ok(_) => self.subxt_client.increment_nonce(),
-				Err(err) => tracing::error!("{}", err),
+				Err(err) => {
+					let nonce = self.subxt_client.nonce();
+					tracing::error!(nonce, "{}", err);
+				},
 			}
 		}
 	}

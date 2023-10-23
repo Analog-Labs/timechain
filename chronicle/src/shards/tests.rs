@@ -337,6 +337,10 @@ impl AccountInterface for MockSubxt {
 	fn account_id(&self) -> AccountId {
 		self.public_key.into()
 	}
+
+	fn nonce(&self) -> u64 {
+		0
+	}
 }
 
 #[tokio::test]

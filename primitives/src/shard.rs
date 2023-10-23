@@ -162,6 +162,18 @@ pub trait Shards {
 }
 
 #[cfg(feature = "std")]
+pub trait ShardsPayload {
+	fn submit_commitment(
+		&self,
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	) -> Vec<u8>;
+
+	fn submit_online(&self, shard_id: ShardId) -> Vec<u8>;
+}
+
+#[cfg(feature = "std")]
 pub struct TssSigningRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,

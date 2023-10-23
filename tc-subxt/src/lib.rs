@@ -21,6 +21,13 @@ mod tasks;
 
 pub use subxt::utils::H256;
 
+pub trait AccountInterface {
+	fn nonce(&self) -> u64;
+	fn increment_nonce(&self);
+	fn public_key(&self) -> PublicKey;
+	fn account_id(&self) -> AccountId;
+}
+
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: Arc<OnlineClient<PolkadotConfig>>,
@@ -33,10 +40,9 @@ impl SubxtClient {
 	where
 		Call: TxPayload,
 	{
-		let nonce = self.nonce.load(Ordering::SeqCst);
 		self.client
 			.tx()
-			.create_signed_with_nonce(call, self.signer.as_ref(), nonce, Default::default())
+			.create_signed_with_nonce(call, self.signer.as_ref(), self.nonce(), Default::default())
 			.unwrap()
 			.into_encoded()
 	}
@@ -62,17 +68,22 @@ impl SubxtClient {
 			.await?;
 		Ok(hash)
 	}
+}
 
-	pub fn increment_nonce(&self) {
+impl AccountInterface for SubxtClient {
+	fn nonce(&self) -> u64 {
+		self.nonce.load(Ordering::SeqCst)
+	}
+	fn increment_nonce(&self) {
 		self.nonce.fetch_add(1, Ordering::SeqCst);
 	}
 
-	pub fn public_key(&self) -> PublicKey {
+	fn public_key(&self) -> PublicKey {
 		let public_key = self.signer.public_key();
 		PublicKey::Sr25519(unsafe { std::mem::transmute(public_key) })
 	}
 
-	pub fn account_id(&self) -> AccountId {
+	fn account_id(&self) -> AccountId {
 		let account_id: subxt::utils::AccountId32 = self.signer.public_key().into();
 		unsafe { std::mem::transmute(account_id) }
 	}

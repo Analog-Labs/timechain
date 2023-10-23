@@ -61,8 +61,13 @@ where
 
 	fn submit_transaction(&self, tx: Vec<u8>) -> SubmitResult {
 		let submit_res = self.runtime_api().submit_transaction(self.best_block(), tx);
+		tracing::info!("current nonce {}", self.subxt_client.get_nonce());
 		if submit_res.is_ok() {
+			tracing::info!("increment nonce");
 			self.subxt_client.increment_nonce();
+		}
+		if let Ok(Err(err)) = submit_res {
+			tracing::error!("Error on submit_transaction {:?}", err);
 		}
 		submit_res
 	}

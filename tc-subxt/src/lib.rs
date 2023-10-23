@@ -56,6 +56,10 @@ impl SubxtClient {
 		})
 	}
 
+	pub fn get_nonce(&self) -> u64 {
+		self.nonce.load(Ordering::SeqCst)
+	}
+
 	pub async fn submit_transaction(&self, transaction: Vec<u8>) -> Result<H256> {
 		let hash = SubmittableExtrinsic::from_bytes((*self.client).clone(), transaction)
 			.submit()

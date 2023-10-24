@@ -11,7 +11,7 @@ impl TasksPayload for SubxtClient {
 	}
 
 	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8> {
-		let tx = timechain_runtime::tx().tasks().submit_task_signature(task_id, signature);
+		let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature);
 		self.make_transaction(&tx)
 	}
 

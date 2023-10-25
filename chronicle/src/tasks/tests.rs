@@ -104,6 +104,17 @@ impl TaskSpawner for MockTask {
 		future::ready(Ok(())).boxed()
 	}
 
+	fn execute_sign(
+		&self,
+		_: ShardId,
+		_: TaskId,
+		_: TaskCycle,
+		_: Vec<u8>,
+		_: u32,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		future::ready(Ok(())).boxed()
+	}
+
 	fn execute_write(
 		&self,
 		_: ShardId,
@@ -121,7 +132,7 @@ impl TasksPayload for MockSubxt {
 		vec![]
 	}
 
-	pub fn submit_task_signature(&self, _: TaskId, _: TssSignature) -> Vec<u8> {
+	fn submit_task_signature(&self, _: TaskId, _: TssSignature) -> Vec<u8> {
 		vec![]
 	}
 

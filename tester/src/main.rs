@@ -194,6 +194,36 @@ async fn basic_test_timechain(
 	}
 }
 
+async fn basic_sign_test_timechain(
+	api: &OnlineClient<PolkadotConfig>,
+	network: Network,
+	config: &WalletConfig,
+) {
+	let (contract_address, start_block) = setup_env(config).await;
+
+	let task_id = insert_sign_task(
+		api,
+		contract_address.clone(),
+		2, //cycle
+		start_block,
+		2, //period
+		network.clone(),
+		false,
+	)
+	.await
+	.unwrap();
+	while !watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+
+	let task_id = insert_sign_task(api, contract_address, 1, start_block, 0, network, true)
+		.await
+		.unwrap();
+	while !watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+}
+
 async fn batch_test(
 	api: &OnlineClient<PolkadotConfig>,
 	total_tasks: u64,

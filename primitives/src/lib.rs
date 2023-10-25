@@ -71,6 +71,15 @@ sp_api::decl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
 	}
 
+
+	pub trait TasksRpcApi {
+		fn get_detail(task_id: TaskId) -> u64;
+	}
+
+	pub trait ShardsRpcApi {
+		fn get_detail(shard_id: TaskId) -> u64;
+	}
+
 	pub trait BlockTimeApi{
 		fn get_block_time_in_msec() -> u64;
 	}

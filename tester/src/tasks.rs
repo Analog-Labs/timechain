@@ -55,7 +55,6 @@ pub async fn watch_batch(
 	false
 }
 
-// TODO: dedup or combine with insert_evm_task (ask for feedback)
 pub async fn insert_sign_task(
 	api: &OnlineClient<PolkadotConfig>,
 	cycle: u64,

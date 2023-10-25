@@ -1,0 +1,23 @@
+[package]
+name = "pallet-shards-rpc"
+authors = [ "Analog Devs <https://github.com/analog-labs>" ]
+description = "Rpc methods for shards pallet"
+edition = "2021"
+homepage = "https://analog.one"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/Analog-Labs/testnet"
+version = "0.0.1"
+
+[dependencies]
+sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
+sp-blockchain = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] } 
+time-primitives = {path = "../../../primitives", default-features=false}
+
+[features]
+default = ["std"]
+std = [
+  "sp-api/std"
+]

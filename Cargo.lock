@@ -7654,6 +7654,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-shards-rpc"
+version = "0.0.1"
+dependencies = [
+ "jsonrpsee 0.16.3",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
+ "time-primitives",
+]
+
+[[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
@@ -7718,6 +7729,17 @@ dependencies = [
  "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
+ "time-primitives",
+]
+
+[[package]]
+name = "pallet-tasks-rpc"
+version = "0.0.1"
+dependencies = [
+ "jsonrpsee 0.16.3",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "time-primitives",
 ]
 
@@ -14037,6 +14059,8 @@ dependencies = [
  "hex-literal",
  "jsonrpsee 0.16.3",
  "pallet-im-online",
+ "pallet-shards-rpc",
+ "pallet-tasks-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",

@@ -1488,6 +1488,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::ShardsRpcApi<Block> for Runtime {
+		fn get_detail(_: u64) -> u64 {
+			0
+		}
+	}
+
 	impl time_primitives::TasksApi<Block> for Runtime {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
@@ -1499,6 +1505,12 @@ impl_runtime_apis! {
 
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
+		}
+	}
+
+	impl time_primitives::TasksRpcApi<Block> for Runtime {
+		fn get_detail(_: u64) -> u64 {
+			0
 		}
 	}
 

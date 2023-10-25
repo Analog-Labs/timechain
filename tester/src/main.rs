@@ -30,6 +30,7 @@ struct Args {
 #[derive(Parser, Debug)]
 enum TestCommand {
 	Basic,
+	BasicSign,
 	BatchTask { tasks: u64, max_cycle: u64 },
 	NodeDropTest,
 	KeyRecovery,
@@ -106,6 +107,9 @@ async fn main() {
 	match args.cmd {
 		TestCommand::Basic => {
 			basic_test_timechain(&api, network, &config).await;
+		},
+		TestCommand::BasicSign => {
+			basic_sign_test(&api, network, &config).await;
 		},
 		TestCommand::BatchTask { tasks, max_cycle } => {
 			batch_test(&api, tasks, max_cycle, &config).await;
@@ -189,6 +193,29 @@ async fn basic_test_timechain(
 	let task_id = insert_evm_task(api, contract_address, 1, start_block, 0, network, true)
 		.await
 		.unwrap();
+	while !watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+}
+
+async fn basic_sign_test(
+	api: &OnlineClient<PolkadotConfig>,
+	network: Network,
+	config: &WalletConfig,
+) {
+	let (contract_address, start_block) = setup_env(config).await;
+
+	let task_id = insert_sign_task(
+		api,
+		2, //cycle
+		2, //period
+		start_block,
+		network.clone(),
+		contract_address.clone().into(),
+		"vote_yes()".into(), //payload
+	)
+	.await
+	.unwrap();
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}

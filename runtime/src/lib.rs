@@ -1145,6 +1145,12 @@ impl pallet_ocw::Config for Runtime {
 	type Tasks = Tasks;
 }
 
+impl pallet_timegraph::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1170,6 +1176,7 @@ construct_runtime!(
 		Treasury: pallet_treasury,
 		Tasks: pallet_tasks,
 		Ocw: pallet_ocw,
+		TimeGraph: pallet_timegraph,
 	}
 );
 

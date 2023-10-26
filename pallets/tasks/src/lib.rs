@@ -99,6 +99,11 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn next_task_sequence)]
+	pub type NextTaskSequence<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -124,6 +129,8 @@ pub mod pallet {
 		InvalidOwner,
 		/// Invalid cycle
 		InvalidCycle,
+		/// Invalid task sequence
+		InvalidTaskSequence,
 	}
 
 	#[pallet::call]
@@ -132,7 +139,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::create_task())]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			let expected_sequence = Self::next_task_sequence(&who) + 1;
+			ensure!(
+				schedule.task_sequence == expected_sequence,
+				Error::<T>::InvalidTaskSequence
+			);
 			let task_id = TaskIdCounter::<T>::get();
+			NextTaskSequence::<T>::insert(&who, expected_sequence);
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {

@@ -57,6 +57,7 @@ pub struct TaskDescriptorParams {
 	pub period: u64,
 	pub hash: String,
 	pub function: Function,
+	pub task_sequence: u64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

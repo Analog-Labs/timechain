@@ -5,8 +5,8 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use frame_support::traits::{Currency, ExistenceRequirement};
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::{Currency, ExistenceRequirement,};
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

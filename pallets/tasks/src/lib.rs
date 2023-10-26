@@ -140,10 +140,7 @@ pub mod pallet {
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let expected_sequence = Self::next_task_sequence(&who) + 1;
-			ensure!(
-				schedule.task_sequence == expected_sequence,
-				Error::<T>::InvalidTaskSequence
-			);
+			ensure!(schedule.task_sequence == expected_sequence, Error::<T>::InvalidTaskSequence);
 			let task_id = TaskIdCounter::<T>::get();
 			NextTaskSequence::<T>::insert(&who, expected_sequence);
 			Tasks::<T>::insert(

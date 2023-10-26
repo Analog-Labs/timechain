@@ -35,9 +35,6 @@ fn test_register_shard() {
 			let shards = Shards::get_shards(member);
 			assert_eq!(shards.len(), 2);
 		}
-		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
-		}
 	});
 }
 
@@ -67,7 +64,6 @@ fn submit_public_key_max_once() {
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
 			assert_noop!(
 				Shards::submit_tss_public_key(shard_id as _, [1; 33]),
 				Error::<Test>::PublicKeyAlreadyRegistered
@@ -89,7 +85,6 @@ fn test_set_shard_offline() {
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
 			assert_ok!(Shards::set_shard_offline(shard_id as _, Network::Ethereum));
 		}
 	});
@@ -121,7 +116,6 @@ fn offline_shard_cannot_be_set_offline() {
 			),);
 		}
 		for (shard_id, _) in shards.iter().enumerate() {
-			assert_ok!(Shards::submit_tss_public_key(shard_id as _, [0; 33]));
 			assert_ok!(Shards::set_shard_offline(shard_id as _, Network::Ethereum));
 			assert_noop!(
 				Shards::set_shard_offline(shard_id as _, Network::Ethereum),

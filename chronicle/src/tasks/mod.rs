@@ -26,6 +26,15 @@ pub trait TaskSpawner {
 		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
+	fn execute_sign(
+		&self,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		payload: Vec<u8>,
+		block_num: u32,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
+
 	fn execute_write(
 		&self,
 		shard_id: ShardId,

@@ -16,7 +16,7 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
+		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
 		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
 		TasksInterface, TssSignature,
 	};
@@ -28,6 +28,7 @@ pub mod pallet {
 		fn submit_result() -> Weight;
 		fn submit_error() -> Weight;
 		fn submit_hash() -> Weight;
+		fn submit_signature() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -52,6 +53,10 @@ pub mod pallet {
 		}
 
 		fn submit_hash() -> Weight {
+			Weight::default()
+		}
+
+		fn submit_signature() -> Weight {
 			Weight::default()
 		}
 	}
@@ -103,6 +108,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TaskPhaseState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
+
+	#[pallet::storage]
+	pub type TaskSignature<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TssSignature, OptionQuery>;
 
 	#[pallet::storage]
 	pub type WritePhaseStart<T: Config> =
@@ -157,12 +166,16 @@ pub mod pallet {
 		InvalidCycle,
 		/// Cycle must be greater than zero
 		CycleMustBeGreaterThanZero,
+		/// Not sign phase
+		NotSignPhase,
 		/// Not write phase
 		NotWritePhase,
 		/// Invalid signer
 		InvalidSigner,
 		/// Task not assigned
 		UnassignedTask,
+		/// Task already signed
+		TaskSigned,
 	}
 
 	#[pallet::call]
@@ -173,6 +186,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
+			if matches!(schedule.function, Function::SendMessage { .. }) {
+				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
+			}
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {
@@ -297,6 +313,28 @@ pub mod pallet {
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
+
+		/// Submit Signature
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::submit_signature())] // TODO update bench, weights
+		pub fn submit_signature(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			signature: TssSignature,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
+			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			let TaskPhase::Sign = TaskPhaseState::<T>::get(task_id) else {
+				return Err(Error::<T>::NotSignPhase.into());
+			};
+			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
+				return Err(Error::<T>::UnassignedTask.into());
+			};
+			Self::start_write_phase(task_id, shard_id);
+			TaskSignature::<T>::insert(task_id, signature);
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -306,11 +344,7 @@ pub mod pallet {
 			WritePhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
 				if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
 					if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-						TaskPhaseState::<T>::insert(
-							task_id,
-							TaskPhase::Write(T::Shards::random_signer(shard_id)),
-						);
-						WritePhaseStart::<T>::insert(task_id, n);
+						Self::start_write_phase(task_id, shard_id);
 						writes += 2;
 					}
 				}
@@ -329,6 +363,18 @@ pub mod pallet {
 						false
 					}
 				})
+		}
+
+		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {
+			TaskPhaseState::<T>::insert(
+				task_id,
+				TaskPhase::Write(T::Shards::random_signer(shard_id)),
+			);
+			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+		}
+
+		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
+			TaskSignature::<T>::get(task)
 		}
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
@@ -415,6 +461,7 @@ pub mod pallet {
 
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
+					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Sign)
 				{
 					TaskPhaseState::<T>::insert(
 						task_id,

@@ -110,5 +110,20 @@ benchmarks! {
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, "mock_hash".into()) verify {}
 
+	submit_signature {
+		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
+			network: Network::Ethereum,
+			function: Function::SendMessage {
+				contract_address: Default::default(),
+				payload: Default::default(),
+			},
+			cycle: 1,
+			start: 0,
+			period: 0,
+			hash: "".to_string(),
+		});
+		Pallet::<T>::shard_online(1, Network::Ethereum);
+	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

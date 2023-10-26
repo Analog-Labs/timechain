@@ -287,6 +287,10 @@ impl TasksPayload for MockSubxt {
 		vec![]
 	}
 
+	fn submit_task_signature(&self, _: TaskId, _: TssSignature) -> Vec<u8> {
+		vec![]
+	}
+
 	fn submit_task_result(&self, _: TaskId, _: TaskCycle, _: TaskResult) -> Vec<u8> {
 		vec![]
 	}

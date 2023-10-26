@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::{
 	Error, Event, NetworkShards, ShardTasks, TaskCycleState, TaskIdCounter, TaskPhaseState,
-	TaskResults, TaskRetryCounter, TaskState, UnassignedTasks,
+	TaskResults, TaskRetryCounter, TaskSignature, TaskState, UnassignedTasks,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -25,6 +25,20 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 			address: Default::default(),
 			function_signature: Default::default(),
 			input: Default::default(),
+		},
+		cycle,
+		start: 0,
+		period: 1,
+		hash: "".to_string(),
+	}
+}
+
+fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
+	TaskDescriptorParams {
+		network,
+		function: Function::SendMessage {
+			contract_address: Default::default(),
+			payload: Default::default(),
 		},
 		cycle,
 		start: 0,
@@ -665,5 +679,76 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0));
 		assert_eq!(Tasks::task_shard(0), Some(1));
+	});
+}
+
+#[test]
+fn submit_signature_inserts_signature_into_storage() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_sign_task(Network::Ethereum, 1)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		assert_eq!(TaskSignature::<Test>::get(0), Some([0u8; 64]));
+	});
+}
+
+#[test]
+fn submit_signature_fails_when_task_dne() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Error::<Test>::UnknownTask
+		);
+	});
+}
+
+#[test]
+fn submit_signature_fails_if_not_sign_phase() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_noop!(
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Error::<Test>::NotSignPhase
+		);
+	});
+}
+
+#[test]
+fn submit_signature_fails_if_unassigned() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_sign_task(Network::Ethereum, 1)
+		));
+		assert_noop!(
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Error::<Test>::UnassignedTask
+		);
+	});
+}
+
+#[test]
+fn submit_signature_fails_after_called_once() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_sign_task(Network::Ethereum, 1)
+		));
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_sign_task(Network::Ethereum, 1)
+		));
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		assert_noop!(
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Error::<Test>::TaskSigned
+		);
 	});
 }

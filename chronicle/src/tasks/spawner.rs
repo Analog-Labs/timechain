@@ -105,6 +105,11 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
+			Function::SendMessage { .. } => {
+				return Err(anyhow!(
+					"SendMessage must be transformed into EvmCall prior to execution"
+				))
+			},
 		})
 	}
 
@@ -222,6 +227,21 @@ where
 		Ok(())
 	}
 
+	async fn sign(
+		self,
+		shard_id: ShardId,
+		task_id: TaskId,
+		task_cycle: TaskCycle,
+		payload: Vec<u8>,
+		block_number: u32,
+	) -> Result<()> {
+		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, task_cycle, &payload).await?;
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig) {
+			tracing::error!("Error submitting task signature{:?}", e);
+		}
+		Ok(())
+	}
+
 	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
 		if let Err(e) = self.substrate.submit_task_hash(task_id, cycle, tx_hash) {
@@ -252,6 +272,17 @@ where
 		self.clone()
 			.read(target_block, shard_id, task_id, cycle, function, collection, block_num)
 			.boxed()
+	}
+
+	fn execute_sign(
+		&self,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		payload: Vec<u8>,
+		block_num: u32,
+	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		self.clone().sign(shard_id, task_id, cycle, payload, block_num).boxed()
 	}
 
 	fn execute_write(

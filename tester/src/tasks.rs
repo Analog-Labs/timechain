@@ -55,6 +55,43 @@ pub async fn watch_batch(
 	false
 }
 
+pub async fn insert_sign_task(
+	api: &OnlineClient<PolkadotConfig>,
+	cycle: u64,
+	start: u64,
+	period: u64,
+	network: Network,
+	contract_address: Vec<u8>,
+	payload: Vec<u8>,
+) -> Result<u64> {
+	let function = Function::SendMessage { contract_address, payload };
+
+	let tx = polkadot::tx().tasks().create_task(TaskDescriptorParams {
+		network,
+		function,
+		cycle,
+		start,
+		period,
+		hash: "".to_string(),
+	});
+
+	let from = dev::alice();
+
+	let events = api
+		.tx()
+		.sign_and_submit_then_watch_default(&tx, &from)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	let transfer_event = events.find_first::<polkadot::tasks::events::TaskCreated>().unwrap();
+
+	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
+
+	println!("Task registered: {:?}", id);
+	Ok(id)
+}
+
 pub async fn insert_evm_task(
 	api: &OnlineClient<PolkadotConfig>,
 	address: String,
@@ -102,6 +139,6 @@ pub async fn insert_evm_task(
 
 	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
 
-	println!("Task reigistered: {:?}", id);
+	println!("Task registered: {:?}", id);
 	Ok(id)
 }

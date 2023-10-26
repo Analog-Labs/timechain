@@ -5,7 +5,7 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, Tasks, TssId,
+	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -101,11 +101,32 @@ where
 			let hash = task_descr.hash;
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
-				let task = if let Some(public_key) = executable_task.phase.public_key() {
+				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
+					let Function::SendMessage { payload, .. } = function else {
+						continue; // create_task ensures never hits this branch
+						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
+					};
+					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
+					let function =
+						if let Function::SendMessage { contract_address, payload } = function {
+							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
+							Function::EvmCall {
+								address: hex::encode(&contract_address),
+								function_signature: String::from("send_message(uint[],uint[])"),
+								input: vec![&payload, &signature.to_vec()]
+									.into_iter()
+									.map(hex::encode)
+									.collect(),
+								amount: 0u128,
+							}
+						} else {
+							function
+						};
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

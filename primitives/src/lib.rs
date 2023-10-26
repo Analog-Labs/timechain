@@ -68,6 +68,7 @@ sp_api::decl_runtime_apis! {
 	pub trait TasksApi {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
+		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
 	}
 
 	pub trait BlockTimeApi{

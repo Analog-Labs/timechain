@@ -18,6 +18,7 @@ pub enum Function {
 	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
 	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
 	EvmTxReceipt { tx: Vec<u8> },
+	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
 }
 
 impl Function {
@@ -78,6 +79,7 @@ pub enum TaskStatus {
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
+	Sign,
 	Write(PublicKey),
 	Read(Option<Vec<u8>>),
 }
@@ -145,6 +147,8 @@ pub trait Tasks {
 
 	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
 
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
+
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 
 	fn submit_task_result(
@@ -160,11 +164,15 @@ pub trait Tasks {
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult;
 }
 
 #[cfg(feature = "std")]
 pub trait TasksPayload {
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8>;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8>;
 
 	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8>;
 

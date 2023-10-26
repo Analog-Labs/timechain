@@ -12,7 +12,7 @@ use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
 	MembersPayload, Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi,
 	ShardsPayload, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskResult, Tasks, TasksApi, TasksPayload,
+	TaskExecution, TaskId, TaskResult, Tasks, TasksApi, TasksPayload, TssSignature,
 };
 
 enum Tx {
@@ -21,6 +21,7 @@ enum Tx {
 	TaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
 	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
 	TaskError { task_id: TaskId, cycle: TaskCycle, error: TaskError },
+	TaskSignature { task_id: TaskId, signature: TssSignature },
 	RegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId },
 	Heartbeat,
 }
@@ -105,6 +106,9 @@ where
 				},
 				Tx::TaskError { task_id, cycle, error } => {
 					self.subxt_client.submit_task_error(task_id, cycle, error)
+				},
+				Tx::TaskSignature { task_id, signature } => {
+					self.subxt_client.submit_task_signature(task_id, signature)
 				},
 				Tx::RegisterMember { network, public_key, peer_id } => {
 					self.subxt_client.submit_register_member(network, public_key, peer_id)
@@ -274,6 +278,10 @@ where
 		self.runtime_api().get_task(block, task_id)
 	}
 
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>> {
+		self.runtime_api().get_task_signature(self.best_block(), task_id)
+	}
+
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		self.submit_transaction(Tx::TaskHash { task_id, cycle, hash })
 	}
@@ -294,6 +302,10 @@ where
 		error: TaskError,
 	) -> SubmitResult {
 		self.submit_transaction(Tx::TaskError { task_id, cycle, error })
+	}
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
+		self.submit_transaction(Tx::TaskSignature { task_id, signature })
 	}
 }
 

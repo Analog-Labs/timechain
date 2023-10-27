@@ -111,14 +111,15 @@ impl Default for TaskPhase {
 }
 
 // #[serde_as]
-#[serde_as]
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = "std", serde_as)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
 pub struct TaskRpcDetails {
 	description: TaskDescriptor,
 	cycle: TaskCycle,
 	phase: TaskPhase,
 	shard_id: Option<ShardId>,
-	#[serde_as(as = "Vec<(_,Bytes)>")]
+	#[cfg_attr(feature = "std", serde_as(as = "Vec<(TaskCycle, Bytes)>"))]
 	results: BTreeMap<TaskCycle, TssSignature>,
 }
 

@@ -12,7 +12,6 @@ pub type TaskId = u64;
 pub type TaskCycle = u64;
 pub type TaskRetryCount = u8;
 
-// use serde_with::helper::serialize_as_map;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
@@ -111,17 +110,15 @@ impl Default for TaskPhase {
 	}
 }
 
+// #[serde_as]
 #[serde_as]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Encode, Decode, TypeInfo)]
 pub struct TaskRpcDetails {
 	description: TaskDescriptor,
 	cycle: TaskCycle,
 	phase: TaskPhase,
 	shard_id: Option<ShardId>,
-	// #[serde_as(as = "Vec<(TaskCycle, Bytes)>")]
-	// #[serde(serialize_with = "serialize_as_map")]
-	#[serde_as(as = "Vec<(_, Bytes)>")]
+	#[serde_as(as = "Vec<(_,Bytes)>")]
 	results: BTreeMap<TaskCycle, TssSignature>,
 }
 

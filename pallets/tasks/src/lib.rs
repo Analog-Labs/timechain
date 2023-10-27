@@ -13,13 +13,12 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
-	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskCycleResult,
-		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
-		TaskResult, TaskRpcDetails, TaskStatus, TasksInterface, TssSignature,
+		AccountId, Function, Network, RpcTaskDetails, ShardId, ShardsInterface, TaskCycle,
+		TaskCycleResult, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId,
+		TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -482,7 +481,7 @@ pub mod pallet {
 		pub fn get_rpc_details(
 			task_id: TaskId,
 			query_cycle: Option<TaskCycle>,
-		) -> Option<TaskRpcDetails> {
+		) -> Option<RpcTaskDetails> {
 			let mut sigs: Vec<TaskCycleResult> = Vec::new();
 			let Some(task) = Tasks::<T>::get(task_id) else {
 				return None;
@@ -500,7 +499,7 @@ pub mod pallet {
 					.collect();
 				sigs.extend(results);
 			}
-			let details = TaskRpcDetails::new(task, cycles, status, shard_id, sigs);
+			let details = RpcTaskDetails::new(task, cycles, status, shard_id, sigs);
 			Some(details)
 		}
 	}

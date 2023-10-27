@@ -72,7 +72,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait TasksRpcApi {
-		fn get_detail(task_id: TaskId, cycle: Option<TaskCycle>) -> Option<TaskRpcDetails>;
+		fn get_detail(task_id: TaskId, cycle: Option<TaskCycle>) -> Option<RpcTaskDetails>;
 	}
 
 	pub trait ShardsRpcApi {

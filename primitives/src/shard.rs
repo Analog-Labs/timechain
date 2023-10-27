@@ -30,7 +30,7 @@ impl std::fmt::Display for TssId {
 }
 
 /// Used to enforce one network per shard
-#[cfg_attr(feature = "std", derive(Serialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum Network {
 	Ethereum,

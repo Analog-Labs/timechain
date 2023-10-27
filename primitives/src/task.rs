@@ -4,14 +4,16 @@ use crate::{ApiResult, BlockHash, SubmitResult};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, Bytes, Map};
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::vec::Vec;
-
 pub type TaskId = u64;
 pub type TaskCycle = u64;
 pub type TaskRetryCount = u8;
 
-#[cfg_attr(feature = "std", derive(Serialize))]
+// use serde_with::helper::serialize_as_map;
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
 	EvmDeploy { bytecode: Vec<u8> },
@@ -41,6 +43,7 @@ pub struct TaskError {
 	pub signature: TssSignature,
 }
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptor {
 	pub owner: AccountId,
@@ -76,7 +79,7 @@ pub enum TaskStatus {
 	Completed,
 }
 
-#[cfg_attr(feature = "std", derive(Serialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
 	Sign,
@@ -105,6 +108,38 @@ impl TaskPhase {
 impl Default for TaskPhase {
 	fn default() -> Self {
 		TaskPhase::Read(None)
+	}
+}
+
+#[serde_as]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+pub struct TaskRpcDetails {
+	description: TaskDescriptor,
+	cycle: TaskCycle,
+	phase: TaskPhase,
+	shard_id: Option<ShardId>,
+	// #[serde_as(as = "Vec<(TaskCycle, Bytes)>")]
+	// #[serde(serialize_with = "serialize_as_map")]
+	#[serde_as(as = "Vec<(_, Bytes)>")]
+	results: BTreeMap<TaskCycle, TssSignature>,
+}
+
+impl TaskRpcDetails {
+	pub fn new(
+		description: TaskDescriptor,
+		cycle: TaskCycle,
+		phase: TaskPhase,
+		shard_id: Option<ShardId>,
+		results: BTreeMap<TaskCycle, TssSignature>,
+	) -> Self {
+		Self {
+			description,
+			cycle,
+			phase,
+			shard_id,
+			results,
+		}
 	}
 }
 

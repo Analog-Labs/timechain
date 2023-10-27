@@ -71,9 +71,8 @@ sp_api::decl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
 	}
 
-
 	pub trait TasksRpcApi {
-		fn get_detail(task_id: TaskId) -> u64;
+		fn get_detail(task_id: TaskId, cycle: Option<TaskCycle>) -> Option<TaskRpcDetails>;
 	}
 
 	pub trait ShardsRpcApi {

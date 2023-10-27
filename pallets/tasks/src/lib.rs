@@ -13,12 +13,13 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
-		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TssSignature,
+		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+		TaskRpcDetails, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -476,6 +477,32 @@ pub mod pallet {
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
+		}
+
+		pub fn get_rpc_details(
+			task_id: TaskId,
+			query_cycle: Option<TaskCycle>,
+		) -> Option<TaskRpcDetails> {
+			let mut sigs: BTreeMap<TaskCycle, TssSignature> = BTreeMap::new();
+			let Some(task) = Tasks::<T>::get(task_id) else {
+				return None;
+			};
+			let cycles = TaskCycleState::<T>::get(task_id);
+			let status = TaskPhaseState::<T>::get(task_id);
+			let shard_id = TaskShard::<T>::get(task_id);
+			if let Some(cycle) = query_cycle {
+				if let Some(result) = TaskResults::<T>::get(task_id, cycle) {
+					sigs.insert(cycle, result.signature);
+				}
+			} else {
+				let results: BTreeMap<TaskCycle, TssSignature> =
+					TaskResults::<T>::iter_prefix(task_id)
+						.map(|(cycle, result)| (cycle, result.signature))
+						.collect();
+				sigs.extend(results);
+			}
+			let details = TaskRpcDetails::new(task, cycles, status, shard_id, sigs);
+			Some(details)
 		}
 	}
 

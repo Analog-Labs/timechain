@@ -12,8 +12,8 @@ futures = { version = "0.3.28", optional = true }
 log = "0.4.20"
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 serde = { version = "1.0", default-features = false, features = [ "derive" ] }
-# serde_with = { version = "3.4.0", default-features = false, features = ["macros"]}
-serde_with = "3.4.0"
+serde_with = { version = "3.4.0", default-features = false, features = ["alloc","macros"]}
+# serde_with = { version = "3.4.0", default-features = false, features = [""]
 sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 sp-application-crypto = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
@@ -23,4 +23,4 @@ sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "ti
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std"]
+std = ["codec/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "serde/std"]

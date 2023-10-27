@@ -2681,7 +2681,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f32d04922c60427da6f9fef14d042d9edddef64cb9d4ce0d64d0685fbeb1fd3"
 dependencies = [
  "powerfmt",
- "serde",
 ]
 
 [[package]]
@@ -5158,7 +5157,6 @@ checksum = "8adf3ddd720272c6ea8bf59463c04e0f93d0bbf7c5439b691bca2987e0270897"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.1",
- "serde",
 ]
 
 [[package]]
@@ -11819,8 +11817,6 @@ dependencies = [
  "base64 0.21.4",
  "chrono",
  "hex 0.4.3",
- "indexmap 1.9.3",
- "indexmap 2.0.2",
  "serde",
  "serde_json",
  "serde_with_macros",

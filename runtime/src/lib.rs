@@ -57,7 +57,7 @@ use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, Commitment, MemberStorage, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TssPublicKey, TssSignature, TxError, TxResult,
+	TaskResult, TaskRpcDetails, TssPublicKey, TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1509,8 +1509,8 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TasksRpcApi<Block> for Runtime {
-		fn get_detail(_: u64) -> u64 {
-			0
+		fn get_detail(task_id: TaskId, cycle: Option<TaskCycle>) -> Option<TaskRpcDetails> {
+			Tasks::get_rpc_details(task_id, cycle)
 		}
 	}
 

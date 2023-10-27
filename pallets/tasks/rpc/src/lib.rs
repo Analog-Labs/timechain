@@ -1,9 +1,12 @@
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use jsonrpsee::{
+	core::{Error, RpcResult},
+	proc_macros::rpc,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-pub use time_primitives::{TaskCycle, TaskId, TaskRpcDetails, TasksRpcApi as TasksRuntimeApi};
+pub use time_primitives::{RpcTaskDetails, TaskCycle, TaskId, TasksRpcApi as TasksRuntimeApi};
 #[rpc(client, server)]
 pub trait TasksApi<BlockHash> {
 	#[method(name = "tasks_getDetail")]
@@ -12,7 +15,7 @@ pub trait TasksApi<BlockHash> {
 		task_id: TaskId,
 		cycle: Option<TaskCycle>,
 		at: Option<BlockHash>,
-	) -> RpcResult<Option<TaskRpcDetails>>;
+	) -> RpcResult<RpcTaskDetails>;
 }
 
 pub struct TasksRpcApi<C, Block> {
@@ -39,10 +42,13 @@ where
 		task_id: TaskId,
 		cycle: Option<TaskCycle>,
 		at: Option<<Block as BlockT>::Hash>,
-	) -> RpcResult<Option<TaskRpcDetails>> {
+	) -> RpcResult<RpcTaskDetails> {
 		let api = self.client.runtime_api();
 		let at = at.unwrap_or_else(|| self.client.info().best_hash);
-		let details = api.get_detail(at, task_id, cycle).unwrap();
-		Ok(details)
+		match api.get_detail(at, task_id, cycle) {
+			Ok(Some(result)) => Ok(result),
+			Ok(None) => Err(Error::Custom("No task found".into())),
+			Err(e) => Err(Error::Custom(format!("Error querying storage {}", e).into())),
+		}
 	}
 }

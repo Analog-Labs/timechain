@@ -74,7 +74,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// deposit sequence start from 1 for each timegraph account
-			NextDepositSequence::<T>::mutate(&to, |sequence| *sequence = *sequence + 1);
+			NextDepositSequence::<T>::mutate(&to, |sequence| *sequence += 1);
 			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
 
 			let next_deposit_sequence = Self::next_deposit_sequence(&to);
@@ -94,7 +94,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			NextWithdrawalSequence::<T>::mutate(&from, |sequence| *sequence = *sequence + 1);
+			NextWithdrawalSequence::<T>::mutate(&from, |sequence| *sequence += 1);
 			let next_withdrawal_sequence = Self::next_withdrawal_sequence(&from);
 
 			ensure!(sequence == next_withdrawal_sequence, Error::<T>::WithDrawalSequenceMismatch);

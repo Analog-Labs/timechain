@@ -5,7 +5,8 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, Bytes, Map};
+// use serde_with::{serde_as, Bytes, Map};
+use serde_big_array::BigArray;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::vec::Vec;
 pub type TaskId = u64;
@@ -110,8 +111,13 @@ impl Default for TaskPhase {
 	}
 }
 
-// #[serde_as]
-#[cfg_attr(feature = "std", serde_as)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+pub struct TaskCycleResult(
+	pub TaskCycle,
+	#[cfg_attr(feature = "std", serde(with = "BigArray"))] pub TssSignature,
+);
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
 pub struct TaskRpcDetails {
@@ -119,8 +125,7 @@ pub struct TaskRpcDetails {
 	cycle: TaskCycle,
 	phase: TaskPhase,
 	shard_id: Option<ShardId>,
-	#[cfg_attr(feature = "std", serde_as(as = "Vec<(TaskCycle, Bytes)>"))]
-	results: BTreeMap<TaskCycle, TssSignature>,
+	results: Vec<TaskCycleResult>,
 }
 
 impl TaskRpcDetails {
@@ -129,7 +134,7 @@ impl TaskRpcDetails {
 		cycle: TaskCycle,
 		phase: TaskPhase,
 		shard_id: Option<ShardId>,
-		results: BTreeMap<TaskCycle, TssSignature>,
+		results: Vec<TaskCycleResult>,
 	) -> Self {
 		Self {
 			description,

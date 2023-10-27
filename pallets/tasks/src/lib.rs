@@ -17,9 +17,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
-		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
-		TaskRpcDetails, TaskStatus, TasksInterface, TssSignature,
+		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskCycleResult,
+		TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
+		TaskResult, TaskRpcDetails, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -483,7 +483,7 @@ pub mod pallet {
 			task_id: TaskId,
 			query_cycle: Option<TaskCycle>,
 		) -> Option<TaskRpcDetails> {
-			let mut sigs: BTreeMap<TaskCycle, TssSignature> = BTreeMap::new();
+			let mut sigs: Vec<TaskCycleResult> = Vec::new();
 			let Some(task) = Tasks::<T>::get(task_id) else {
 				return None;
 			};
@@ -492,13 +492,12 @@ pub mod pallet {
 			let shard_id = TaskShard::<T>::get(task_id);
 			if let Some(cycle) = query_cycle {
 				if let Some(result) = TaskResults::<T>::get(task_id, cycle) {
-					sigs.insert(cycle, result.signature);
+					sigs.push(TaskCycleResult(cycle, result.signature));
 				}
 			} else {
-				let results: BTreeMap<TaskCycle, TssSignature> =
-					TaskResults::<T>::iter_prefix(task_id)
-						.map(|(cycle, result)| (cycle, result.signature))
-						.collect();
+				let results: Vec<TaskCycleResult> = TaskResults::<T>::iter_prefix(task_id)
+					.map(|(cycle, result)| (TaskCycleResult(cycle, result.signature)))
+					.collect();
 				sigs.extend(results);
 			}
 			let details = TaskRpcDetails::new(task, cycles, status, shard_id, sigs);

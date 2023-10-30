@@ -212,7 +212,7 @@ impl Rts {
 		threshold: u16,
 		commitment: VerifiableSecretSharingCommitment,
 	) -> Self {
-		let public_key_package = PublicKeyPackage::from_commitment(&members, &commitment);
+		let public_key_package = PublicKeyPackage::from_commitment(&members, &commitment).unwrap();
 		Self {
 			id,
 			members,

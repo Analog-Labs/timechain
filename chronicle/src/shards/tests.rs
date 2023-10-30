@@ -30,7 +30,7 @@ use time_primitives::{
 	TasksPayload, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
 };
 use tracing::{span, Level};
-use tss::{compute_group_commitment, VerifiableSecretSharingCommitment};
+use tss::{sum_commitments, VerifiableSecretSharingCommitment};
 
 use tc_subxt::AccountInterface;
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -96,7 +96,8 @@ impl InnerMockApi {
 				VerifiableSecretSharingCommitment::deserialize(commitment.clone()).unwrap()
 			})
 			.collect();
-		compute_group_commitment(&commitments).serialize()
+		let commitments = commitments.iter().collect::<Vec<_>>();
+		sum_commitments(&commitments).unwrap().serialize()
 	}
 
 	fn submit_commitment(

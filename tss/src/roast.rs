@@ -42,7 +42,7 @@ impl RoastSigner {
 	}
 
 	pub fn commit(&mut self, coordinator: Identifier) -> SigningCommitments {
-		let (nonces, commitment) = round1::commit(self.key_package.secret_share(), &mut OsRng);
+		let (nonces, commitment) = round1::commit(self.key_package.signing_share(), &mut OsRng);
 		self.coordinators.insert(coordinator, nonces);
 		commitment
 	}

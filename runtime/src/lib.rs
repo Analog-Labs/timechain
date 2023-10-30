@@ -56,8 +56,8 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, Commitment, MemberStorage, Network, PeerId, ProofOfKnowledge, PublicKey,
-	RpcTaskDetails, ShardId, ShardStatus, Signature, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskResult, TssPublicKey, TssSignature, TxError, TxResult,
+	RpcShardDetails, RpcTaskDetails, ShardId, ShardStatus, Signature, TaskCycle, TaskDescriptor,
+	TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey, TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1489,8 +1489,8 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::ShardsRpcApi<Block> for Runtime {
-		fn get_detail(_: u64) -> u64 {
-			0
+		fn get_detail(shard_id: ShardId) -> Option<RpcShardDetails<<<Block as BlockT>::Header as HeaderT>::Number>>{
+			Shards::shard_rpc_details(shard_id)
 		}
 	}
 

@@ -16,7 +16,7 @@ use time_primitives::{
 };
 
 enum Tx {
-	Commitment { shard_id: ShardId, commitment: Vec<[u8; 33]>, proof_of_knowledge: [u8; 65] },
+	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: [u8; 65] },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
 	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
@@ -236,7 +236,7 @@ where
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
-		commitment: Vec<[u8; 33]>,
+		commitment: Commitment,
 		proof_of_knowledge: [u8; 65],
 	) -> SubmitResult {
 		self.submit_transaction(Tx::Commitment {

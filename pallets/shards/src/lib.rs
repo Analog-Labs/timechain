@@ -19,8 +19,8 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
-		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		Network, ProofOfKnowledge, PublicKey, RpcShardDetails, ShardId, ShardStatus,
+		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -145,7 +145,7 @@ pub mod pallet {
 			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
 			ensure!(commitment.len() == threshold as usize, Error::<T>::InvalidCommitment);
 			for c in &commitment {
-				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
+				ensure!(VerifyingKey::from_bytes(c.0).is_ok(), Error::<T>::InvalidCommitment);
 			}
 			// TODO: verify proof of knowledge
 			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
@@ -156,12 +156,17 @@ pub mod pallet {
 						for (group_commitment, commitment) in
 							group_commitment.iter_mut().zip(commitment.iter())
 						{
-							*group_commitment = VerifyingKey::new(
-								VerifyingKey::from_bytes(*group_commitment).unwrap().to_element()
-									+ VerifyingKey::from_bytes(*commitment).unwrap().to_element(),
-							)
-							.to_bytes()
-							.unwrap();
+							*group_commitment = TssPublicKey(
+								VerifyingKey::new(
+									VerifyingKey::from_bytes(group_commitment.0)
+										.unwrap()
+										.to_element() + VerifyingKey::from_bytes(commitment.0)
+										.unwrap()
+										.to_element(),
+								)
+								.to_bytes()
+								.unwrap(),
+							);
 						}
 						group_commitment
 					})
@@ -191,7 +196,7 @@ pub mod pallet {
 				.all(|(_, status)| status == MemberStatus::Ready)
 			{
 				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0].clone()));
 				T::TaskScheduler::shard_online(shard_id, network);
 			}
 			Ok(())
@@ -260,6 +265,20 @@ pub mod pallet {
 
 		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
 			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
+		}
+
+		pub fn shard_rpc_details(shard_id: ShardId) -> Option<RpcShardDetails<BlockNumberFor<T>>> {
+			let shard_status = ShardState::<T>::get(shard_id).unwrap();
+			let shard_threshold = ShardThreshold::<T>::get(shard_id).unwrap();
+			let shard_commitment = ShardCommitment::<T>::get(shard_id).unwrap();
+			let members_data: Vec<(AccountId, MemberStatus)> =
+				ShardMembers::<T>::iter_prefix(shard_id).collect();
+			Some(RpcShardDetails::new(
+				shard_status,
+				shard_threshold,
+				members_data,
+				shard_commitment,
+			))
 		}
 	}
 
@@ -348,7 +367,7 @@ pub mod pallet {
 		}
 
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
-			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
+			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0].clone())
 		}
 	}
 }

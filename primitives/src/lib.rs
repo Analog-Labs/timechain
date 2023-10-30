@@ -76,7 +76,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait ShardsRpcApi {
-		fn get_detail(shard_id: TaskId) -> u64;
+		fn get_detail(shard_id: ShardId) -> Option<RpcShardDetails<BlockNumber>>;
 	}
 
 	pub trait BlockTimeApi{

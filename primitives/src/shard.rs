@@ -1,22 +1,26 @@
+use crate::{AccountId, TaskCycle, TaskId};
 #[cfg(feature = "std")]
-use crate::{AccountId, ApiResult, BlockHash, BlockNumber, SubmitResult};
-use crate::{TaskCycle, TaskId};
+use crate::{ApiResult, BlockHash, BlockNumber, SubmitResult};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
-
-pub type TssPublicKey = [u8; 33];
+// pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
 pub type TssHash = [u8; 32];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
 pub type Commitment = Vec<TssPublicKey>;
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq)]
+pub struct TssPublicKey(#[cfg_attr(feature = "std", serde(with = "BigArray"))] pub [u8; 33]);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "std", derive(Deserialize, Serialize))]
@@ -51,6 +55,7 @@ impl core::str::FromStr for Network {
 	}
 }
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {
 	Added,
@@ -73,7 +78,7 @@ impl MemberStatus {
 }
 
 /// Track status of shard
-#[cfg_attr(feature = "std", derive(Serialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum ShardStatus<Blocknumber> {
 	Created(Blocknumber),
@@ -131,6 +136,31 @@ impl<B: Copy> ShardStatus<B> {
 				}
 			},
 			_ => *self,
+		}
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+pub struct RpcShardDetails<T> {
+	state: ShardStatus<T>,
+	tss_threshold: u16,
+	members: Vec<(AccountId, MemberStatus)>,
+	signatures: Commitment,
+}
+
+impl<T> RpcShardDetails<T> {
+	pub fn new(
+		state: ShardStatus<T>,
+		tss_threshold: u16,
+		members: Vec<(AccountId, MemberStatus)>,
+		signatures: Commitment,
+	) -> Self {
+		Self {
+			state,
+			tss_threshold,
+			members,
+			signatures,
 		}
 	}
 }

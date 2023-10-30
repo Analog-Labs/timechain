@@ -1,6 +1,7 @@
 use time_primitives::{ShardId, ShardsPayload, TssPublicKey};
 
 use crate::{timechain_runtime, SubxtClient};
+use timechain_runtime::runtime_types::time_primitives::shard;
 
 impl ShardsPayload for SubxtClient {
 	fn submit_commitment(
@@ -9,7 +10,7 @@ impl ShardsPayload for SubxtClient {
 		commitment: Vec<TssPublicKey>,
 		proof_of_knowledge: [u8; 65],
 	) -> Vec<u8> {
-		let commitment = commitment.iter().map(|data| data.0).collect::<Vec<_>>();
+		let commitment: Vec<shard::TssPublicKey> = unsafe { std::mem::transmute(commitment) };
 		let tx = timechain_runtime::tx()
 			.shards()
 			.commit(shard_id, commitment, proof_of_knowledge);

@@ -83,7 +83,7 @@ pub fn authority_keys_from_seed(s: &str) -> (AccountId, AccountId, BabeId, Grand
 }
 
 /// Generate a chain spec for testnet deployment
-pub fn analog_testnet_config() -> Result<ChainSpec, String> {
+pub fn analog_testnet_config(disable_tss: bool) -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Analog live wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
@@ -371,7 +371,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 						COMMUNITY_SUPPLY,
 					),
 				],
-				false,
+				disable_tss,
 			)
 		},
 		// Bootnodes

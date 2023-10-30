@@ -37,7 +37,8 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
+			"testnet" => Box::new(chain_spec::analog_testnet_config(false)?),
+			"testnet-notss" => Box::new(chain_spec::analog_testnet_config(true)?),
 			"staging" => Box::new(chain_spec::analog_staging_config(false)?),
 			"staging-notss" => Box::new(chain_spec::analog_staging_config(true)?),
 			"" | "dev" => Box::new(chain_spec::analog_dev_config(false)?),

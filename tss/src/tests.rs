@@ -1,8 +1,6 @@
-use crate::{Tss, TssAction, TssMessage, TssRequest, TssResponse};
-use frost_evm::frost_core::frost::keys::compute_group_commitment;
-//use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
-//use frost_evm::keys::SigningShare;
-//use frost_evm::round2::SignatureShare;
+use crate::{
+	sum_commitments, verify_proof_of_knowledge, Tss, TssAction, TssMessage, TssRequest, TssResponse,
+};
 use frost_evm::{Signature, VerifyingKey};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -88,12 +86,13 @@ impl TssTester {
 				while let Some(action) = self.tss[i].next_action() {
 					progress = true;
 					match action {
-						TssAction::Commit(commitment, _proof_of_knowledge) => {
-							//verify_proof_of_knowledge(from, &commitment, proof_of_knowledge)
-							//	.unwrap();
+						TssAction::Commit(commitment, proof_of_knowledge) => {
+							verify_proof_of_knowledge(from, &commitment, proof_of_knowledge)
+								.unwrap();
 							commitments.push(commitment);
 							if commitments.len() == self.tss.len() {
-								let commitment = compute_group_commitment(&commitments);
+								let commitments = commitments.iter().collect::<Vec<_>>();
+								let commitment = sum_commitments(&commitments).unwrap();
 								for tss in &mut self.tss {
 									tss.on_commit(commitment.clone());
 								}

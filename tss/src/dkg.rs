@@ -95,7 +95,7 @@ impl Dkg {
 		let signing_share = self
 			.round2_packages
 			.values()
-			.map(|package| *package.secret_share())
+			.map(|package| *package.signing_share())
 			.chain(std::iter::once(SigningShare::from_coefficients(
 				secret_package.coefficients(),
 				self.id,
@@ -110,7 +110,8 @@ impl Dkg {
 				return Some(DkgAction::Failure(error));
 			},
 		};
-		let public_key_package = PublicKeyPackage::from_commitment(&self.members, commitment);
+		let public_key_package =
+			PublicKeyPackage::from_commitment(&self.members, commitment).unwrap();
 		Some(DkgAction::Complete(key_package, public_key_package, commitment.clone()))
 	}
 }
@@ -119,7 +120,7 @@ impl Dkg {
 mod tests {
 	use super::*;
 	use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
-	use frost_evm::frost_core::frost::keys::{compute_group_commitment, default_identifiers};
+	use frost_evm::frost_core::frost::keys::{default_identifiers, sum_commitments};
 
 	#[test]
 	fn test_dkg() {
@@ -138,7 +139,8 @@ mod tests {
 						verify_proof_of_knowledge(*from, &commitment, proof_of_knowledge).unwrap();
 						commitments.push(commitment);
 						if commitments.len() == members.len() {
-							let commitment = compute_group_commitment(&commitments);
+							let commitments = commitments.iter().collect::<Vec<_>>();
+							let commitment = sum_commitments(&commitments).unwrap();
 							for dkg in dkgs.values_mut() {
 								dkg.on_commit(commitment.clone());
 							}

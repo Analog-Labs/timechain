@@ -9,7 +9,7 @@ use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use frost_evm::frost_core::frost::keys::compute_group_commitment;
+pub use frost_evm::frost_core::frost::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
 pub use frost_evm::keys::VerifiableSecretSharingCommitment;
 pub use frost_evm::schnorr::SigningKey;
@@ -99,7 +99,7 @@ pub fn construct_proof_of_knowledge(
 	commitment: &VerifiableSecretSharingCommitment,
 ) -> Result<ProofOfKnowledge> {
 	let identifier = peer_to_frost(peer);
-	Ok(frost_evm::frost_core::frost::keys::dkg::construct_proof_of_knowledge(
+	Ok(frost_evm::frost_core::frost::keys::dkg::compute_proof_of_knowledge(
 		identifier,
 		coefficients,
 		commitment,
@@ -336,11 +336,11 @@ where
 					DkgAction::Complete(key_package, public_key_package, commitment) => {
 						let secret_share = SecretShare::new(
 							self.frost_id,
-							*key_package.secret_share(),
+							*key_package.signing_share(),
 							commitment,
 						);
 						let public_key =
-							VerifyingKey::new(public_key_package.group_public().to_element());
+							VerifyingKey::new(public_key_package.verifying_key().to_element());
 						let members = self.frost_to_peer.keys().copied().collect();
 						let rts =
 							RtsHelper::new(self.frost_id, members, self.threshold, secret_share);
@@ -374,9 +374,9 @@ where
 				},
 				RtsAction::Complete(key_package, public_key_package, commitment) => {
 					let secret_share =
-						SecretShare::new(self.frost_id, *key_package.secret_share(), commitment);
+						SecretShare::new(self.frost_id, *key_package.signing_share(), commitment);
 					let public_key =
-						VerifyingKey::new(public_key_package.group_public().to_element());
+						VerifyingKey::new(public_key_package.verifying_key().to_element());
 					let members = self.frost_to_peer.keys().copied().collect();
 					let rts = RtsHelper::new(self.frost_id, members, self.threshold, secret_share);
 					self.state = TssState::Roast {

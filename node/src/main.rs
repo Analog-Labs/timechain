@@ -10,6 +10,5 @@ mod command;
 mod rpc;
 
 fn main() -> sc_cli::Result<()> {
-	log_panics::init();
 	command::run()
 }

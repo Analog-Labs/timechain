@@ -1,14 +1,17 @@
 [workspace]
 members = [
+	"chronicle",
 	"node",
-	"pallets/ocw",
+	"pallets/elections",
+	"pallets/members",
 	"pallets/shards",
 	"pallets/tasks",
 	"primitives",
 	"runtime",
 	"runtime/common",
+	"tc-subxt",
+	"tester",
 	"tss",
-	"workers/task-executor",
 ]
 resolver = "2"
 

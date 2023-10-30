@@ -1,26 +1,44 @@
 use crate::{self as pallet_shards};
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
+use frame_support::traits::OnInitialize;
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, ScheduleInterface, ShardCreated, ShardId};
+use time_primitives::{
+	ElectionsInterface, MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface,
+};
 
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockOcw;
-
-impl ShardCreated for MockOcw {
-	fn shard_created(_: ShardId, _: PublicKey) {}
-}
-
 pub struct MockTaskScheduler;
 
-impl ScheduleInterface for MockTaskScheduler {
+impl TasksInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: Network) {}
 	fn shard_offline(_: ShardId, _: Network) {}
+}
+
+pub struct MockMembers;
+
+impl MemberStorage for MockMembers {
+	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
+		None
+	}
+	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
+		None
+	}
+	fn is_member_online(_: &AccountId) -> bool {
+		true
+	}
+}
+
+pub struct MockElections;
+
+impl ElectionsInterface for MockElections {
+	fn shard_offline(_: Network, _: Vec<AccountId>) {}
 }
 
 frame_support::construct_runtime!(
@@ -77,10 +95,49 @@ impl pallet_balances::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ShardCreated = MockOcw;
 	type TaskScheduler = MockTaskScheduler;
-	type MaxMembers = ConstU8<20>;
-	type MinMembers = ConstU8<3>;
+	type Members = MockMembers;
+	type Elections = MockElections;
+	type DkgTimeout = ConstU64<10>;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: u32,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Shards::on_initialize(i);
+	}
 }
 
 // Build genesis storage according to the mock runtime.

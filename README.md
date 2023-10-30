@@ -77,6 +77,20 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 3. Start the timechain validators, connectors and chain nodes with `docker compose up -d`.
 4. Set the validator keys with `./scripts/set_keys.sh`.
 
+## Logging
+
+We use a modified version of substrate that logs to JSON. Therefore we recommend running logs through the `json` filter in loki to more easily filter for all kinds of json entries.
+
+For example to query the development eth chronicle for any none-info log messages you can use the following query.
+
+```
+{container="testnet-chronicle-eth-1"} | json | level != `INFO`
+```
+
+The `json` filter flattens all labels, so the json path `fields > log.target` is turned into the key `fields_log_target`, so keep that in mind when filtering.
+
+Use the "Prettify JSON" option to improve readability in Grafana or the raw logcli output `--output raw` and a pipe to `jq` on the command line.
+
 ## Run public testnet
 
 * Start your bootnodes, node key can be generate with command `./target/release/timechain-node key generate-node-key`.
@@ -100,6 +114,15 @@ CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
     --connector-network=dev \
     --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWDAzWc9PWDapTfx89NmAhxuySLnVU9N62ojYS25Va7gif
   ```
+
+
+## Test Timechain
+Build images:<br>
+`./scripts/build_docker.sh`<br>
+Run with docker:<br>
+`docker compose --profile ethereum up`<br>
+Test:<br>
+`docker compose run tester --network ethereum basic`
 
 
 ## Upcoming features

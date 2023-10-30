@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
 	#[clap(subcommand)]
@@ -8,28 +10,55 @@ pub struct Cli {
 }
 
 #[derive(Debug, clap::Parser)]
-#[group(skip)]
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
-	/// The address of Analog Connector.
-	#[clap(long)]
-	pub connector_url: Option<String>,
+	#[clap(flatten)]
+	pub chronicle: Option<ChronicleArgs>,
+}
+
+#[derive(Debug, clap::Parser)]
+/// workaround for https://github.com/clap-rs/clap/issues/5092
+#[group(requires_all = ["blockchain", "network", "url"], multiple = true)]
+pub struct ChronicleArgs {
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
 	/// The chain used by Analog Connector.
 	#[clap(long)]
-	pub connector_blockchain: Option<String>,
+	pub blockchain: time_primitives::Network,
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
-	pub connector_network: Option<String>,
-	/// The node not run TSS and task executor.
+	pub network: String,
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
+	/// The address of Analog Connector.
 	#[clap(long)]
-	pub without_chronicle: bool,
+	pub url: String,
+	/// workaround for https://github.com/clap-rs/clap/issues/5092
+	#[arg(required = false)]
+	/// keyfile having an account with funds for timechain.
+	#[clap(long)]
+	pub timechain_keyfile: PathBuf,
+	/// key file for connector wallet
+	#[clap(long)]
+	pub keyfile: Option<PathBuf>,
 	/// The timegraph url (or TIMEGTAPH_URL environment variable).
 	#[clap(long)]
 	pub timegraph_url: Option<String>,
 	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
 	#[clap(long)]
 	pub timegraph_ssk: Option<String>,
+	/// The secret to use for p2p networking.
+	#[clap(long)]
+	pub secret: Option<PathBuf>,
+	/// The port to bind to for p2p networking.
+	#[clap(long)]
+	pub bind_port: Option<u16>,
+	/// The pkarr relay for looking up nodes.
+	#[clap(long)]
+	pub pkarr_relay: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -62,14 +91,6 @@ pub enum Subcommand {
 	/// Sub-commands concerned with benchmarking.
 	#[clap(subcommand)]
 	Benchmark(Box<frame_benchmarking_cli::BenchmarkCmd>),
-
-	/// Try some command against runtime state.
-	#[cfg(feature = "try-runtime")]
-	TryRuntime(try_runtime_cli::TryRuntimeCmd),
-
-	/// Try some command against runtime state. Note: `try-runtime` feature must be enabled.
-	#[cfg(not(feature = "try-runtime"))]
-	TryRuntime,
 
 	/// Db meta columns information.
 	ChainInfo(sc_cli::ChainInfoCmd),

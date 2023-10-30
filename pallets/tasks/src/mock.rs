@@ -5,17 +5,36 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ShardId, ShardStatusInterface};
+use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
 
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
 pub struct MockShardInterface;
 
-impl ShardStatusInterface for MockShardInterface {
+impl ShardsInterface for MockShardInterface {
 	fn is_shard_online(_: ShardId) -> bool {
 		true
+	}
+
+	fn is_shard_member(_: &AccountId) -> bool {
+		true
+	}
+
+	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
+
+	fn random_signer(shard_id: ShardId) -> PublicKey {
+		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
+	}
+
+	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
+		// this value is taken from running a valid tss cycle
+		Some([
+			2, 163, 23, 136, 62, 90, 175, 126, 10, 65, 254, 12, 65, 67, 97, 247, 152, 34, 231, 253,
+			55, 115, 250, 33, 58, 75, 46, 99, 112, 78, 22, 197, 74,
+		])
 	}
 }
 
@@ -73,8 +92,39 @@ impl pallet_balances::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ShardStatus = MockShardInterface;
+	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
+	type WritePhaseTimeout = ConstU64<10>;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: u32,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
 }
 
 // Build genesis storage according to the mock runtime.

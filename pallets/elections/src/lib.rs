@@ -1,0 +1,150 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+pub use pallet::*;
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
+#[frame_support::pallet]
+pub mod pallet {
+	use frame_support::pallet_prelude::*;
+	use frame_support::traits::BuildGenesisConfig;
+	use frame_system::pallet_prelude::*;
+	use sp_std::marker::PhantomData;
+	use sp_std::vec::Vec;
+	use time_primitives::{
+		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, ShardsInterface,
+	};
+
+	#[pallet::pallet]
+	#[pallet::without_storage_info]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type Shards: ShardsInterface + MemberEvents;
+		type Members: MemberStorage;
+	}
+
+	/// Size of each new shard
+	#[pallet::storage]
+	pub type ShardSize<T: Config> = StorageValue<_, u16, ValueQuery>;
+
+	/// Threshold of each new shard
+	#[pallet::storage]
+	pub type ShardThreshold<T: Config> = StorageValue<_, u16, ValueQuery>;
+
+	/// Unassigned members per network
+	#[pallet::storage]
+	pub type Unassigned<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		Network,
+		Blake2_128Concat,
+		AccountId,
+		(),
+		OptionQuery,
+	>;
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T> {
+		#[serde(skip)]
+		pub _p: PhantomData<T>,
+		pub shard_size: u16,
+		pub shard_threshold: u16,
+	}
+
+	impl<T> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self {
+				_p: PhantomData,
+				shard_size: 3,
+				shard_threshold: 2,
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			ShardSize::<T>::put(self.shard_size);
+			ShardThreshold::<T>::put(self.shard_threshold);
+		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Set shard config: size, threshold
+		ShardConfigSet(u16, u16),
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		ThresholdLargerThanSize,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::DbWeight::get().writes(2))]
+		pub fn set_shard_config(
+			origin: OriginFor<T>,
+			shard_size: u16,
+			shard_threshold: u16,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
+			ShardSize::<T>::put(shard_size);
+			ShardThreshold::<T>::put(shard_threshold);
+			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
+			Ok(())
+		}
+	}
+
+	impl<T: Config> MemberEvents for Pallet<T> {
+		fn member_online(member: &AccountId, network: Network) {
+			if !T::Shards::is_shard_member(member) {
+				Unassigned::<T>::insert(network, member, ());
+				Self::try_elect_shard(network);
+			}
+			T::Shards::member_online(member, network);
+		}
+		fn member_offline(member: &AccountId, network: Network) {
+			Unassigned::<T>::remove(network, member);
+			T::Shards::member_offline(member, network);
+		}
+	}
+
+	impl<T: Config> ElectionsInterface for Pallet<T> {
+		fn shard_offline(network: Network, members: Vec<AccountId>) {
+			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
+			Self::try_elect_shard(network);
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn try_elect_shard(network: Network) {
+			if let Some(members) = Self::new_shard_members(network) {
+				members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+				T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
+			}
+		}
+
+		fn new_shard_members(network: Network) -> Option<Vec<AccountId>> {
+			let shard_size = ShardSize::<T>::get() as usize;
+			let members = Unassigned::<T>::iter_prefix(network)
+				.map(|(m, _)| m)
+				.filter(T::Members::is_member_online)
+				.take(shard_size)
+				.collect::<Vec<_>>();
+			if members.len() == shard_size {
+				Some(members)
+			} else {
+				None
+			}
+		}
+	}
+}

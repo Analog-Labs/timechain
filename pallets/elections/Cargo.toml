@@ -1,0 +1,42 @@
+[package]
+name = "pallet-elections"
+authors = [ "Analog Devs <https://github.com/analog-labs>" ]
+description = "A pallet for selecting members for shards."
+edition = "2021"
+homepage = "https://analog.one"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/Analog-Labs/testnet"
+version = "0.0.1"
+
+[package.metadata.docs.rs]
+targets = [ "x86_64-unknown-linux-gnu" ]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
+	"derive",
+] }
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
+frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+log = { version = "0.4.20", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+serde = { version = "1.0.188", default-features = false, features = ["derive"] }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+time-primitives = { path = "../../primitives", default-features = false }
+
+[dev-dependencies]
+env_logger = "0.10.0"
+lazy_static = "1.4.0"
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
+pallet-shards = { path = "../shards" }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+
+[features]
+default = [ "std" ]
+std = [ "codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "scale-info/std", "serde/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "time-primitives/std" ]
+runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
+try-runtime = [ "frame-support/try-runtime" ]

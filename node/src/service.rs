@@ -7,7 +7,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use timechain_runtime::{self, opaque::Block, RuntimeApi};
 
 // Our native executor instance.
@@ -37,6 +37,10 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
 	sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 
+/// The minimum periof of blocks on which justifications will be
+/// imported and generated.
+const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
+
 #[allow(clippy::type_complexity)]
 pub fn new_partial(
 	config: &Configuration,
@@ -45,7 +49,7 @@ pub fn new_partial(
 		FullClient,
 		FullBackend,
 		FullSelectChain,
-		sc_consensus::DefaultImportQueue<Block, FullClient>,
+		sc_consensus::DefaultImportQueue<Block>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
@@ -94,6 +98,7 @@ pub fn new_partial(
 
 	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
 		client.clone(),
+		GRANDPA_JUSTIFICATION_PERIOD,
 		&client,
 		select_chain.clone(),
 		telemetry.as_ref().map(|x| x.handle()),
@@ -146,24 +151,8 @@ pub fn new_partial(
 /// Builds a new service for a full client.
 pub fn new_full(
 	config: Configuration,
-	connector_url: Option<String>,
-	connector_blockchain: Option<String>,
-	connector_network: Option<String>,
-	without_chronicle: bool,
-	timegraph_url: Option<String>,
-	timegraph_ssk: Option<String>,
+	chronicle_config: Option<chronicle::ChronicleConfig>,
 ) -> Result<TaskManager, ServiceError> {
-	let peer_id = config
-		.network
-		.node_key
-		.clone()
-		.into_keypair()
-		.unwrap()
-		.public()
-		.try_into_ed25519()
-		.unwrap()
-		.to_bytes();
-	log::info!("Peer identity bytes: {:?}", peer_id);
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -186,6 +175,10 @@ pub fn new_full(
 		grandpa_protocol_name.clone(),
 	));
 
+	// registering time p2p protocol
+	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
+	net_config.add_request_response_protocol(chronicle::protocol_config(protocol_tx));
+
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
@@ -202,6 +195,7 @@ pub fn new_full(
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(sc_service::WarpSyncParams::WithProvider(warp_sync)),
 			net_config,
+			block_relay: None,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -313,7 +307,7 @@ pub fn new_full(
 		let grandpa_config = sc_consensus_grandpa::Config {
 			// FIXME #1578 make this available through chainspec
 			gossip_duration: Duration::from_millis(333),
-			justification_period: 512,
+			justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
 			name: Some(name),
 			observer_enabled: false,
 			keystore: keystore.clone(),
@@ -337,7 +331,7 @@ pub fn new_full(
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			sync: sync_service,
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		};
 
 		// the GRANDPA voter task is considered infallible, i.e.
@@ -347,29 +341,20 @@ pub fn new_full(
 			None,
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
-		if !without_chronicle {
-			let task_executor_params = task_executor::TaskExecutorParams {
-				_block: PhantomData,
+
+		if let Some(config) = chronicle_config {
+			let params = chronicle::ChronicleParams {
+				client: client.clone(),
 				runtime: client.clone(),
-				client,
-				backend,
-				peer_id,
-				task_spawner: futures::executor::block_on(task_executor::Task::new(
-					task_executor::TaskSpawnerParams {
-						connector_url,
-						connector_blockchain,
-						connector_network,
-						timegraph_url,
-						timegraph_ssk,
-					},
-				))
-				.unwrap(),
+				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+				network: Some((network, protocol_rx)),
+				config,
 			};
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"task-executor",
-				None,
-				task_executor::start_task_executor_gadget(task_executor_params),
-			);
+			task_manager
+				.spawn_essential_handle()
+				.spawn_blocking("chronicle", None, async move {
+					chronicle::run_chronicle(params).await.unwrap()
+				});
 		}
 	}
 

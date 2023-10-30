@@ -37,9 +37,12 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
-			"staging" => Box::new(chain_spec::analog_staging_config()?),
-			"" | "dev" => Box::new(chain_spec::analog_dev_config()?),
+			"testnet" => Box::new(chain_spec::analog_testnet_config(false)?),
+			"testnet-notss" => Box::new(chain_spec::analog_testnet_config(true)?),
+			"staging" => Box::new(chain_spec::analog_staging_config(false)?),
+			"staging-notss" => Box::new(chain_spec::analog_staging_config(true)?),
+			"" | "dev" => Box::new(chain_spec::analog_dev_config(false)?),
+			"notss" => Box::new(chain_spec::analog_dev_config(true)?),
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
 			},
@@ -188,23 +191,6 @@ pub fn run() -> sc_cli::Result<()> {
 				}
 			})
 		},
-		#[cfg(feature = "try-runtime")]
-		Some(Subcommand::TryRuntime(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				// we don't need any of the components of new_partial, just a runtime, or a task
-				// manager to do `async_run`.
-				let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
-				let task_manager =
-					sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
-						.map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
-				Ok((cmd.run::<Block, service::ExecutorDispatch>(config), task_manager))
-			})
-		},
-		#[cfg(not(feature = "try-runtime"))]
-		Some(Subcommand::TryRuntime) => Err("TryRuntime wasn't enabled when building the node. \
-				You can enable it with `--features try-runtime`."
-			.into()),
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<Block>(&config))
@@ -214,12 +200,18 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.run_node_until_exit(|config| async move {
 				service::new_full(
 					config,
-					cli.run.connector_url,
-					cli.run.connector_blockchain,
-					cli.run.connector_network,
-					cli.run.without_chronicle,
-					cli.run.timegraph_url.or(std::env::var("TIMEGRAPH_URL").map_or(None, Some)),
-					cli.run.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").map_or(None, Some)),
+					cli.run.chronicle.map(|args| chronicle::ChronicleConfig {
+						blockchain: args.blockchain,
+						network: args.network,
+						url: args.url,
+						timechain_keyfile: args.timechain_keyfile,
+						keyfile: args.keyfile,
+						timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
+						timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
+						secret: args.secret,
+						bind_port: args.bind_port,
+						pkarr_relay: args.pkarr_relay,
+					}),
 				)
 				.map_err(sc_cli::Error::Service)
 			})

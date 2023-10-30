@@ -2,20 +2,22 @@
 name = "time-primitives"
 edition = "2021"
 version = "0.1.0"
+
 [dependencies]
 anyhow = { version = "1.0", default-features = false }
 async-trait = "0.1.73"
-codec = { package = "parity-scale-codec", version = "3.6.4", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "=3.6.4", default-features = false }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 futures = { version = "0.3.28", optional = true }
 log = "0.4.20"
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 serde = { version = "1.0", default-features = false, features = [ "derive" ] }
-sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-application-crypto = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 [features]
 default = ["std"]

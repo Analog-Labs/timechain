@@ -1,14 +1,11 @@
-use crate::{AccountId, Network, ShardId, TssSignature};
-use anyhow::Result;
+use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+#[cfg(feature = "std")]
+use crate::{ApiResult, BlockHash, SubmitResult};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::Serialize;
 use sp_std::vec::Vec;
-#[cfg(feature = "std")]
-use std::future::Future;
-#[cfg(feature = "std")]
-use std::pin::Pin;
 
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -17,19 +14,31 @@ pub type TaskRetryCount = u8;
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
-	EVMViewWithoutAbi { address: String, function_signature: String, input: Vec<String> },
+	EvmDeploy { bytecode: Vec<u8> },
+	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
+	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
+	EvmTxReceipt { tx: Vec<u8> },
+	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
+}
+
+impl Function {
+	pub fn is_payable(&self) -> bool {
+		matches!(self, Self::EvmDeploy { .. } | Self::EvmCall { .. })
+	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct CycleStatus {
+pub struct TaskResult {
 	pub shard_id: ShardId,
+	pub hash: [u8; 32],
 	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskError {
 	pub shard_id: ShardId,
-	pub error: String,
+	pub msg: String,
+	pub signature: TssSignature,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -68,16 +77,59 @@ pub enum TaskStatus {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TaskPhase {
+	Sign,
+	Write(PublicKey),
+	Read(Option<Vec<u8>>),
+}
+
+impl TaskPhase {
+	pub fn public_key(&self) -> Option<&PublicKey> {
+		if let Self::Write(public_key) = self {
+			Some(public_key)
+		} else {
+			None
+		}
+	}
+
+	pub fn tx_hash(&self) -> Option<&[u8]> {
+		if let Self::Read(Some(tx_hash)) = self {
+			Some(tx_hash)
+		} else {
+			None
+		}
+	}
+}
+
+impl Default for TaskPhase {
+	fn default() -> Self {
+		TaskPhase::Read(None)
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub cycle: TaskCycle,
 	pub retry_count: TaskRetryCount,
+	pub phase: TaskPhase,
 }
 
 impl TaskExecution {
-	pub fn new(task_id: TaskId, cycle: TaskCycle, retry_count: TaskRetryCount) -> Self {
-		Self { task_id, cycle, retry_count }
+	pub fn new(
+		task_id: TaskId,
+		cycle: TaskCycle,
+		retry_count: TaskRetryCount,
+		phase: TaskPhase,
+	) -> Self {
+		Self {
+			task_id,
+			cycle,
+			retry_count,
+			phase,
+		}
 	}
 }
 
@@ -89,18 +141,40 @@ impl std::fmt::Display for TaskExecution {
 }
 
 #[cfg(feature = "std")]
-#[async_trait::async_trait]
-pub trait TaskSpawner {
-	async fn block_height(&self) -> Result<u64>;
+pub trait Tasks {
+	fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId)
+		-> ApiResult<Vec<TaskExecution>>;
 
-	fn execute(
+	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
+
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
+
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
+
+	fn submit_task_result(
 		&self,
-		target_block: u64,
-		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		retry_count: TaskRetryCount,
-		task: TaskDescriptor,
-		block_num: u64,
-	) -> Pin<Box<dyn Future<Output = Result<TssSignature>> + Send + 'static>>;
+		status: TaskResult,
+	) -> SubmitResult;
+
+	fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> SubmitResult;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult;
+}
+
+#[cfg(feature = "std")]
+pub trait TasksPayload {
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8>;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8>;
+
+	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8>;
+
+	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8>;
 }

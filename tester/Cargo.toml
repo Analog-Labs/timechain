@@ -1,0 +1,14 @@
+[package]
+name = "tester"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.75"
+clap = { version = "4.4.2", features = [ "derive" ] }
+ethers-solc = "2.0.1"
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+subxt-signer = { version = "0.31.0", features = ["subxt"] }
+subxt = "0.31.0"
+surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
+tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread"]}

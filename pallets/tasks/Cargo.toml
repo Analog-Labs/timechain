@@ -9,20 +9,21 @@ publish = false
 repository = "https://github.com/Analog-Labs/testnet"
 version = "0.0.1"
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.4", default-features = false, features = [ "max-encoded-len" ] }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false, optional = true }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [ "max-encoded-len" ] }
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
+frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+schnorr-evm = { git = "https://github.com/analog-labs/frost-evm", default-features = false }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
+sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", version = "4.0.0-dev" }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0", default-features = false }
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -32,6 +33,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"schnorr-evm/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"time-primitives/std",

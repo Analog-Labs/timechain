@@ -3,6 +3,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
+#[cfg(test)]
+mod tests;
 mod weights;
 
 // Make the WASM binary available.
@@ -21,7 +23,8 @@ use frame_support::{
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use codec::{Decode, Encode};
-use pallet_election_provider_multi_phase::SolutionAccuracyOf;
+use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
+use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -40,7 +43,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider,
-		NumberFor, OpaqueKeys,
+		Header as HeaderT, NumberFor, OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Percent, SaturatedConversion,
@@ -52,8 +55,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, PeerId, PublicKey, ShardId, Signature, TaskCycle, TaskDescriptor, TaskExecution,
-	TaskId,
+	AccountId, Commitment, MemberStorage, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
+	TaskResult, TssPublicKey, TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -61,8 +65,8 @@ pub use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, KeyOwnerProofSystem,
-		OnUnbalanced, Randomness, StorageInfo,
+		ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin,
+		KeyOwnerProofSystem, OnUnbalanced, Randomness, StorageInfo,
 	},
 	weights::{constants::RocksDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
 	PalletId, StorageValue,
@@ -315,7 +319,7 @@ pub type Balance = u128;
 pub type Index = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
+pub type Hash = time_primitives::BlockHash;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -561,6 +565,7 @@ impl pallet_babe::Config for Runtime {
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominations;
 }
 
 parameter_types! {
@@ -572,6 +577,7 @@ impl pallet_grandpa::Config for Runtime {
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominations;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -706,8 +712,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
-	type VotersBound = MaxOnChainElectingVoters;
-	type TargetsBound = MaxOnChainElectableTargets;
+	type Bounds = ElectionBoundsOnChain;
 }
 
 parameter_types! {
@@ -776,7 +781,6 @@ impl pallet_staking::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
-	type MaxNominations = MaxNominations;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
@@ -805,11 +809,22 @@ impl pallet_staking::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type TargetList = UseValidatorsMap<Self>;
 	type EventListeners = ();
+	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 }
 
 parameter_types! {
 	pub const MinerMaxLength: u32 = 256;
 	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get().max_block;
+
+	pub const SignedFixedDeposit: Balance = deposit(2, 0);
+	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
+
+	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
+	// carefully set so that an election round fits in one block.
+	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(5_000.into()).targets_count(1_250.into()).build();
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -863,7 +878,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MinerConfig = Self;
 	type SignedMaxSubmissions = ConstU32<10>;
 	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositBase =
+		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = SignedDepositByte;
 	type SignedMaxRefunds = ConstU32<3>;
 	type SignedDepositWeight = ();
@@ -875,11 +891,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, ()>;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	type MaxElectableTargets = MaxElectableTargets;
-	type MaxElectingVoters = MaxElectingVoters;
 	type MaxWinners = MaxActiveValidators;
 	type BenchmarkingConfig = BenchmarkConfig;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
+	type ElectionBounds = ElectionBoundsMultiPhase;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -1121,28 +1136,38 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+impl pallet_members::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::members::WeightInfo<Runtime>;
+	type Elections = Elections;
+	type HeartbeatTimeout = ConstU32<50>;
+}
+
+// Set in elections::GenesisConfig in node/chain_spec
+pub const SHARD_SIZE: u16 = 3;
+pub const SHARD_THRESHOLD: u16 = 2;
+
+impl pallet_elections::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Members = Members;
+	type Shards = Shards;
+}
+
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
-	type ShardCreated = Ocw;
+	type Members = Members;
+	type Elections = Elections;
 	type TaskScheduler = Tasks;
-	type MaxMembers = ConstU8<20>;
-	type MinMembers = ConstU8<1>;
+	type DkgTimeout = ConstU32<10>;
 }
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
-	type ShardStatus = Shards;
-	type MaxRetryCount = ConstU8<3>;
-}
-
-impl pallet_ocw::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::ocw::WeightInfo<Runtime>;
-	type AuthorityId = time_primitives::crypto::SigAuthId;
 	type Shards = Shards;
-	type Tasks = Tasks;
+	type MaxRetryCount = ConstU8<3>;
+	type WritePhaseTimeout = ConstU32<10>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1166,10 +1191,11 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Treasury: pallet_treasury,
-		Tasks: pallet_tasks,
-		Ocw: pallet_ocw,
+		Members: pallet_members,
+		Shards: pallet_shards,
+		Elections: pallet_elections,
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -1216,9 +1242,9 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_members, Members]
 		[pallet_shards, Shards]
 		[pallet_tasks, Tasks]
-		[pallet_ocw, Ocw]
 	);
 }
 
@@ -1436,21 +1462,61 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::TimeApi<Block>  for Runtime {
-		fn get_shards(peer_id: PeerId) -> Vec<ShardId> {
-			Shards::get_shards(peer_id)
+	impl time_primitives::MembersApi<Block> for Runtime {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId> {
+			Members::member_peer_id(account)
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<PeerId> {
+		fn get_heartbeat_timeout() -> u64 {
+			Members::get_heartbeat_timeout().into()
+		}
+	}
+
+	impl time_primitives::ShardsApi<Block> for Runtime {
+		fn get_shards(account: &AccountId) -> Vec<ShardId> {
+			Shards::get_shards(account)
+		}
+
+		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
 			Shards::get_shard_members(shard_id)
 		}
 
+		fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			Shards::get_shard_threshold(shard_id)
+		}
+
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<<Block as BlockT>::Header as HeaderT>::Number> {
+			Shards::get_shard_status(shard_id)
+		}
+
+		fn get_shard_commitment(shard_id: ShardId) -> Commitment {
+			Shards::get_shard_commitment(shard_id)
+		}
+	}
+
+	impl time_primitives::TasksApi<Block> for Runtime {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
 			Tasks::get_task(task_id)
+		}
+
+		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
+			Tasks::get_task_signature(task_id)
+		}
+	}
+
+	impl time_primitives::BlockTimeApi<Block> for Runtime {
+		fn get_block_time_in_msec() -> u64{
+			MILLISECS_PER_BLOCK
+		}
+	}
+
+	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
+		fn submit_transaction(encoded_transaction: Vec<u8>) -> TxResult {
+			sp_io::offchain::submit_transaction(encoded_transaction).map_err(|_| TxError::TxPoolError)
 		}
 	}
 
@@ -1468,7 +1534,7 @@ impl_runtime_apis! {
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
-			list_benchmark!(list, extra, pallet_ocw, Ocw);
+			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1479,7 +1545,7 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
@@ -1487,14 +1553,14 @@ impl_runtime_apis! {
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl baseline::Config for Runtime {}
 
-			use frame_support::traits::WhitelistedStorageKeys;
+			use frame_support::traits::{TrackedStorageKey, WhitelistedStorageKeys};
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
-			add_benchmark!(params, batches, pallet_ocw, Ocw);
+			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)
@@ -1521,55 +1587,6 @@ impl_runtime_apis! {
 			// have a backtrace here.
 			Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
 		}
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use frame_support::traits::WhitelistedStorageKeys;
-	use sp_core::hexdisplay::HexDisplay;
-	use std::collections::HashSet;
-
-	#[test]
-	fn check_whitelist() {
-		let whitelist: HashSet<String> = AllPalletsWithSystem::whitelisted_storage_keys()
-			.iter()
-			.map(|e| HexDisplay::from(&e.key).to_string())
-			.collect();
-
-		// Block Number
-		assert!(
-			whitelist.contains("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac")
-		);
-		// Total Issuance
-		assert!(
-			whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80")
-		);
-		// Execution Phase
-		assert!(
-			whitelist.contains("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a")
-		);
-		// Event Count
-		assert!(
-			whitelist.contains("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850")
-		);
-		// System Events
-		assert!(
-			whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7")
-		);
-	}
-
-	#[test]
-	fn check_arithmetic() {
-		let max_payout = 100u32;
-		let session_active_validators = 4u8;
-		let send_reward = Percent::from_percent(20) * max_payout;
-		assert_eq!(send_reward, 20); // 20 percent of total reward
-		let perc_div = 100u8.saturating_div(session_active_validators); // get division percentage for each validator
-		let fraction = Percent::from_percent(perc_div);
-		let share = fraction * send_reward;
-		assert_eq!(share, 5); // 20 percent of total reward share of each validator.
 	}
 }
 

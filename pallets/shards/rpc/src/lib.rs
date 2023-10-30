@@ -47,7 +47,7 @@ where
 		match api.get_detail(at, shard_id) {
 			Ok(Some(result)) => Ok(result),
 			Ok(None) => Err(Error::Custom("No shard found".into())),
-			Err(e) => Err(Error::Custom(format!("Error querying storage {}", e).into())),
+			Err(e) => Err(Error::Custom(format!("Error querying storage {}", e))),
 		}
 	}
 }

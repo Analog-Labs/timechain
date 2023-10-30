@@ -10,8 +10,8 @@ bincode = "1.3.3"
 futures = "0.3.28"
 hex = "0.4"
 p2p = { git = "https://github.com/dvc94ch/p2p" }
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
-rosetta-core = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "release-v0.5.0" }
+rosetta-core = { git = "https://github.com/analog-labs/chain-connectors", branch = "release-v0.5.0" }
 sc-client-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sc-network = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sc-transaction-pool-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }

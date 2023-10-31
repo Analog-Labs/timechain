@@ -4,7 +4,9 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use schnorr_evm::k256::ProjectivePoint;
 use schnorr_evm::VerifyingKey;
-use time_primitives::{AccountId, MemberEvents, Network, ShardId, ShardStatus, ShardsInterface};
+use time_primitives::{
+	AccountId, MemberEvents, Network, ShardId, ShardStatus, ShardsInterface, TssPublicKey,
+};
 
 fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
@@ -34,7 +36,7 @@ fn create_shard(shard_id: ShardId, shard: &[AccountId], threshold: u16) {
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(account.clone()).into(),
 			shard_id,
-			vec![public_key; threshold as usize],
+			vec![TssPublicKey(public_key); threshold as usize],
 			[0; 65]
 		));
 	}
@@ -66,7 +68,7 @@ fn test_register_shard() {
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(account.clone()).into(),
 					shard_id as _,
-					vec![public_key],
+					vec![TssPublicKey(public_key)],
 					[0; 65]
 				));
 			}

@@ -59,6 +59,9 @@ pub struct ChronicleArgs {
 	/// The pkarr relay for looking up nodes.
 	#[clap(long)]
 	pub pkarr_relay: Option<String>,
+	/// Enables iroh networking.
+	#[clap(long)]
+	pub enable_iroh: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]

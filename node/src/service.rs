@@ -152,6 +152,7 @@ pub fn new_partial(
 pub fn new_full(
 	config: Configuration,
 	chronicle_config: Option<chronicle::ChronicleConfig>,
+	enable_iroh: bool,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -343,11 +344,12 @@ pub fn new_full(
 		);
 
 		if let Some(config) = chronicle_config {
+			let network = if enable_iroh { Some((network, protocol_rx)) } else { None };
 			let params = chronicle::ChronicleParams {
 				client: client.clone(),
 				runtime: client.clone(),
 				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-				network: Some((network, protocol_rx)),
+				network,
 				config,
 			};
 			task_manager

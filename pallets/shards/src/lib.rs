@@ -268,9 +268,11 @@ pub mod pallet {
 		}
 
 		pub fn shard_rpc_details(shard_id: ShardId) -> Option<RpcShardDetails<BlockNumberFor<T>>> {
-			let shard_status = ShardState::<T>::get(shard_id).unwrap();
-			let shard_threshold = ShardThreshold::<T>::get(shard_id).unwrap();
-			let shard_commitment = ShardCommitment::<T>::get(shard_id).unwrap();
+			let Some(shard_status) = ShardState::<T>::get(shard_id) else {
+				return None;
+			};
+			let shard_threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
+			let shard_commitment = ShardCommitment::<T>::get(shard_id).unwrap_or_default();
 			let members_data: Vec<(AccountId, MemberStatus)> =
 				ShardMembers::<T>::iter_prefix(shard_id).collect();
 			Some(RpcShardDetails::new(

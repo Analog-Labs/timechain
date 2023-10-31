@@ -197,6 +197,8 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run.base)?;
+			let enable_iroh =
+				cli.run.chronicle.as_ref().map(|args| args.enable_iroh).unwrap_or_default();
 			runner.run_node_until_exit(|config| async move {
 				service::new_full(
 					config,
@@ -212,6 +214,7 @@ pub fn run() -> sc_cli::Result<()> {
 						bind_port: args.bind_port,
 						pkarr_relay: args.pkarr_relay,
 					}),
+					enable_iroh,
 				)
 				.map_err(sc_cli::Error::Service)
 			})

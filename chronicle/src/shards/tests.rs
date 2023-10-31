@@ -92,11 +92,13 @@ impl InnerMockApi {
 		let commitments: Vec<_> = commitments
 			.iter()
 			.map(|commitment| {
+				let commitment = commitment.iter().map(|data| data.0).collect::<Vec<_>>();
 				VerifiableSecretSharingCommitment::deserialize(commitment.clone()).unwrap()
 			})
 			.collect();
 		let commitments = commitments.iter().collect::<Vec<_>>();
-		sum_commitments(&commitments).unwrap().serialize()
+		let summed_commitments = sum_commitments(&commitments).unwrap().serialize();
+		summed_commitments.iter().map(|data| TssPublicKey(*data)).collect::<Vec<_>>()
 	}
 
 	fn submit_commitment(
@@ -128,7 +130,7 @@ impl MockApi {
 	}
 
 	pub fn shard_public_key(&self, shard_id: ShardId) -> TssPublicKey {
-		self.inner.lock().unwrap().get_shard_commitment(shard_id)[0]
+		self.inner.lock().unwrap().get_shard_commitment(shard_id)[0].clone()
 	}
 }
 
@@ -195,7 +197,7 @@ fn verify_tss_signature(
 	message: &[u8],
 	signature: TssSignature,
 ) -> Result<()> {
-	let public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)?;
+	let public_key = schnorr_evm::VerifyingKey::from_bytes(public_key.0)?;
 	let signature = schnorr_evm::Signature::from_bytes(signature)?;
 	public_key.verify(message, &signature)?;
 	Ok(())

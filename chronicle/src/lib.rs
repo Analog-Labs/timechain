@@ -67,15 +67,16 @@ where
 	} else {
 		None
 	};
-	let (network, net_request) = crate::network::create_network(
-		params.network,
-		NetworkConfig {
+	let (network, net_request) = if let Some((network, incoming)) = params.network {
+		crate::network::create_substrate_network(network, incoming).await?
+	} else {
+		crate::network::create_iroh_network(NetworkConfig {
 			secret,
 			bind_port: params.config.bind_port,
 			relay: params.config.pkarr_relay,
-		},
-	)
-	.await?;
+		})
+		.await?
+	};
 	let peer_id = network.peer_id();
 	let span = span!(
 		target: TW_LOG,

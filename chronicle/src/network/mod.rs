@@ -60,19 +60,21 @@ impl Network for Arc<dyn Network> {
 	}
 }
 
-pub async fn create_network<N: NetworkRequest + NetworkSigner + Send + Sync + 'static>(
-	substrate: Option<(N, async_channel::Receiver<IncomingRequest>)>,
+pub async fn create_substrate_network<N: NetworkRequest + NetworkSigner + Send + Sync + 'static>(
+	network: N,
+	incoming: async_channel::Receiver<IncomingRequest>,
+) -> Result<(Arc<dyn Network>, BoxStream<'static, (PeerId, Message)>)> {
+	let network = Arc::new(SubstrateNetwork::new(network)?) as Arc<dyn Network + Send + Sync>;
+	let incoming = SubstrateNetworkAdapter::new(incoming).boxed();
+	Ok((network, incoming))
+}
+
+pub async fn create_iroh_network(
 	config: NetworkConfig,
 ) -> Result<(Arc<dyn Network>, BoxStream<'static, (PeerId, Message)>)> {
-	Ok(if let Some((network, incoming)) = substrate {
-		let network = Arc::new(SubstrateNetwork::new(network)?) as Arc<dyn Network + Send + Sync>;
-		let incoming = SubstrateNetworkAdapter::new(incoming).boxed();
-		(network, incoming)
-	} else {
-		let (net_tx, net_rx) = mpsc::channel(10);
-		let network =
-			Arc::new(TssEndpoint::new(config, net_tx).await?) as Arc<dyn Network + Send + Sync>;
-		let incoming = net_rx.boxed();
-		(network, incoming)
-	})
+	let (net_tx, net_rx) = mpsc::channel(10);
+	let network =
+		Arc::new(TssEndpoint::new(config, net_tx).await?) as Arc<dyn Network + Send + Sync>;
+	let incoming = net_rx.boxed();
+	Ok((network, incoming))
 }

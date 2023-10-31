@@ -347,8 +347,11 @@ impl AccountInterface for MockSubxt {
 	}
 }
 
-#[tokio::test]
-async fn tss_smoke() -> Result<()> {
+async fn sleep(seconds: u64) {
+	tokio::time::sleep(tokio::time::Duration::from_secs(1)).await
+}
+
+async fn tss_smoke(substrate_backend: bool) -> Result<()> {
 	env_logger::try_init().ok();
 	log_panics::init();
 
@@ -362,20 +365,18 @@ async fn tss_smoke() -> Result<()> {
 	let mut peers = vec![];
 	let mut tss = vec![];
 	for i in 1..4 {
-		let (tss_tx, tss_rx) = mpsc::channel(10);
-		tss.push(tss_tx);
-
-		let (protocol_tx, protocol_rx) = async_channel::unbounded();
-		net.add_full_peer_with_config(FullPeerConfig {
-			request_response_protocols: vec![crate::protocol_config(protocol_tx)],
-			..Default::default()
-		});
-		let n = net.peer(i).network_service().clone();
-		let (network, net_request) =
-			crate::network::create_substrate_network(n, protocol_rx).await?;
-
-		//let (network, net_request) =
-		//	crate::network::create_iroh_network(Default::default()).await?;
+		let (network, net_request) = if substrate_backend {
+			let (protocol_tx, protocol_rx) = async_channel::unbounded();
+			net.add_full_peer_with_config(FullPeerConfig {
+				request_response_protocols: vec![crate::protocol_config(protocol_tx)],
+				..Default::default()
+			});
+			let n = net.peer(i).network_service().clone();
+			crate::network::create_substrate_network(n, protocol_rx).await?
+		} else {
+			net.add_full_peer();
+			crate::network::create_iroh_network(Default::default()).await?
+		};
 		let peer_id = network.peer_id();
 		peers.push(peer_id);
 
@@ -390,6 +391,8 @@ async fn tss_smoke() -> Result<()> {
 			},
 		);
 
+		let (tss_tx, tss_rx) = mpsc::channel(10);
+		tss.push(tss_tx);
 		let worker = TimeWorker::new(TimeWorkerParams {
 			network,
 			tss_request: tss_rx,
@@ -405,6 +408,7 @@ async fn tss_smoke() -> Result<()> {
 
 	tracing::info!("waiting for peers to connect");
 	net.run_until_connected().await;
+	sleep(1).await;
 
 	let peers_account_id: Vec<AccountId> =
 		peers.iter().map(|peer_id| pubkey_from_bytes(*peer_id).into_account()).collect();
@@ -436,7 +440,7 @@ async fn tss_smoke() -> Result<()> {
 
 	tracing::info!("waiting for shard to go online");
 	while api.shard_status(shard_id) != ShardStatus::Online {
-		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+		sleep(1).await;
 	}
 	let public_key = api.shard_public_key(shard_id);
 
@@ -459,4 +463,14 @@ async fn tss_smoke() -> Result<()> {
 	verify_tss_signature(public_key, &message, signature.1)?;
 
 	Ok(())
+}
+
+#[tokio::test]
+async fn tss_smoke_substrate() -> Result<()> {
+	tss_smoke(true).await
+}
+
+#[tokio::test]
+async fn tss_smoke_iroh() -> Result<()> {
+	tss_smoke(false).await
 }

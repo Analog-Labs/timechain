@@ -7,7 +7,6 @@ use futures::prelude::*;
 use futures::stream;
 use futures::stream::FuturesUnordered;
 use sc_consensus::{BoxJustificationImport, ForkChoiceStrategy};
-use sc_network::NetworkSigner;
 use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, TestNet,
 	TestNetFactory,
@@ -23,6 +22,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
+use tc_subxt::AccountInterface;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MembersApi, MembersPayload,
 	Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, ShardsPayload,
@@ -32,7 +32,6 @@ use time_primitives::{
 use tracing::{span, Level};
 use tss::{sum_commitments, VerifiableSecretSharingCommitment};
 
-use tc_subxt::AccountInterface;
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }
@@ -354,31 +353,31 @@ async fn tss_smoke() -> Result<()> {
 	log_panics::init();
 
 	let mut net = MockNetwork::default();
-	let api = Arc::new(MockApi::default());
+	net.add_full_peer();
+	let client = net.peer(0).client().as_client();
 
+	let api = Arc::new(MockApi::default());
 	let task_executor = MockTaskExecutor {};
 
 	let mut peers = vec![];
-	let mut pub_keys = vec![];
 	let mut tss = vec![];
-	for i in 0..3 {
-		let (protocol_tx, protocol_rx) = async_channel::unbounded();
+	for i in 1..4 {
 		let (tss_tx, tss_rx) = mpsc::channel(10);
+		tss.push(tss_tx);
+
+		let (protocol_tx, protocol_rx) = async_channel::unbounded();
 		net.add_full_peer_with_config(FullPeerConfig {
 			request_response_protocols: vec![crate::protocol_config(protocol_tx)],
 			..Default::default()
 		});
-		let peer_id = net
-			.peer(i)
-			.network_service()
-			.sign_with_local_identity([])?
-			.public_key
-			.try_into_ed25519()?
-			.to_bytes();
+		let n = net.peer(i).network_service().clone();
+		let (network, net_request) =
+			crate::network::create_substrate_network(n, protocol_rx).await?;
 
-		pub_keys.push(pubkey_from_bytes(peer_id));
+		//let (network, net_request) =
+		//	crate::network::create_iroh_network(Default::default()).await?;
+		let peer_id = network.peer_id();
 		peers.push(peer_id);
-		tss.push(tss_tx);
 
 		let substrate = Substrate::new(
 			false,
@@ -391,12 +390,8 @@ async fn tss_smoke() -> Result<()> {
 			},
 		);
 
-		let n = net.peer(i).network_service().clone();
-		let (n, net_request) =
-			crate::network::create_network(Some((n, protocol_rx)), Default::default()).await?;
-
 		let worker = TimeWorker::new(TimeWorkerParams {
-			network: n,
+			network,
 			tss_request: tss_rx,
 			net_request,
 			task_executor: task_executor.clone(),
@@ -411,11 +406,11 @@ async fn tss_smoke() -> Result<()> {
 	tracing::info!("waiting for peers to connect");
 	net.run_until_connected().await;
 
-	let client: Vec<_> = (0..3).map(|i| net.peer(i).client().as_client()).collect();
 	let peers_account_id: Vec<AccountId> =
-		pub_keys.iter().map(|p| (*p).clone().into_account()).collect();
+		peers.iter().map(|peer_id| pubkey_from_bytes(*peer_id).into_account()).collect();
 	let shard_id = api.create_shard(peers_account_id, 2);
 
+	// starting block production
 	tokio::task::spawn(async move {
 		let mut block_timer = tokio::time::interval(Duration::from_secs(1));
 		loop {
@@ -445,7 +440,7 @@ async fn tss_smoke() -> Result<()> {
 	}
 	let public_key = api.shard_public_key(shard_id);
 
-	let block_number = client[0].chain_info().finalized_number;
+	let block_number = client.chain_info().finalized_number;
 	let message = [1u8; 32];
 	let mut rxs = FuturesUnordered::new();
 	for tss in &mut tss {

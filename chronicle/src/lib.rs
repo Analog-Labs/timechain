@@ -13,7 +13,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tc_subxt::SubxtClient;
+use tc_subxt::{AccountInterface, SubxtClient};
 use time_primitives::{
 	BlockHash, BlockTimeApi, MembersApi, Network, ShardsApi, SubmitTransactionApi, TasksApi,
 };
@@ -87,6 +87,7 @@ where
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let subxt_client = SubxtClient::new(&params.config.timechain_keyfile).await?;
+	tracing::info!("Nonce at creation {:?}", subxt_client.nonce());
 	let substrate =
 		Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);
 

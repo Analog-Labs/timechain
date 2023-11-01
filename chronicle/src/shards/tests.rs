@@ -131,7 +131,7 @@ impl MockApi {
 	}
 
 	pub fn shard_public_key(&self, shard_id: ShardId) -> TssPublicKey {
-		self.inner.lock().unwrap().get_shard_commitment(shard_id)[0].clone()
+		self.inner.lock().unwrap().get_shard_commitment(shard_id)[0]
 	}
 }
 

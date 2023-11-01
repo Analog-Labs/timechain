@@ -196,7 +196,7 @@ pub mod pallet {
 				.all(|(_, status)| status == MemberStatus::Ready)
 			{
 				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0].clone()));
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
 				T::TaskScheduler::shard_online(shard_id, network);
 			}
 			Ok(())
@@ -355,7 +355,7 @@ pub mod pallet {
 		}
 
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
-			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0].clone())
+			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
 		}
 	}
 }

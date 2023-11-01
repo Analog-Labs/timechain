@@ -62,10 +62,10 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_task_signature(_: TaskId) -> Option<TssSignature>{
 			None
 		}
-		fn get_cycle_state(_: TaskId) -> TaskCycle{
+		fn get_task_cycle(_: TaskId) -> TaskCycle{
 			0
 		}
-		fn get_phase_state(_: TaskId) -> TaskPhase{
+		fn get_task_phase(_: TaskId) -> TaskPhase{
 			TaskPhase::Read(None)
 		}
 		fn get_task_results(_: TaskId, _: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{

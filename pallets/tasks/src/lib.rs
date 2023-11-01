@@ -476,11 +476,11 @@ pub mod pallet {
 			}
 		}
 
-		pub fn get_cycle_state(task_id: TaskId) -> TaskCycle {
+		pub fn get_task_cycle(task_id: TaskId) -> TaskCycle {
 			TaskCycleState::<T>::get(task_id)
 		}
 
-		pub fn get_phase_state(task_id: TaskId) -> TaskPhase {
+		pub fn get_task_phase(task_id: TaskId) -> TaskPhase {
 			TaskPhaseState::<T>::get(task_id)
 		}
 

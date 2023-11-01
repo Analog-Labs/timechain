@@ -15,6 +15,7 @@ sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "ti
 sp-blockchain = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
 jsonrpsee = { version = "0.16.2", features = ["server", "macros"] } 
 time-primitives = {path = "../../../primitives", default-features=false}
+thiserror = "1.0.50"
 
 [features]
 default = ["std"]

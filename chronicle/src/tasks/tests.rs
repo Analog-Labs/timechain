@@ -18,7 +18,7 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use tc_subxt::AccountInterface;
 use time_primitives::{
-	AccountId, BlockNumber, Commitment, Function, MembersPayload, Network, PeerId,
+	AccountId, BlockNumber, Commitment, Function, MemberStatus, MembersPayload, Network, PeerId,
 	ProofOfKnowledge, PublicKey, ShardId, ShardsApi, ShardsPayload, TaskCycle, TaskDescriptor,
 	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi, TasksPayload, TssSignature,
 	TxResult,
@@ -33,7 +33,7 @@ struct MockApi;
 sp_api::mock_impl_runtime_apis! {
 	impl ShardsApi<Block> for MockApi{
 		fn get_shards(_: &AccountId) -> Vec<ShardId> { vec![1] }
-		fn get_shard_members(_: ShardId) -> Vec<AccountId> { vec![] }
+		fn get_shard_members(_: ShardId) -> Vec<(AccountId, MemberStatus)> { vec![] }
 		fn get_shard_threshold(_: ShardId) -> u16 { 1 }
 	}
 

@@ -59,7 +59,7 @@ sp_api::decl_runtime_apis! {
 
 	pub trait ShardsApi {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId>;
+		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumber>;
 		fn get_shard_commitment(shard_id: ShardId) -> Commitment;
@@ -69,14 +69,10 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
-	}
-
-	pub trait TasksRpcApi {
-		fn get_detail(task_id: TaskId, cycle: Option<TaskCycle>) -> Option<RpcTaskDetails>;
-	}
-
-	pub trait ShardsRpcApi {
-		fn get_detail(shard_id: ShardId) -> Option<RpcShardDetails<BlockNumber>>;
+		fn get_cycle_state(task_id: TaskId) -> TaskCycle;
+		fn get_phase_state(task_id: TaskId) -> TaskPhase;
+		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>;
+		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
 	}
 
 	pub trait BlockTimeApi{

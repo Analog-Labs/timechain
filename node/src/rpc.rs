@@ -40,8 +40,8 @@ where
 		+ 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: pallet_tasks_rpc::TasksRuntimeApi<Block>,
-	C::Api: pallet_shards_rpc::ShardsRuntimeApi<Block>,
+	C::Api: time_primitives::TasksApi<Block>,
+	C::Api: time_primitives::ShardsApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + 'static,
 {

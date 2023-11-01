@@ -9,10 +9,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tc_subxt::AccountInterface;
 use time_primitives::{
-	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, Members, MembersApi,
-	MembersPayload, Network, PeerId, PublicKey, ShardId, ShardStatus, Shards, ShardsApi,
-	ShardsPayload, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskResult, Tasks, TasksApi, TasksPayload, TssSignature,
+	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, Members,
+	MembersApi, MembersPayload, Network, PeerId, PublicKey, ShardId, ShardStatus, Shards,
+	ShardsApi, ShardsPayload, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor,
+	TaskError, TaskExecution, TaskId, TaskResult, Tasks, TasksApi, TasksPayload, TssSignature,
 };
 
 enum Tx {
@@ -213,7 +213,11 @@ where
 		self.runtime_api().get_shards(block, account)
 	}
 
-	fn get_shard_members(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Vec<AccountId>> {
+	fn get_shard_members(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<Vec<(AccountId, MemberStatus)>> {
 		self.runtime_api().get_shard_members(block, shard_id)
 	}
 

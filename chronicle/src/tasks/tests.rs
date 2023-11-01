@@ -35,10 +35,10 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_shards(_: &AccountId) -> Vec<ShardId> { vec![1] }
 		fn get_shard_members(_: ShardId) -> Vec<(AccountId, MemberStatus)> { vec![] }
 		fn get_shard_threshold(_: ShardId) -> u16 { 1 }
-		fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumber>{
+		fn get_shard_status(_: ShardId) -> ShardStatus<BlockNumber>{
 			ShardStatus::Offline
 		}
-		fn get_shard_commitment(shard_id: ShardId) -> Commitment{
+		fn get_shard_commitment(_: ShardId) -> Commitment{
 			vec![]
 		}
 	}

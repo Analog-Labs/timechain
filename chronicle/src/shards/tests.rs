@@ -428,7 +428,7 @@ async fn tss_smoke(substrate_backend: bool) -> Result<()> {
 	net.run_until_connected().await;
 	sleep(1).await;
 
-	let peers_account_id: Vec<AccountId> = peers
+	let peers_account_id: Vec<(AccountId, MemberStatus)> = peers
 		.iter()
 		.map(|peer_id| (pubkey_from_bytes(*peer_id).into_account(), MemberStatus::Ready))
 		.collect();

@@ -69,8 +69,8 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
-		fn get_cycle_state(task_id: TaskId) -> TaskCycle;
-		fn get_phase_state(task_id: TaskId) -> TaskPhase;
+		fn get_task_cycle(task_id: TaskId) -> TaskCycle;
+		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
 	}

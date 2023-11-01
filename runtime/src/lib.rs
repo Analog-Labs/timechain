@@ -1501,11 +1501,11 @@ impl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
 		}
-		fn get_cycle_state(task_id: TaskId) -> TaskCycle{
-			Tasks::get_cycle_state(task_id)
+		fn get_task_cycle(task_id: TaskId) -> TaskCycle{
+			Tasks::get_task_cycle(task_id)
 		}
-		fn get_phase_state(task_id: TaskId) -> TaskPhase {
-			Tasks::get_phase_state(task_id)
+		fn get_task_phase(task_id: TaskId) -> TaskPhase {
+			Tasks::get_task_phase(task_id)
 		}
 		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{
 			Tasks::get_task_results(task_id, cycle)

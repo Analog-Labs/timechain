@@ -70,9 +70,9 @@ where
 			.map_err(|_| RpcError::ErrorQueryingRuntime)?
 			.ok_or(RpcError::TaskNotFound(task_id))?;
 		let cycle_state =
-			api.get_cycle_state(at, task_id).map_err(|_| RpcError::ErrorQueryingRuntime)?;
+			api.get_task_cycle(at, task_id).map_err(|_| RpcError::ErrorQueryingRuntime)?;
 		let phase_state =
-			api.get_phase_state(at, task_id).map_err(|_| RpcError::ErrorQueryingRuntime)?;
+			api.get_task_phase(at, task_id).map_err(|_| RpcError::ErrorQueryingRuntime)?;
 		let results = api
 			.get_task_results(at, task_id, cycle)
 			.map_err(|_| RpcError::ErrorQueryingRuntime)?;

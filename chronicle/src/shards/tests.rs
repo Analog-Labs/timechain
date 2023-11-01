@@ -348,7 +348,7 @@ impl AccountInterface for MockSubxt {
 }
 
 async fn sleep(seconds: u64) {
-	tokio::time::sleep(tokio::time::Duration::from_secs(1)).await
+	tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await
 }
 
 async fn tss_smoke(substrate_backend: bool) -> Result<()> {

@@ -106,7 +106,9 @@ where
 			let threshold = self.substrate.get_shard_threshold(block, shard_id).unwrap();
 			let members = members
 				.into_iter()
-				.map(|account| self.substrate.get_member_peer_id(block, &account).unwrap().unwrap())
+				.map(|(account, _)| {
+					self.substrate.get_member_peer_id(block, &account).unwrap().unwrap()
+				})
 				.collect();
 			self.tss_states
 				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));

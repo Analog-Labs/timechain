@@ -55,9 +55,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, Commitment, MemberStorage, Network, PeerId, ProofOfKnowledge, PublicKey,
-	RpcShardDetails, RpcTaskDetails, ShardId, ShardStatus, Signature, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey, TssSignature, TxError, TxResult,
+	AccountId, Commitment, MemberStatus, MemberStorage, Network, PeerId, ProofOfKnowledge,
+	PublicKey, RpcShardDetails, RpcTaskDetails, ShardId, ShardStatus, Signature, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
+	TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1471,7 +1472,7 @@ impl_runtime_apis! {
 			Shards::get_shards(account)
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
+		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
 			Shards::get_shard_members(shard_id)
 		}
 
@@ -1488,12 +1489,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl time_primitives::ShardsRpcApi<Block> for Runtime {
-		fn get_detail(shard_id: ShardId) -> Option<RpcShardDetails<<<Block as BlockT>::Header as HeaderT>::Number>>{
-			Shards::shard_rpc_details(shard_id)
-		}
-	}
-
 	impl time_primitives::TasksApi<Block> for Runtime {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			Tasks::get_shard_tasks(shard_id)
@@ -1506,11 +1501,17 @@ impl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
 		}
-	}
-
-	impl time_primitives::TasksRpcApi<Block> for Runtime {
-		fn get_detail(task_id: TaskId, cycle: Option<TaskCycle>) -> Option<RpcTaskDetails> {
-			Tasks::get_rpc_details(task_id, cycle)
+		fn get_cycle_state(task_id: TaskId) -> TaskCycle{
+			Tasks::get_cycle_state(task_id)
+		}
+		fn get_phase_state(task_id: TaskId) -> TaskPhase {
+			Tasks::get_phase_state(task_id)
+		}
+		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{
+			Tasks::get_task_results(task_id, cycle)
+		}
+		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
+			Tasks::get_task_shard(task_id)
 		}
 	}
 

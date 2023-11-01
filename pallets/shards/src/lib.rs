@@ -19,8 +19,8 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
-		Network, ProofOfKnowledge, PublicKey, RpcShardDetails, ShardId, ShardStatus,
-		ShardsInterface, TasksInterface, TssPublicKey,
+		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -251,8 +251,10 @@ pub mod pallet {
 				.collect()
 		}
 
-		pub fn get_shard_members(shard_id: ShardId) -> Vec<AccountId> {
-			ShardMembers::<T>::iter_prefix(shard_id).map(|(time_id, _)| time_id).collect()
+		pub fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
+			ShardMembers::<T>::iter_prefix(shard_id)
+				.map(|(time_id, status)| (time_id, status))
+				.collect()
 		}
 
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
@@ -265,22 +267,6 @@ pub mod pallet {
 
 		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
 			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
-		}
-
-		pub fn shard_rpc_details(shard_id: ShardId) -> Option<RpcShardDetails<BlockNumberFor<T>>> {
-			let Some(shard_status) = ShardState::<T>::get(shard_id) else {
-				return None;
-			};
-			let shard_threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
-			let shard_commitment = ShardCommitment::<T>::get(shard_id).unwrap_or_default();
-			let members_data: Vec<(AccountId, MemberStatus)> =
-				ShardMembers::<T>::iter_prefix(shard_id).collect();
-			Some(RpcShardDetails::new(
-				shard_status,
-				shard_threshold,
-				members_data,
-				shard_commitment,
-			))
 		}
 	}
 
@@ -350,7 +336,7 @@ pub mod pallet {
 			let mut rng = fastrand::Rng::with_seed(seed);
 			let members = Self::get_shard_members(shard_id);
 			let mut signer_index = rng.usize(..members.len());
-			let mut signer = T::Members::member_public_key(&members[signer_index])
+			let mut signer = T::Members::member_public_key(&members[signer_index].0)
 				.expect("All signers should be registered members");
 			if members.len() == 1 {
 				// only one possible signer for shard size 1
@@ -360,7 +346,7 @@ pub mod pallet {
 				while PastSigners::<T>::get(shard_id, &signer).is_some() {
 					signer_index =
 						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
-					signer = T::Members::member_public_key(&members[signer_index])
+					signer = T::Members::member_public_key(&members[signer_index].0)
 						.expect("All signers should be registered members");
 				}
 			}

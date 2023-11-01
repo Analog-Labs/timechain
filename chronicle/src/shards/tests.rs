@@ -24,10 +24,10 @@ use std::task::Poll;
 use std::time::Duration;
 use tc_subxt::AccountInterface;
 use time_primitives::{
-	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MembersApi, MembersPayload,
-	Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, ShardsPayload,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi,
-	TasksPayload, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
+	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
+	MembersPayload, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi,
+	ShardsPayload, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
+	TasksApi, TasksPayload, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
 };
 use tracing::{span, Level};
 use tss::{sum_commitments, VerifiableSecretSharingCommitment};
@@ -63,7 +63,7 @@ impl InnerMockApi {
 		self.shards.get(&peer_id).cloned().unwrap_or_default()
 	}
 
-	fn get_shard_members(&self, shard_id: ShardId) -> Vec<AccountId> {
+	fn get_shard_members(&self, shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
 		self.members.get(&shard_id).cloned().unwrap_or_default()
 	}
 
@@ -140,7 +140,7 @@ sp_api::mock_impl_runtime_apis! {
 			self.inner.lock().unwrap().get_shards((*account).clone())
 		}
 
-		fn get_shard_members(&self, shard_id: ShardId) -> Vec<AccountId> {
+		fn get_shard_members(&self, shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
 			self.inner.lock().unwrap().get_shard_members(shard_id)
 		}
 

@@ -16,9 +16,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, Network, RpcTaskDetails, ShardId, ShardsInterface, TaskCycle,
-		TaskCycleResult, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId,
-		TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
+		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
+		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
+		TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -394,9 +394,7 @@ pub mod pallet {
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
 			Tasks::<T>::get(task_id)
 		}
-	}
 
-	impl<T: Config> Pallet<T> {
 		fn is_complete(task_id: TaskId) -> bool {
 			if let Some(task) = Tasks::<T>::get(task_id) {
 				TaskResults::<T>::contains_key(task_id, task.cycle.saturating_less_one())
@@ -478,29 +476,31 @@ pub mod pallet {
 			}
 		}
 
-		pub fn get_rpc_details(
+		pub fn get_cycle_state(task_id: TaskId) -> TaskCycle {
+			TaskCycleState::<T>::get(task_id)
+		}
+
+		pub fn get_phase_state(task_id: TaskId) -> TaskPhase {
+			TaskPhaseState::<T>::get(task_id)
+		}
+
+		pub fn get_task_shard(task_id: TaskId) -> Option<ShardId> {
+			TaskShard::<T>::get(task_id)
+		}
+
+		pub fn get_task_results(
 			task_id: TaskId,
-			query_cycle: Option<TaskCycle>,
-		) -> Option<RpcTaskDetails> {
-			let mut sigs: Vec<TaskCycleResult> = Vec::new();
-			let Some(task) = Tasks::<T>::get(task_id) else {
-				return None;
-			};
-			let cycles = TaskCycleState::<T>::get(task_id);
-			let status = TaskPhaseState::<T>::get(task_id);
-			let shard_id = TaskShard::<T>::get(task_id);
-			if let Some(cycle) = query_cycle {
+			cycle: Option<TaskCycle>,
+		) -> Vec<(TaskCycle, TaskResult)> {
+			if let Some(cycle) = cycle {
+				let mut results = vec![];
 				if let Some(result) = TaskResults::<T>::get(task_id, cycle) {
-					sigs.push(TaskCycleResult(cycle, result.signature));
+					results.push((cycle, result))
 				}
+				results
 			} else {
-				let results: Vec<TaskCycleResult> = TaskResults::<T>::iter_prefix(task_id)
-					.map(|(cycle, result)| (TaskCycleResult(cycle, result.signature)))
-					.collect();
-				sigs.extend(results);
+				TaskResults::<T>::iter_prefix(task_id).collect::<Vec<_>>()
 			}
-			let details = RpcTaskDetails::new(task, cycles, status, shard_id, sigs);
-			Some(details)
 		}
 	}
 

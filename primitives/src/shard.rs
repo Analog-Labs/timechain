@@ -19,7 +19,7 @@ pub type ProofOfKnowledge = [u8; 65];
 pub type Commitment = Vec<TssPublicKey>;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Encode, Decode, TypeInfo, PartialEq, Eq)]
 pub struct TssPublicKey(#[cfg_attr(feature = "std", serde(with = "BigArray"))] pub [u8; 33]);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -169,7 +169,11 @@ impl<T> RpcShardDetails<T> {
 pub trait Shards {
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;
 
-	fn get_shard_members(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Vec<AccountId>>;
+	fn get_shard_members(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<Vec<(AccountId, MemberStatus)>>;
 
 	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16>;
 

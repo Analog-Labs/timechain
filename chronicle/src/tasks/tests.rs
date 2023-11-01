@@ -19,9 +19,9 @@ use substrate_test_runtime_client::ClientBlockImportExt;
 use tc_subxt::AccountInterface;
 use time_primitives::{
 	AccountId, BlockNumber, Commitment, Function, MemberStatus, MembersPayload, Network, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, ShardsApi, ShardsPayload, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi, TasksPayload, TssSignature,
-	TxResult,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, ShardsPayload, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi,
+	TasksPayload, TssSignature, TxResult,
 };
 lazy_static::lazy_static! {
 	pub static ref TASK_STATUS: Mutex<Vec<bool>> = Default::default();
@@ -35,6 +35,12 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_shards(_: &AccountId) -> Vec<ShardId> { vec![1] }
 		fn get_shard_members(_: ShardId) -> Vec<(AccountId, MemberStatus)> { vec![] }
 		fn get_shard_threshold(_: ShardId) -> u16 { 1 }
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumber>{
+			ShardStatus::Offline
+		}
+		fn get_shard_commitment(shard_id: ShardId) -> Commitment{
+			vec![]
+		}
 	}
 
 	impl TasksApi<Block> for MockApi{
@@ -52,6 +58,21 @@ sp_api::mock_impl_runtime_apis! {
 				start: 0,
 				hash: "".to_string(),
 			})
+		}
+		fn get_task_signature(_: TaskId) -> Option<TssSignature>{
+			None
+		}
+		fn get_cycle_state(_: TaskId) -> TaskCycle{
+			0
+		}
+		fn get_phase_state(_: TaskId) -> TaskPhase{
+			TaskPhase::Read(None)
+		}
+		fn get_task_results(_: TaskId, _: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{
+			vec![]
+		}
+		fn get_task_shard(_: TaskId) -> Option<ShardId>{
+			None
 		}
 	}
 

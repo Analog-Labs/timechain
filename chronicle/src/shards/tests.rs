@@ -26,8 +26,9 @@ use tc_subxt::AccountInterface;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
 	MembersPayload, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi,
-	ShardsPayload, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
-	TasksApi, TasksPayload, TssId, TssPublicKey, TssSignature, TssSigningRequest, TxResult,
+	ShardsPayload, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase,
+	TaskResult, TasksApi, TasksPayload, TssId, TssPublicKey, TssSignature, TssSigningRequest,
+	TxResult,
 };
 use tracing::{span, Level};
 use tss::{sum_commitments, VerifiableSecretSharingCommitment};
@@ -40,18 +41,18 @@ fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 struct InnerMockApi {
 	shard_counter: ShardId,
 	shards: HashMap<AccountId, Vec<ShardId>>,
-	members: HashMap<ShardId, Vec<AccountId>>,
+	members: HashMap<ShardId, Vec<(AccountId, MemberStatus)>>,
 	thresholds: HashMap<ShardId, u16>,
 	commitments: HashMap<ShardId, Vec<Commitment>>,
 	online: HashMap<ShardId, usize>,
 }
 
 impl InnerMockApi {
-	fn create_shard(&mut self, members: Vec<AccountId>, threshold: u16) -> ShardId {
+	fn create_shard(&mut self, members: Vec<(AccountId, MemberStatus)>, threshold: u16) -> ShardId {
 		let id = self.shard_counter;
 		self.shard_counter += 1;
 		for member in members.clone() {
-			self.shards.entry(member).or_default().push(id);
+			self.shards.entry(member.0).or_default().push(id);
 		}
 		self.members.insert(id, members);
 		self.thresholds.insert(id, threshold);
@@ -121,7 +122,7 @@ struct MockApi {
 }
 
 impl MockApi {
-	pub fn create_shard(&self, members: Vec<AccountId>, threshold: u16) -> ShardId {
+	pub fn create_shard(&self, members: Vec<(AccountId, MemberStatus)>, threshold: u16) -> ShardId {
 		self.inner.lock().unwrap().create_shard(members, threshold)
 	}
 
@@ -169,6 +170,21 @@ sp_api::mock_impl_runtime_apis! {
 	impl TasksApi<Block> for MockApi{
 		fn get_shard_tasks(_shard_id: ShardId) -> Vec<TaskExecution> { vec![] }
 		fn get_task(_task_id: TaskId) -> Option<TaskDescriptor> { None }
+		fn get_task_signature(_: TaskId) -> Option<TssSignature>{
+			None
+		}
+		fn get_cycle_state(_: TaskId) -> TaskCycle{
+			0
+		}
+		fn get_phase_state(_: TaskId) -> TaskPhase{
+			TaskPhase::Read(None)
+		}
+		fn get_task_results(_: TaskId, _: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{
+			vec![]
+		}
+		fn get_task_shard(_: TaskId) -> Option<ShardId>{
+			None
+		}
 	}
 
 	impl BlockTimeApi<Block> for MockApi{
@@ -412,8 +428,10 @@ async fn tss_smoke(substrate_backend: bool) -> Result<()> {
 	net.run_until_connected().await;
 	sleep(1).await;
 
-	let peers_account_id: Vec<AccountId> =
-		peers.iter().map(|peer_id| pubkey_from_bytes(*peer_id).into_account()).collect();
+	let peers_account_id: Vec<AccountId> = peers
+		.iter()
+		.map(|peer_id| (pubkey_from_bytes(*peer_id).into_account(), MemberStatus::Ready))
+		.collect();
 	let shard_id = api.create_shard(peers_account_id, 2);
 
 	// starting block production

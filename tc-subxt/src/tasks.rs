@@ -1,7 +1,42 @@
 use crate::{timechain_runtime, SubxtClient};
-
+use anyhow::{anyhow, Result};
 use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult, TasksPayload, TssSignature};
 use timechain_runtime::runtime_types::time_primitives::task;
+use timechain_runtime::runtime_types::time_primitives::task::{TaskDescriptorParams, TaskStatus};
+
+impl SubxtClient {
+	fn create_task_payload(task: TaskDescriptorParams) {
+		timechain_runtime::tx().tasks().create_task(task);
+	}
+
+	fn get_tasks() {
+		let ab = timechain_runtime::storage().tasks();
+		ab.tasks_iter();
+	}
+	pub async fn get_task_state(&self, task_id: u64) -> Result<TaskStatus> {
+		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
+		Ok(self
+			.client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&storage_query)
+			.await?
+			.ok_or(anyhow!("Task status not found"))?)
+	}
+
+	pub async fn get_task_cycle(&self, task_id: u64) -> Result<u64> {
+		let storage_query = timechain_runtime::storage().tasks().task_cycle_state(task_id);
+		Ok(self
+			.client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&storage_query)
+			.await?
+			.ok_or(anyhow!("Task cycle not found"))?)
+	}
+}
 
 impl TasksPayload for SubxtClient {
 	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8> {

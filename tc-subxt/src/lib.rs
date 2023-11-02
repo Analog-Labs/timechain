@@ -4,6 +4,7 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use subxt::ext::sp_runtime::AccountId32;
 use subxt::tx::TxPayload;
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
 use subxt_signer::{sr25519::Keypair, SecretUri};
@@ -13,7 +14,7 @@ use time_primitives::{AccountId, PublicKey};
 	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"
 )]
-pub mod timechain_runtime {}
+pub(crate) mod timechain_runtime {}
 
 mod members;
 mod shards;
@@ -30,8 +31,11 @@ pub trait AccountInterface {
 
 #[derive(Clone)]
 pub struct SubxtClient {
+	// client connection to chain
 	client: Arc<OnlineClient<PolkadotConfig>>,
+	// signer use to sign transaction, Default is Alice
 	signer: Arc<Keypair>,
+	//maintains nocne of signer
 	nonce: Arc<AtomicU64>,
 }
 
@@ -47,13 +51,17 @@ impl SubxtClient {
 			.into_encoded()
 	}
 
-	pub async fn new(keyfile: &Path) -> Result<Self> {
-		let content = fs::read_to_string(keyfile).context("failed to read substrate keyfile")?;
+	pub async fn new(url: &str, keyfile: Option<&Path>) -> Result<Self> {
+		let api = OnlineClient::<PolkadotConfig>::from_url(url).await?;
+		let content = if let Some(key) = keyfile {
+			fs::read_to_string(key).context("failed to read substrate keyfile")?
+		} else {
+			"//Alice".into()
+		};
 		let secret = SecretUri::from_str(&content).context("failed to parse substrate keyfile")?;
 		let keypair =
 			Keypair::from_uri(&secret).context("substrate keyfile contains invalid suri")?;
 		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
-		let api = OnlineClient::<PolkadotConfig>::from_url("ws://127.0.0.1:9944").await?;
 		let nonce = api.tx().account_nonce(&account_id).await?;
 		Ok(Self {
 			client: Arc::new(api),
@@ -68,12 +76,17 @@ impl SubxtClient {
 			.await?;
 		Ok(hash)
 	}
+
+	pub async fn get_account_nonce(&self, id: [u8; 32]) {
+		self.client.tx().account_nonce(&id.into()).await.unwrap();
+	}
 }
 
 impl AccountInterface for SubxtClient {
 	fn nonce(&self) -> u64 {
 		self.nonce.load(Ordering::SeqCst)
 	}
+
 	fn increment_nonce(&self) {
 		self.nonce.fetch_add(1, Ordering::SeqCst);
 	}

@@ -87,7 +87,8 @@ where
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let subxt_client = SubxtClient::new(&params.config.timechain_keyfile).await?;
+	let subxt_client =
+		SubxtClient::new("ws://127.0.0.1:9944", Some(&params.config.timechain_keyfile)).await?;
 	tracing::info!("Nonce at creation {:?}", subxt_client.nonce());
 	let substrate =
 		Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);

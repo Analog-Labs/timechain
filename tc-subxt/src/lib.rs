@@ -4,8 +4,9 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use subxt::ext::sp_runtime::AccountId32;
+use subxt::backend::rpc::{RpcClient, RpcParams};
 use subxt::tx::TxPayload;
+use subxt::utils::H256;
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
 use subxt_signer::{sr25519::Keypair, SecretUri};
 use time_primitives::{AccountId, PublicKey};
@@ -20,7 +21,12 @@ mod members;
 mod shards;
 mod tasks;
 
-pub use subxt::utils::H256;
+pub use subxt::backend::rpc::rpc_params;
+pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
+pub use timechain_runtime::runtime_types::time_primitives::task::{
+	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
+};
+pub use timechain_runtime::tasks::events::TaskCreated;
 
 pub trait AccountInterface {
 	fn nonce(&self) -> u64;
@@ -33,6 +39,8 @@ pub trait AccountInterface {
 pub struct SubxtClient {
 	// client connection to chain
 	client: Arc<OnlineClient<PolkadotConfig>>,
+	// rpc interface
+	rpc: RpcClient,
 	// signer use to sign transaction, Default is Alice
 	signer: Arc<Keypair>,
 	//maintains nocne of signer
@@ -40,7 +48,7 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	fn make_transaction<Call>(&self, call: &Call) -> Vec<u8>
+	pub fn make_transaction<Call>(&self, call: &Call) -> Vec<u8>
 	where
 		Call: TxPayload,
 	{
@@ -52,7 +60,8 @@ impl SubxtClient {
 	}
 
 	pub async fn new(url: &str, keyfile: Option<&Path>) -> Result<Self> {
-		let api = OnlineClient::<PolkadotConfig>::from_url(url).await?;
+		let rpc_client = RpcClient::from_url(url).await?;
+		let api = OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone()).await?;
 		let content = if let Some(key) = keyfile {
 			fs::read_to_string(key).context("failed to read substrate keyfile")?
 		} else {
@@ -65,6 +74,7 @@ impl SubxtClient {
 		let nonce = api.tx().account_nonce(&account_id).await?;
 		Ok(Self {
 			client: Arc::new(api),
+			rpc: rpc_client,
 			signer: Arc::new(keypair),
 			nonce: Arc::new(AtomicU64::new(nonce)),
 		})
@@ -79,6 +89,10 @@ impl SubxtClient {
 
 	pub async fn get_account_nonce(&self, id: [u8; 32]) {
 		self.client.tx().account_nonce(&id.into()).await.unwrap();
+	}
+
+	pub async fn rpc(&self, method: &str, params: RpcParams) -> Result<()> {
+		Ok(self.rpc.request(method, params).await?)
 	}
 }
 

@@ -1,18 +1,22 @@
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::{anyhow, Result};
+use subxt::backend::StreamOfResults;
 use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult, TasksPayload, TssSignature};
 use timechain_runtime::runtime_types::time_primitives::task;
-use timechain_runtime::runtime_types::time_primitives::task::{TaskDescriptorParams, TaskStatus};
+use timechain_runtime::runtime_types::time_primitives::task::{
+	TaskDescriptor, TaskDescriptorParams, TaskStatus,
+};
 
 impl SubxtClient {
-	fn create_task_payload(task: TaskDescriptorParams) {
+	pub fn create_task_payload(task: TaskDescriptorParams) {
 		timechain_runtime::tx().tasks().create_task(task);
 	}
 
-	fn get_tasks() {
-		let ab = timechain_runtime::storage().tasks();
-		ab.tasks_iter();
+	pub async fn get_tasks(&self) -> Result<StreamOfResults<(Vec<u8>, TaskDescriptor)>> {
+		let storage_query = timechain_runtime::storage().tasks().tasks_iter();
+		Ok(self.client.storage().at_latest().await?.iter(storage_query).await?)
 	}
+
 	pub async fn get_task_state(&self, task_id: u64) -> Result<TaskStatus> {
 		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
 		Ok(self

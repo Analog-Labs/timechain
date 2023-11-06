@@ -1,15 +1,17 @@
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::{anyhow, Result};
 use subxt::backend::StreamOfResults;
+use subxt::tx::Payload;
 use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult, TasksPayload, TssSignature};
 use timechain_runtime::runtime_types::time_primitives::task;
 use timechain_runtime::runtime_types::time_primitives::task::{
 	TaskDescriptor, TaskDescriptorParams, TaskStatus,
 };
+use timechain_runtime::tasks::calls::types::CreateTask;
 
 impl SubxtClient {
-	pub fn create_task_payload(task: TaskDescriptorParams) {
-		timechain_runtime::tx().tasks().create_task(task);
+	pub fn create_task_payload(task: TaskDescriptorParams) -> Payload<CreateTask> {
+		timechain_runtime::tx().tasks().create_task(task)
 	}
 
 	pub async fn get_tasks(&self) -> Result<StreamOfResults<(Vec<u8>, TaskDescriptor)>> {

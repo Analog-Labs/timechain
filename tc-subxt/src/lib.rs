@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use subxt::backend::rpc::{RpcClient, RpcParams};
+use subxt::blocks::ExtrinsicEvents;
 use subxt::tx::TxPayload;
 use subxt::utils::H256;
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
@@ -78,6 +79,22 @@ impl SubxtClient {
 			signer: Arc::new(keypair),
 			nonce: Arc::new(AtomicU64::new(nonce)),
 		})
+	}
+
+	pub async fn sign_and_submit_watch<Call>(
+		&self,
+		call: &Call,
+	) -> Result<ExtrinsicEvents<PolkadotConfig>>
+	where
+		Call: TxPayload,
+	{
+		Ok(self
+			.client
+			.tx()
+			.sign_and_submit_then_watch_default(call, self.signer.as_ref())
+			.await?
+			.wait_for_finalized_success()
+			.await?)
 	}
 
 	pub async fn submit_transaction(&self, transaction: Vec<u8>) -> Result<H256> {

@@ -4,8 +4,7 @@ use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use subxt::rpc::{rpc_params, RpcParams};
-use subxt::{OnlineClient, PolkadotConfig};
+use tc_subxt::{rpc_params, RpcParams, SubxtClient};
 
 #[derive(Clone, Debug)]
 pub(crate) struct WalletConfig {
@@ -22,13 +21,13 @@ pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
 
 async fn insert_key(url: &str, key_type: &str, suri: &str, public_key: &str) {
 	loop {
-		let Ok(api) = OnlineClient::<PolkadotConfig>::from_url(url).await else {
+		let Ok(api) = SubxtClient::new(url, None).await else {
 			println!("failed to connect to node {}", url);
 			tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 			continue;
 		};
 		let params: RpcParams = rpc_params![key_type, suri, public_key];
-		let _: () = api.rpc().request("author_insertKey", params).await.unwrap();
+		let _: () = api.rpc("author_insertKey", params).await.unwrap();
 		println!("submitted key for node: {}", url);
 		break;
 	}

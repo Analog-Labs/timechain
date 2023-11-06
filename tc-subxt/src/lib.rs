@@ -4,7 +4,7 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use subxt::backend::rpc::{RpcClient, RpcParams};
+use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
 use subxt::tx::TxPayload;
 use subxt::utils::H256;
@@ -22,7 +22,7 @@ mod members;
 mod shards;
 mod tasks;
 
-pub use subxt::backend::rpc::rpc_params;
+pub use subxt::backend::rpc::{rpc_params, RpcParams};
 pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,

@@ -21,26 +21,24 @@ impl SubxtClient {
 
 	pub async fn get_task_state(&self, task_id: u64) -> Result<TaskStatus> {
 		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
-		Ok(self
-			.client
+		self.client
 			.storage()
 			.at_latest()
 			.await?
 			.fetch(&storage_query)
 			.await?
-			.ok_or(anyhow!("Task status not found"))?)
+			.ok_or(anyhow!("Task status not found"))
 	}
 
 	pub async fn get_task_cycle(&self, task_id: u64) -> Result<u64> {
 		let storage_query = timechain_runtime::storage().tasks().task_cycle_state(task_id);
-		Ok(self
-			.client
+		self.client
 			.storage()
 			.at_latest()
 			.await?
 			.fetch(&storage_query)
 			.await?
-			.ok_or(anyhow!("Task cycle not found"))?)
+			.ok_or(anyhow!("Task cycle not found"))
 	}
 }
 

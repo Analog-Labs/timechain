@@ -20,38 +20,35 @@ impl SubxtClient {
 
 	pub async fn shard_id_counter(&self) -> Result<u64> {
 		let storage_query = timechain_runtime::storage().shards().shard_id_counter();
-		Ok(self
-			.client
+		self.client
 			.storage()
 			.at_latest()
 			.await?
 			.fetch(&storage_query)
 			.await?
-			.ok_or(anyhow!("Shard id counter not found"))?)
+			.ok_or(anyhow!("Shard id counter not found"))
 	}
 
 	pub async fn shard_network(&self, shard_id: u64) -> Result<Network> {
 		let storage_query = timechain_runtime::storage().shards().shard_network(shard_id);
-		Ok(self
-			.client
+		self.client
 			.storage()
 			.at_latest()
 			.await?
 			.fetch(&storage_query)
 			.await?
-			.ok_or(anyhow!("Shard network not found"))?)
+			.ok_or(anyhow!("Shard network not found"))
 	}
 
 	pub async fn shard_state(&self, shard_id: u64) -> Result<ShardStatus<u32>> {
 		let storage_query = timechain_runtime::storage().shards().shard_state(shard_id);
-		Ok(self
-			.client
+		self.client
 			.storage()
 			.at_latest()
 			.await?
 			.fetch(&storage_query)
 			.await?
-			.ok_or(anyhow!("Shard Status not found"))?)
+			.ok_or(anyhow!("Shard Status not found"))
 	}
 }
 

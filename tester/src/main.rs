@@ -11,12 +11,6 @@ mod mock;
 mod shards;
 mod tasks;
 
-#[subxt::subxt(
-	runtime_metadata_path = "../config/subxt/metadata.scale",
-	derive_for_all_types = "PartialEq, Clone"
-)]
-pub mod polkadot {}
-
 #[derive(Parser, Debug)]
 struct Args {
 	#[arg(long, default_value = "ws://validator:9944")]

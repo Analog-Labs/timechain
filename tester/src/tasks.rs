@@ -1,6 +1,5 @@
 use anyhow::Result;
 use std::collections::{BTreeMap, HashMap};
-use subxt_signer::sr25519::dev;
 use tc_subxt::{Function, Network, SubxtClient, TaskCreated, TaskDescriptorParams, TaskStatus};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {

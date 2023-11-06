@@ -1,31 +1,16 @@
-use crate::polkadot;
-use crate::polkadot::runtime_types::time_primitives::shard::{Network, ShardStatus};
-use subxt::{OnlineClient, PolkadotConfig};
+use tc_subxt::SubxtClient;
+use tc_subxt::{Network, ShardStatus};
 
-pub(crate) async fn is_shard_online(api: &OnlineClient<PolkadotConfig>, network: Network) -> bool {
-	let storage_query = polkadot::storage().shards().shard_id_counter();
-	let shards_id = api
-		.storage()
-		.at_latest()
-		.await
-		.unwrap()
-		.fetch(&storage_query)
-		.await
-		.unwrap()
-		.unwrap();
-
+pub(crate) async fn is_shard_online(api: &SubxtClient, network: Network) -> bool {
+	let shards_id = api.shard_id_counter().await.unwrap();
 	let mut shard_state = None;
 	for i in 0..shards_id {
-		let storage_query = polkadot::storage().shards().shard_network(i);
-		let shard_network =
-			api.storage().at_latest().await.unwrap().fetch(&storage_query).await.unwrap();
-
-		if shard_network != Some(network.clone()) {
+		let shard_network = api.shard_network(i).await.unwrap();
+		if shard_network != network.clone() {
 			continue;
 		};
 
-		let storage_query = polkadot::storage().shards().shard_state(i);
-		shard_state = api.storage().at_latest().await.unwrap().fetch(&storage_query).await.unwrap();
+		shard_state = Some(api.shard_state(i).await.unwrap());
 		break;
 	}
 

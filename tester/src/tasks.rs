@@ -55,17 +55,50 @@ pub async fn insert_sign_task(
 		period,
 		hash: "".to_string(),
 	};
-	let tx = SubxtClient::create_task_payload(params);
-	let tx_built = api.make_transaction(&tx);
-	api.submit_transaction(tx_built);
-	let from = dev::alice();
+	let payload = SubxtClient::create_task_payload(params);
+	let events = api.sign_and_submit_watch(&payload).await?;
+	let transfer_event = events.find_first::<TaskCreated>().unwrap();
+	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
+	println!("Task registered: {:?}", id);
+	Ok(id)
+}
 
-	let events = api
-		.tx()
-		.sign_and_submit_then_watch_default(&tx, &from)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
+pub async fn insert_evm_task(
+	api: &SubxtClient,
+	address: String,
+	cycle: u64,
+	start: u64,
+	period: u64,
+	network: Network,
+	is_payable: bool,
+) -> Result<u64> {
+	let function = if is_payable {
+		Function::EvmCall {
+			address,
+			function_signature: "function vote_yes()".to_string(),
+			input: Default::default(),
+			amount: 0,
+		}
+	} else {
+		Function::EvmViewCall {
+			address,
+			function_signature: "function get_votes_stats() external view returns (uint[] memory)"
+				.to_string(),
+			input: Default::default(),
+		}
+	};
+
+	let params = TaskDescriptorParams {
+		network,
+		function,
+		cycle,
+		start,
+		period,
+		hash: "".to_string(),
+	};
+
+	let payload = SubxtClient::create_task_payload(params);
+	let events = api.sign_and_submit_watch(&payload).await?;
 
 	let transfer_event = events.find_first::<TaskCreated>().unwrap();
 
@@ -74,54 +107,3 @@ pub async fn insert_sign_task(
 	println!("Task registered: {:?}", id);
 	Ok(id)
 }
-
-// pub async fn insert_evm_task(
-// 	api: &SubxtClient,
-// 	address: String,
-// 	cycle: u64,
-// 	start: u64,
-// 	period: u64,
-// 	network: Network,
-// 	is_payable: bool,
-// ) -> Result<u64> {
-// 	let function = if is_payable {
-// 		Function::EvmCall {
-// 			address,
-// 			function_signature: "function vote_yes()".to_string(),
-// 			input: Default::default(),
-// 			amount: 0,
-// 		}
-// 	} else {
-// 		Function::EvmViewCall {
-// 			address,
-// 			function_signature: "function get_votes_stats() external view returns (uint[] memory)"
-// 				.to_string(),
-// 			input: Default::default(),
-// 		}
-// 	};
-
-// 	let tx = polkadot::tx().tasks().create_task(TaskDescriptorParams {
-// 		network,
-// 		function,
-// 		cycle,
-// 		start,
-// 		period,
-// 		hash: "".to_string(),
-// 	});
-
-// 	let from = dev::alice();
-
-// 	let events = api
-// 		.tx()
-// 		.sign_and_submit_then_watch_default(&tx, &from)
-// 		.await?
-// 		.wait_for_finalized_success()
-// 		.await?;
-
-// 	let transfer_event = events.find_first::<polkadot::tasks::events::TaskCreated>().unwrap();
-
-// 	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
-
-// 	println!("Task registered: {:?}", id);
-// 	Ok(id)
-// }

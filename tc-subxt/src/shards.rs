@@ -1,7 +1,6 @@
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::{anyhow, Result};
 use time_primitives::{ShardId, ShardsPayload, TssPublicKey};
-use timechain_runtime::runtime_types::time_primitives::shard;
 use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 
 impl SubxtClient {
@@ -14,8 +13,7 @@ impl SubxtClient {
 			.await?
 			.fetch(&storage)
 			.await?
-			.ok_or(anyhow!("shard key not found"))?[0]
-			.0)
+			.ok_or(anyhow!("shard key not found"))?[0])
 	}
 
 	pub async fn shard_id_counter(&self) -> Result<u64> {
@@ -59,7 +57,6 @@ impl ShardsPayload for SubxtClient {
 		commitment: Vec<TssPublicKey>,
 		proof_of_knowledge: [u8; 65],
 	) -> Vec<u8> {
-		let commitment: Vec<shard::TssPublicKey> = unsafe { std::mem::transmute(commitment) };
 		let tx = timechain_runtime::tx()
 			.shards()
 			.commit(shard_id, commitment, proof_of_knowledge);

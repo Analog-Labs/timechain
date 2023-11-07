@@ -6,7 +6,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-use time_primitives::TaskCycleResult;
 pub use time_primitives::{RpcTaskDetails, TaskCycle, TaskId, TasksApi};
 
 #[rpc(client, server)]
@@ -78,7 +77,7 @@ where
 			.map_err(|_| RpcError::ErrorQueryingRuntime)?;
 		let results = results
 			.iter()
-			.map(|(cycle, result)| TaskCycleResult(*cycle, result.signature))
+			.map(|(cycle, result)| (*cycle, format!("0x{}", hex::encode(result.signature))))
 			.collect::<Vec<_>>();
 		let task_shard =
 			api.get_task_shard(at, task_id).map_err(|_| RpcError::ErrorQueryingRuntime)?;

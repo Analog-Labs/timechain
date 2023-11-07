@@ -7,11 +7,10 @@ use std::sync::Arc;
 use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
 use subxt::tx::TxPayload;
-use subxt::utils::H256;
+use subxt::utils::{MultiAddress, MultiSignature, H256};
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
 use subxt_signer::{sr25519::Keypair, SecretUri};
 use time_primitives::{AccountId, PublicKey};
-
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"
@@ -24,7 +23,7 @@ mod tasks;
 
 pub use subxt::backend::rpc::{rpc_params, RpcParams};
 pub use subxt::tx::PartialExtrinsic;
-pub use subxt::utils::{AccountId32, MultiAddress, MultiSignature};
+pub use subxt::utils::AccountId32;
 pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
@@ -101,10 +100,14 @@ impl SubxtClient {
 	pub async fn add_signature_to_unsigned(
 		&self,
 		extrinsic: PartialExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-		address: &MultiAddress<AccountId32, ()>,
-		signature: &MultiSignature,
+		address: &AccountId32,
+		signature: [u8; 64],
 	) -> Vec<u8> {
-		extrinsic.sign_with_address_and_signature(address, signature).into_encoded()
+		let multi_address: MultiAddress<AccountId32, ()> = address.clone().into();
+		let multi_signature = MultiSignature::Sr25519(signature);
+		extrinsic
+			.sign_with_address_and_signature(&multi_address, &multi_signature)
+			.into_encoded()
 	}
 
 	pub async fn submit_transaction(&self, transaction: Vec<u8>) -> Result<H256> {

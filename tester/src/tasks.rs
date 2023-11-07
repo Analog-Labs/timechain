@@ -3,10 +3,10 @@ use std::collections::{BTreeMap, HashMap};
 use tc_subxt::{Function, Network, SubxtClient, TaskCreated, TaskDescriptorParams, TaskStatus};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
-	let task_state = api.get_task_state(task_id).await.unwrap();
-	let task_cycle = api.get_task_cycle(task_id).await.unwrap();
+	let task_state = api.get_task_state(task_id).await.ok();
+	let task_cycle = api.get_task_cycle(task_id).await.ok();
 	println!("task_state: {:?}, task_cycle: {:?}", task_state, task_cycle);
-	matches!(task_state, TaskStatus::Completed | TaskStatus::Failed { .. })
+	matches!(task_state, Some(TaskStatus::Completed) | Some(TaskStatus::Failed { .. }))
 }
 
 pub async fn watch_batch(

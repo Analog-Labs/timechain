@@ -23,6 +23,8 @@ mod shards;
 mod tasks;
 
 pub use subxt::backend::rpc::{rpc_params, RpcParams};
+pub use subxt::tx::PartialExtrinsic;
+pub use subxt::utils::{AccountId32, MultiAddress, MultiSignature};
 pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
@@ -49,17 +51,6 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	pub fn make_transaction<Call>(&self, call: &Call) -> Vec<u8>
-	where
-		Call: TxPayload,
-	{
-		self.client
-			.tx()
-			.create_signed_with_nonce(call, self.signer.as_ref(), self.nonce(), Default::default())
-			.unwrap()
-			.into_encoded()
-	}
-
 	pub async fn new(url: &str, keyfile: Option<&Path>) -> Result<Self> {
 		let rpc_client = RpcClient::from_url(url).await?;
 		let api = OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone()).await?;
@@ -81,6 +72,48 @@ impl SubxtClient {
 		})
 	}
 
+	pub fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>
+	where
+		Call: TxPayload,
+	{
+		self.client
+			.tx()
+			.create_signed_with_nonce(call, self.signer.as_ref(), self.nonce(), Default::default())
+			.unwrap()
+			.into_encoded()
+	}
+
+	pub async fn create_unsigned_payload<Call>(
+		&self,
+		call: &Call,
+	) -> Result<PartialExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>>
+	where
+		Call: TxPayload,
+	{
+		let temp_id = AccountId32([0; 32]);
+		Ok(self
+			.client
+			.tx()
+			.create_partial_signed(call, &temp_id, Default::default())
+			.await?)
+	}
+
+	pub async fn add_signature_to_unsigned(
+		&self,
+		extrinsic: PartialExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+		address: &MultiAddress<AccountId32, ()>,
+		signature: &MultiSignature,
+	) -> Vec<u8> {
+		extrinsic.sign_with_address_and_signature(address, signature).into_encoded()
+	}
+
+	pub async fn submit_transaction(&self, transaction: Vec<u8>) -> Result<H256> {
+		let hash = SubmittableExtrinsic::from_bytes((*self.client).clone(), transaction)
+			.submit()
+			.await?;
+		Ok(hash)
+	}
+
 	pub async fn sign_and_submit_watch<Call>(
 		&self,
 		call: &Call,
@@ -95,13 +128,6 @@ impl SubxtClient {
 			.await?
 			.wait_for_finalized_success()
 			.await?)
-	}
-
-	pub async fn submit_transaction(&self, transaction: Vec<u8>) -> Result<H256> {
-		let hash = SubmittableExtrinsic::from_bytes((*self.client).clone(), transaction)
-			.submit()
-			.await?;
-		Ok(hash)
 	}
 
 	pub async fn get_account_nonce(&self, id: [u8; 32]) {

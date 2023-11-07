@@ -13,11 +13,11 @@ impl MembersPayload for SubxtClient {
 		let network: shard::Network = unsafe { std::mem::transmute(network) };
 		let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
 		let tx = timechain_runtime::tx().members().register_member(network, public_key, peer_id);
-		self.make_transaction(&tx)
+		self.create_signed_payload(&tx)
 	}
 
 	fn submit_heartbeat(&self) -> Vec<u8> {
 		let tx = timechain_runtime::tx().members().send_heartbeat();
-		self.make_transaction(&tx)
+		self.create_signed_payload(&tx)
 	}
 }

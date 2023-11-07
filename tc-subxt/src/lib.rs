@@ -86,15 +86,15 @@ impl SubxtClient {
 	pub async fn create_unsigned_payload<Call>(
 		&self,
 		call: &Call,
+		address: &AccountId32,
 	) -> Result<PartialExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>>
 	where
 		Call: TxPayload,
 	{
-		let temp_id = AccountId32([0; 32]);
 		Ok(self
 			.client
 			.tx()
-			.create_partial_signed(call, &temp_id, Default::default())
+			.create_partial_signed(call, address, Default::default())
 			.await?)
 	}
 

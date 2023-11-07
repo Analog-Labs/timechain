@@ -97,8 +97,7 @@ impl InnerMockApi {
 			})
 			.collect();
 		let commitments = commitments.iter().collect::<Vec<_>>();
-		let summed_commitments = sum_commitments(&commitments).unwrap().serialize();
-		summed_commitments.iter().map(|data| *data).collect::<Vec<_>>()
+		sum_commitments(&commitments).unwrap().serialize()
 	}
 
 	fn submit_commitment(

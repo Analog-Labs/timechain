@@ -70,6 +70,7 @@ frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", 
 frame-system-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
 
 # Local Dependencies
+pallet-gmp = { path = "../pallets/gmp", version = "0.0.1", default-features = false }
 pallet-members = { path = "../pallets/members", version = "0.0.1", default-features = false }
 pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
 pallet-elections = { path = "../pallets/elections", default-features = false }
@@ -106,6 +107,7 @@ std = [
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-elections/std",
+	"pallet-gmp/std",
 	"pallet-members/std",
 	"pallet-offences/std",
 	"pallet-session/std",

@@ -1165,6 +1165,10 @@ impl pallet_tasks::Config for Runtime {
 	type WritePhaseTimeout = ConstU32<10>;
 }
 
+impl pallet_gmp::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -1191,6 +1195,7 @@ construct_runtime!(
 		Shards: pallet_shards,
 		Elections: pallet_elections,
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
+		Gmp: pallet_gmp,
 	}
 );
 

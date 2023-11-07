@@ -3,6 +3,7 @@ members = [
 	"chronicle",
 	"node",
 	"pallets/elections",
+	"pallets/gmp",
 	"pallets/members",
 	"pallets/shards",
 	"pallets/tasks",

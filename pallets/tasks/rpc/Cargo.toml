@@ -10,6 +10,7 @@ repository = "https://github.com/Analog-Labs/testnet"
 version = "0.0.1"
 
 [dependencies]
+hex = "0.4"
 sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }
 sp-blockchain = { git = "https://github.com/Analog-Labs/polkadot-sdk", branch = "timechain/full-tracing", default-features = false }

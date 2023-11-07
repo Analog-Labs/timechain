@@ -7667,6 +7667,7 @@ dependencies = [
 name = "pallet-shards-rpc"
 version = "0.0.1"
 dependencies = [
+ "hex 0.4.3",
  "jsonrpsee 0.16.3",
  "sp-api",
  "sp-blockchain",
@@ -7747,6 +7748,7 @@ dependencies = [
 name = "pallet-tasks-rpc"
 version = "0.0.1"
 dependencies = [
+ "hex 0.4.3",
  "jsonrpsee 0.16.3",
  "sp-api",
  "sp-blockchain",
@@ -11345,15 +11347,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-big-array"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13912,7 +13905,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "serde-big-array",
  "sp-api",
  "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",

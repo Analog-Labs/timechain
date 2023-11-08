@@ -15,6 +15,7 @@ rosetta-core = { git = "https://github.com/analog-labs/chain-connectors", branch
 sc-client-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sc-network = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sc-transaction-pool-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+schnorr-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
 serde = "1.0.188"
 serde_json = "1.0.105"
 sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
@@ -31,7 +32,6 @@ tss = { path = "../tss" }
 env_logger = "0.10.0"
 sc-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sc-network-test = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-schnorr-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 sc-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }

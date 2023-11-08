@@ -16,8 +16,8 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, Members, ShardId, ShardStatus, Shards, TssId, TssPublicKey,
-	TssSignature, TssSigningRequest,
+	BlockHash, BlockNumber, Members, ShardId, ShardStatus, Shards, TssId, TssSignature,
+	TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
 use tracing::{event, span, Level, Span};
@@ -125,9 +125,7 @@ where
 				continue;
 			}
 			let commitment = self.substrate.get_shard_commitment(block, shard_id).unwrap();
-			let unwrapped_commitment = commitment.iter().map(|pubkey| pubkey.0).collect::<Vec<_>>();
-			let commitment =
-				VerifiableSecretSharingCommitment::deserialize(unwrapped_commitment).unwrap();
+			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number);
 		}
@@ -239,13 +237,12 @@ where
 					}
 				},
 				TssAction::Commit(commitment, proof_of_knowledge) => {
-					let commitment = commitment
-						.serialize()
-						.iter()
-						.map(|data| TssPublicKey(*data))
-						.collect::<Vec<_>>();
 					self.substrate
-						.submit_commitment(shard_id, commitment, proof_of_knowledge.serialize())
+						.submit_commitment(
+							shard_id,
+							commitment.serialize(),
+							proof_of_knowledge.serialize(),
+						)
 						.unwrap()
 						.unwrap();
 				},

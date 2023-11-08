@@ -5,7 +5,6 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
 use sp_std::vec::Vec;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -111,19 +110,12 @@ impl Default for TaskPhase {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
-pub struct TaskCycleResult(
-	pub TaskCycle,
-	#[cfg_attr(feature = "std", serde(with = "BigArray"))] pub TssSignature,
-);
-
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
 pub struct RpcTaskDetails {
 	description: TaskDescriptor,
 	cycle: TaskCycle,
 	phase: TaskPhase,
 	shard_id: Option<ShardId>,
-	results: Vec<TaskCycleResult>,
+	results: Vec<(TaskCycle, String)>,
 }
 
 impl RpcTaskDetails {
@@ -132,7 +124,7 @@ impl RpcTaskDetails {
 		cycle: TaskCycle,
 		phase: TaskPhase,
 		shard_id: Option<ShardId>,
-		results: Vec<TaskCycleResult>,
+		results: Vec<(TaskCycle, String)>,
 	) -> Self {
 		Self {
 			description,

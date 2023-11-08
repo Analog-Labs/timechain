@@ -145,7 +145,7 @@ pub mod pallet {
 			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
 			ensure!(commitment.len() == threshold as usize, Error::<T>::InvalidCommitment);
 			for c in &commitment {
-				ensure!(VerifyingKey::from_bytes(c.0).is_ok(), Error::<T>::InvalidCommitment);
+				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
 			}
 			// TODO: verify proof of knowledge
 			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
@@ -156,17 +156,12 @@ pub mod pallet {
 						for (group_commitment, commitment) in
 							group_commitment.iter_mut().zip(commitment.iter())
 						{
-							*group_commitment = TssPublicKey(
-								VerifyingKey::new(
-									VerifyingKey::from_bytes(group_commitment.0)
-										.unwrap()
-										.to_element() + VerifyingKey::from_bytes(commitment.0)
-										.unwrap()
-										.to_element(),
-								)
-								.to_bytes()
-								.unwrap(),
-							);
+							*group_commitment = VerifyingKey::new(
+								VerifyingKey::from_bytes(*group_commitment).unwrap().to_element()
+									+ VerifyingKey::from_bytes(*commitment).unwrap().to_element(),
+							)
+							.to_bytes()
+							.unwrap();
 						}
 						group_commitment
 					})

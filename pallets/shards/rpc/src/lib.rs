@@ -6,7 +6,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-pub use time_primitives::{RpcShardDetails, ShardId, ShardsApi};
+use time_primitives::{
+	AccountId, Commitment, MemberStatus, RpcShardDetails, SerializedMemberStatus, ShardId,
+	ShardsApi,
+};
 type BlockNumber = u32;
 #[rpc(client, server)]
 pub trait ShardsApi<BlockHash> {
@@ -46,6 +49,20 @@ impl<C, Block> ShardsRpcApi<C, Block> {
 			client,
 		}
 	}
+
+	fn convert_member_status(status: MemberStatus) -> SerializedMemberStatus {
+		match status {
+			MemberStatus::Added => SerializedMemberStatus::Added,
+			MemberStatus::Committed(commitment) => {
+				SerializedMemberStatus::Committed(Self::serialize_commitment(commitment))
+			},
+			MemberStatus::Ready => SerializedMemberStatus::Ready,
+		}
+	}
+
+	fn serialize_commitment(commitment: Commitment) -> Vec<String> {
+		commitment.iter().map(|hash| format!("0x{}", hex::encode(hash))).collect()
+	}
 }
 
 impl<C, Block> ShardsApiServer<<Block as BlockT>::Hash> for ShardsRpcApi<C, Block>
@@ -66,12 +83,16 @@ where
 		let shard_threshold = api
 			.get_shard_threshold(at, shard_id)
 			.map_err(|_| RpcError::ErrorQueryingRuntime)?;
-		let shard_members = api
+		let shard_members: Vec<(AccountId, SerializedMemberStatus)> = api
 			.get_shard_members(at, shard_id)
-			.map_err(|_| RpcError::ErrorQueryingRuntime)?;
-		let shard_commitment = api
-			.get_shard_commitment(at, shard_id)
-			.map_err(|_| RpcError::ErrorQueryingRuntime)?;
+			.map_err(|_| RpcError::ErrorQueryingRuntime)?
+			.iter()
+			.map(|(id, status)| (id.clone(), Self::convert_member_status(status.clone())))
+			.collect();
+		let shard_commitment: Vec<String> = Self::serialize_commitment(
+			api.get_shard_commitment(at, shard_id)
+				.map_err(|_| RpcError::ErrorQueryingRuntime)?,
+		);
 		Ok(RpcShardDetails::new(shard_status, shard_threshold, shard_members, shard_commitment))
 	}
 }

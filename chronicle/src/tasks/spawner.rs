@@ -3,6 +3,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
+use schnorr_evm::VerifyingKey;
 use serde_json::Value;
 use std::{
 	future::Future,
@@ -12,8 +13,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	BlockNumber, Function, Network, ShardId, TaskCycle, TaskError, TaskId, TaskResult, Tasks,
-	TssHash, TssId, TssSignature, TssSigningRequest,
+	append_hash_with_task_data, BlockNumber, Function, Network, ShardId, TaskCycle, TaskError,
+	TaskId, TaskResult, Tasks, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -196,8 +197,9 @@ where
 			Ok(payload) => payload.as_slice(),
 			Err(payload) => payload.as_bytes(),
 		};
-		let (hash, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, payload).await?;
+		let prehashed_payload = VerifyingKey::message_hash(payload);
+		let hash = append_hash_with_task_data(prehashed_payload, task_id, task_cycle);
+		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, task_cycle, &hash).await?;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(
@@ -212,7 +214,11 @@ where
 					signature,
 				)
 				.await?;
-				let result = TaskResult { shard_id, hash, signature };
+				let result = TaskResult {
+					shard_id,
+					hash: prehashed_payload,
+					signature,
+				};
 				if let Err(e) = self.substrate.submit_task_result(task_id, task_cycle, result) {
 					tracing::error!("Error submitting task result {:?}", e);
 				}

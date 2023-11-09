@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22;
 
+import "./schnorr.sol" as schnorr;
+
 contract Gateway {
     // TODO: need a local field for public_keys which has key: shard_id and value publickey
     // shardid: u64, publickey: Vec<u8>
@@ -10,7 +12,10 @@ contract Gateway {
     // shardid: u64, bytes: Vec<u8>, TssSignature signature
     function submit(uint64, uint[] memory, uint[] memory) public {
         // pk = get_public_key(shardid);
-        // verify_signature(pk, uint[] memory, uint[] memory));
+        // use Schnorr
+        // let (pubkey_x, pubkey_y_parity) = public_key.to_px_parity();
+        // let message_hash = VerifyingKey::message_hash(message);
+        // schnorr.verify(pk, uint[] memory, uint[] memory));
         // TODO: need Event Enum type that initializes from uint[] memory
         // match bytes.parse() {
         //     RegisterShard(shardid, pubkey) => insert_public_key(shardid, pubkey),

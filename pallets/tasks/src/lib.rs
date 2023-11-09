@@ -527,6 +527,9 @@ pub mod pallet {
 				&& !Self::register_shard_scheduled(shard_id)
 			{
 				// TODO: schedule task to register the shard
+				// schedule calling this or is it like that is handled by executer?
+				// shardid: u64, bytes: Vec<u8>, TssSignature signature
+				// function submit(uint64, uint[] memory, uint[] memory) public {
 				RegisterShardScheduled::<T>::insert(shard_id, ());
 			}
 			Self::schedule_tasks(network);

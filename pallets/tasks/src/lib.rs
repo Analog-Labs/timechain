@@ -251,6 +251,11 @@ pub mod pallet {
 			if TaskResults::<T>::get(task_id, cycle).is_some() {
 				return Ok(());
 			}
+			sp_std::if_std! {
+				println!("task_id {:?}", task_id);
+				println!("task_cycle {:?}", cycle);
+				println!("status {:?}", status);
+			}
 			Self::validate_signature(
 				task_id,
 				cycle,

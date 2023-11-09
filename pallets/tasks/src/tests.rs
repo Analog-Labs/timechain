@@ -70,14 +70,10 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> 
 		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
 		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
 	];
-	let hash = append_hash_with_task_data(hash, task_id, task_cycle);
-	let final_hash = VerifyingKey::message_hash(&hash);
+	let appended_hash = append_hash_with_task_data(hash, task_id, task_cycle);
+	let final_hash = VerifyingKey::message_hash(&appended_hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
-	TaskResult {
-		shard_id,
-		hash: final_hash,
-		signature,
-	}
+	TaskResult { shard_id, hash, signature }
 }
 
 fn mock_error_result(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskError {

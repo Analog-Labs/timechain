@@ -1,4 +1,5 @@
 use crate::{self as task_schedule};
+use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
@@ -31,10 +32,12 @@ impl ShardsInterface for MockShardInterface {
 
 	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
 		// this value is taken from running a valid tss cycle
-		Some([
-			2, 163, 23, 136, 62, 90, 175, 126, 10, 65, 254, 12, 65, 67, 97, 247, 152, 34, 231, 253,
-			55, 115, 250, 33, 58, 75, 46, 99, 112, 78, 22, 197, 74,
-		])
+		// Some([
+		// 	2, 163, 23, 136, 62, 90, 175, 126, 10, 65, 254, 12, 65, 67, 97, 247, 152, 34, 231, 253,
+		// 	55, 115, 250, 33, 58, 75, 46, 99, 112, 78, 22, 197, 74,
+		// ])
+
+		Some(MockTssSigner::new().public_key())
 	}
 }
 
@@ -142,4 +145,29 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
+}
+
+pub struct MockTssSigner {
+	signing_key: SigningKey,
+}
+
+impl MockTssSigner {
+	pub fn new() -> Self {
+		Self {
+			//random key bytes
+			signing_key: SigningKey::from_bytes([
+				62, 78, 161, 128, 140, 236, 177, 67, 143, 75, 171, 207, 104, 60, 36, 95, 104, 71,
+				17, 91, 237, 184, 132, 165, 52, 240, 194, 4, 138, 196, 89, 176,
+			])
+			.unwrap(),
+		}
+	}
+
+	pub fn public_key(&self) -> [u8; 33] {
+		self.signing_key.public().to_bytes().unwrap()
+	}
+
+	pub fn sign(&self, data: [u8; 32]) -> schnorr_evm::Signature {
+		self.signing_key.sign_prehashed(data)
+	}
 }

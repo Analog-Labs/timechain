@@ -99,13 +99,14 @@ fn test_create_task() {
 			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
+		let task_result = mock_result_ok(1, 0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1, 0, 0)
+			task_result.clone()
 		));
-		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1, 0, 0)).into());
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
 	});
 }
 
@@ -602,16 +603,17 @@ fn submit_task_result_inserts_at_input_cycle() {
 			mock_task(Network::Ethereum, 5)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
+		let task_result = mock_result_ok(1, 0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1, 0, 0)
+			task_result.clone()
 		));
 		assert_eq!(TaskCycleState::<Test>::get(0), 1);
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
 		assert!(TaskResults::<Test>::get(0, 1).is_none());
-		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1, 0, 0)).into());
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
 	});
 }
 

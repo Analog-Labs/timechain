@@ -217,7 +217,9 @@ pub fn append_hash_with_task_data(
 	let mut extended_payload =
 		Vec::with_capacity(data.len() + task_id_bytes.len() + task_cycle_bytes.len());
 	extended_payload.extend_from_slice(&data);
+	extended_payload.extend_from_slice(b":");
 	extended_payload.extend_from_slice(&task_id_bytes);
+	extended_payload.extend_from_slice(b":");
 	extended_payload.extend_from_slice(&task_cycle_bytes);
 	extended_payload
 }

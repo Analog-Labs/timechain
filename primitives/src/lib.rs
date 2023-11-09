@@ -100,6 +100,7 @@ pub trait ElectionsInterface {
 }
 
 pub trait ShardsInterface {
+	fn is_shard_registered(shard_id: ShardId) -> bool;
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);

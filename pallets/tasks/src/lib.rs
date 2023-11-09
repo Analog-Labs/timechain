@@ -441,10 +441,18 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
 
+		fn task_assignable_to_shard(task: TaskId, shard: ShardId) -> bool {
+			if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Write(_)) {
+				T::Shards::is_shard_registered(shard) && T::Shards::is_shard_online(shard)
+			} else {
+				T::Shards::is_shard_online(shard)
+			}
+		}
+
 		fn schedule_tasks(network: Network) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
-					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
+					.filter(|(shard_id, _)| Self::task_assignable_to_shard(task_id, *shard_id))
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {

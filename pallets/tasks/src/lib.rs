@@ -135,6 +135,10 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	pub type RegisterShardScheduled<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -442,7 +446,7 @@ pub mod pallet {
 		}
 
 		fn task_assignable_to_shard(task: TaskId, shard: ShardId) -> bool {
-			if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Write(_)) {
+			if matches!(TaskPhaseState::<T>::get(task), TaskPhase::Write(_)) {
 				T::Shards::is_shard_registered(shard) && T::Shards::is_shard_online(shard)
 			} else {
 				T::Shards::is_shard_online(shard)
@@ -484,6 +488,10 @@ pub mod pallet {
 			}
 		}
 
+		fn register_shard_scheduled(shard_id: ShardId) -> bool {
+			RegisterShardScheduled::<T>::get(shard_id).is_some()
+		}
+
 		pub fn get_task_cycle(task_id: TaskId) -> TaskCycle {
 			TaskCycleState::<T>::get(task_id)
 		}
@@ -515,6 +523,12 @@ pub mod pallet {
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
+			if !T::Shards::is_shard_registered(shard_id)
+				&& !Self::register_shard_scheduled(shard_id)
+			{
+				// TODO: schedule task to register the shard
+				RegisterShardScheduled::<T>::insert(shard_id, ());
+			}
 			Self::schedule_tasks(network);
 		}
 

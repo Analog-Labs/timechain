@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use tc_subxt::{Function, Network, SubxtClient, TaskCreated, TaskDescriptorParams, TaskStatus};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
-	let task_state = api.get_task_state(task_id).await.ok();
-	let task_cycle = api.get_task_cycle(task_id).await.ok();
+	let task_state = api.get_task_state(task_id).await.unwrap();
+	let task_cycle = api.get_task_cycle(task_id).await.unwrap();
 	println!("task_state: {:?}, task_cycle: {:?}", task_state, task_cycle);
 	matches!(task_state, Some(TaskStatus::Completed) | Some(TaskStatus::Failed { .. }))
 }
@@ -18,8 +18,8 @@ pub async fn watch_batch(
 	let mut state_map: HashMap<u64, TaskStatus> = HashMap::new();
 	let mut state_cycle: HashMap<u64, u64> = HashMap::new();
 	for task_id in start_index..start_index + total_length {
-		let task_state = api.get_task_state(task_id).await.unwrap();
-		let task_cycle = api.get_task_cycle(task_id).await.unwrap_or_default();
+		let task_state = api.get_task_state(task_id).await.unwrap().unwrap();
+		let task_cycle = api.get_task_cycle(task_id).await.unwrap().unwrap_or_default();
 		state_map.insert(task_id, task_state);
 		state_cycle.insert(task_id, task_cycle);
 	}

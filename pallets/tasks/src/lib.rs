@@ -530,6 +530,9 @@ pub mod pallet {
 				// schedule calling this or is it like that is handled by executer?
 				// shardid: u64, bytes: Vec<u8>, TssSignature signature
 				// function submit(uint64, uint[] memory, uint[] memory) public {
+				// make a task, wait for task completion
+				// not just TaskResult vs listening for the event
+				// call handler to gmp pallet
 				RegisterShardScheduled::<T>::insert(shard_id, ());
 			}
 			Self::schedule_tasks(network);

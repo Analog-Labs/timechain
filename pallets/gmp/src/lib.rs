@@ -1,6 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
+// include information for
+// (1) registering the shard
+// (2) forming the submit (RegisterShard) call and calling it
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;

@@ -62,10 +62,6 @@ pub mod pallet {
 	pub type ShardNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Network, OptionQuery>;
 
-	/// Whether or not a shard is registered to perform write tasks
-	#[pallet::storage]
-	pub type ShardWrites<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
-
 	/// Status for shard
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
@@ -236,13 +232,6 @@ pub mod pallet {
 			T::Elections::shard_offline(network, members);
 		}
 
-		/// CALLBACK for after shard is registered in gateway.sol
-		/// After called, shard may be assigned any task
-		/// Before called, shard may only be assigned read, sign tasks NOT write tasks
-		pub fn shard_registered(shard_id: ShardId) {
-			ShardWrites::<T>::insert(shard_id, ());
-		}
-
 		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
@@ -309,10 +298,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ShardsInterface for Pallet<T> {
-		fn is_shard_registered(shard_id: ShardId) -> bool {
-			ShardWrites::<T>::get(shard_id).is_some()
-		}
-
 		fn is_shard_online(shard_id: ShardId) -> bool {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}

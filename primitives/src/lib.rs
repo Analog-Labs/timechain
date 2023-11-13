@@ -8,10 +8,12 @@ use sp_api::ApiError;
 use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
+mod gmp;
 mod member;
 mod shard;
 mod task;
 
+pub use crate::gmp::*;
 pub use crate::member::*;
 pub use crate::shard::*;
 pub use crate::task::*;
@@ -100,7 +102,6 @@ pub trait ElectionsInterface {
 }
 
 pub trait ShardsInterface {
-	fn is_shard_registered(shard_id: ShardId) -> bool;
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
@@ -111,4 +112,12 @@ pub trait ShardsInterface {
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
+}
+
+pub trait GmpInterface {
+	fn is_shard_registered(shard_id: ShardId, network: Network) -> bool;
+	fn is_register_shard_scheduled(shard_id: ShardId, network: Network) -> bool;
+	fn registered_shard(shard_id: ShardId, network: Network);
+	fn scheduled_register_shard(shard_id: ShardId, network: Network);
+	fn register_shard_call(network: Network) -> Option<Function>;
 }

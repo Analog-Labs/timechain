@@ -1160,8 +1160,14 @@ impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Shards = Shards;
+	type Gmp = Gmp;
 	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU32<10>;
+}
+
+impl pallet_gmp::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1190,6 +1196,7 @@ construct_runtime!(
 		Shards: pallet_shards,
 		Elections: pallet_elections,
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
+		Gmp: pallet_gmp,
 	}
 );
 

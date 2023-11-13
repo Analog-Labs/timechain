@@ -1166,7 +1166,6 @@ impl pallet_tasks::Config for Runtime {
 }
 
 impl pallet_gmp::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
 

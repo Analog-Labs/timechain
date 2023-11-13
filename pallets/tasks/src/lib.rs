@@ -542,26 +542,23 @@ pub mod pallet {
 			if !T::Gmp::is_shard_registered(shard_id, network)
 				&& !T::Gmp::is_register_shard_scheduled(shard_id, network)
 			{
-				// TODO: schedule a task to register shard
-				// form the call in GMP Pallet
-				if let Some(function) = T::Gmp::register_shard_call(network) {
+				if let Some(function) = T::Gmp::register_shard_call(shard_id, network) {
 					if Self::do_create_task(
 						[0u8; 32].into(),
 						TaskDescriptorParams {
 							network,
-							cycle: 0,             //cycle
-							start: 0,             // start
-							period: 1,            // period
-							hash: "".to_string(), // hash
+							cycle: 0,
+							start: 0,
+							period: 1,
+							hash: "".to_string(),
 							function,
 						},
 					)
 					.is_ok()
 					{
 						T::Gmp::scheduled_register_shard(shard_id, network);
-					}
-				}
-				// TODO: try again if it fails in either case at later time
+					} // TODO: handle error branch by logging something
+				} // TODO: handle error branch by logging something
 			}
 			Self::schedule_tasks(network);
 		}

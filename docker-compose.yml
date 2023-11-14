@@ -63,7 +63,7 @@ services:
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
+      RUST_LOG: 'chronicle=debug,tss=info'
     depends_on:
     - validator
     - ethereum

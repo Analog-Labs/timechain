@@ -140,7 +140,7 @@ where
 		peer_id: P,
 		members: BTreeSet<P>,
 		threshold: u16,
-		commitment: Option<VerifiableSecretSharingCommitment>,
+		commitment: Option<(VerifiableSecretSharingCommitment, SecretShare)>,
 	) -> Self {
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_to_frost(&peer_id);
@@ -163,8 +163,9 @@ where
 			frost_to_peer,
 			threshold,
 			coordinators,
-			state: if let Some(commitment) = commitment {
+			state: if let Some((commitment, _)) = commitment {
 				TssState::Rts(Rts::new(frost_id, members, threshold, commitment))
+			// read file here on commitment/public key, and read secret share from here
 			} else {
 				TssState::Dkg(Dkg::new(frost_id, members, threshold))
 			},

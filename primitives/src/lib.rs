@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_api::ApiError;
@@ -19,6 +20,7 @@ pub use crate::task::*;
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
+pub const TSS_KEY_PATH: &'static str = "analog";
 
 pub type AccountId = AccountId32;
 pub type PublicKey = MultiSigner;

@@ -1,11 +1,31 @@
 use crate::network::PeerId;
 use std::collections::BTreeSet;
+use std::fs;
 
-pub use time_primitives::TssId;
+pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
 
 pub type TssMessage = tss::TssMessage<TssId>;
 pub type TssAction = tss::TssAction<TssId, PeerId>;
+
+fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Vec<u8> {
+	let file_name = hex::encode(commitment.serialize()[0]);
+	let home_dir = dirs::home_dir().expect("Home directory not found");
+	let analog_dir = home_dir.join(TSS_KEY_PATH);
+	fs::create_dir_all(analog_dir.clone()).expect("Something went wrong while getting key");
+	let file_path = analog_dir.join(file_name);
+	fs::read(file_path).expect("unable to read data")
+}
+
+fn write_key_to_file(key: SigningKey, commitment: VerifiableSecretSharingCommitment) {
+	let data = key.to_bytes();
+	let file_name = hex::encode(commitment.serialize()[0]);
+	let home_dir = dirs::home_dir().expect("Home directory not found");
+	let analog_dir = home_dir.join(TSS_KEY_PATH);
+	fs::create_dir_all(analog_dir.clone()).expect("Something went wrong while getting key");
+	let file_path = analog_dir.join(file_name);
+	fs::write(file_path, data).expect("Something went wrong while writing data");
+}
 
 pub enum Tss {
 	Enabled(tss::Tss<TssId, String>),
@@ -25,7 +45,14 @@ impl Tss {
 			.map(|peer| p2p::PeerId::from_bytes(&peer).unwrap().to_string())
 			.collect();
 		if members.len() == 1 {
-			let key = SigningKey::random();
+			let key = if let Some(old_commitment) = commitment {
+				let bytes = read_key_from_file(old_commitment);
+				tracing::info!("contents from file {:?}", bytes);
+				// SigningKey::from_bytes(bytes.into()).unwrap()
+				SigningKey::random()
+			} else {
+				SigningKey::random()
+			};
 			let public = key.public().to_bytes().unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
 			let proof_of_knowledge = tss::construct_proof_of_knowledge(
@@ -34,9 +61,12 @@ impl Tss {
 				&commitment,
 			)
 			.unwrap();
+			write_key_to_file(key, commitment.clone());
 			Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), false)
+		} else if let Some(_old_commitment) = commitment {
+			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, None))
 		} else {
-			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
+			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, None))
 		}
 	}
 

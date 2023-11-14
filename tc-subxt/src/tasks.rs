@@ -1,7 +1,6 @@
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::{anyhow, Result};
 use subxt::backend::StreamOfResults;
-// use subxt::ext::sp_runtime::MultiAddress;
 use subxt::tx::Payload;
 use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult, TasksPayload, TssSignature};
 use timechain_runtime::runtime_types::time_primitives::task;
@@ -11,10 +10,6 @@ use timechain_runtime::runtime_types::time_primitives::task::{
 use timechain_runtime::tasks::calls::types::CreateTask;
 
 impl SubxtClient {
-	// pub fn create_transfer_payload(dest: MultiAddress<AccountId32>, value: u128) -> Payload<CreateTask> {
-	// 	timechain_runtime::tx().balances().transfer_keep_alive(dest, value)
-	// }
-
 	pub fn create_task_payload(task: TaskDescriptorParams) -> Payload<CreateTask> {
 		timechain_runtime::tx().tasks().create_task(task)
 	}
@@ -69,19 +64,4 @@ impl TasksPayload for SubxtClient {
 		let tx = timechain_runtime::tx().tasks().submit_result(task_id, cycle, status);
 		self.create_signed_payload(&tx)
 	}
-
-	// fn create_task(schedule: TaskDescriptorParams) -> Vec<u8> {
-	// 	let tx = timechain_runtime::tx().tasks().create_task(schedule);
-	// 	self.create_signed_payload(&tx)
-	// }
-
-	// fn stop_task(task_id: TaskId)  -> Vec<u8> {
-	// 	let tx = timechain_runtime::tx().tasks().stop_task(task_id);
-	// 	self.create_signed_payload(&tx)
-	// }
-
-	// fn resume_task(task_id: TaskId, start: u64)  -> Vec<u8> {
-	// 	let tx = timechain_runtime::tx().tasks().resume_task(task_id, start);
-	// 	self.create_signed_payload(&tx)
-	// }
 }

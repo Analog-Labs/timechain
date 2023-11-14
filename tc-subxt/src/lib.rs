@@ -89,10 +89,6 @@ impl SubxtClient {
 		})
 	}
 
-	pub fn set_signer(&mut self, keypair: Keypair) {
-		self.signer = Arc::new(keypair);
-	}
-
 	pub fn create_transfer_payload(
 		dest: MultiAddress<AccountId32, ()>,
 		value: u128,

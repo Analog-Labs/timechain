@@ -5,11 +5,12 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use schnorr_evm::VerifyingKey;
 use sp_runtime::Saturating;
 use time_primitives::{
-	AccountId, Function, Network, PublicKey, ShardId, TaskCycle, TaskDescriptor,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskPhase, TaskResult, TaskStatus,
-	TasksInterface,
+	append_hash_with_task_data, AccountId, Function, Network, PublicKey, ShardId, TaskCycle,
+	TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TaskStatus, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -63,35 +64,26 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 	}
 }
 
-fn mock_result_ok(shard_id: ShardId) -> TaskResult {
+fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskResult {
 	// these values are taken after running a valid instance of submitting result
-	TaskResult {
-		shard_id,
-		hash: [
-			11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91,
-			0, 219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
-		],
-		signature: [
-			196, 97, 193, 244, 167, 64, 220, 164, 96, 72, 191, 222, 230, 48, 188, 45, 36, 98, 135,
-			148, 210, 252, 64, 5, 143, 222, 105, 229, 85, 45, 214, 253, 198, 248, 57, 75, 26, 186,
-			131, 195, 9, 4, 74, 33, 247, 130, 248, 71, 140, 237, 153, 82, 248, 124, 78, 245, 18,
-			185, 126, 32, 11, 210, 193, 48,
-		],
-	}
+	let hash = [
+		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
+		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+	];
+	let appended_hash = append_hash_with_task_data(hash, task_id, task_cycle);
+	let final_hash = VerifyingKey::message_hash(&appended_hash);
+	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
+	TaskResult { shard_id, hash, signature }
 }
 
-fn mock_error_result(shard_id: ShardId) -> TaskError {
+fn mock_error_result(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskError {
 	// these values are taken after running a valid instance of submitting error
-	TaskError {
-		shard_id,
-		msg: "Invalid input length".into(),
-		signature: [
-			46, 103, 15, 236, 204, 108, 113, 94, 241, 4, 159, 152, 118, 95, 232, 215, 91, 198, 214,
-			239, 85, 16, 143, 134, 114, 200, 38, 136, 205, 23, 145, 90, 178, 216, 139, 123, 140,
-			95, 106, 243, 245, 5, 76, 210, 119, 221, 28, 253, 217, 79, 71, 255, 90, 216, 164, 157,
-			68, 116, 211, 23, 223, 79, 30, 250,
-		],
-	}
+	let msg: String = "Invalid input length".into();
+	let msg_hash = VerifyingKey::message_hash(msg.as_bytes());
+	let hash = append_hash_with_task_data(msg_hash, task_id, task_cycle);
+	let final_hash = VerifyingKey::message_hash(&hash);
+	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
+	TaskError { shard_id, msg, signature }
 }
 
 #[test]
@@ -107,13 +99,14 @@ fn test_create_task() {
 			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
 		);
+		let task_result = mock_result_ok(1, 0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1)
+			task_result.clone()
 		));
-		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
 	});
 }
 
@@ -291,7 +284,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1)
+			mock_result_ok(1, 0, 0)
 		));
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
@@ -311,7 +304,7 @@ fn shard_offline_doesnt_drops_failed_tasks() {
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(1)
+				mock_error_result(1, 0, 0)
 			));
 		}
 		Tasks::shard_offline(1, Network::Ethereum);
@@ -333,7 +326,7 @@ fn submit_task_error_increments_retry_count() {
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(1)
+				mock_error_result(1, 0, 0)
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
@@ -343,7 +336,7 @@ fn submit_task_error_increments_retry_count() {
 #[test]
 fn submit_task_error_over_max_retry_count_is_task_failure() {
 	new_test_ext().execute_with(|| {
-		let error = mock_error_result(1);
+		let error = mock_error_result(1, 0, 0);
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -374,7 +367,7 @@ fn submit_task_result_resets_retry_count() {
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(1)
+				mock_error_result(1, 0, 0)
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
@@ -382,7 +375,7 @@ fn submit_task_result_resets_retry_count() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1)
+			mock_result_ok(1, 0, 0)
 		));
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
@@ -575,7 +568,7 @@ fn task_recurring_cycle_count() {
 					RawOrigin::Signed([0; 32].into()).into(),
 					task_id,
 					cycle,
-					mock_result_ok(1)
+					mock_result_ok(1, task_id, cycle)
 				));
 				total_results += 1;
 			}
@@ -610,16 +603,17 @@ fn submit_task_result_inserts_at_input_cycle() {
 			mock_task(Network::Ethereum, 5)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
+		let task_result = mock_result_ok(1, 0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1)
+			task_result.clone()
 		));
 		assert_eq!(TaskCycleState::<Test>::get(0), 1);
 		assert!(TaskResults::<Test>::get(0, 0).is_some());
 		assert!(TaskResults::<Test>::get(0, 1).is_none());
-		System::assert_last_event(Event::<Test>::TaskResult(0, 0, mock_result_ok(1)).into());
+		System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
 	});
 }
 
@@ -648,7 +642,7 @@ fn payable_task_smoke() {
 			RawOrigin::Signed(a).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id)
+			mock_result_ok(shard_id, task_id, task_cycle)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 	});
@@ -656,7 +650,7 @@ fn payable_task_smoke() {
 
 #[test]
 fn resume_failed_task_after_shard_offline() {
-	let mock_error = mock_error_result(1);
+	let mock_error = mock_error_result(1, 0, 0);
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),

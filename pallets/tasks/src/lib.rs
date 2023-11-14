@@ -12,13 +12,14 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, Network, ShardId, ShardsInterface, TaskCycle, TaskDescriptor,
-		TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TssSignature,
+		append_hash_with_task_data, AccountId, Function, Network, ShardId, ShardsInterface,
+		TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId,
+		TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -250,7 +251,13 @@ pub mod pallet {
 			if TaskResults::<T>::get(task_id, cycle).is_some() {
 				return Ok(());
 			}
-			Self::validate_signature(status.shard_id, status.hash, status.signature)?;
+			Self::validate_signature(
+				task_id,
+				cycle,
+				status.shard_id,
+				status.hash,
+				status.signature,
+			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -277,6 +284,8 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			Self::validate_signature(
+				task_id,
+				cycle,
 				error.shard_id,
 				schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
 				error.signature,
@@ -422,10 +431,14 @@ pub mod pallet {
 		}
 
 		fn validate_signature(
+			task_id: TaskId,
+			task_cycle: TaskCycle,
 			shard_id: ShardId,
 			hash: [u8; 32],
 			signature: TssSignature,
 		) -> DispatchResult {
+			let data = append_hash_with_task_data(hash, task_id, task_cycle);
+			let hash = VerifyingKey::message_hash(&data);
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let signature = schnorr_evm::Signature::from_bytes(signature)
 				.map_err(|_| Error::<T>::InvalidSignature)?;

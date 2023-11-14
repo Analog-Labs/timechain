@@ -6,16 +6,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
+use subxt::tx::SubmittableExtrinsic;
 use subxt::tx::TxPayload;
 use subxt::utils::{MultiAddress, MultiSignature, H256};
-use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
-use subxt_signer::{sr25519::Keypair, SecretUri};
+use subxt_signer::SecretUri;
 use time_primitives::{AccountId, PublicKey};
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"
 )]
-pub(crate) mod timechain_runtime {}
+pub mod timechain_runtime {}
 
 mod members;
 mod shards;
@@ -24,11 +24,16 @@ mod tasks;
 pub use subxt::backend::rpc::{rpc_params, RpcParams};
 pub use subxt::tx::PartialExtrinsic;
 pub use subxt::utils::AccountId32;
+pub use subxt::{ext, tx, utils};
 pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
 };
 pub use timechain_runtime::tasks::events::TaskCreated;
+
+pub use subxt::config::{Config, ExtrinsicParams};
+pub use subxt::{OnlineClient, PolkadotConfig};
+pub use subxt_signer::sr25519::Keypair;
 
 pub trait AccountInterface {
 	fn nonce(&self) -> u64;
@@ -40,7 +45,7 @@ pub trait AccountInterface {
 #[derive(Clone)]
 pub struct SubxtClient {
 	// client connection to chain
-	client: Arc<OnlineClient<PolkadotConfig>>,
+	pub client: Arc<OnlineClient<PolkadotConfig>>,
 	// rpc interface
 	rpc: RpcClient,
 	// signer use to sign transaction, Default is Alice
@@ -69,6 +74,30 @@ impl SubxtClient {
 			signer: Arc::new(keypair),
 			nonce: Arc::new(AtomicU64::new(nonce)),
 		})
+	}
+
+	pub async fn new_with_keypair(url: &str, keypair: Keypair) -> Result<Self> {
+		let rpc_client = RpcClient::from_url(url).await?;
+		let api = OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone()).await?;
+		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
+		let nonce = api.tx().account_nonce(&account_id).await?;
+		Ok(Self {
+			client: Arc::new(api),
+			rpc: rpc_client,
+			signer: Arc::new(keypair),
+			nonce: Arc::new(AtomicU64::new(nonce)),
+		})
+	}
+
+	pub fn set_signer(&mut self, keypair: Keypair) {
+		self.signer = Arc::new(keypair);
+	}
+
+	pub fn create_transfer_payload(
+		dest: MultiAddress<AccountId32, ()>,
+		value: u128,
+	) -> subxt::tx::Payload<timechain_runtime::balances::calls::types::TransferKeepAlive> {
+		timechain_runtime::tx().balances().transfer_keep_alive(dest, value)
 	}
 
 	pub fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>

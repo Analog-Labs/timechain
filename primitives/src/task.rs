@@ -205,4 +205,10 @@ pub trait TasksPayload {
 	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8>;
 
 	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8>;
+
+	// fn create_task(schedule: TaskDescriptorParams) -> Vec<u8>;
+
+	// fn stop_task(task_id: TaskId)  -> Vec<u8>;
+
+	// fn resume_task(task_id: TaskId, start: u64)  -> Vec<u8>;
 }

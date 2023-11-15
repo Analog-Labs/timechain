@@ -47,9 +47,7 @@ impl Tss {
 		if members.len() == 1 {
 			let key = if let Some(old_commitment) = commitment {
 				let bytes = read_key_from_file(old_commitment);
-				tracing::info!("contents from file {:?}", bytes);
-				// SigningKey::from_bytes(bytes.into()).unwrap()
-				SigningKey::random()
+				SigningKey::from_bytes(bytes.try_into().unwrap()).unwrap()
 			} else {
 				SigningKey::random()
 			};

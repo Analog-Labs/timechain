@@ -302,7 +302,7 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes
 		contract_address.clone(),
 		10, //cycle
 		start_block,
-		5, //period
+		2, //period
 		Network::Ethereum,
 		false,
 	)

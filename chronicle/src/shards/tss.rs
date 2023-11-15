@@ -55,39 +55,62 @@ impl Tss {
 			.map(|peer| p2p::PeerId::from_bytes(&peer).unwrap().to_string())
 			.collect();
 		if members.len() == 1 {
-			let (key, committed) = if let Some(old_commitment) = commitment {
-				let bytes = read_key_from_file(old_commitment).unwrap();
-				(SigningKey::from_bytes(bytes.try_into().unwrap()).unwrap(), true)
-			} else {
-				(SigningKey::random(), false)
-			};
-			let public = key.public().to_bytes().unwrap();
-			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
-			let proof_of_knowledge = tss::construct_proof_of_knowledge(
-				peer_id,
-				&[*key.to_scalar().as_ref()],
-				&commitment,
-			)
-			.unwrap();
-			if let Err(e) = write_key_to_file(key, commitment.clone()) {
-				tracing::error!("Error writing TSS key to file {}", e);
-			};
-			Tss::Disabled(
-				key,
-				Some(tss::TssAction::Commit(commitment, proof_of_knowledge)),
-				committed,
-			)
-		} else if let Some(old_commitment) = commitment {
-			let secret_share_bytes = read_key_from_file(old_commitment.clone()).unwrap();
-			Tss::Enabled(tss::Tss::new(
-				peer_id,
-				members,
-				threshold,
-				Some((old_commitment, secret_share_bytes)),
-			))
+			Self::process_single_member_case(peer_id, commitment)
 		} else {
-			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, None))
+			Self::process_multiple_member_case(peer_id, members, threshold, commitment)
 		}
+	}
+
+	fn process_single_member_case(
+		peer_id: String,
+		commitment: Option<VerifiableSecretSharingCommitment>,
+	) -> Self {
+		let (key, committed) = if let Some(old_commitment) = commitment {
+			match read_key_from_file(old_commitment) {
+				Ok(bytes) if bytes.len() == 32 => {
+					let array: [u8; 32] = bytes.try_into().expect("Invalid length");
+					match SigningKey::from_bytes(array) {
+						Ok(key) => (key, true),
+						Err(e) => {
+							tracing::error!("Failed to create SigningKey from bytes: {}", e);
+							(SigningKey::random(), false)
+						},
+					}
+				},
+				_ => {
+					tracing::warn!(
+						"Failed to read key from file or invalid key length; using random key"
+					);
+					(SigningKey::random(), false)
+				},
+			}
+		} else {
+			(SigningKey::random(), false)
+		};
+		let public = key.public().to_bytes().unwrap();
+		let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
+		let proof_of_knowledge =
+			tss::construct_proof_of_knowledge(peer_id, &[*key.to_scalar().as_ref()], &commitment)
+				.unwrap();
+		if let Err(e) = write_key_to_file(key, commitment.clone()) {
+			tracing::error!("Error writing TSS key to file {}", e);
+		};
+		Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), committed)
+	}
+
+	fn process_multiple_member_case(
+		peer_id: String,
+		members: BTreeSet<String>,
+		threshold: u16,
+		commitment: Option<VerifiableSecretSharingCommitment>,
+	) -> Self {
+		let commitment = commitment.and_then(|old_commitment| {
+			read_key_from_file(old_commitment.clone())
+				.ok()
+				.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
+		});
+
+		Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
 	}
 
 	pub fn committed(&self) -> bool {

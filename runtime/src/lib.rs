@@ -1167,6 +1167,7 @@ impl pallet_tasks::Config for Runtime {
 
 impl pallet_gmp::Config for Runtime {
 	type WeightInfo = ();
+	type Shards = Shards;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

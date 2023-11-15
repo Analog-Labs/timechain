@@ -1,13 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
+pub mod sol;
+pub use sol::*;
+
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::IGateway::*;
+	use alloy_sol_types::SolCall;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, Gateway, GmpInterface, Network, ShardId, TssSignature,
+		AccountId, Function, Gateway, GmpInterface, Network, ShardId, ShardsInterface,
 	};
 
 	pub trait WeightInfo {
@@ -27,6 +30,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type WeightInfo: WeightInfo;
+		type Shards: ShardsInterface;
 	}
 
 	/// Where or not a register shard task has been scheduled for a Network
@@ -63,18 +67,18 @@ pub mod pallet {
 		/// Return Some(Function) if gateway contract deployed on network
 		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
 			let Some(gateway) = Gateways::<T>::get(network) else {
-				// contract not deployed (or storage not updated post deploy)
+				return None;
+			};
+			let Some(shard_public_key) = T::Shards::tss_public_key(shard_id) else {
 				return None;
 			};
 			Some(Function::SendMessage {
 				contract_address: gateway.address,
-				// use gateway.chain_id to form register_shard call to submit function
-				// on gateway contract
-				// function selector: 0xb58145f3
-				//  args: shardid: u64, bytes: Vec<u8>, TssSignature signature
-				// TODO: where does signature come from
-				// bytes = RegisterShard(shardid, pubkey)
-				payload: Vec::new(),
+				payload: registerTSSKeysCall {
+					signature: Default::default(),
+					tssKeys: shard_public_key.as_slice().to_vec(), // get shard public key from shards pallet
+				}
+				.abi_encode(),
 			})
 		}
 	}

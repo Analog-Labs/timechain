@@ -7758,6 +7758,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-timegraph"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-timestamp"
 version = "4.0.0-dev"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
@@ -13997,6 +14008,7 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-sudo",
  "pallet-tasks",
+ "pallet-timegraph",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",

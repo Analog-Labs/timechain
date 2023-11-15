@@ -6,6 +6,7 @@ members = [
 	"pallets/members",
 	"pallets/shards",
 	"pallets/tasks",
+	"pallets/timegraph",
 	"primitives",
 	"runtime",
 	"runtime/common",

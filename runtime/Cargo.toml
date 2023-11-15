@@ -74,6 +74,7 @@ pallet-members = { path = "../pallets/members", version = "0.0.1", default-featu
 pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
 pallet-elections = { path = "../pallets/elections", default-features = false }
 pallet-tasks = { path = "../pallets/tasks", version = "0.0.1", default-features = false }
+pallet-timegraph = { path = "../pallets/timegraph", version = "0.0.1", default-features = false }
 pallet-treasury = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 runtime-common = { path = "./common", default-features = false }
 time-primitives = { path = "../primitives", default-features = false }
@@ -113,6 +114,7 @@ std = [
 	"pallet-staking/std",
 	"pallet-sudo/std",
 	"pallet-tasks/std",
+	"pallet-timegraph/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -148,6 +150,7 @@ runtime-benchmarks = [
 	"pallet-members/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
+	"pallet-timegraph/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 ]
 try-runtime = [
@@ -164,6 +167,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-tasks/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-timegraph/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
 ]

@@ -30,7 +30,6 @@ pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
 };
 pub use timechain_runtime::tasks::events::TaskCreated;
-
 pub use subxt::config::{Config, ExtrinsicParams};
 pub use subxt::{OnlineClient, PolkadotConfig};
 pub use subxt_signer::sr25519::Keypair;
@@ -94,6 +93,14 @@ impl SubxtClient {
 		value: u128,
 	) -> subxt::tx::Payload<timechain_runtime::balances::calls::types::TransferKeepAlive> {
 		timechain_runtime::tx().balances().transfer_keep_alive(dest, value)
+	}
+
+	pub fn create_withdraw_payload(
+		from: AccountId32,
+		value: u128,
+		sequence: u64
+	) -> subxt::tx::Payload<timechain_runtime::timegraph::calls::types::Withdraw> {
+		timechain_runtime::tx().timegraph().withdraw(from, value, sequence)
 	}
 
 	pub fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>

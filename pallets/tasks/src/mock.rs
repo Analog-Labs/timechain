@@ -6,7 +6,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
+use time_primitives::{GmpInterface, Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -33,6 +33,15 @@ impl ShardsInterface for MockShardInterface {
 	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
 		Some(MockTssSigner::new().public_key())
 	}
+}
+
+pub struct MockGmpInterface;
+
+impl GmpInterface for MockGmpInterface {
+	fn task_assignable_to_shard(_: ShardId, _: Option<Network>) -> bool {
+		true
+	}
+	fn schedule_register_shard(_: ShardId, _: Network) {}
 }
 
 // Configure a mock runtime to test the pallet.
@@ -90,6 +99,7 @@ impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Shards = MockShardInterface;
+	type Gmp = MockGmpInterface;
 	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU64<10>;
 }

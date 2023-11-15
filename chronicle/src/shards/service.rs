@@ -110,8 +110,16 @@ where
 					self.substrate.get_member_peer_id(block, &account).unwrap().unwrap()
 				})
 				.collect();
-			self.tss_states
-				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));
+			let commitment = self.substrate.get_shard_commitment(block, shard_id).unwrap();
+			let ss_commitment = if commitment.is_empty() {
+				None
+			} else {
+				Some(VerifiableSecretSharingCommitment::deserialize(commitment).unwrap())
+			};
+			self.tss_states.insert(
+				shard_id,
+				Tss::new(self.network.peer_id(), members, threshold, ss_commitment),
+			);
 			self.poll_actions(&span, shard_id, block_number);
 		}
 		for shard_id in shards.iter().copied() {

@@ -1,3 +1,4 @@
+use sp_std::vec::Vec;
 alloy_sol_macro::sol! {
 	#[derive(Default, Debug, PartialEq, Eq)]
 	struct Signature {

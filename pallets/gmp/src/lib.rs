@@ -8,8 +8,10 @@ pub use sol::*;
 pub mod pallet {
 	use crate::IGateway::*;
 	use alloy_sol_types::SolCall;
+	use codec::alloc::string::ToString;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Function, Gateway, GmpInterface, MakeTask, Network, ShardId, ShardsInterface,
 		TaskDescriptorParams, TasksInterface,

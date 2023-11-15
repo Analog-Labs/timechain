@@ -45,6 +45,7 @@ std = [
 	"sp-std/std",
 	"time-primitives/std",
 	"fastrand/std",
+	"schnorr-evm/std",
 ]
 runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
 try-runtime = [ "frame-support/try-runtime" ]

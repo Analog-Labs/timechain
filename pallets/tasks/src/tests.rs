@@ -8,9 +8,9 @@ use frame_system::RawOrigin;
 use schnorr_evm::VerifyingKey;
 use sp_runtime::Saturating;
 use time_primitives::{
-	append_hash_with_task_data, AccountId, Function, Network, PublicKey, ShardId, TaskCycle,
-	TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
-	TaskStatus, TasksInterface,
+	append_hash_with_task_data, AccountId, Function, Network, PublicKey, ShardId, ShardsEvents,
+	TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase,
+	TaskResult, TaskStatus,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

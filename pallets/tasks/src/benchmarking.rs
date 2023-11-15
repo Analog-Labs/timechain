@@ -3,7 +3,7 @@ use codec::alloc::string::ToString;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use time_primitives::{
-	Function, Network, TaskDescriptorParams, TaskError, TaskResult, TasksInterface,
+	Function, Network, ShardsEvents, TaskDescriptorParams, TaskError, TaskResult,
 };
 
 benchmarks! {

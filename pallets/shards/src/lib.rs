@@ -19,8 +19,8 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
-		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsEvents, ShardsInterface,
+		TssPublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -48,8 +48,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
-		type TaskScheduler: TasksInterface;
-		type Gmp: TasksInterface;
+		type TaskScheduler: ShardsEvents;
+		type Gmp: ShardsEvents;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}

@@ -18,8 +18,8 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		append_hash_with_task_data, AccountId, Function, GmpInterface, MakeTask, Network, ShardId,
-		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution,
-		TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
+		ShardsEvents, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
+		TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -538,7 +538,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> TasksInterface for Pallet<T> {
+	impl<T: Config> ShardsEvents for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::schedule_tasks(network);

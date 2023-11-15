@@ -7,8 +7,8 @@ use pallet_tasks::TaskPhaseState;
 use sp_core::hexdisplay::HexDisplay;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, Function, Network, PublicKey, ShardStatus, ShardsInterface, TaskDescriptorParams,
-	TaskPhase, TasksInterface,
+	AccountId, Function, Network, PublicKey, ShardStatus, ShardsEvents, ShardsInterface,
+	TaskDescriptorParams, TaskPhase,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

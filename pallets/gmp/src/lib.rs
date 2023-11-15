@@ -11,7 +11,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use time_primitives::{
-		AccountId, Function, Gateway, GmpInterface, Network, ShardId, ShardsInterface,
+		AccountId, Function, Gateway, GmpInterface, MakeTask, Network, ShardId, ShardsInterface,
+		TaskDescriptorParams,
 	};
 
 	pub trait WeightInfo {
@@ -32,6 +33,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type Tasks: MakeTask;
 		type Shards: ShardsInterface;
 	}
 
@@ -76,14 +78,14 @@ pub mod pallet {
 				},
 			);
 			for shard in shard_ids {
-				Self::register_shard(shard, network);
+				ShardRegistry::<T>::insert(shard, network, ());
 			}
 			Self::deposit_event(Event::GatewayContractDeployed(network, contract_address));
 			Ok(())
 		}
 	}
 
-	impl<T: Config> GmpInterface for Pallet<T> {
+	impl<T: Config> Pallet<T> {
 		/// Return true if shard is registered to perform write tasks for the network
 		fn is_shard_registered(shard_id: ShardId, network: Network) -> bool {
 			ShardRegistry::<T>::get(shard_id, network).is_some()
@@ -92,16 +94,9 @@ pub mod pallet {
 		fn is_register_shard_scheduled(shard_id: ShardId, network: Network) -> bool {
 			RegisterShardScheduled::<T>::get(shard_id, network).is_some()
 		}
-		/// Callback for registering the shard for the network
-		fn register_shard(shard_id: ShardId, network: Network) {
-			ShardRegistry::<T>::insert(shard_id, network, ());
-		}
-		/// Callback for scheduling a task to register the shard for the network
-		fn schedule_register_shard(shard_id: ShardId, network: Network) {
-			RegisterShardScheduled::<T>::insert(shard_id, network, ());
-		}
+
 		/// Return Some(Function) if gateway contract deployed on network
-		fn get_register_shard(shard_id: ShardId, network: Network) -> Option<Function> {
+		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
 			let Some(gateway) = Gateways::<T>::get(network) else {
 				return None;
 			};
@@ -116,6 +111,42 @@ pub mod pallet {
 				}
 				.abi_encode(),
 			})
+		}
+	}
+
+	impl<T: Config> GmpInterface for Pallet<T> {
+		fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool {
+			if let Some(network) = write {
+				// only registered && online shards can do write tasks
+				Self::is_shard_registered(shard, network) && T::Shards::is_shard_online(shard)
+			} else {
+				// any shard (registered or non-registered) can do read, sign tasks
+				T::Shards::is_shard_online(shard)
+			}
+		}
+		/// Schedule register a shard
+		fn schedule_register_shard(shard_id: ShardId, network: Network) {
+			if !Self::is_shard_registered(shard_id, network)
+				&& !Self::is_register_shard_scheduled(shard_id, network)
+			{
+				if let Some(function) = Self::register_shard_call(shard_id, network) {
+					if T::Tasks::make_task(
+						[0u8; 32].into(),
+						TaskDescriptorParams {
+							network,
+							cycle: 0,
+							start: 0,
+							period: 1,
+							hash: "".to_string(),
+							function,
+						},
+					)
+					.is_ok()
+					{
+						RegisterShardScheduled::<T>::insert(shard_id, network, ());
+					} // TODO: handle error branch by logging something
+				} // TODO: handle error branch by logging something
+			}
 		}
 	}
 }

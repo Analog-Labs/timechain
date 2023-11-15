@@ -10,7 +10,6 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use codec::alloc::string::ToString;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use schnorr_evm::VerifyingKey;
@@ -18,7 +17,7 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Function, GmpInterface, Network, ShardId,
+		append_hash_with_task_data, AccountId, Function, GmpInterface, MakeTask, Network, ShardId,
 		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution,
 		TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
@@ -188,7 +187,7 @@ pub mod pallet {
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let network = schedule.network;
-			Self::do_create_task(who, schedule)?;
+			Self::make_task(who, schedule)?;
 			Self::schedule_tasks(network);
 			Ok(())
 		}
@@ -365,31 +364,6 @@ pub mod pallet {
 			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 		}
 
-		fn do_create_task(who: AccountId, schedule: TaskDescriptorParams) -> DispatchResult {
-			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
-			let task_id = TaskIdCounter::<T>::get();
-			if matches!(schedule.function, Function::SendMessage { .. }) {
-				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			}
-			Tasks::<T>::insert(
-				task_id,
-				TaskDescriptor {
-					owner: who,
-					network: schedule.network,
-					function: schedule.function,
-					cycle: schedule.cycle,
-					start: schedule.start,
-					period: schedule.period,
-					hash: schedule.hash,
-				},
-			);
-			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
-			Self::deposit_event(Event::TaskCreated(task_id));
-			Ok(())
-		}
-
 		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
 			TaskSignature::<T>::get(task)
 		}
@@ -463,14 +437,15 @@ pub mod pallet {
 		}
 
 		fn task_assignable_to_shard(task: TaskId, shard: ShardId) -> bool {
-			if matches!(TaskPhaseState::<T>::get(task), TaskPhase::Write(_)) {
-				if let Some(TaskDescriptor { network, .. }) = Tasks::<T>::get(task) {
-					return T::Gmp::is_shard_registered(shard, network)
-						&& T::Shards::is_shard_online(shard);
-				}
-			}
-			// else
-			T::Shards::is_shard_online(shard)
+			let network = if matches!(TaskPhaseState::<T>::get(task), TaskPhase::Write(_)) {
+				let Some(TaskDescriptor { network, .. }) = Tasks::<T>::get(task) else {
+					return false;
+				};
+				Some(network)
+			} else {
+				None
+			};
+			T::Gmp::task_assignable_to_shard(shard, network)
 		}
 
 		fn schedule_tasks(network: Network) {
@@ -536,30 +511,37 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> MakeTask for Pallet<T> {
+		fn make_task(who: AccountId, schedule: TaskDescriptorParams) -> DispatchResult {
+			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
+			let task_id = TaskIdCounter::<T>::get();
+			if matches!(schedule.function, Function::SendMessage { .. }) {
+				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
+			}
+			Tasks::<T>::insert(
+				task_id,
+				TaskDescriptor {
+					owner: who,
+					network: schedule.network,
+					function: schedule.function,
+					cycle: schedule.cycle,
+					start: schedule.start,
+					period: schedule.period,
+					hash: schedule.hash,
+				},
+			);
+			TaskState::<T>::insert(task_id, TaskStatus::Created);
+			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
+			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
+			Self::deposit_event(Event::TaskCreated(task_id));
+			Ok(())
+		}
+	}
+
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
-			if !T::Gmp::is_shard_registered(shard_id, network)
-				&& !T::Gmp::is_register_shard_scheduled(shard_id, network)
-			{
-				if let Some(function) = T::Gmp::register_shard_call(shard_id, network) {
-					if Self::do_create_task(
-						[0u8; 32].into(),
-						TaskDescriptorParams {
-							network,
-							cycle: 0,
-							start: 0,
-							period: 1,
-							hash: "".to_string(),
-							function,
-						},
-					)
-					.is_ok()
-					{
-						T::Gmp::scheduled_register_shard(shard_id, network);
-					} // TODO: handle error branch by logging something
-				} // TODO: handle error branch by logging something
-			}
+			T::Gmp::schedule_register_shard(shard_id, network);
 			Self::schedule_tasks(network);
 		}
 

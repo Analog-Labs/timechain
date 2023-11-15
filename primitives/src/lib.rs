@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_api::ApiError;
-use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
+use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
 mod gmp;
@@ -114,10 +114,11 @@ pub trait TasksInterface {
 	fn shard_offline(shard_id: ShardId, network: Network);
 }
 
+pub trait MakeTask {
+	fn make_task(who: AccountId, schedule: TaskDescriptorParams) -> DispatchResult;
+}
+
 pub trait GmpInterface {
-	fn is_shard_registered(shard_id: ShardId, network: Network) -> bool;
-	fn is_register_shard_scheduled(shard_id: ShardId, network: Network) -> bool;
-	fn register_shard(shard_id: ShardId, network: Network);
+	fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool;
 	fn schedule_register_shard(shard_id: ShardId, network: Network);
-	fn get_register_shard(shard_id: ShardId, network: Network) -> Option<Function>;
 }

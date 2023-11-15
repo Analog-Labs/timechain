@@ -19,7 +19,6 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 		start: 0,
 		period: 1,
 		hash: "".to_string(),
-		task_sequence: 1,
 	}
 }
 

@@ -45,11 +45,11 @@ impl Tss {
 			.map(|peer| p2p::PeerId::from_bytes(&peer).unwrap().to_string())
 			.collect();
 		if members.len() == 1 {
-			let key = if let Some(old_commitment) = commitment {
+			let (key, committed) = if let Some(old_commitment) = commitment {
 				let bytes = read_key_from_file(old_commitment);
-				SigningKey::from_bytes(bytes.try_into().unwrap()).unwrap()
+				(SigningKey::from_bytes(bytes.try_into().unwrap()).unwrap(), true)
 			} else {
-				SigningKey::random()
+				(SigningKey::random(), false)
 			};
 			let public = key.public().to_bytes().unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
@@ -60,7 +60,11 @@ impl Tss {
 			)
 			.unwrap();
 			write_key_to_file(key, commitment.clone());
-			Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), false)
+			Tss::Disabled(
+				key,
+				Some(tss::TssAction::Commit(commitment, proof_of_knowledge)),
+				committed,
+			)
 		} else if let Some(_old_commitment) = commitment {
 			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, None))
 		} else {

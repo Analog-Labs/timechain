@@ -11,7 +11,7 @@ pub type TssAction = tss::TssAction<TssId, PeerId>;
 
 fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Result<Vec<u8>> {
 	let serialized_commitment = commitment.serialize();
-	if serialized_commitment.len() < 1 {
+	if serialized_commitment.is_empty() {
 		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
 	}
 	let file_name = hex::encode(serialized_commitment[0]);
@@ -24,7 +24,7 @@ fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Result<V
 
 fn write_key_to_file(key: SigningKey, commitment: VerifiableSecretSharingCommitment) -> Result<()> {
 	let serialized_commitment = commitment.serialize();
-	if serialized_commitment.len() < 1 {
+	if serialized_commitment.is_empty() {
 		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
 	}
 	let data = key.to_bytes();

@@ -22,17 +22,17 @@ mod shards;
 mod tasks;
 
 pub use subxt::backend::rpc::{rpc_params, RpcParams};
+pub use subxt::config::{Config, ExtrinsicParams};
 pub use subxt::tx::PartialExtrinsic;
 pub use subxt::utils::AccountId32;
 pub use subxt::{ext, tx, utils};
+pub use subxt::{OnlineClient, PolkadotConfig};
+pub use subxt_signer::sr25519::Keypair;
 pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
 };
 pub use timechain_runtime::tasks::events::TaskCreated;
-pub use subxt::config::{Config, ExtrinsicParams};
-pub use subxt::{OnlineClient, PolkadotConfig};
-pub use subxt_signer::sr25519::Keypair;
 
 pub trait AccountInterface {
 	fn nonce(&self) -> u64;
@@ -98,7 +98,7 @@ impl SubxtClient {
 	pub fn create_withdraw_payload(
 		from: AccountId32,
 		value: u128,
-		sequence: u64
+		sequence: u64,
 	) -> subxt::tx::Payload<timechain_runtime::timegraph::calls::types::Withdraw> {
 		timechain_runtime::tx().timegraph().withdraw(from, value, sequence)
 	}

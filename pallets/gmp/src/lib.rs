@@ -9,16 +9,17 @@ pub mod pallet {
 	use crate::IGateway::*;
 	use alloy_sol_types::SolCall;
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 	use time_primitives::{
 		AccountId, Function, Gateway, GmpInterface, Network, ShardId, ShardsInterface,
 	};
 
 	pub trait WeightInfo {
-		fn send_message() -> Weight;
+		fn deploy_gateway() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn send_message() -> Weight {
+		fn deploy_gateway() -> Weight {
 			Weight::default()
 		}
 	}
@@ -29,6 +30,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 	}
@@ -44,8 +46,42 @@ pub mod pallet {
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, Network, (), OptionQuery>;
 
 	/// Gateway contracts deployed on each network
+	/// TODO: change to just value contract_address once Network includes chain_id
 	#[pallet::storage]
 	pub type Gateways<T: Config> = StorageMap<_, Blake2_128Concat, Network, Gateway, OptionQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		GatewayContractDeployed(Network, [u8; 20]), //TODO make call args event args
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::deploy_gateway())]
+		pub fn deploy_gateway(
+			origin: OriginFor<T>,
+			network: Network,
+			chain_id: u64,
+			contract_address: [u8; 20],
+			shard_ids: Vec<ShardId>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Gateways::<T>::insert(
+				network,
+				Gateway {
+					address: contract_address.clone().to_vec(),
+					chain_id,
+				},
+			);
+			for shard in shard_ids {
+				Self::register_shard(shard, network);
+			}
+			Self::deposit_event(Event::GatewayContractDeployed(network, contract_address));
+			Ok(())
+		}
+	}
 
 	impl<T: Config> GmpInterface for Pallet<T> {
 		/// Return true if shard is registered to perform write tasks for the network
@@ -57,15 +93,15 @@ pub mod pallet {
 			RegisterShardScheduled::<T>::get(shard_id, network).is_some()
 		}
 		/// Callback for registering the shard for the network
-		fn registered_shard(shard_id: ShardId, network: Network) {
+		fn register_shard(shard_id: ShardId, network: Network) {
 			ShardRegistry::<T>::insert(shard_id, network, ());
 		}
 		/// Callback for scheduling a task to register the shard for the network
-		fn scheduled_register_shard(shard_id: ShardId, network: Network) {
+		fn schedule_register_shard(shard_id: ShardId, network: Network) {
 			RegisterShardScheduled::<T>::insert(shard_id, network, ());
 		}
 		/// Return Some(Function) if gateway contract deployed on network
-		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
+		fn get_register_shard(shard_id: ShardId, network: Network) -> Option<Function> {
 			let Some(gateway) = Gateways::<T>::get(network) else {
 				return None;
 			};
@@ -76,7 +112,7 @@ pub mod pallet {
 				contract_address: gateway.address,
 				payload: registerTSSKeysCall {
 					signature: Default::default(),
-					tssKeys: shard_public_key.as_slice().to_vec(), // get shard public key from shards pallet
+					tssKeys: shard_public_key.as_slice().to_vec(),
 				}
 				.abi_encode(),
 			})

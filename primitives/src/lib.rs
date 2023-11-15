@@ -117,7 +117,7 @@ pub trait TasksInterface {
 pub trait GmpInterface {
 	fn is_shard_registered(shard_id: ShardId, network: Network) -> bool;
 	fn is_register_shard_scheduled(shard_id: ShardId, network: Network) -> bool;
-	fn registered_shard(shard_id: ShardId, network: Network);
-	fn scheduled_register_shard(shard_id: ShardId, network: Network);
-	fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function>;
+	fn register_shard(shard_id: ShardId, network: Network);
+	fn schedule_register_shard(shard_id: ShardId, network: Network);
+	fn get_register_shard(shard_id: ShardId, network: Network) -> Option<Function>;
 }

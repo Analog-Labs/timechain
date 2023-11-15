@@ -140,7 +140,7 @@ where
 		peer_id: P,
 		members: BTreeSet<P>,
 		threshold: u16,
-		commitment: Option<(VerifiableSecretSharingCommitment, SecretShare)>,
+		commitment: Option<(VerifiableSecretSharingCommitment, Vec<u8>)>,
 	) -> Self {
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_to_frost(&peer_id);
@@ -157,19 +157,34 @@ where
 			members.len(),
 			is_coordinator
 		);
+		let (state, committed) = if let Some((commitment, secret_bytes)) = commitment {
+			let secret_string = String::from_utf8(secret_bytes).unwrap();
+			let secret_share: SecretShare = serde_json::from_str(&secret_string).unwrap();
+			let members: BTreeSet<Identifier> = frost_to_peer.keys().copied().collect();
+			let rts = RtsHelper::new(frost_id, members.clone(), threshold, secret_share.clone());
+			let key_package = KeyPackage::try_from(secret_share).unwrap();
+			let public_key_package =
+				PublicKeyPackage::from_commitment(&members, &commitment).unwrap();
+			(
+				TssState::Roast {
+					rts,
+					key_package,
+					public_key_package,
+					signing_sessions: Default::default(),
+				},
+				true,
+			)
+		} else {
+			(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
+		};
 		Self {
 			peer_id,
 			frost_id,
 			frost_to_peer,
 			threshold,
 			coordinators,
-			state: if let Some((commitment, _)) = commitment {
-				TssState::Rts(Rts::new(frost_id, members, threshold, commitment))
-			// read file here on commitment/public key, and read secret share from here
-			} else {
-				TssState::Dkg(Dkg::new(frost_id, members, threshold))
-			},
-			committed: false,
+			state,
+			committed,
 		}
 	}
 

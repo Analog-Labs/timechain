@@ -1153,6 +1153,7 @@ impl pallet_shards::Config for Runtime {
 	type Members = Members;
 	type Elections = Elections;
 	type TaskScheduler = Tasks;
+	type Gmp = Gmp;
 	type DkgTimeout = ConstU32<10>;
 }
 

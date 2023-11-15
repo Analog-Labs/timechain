@@ -120,5 +120,4 @@ pub trait MakeTask {
 
 pub trait GmpInterface {
 	fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool;
-	fn schedule_register_shard(shard_id: ShardId, network: Network);
 }

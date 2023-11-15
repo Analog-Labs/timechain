@@ -541,7 +541,6 @@ pub mod pallet {
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
-			T::Gmp::schedule_register_shard(shard_id, network);
 			Self::schedule_tasks(network);
 		}
 

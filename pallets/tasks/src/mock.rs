@@ -41,7 +41,6 @@ impl GmpInterface for MockGmpInterface {
 	fn task_assignable_to_shard(_: ShardId, _: Option<Network>) -> bool {
 		true
 	}
-	fn schedule_register_shard(_: ShardId, _: Network) {}
 }
 
 // Configure a mock runtime to test the pallet.

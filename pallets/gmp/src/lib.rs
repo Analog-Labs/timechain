@@ -12,7 +12,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use time_primitives::{
 		AccountId, Function, Gateway, GmpInterface, MakeTask, Network, ShardId, ShardsInterface,
-		TaskDescriptorParams,
+		TaskDescriptorParams, TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -112,18 +112,6 @@ pub mod pallet {
 				.abi_encode(),
 			})
 		}
-	}
-
-	impl<T: Config> GmpInterface for Pallet<T> {
-		fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool {
-			if let Some(network) = write {
-				// only registered && online shards can do write tasks
-				Self::is_shard_registered(shard, network) && T::Shards::is_shard_online(shard)
-			} else {
-				// any shard (registered or non-registered) can do read, sign tasks
-				T::Shards::is_shard_online(shard)
-			}
-		}
 		/// Schedule register a shard
 		fn schedule_register_shard(shard_id: ShardId, network: Network) {
 			if !Self::is_shard_registered(shard_id, network)
@@ -146,6 +134,28 @@ pub mod pallet {
 						RegisterShardScheduled::<T>::insert(shard_id, network, ());
 					} // TODO: handle error branch by logging something
 				} // TODO: handle error branch by logging something
+			}
+		}
+	}
+
+	impl<T: Config> TasksInterface for Pallet<T> {
+		fn shard_online(shard_id: ShardId, network: Network) {
+			Self::schedule_register_shard(shard_id, network);
+		}
+
+		fn shard_offline(shard_id: ShardId, network: Network) {
+			ShardRegistry::<T>::remove(shard_id, network);
+		}
+	}
+
+	impl<T: Config> GmpInterface for Pallet<T> {
+		fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool {
+			if let Some(network) = write {
+				// only registered && online shards can do write tasks
+				Self::is_shard_registered(shard, network) && T::Shards::is_shard_online(shard)
+			} else {
+				// any shard (registered or non-registered) can do read, sign tasks
+				T::Shards::is_shard_online(shard)
 			}
 		}
 	}

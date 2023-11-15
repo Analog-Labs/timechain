@@ -157,23 +157,9 @@ where
 			members.len(),
 			is_coordinator
 		);
-		let (state, committed) = if let Some((commitment, secret_bytes)) = commitment {
-			let secret_string = String::from_utf8(secret_bytes).unwrap();
-			let secret_share: SecretShare = serde_json::from_str(&secret_string).unwrap();
-			let members: BTreeSet<Identifier> = frost_to_peer.keys().copied().collect();
-			let rts = RtsHelper::new(frost_id, members.clone(), threshold, secret_share.clone());
-			let key_package = KeyPackage::try_from(secret_share).unwrap();
-			let public_key_package =
-				PublicKeyPackage::from_commitment(&members, &commitment).unwrap();
-			(
-				TssState::Roast {
-					rts,
-					key_package,
-					public_key_package,
-					signing_sessions: Default::default(),
-				},
-				true,
-			)
+		let (state, committed) = if let Some((commitment, _secret_bytes)) = commitment {
+			//todo fix rts for shards with more than one node.
+			(TssState::Rts(Rts::new(frost_id, members, threshold, commitment)), true)
 		} else {
 			(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
 		};

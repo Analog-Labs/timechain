@@ -1,29 +1,40 @@
 use crate::network::PeerId;
+use anyhow::Result;
 use std::collections::BTreeSet;
 use std::fs;
+
 pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
 
 pub type TssMessage = tss::TssMessage<TssId>;
 pub type TssAction = tss::TssAction<TssId, PeerId>;
 
-fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Vec<u8> {
-	let file_name = hex::encode(commitment.serialize()[0]);
-	let home_dir = dirs::home_dir().expect("Home directory not found");
+fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Result<Vec<u8>> {
+	let serialized_commitment = commitment.serialize();
+	if serialized_commitment.len() < 1 {
+		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
+	}
+	let file_name = hex::encode(serialized_commitment[0]);
+	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Root directory not found"))?;
 	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir_all(analog_dir.clone()).expect("Something went wrong while getting key");
+	fs::create_dir_all(analog_dir.clone())?;
 	let file_path = analog_dir.join(file_name);
-	fs::read(file_path).expect("unable to read data")
+	Ok(fs::read(file_path)?)
 }
 
-fn write_key_to_file(key: SigningKey, commitment: VerifiableSecretSharingCommitment) {
+fn write_key_to_file(key: SigningKey, commitment: VerifiableSecretSharingCommitment) -> Result<()> {
+	let serialized_commitment = commitment.serialize();
+	if serialized_commitment.len() < 1 {
+		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
+	}
 	let data = key.to_bytes();
-	let file_name = hex::encode(commitment.serialize()[0]);
-	let home_dir = dirs::home_dir().expect("Home directory not found");
+	let file_name = hex::encode(serialized_commitment[0]);
+	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Root directory not found"))?;
 	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir_all(analog_dir.clone()).expect("Something went wrong while getting key");
+	fs::create_dir_all(analog_dir.clone())?;
 	let file_path = analog_dir.join(file_name);
-	fs::write(file_path, data).expect("Something went wrong while writing data");
+	fs::write(file_path, data)?;
+	Ok(())
 }
 
 pub enum Tss {
@@ -45,7 +56,7 @@ impl Tss {
 			.collect();
 		if members.len() == 1 {
 			let (key, committed) = if let Some(old_commitment) = commitment {
-				let bytes = read_key_from_file(old_commitment);
+				let bytes = read_key_from_file(old_commitment).unwrap();
 				(SigningKey::from_bytes(bytes.try_into().unwrap()).unwrap(), true)
 			} else {
 				(SigningKey::random(), false)
@@ -58,14 +69,16 @@ impl Tss {
 				&commitment,
 			)
 			.unwrap();
-			write_key_to_file(key, commitment.clone());
+			if let Err(e) = write_key_to_file(key, commitment.clone()) {
+				tracing::error!("Error writing TSS key to file {}", e);
+			};
 			Tss::Disabled(
 				key,
 				Some(tss::TssAction::Commit(commitment, proof_of_knowledge)),
 				committed,
 			)
 		} else if let Some(old_commitment) = commitment {
-			let secret_share_bytes = read_key_from_file(old_commitment.clone());
+			let secret_share_bytes = read_key_from_file(old_commitment.clone()).unwrap();
 			Tss::Enabled(tss::Tss::new(
 				peer_id,
 				members,

@@ -1,7 +1,6 @@
 use crate::network::PeerId;
 use std::collections::BTreeSet;
 use std::fs;
-
 pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -65,8 +64,14 @@ impl Tss {
 				Some(tss::TssAction::Commit(commitment, proof_of_knowledge)),
 				committed,
 			)
-		} else if let Some(_old_commitment) = commitment {
-			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, None))
+		} else if let Some(old_commitment) = commitment {
+			let secret_share_bytes = read_key_from_file(old_commitment.clone());
+			Tss::Enabled(tss::Tss::new(
+				peer_id,
+				members,
+				threshold,
+				Some((old_commitment, secret_share_bytes)),
+			))
 		} else {
 			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, None))
 		}

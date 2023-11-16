@@ -14527,11 +14527,14 @@ name = "tss"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "dirs",
  "env_logger",
  "frost-evm",
+ "hex 0.4.3",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
+ "time-primitives",
  "tracing",
 ]
 

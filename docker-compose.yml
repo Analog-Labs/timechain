@@ -69,7 +69,7 @@ services:
     - ethereum
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile:/etc/timechain_keyfile:ro'
+    - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

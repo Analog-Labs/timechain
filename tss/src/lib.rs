@@ -8,6 +8,8 @@ use frost_evm::{Identifier, Scalar};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use time_primitives::TSS_KEY_PATH;
 
 pub use frost_evm::frost_core::frost::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
@@ -120,6 +122,24 @@ pub fn verify_proof_of_knowledge(
 	)?)
 }
 
+fn write_key_to_file(
+	key: SecretShare,
+	commitment: VerifiableSecretSharingCommitment,
+) -> Result<()> {
+	let serialized_commitment = commitment.serialize();
+	if serialized_commitment.is_empty() {
+		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
+	}
+	let data = serde_json::to_string(&key).unwrap();
+	let file_name = hex::encode(serialized_commitment[0]);
+	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Root directory not found"))?;
+	let analog_dir = home_dir.join(TSS_KEY_PATH);
+	fs::create_dir_all(analog_dir.clone())?;
+	let file_path = analog_dir.join(file_name);
+	fs::write(file_path, data)?;
+	Ok(())
+}
+
 /// Tss state machine.
 pub struct Tss<I, P> {
 	peer_id: P,
@@ -158,8 +178,21 @@ where
 			is_coordinator
 		);
 		let (state, committed) = if let Some((commitment, _secret_bytes)) = commitment {
-			//todo fix rts for shards with more than one node.
-			(TssState::Rts(Rts::new(frost_id, members, threshold, commitment)), true)
+			let secret_str = String::from_utf8(_secret_bytes).unwrap();
+			let secret_share: SecretShare = serde_json::from_str(&secret_str).unwrap();
+			let rts = RtsHelper::new(frost_id, members.clone(), threshold, secret_share.clone());
+			let key_package = KeyPackage::try_from(secret_share).unwrap();
+			let public_key_package =
+				PublicKeyPackage::from_commitment(&members, &commitment).unwrap();
+			let state = TssState::<I>::Roast {
+				rts,
+				key_package,
+				public_key_package,
+				signing_sessions: Default::default(),
+			};
+			(state, true)
+		//todo fix rts for shards with more than one node.
+		// (TssState::Rts(Rts::new(frost_id, members, threshold, commitment)), true)
 		} else {
 			(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
 		};
@@ -339,8 +372,9 @@ where
 						let secret_share = SecretShare::new(
 							self.frost_id,
 							*key_package.signing_share(),
-							commitment,
+							commitment.clone(),
 						);
+						write_key_to_file(secret_share.clone(), commitment);
 						let public_key =
 							VerifyingKey::new(public_key_package.verifying_key().to_element());
 						let members = self.frost_to_peer.keys().copied().collect();

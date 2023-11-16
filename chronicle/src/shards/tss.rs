@@ -15,9 +15,9 @@ fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Result<V
 		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
 	}
 	let file_name = hex::encode(serialized_commitment[0]);
-	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Root directory not found"))?;
+	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
 	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir_all(analog_dir.clone())?;
+	fs::create_dir(analog_dir.clone())?;
 	let file_path = analog_dir.join(file_name);
 	Ok(fs::read(file_path)?)
 }
@@ -31,7 +31,7 @@ fn write_key_to_file(key: SigningKey, commitment: VerifiableSecretSharingCommitm
 	let file_name = hex::encode(serialized_commitment[0]);
 	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Root directory not found"))?;
 	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir_all(analog_dir.clone())?;
+	fs::create_dir(analog_dir.clone())?;
 	let file_path = analog_dir.join(file_name);
 	fs::write(file_path, data)?;
 	Ok(())

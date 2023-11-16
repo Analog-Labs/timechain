@@ -6,7 +6,7 @@ pub use sol::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::IGateway::*;
+	use crate::{IGateway::*, *};
 	use alloy_sol_types::SolCall;
 	use codec::alloc::string::ToString;
 	use frame_support::pallet_prelude::*;
@@ -105,11 +105,15 @@ pub mod pallet {
 			let Some(shard_public_key) = T::Shards::tss_public_key(shard_id) else {
 				return None;
 			};
+			let mut key_vec = shard_public_key.to_vec();
+			let x_coordinate: [u8; 32] = shard_public_key[1..].try_into().unwrap();
+			let (parity, coord_x) = (key_vec.remove(0), x_coordinate.into());
 			Some(Function::SendMessage {
 				contract_address: gateway.address,
 				payload: registerTSSKeysCall {
+					// signed at execution => dummy signature now
 					signature: Default::default(),
-					tssKeys: shard_public_key.as_slice().to_vec(),
+					tssKeys: vec![TssKey { parity, coordX: coord_x }],
 				}
 				.abi_encode(),
 			})

@@ -18,9 +18,15 @@ alloy_sol_macro::sol! {
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
+	struct TssKey {
+		uint8 parity;    // public key y-coord parity (27 or 28)
+		bytes32 coordX;  // public key x-coord
+	}
+
+	#[derive(Debug, PartialEq, Eq)]
 	interface IGateway {
-		function registerTSSKeys(Signature memory signature, uint8[] memory tssKeys) external;
-		function revokeTSSKeys(Signature memory signature, uint8[] memory tssKeys) external;
+		function registerTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
+		function revokeTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
 		function execute(Signature memory signature, GMPMessage memory message) external;
 	}
 }

@@ -95,8 +95,7 @@ impl pallet_balances::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type TaskScheduler = MockTaskScheduler;
-	type Gmp = MockTaskScheduler;
+	type OnlineOfflineHandler = MockTaskScheduler;
 	type Members = MockMembers;
 	type Elections = MockElections;
 	type DkgTimeout = ConstU64<10>;

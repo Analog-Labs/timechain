@@ -14170,6 +14170,7 @@ dependencies = [
  "async-trait",
  "frame-system",
  "futures",
+ "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",

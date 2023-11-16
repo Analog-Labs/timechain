@@ -109,6 +109,7 @@ pub trait ShardsInterface {
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 
+#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait ShardsEvents {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);

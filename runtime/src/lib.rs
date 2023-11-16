@@ -1152,8 +1152,7 @@ impl pallet_shards::Config for Runtime {
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type Members = Members;
 	type Elections = Elections;
-	type TaskScheduler = Tasks;
-	type Gmp = Gmp;
+	type OnlineOfflineHandler = (Tasks, Gmp);
 	type DkgTimeout = ConstU32<10>;
 }
 

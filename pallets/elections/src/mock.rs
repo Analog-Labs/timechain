@@ -93,7 +93,7 @@ impl pallet_elections::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type TaskScheduler = MockTaskScheduler;
+	type OnlineOfflineHandler = MockTaskScheduler;
 	type Members = MockMembers;
 	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;

@@ -48,8 +48,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
-		type TaskScheduler: ShardsEvents;
-		type Gmp: ShardsEvents;
+		type OnlineOfflineHandler: ShardsEvents;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -193,8 +192,7 @@ pub mod pallet {
 			{
 				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
-				T::TaskScheduler::shard_online(shard_id, network);
-				T::Gmp::shard_online(shard_id, network);
+				T::OnlineOfflineHandler::shard_online(shard_id, network);
 			}
 			Ok(())
 		}
@@ -224,8 +222,7 @@ pub mod pallet {
 			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
 			ShardThreshold::<T>::remove(shard_id);
 			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
-			T::TaskScheduler::shard_offline(shard_id, network);
-			T::Gmp::shard_offline(shard_id, network);
+			T::OnlineOfflineHandler::shard_offline(shard_id, network);
 			let members = ShardMembers::<T>::drain_prefix(shard_id)
 				.map(|(m, _)| {
 					MemberShard::<T>::remove(&m);
@@ -277,7 +274,7 @@ pub mod pallet {
 			if matches!(new_status, ShardStatus::Online)
 				&& !matches!(old_status, ShardStatus::Online)
 			{
-				T::TaskScheduler::shard_online(shard_id, network);
+				T::OnlineOfflineHandler::shard_online(shard_id, network);
 			}
 		}
 

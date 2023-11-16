@@ -20,6 +20,7 @@ schnorr-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = 
 serde = "1.0.188"
 serde_json = "1.0.105"
 sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false}
 sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 tc-subxt = { path = "../tc-subxt" }
@@ -36,7 +37,6 @@ sc-network-test = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", bra
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 sc-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false}
 substrate-test-runtime-client = {  git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 log-panics = "2.1.0"
 lazy_static = "1.4.0"

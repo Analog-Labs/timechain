@@ -79,7 +79,12 @@ where
 		}
 	}
 
-	fn on_finality(&mut self, span: &Span, block: BlockHash, block_number: BlockNumber) {
+	fn on_finality(
+		&mut self,
+		span: &Span,
+		block: BlockHash,
+		block_number: BlockNumber,
+	) -> Result<()> {
 		let span = span!(
 			target: TW_LOG,
 			parent: span,
@@ -88,14 +93,14 @@ where
 			block = block.to_string(),
 			block_number,
 		);
-		let shards = self.substrate.get_shards(block, &self.substrate.account_id()).unwrap();
+		let shards = self.substrate.get_shards(block, &self.substrate.account_id())?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
 			}
-			let members = self.substrate.get_shard_members(block, shard_id).unwrap();
+			let members = self.substrate.get_shard_members(block, shard_id)?;
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -103,18 +108,21 @@ where
 				shard_id,
 				"joining shard",
 			);
-			let threshold = self.substrate.get_shard_threshold(block, shard_id).unwrap();
+			let threshold = self.substrate.get_shard_threshold(block, shard_id)?;
 			let members = members
 				.into_iter()
-				.map(|(account, _)| {
-					self.substrate.get_member_peer_id(block, &account).unwrap().unwrap()
+				.filter_map(|(account, _)| {
+					match self.substrate.get_member_peer_id(block, &account) {
+						Ok(Some(peer_id)) => Some(peer_id),
+						Ok(None) | Err(_) => None, // Handles both the None and Error cases
+					}
 				})
 				.collect();
-			let commitment = self.substrate.get_shard_commitment(block, shard_id).unwrap();
+			let commitment = self.substrate.get_shard_commitment(block, shard_id)?;
 			let ss_commitment = if commitment.is_empty() {
 				None
 			} else {
-				Some(VerifiableSecretSharingCommitment::deserialize(commitment).unwrap())
+				Some(VerifiableSecretSharingCommitment::deserialize(commitment)?)
 			};
 			self.tss_states.insert(
 				shard_id,
@@ -129,11 +137,11 @@ where
 			if tss.committed() {
 				continue;
 			}
-			if self.substrate.get_shard_status(block, shard_id).unwrap() != ShardStatus::Committed {
+			if self.substrate.get_shard_status(block, shard_id)? != ShardStatus::Committed {
 				continue;
 			}
-			let commitment = self.substrate.get_shard_commitment(block, shard_id).unwrap();
-			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment).unwrap();
+			let commitment = self.substrate.get_shard_commitment(block, shard_id)?;
+			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number);
 		}
@@ -195,7 +203,7 @@ where
 			}
 		}
 		for shard_id in shards {
-			if self.substrate.get_shard_status(block, shard_id).unwrap() != ShardStatus::Online {
+			if self.substrate.get_shard_status(block, shard_id)? != ShardStatus::Online {
 				continue;
 			}
 			let executor =
@@ -229,6 +237,7 @@ where
 				tss.on_complete(session);
 			}
 		}
+		Ok(())
 	}
 
 	fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: BlockNumber) {
@@ -355,7 +364,9 @@ where
 						);
 						continue;
 					};
-					self.on_finality(span, block_hash, block_number);
+					if let Err(e) = self.on_finality(span, block_hash, block_number){
+						tracing::error!("Error running on_finality {:?}", e);
+					}
 				},
 				tss_request = self.tss_request.next().fuse() => {
 					let Some(TssSigningRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {

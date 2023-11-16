@@ -29,6 +29,37 @@ impl std::fmt::Display for TssId {
 	}
 }
 
+type ChainId = u64;
+
+/// Convert ChainId to Network
+impl TryFrom<ChainId> for Network {
+	type Error = ();
+	fn try_from(chain_id: ChainId) -> Result<Network, ()> {
+		match chain_id {
+			1 => Ok(Network::Ethereum),
+			592 => Ok(Network::Astar),
+			137 => Ok(Network::Polygon),
+			_ => Err(()),
+			// 42161 => Network::Arbitrum,
+			// 5 => Network::Goerli,
+		}
+	}
+}
+
+/// Convert Network to ChainId
+impl TryFrom<Network> for ChainId {
+	type Error = ();
+	fn try_from(network: Network) -> Result<ChainId, ()> {
+		match network {
+			Network::Ethereum => Ok(1),
+			Network::Astar => Ok(592),
+			Network::Polygon => Ok(137),
+			// Network::Arbitrum => Ok(42161),
+			// Network::Goerli => Ok(5),
+		}
+	}
+}
+
 /// Used to enforce one network per shard
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]

@@ -13,7 +13,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, Gateway, GmpInterface, MakeTask, Network, ShardId, ShardsEvents,
+		AccountId, Function, GmpInterface, MakeTask, Network, ShardId, ShardsEvents,
 		ShardsInterface, TaskDescriptorParams,
 	};
 
@@ -49,10 +49,15 @@ pub mod pallet {
 	pub type ShardRegistry<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, Network, (), OptionQuery>;
 
-	/// Gateway contracts deployed on each network
-	/// TODO: change to just value contract_address once Network includes chain_id
+	/// Address for gateway contracts deployed by network
 	#[pallet::storage]
-	pub type Gateways<T: Config> = StorageMap<_, Blake2_128Concat, Network, Gateway, OptionQuery>;
+	pub type GatewayAddress<T: Config> =
+		StorageMap<_, Blake2_128Concat, Network, [u8; 20], OptionQuery>;
+
+	#[pallet::error]
+	pub enum Error<T> {
+		NoNetworkForChainID,
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -66,19 +71,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::deploy_gateway())]
 		pub fn deploy_gateway(
 			origin: OriginFor<T>,
-			network: Network,
 			chain_id: u64,
 			contract_address: [u8; 20],
 			shard_ids: Vec<ShardId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Gateways::<T>::insert(
-				network,
-				Gateway {
-					address: contract_address.clone().to_vec(),
-					chain_id,
-				},
-			);
+			let network = chain_id.try_into().map_err(|_| Error::<T>::NoNetworkForChainID)?;
+			GatewayAddress::<T>::insert(network, contract_address.clone());
 			for shard in shard_ids {
 				ShardRegistry::<T>::insert(shard, network, ());
 			}
@@ -99,7 +98,7 @@ pub mod pallet {
 
 		/// Return Some(Function) if gateway contract deployed on network
 		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
-			let Some(gateway) = Gateways::<T>::get(network) else {
+			let Some(contract_address) = GatewayAddress::<T>::get(network) else {
 				return None;
 			};
 			let Some(shard_public_key) = T::Shards::tss_public_key(shard_id) else {
@@ -109,11 +108,11 @@ pub mod pallet {
 			let x_coordinate: [u8; 32] = shard_public_key[1..].try_into().unwrap();
 			let (parity, coord_x) = (key_vec.remove(0), x_coordinate.into());
 			Some(Function::SendMessage {
-				contract_address: gateway.address,
+				contract_address: contract_address.to_vec(),
 				payload: registerTSSKeysCall {
 					// signed at execution => dummy signature now
 					signature: Default::default(),
-					tssKeys: vec![TssKey { parity, coordX: coord_x }],
+					tssKeys: sp_std::vec![TssKey { parity, coordX: coord_x }],
 				}
 				.abi_encode(),
 			})

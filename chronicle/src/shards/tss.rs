@@ -1,40 +1,63 @@
 use crate::network::PeerId;
 use anyhow::Result;
+use sp_core::blake2_128;
 use std::collections::BTreeSet;
 use std::fs;
-
+use std::path::PathBuf;
 pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
 
 pub type TssMessage = tss::TssMessage<TssId>;
 pub type TssAction = tss::TssAction<TssId, PeerId>;
 
-fn read_key_from_file(commitment: VerifiableSecretSharingCommitment) -> Result<Vec<u8>> {
-	let serialized_commitment = commitment.serialize();
-	if serialized_commitment.is_empty() {
-		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
-	}
-	let file_name = hex::encode(serialized_commitment[0]);
-	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
-	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir(analog_dir.clone())?;
-	let file_path = analog_dir.join(file_name);
+// read the secret from file stored in local
+// name fetched from peer_id and commitment combined.
+// Data returned could be SigningKey and SecretShare
+fn read_key_from_file(
+	peer_id: String,
+	commitment: VerifiableSecretSharingCommitment,
+) -> Result<Vec<u8>> {
+	let file_path = file_path_from_commitment(peer_id.clone(), commitment.clone())?;
+	tracing::debug!("=============reading_file_name=========");
+	tracing::debug!("{:?}", peer_id);
+	tracing::debug!("{:?}", commitment);
+	tracing::info!("{:?}", file_path);
+	tracing::debug!("=======================================");
 	Ok(fs::read(file_path)?)
 }
 
-fn write_key_to_file(key: SigningKey, commitment: VerifiableSecretSharingCommitment) -> Result<()> {
-	let serialized_commitment = commitment.serialize();
-	if serialized_commitment.is_empty() {
-		return Err(anyhow::anyhow!("Received commitment is empty while recovery TSS state"));
-	}
+// writes SignignKey to a local file
+fn write_key_to_file(
+	key: SigningKey,
+	peer_id: String,
+	commitment: VerifiableSecretSharingCommitment,
+) -> Result<()> {
 	let data = key.to_bytes();
-	let file_name = hex::encode(serialized_commitment[0]);
-	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Root directory not found"))?;
-	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir(analog_dir.clone())?;
-	let file_path = analog_dir.join(file_name);
+	let file_path = file_path_from_commitment(peer_id.clone(), commitment.clone())?;
+	tracing::debug!("=============writing_file_name=========");
+	tracing::debug!("{:?}", peer_id);
+	tracing::debug!("{:?}", commitment);
+	tracing::info!("{:?}", file_path);
+	tracing::debug!("=======================================");
 	fs::write(file_path, data)?;
 	Ok(())
+}
+
+// Take peer_id and shard commitment
+// makes a unique filename using params
+fn file_path_from_commitment(
+	peer_id: String,
+	commitment: VerifiableSecretSharingCommitment,
+) -> Result<PathBuf> {
+	let commitment_serialized = serde_json::to_string(&commitment)?;
+	let mut combined_data = Vec::new();
+	combined_data.extend_from_slice(peer_id.as_bytes());
+	combined_data.extend_from_slice(commitment_serialized.as_bytes());
+	let file_name = hex::encode(blake2_128(&combined_data));
+	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
+	let analog_dir = home_dir.join(TSS_KEY_PATH);
+	fs::create_dir_all(analog_dir.clone())?;
+	Ok(analog_dir.join(file_name))
 }
 
 pub enum Tss {
@@ -65,36 +88,43 @@ impl Tss {
 		peer_id: String,
 		commitment: Option<VerifiableSecretSharingCommitment>,
 	) -> Self {
-		let (key, committed) = if let Some(old_commitment) = commitment {
-			match read_key_from_file(old_commitment) {
+		let (key, committed, is_new) = if let Some(old_commitment) = commitment {
+			match read_key_from_file(peer_id.clone(), old_commitment) {
 				Ok(bytes) if bytes.len() == 32 => {
 					let array: [u8; 32] = bytes.try_into().expect("Invalid length");
 					match SigningKey::from_bytes(array) {
-						Ok(key) => (key, true),
+						Ok(key) => (key, true, false),
 						Err(e) => {
 							tracing::error!("Failed to create SigningKey from bytes: {}", e);
-							(SigningKey::random(), false)
+							(SigningKey::random(), false, true)
 						},
 					}
 				},
-				_ => {
+				Err(e) => {
 					tracing::warn!(
-						"Failed to read key from file or invalid key length; using random key"
+						"Failed to read key from file or invalid key length; using random key {:?}",
+						e
 					);
-					(SigningKey::random(), false)
+					(SigningKey::random(), false, true)
 				},
+				Ok(_) => (SigningKey::random(), false, false),
 			}
 		} else {
-			(SigningKey::random(), false)
+			(SigningKey::random(), false, true)
 		};
 		let public = key.public().to_bytes().unwrap();
 		let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
-		let proof_of_knowledge =
-			tss::construct_proof_of_knowledge(peer_id, &[*key.to_scalar().as_ref()], &commitment)
-				.unwrap();
-		if let Err(e) = write_key_to_file(key, commitment.clone()) {
-			tracing::error!("Error writing TSS key to file {}", e);
-		};
+		let proof_of_knowledge = tss::construct_proof_of_knowledge(
+			peer_id.clone(),
+			&[*key.to_scalar().as_ref()],
+			&commitment,
+		)
+		.unwrap();
+		if is_new {
+			if let Err(e) = write_key_to_file(key, peer_id, commitment.clone()) {
+				tracing::error!("Error writing TSS key to file {}", e);
+			};
+		}
 		Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), committed)
 	}
 
@@ -105,7 +135,7 @@ impl Tss {
 		commitment: Option<VerifiableSecretSharingCommitment>,
 	) -> Self {
 		let commitment = commitment.and_then(|old_commitment| {
-			read_key_from_file(old_commitment.clone())
+			read_key_from_file(peer_id.clone(), old_commitment.clone())
 				.ok()
 				.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
 		});

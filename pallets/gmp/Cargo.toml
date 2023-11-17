@@ -30,13 +30,13 @@ sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch =
 sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
-# [dev-dependencies]
-# env_logger = "0.10.0"
-# lazy_static = "1.4.0"
-# pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
-# pallet-shards = { path = "../shards" }
-# sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
-# sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+[dev-dependencies]
+env_logger = "0.10.0"
+lazy_static = "1.4.0"
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
+pallet-shards = { path = "../shards" }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 [features]
 default = [ "std" ]

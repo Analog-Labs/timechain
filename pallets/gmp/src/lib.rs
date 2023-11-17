@@ -1,6 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 pub mod sol;
 pub use sol::*;
 
@@ -19,10 +24,18 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn deploy_gateway() -> Weight;
+		fn register_shards() -> Weight;
+		fn revoke_shards() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn deploy_gateway() -> Weight {
+			Weight::default()
+		}
+		fn register_shards() -> Weight {
+			Weight::default()
+		}
+		fn revoke_shards() -> Weight {
 			Weight::default()
 		}
 	}
@@ -57,12 +70,16 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		NoNetworkForChainID,
+		GatewayNotDeployed,
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		GatewayContractDeployed(Network, [u8; 20]), //TODO make call args event args
+		GatewayContractDeployed(Network, [u8; 20]),
+		ShardsRegistered(Network),
+		ShardsRevoked(Network),
+		Executed(Network),
 	}
 
 	#[pallet::call]
@@ -84,6 +101,38 @@ pub mod pallet {
 			Self::deposit_event(Event::GatewayContractDeployed(network, contract_address));
 			Ok(())
 		}
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::register_shards())]
+		pub fn register_shards(
+			origin: OriginFor<T>,
+			chain_id: u64,
+			shard_ids: Vec<ShardId>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let network = chain_id.try_into().map_err(|_| Error::<T>::NoNetworkForChainID)?;
+			ensure!(GatewayAddress::<T>::get(network).is_some(), Error::<T>::GatewayNotDeployed);
+			for shard in shard_ids {
+				ShardRegistry::<T>::insert(shard, network, ());
+			}
+			Self::deposit_event(Event::ShardsRegistered(network));
+			Ok(())
+		}
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::revoke_shards())]
+		pub fn revoke_shards(
+			origin: OriginFor<T>,
+			chain_id: u64,
+			shard_ids: Vec<ShardId>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let network = chain_id.try_into().map_err(|_| Error::<T>::NoNetworkForChainID)?;
+			ensure!(GatewayAddress::<T>::get(network).is_some(), Error::<T>::GatewayNotDeployed);
+			for shard in shard_ids {
+				ShardRegistry::<T>::remove(shard, network);
+			}
+			Self::deposit_event(Event::ShardsRevoked(network));
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -95,7 +144,6 @@ pub mod pallet {
 		fn is_register_shard_scheduled(shard_id: ShardId, network: Network) -> bool {
 			RegisterShardScheduled::<T>::get(shard_id, network).is_some()
 		}
-
 		/// Return Some(Function) if gateway contract deployed on network
 		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
 			let Some(contract_address) = GatewayAddress::<T>::get(network) else {

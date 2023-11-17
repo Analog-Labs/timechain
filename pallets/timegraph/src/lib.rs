@@ -77,8 +77,8 @@ pub mod pallet {
 			NextDepositSequence::<T>::mutate(&to, |sequence| *sequence += 1);
 			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
 
-			let next_deposit_sequence = Self::next_deposit_sequence(&to);
-			Self::deposit_event(Event::Deposit(who, to, amount, next_deposit_sequence));
+			let deposit_sequence = Self::next_deposit_sequence(&to);
+			Self::deposit_event(Event::Deposit(who, to, amount, deposit_sequence));
 
 			Ok(())
 		}
@@ -88,19 +88,17 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::withdraw())]
 		pub fn withdraw(
 			origin: OriginFor<T>,
-			from: T::AccountId,
+			to: T::AccountId,
 			amount: BalanceOf<T>,
 			sequence: u64,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			NextWithdrawalSequence::<T>::mutate(&from, |sequence| *sequence += 1);
-			let next_withdrawal_sequence = Self::next_withdrawal_sequence(&from);
-
-			ensure!(sequence == next_withdrawal_sequence, Error::<T>::WithDrawalSequenceMismatch);
-
-			T::Currency::transfer(&who, &from, amount, ExistenceRequirement::KeepAlive)?;
-			Self::deposit_event(Event::Withdrawal(from, who, amount, sequence));
+			// withdrawal sequence start from 1
+			let next_withdrawal_sequence = Self::next_withdrawal_sequence(&to);
+			ensure!(sequence == next_withdrawal_sequence + 1, Error::<T>::WithDrawalSequenceMismatch);
+			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
+			NextWithdrawalSequence::<T>::mutate(&who, |sequence| *sequence += 1);
+			Self::deposit_event(Event::Withdrawal(who, to, amount, sequence));
 			Ok(())
 		}
 	}

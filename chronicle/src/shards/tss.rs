@@ -1,9 +1,10 @@
 use crate::network::PeerId;
 use anyhow::Result;
 use sp_core::blake2_128;
-use std::collections::BTreeSet;
 use std::fs;
+use std::io::{BufReader, Write};
 use std::path::PathBuf;
+use std::{collections::BTreeSet, fs::File};
 use time_primitives::{AccountId, ShardId};
 pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -15,15 +16,27 @@ pub type TssAction = tss::TssAction<TssId, PeerId>;
 // name fetched from peer_id and commitment combined.
 // Data returned could be SigningKey and SecretShare
 fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Vec<u8>> {
-	let file_path = file_path_from_commitment(account_id, shard_id)?;
-	Ok(fs::read(file_path)?)
+	let file_path = file_path_from_commitment(account_id, shard_id).unwrap();
+	let file = File::open(file_path)?;
+	let reader = BufReader::new(file);
+	let data: Vec<u8> = serde_json::from_reader(reader)?;
+	Ok(data)
 }
 
 // writes SignignKey to a local file
 fn write_key_to_file(key: SigningKey, account_id: AccountId, shard_id: ShardId) -> Result<()> {
 	let data = key.to_bytes();
-	let file_path = file_path_from_commitment(account_id, shard_id)?;
-	fs::write(file_path, data)?;
+	let file_path = file_path_from_commitment(account_id, shard_id).unwrap();
+	let mut file = File::create(file_path).unwrap();
+
+	#[cfg(target_family = "unix")]
+	{
+		use std::os::unix::fs::PermissionsExt;
+		file.set_permissions(fs::Permissions::from_mode(0o600))?;
+	}
+
+	serde_json::to_writer(&file, &data).unwrap();
+	file.flush().unwrap();
 	Ok(())
 }
 
@@ -74,7 +87,7 @@ impl Tss {
 		account_id: AccountId,
 		shard_id: ShardId,
 	) -> Self {
-		let (key, committed, is_new) = if let Some(_) = commitment {
+		let (key, committed, is_new) = if commitment.is_some() {
 			match read_key_from_file(account_id.clone(), shard_id) {
 				Ok(bytes) if bytes.len() == 32 => {
 					let array: [u8; 32] = bytes.try_into().expect("Invalid length");

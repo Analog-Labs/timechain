@@ -1,5 +1,5 @@
 use crate::{timechain_runtime, SubxtClient};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use subxt::backend::StreamOfResults;
 use subxt::tx::Payload;
 use time_primitives::{TaskCycle, TaskError, TaskId, TaskResult, TasksPayload, TssSignature};
@@ -19,26 +19,14 @@ impl SubxtClient {
 		Ok(self.client.storage().at_latest().await?.iter(storage_query).await?)
 	}
 
-	pub async fn get_task_state(&self, task_id: u64) -> Result<TaskStatus> {
+	pub async fn get_task_state(&self, task_id: u64) -> Result<Option<TaskStatus>> {
 		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
-		self.client
-			.storage()
-			.at_latest()
-			.await?
-			.fetch(&storage_query)
-			.await?
-			.ok_or(anyhow!("Task status not found"))
+		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 	}
 
-	pub async fn get_task_cycle(&self, task_id: u64) -> Result<u64> {
+	pub async fn get_task_cycle(&self, task_id: u64) -> Result<Option<u64>> {
 		let storage_query = timechain_runtime::storage().tasks().task_cycle_state(task_id);
-		self.client
-			.storage()
-			.at_latest()
-			.await?
-			.fetch(&storage_query)
-			.await?
-			.ok_or(anyhow!("Task cycle not found"))
+		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 	}
 }
 

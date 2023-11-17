@@ -1,11 +1,57 @@
 use crate::network::PeerId;
-use std::collections::BTreeSet;
-
-pub use time_primitives::TssId;
+use anyhow::Result;
+use sp_core::blake2_128;
+use std::fs;
+use std::io::{BufReader, Write};
+use std::path::PathBuf;
+use std::{collections::BTreeSet, fs::File};
+use time_primitives::{AccountId, ShardId};
+pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
 
 pub type TssMessage = tss::TssMessage<TssId>;
 pub type TssAction = tss::TssAction<TssId, PeerId>;
+
+// read the secret from file stored in local
+// name fetched from peer_id and commitment combined.
+// Data returned could be SigningKey and SecretShare
+fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Vec<u8>> {
+	let file_path = file_path_from_commitment(account_id, shard_id).unwrap();
+	let file = File::open(file_path)?;
+	let reader = BufReader::new(file);
+	let data: Vec<u8> = serde_json::from_reader(reader)?;
+	Ok(data)
+}
+
+// writes SignignKey to a local file
+fn write_key_to_file(key: SigningKey, account_id: AccountId, shard_id: ShardId) -> Result<()> {
+	let data = key.to_bytes();
+	let file_path = file_path_from_commitment(account_id, shard_id).unwrap();
+	let mut file = File::create(file_path).unwrap();
+
+	#[cfg(target_family = "unix")]
+	{
+		use std::os::unix::fs::PermissionsExt;
+		file.set_permissions(fs::Permissions::from_mode(0o600))?;
+	}
+
+	serde_json::to_writer(&file, &data).unwrap();
+	file.flush().unwrap();
+	Ok(())
+}
+
+// Take peer_id and shard commitment
+// makes a unique filename using params
+fn file_path_from_commitment(account_id: AccountId, shard_id: ShardId) -> Result<PathBuf> {
+	let mut combined_data = Vec::new();
+	combined_data.extend_from_slice(account_id.as_ref());
+	combined_data.extend_from_slice(&shard_id.to_le_bytes());
+	let file_name = hex::encode(blake2_128(&combined_data));
+	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
+	let analog_dir = home_dir.join(TSS_KEY_PATH);
+	fs::create_dir_all(analog_dir.clone())?;
+	Ok(analog_dir.join(file_name))
+}
 
 pub enum Tss {
 	Enabled(tss::Tss<TssId, String>),
@@ -18,6 +64,8 @@ impl Tss {
 		members: BTreeSet<PeerId>,
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
+		public_key: AccountId,
+		shard_id: ShardId,
 	) -> Self {
 		let peer_id = p2p::PeerId::from_bytes(&peer_id).unwrap().to_string();
 		let members: BTreeSet<_> = members
@@ -25,19 +73,75 @@ impl Tss {
 			.map(|peer| p2p::PeerId::from_bytes(&peer).unwrap().to_string())
 			.collect();
 		if members.len() == 1 {
-			let key = SigningKey::random();
-			let public = key.public().to_bytes().unwrap();
-			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
-			let proof_of_knowledge = tss::construct_proof_of_knowledge(
-				peer_id,
-				&[*key.to_scalar().as_ref()],
-				&commitment,
-			)
-			.unwrap();
-			Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), false)
+			Self::process_single_member_case(peer_id, commitment, public_key, shard_id)
 		} else {
-			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
+			Self::process_multiple_member_case(
+				peer_id, members, threshold, commitment, public_key, shard_id,
+			)
 		}
+	}
+
+	fn process_single_member_case(
+		peer_id: String,
+		commitment: Option<VerifiableSecretSharingCommitment>,
+		account_id: AccountId,
+		shard_id: ShardId,
+	) -> Self {
+		let (key, committed, is_new) = if commitment.is_some() {
+			match read_key_from_file(account_id.clone(), shard_id) {
+				Ok(bytes) if bytes.len() == 32 => {
+					let array: [u8; 32] = bytes.try_into().expect("Invalid length");
+					match SigningKey::from_bytes(array) {
+						Ok(key) => (key, true, false),
+						Err(e) => {
+							tracing::error!("Failed to create SigningKey from bytes: {}", e);
+							(SigningKey::random(), false, true)
+						},
+					}
+				},
+				Err(e) => {
+					tracing::warn!(
+						"Failed to read key from file or invalid key length; using random key {:?}",
+						e
+					);
+					(SigningKey::random(), false, true)
+				},
+				Ok(_) => (SigningKey::random(), false, false),
+			}
+		} else {
+			(SigningKey::random(), false, true)
+		};
+		let public = key.public().to_bytes().unwrap();
+		let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
+		let proof_of_knowledge = tss::construct_proof_of_knowledge(
+			peer_id.clone(),
+			&[*key.to_scalar().as_ref()],
+			&commitment,
+		)
+		.unwrap();
+		if is_new {
+			if let Err(e) = write_key_to_file(key, account_id, shard_id) {
+				tracing::error!("Error writing TSS key to file {}", e);
+			};
+		}
+		Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), committed)
+	}
+
+	fn process_multiple_member_case(
+		peer_id: String,
+		members: BTreeSet<String>,
+		threshold: u16,
+		commitment: Option<VerifiableSecretSharingCommitment>,
+		account_id: AccountId,
+		shard_id: ShardId,
+	) -> Self {
+		let commitment = commitment.and_then(|old_commitment| {
+			read_key_from_file(account_id, shard_id)
+				.ok()
+				.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
+		});
+
+		Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
 	}
 
 	pub fn committed(&self) -> bool {

@@ -4,6 +4,7 @@ use sp_core::blake2_128;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
+use time_primitives::{AccountId, ShardId};
 pub use time_primitives::{TssId, TSS_KEY_PATH};
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
 
@@ -13,46 +14,25 @@ pub type TssAction = tss::TssAction<TssId, PeerId>;
 // read the secret from file stored in local
 // name fetched from peer_id and commitment combined.
 // Data returned could be SigningKey and SecretShare
-fn read_key_from_file(
-	peer_id: String,
-	commitment: VerifiableSecretSharingCommitment,
-) -> Result<Vec<u8>> {
-	let file_path = file_path_from_commitment(peer_id.clone(), commitment.clone())?;
-	tracing::debug!("=============reading_file_name=========");
-	tracing::debug!("{:?}", peer_id);
-	tracing::debug!("{:?}", commitment);
-	tracing::info!("{:?}", file_path);
-	tracing::debug!("=======================================");
+fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Vec<u8>> {
+	let file_path = file_path_from_commitment(account_id, shard_id)?;
 	Ok(fs::read(file_path)?)
 }
 
 // writes SignignKey to a local file
-fn write_key_to_file(
-	key: SigningKey,
-	peer_id: String,
-	commitment: VerifiableSecretSharingCommitment,
-) -> Result<()> {
+fn write_key_to_file(key: SigningKey, account_id: AccountId, shard_id: ShardId) -> Result<()> {
 	let data = key.to_bytes();
-	let file_path = file_path_from_commitment(peer_id.clone(), commitment.clone())?;
-	tracing::debug!("=============writing_file_name=========");
-	tracing::debug!("{:?}", peer_id);
-	tracing::debug!("{:?}", commitment);
-	tracing::info!("{:?}", file_path);
-	tracing::debug!("=======================================");
+	let file_path = file_path_from_commitment(account_id, shard_id)?;
 	fs::write(file_path, data)?;
 	Ok(())
 }
 
 // Take peer_id and shard commitment
 // makes a unique filename using params
-fn file_path_from_commitment(
-	peer_id: String,
-	commitment: VerifiableSecretSharingCommitment,
-) -> Result<PathBuf> {
-	let commitment_serialized = serde_json::to_string(&commitment)?;
+fn file_path_from_commitment(account_id: AccountId, shard_id: ShardId) -> Result<PathBuf> {
 	let mut combined_data = Vec::new();
-	combined_data.extend_from_slice(peer_id.as_bytes());
-	combined_data.extend_from_slice(commitment_serialized.as_bytes());
+	combined_data.extend_from_slice(account_id.as_ref());
+	combined_data.extend_from_slice(&shard_id.to_le_bytes());
 	let file_name = hex::encode(blake2_128(&combined_data));
 	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
 	let analog_dir = home_dir.join(TSS_KEY_PATH);
@@ -71,6 +51,8 @@ impl Tss {
 		members: BTreeSet<PeerId>,
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
+		public_key: AccountId,
+		shard_id: ShardId,
 	) -> Self {
 		let peer_id = p2p::PeerId::from_bytes(&peer_id).unwrap().to_string();
 		let members: BTreeSet<_> = members
@@ -78,18 +60,22 @@ impl Tss {
 			.map(|peer| p2p::PeerId::from_bytes(&peer).unwrap().to_string())
 			.collect();
 		if members.len() == 1 {
-			Self::process_single_member_case(peer_id, commitment)
+			Self::process_single_member_case(peer_id, commitment, public_key, shard_id)
 		} else {
-			Self::process_multiple_member_case(peer_id, members, threshold, commitment)
+			Self::process_multiple_member_case(
+				peer_id, members, threshold, commitment, public_key, shard_id,
+			)
 		}
 	}
 
 	fn process_single_member_case(
 		peer_id: String,
 		commitment: Option<VerifiableSecretSharingCommitment>,
+		account_id: AccountId,
+		shard_id: ShardId,
 	) -> Self {
-		let (key, committed, is_new) = if let Some(old_commitment) = commitment {
-			match read_key_from_file(peer_id.clone(), old_commitment) {
+		let (key, committed, is_new) = if let Some(_) = commitment {
+			match read_key_from_file(account_id.clone(), shard_id) {
 				Ok(bytes) if bytes.len() == 32 => {
 					let array: [u8; 32] = bytes.try_into().expect("Invalid length");
 					match SigningKey::from_bytes(array) {
@@ -121,7 +107,7 @@ impl Tss {
 		)
 		.unwrap();
 		if is_new {
-			if let Err(e) = write_key_to_file(key, peer_id, commitment.clone()) {
+			if let Err(e) = write_key_to_file(key, account_id, shard_id) {
 				tracing::error!("Error writing TSS key to file {}", e);
 			};
 		}
@@ -133,9 +119,11 @@ impl Tss {
 		members: BTreeSet<String>,
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
+		account_id: AccountId,
+		shard_id: ShardId,
 	) -> Self {
 		let commitment = commitment.and_then(|old_commitment| {
-			read_key_from_file(peer_id.clone(), old_commitment.clone())
+			read_key_from_file(account_id, shard_id)
 				.ok()
 				.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
 		});

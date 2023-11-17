@@ -93,7 +93,8 @@ where
 			block = block.to_string(),
 			block_number,
 		);
-		let shards = self.substrate.get_shards(block, &self.substrate.account_id())?;
+		let account_id = self.substrate.account_id();
+		let shards = self.substrate.get_shards(block, &account_id)?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
@@ -126,7 +127,14 @@ where
 			};
 			self.tss_states.insert(
 				shard_id,
-				Tss::new(self.network.peer_id(), members, threshold, ss_commitment),
+				Tss::new(
+					self.network.peer_id(),
+					members,
+					threshold,
+					ss_commitment,
+					account_id.clone(),
+					shard_id,
+				),
 			);
 			self.poll_actions(&span, shard_id, block_number);
 		}

@@ -1,35 +1,37 @@
 #!/bin/bash
 
-# Navigate to the root directory of the project
-cd "$(dirname "$0")/.."
+network_type=$1  # The first argument to the script
+mode=$2         # The second argument to the script
 
-# Load environment variables from .env file
-set -a
-[ -f .env ] && source .env
-set +a
-
-# Function to start a chronicle-eth instance with specific volume
-start_chronicle_eth() {
-  local volume_suffix=$1
-  docker-compose up -d \
-    chronicle-eth \
-    -v "$(pwd)/config/wallets/timechain_keyfile${volume_suffix}:/etc/timechain_keyfile:ro"
+run_ethereum() {
+    if [ "$1" == "single" ]; then
+        echo "Running single node Ethereum configuration."
+        docker compose --profile ethereum down -v && ./scripts/build_docker.sh && docker compose --profile ethereum up
+    elif [ "$1" == "multi" ]; then
+        echo "Running multi node Ethereum configuration."
+        docker compose -f docker-compose-multinode.yml --profile ethereum down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile ethereum up
+    fi
 }
 
-# Decide how to start services based on CHAIN_SPEC
-case $CHAIN_SPEC in
-  "notss")
-    # Start only one instance of chronicle-eth
-    start_chronicle_eth "1"
-    ;;
-  "dev")
-    # Start three instances of chronicle-eth with different volumes
-    start_chronicle_eth "1"
-    start_chronicle_eth "2"
-    start_chronicle_eth "3"
-    ;;
-  *)
-    echo "Unknown CHAIN_SPEC value: $CHAIN_SPEC"
-    exit 1
-    ;;
+run_astar() {
+    if [ "$1" == "single" ]; then
+        echo "Running single node Astar configuration."
+        docker compose --profile astar down -v && ./scripts/build_docker.sh && docker compose --profile astar up
+    elif [ "$1" == "multi" ]; then
+        echo "Running multi node Astar configuration."
+        docker compose -f docker-compose-multinode.yml --profile astar down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile astar up
+    fi
+}
+
+# Check the network type and mode and call the appropriate function
+case $network_type in
+    eth)
+        run_ethereum $mode
+        ;;
+    astar)
+        run_astar $mode
+        ;;
+    *)
+        echo "Unknown network type. Please specify 'eth' or 'astar'."
+        ;;
 esac

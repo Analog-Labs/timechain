@@ -396,6 +396,7 @@ where
 					let Some((peer, Message { shard_id, block_number, payload })) = msg else {
 						continue;
 					};
+					tracing::debug!("received_request");
 					event!(
 						target: TW_LOG,
 						parent: span,

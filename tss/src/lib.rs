@@ -191,8 +191,6 @@ where
 				signing_sessions: Default::default(),
 			};
 			(state, true)
-		//todo fix rts for shards with more than one node.
-		// (TssState::Rts(Rts::new(frost_id, members, threshold, commitment)), true)
 		} else {
 			(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
 		};

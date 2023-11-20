@@ -14,7 +14,7 @@ pub(crate) struct WalletConfig {
 }
 
 pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
-	set_keys(config).await;
+	// set_keys(config).await;
 	fund_wallet(config).await;
 	deploy_contract(config).await.unwrap()
 }

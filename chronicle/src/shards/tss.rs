@@ -1,57 +1,14 @@
 use crate::network::PeerId;
-use anyhow::Result;
-use sp_core::blake2_128;
-use std::fs;
-use std::io::{BufReader, Write};
-use std::path::PathBuf;
-use std::{collections::BTreeSet, fs::File};
+use std::collections::BTreeSet;
 use time_primitives::{AccountId, ShardId};
 pub use time_primitives::{TssId, TSS_KEY_PATH};
-pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
+pub use tss::{
+	read_key_from_file, write_key_to_file, SigningKey, VerifiableSecretSharingCommitment,
+	VerifyingKey,
+};
 
 pub type TssMessage = tss::TssMessage<TssId>;
 pub type TssAction = tss::TssAction<TssId, PeerId>;
-
-// read the secret from file stored in local
-// name fetched from peer_id and commitment combined.
-// Data returned could be SigningKey and SecretShare
-fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Vec<u8>> {
-	let file_path = file_path_from_commitment(account_id, shard_id).unwrap();
-	let file = File::open(file_path)?;
-	let reader = BufReader::new(file);
-	let data: Vec<u8> = serde_json::from_reader(reader)?;
-	Ok(data)
-}
-
-// writes SignignKey to a local file
-fn write_key_to_file(key: SigningKey, account_id: AccountId, shard_id: ShardId) -> Result<()> {
-	let data = key.to_bytes();
-	let file_path = file_path_from_commitment(account_id, shard_id).unwrap();
-	let mut file = File::create(file_path).unwrap();
-
-	#[cfg(target_family = "unix")]
-	{
-		use std::os::unix::fs::PermissionsExt;
-		file.set_permissions(fs::Permissions::from_mode(0o600))?;
-	}
-
-	serde_json::to_writer(&file, &data).unwrap();
-	file.flush().unwrap();
-	Ok(())
-}
-
-// Take peer_id and shard commitment
-// makes a unique filename using params
-fn file_path_from_commitment(account_id: AccountId, shard_id: ShardId) -> Result<PathBuf> {
-	let mut combined_data = Vec::new();
-	combined_data.extend_from_slice(account_id.as_ref());
-	combined_data.extend_from_slice(&shard_id.to_le_bytes());
-	let file_name = hex::encode(blake2_128(&combined_data));
-	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
-	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir_all(analog_dir.clone())?;
-	Ok(analog_dir.join(file_name))
-}
 
 pub enum Tss {
 	Enabled(tss::Tss<TssId, String>),
@@ -120,7 +77,7 @@ impl Tss {
 		)
 		.unwrap();
 		if is_new {
-			if let Err(e) = write_key_to_file(key, account_id, shard_id) {
+			if let Err(e) = write_key_to_file(key.to_bytes().into(), account_id, shard_id) {
 				tracing::error!("Error writing TSS key to file {}", e);
 			};
 		}
@@ -135,19 +92,7 @@ impl Tss {
 		account_id: AccountId,
 		shard_id: ShardId,
 	) -> Self {
-		let commitment = if let Some(old_commitment) = commitment {
-			let secret_share_bytes = read_key_from_file(account_id, shard_id).unwrap();
-			Some((old_commitment, secret_share_bytes))
-		} else {
-			None
-		};
-		// let commitment = commitment.and_then(|old_commitment| {
-		// 	read_key_from_file(account_id, shard_id)
-		// 		.ok()
-		// 		.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
-		// });
-
-		Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
+		Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment, account_id, shard_id))
 	}
 
 	pub fn committed(&self) -> bool {

@@ -90,11 +90,6 @@ impl Dkg {
 			return Some(DkgAction::Send(msgs));
 		}
 		if self.round2_packages.len() != self.members.len() - 1 {
-			tracing::debug!(
-				"======next_action round2 {} != {}",
-				self.round2_packages.len(),
-				self.members.len()
-			);
 			return None;
 		}
 

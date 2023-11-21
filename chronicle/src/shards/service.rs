@@ -125,7 +125,6 @@ where
 			} else {
 				Some(VerifiableSecretSharingCommitment::deserialize(commitment)?)
 			};
-			tracing::debug!("fetching commitment {}/{:?}", shard_id, ss_commitment);
 			self.tss_states.insert(
 				shard_id,
 				Tss::new(
@@ -397,7 +396,6 @@ where
 					let Some((peer, Message { shard_id, block_number, payload })) = msg else {
 						continue;
 					};
-					tracing::debug!("received_request");
 					event!(
 						target: TW_LOG,
 						parent: span,

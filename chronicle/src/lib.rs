@@ -68,10 +68,8 @@ where
 		None
 	};
 	let (network, net_request) = if let Some((network, incoming)) = params.network {
-		tracing::info!("creating_network: substrate");
 		crate::network::create_substrate_network(network, incoming).await?
 	} else {
-		tracing::info!("createing_network: iroh {:?}", params.config.bind_port);
 		crate::network::create_iroh_network(NetworkConfig {
 			secret,
 			bind_port: params.config.bind_port,

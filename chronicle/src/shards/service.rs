@@ -125,6 +125,7 @@ where
 			} else {
 				Some(VerifiableSecretSharingCommitment::deserialize(commitment)?)
 			};
+			tracing::debug!("fetching commitment {}/{:?}", shard_id, ss_commitment);
 			self.tss_states.insert(
 				shard_id,
 				Tss::new(

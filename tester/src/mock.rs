@@ -82,6 +82,7 @@ pub(crate) async fn fund_wallet(config: &WalletConfig) {
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
+	println!("{:?}", wallet.public_key());
 	wallet.faucet(10000000000000000000).await.unwrap();
 }
 

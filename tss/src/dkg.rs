@@ -74,11 +74,9 @@ impl Dkg {
 				*round1_package.proof_of_knowledge(),
 			));
 		};
-		tracing::debug!("======next_action line 1");
 		let Some(commitment) = self.commitment.as_ref() else {
 			return None;
 		};
-		tracing::debug!("======next_action line 2");
 		if !self.sent_round2_packages {
 			let mut msgs = Vec::with_capacity(self.members.len());
 			for peer in &self.members {
@@ -91,7 +89,6 @@ impl Dkg {
 			self.sent_round2_packages = true;
 			return Some(DkgAction::Send(msgs));
 		}
-		tracing::debug!("======next_action line 3");
 		if self.round2_packages.len() != self.members.len() - 1 {
 			tracing::debug!(
 				"======next_action round2 {} != {}",
@@ -101,7 +98,6 @@ impl Dkg {
 			return None;
 		}
 
-		tracing::debug!("======next_action line 4");
 		let signing_share = self
 			.round2_packages
 			.values()
@@ -113,16 +109,13 @@ impl Dkg {
 			.fold(SigningShare::new(Scalar::ZERO), |acc, e| {
 				SigningShare::new(acc.to_scalar() + e.to_scalar())
 			});
-		tracing::debug!("======next_action line 5");
 		let secret_share = SecretShare::new(self.id, signing_share, commitment.clone());
-		tracing::debug!("======next_action line 6");
 		let key_package = match KeyPackage::try_from(secret_share) {
 			Ok(key_package) => key_package,
 			Err(error) => {
 				return Some(DkgAction::Failure(error));
 			},
 		};
-		tracing::debug!("======next_action line 7");
 		let public_key_package =
 			PublicKeyPackage::from_commitment(&self.members, commitment).unwrap();
 		Some(DkgAction::Complete(key_package, public_key_package, commitment.clone()))

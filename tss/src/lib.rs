@@ -122,6 +122,8 @@ pub fn verify_proof_of_knowledge(
 	)?)
 }
 
+//modify this function to write with new changes from chronicle/shard/tss.rs
+//move logic to time_primitives.
 fn write_key_to_file(
 	key: SecretShare,
 	commitment: VerifiableSecretSharingCommitment,
@@ -178,8 +180,10 @@ where
 			is_coordinator
 		);
 		let (state, committed) = if let Some((commitment, _secret_bytes)) = commitment {
+			tracing::debug!("commitment received for recovery");
 			let secret_str = String::from_utf8(_secret_bytes).unwrap();
 			let secret_share: SecretShare = serde_json::from_str(&secret_str).unwrap();
+			tracing::debug!("secret share recovered {:?}", secret_share);
 			let rts = RtsHelper::new(frost_id, members.clone(), threshold, secret_share.clone());
 			let key_package = KeyPackage::try_from(secret_share).unwrap();
 			let public_key_package =
@@ -192,6 +196,7 @@ where
 			};
 			(state, true)
 		} else {
+			tracing::debug!("commitment not received for recovery");
 			(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
 		};
 		Self {
@@ -372,7 +377,10 @@ where
 							*key_package.signing_share(),
 							commitment.clone(),
 						);
-						write_key_to_file(secret_share.clone(), commitment);
+						tracing::info!("secret_share made {:?}", secret_share);
+						if let Err(e) = write_key_to_file(secret_share.clone(), commitment) {
+							tracing::error!("error savign secret {:?}", e);
+						};
 						let public_key =
 							VerifyingKey::new(public_key_package.verifying_key().to_element());
 						let members = self.frost_to_peer.keys().copied().collect();

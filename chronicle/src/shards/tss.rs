@@ -135,11 +135,17 @@ impl Tss {
 		account_id: AccountId,
 		shard_id: ShardId,
 	) -> Self {
-		let commitment = commitment.and_then(|old_commitment| {
-			read_key_from_file(account_id, shard_id)
-				.ok()
-				.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
-		});
+		let commitment = if let Some(old_commitment) = commitment {
+			let secret_share_bytes = read_key_from_file(account_id, shard_id).unwrap();
+			Some((old_commitment, secret_share_bytes))
+		} else {
+			None
+		};
+		// let commitment = commitment.and_then(|old_commitment| {
+		// 	read_key_from_file(account_id, shard_id)
+		// 		.ok()
+		// 		.map(|secret_share_bytes| (old_commitment, secret_share_bytes))
+		// });
 
 		Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
 	}

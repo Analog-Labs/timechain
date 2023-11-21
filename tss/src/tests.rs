@@ -61,7 +61,7 @@ impl TssTester {
 		let members = (0..n).map(|i| i as _).collect::<BTreeSet<_>>();
 		let mut tss = Vec::with_capacity(n);
 		for i in 0..n {
-			tss.push(Tss::new(i as _, members.clone(), t as _, None));
+			tss.push(Tss::new(i as _, members.clone(), t as _, None, [0; 32].into(), i as u64));
 		}
 		Self {
 			tss,

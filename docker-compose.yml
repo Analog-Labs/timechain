@@ -46,7 +46,7 @@ services:
     profiles:
     - astar
 
-  chronicle-eth:
+  chronicle-eth1:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'
@@ -75,7 +75,7 @@ services:
     profiles:
     - ethereum
 
-  chronicle-astar:
+  chronicle-astar1:
     image: 'analoglabs/timechain-node'
     command:
     - '--base-path=/data'

@@ -13,10 +13,10 @@ pub(crate) struct WalletConfig {
 	pub url: String,
 }
 
-pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
+pub(crate) async fn setup_env(config: &WalletConfig, is_gmp: bool) -> (String, u64) {
 	set_keys(config).await;
 	fund_wallet(config).await;
-	deploy_contract(config).await.unwrap()
+	deploy_contract(config, is_gmp).await.unwrap()
 }
 
 async fn insert_key(url: &str, key_type: &str, suri: &str, public_key: &str) {
@@ -56,14 +56,18 @@ pub(crate) async fn set_keys(config: &WalletConfig) {
 	}
 }
 
-pub(crate) async fn deploy_contract(config: &WalletConfig) -> Result<(String, u64)> {
+pub(crate) async fn deploy_contract(config: &WalletConfig, is_gmp: bool) -> Result<(String, u64)> {
 	println!("Deploying eth contract");
 	let wallet =
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
 
-	let bytes = compile_file("/etc/test_contract.sol")?;
+	let bytes = if is_gmp {
+		compile_file("/etc/test_contract.sol")?
+	}else {
+		compile_file("/etc/test_contract.sol")?
+	}
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
 	let contract_address = tx_receipt

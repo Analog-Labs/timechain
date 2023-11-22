@@ -30,6 +30,7 @@ enum TestCommand {
 	KeyRecovery { nodes: u8 },
 	ShardRestart,
 	DeployContract,
+	GMP,
 	FundWallet,
 	InsertTask(InsertTaskParams),
 	InsertSignTask(InsertSignTaskParams),
@@ -108,6 +109,7 @@ async fn main() {
 		TestCommand::BatchTask { tasks, max_cycle } => {
 			batch_test(&api, tasks, max_cycle, &config).await;
 		},
+		TestCommand::Gmp => process_gmp_task(&api, &config).await,
 		TestCommand::NodeDropTest => {
 			node_drop_test(&api, &config).await;
 		},
@@ -124,7 +126,7 @@ async fn main() {
 			fund_wallet(&config).await;
 		},
 		TestCommand::DeployContract => {
-			if let Err(e) = deploy_contract(&config).await {
+			if let Err(e) = deploy_contract(&config, false).await {
 				println!("error {:?}", e);
 			}
 		},
@@ -162,8 +164,21 @@ async fn main() {
 	}
 }
 
+async fn process_gmp_task(api: &SubxtClient, config: &WalletConfig) {
+	let (contract_address, start_block) = setup_env(config, false).await;
+
+	while !Shards::is_shard_online(api, Network::Ethereum).await {
+		println!("Waiting for shard to go online");
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+
+	// get shard commitment
+	// register commitment with contract
+	// then execute gmp task
+}
+
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let task_id = insert_evm_task(
 		api,
@@ -189,7 +204,7 @@ async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &Wall
 }
 
 async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let task_id = insert_sign_task(
 		api,
@@ -208,7 +223,7 @@ async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletCon
 }
 
 async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let mut task_ids = vec![];
 
@@ -232,7 +247,7 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 }
 
 async fn node_drop_test(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let task_id = insert_evm_task(
 		api,
@@ -256,7 +271,7 @@ async fn node_drop_test(api: &SubxtClient, config: &WalletConfig) {
 }
 
 async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let task_id = insert_evm_task(
 		api,
@@ -295,7 +310,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 }
 
 async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let task_id = insert_evm_task(
 		api,

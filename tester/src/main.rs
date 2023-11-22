@@ -33,7 +33,6 @@ enum TestCommand {
 	FundWallet,
 	InsertTask(InsertTaskParams),
 	InsertSignTask(InsertSignTaskParams),
-	SetKeys,
 	WatchTask { task_id: u64 },
 }
 
@@ -116,9 +115,6 @@ async fn main() {
 		},
 		TestCommand::ShardRestart => {
 			task_update_after_shard_offline(&api, &config).await;
-		},
-		TestCommand::SetKeys => {
-			set_keys(&config).await;
 		},
 		TestCommand::FundWallet => {
 			fund_wallet(&config).await;

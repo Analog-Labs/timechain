@@ -25,9 +25,10 @@ mod rts;
 #[cfg(test)]
 mod tests;
 
+#[allow(dead_code)]
 enum TssState<I> {
 	Dkg(Dkg),
-	_Rts(Rts),
+	Rts(Rts),
 	Roast {
 		rts: RtsHelper,
 		key_package: KeyPackage,
@@ -335,7 +336,7 @@ where
 		let frost_id = peer_to_frost(&peer_id);
 		match (&mut self.state, response) {
 			(TssState::Dkg(_), _) => {},
-			(TssState::_Rts(rts), TssResponse::Rts { msg }) => {
+			(TssState::Rts(rts), TssResponse::Rts { msg }) => {
 				rts.on_response(frost_id, Some(msg));
 				// TODO: make rts asynchronous
 				// rts.on_response(frost_id, None);
@@ -453,7 +454,7 @@ where
 					},
 				};
 			},
-			TssState::_Rts(rts) => match rts.next_action()? {
+			TssState::Rts(rts) => match rts.next_action()? {
 				RtsAction::Send(msgs) => {
 					return Some(TssAction::Send(
 						msgs.into_iter()

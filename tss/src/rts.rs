@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use anyhow::Result;
 use frost_evm::frost_secp256k1::Secp256K1Sha256;
 use frost_evm::k256::elliptic_curve::PrimeField;
@@ -206,7 +207,7 @@ pub struct Rts {
 }
 
 impl Rts {
-	pub fn _new(
+	pub fn new(
 		id: Identifier,
 		members: BTreeSet<Identifier>,
 		threshold: u16,
@@ -358,7 +359,7 @@ mod tests {
 		let id = *members.iter().next().unwrap();
 		let secret_share = secret_shares.get(&id).unwrap().clone();
 		let key_package = KeyPackage::try_from(secret_share).unwrap();
-		let mut rts = Rts::_new(id, members, threshold, commitment.clone());
+		let mut rts = Rts::new(id, members, threshold, commitment.clone());
 		while let Some(action) = rts.next_action() {
 			match action {
 				RtsAction::Send(msgs) => {

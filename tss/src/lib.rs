@@ -128,7 +128,7 @@ pub fn verify_proof_of_knowledge(
 // name fetched from peer_id and commitment combined.
 // Data returned could be SigningKey and SecretShare
 pub fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Vec<u8>> {
-	let file_path = get_or_create_key_path(account_id, shard_id).unwrap();
+	let file_path = get_or_create_key_path(account_id, shard_id)?;
 	let file = File::open(file_path)?;
 	let reader = BufReader::new(file);
 	let data: Vec<u8> = serde_json::from_reader(reader)?;
@@ -137,8 +137,8 @@ pub fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Ve
 
 // writes SignignKey to a local file
 pub fn write_key_to_file(key: Vec<u8>, account_id: AccountId, shard_id: ShardId) -> Result<()> {
-	let file_path = get_or_create_key_path(account_id, shard_id).unwrap();
-	let mut file = File::create(file_path).unwrap();
+	let file_path = get_or_create_key_path(account_id, shard_id)?;
+	let mut file = File::create(file_path)?;
 
 	#[cfg(target_family = "unix")]
 	{
@@ -146,8 +146,8 @@ pub fn write_key_to_file(key: Vec<u8>, account_id: AccountId, shard_id: ShardId)
 		file.set_permissions(fs::Permissions::from_mode(0o600))?;
 	}
 
-	serde_json::to_writer(&file, &key).unwrap();
-	file.flush().unwrap();
+	serde_json::to_writer(&file, &key)?;
+	file.flush()?;
 	Ok(())
 }
 

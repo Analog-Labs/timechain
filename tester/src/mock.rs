@@ -4,7 +4,6 @@ use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
-use tc_subxt::{rpc_params, RpcParams, SubxtClient};
 
 #[derive(Clone, Debug)]
 pub(crate) struct WalletConfig {

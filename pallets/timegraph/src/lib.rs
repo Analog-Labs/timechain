@@ -95,7 +95,10 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// withdrawal sequence start from 1
 			let next_withdrawal_sequence = Self::next_withdrawal_sequence(&to);
-			ensure!(sequence == next_withdrawal_sequence + 1, Error::<T>::WithDrawalSequenceMismatch);
+			ensure!(
+				sequence == next_withdrawal_sequence + 1,
+				Error::<T>::WithDrawalSequenceMismatch
+			);
 			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
 			NextWithdrawalSequence::<T>::mutate(&who, |sequence| *sequence += 1);
 			Self::deposit_event(Event::Withdrawal(who, to, amount, sequence));

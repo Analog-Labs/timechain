@@ -120,7 +120,7 @@ pub fn verify_proof_of_knowledge(
 	)?)
 }
 
-/// Tss state machine.
+// Tss state machine.
 pub struct Tss<I, P> {
 	peer_id: P,
 	frost_id: Identifier,

@@ -64,10 +64,10 @@ pub(crate) async fn deploy_contract(config: &WalletConfig, is_gmp: bool) -> Resu
 			.unwrap();
 
 	let bytes = if is_gmp {
+		compile_file("/etc/gateway.sol")?
+	} else {
 		compile_file("/etc/test_contract.sol")?
-	}else {
-		compile_file("/etc/test_contract.sol")?
-	}
+	};
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
 	let contract_address = tx_receipt
@@ -86,7 +86,7 @@ pub(crate) async fn fund_wallet(config: &WalletConfig) {
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
-	wallet.faucet(10000000000000000000).await.unwrap();
+	wallet.faucet(1000000000000000000000).await.unwrap();
 }
 
 pub(crate) fn drop_node(node_name: String) {

@@ -30,7 +30,7 @@ enum TestCommand {
 	KeyRecovery { nodes: u8 },
 	ShardRestart,
 	DeployContract,
-	GMP,
+	Gmp,
 	FundWallet,
 	InsertTask(InsertTaskParams),
 	InsertSignTask(InsertSignTaskParams),
@@ -165,7 +165,7 @@ async fn main() {
 }
 
 async fn process_gmp_task(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config, true).await;
 
 	while !Shards::is_shard_online(api, Network::Ethereum).await {
 		println!("Waiting for shard to go online");
@@ -173,7 +173,17 @@ async fn process_gmp_task(api: &SubxtClient, config: &WalletConfig) {
 	}
 
 	// get shard commitment
+	let public_key = api.shard_public_key(0).await.unwrap();
+	println!("shard key {:?}", public_key);
 	// register commitment with contract
+	let parity = format!("{}", public_key[0]);
+	let mut x_coord = [0u8; 32];
+	x_coord.copy_from_slice(&public_key[1..]);
+	let x_coord = format!("{:?}", x_coord);
+	let function =
+		create_gmp_register_call(contract_address, vec![format!("{:?}", (parity, x_coord))]);
+	let task_id = insert_task(api, 1, start_block, 0, Network::Ethereum, function).await;
+	println!("task_id {:?}", task_id);
 	// then execute gmp task
 }
 

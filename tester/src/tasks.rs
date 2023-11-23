@@ -62,6 +62,40 @@ pub async fn insert_sign_task(
 	Ok(id)
 }
 
+pub fn create_gmp_register_call(address: String, input: Vec<String>) -> Function {
+	let function = Function::EvmCall {
+		address,
+		function_signature: "function sudoRegisterTSSKeys((uint8,uint256)[] memory)".to_string(),
+		input,
+		amount: 0,
+	};
+	function
+}
+
+pub async fn insert_task(
+	api: &SubxtClient,
+	cycle: u64,
+	start: u64,
+	period: u64,
+	network: Network,
+	function: Function,
+) -> Result<u64> {
+	let params = TaskDescriptorParams {
+		network,
+		function,
+		cycle,
+		start,
+		period,
+		hash: "".to_string(),
+	};
+	let payload = SubxtClient::create_task_payload(params);
+	let events = api.sign_and_submit_watch(&payload).await?;
+	let transfer_event = events.find_first::<TaskCreated>().unwrap();
+	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
+	println!("Task registered: {:?}", id);
+	Ok(id)
+}
+
 pub async fn insert_evm_task(
 	api: &SubxtClient,
 	address: String,

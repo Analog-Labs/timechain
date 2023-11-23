@@ -116,12 +116,16 @@ where
 						if let Function::SendMessage { contract_address, payload } = function {
 							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
 							Function::EvmCall {
-								address: hex::encode(&contract_address),
-								function_signature: String::from("send_message(uint[],uint[])"),
-								input: vec![&payload, &signature.to_vec()]
-									.into_iter()
-									.map(hex::encode)
-									.collect(),
+								address: String::from_utf8(contract_address).unwrap(),
+								//TODO need to fix this with appropriate gateway contract function and provide params
+								//TODO for running tests would need to add that function in test_contract.sol so it can run successfully.
+								function_signature: "vote_yes()".into(),
+								// function_signature: String::from("send_message(uint[],uint[])"),
+								input: Default::default(),
+								// input: vec![&payload, &signature.to_vec()]
+								// 	.into_iter()
+								// 	.map(hex::encode)
+								// 	.collect(),
 								amount: 0u128,
 							}
 						} else {

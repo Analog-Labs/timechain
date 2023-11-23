@@ -140,7 +140,7 @@ where
 		peer_id: P,
 		members: BTreeSet<P>,
 		threshold: u16,
-		commitment: Option<VerifiableSecretSharingCommitment>,
+		commitment: Option<(VerifiableSecretSharingCommitment, Vec<u8>)>,
 	) -> Self {
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_to_frost(&peer_id);
@@ -157,18 +157,20 @@ where
 			members.len(),
 			is_coordinator
 		);
+		let (state, committed) = if let Some((commitment, _secret_bytes)) = commitment {
+			//todo fix rts for shards with more than one node.
+			(TssState::Rts(Rts::new(frost_id, members, threshold, commitment)), true)
+		} else {
+			(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
+		};
 		Self {
 			peer_id,
 			frost_id,
 			frost_to_peer,
 			threshold,
 			coordinators,
-			state: if let Some(commitment) = commitment {
-				TssState::Rts(Rts::new(frost_id, members, threshold, commitment))
-			} else {
-				TssState::Dkg(Dkg::new(frost_id, members, threshold))
-			},
-			committed: false,
+			state,
+			committed,
 		}
 	}
 

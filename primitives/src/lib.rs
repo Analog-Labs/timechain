@@ -19,6 +19,7 @@ pub use crate::task::*;
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
+pub const TSS_KEY_PATH: &str = "analog";
 
 pub type AccountId = AccountId32;
 pub type PublicKey = MultiSigner;

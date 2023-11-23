@@ -27,7 +27,7 @@ enum TestCommand {
 	BasicSign,
 	BatchTask { tasks: u64, max_cycle: u64 },
 	NodeDropTest,
-	KeyRecovery,
+	KeyRecovery { nodes: u8 },
 	ShardRestart,
 	DeployContract,
 	FundWallet,
@@ -111,8 +111,8 @@ async fn main() {
 		TestCommand::NodeDropTest => {
 			node_drop_test(&api, &config).await;
 		},
-		TestCommand::KeyRecovery => {
-			key_recovery_after_drop(&api, &config).await;
+		TestCommand::KeyRecovery { nodes } => {
+			key_recovery_after_drop(&api, &config, nodes).await;
 		},
 		TestCommand::ShardRestart => {
 			task_update_after_shard_offline(&api, &config).await;
@@ -294,7 +294,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 	}
 }
 
-async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig) {
+async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
 	let (contract_address, start_block) = setup_env(config).await;
 
 	let task_id = insert_evm_task(
@@ -302,27 +302,21 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig) {
 		contract_address.clone(),
 		10, //cycle
 		start_block,
-		5, //period
+		2, //period
 		Network::Ethereum,
 		false,
 	)
 	.await
 	.unwrap();
 	// wait for some cycles to run, Note: tasks are running in background
-	println!("waiting for 1 min");
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-	println!("dropping node 1");
-	drop_node("testnet-validator1-1".to_string());
-	println!("recovering node 1");
-	start_node("validator1".to_string());
-	println!("waiting for 1 min to let node recover completely");
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-	println!("dropping node 2");
-	drop_node("testnet-validator2-1".to_string());
-	println!("recovering node 2");
-	start_node("validator2".to_string());
-	println!("waiting for 1 min to let node recover completely");
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+	for i in 1..nodes_to_restart + 1 {
+		println!("waiting for 1 min");
+		tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+		println!("restarting node {}", i);
+		restart_node(format!("testnet-chronicle-eth-{}", i));
+	}
+	println!("waiting for 20 secs to let node recover completely");
+	tokio::time::sleep(tokio::time::Duration::from_secs(20)).await;
 	// watch task
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;

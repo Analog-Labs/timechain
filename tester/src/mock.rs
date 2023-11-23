@@ -3,7 +3,7 @@ use ethers_solc::{artifacts::Source, CompilerInput, Solc};
 use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use tc_subxt::{rpc_params, RpcParams, SubxtClient};
 
 #[derive(Clone, Debug)]
@@ -90,18 +90,23 @@ pub(crate) fn drop_node(node_name: String) {
 		.args(["stop", &node_name])
 		.output()
 		.expect("failed to drop node");
-	println!("output of node drop {:?}", output);
+	println!("Dropped node {:?}", output.stderr.is_empty());
 }
 
-pub(crate) fn start_node(service_name: String) {
-	tokio::spawn(async move {
-		let _status = Command::new("docker")
-			.args(["compose", "up", "-d", &service_name])
-			.stdin(Stdio::null())
-			.stdout(Stdio::null())
-			.spawn()
-			.expect("failed to execute process");
-	});
+pub(crate) fn start_node(node_name: String) {
+	let output = Command::new("docker")
+		.args(["start", &node_name])
+		.output()
+		.expect("failed to start node");
+	println!("Start node {:?}", output.stderr.is_empty());
+}
+
+pub(crate) fn restart_node(node_name: String) {
+	let output = Command::new("docker")
+		.args(["restart", &node_name])
+		.output()
+		.expect("failed to start node");
+	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
 pub(crate) fn compile_file(path: &str) -> Result<Vec<u8>> {

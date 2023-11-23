@@ -18,6 +18,7 @@ scale-info = { version = "2.9.0", default-features = false, features = [ "derive
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 
 [features]

@@ -7,6 +7,7 @@ use frost_evm::keys::{KeyPackage, PublicKeyPackage, SecretShare};
 use frost_evm::{Identifier, Scalar};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
+use sp_core::crypto::Ss58Codec;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufReader, Write};
@@ -154,7 +155,7 @@ pub fn write_key_to_file(key: Vec<u8>, account_id: AccountId, shard_id: ShardId)
 
 // Take account_id and shard id to get or create key path
 fn get_or_create_key_path(account_id: AccountId, shard_id: ShardId) -> Result<PathBuf> {
-	let file_name = format!("{}-{}", account_id, shard_id);
+	let file_name = format!("{}-{}", account_id.to_ss58check(), shard_id);
 	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
 	let analog_dir = home_dir.join(TSS_KEY_PATH);
 	fs::create_dir_all(analog_dir.clone())?;

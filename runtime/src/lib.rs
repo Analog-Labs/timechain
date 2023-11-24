@@ -1166,7 +1166,7 @@ impl pallet_tasks::Config for Runtime {
 
 impl pallet_timegraph::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = weights::timegraph::WeightInfo<Runtime>;;
 	type Currency = Balances;
 }
 
@@ -1246,6 +1246,7 @@ mod benches {
 		[pallet_members, Members]
 		[pallet_shards, Shards]
 		[pallet_tasks, Tasks]
+		[pallet_timegraph, Timegraph]
 	);
 }
 
@@ -1548,6 +1549,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
 			list_benchmark!(list, extra, pallet_members, Members);
+			list_benchmark!(list, extra, pallet_timegraph, Timegraph);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1574,6 +1576,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
 			add_benchmark!(params, batches, pallet_members, Members);
+			add_benchmark!(params, batches, pallet_timegraph, Timegraph);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

@@ -159,8 +159,8 @@ where
 								"Task {}/{}/{} failed {:?}",
 								task_id,
 								cycle,
-								error,
 								retry_count,
+								error,
 							);
 						},
 					}

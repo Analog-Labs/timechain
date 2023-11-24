@@ -2,7 +2,8 @@ use crate::{self as pallet_timegraph};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
-	traits::{BlakeTwo256, IdentityLookup},BuildStorage
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -66,11 +67,11 @@ impl pallet_timegraph::Config for Test {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	// pallet_balances::GenesisConfig::<Test> {
-	// 	balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
-	// }
-	// .assimilate_storage(&mut storage)
-	// .unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(1_u64, 10_000_000_000), (2_u64, 20_000_000_000)],
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

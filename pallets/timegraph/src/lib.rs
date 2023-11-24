@@ -63,6 +63,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// withdrawal sequence from timegraph is not expected
 		WithDrawalSequenceMismatch,
+		/// sequence number overflow
+		SequenceNumberOverflow,
 	}
 
 	#[pallet::call]
@@ -76,13 +78,12 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			// deposit sequence start from 1 for each timegraph account
-			NextDepositSequence::<T>::mutate(&to, |sequence| *sequence += 1);
 			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
-
 			let deposit_sequence = Self::next_deposit_sequence(&to);
-			Self::deposit_event(Event::Deposit(who, to, amount, deposit_sequence));
+			let next_sequence =
+				deposit_sequence.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
+			NextDepositSequence::<T>::insert(&to, next_sequence);
+			Self::deposit_event(Event::Deposit(who, to, amount, next_sequence));
 
 			Ok(())
 		}
@@ -97,14 +98,12 @@ pub mod pallet {
 			sequence: u64,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// withdrawal sequence start from 1
-			let next_withdrawal_sequence = Self::next_withdrawal_sequence(&to);
-			ensure!(
-				sequence == next_withdrawal_sequence + 1,
-				Error::<T>::WithDrawalSequenceMismatch
-			);
+			let withdrawal_sequence = Self::next_withdrawal_sequence(&to);
+			let next_withdrawal_sequence =
+				withdrawal_sequence.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
+			ensure!(sequence == next_withdrawal_sequence, Error::<T>::WithDrawalSequenceMismatch);
 			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
-			NextWithdrawalSequence::<T>::mutate(&who, |sequence| *sequence += 1);
+			NextWithdrawalSequence::<T>::insert(&who, next_withdrawal_sequence);
 			Self::deposit_event(Event::Withdrawal(who, to, amount, sequence));
 			Ok(())
 		}

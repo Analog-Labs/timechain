@@ -92,6 +92,7 @@ impl Dkg {
 		if self.round2_packages.len() != self.members.len() - 1 {
 			return None;
 		}
+
 		let signing_share = self
 			.round2_packages
 			.values()

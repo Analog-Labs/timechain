@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use anyhow::Result;
 use frost_evm::frost_secp256k1::Secp256K1Sha256;
 use frost_evm::k256::elliptic_curve::PrimeField;

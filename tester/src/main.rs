@@ -33,7 +33,6 @@ enum TestCommand {
 	FundWallet,
 	InsertTask(InsertTaskParams),
 	InsertSignTask(InsertSignTaskParams),
-	SetKeys,
 	WatchTask { task_id: u64 },
 }
 
@@ -116,9 +115,6 @@ async fn main() {
 		},
 		TestCommand::ShardRestart => {
 			task_update_after_shard_offline(&api, &config).await;
-		},
-		TestCommand::SetKeys => {
-			set_keys(&config).await;
 		},
 		TestCommand::FundWallet => {
 			fund_wallet(&config).await;
@@ -313,7 +309,7 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes
 		println!("waiting for 1 min");
 		tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 		println!("restarting node {}", i);
-		restart_node(format!("testnet-chronicle-eth-{}", i));
+		restart_node(format!("testnet-chronicle-eth{}-1", i));
 	}
 	println!("waiting for 20 secs to let node recover completely");
 	tokio::time::sleep(tokio::time::Duration::from_secs(20)).await;

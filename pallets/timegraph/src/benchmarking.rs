@@ -9,16 +9,16 @@ use frame_system::RawOrigin;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-    use scale_info::prelude::vec;
-    use frame_support::traits::Currency;
+	use frame_support::traits::Currency;
+	use scale_info::prelude::vec;
 
 	#[benchmark]
 	fn deposit() {
 		let caller = whitelisted_caller();
 		let recipient = account("recipient", 0, 1);
 		let amount: BalanceOf<T> = 500_000_000_u32.into();
-        let amount_be: BalanceOf<T> = 1_000_000_000_u32.into();
-        T::Currency::make_free_balance_be(&caller, amount_be);
+		let amount_be: BalanceOf<T> = 1_000_000_000_u32.into();
+		T::Currency::make_free_balance_be(&caller, amount_be);
 		#[extrinsic_call]
 		deposit(RawOrigin::Signed(caller), recipient, amount);
 	}
@@ -29,8 +29,8 @@ mod benchmarks {
 		let recipient = account("recipient", 0, 1);
 		let amount: BalanceOf<T> = 500_000_000_u32.into();
 		let sequence = 1;
-        let amount_be: BalanceOf<T> = 1_000_000_000_u32.into();
-        T::Currency::make_free_balance_be(&caller, amount_be);
+		let amount_be: BalanceOf<T> = 1_000_000_000_u32.into();
+		T::Currency::make_free_balance_be(&caller, amount_be);
 		#[extrinsic_call]
 		withdraw(RawOrigin::Signed(caller), recipient, amount, sequence);
 	}

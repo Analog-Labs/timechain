@@ -1166,7 +1166,7 @@ impl pallet_tasks::Config for Runtime {
 
 impl pallet_timegraph::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::timegraph::WeightInfo<Runtime>;;
+	type WeightInfo = weights::timegraph::WeightInfo<Runtime>;
 	type Currency = Balances;
 }
 

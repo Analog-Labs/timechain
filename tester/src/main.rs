@@ -1,8 +1,11 @@
+use std::u8;
+
 use crate::mock::*;
 use crate::tasks::*;
 use shards as Shards;
 
 use clap::Parser;
+use num_bigint::BigUint;
 use rosetta_client::Blockchain;
 use tc_subxt::Network;
 use tc_subxt::SubxtClient;
@@ -26,14 +29,11 @@ enum TestCommand {
 	Basic,
 	BasicSign,
 	BatchTask { tasks: u64, max_cycle: u64 },
-	NodeDropTest,
 	KeyRecovery { nodes: u8 },
 	ShardRestart,
 	DeployContract,
 	Gmp,
 	FundWallet,
-	InsertTask(InsertTaskParams),
-	InsertSignTask(InsertSignTaskParams),
 	SetKeys,
 	WatchTask { task_id: u64 },
 }
@@ -110,9 +110,6 @@ async fn main() {
 			batch_test(&api, tasks, max_cycle, &config).await;
 		},
 		TestCommand::Gmp => process_gmp_task(&api, &config).await,
-		TestCommand::NodeDropTest => {
-			node_drop_test(&api, &config).await;
-		},
 		TestCommand::KeyRecovery { nodes } => {
 			key_recovery_after_drop(&api, &config, nodes).await;
 		},
@@ -129,32 +126,6 @@ async fn main() {
 			if let Err(e) = deploy_contract(&config, false).await {
 				println!("error {:?}", e);
 			}
-		},
-		TestCommand::InsertTask(params) => {
-			insert_evm_task(
-				&api,
-				params.address,
-				params.cycle,
-				params.start,
-				params.period,
-				network,
-				params.is_payable,
-			)
-			.await
-			.unwrap();
-		},
-		TestCommand::InsertSignTask(params) => {
-			insert_sign_task(
-				&api,
-				params.cycle,
-				params.start,
-				params.period,
-				network,
-				params.contract_address.into_bytes().to_vec(),
-				params.payload.into_bytes().to_vec(),
-			)
-			.await
-			.unwrap();
 		},
 		TestCommand::WatchTask { task_id } => {
 			while !watch_task(&api, task_id).await {
@@ -176,28 +147,58 @@ async fn process_gmp_task(api: &SubxtClient, config: &WalletConfig) {
 	let public_key = api.shard_public_key(0).await.unwrap();
 	println!("shard key {:?}", public_key);
 	// register commitment with contract
-	let parity = format!("{}", public_key[0]);
+	let revoke: Vec<u8> = vec![];
+	let revoke_coord: Vec<Vec<u8>> = vec![];
+
+	let parity = vec![public_key[0]];
 	let mut x_coord = [0u8; 32];
 	x_coord.copy_from_slice(&public_key[1..]);
-	let x_coord = format!("{:?}", x_coord);
-	let function =
-		create_gmp_register_call(contract_address, vec![format!("{:?}", (parity, x_coord))]);
-	let task_id = insert_task(api, 1, start_block, 0, Network::Ethereum, function).await;
+	let x_coord_uint = BigUint::from_bytes_be(&x_coord);
+	let x_coord = vec![x_coord_uint];
+	println!("{:?}-{:?}", parity, x_coord);
+	let function = create_gmp_register_call(
+		contract_address.clone(),
+		vec![
+			format!("{:?}", revoke),
+			format!("{:?}", revoke_coord),
+			format!("{:?}", parity),
+			format!("{:?}", x_coord),
+		],
+	);
+	let task_id = insert_task(api, 1, start_block, 0, Network::Ethereum, function).await.unwrap();
 	println!("task_id {:?}", task_id);
+	while !watch_task(api, task_id).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
 	// then execute gmp task
+	//TODO fix which task to call
+	// let task_id = insert_sign_task(
+	// 	api,
+	// 	1, //cycle
+	// 	0, //period
+	// 	start_block,
+	// 	Network::Ethereum,
+	// 	contract_address.into(),
+	// 	"vote_yes()".into(), //payload
+	// )
+	// .await
+	// .unwrap();
+	// while !watch_task(api, task_id).await {
+	// 	tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	// }
 }
 
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
 	let (contract_address, start_block) = setup_env(config, false).await;
 
-	let task_id = insert_evm_task(
+	let call = create_evm_view_call(contract_address.clone());
+	let task_id = insert_task(
 		api,
-		contract_address.clone(),
 		2, //cycle
 		start_block,
 		2, //period
 		network.clone(),
-		false,
+		call,
 	)
 	.await
 	.unwrap();
@@ -205,25 +206,24 @@ async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &Wall
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
-	let task_id = insert_evm_task(api, contract_address, 1, start_block, 0, network, true)
-		.await
-		.unwrap();
+	let paid_call = create_evm_call(contract_address);
+	let task_id = insert_task(api, 1, start_block, 0, network, paid_call).await.unwrap();
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }
 
 async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config, true).await;
 
-	let task_id = insert_sign_task(
+	let call = create_sign_task(contract_address.into(), "vote_yes()".into());
+	let task_id = insert_task(
 		api,
-		2, //cycle
-		2, //period
+		1, //cycle
+		0, //period
 		start_block,
 		network.clone(),
-		contract_address.clone().into(),
-		"vote_yes()".into(), //payload
+		call,
 	)
 	.await
 	.unwrap();
@@ -236,16 +236,15 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let mut task_ids = vec![];
-
+	let call = create_evm_view_call(contract_address);
 	for _ in 0..total_tasks {
-		let task_id = insert_evm_task(
+		let task_id = insert_task(
 			api,
-			contract_address.clone(),
 			max_cycle,
 			start_block,
 			2, //period
 			Network::Ethereum,
-			false,
+			call.clone(),
 		)
 		.await
 		.unwrap();
@@ -256,41 +255,17 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 	}
 }
 
-async fn node_drop_test(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
-
-	let task_id = insert_evm_task(
-		api,
-		contract_address.clone(),
-		5, //cycle
-		start_block,
-		5, //period
-		Network::Ethereum,
-		false,
-	)
-	.await
-	.unwrap();
-	//wait for some cycles to run
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-	//drop 1 node
-	drop_node("testnet-validator1-1".to_string());
-	//watch task
-	while !watch_task(api, task_id).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-	}
-}
-
 async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfig) {
 	let (contract_address, start_block) = setup_env(config, false).await;
 
-	let task_id = insert_evm_task(
+	let call = create_evm_view_call(contract_address);
+	let task_id = insert_task(
 		api,
-		contract_address.clone(),
 		10, //cycle
 		start_block,
 		5, //period
 		Network::Ethereum,
-		false,
+		call,
 	)
 	.await
 	.unwrap();
@@ -298,8 +273,8 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
 	// drop 2 nodes
-	drop_node("testnet-validator1-1".to_string());
-	drop_node("testnet-validator2-1".to_string());
+	drop_node("testnet-chronicle-eth1-1".to_string());
+	drop_node("testnet-chronicle-eth1-1".to_string());
 	println!("dropped 2 nodes");
 
 	// wait for some time
@@ -322,14 +297,14 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
 	let (contract_address, start_block) = setup_env(config, false).await;
 
-	let task_id = insert_evm_task(
+	let call = create_evm_view_call(contract_address);
+	let task_id = insert_task(
 		api,
-		contract_address.clone(),
 		10, //cycle
 		start_block,
 		2, //period
 		Network::Ethereum,
-		false,
+		call,
 	)
 	.await
 	.unwrap();

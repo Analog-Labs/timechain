@@ -35,41 +35,35 @@ pub async fn watch_batch(
 	false
 }
 
-pub async fn insert_sign_task(
-	api: &SubxtClient,
-	cycle: u64,
-	start: u64,
-	period: u64,
-	network: Network,
-	contract_address: Vec<u8>,
-	payload: Vec<u8>,
-) -> Result<u64> {
-	let function = Function::SendMessage { contract_address, payload };
+pub fn create_evm_call(address: String) -> Function {
+	Function::EvmCall {
+		address,
+		function_signature: "function vote_yes()".to_string(),
+		input: Default::default(),
+		amount: 0,
+	}
+}
 
-	let params = TaskDescriptorParams {
-		network,
-		function,
-		cycle,
-		start,
-		period,
-		hash: "".to_string(),
-	};
-	let payload = SubxtClient::create_task_payload(params);
-	let events = api.sign_and_submit_watch(&payload).await?;
-	let transfer_event = events.find_first::<TaskCreated>().unwrap();
-	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
-	println!("Task registered: {:?}", id);
-	Ok(id)
+pub fn create_evm_view_call(address: String) -> Function {
+	Function::EvmViewCall {
+		address,
+		function_signature: "function get_votes_stats() external view returns (uint[] memory)"
+			.to_string(),
+		input: Default::default(),
+	}
+}
+
+pub fn create_sign_task(contract_address: Vec<u8>, payload: Vec<u8>) -> Function {
+	Function::SendMessage { contract_address, payload }
 }
 
 pub fn create_gmp_register_call(address: String, input: Vec<String>) -> Function {
-	let function = Function::EvmCall {
+	Function::EvmCall {
 		address,
-		function_signature: "function sudoRegisterTSSKeys((uint8,uint256)[] memory)".to_string(),
+		function_signature: "sudoUpdateTSSKeys(uint8[],uint256[],uint8[],uint256[])".to_string(),
 		input,
 		amount: 0,
-	};
-	function
+	}
 }
 
 pub async fn insert_task(
@@ -92,51 +86,6 @@ pub async fn insert_task(
 	let events = api.sign_and_submit_watch(&payload).await?;
 	let transfer_event = events.find_first::<TaskCreated>().unwrap();
 	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
-	println!("Task registered: {:?}", id);
-	Ok(id)
-}
-
-pub async fn insert_evm_task(
-	api: &SubxtClient,
-	address: String,
-	cycle: u64,
-	start: u64,
-	period: u64,
-	network: Network,
-	is_payable: bool,
-) -> Result<u64> {
-	let function = if is_payable {
-		Function::EvmCall {
-			address,
-			function_signature: "function vote_yes()".to_string(),
-			input: Default::default(),
-			amount: 0,
-		}
-	} else {
-		Function::EvmViewCall {
-			address,
-			function_signature: "function get_votes_stats() external view returns (uint[] memory)"
-				.to_string(),
-			input: Default::default(),
-		}
-	};
-
-	let params = TaskDescriptorParams {
-		network,
-		function,
-		cycle,
-		start,
-		period,
-		hash: "".to_string(),
-	};
-
-	let payload = SubxtClient::create_task_payload(params);
-	let events = api.sign_and_submit_watch(&payload).await?;
-
-	let transfer_event = events.find_first::<TaskCreated>().unwrap();
-
-	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
-
 	println!("Task registered: {:?}", id);
 	Ok(id)
 }

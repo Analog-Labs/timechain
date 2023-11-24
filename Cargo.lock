@@ -14020,6 +14020,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ethers-solc",
+ "num-bigint",
  "rosetta-client",
  "surf",
  "tc-subxt",

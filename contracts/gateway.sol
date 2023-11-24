@@ -407,8 +407,20 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Register/Revoke TSS keys using sudo account
-    function sudoUpdateTSSKeys(TssKey[] memory revokeKeys, TssKey[] memory registerKeys) external {
-        require(msg.sender == _owner, "not autorized");
+    function sudoUpdateTSSKeys(uint8[] memory revokeKeysYParity, uint256[] memory revokeKeysXCoord, uint8[] memory registerKeysYParity, uint256[] memory registerKeysXCoord) external {
+        require(msg.sender == _owner, "not authorized");
+
+        TssKey[] memory revokeKeys = new TssKey[](revokeKeysYParity.length);
+        TssKey[] memory registerKeys = new TssKey[](registerKeysYParity.length);
+
+        // for (uint i = 0; i < revokeKeys.length; i++) {
+        //     revokeKeys[i] = TssKey(revokeKeysYParity[i], revokeKeysXCoord[i]);
+        // }
+
+        for (uint i = 0; i < registerKeys.length; i++) {
+            registerKeys[i] = TssKey(registerKeysYParity[i], registerKeysXCoord[i]);
+        }
+
         _updateTssKeys(0, revokeKeys, registerKeys);
     }
 
@@ -482,32 +494,8 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Send GMP message using sudo account
-    // function sudoExecute(GmpPayload memory message) external returns (uint8 status, bytes32 result) {
-    //     require(msg.sender == _owner, "not autorized");
-    //     bytes32 payloadHash = _getGmpPayloadHash(message);
-    //     (status, result) = _execute(payloadHash, message);
-    // }
-
-    // Send GMP message using sudo account
-    function sudoExecute(
-        bytes32 source,
-        uint128 srcNetwork,
-        address dest,
-        uint128 destNetwork,
-        uint256 gasLimit,
-        uint256 salt,
-        bytes calldata data
-    ) external returns (uint8 status, bytes32 result) {
+    function sudoExecute(GmpPayload memory message) external returns (uint8 status, bytes32 result) {
         require(msg.sender == _owner, "not autorized");
-        GmpPayload memory message = GmpPayload({
-            source: source,
-            srcNetwork: srcNetwork,
-            dest: dest,
-            destNetwork: destNetwork,
-            gasLimit: gasLimit,
-            salt: salt,
-            data: data
-        });
         bytes32 payloadHash = _getGmpPayloadHash(message);
         (status, result) = _execute(payloadHash, message);
     }

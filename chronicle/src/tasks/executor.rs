@@ -111,21 +111,19 @@ where
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let function =
-						if let Function::SendMessage { contract_address, payload } = function {
-							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
-							Function::EvmCall {
-								address: hex::encode(&contract_address),
-								function_signature: String::from("send_message(uint[],uint[])"),
-								input: vec![&payload, &signature.to_vec()]
-									.into_iter()
-									.map(|d| format!("{:?}", d))
-									.collect(),
-								amount: 0u128,
-							}
-						} else {
-							function
-						};
+					let function = if let Function::SendMessage { contract_address, .. } = function
+					{
+						let _signature = self.substrate.get_task_signature(task_id)?.unwrap();
+						Function::EvmCall {
+							address: String::from_utf8(contract_address.clone()).unwrap(),
+							//TODO right now it doesnt work, because connector doesnt support custom structs
+							function_signature: String::from("execute(Signature,GmpMessage)"),
+							input: vec![],
+							amount: 0u128,
+						}
+					} else {
+						function
+					};
 					tracing::info!("evm function made is function {:?}", function);
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
@@ -161,8 +159,8 @@ where
 								"Task {}/{}/{} failed {:?}",
 								task_id,
 								cycle,
-								retry_count,
 								error,
+								retry_count,
 							);
 						},
 					}

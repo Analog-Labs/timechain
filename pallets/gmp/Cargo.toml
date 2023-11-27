@@ -13,8 +13,7 @@ version = "0.0.1"
 targets = [ "x86_64-unknown-linux-gnu" ]
 
 [dependencies]
-alloy-sol-macro = "*"
-alloy-sol-types = { version = "*", default-features = false }
+alloy-sol-types = { version = "0.5.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
 	"derive",
 ] }

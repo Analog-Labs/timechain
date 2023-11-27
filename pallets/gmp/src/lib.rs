@@ -6,20 +6,16 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub mod sol;
-pub use sol::*;
-
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::{IGateway::*, *};
 	use alloy_sol_types::SolCall;
 	use codec::alloc::string::ToString;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Function, GmpInterface, MakeTask, Network, ShardId, ShardsEvents,
-		ShardsInterface, TaskDescriptorParams,
+		registerTSSKeysCall, AccountId, Function, GmpInterface, MakeTask, Network, ShardId,
+		ShardsEvents, ShardsInterface, TaskDescriptorParams, TssKey,
 	};
 
 	pub trait WeightInfo {

@@ -407,15 +407,20 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Register/Revoke TSS keys using sudo account
-    function sudoUpdateTSSKeys(uint8[] memory revokeKeysYParity, uint256[] memory revokeKeysXCoord, uint8[] memory registerKeysYParity, uint256[] memory registerKeysXCoord) external {
-        require(msg.sender == _owner, "not authorized");
+    function _sudoUpdateTSSKeys(TssKey[] memory revokeKeys, TssKey[] memory registerKeys) external {
+        require(msg.sender == _owner, "not autorized");
+        _updateTssKeys(0, revokeKeys, registerKeys);
+    }
 
+    // Raw register/Revoke TSS keys using sudo account
+    function rawSudoUpdateTSSKeys(uint8[] memory revokeKeysYParity, uint256[] memory revokeKeysXCoord, uint8[] memory registerKeysYParity, uint256[] memory registerKeysXCoord) external {
+        require(msg.sender == _owner, "not autorized");
         TssKey[] memory revokeKeys = new TssKey[](revokeKeysYParity.length);
         TssKey[] memory registerKeys = new TssKey[](registerKeysYParity.length);
 
-        // for (uint i = 0; i < revokeKeys.length; i++) {
-        //     revokeKeys[i] = TssKey(revokeKeysYParity[i], revokeKeysXCoord[i]);
-        // }
+        for (uint i = 0; i < revokeKeys.length; i++) {
+            revokeKeys[i] = TssKey(revokeKeysYParity[i], revokeKeysXCoord[i]);
+        }
 
         for (uint i = 0; i < registerKeys.length; i++) {
             registerKeys[i] = TssKey(registerKeysYParity[i], registerKeysXCoord[i]);
@@ -500,6 +505,33 @@ contract Gateway is IGateway, SigUtils {
         (status, result) = _execute(payloadHash, message);
     }
 
+    // Send GMP message using sudo account
+    function rawSudoExecute(
+        bytes32 source,      // Pubkey/Address of who sends the GMP message
+        uint128 srcNetwork,  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
+        address dest,        // Destination/Recipient contract address
+        uint128 destNetwork, // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
+        uint256 gasLimit,    // Gas limit of the GMP call
+        uint256 salt,        // Message salt, useful for sending two messages with same content
+        bytes memory data    // Message data with no specified format
+    ) external returns (uint8 status, bytes32 result) {
+        require(msg.sender == _owner, "not authorized");
+
+        // Create a GmpPayload struct instance from the provided arguments
+        GmpPayload memory message = GmpPayload({
+            source: source,
+            srcNetwork: srcNetwork,
+            dest: dest,
+            destNetwork: destNetwork,
+            gasLimit: gasLimit,
+            salt: salt,
+            data: data
+        });
+
+        bytes32 payloadHash = _getGmpPayloadHash(message);
+        (status, result) = _execute(payloadHash, message);
+    }
+
     // Execute GMP message using shard TSS signature
     function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result) {
         (bytes32 messageHash, bytes32 payloadHash) = getGmpMessageTypedHash(message);
@@ -507,5 +539,50 @@ contract Gateway is IGateway, SigUtils {
 
         // Execute GMP message
         (status, result) = _execute(payloadHash, message.payload);
+    }
+
+    // Raw Execute GMP message using shard TSS signature
+    function rawExecute(
+        uint256 signatureXCoord,    // affine x-coordinate from Signature
+        uint256 signatureE,         // 'e' component from Signature
+        uint256 signatureS,         // 's' component from Signature
+        uint32 messageNonce,        // 'nonce' from GmpMessage
+        bytes32 messageSource,      // 'source' from GmpPayload within GmpMessage
+        uint128 messageSrcNetwork,  // 'srcNetwork' from GmpPayload within GmpMessage
+        address messageDest,        // 'dest' from GmpPayload within GmpMessage
+        uint128 messageDestNetwork, // 'destNetwork' from GmpPayload within GmpMessage
+        uint256 messageGasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
+        uint256 messageSalt,        // 'salt' from GmpPayload within GmpMessage
+        bytes memory messageData    // 'data' from GmpPayload within GmpMessage
+    ) external returns (uint8 status, bytes32 result) {
+        // Recreate the Signature struct from the provided arguments
+        Signature memory signature = Signature({
+            xCoord: signatureXCoord,
+            e: signatureE,
+            s: signatureS
+        });
+
+        // Recreate the GmpPayload struct from the provided arguments
+        GmpPayload memory payload = GmpPayload({
+            source: messageSource,
+            srcNetwork: messageSrcNetwork,
+            dest: messageDest,
+            destNetwork: messageDestNetwork,
+            gasLimit: messageGasLimit,
+            salt: messageSalt,
+            data: messageData
+        });
+
+        // Recreate the GmpMessage struct using the recreated payload and provided nonce
+        GmpMessage memory message = GmpMessage({
+            nonce: messageNonce,
+            payload: payload
+        });
+
+        (bytes32 messageHash, bytes32 payloadHash) = getGmpMessageTypedHash(message);
+        _processSignature(signature, messageHash, message.nonce);
+
+        // Execute GMP message
+        (status, result) = _execute(payloadHash, payload);
     }
 }

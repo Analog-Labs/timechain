@@ -90,7 +90,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let network = chain_id.try_into().map_err(|_| Error::<T>::NoNetworkForChainID)?;
-			GatewayAddress::<T>::insert(network, contract_address.clone());
+			GatewayAddress::<T>::insert(network, contract_address);
 			for shard in shard_ids {
 				ShardRegistry::<T>::insert(shard, network, ());
 			}

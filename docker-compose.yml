@@ -89,6 +89,7 @@ services:
     - '--url=ws://astar:9944'
     - '--blockchain=astar'
     - '--network=dev'
+    - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -97,6 +98,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -110,6 +112,7 @@ services:
     - '/var/run/docker.sock:/var/run/docker.sock'
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
+    - './contracts/gateway.sol:/etc/gateway.sol:ro'
 
   prometheus:
     image: prom/prometheus:v2.36.2

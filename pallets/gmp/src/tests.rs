@@ -15,12 +15,11 @@ fn deploy_gateway_works() {
 		assert_ok!(Gmp::deploy_gateway(
 			RawOrigin::Root.into(),
 			1u64,
-			contract_address.clone(),
+			contract_address,
 			sp_std::vec![1, 2, 3]
 		));
 		System::assert_last_event(
-			Event::<Test>::GatewayContractDeployed(Network::Ethereum, contract_address.clone())
-				.into(),
+			Event::<Test>::GatewayContractDeployed(Network::Ethereum, contract_address).into(),
 		);
 		assert_eq!(GatewayAddress::<Test>::get(Network::Ethereum).unwrap(), contract_address);
 		assert!(ShardRegistry::<Test>::get(1, Network::Ethereum).is_some());
@@ -51,7 +50,7 @@ fn revoke_shards_works_works() {
 		assert_ok!(Gmp::deploy_gateway(
 			RawOrigin::Root.into(),
 			1u64,
-			contract_address.clone(),
+			contract_address,
 			sp_std::vec![1, 2, 3]
 		));
 		assert!(ShardRegistry::<Test>::get(1, Network::Ethereum).is_some());

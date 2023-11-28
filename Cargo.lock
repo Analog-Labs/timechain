@@ -4265,7 +4265,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/frost-evm#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
@@ -11314,7 +11314,7 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/frost-evm#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
 dependencies = [
  "k256",
  "rand_core 0.6.4",
@@ -14020,6 +14020,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ethers-solc",
+ "num-bigint",
  "rosetta-client",
  "surf",
  "tc-subxt",

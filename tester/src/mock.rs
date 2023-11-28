@@ -4,7 +4,6 @@ use rosetta_client::{Blockchain, Wallet};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
-use tc_subxt::{rpc_params, RpcParams, SubxtClient};
 
 #[derive(Clone, Debug)]
 pub(crate) struct WalletConfig {
@@ -13,7 +12,7 @@ pub(crate) struct WalletConfig {
 	pub url: String,
 }
 
-pub(crate) async fn setup_env(config: &WalletConfig, is_gmp: bool) -> (String, u64) {
+pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
 	set_keys(config).await;
 	fund_wallet(config).await;
 	deploy_contract(config, is_gmp).await.unwrap()

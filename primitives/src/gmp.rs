@@ -92,11 +92,13 @@ alloy_sol_macro::sol! {
 
 	#[derive(Debug, PartialEq, Eq)]
 	struct GMPMessage {
-		uint128 nonce;
-		uint128 networkId; // source network id
-		bytes32 sender;    // sender public key
-		address dest;      // dest contract
-		bytes payload;     // message payload
+		bytes32 source;      // Pubkey/Address of who send the GMP message
+		uint128 srcNetwork;  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
+		address dest;        // Destination/Recipient contract address
+		uint128 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
+		uint256 gasLimit;    // gas limit of the GMP call
+		uint256 salt;        // Message salt, useful for sending two messages with same content
+		bytes data;          // message data with no specified format
 	}
 
 	#[derive(Debug, PartialEq, Eq)]

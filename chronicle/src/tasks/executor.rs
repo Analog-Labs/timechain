@@ -5,7 +5,8 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
+	BlockHash, BlockNumber, Function, GMPMessage, Network, ShardId, TaskExecution, TaskPhase,
+	Tasks, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -143,7 +144,6 @@ where
 					} else {
 						function
 					};
-					tracing::info!("evm function made is function {:?}", function);
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

@@ -34,9 +34,6 @@ enum TestCommand {
 	DeployContract,
 	Gmp,
 	FundWallet,
-	SetKeys,
-	InsertTask(InsertTaskParams),
-	InsertSignTask(InsertSignTaskParams),
 	WatchTask { task_id: u64 },
 }
 

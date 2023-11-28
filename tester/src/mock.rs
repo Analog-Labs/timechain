@@ -13,47 +13,9 @@ pub(crate) struct WalletConfig {
 	pub url: String,
 }
 
-pub(crate) async fn setup_env(config: &WalletConfig) -> (String, u64) {
-	set_keys(config).await;
+pub(crate) async fn setup_env(config: &WalletConfig, is_gmp: bool) -> (String, u64) {
 	fund_wallet(config).await;
 	deploy_contract(config, is_gmp).await.unwrap()
-}
-
-async fn insert_key(url: &str, key_type: &str, suri: &str, public_key: &str) {
-	loop {
-		let Ok(api) = SubxtClient::new(url, None).await else {
-			println!("failed to connect to node {}", url);
-			tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-			continue;
-		};
-		let params: RpcParams = rpc_params![key_type, suri, public_key];
-		let _: () = api.rpc("author_insertKey", params).await.unwrap();
-		println!("submitted key for node: {}", url);
-		break;
-	}
-}
-
-pub(crate) async fn set_keys(config: &WalletConfig) {
-	let suri = |i: u8| {
-		format!("owner word vocal dose decline sunset battle example forget excite gentle waste//{i}//time")
-	};
-	let keys = [
-		"0x78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d",
-		"0xcee262950a61e921ac72217fd5578c122bfc91ba5c0580dbfbe42148cf35be2b",
-		"0xa01b6ceec7fb1d32bace8ffcac21ffe6839d3a2ebe26d86923be9dd94c0c9a02",
-		"0x1e31bbe09138bef48ffaca76214317eb0f7a8fd85959774e41d180f2ad9e741f",
-		"0x1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659",
-		"0x72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69",
-	];
-	match config.blockchain {
-		Blockchain::Ethereum => {
-			insert_key("ws://chronicle-eth:9944", "time", &suri(1), keys[0]).await;
-		},
-		Blockchain::Astar => {
-			insert_key("ws://chronicle-astar:9944", "time", &suri(2), keys[1]).await;
-		},
-		_ => unreachable!(),
-	}
 }
 
 pub(crate) async fn deploy_contract(config: &WalletConfig, is_gmp: bool) -> Result<(String, u64)> {

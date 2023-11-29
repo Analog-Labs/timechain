@@ -374,13 +374,25 @@ contract Gateway is IGateway, SigUtils {
 
     // Register/Revoke TSS keys
     function _updateTssKeys(bytes32 messageHash, TssKey[] memory revokeKeys, TssKey[] memory registerKeys) private {
-        // We don't perform any arithment operation, except iterate a loop
+        // We don't perform any arithmetic operation, except iterate a loop
         unchecked {
             // Revoke tss keys
             for (uint256 i=0; i < revokeKeys.length; i++) {
+                TssKey memory revokedKey = revokeKeys[i];
+
                 // Read shard from storage
-                bytes32 shardId = _tssKeyToShardId(revokeKeys[i]);
+                bytes32 shardId = _tssKeyToShardId(revokedKey);
                 ShardInfo storage shard = _shards[shardId];
+
+                // Check if the shard exists and is active
+                require(shard.nonce > 0, "shard doesn't exists, cannot revoke key");
+                require((shard.status & SHARD_ACTIVE) > 0, "cannot revoke a shard key already revoked");
+
+                // Check y-parity
+                {
+                    uint8 yParity = (shard.status & SHARD_Y_PARITY) > 0 ? 1 : 0;
+                    require(yParity == revokedKey.yParity, "invalid y parity bit, cannot revoke key");
+                }
 
                 // Disable KEY_FLAG_ACTIVE bitflag
                 shard.status = shard.status & (~SHARD_ACTIVE); // Disable active flag
@@ -388,24 +400,46 @@ contract Gateway is IGateway, SigUtils {
 
             // Register or enable tss key (old keys keep the same previous nonce)
             for (uint256 i=0; i < registerKeys.length; i++) {
+                // Validate y-parity bit
+                TssKey memory newKey = registerKeys[i];
+
                 // Read shard from storage
-                bytes32 shardId = _tssKeyToShardId(registerKeys[i]);
+                bytes32 shardId = _tssKeyToShardId(newKey);
                 ShardInfo storage shard = _shards[shardId];
+                uint8 status = shard.status;
+                uint32 nonce = shard.nonce;
+
+                // Check if the shard is not active
+                require((status & SHARD_ACTIVE) == 0, "already active, cannot register again");
+
+                // Check y-parity
+                uint8 yParity = newKey.yParity;
+                require(yParity == (yParity & 1), "y parity bit must be 0 or 1, cannot register shard");
+                
+                // If the shard exists, the y-parity must match the original one
+                if (nonce > 0) {
+                    uint8 actualYParity = (status & SHARD_Y_PARITY) > 0 ? 1 : 0;
+                    require(actualYParity == yParity, "the provided y-parity doesn't match the existing y-parity, cannot register shard");
+                }
+                
+                // enable SHARD_Y_PARITY bitflag
+                if (yParity > 0) {
+                    status |= SHARD_Y_PARITY;
+                }
 
                 // enable SHARD_ACTIVE bitflag
-                shard.status |= SHARD_ACTIVE;
+                status |= SHARD_ACTIVE;
+
+                // Save status in the storage
+                shard.status = status;
 
                 // if shard nonce is zero, set it to 1
-                uint32 nonce = shard.nonce;
                 if (nonce == 0) {
                     shard.nonce = 1;
                 }
             }
         }
-
-        emit ShardSetChanged(messageHash, revokeKeys, registerKeys);
     }
-
     // Register/Revoke TSS keys using sudo account
     function _sudoUpdateTSSKeys(TssKey[] memory revokeKeys, TssKey[] memory registerKeys) external {
         require(msg.sender == _owner, "not autorized");

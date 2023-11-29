@@ -1,6 +1,8 @@
-use crate::{Function, TssSignature};
+use crate::{ChainId, Function, TssSignature};
+pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use codec::alloc::string::String;
+use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 use IGateway::*;
 
@@ -116,4 +118,29 @@ alloy_sol_macro::sol! {
 		function sudoExecute(GMPMessage memory message) external returns (bool success);
 		function execute(Signature memory signature, GMPMessage memory message) external returns (bool success);
 	}
+}
+
+impl From<WrappedGmpMessage> for GMPMessage {
+	fn from(wrapped_msg: WrappedGmpMessage) -> Self {
+		Self {
+			source: wrapped_msg.source.into(),
+			srcNetwork: wrapped_msg.src_network.into(),
+			dest: wrapped_msg.dest.into(),
+			destNetwork: wrapped_msg.dest_network.into(),
+			gasLimit: wrapped_msg.gas_limit,
+			salt: wrapped_msg.salt,
+			data: wrapped_msg.data,
+		}
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrappedGmpMessage {
+	pub source: [u8; 32],
+	pub src_network: ChainId,
+	pub dest: [u8; 20],
+	pub dest_network: ChainId,
+	pub gas_limit: U256,
+	pub salt: U256,
+	pub data: Vec<u8>,
 }

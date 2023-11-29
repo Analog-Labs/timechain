@@ -29,7 +29,7 @@ impl std::fmt::Display for TssId {
 	}
 }
 
-type ChainId = u64;
+pub type ChainId = u64;
 
 /// Convert ChainId to Network
 impl TryFrom<ChainId> for Network {

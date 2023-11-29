@@ -2,13 +2,15 @@ use std::u8;
 
 use crate::mock::*;
 use crate::tasks::*;
-use shards as Shards;
-
+use bincode;
 use clap::Parser;
 use num_bigint::BigUint;
 use rosetta_client::Blockchain;
+use sha3::{Digest, Keccak256};
+use shards as Shards;
 use tc_subxt::Network;
 use tc_subxt::SubxtClient;
+use time_primitives::{ChainId, Network as PrimitiveNetwork, WrappedGmpMessage, U256};
 
 mod mock;
 mod shards;
@@ -153,9 +155,26 @@ async fn process_gmp_task(
 	}
 
 	register_eth_gmp(api, eth_shard_id, eth_contract_address.clone(), eth_start_block).await;
-	register_astar_gmp(api, astar_shard_id, astar_contract_address, astar_start_block).await;
+	register_astar_gmp(api, astar_shard_id, astar_contract_address.clone(), astar_start_block)
+		.await;
 
-	let function = create_sign_task(eth_contract_address.into(), "vote_yes".into());
+	let mut eth_bytes = [0u8; 20];
+	hex::decode_to_slice(&eth_contract_address, &mut eth_bytes).unwrap();
+	let gas_limit = U256::from(100);
+	let salt = U256::from(1);
+	let gmp_data = get_test_gmp_data("vote_yes()");
+
+	let gmp_message_payload = WrappedGmpMessage {
+		source: [0; 32],
+		src_network: ChainId::try_from(PrimitiveNetwork::Astar).unwrap(),
+		dest: eth_bytes,
+		dest_network: ChainId::try_from(PrimitiveNetwork::Ethereum).unwrap(),
+		gas_limit,
+		salt,
+		data: gmp_data,
+	};
+	let serialized_data = bincode::serialize(&gmp_message_payload).unwrap();
+	let function = create_sign_task(astar_contract_address.into(), serialized_data);
 	let task_id = insert_task(
 		api,
 		1, //cycle
@@ -169,6 +188,13 @@ async fn process_gmp_task(
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
+}
+
+fn get_test_gmp_data(arg: &str) -> Vec<u8> {
+	let mut hasher = Keccak256::new();
+	hasher.update(arg);
+	let hash = hasher.finalize();
+	hash[..4].into()
 }
 
 async fn register_astar_gmp(

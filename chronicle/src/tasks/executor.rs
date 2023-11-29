@@ -111,38 +111,23 @@ where
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let function = if let Function::SendMessage { contract_address, payload } =
-						function
-					{
-						let signature = self.substrate.get_task_signature(task_id)?.unwrap();
-						Function::EvmCall {
-							address: String::from_utf8(contract_address.clone()).unwrap(),
-							//TODO right now it doesnt work, because connector doesnt support custom structs
-							function_signature: String::from("execute(Signature,GmpMessage)"),
-							input: vec![
-								String::from_utf8(signature.to_vec()).unwrap(),
-								String::from_utf8(payload).unwrap(),
-							],
-							// TODO estimate gas required for gateway
-							amount: 1u128, // >0 so failed execution is not due to lack of gas
-						}
-					} else if let Function::EvmCall {
-						address,
-						function_signature,
-						input,
-						amount,
-					} = function
-					{
-						let signature = self.substrate.get_task_signature(task_id)?.unwrap();
-						Function::EvmCall {
-							address,
-							function_signature,
-							input: time_primitives::insert_sig_iff_register_shard(input, signature),
-							amount,
-						}
-					} else {
-						function
-					};
+					let function =
+						if let Function::SendMessage { contract_address, payload } = function {
+							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
+							Function::EvmCall {
+								address: String::from_utf8(contract_address.clone()).unwrap(),
+								//TODO right now it doesnt work, because connector doesnt support custom structs
+								function_signature: String::from("execute(Signature,GmpMessage)"),
+								input: vec![
+									String::from_utf8(signature.to_vec()).unwrap(),
+									String::from_utf8(payload).unwrap(),
+								],
+								// TODO estimate gas required for gateway
+								amount: 1u128, // >0 so failed execution is not due to lack of gas
+							}
+						} else {
+							function
+						};
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

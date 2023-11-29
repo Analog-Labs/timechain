@@ -138,9 +138,9 @@ async fn process_gmp_task(
 	eth_config: &WalletConfig,
 	astar_config: &WalletConfig,
 ) {
-	let (eth_contract_address, eth_start_block) = setup_env(eth_config, true).await;
+	let (eth_contract_address, eth_start_block) = setup_env(eth_config).await;
 	println!("Setup for eth done");
-	let (astar_contract_address, astar_start_block) = setup_env(astar_config, true).await;
+	let (astar_contract_address, astar_start_block) = setup_env(astar_config).await;
 	println!("Setup for astar done");
 
 	let eth_shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
@@ -249,7 +249,7 @@ async fn register_eth_gmp(
 }
 
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let call = create_evm_view_call(contract_address.clone());
 	let task_id = insert_task(
@@ -274,7 +274,7 @@ async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &Wall
 }
 
 async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, true).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let call = create_sign_task(contract_address.into(), "vote_yes()".into());
 	let task_id = insert_task(
@@ -293,7 +293,7 @@ async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletCon
 }
 
 async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let mut task_ids = vec![];
 	let call = create_evm_view_call(contract_address);
@@ -316,7 +316,7 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 }
 
 async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let call = create_evm_view_call(contract_address);
 	let task_id = insert_task(
@@ -356,7 +356,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 }
 
 async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config).await;
 
 	let call = create_evm_view_call(contract_address);
 	let task_id = insert_task(

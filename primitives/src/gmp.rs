@@ -43,7 +43,7 @@ pub fn insert_sig_iff_register_shard(input: Vec<String>, sig: TssSignature) -> V
 				.unwrap(),
 			);
 		} else {
-			signed.push(arg.into());
+			signed.push(arg);
 		}
 	}
 	signed

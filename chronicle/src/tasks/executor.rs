@@ -119,7 +119,6 @@ where
 							address: String::from_utf8(contract_address.clone()).unwrap(),
 							//TODO right now it doesnt work, because connector doesnt support custom structs
 							function_signature: String::from("execute(Signature,GmpMessage)"),
-<<<<<<< HEAD
 							input: vec![
 								String::from_utf8(signature.to_vec()).unwrap(),
 								String::from_utf8(payload).unwrap(),

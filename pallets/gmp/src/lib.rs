@@ -163,7 +163,6 @@ pub mod pallet {
 			RegisterShardScheduled::<T>::get(shard_id, network).is_some()
 		}
 		/// Return Some(Function) if gateway contract deployed on network
-		// TODO: use results to propagate errors
 		fn register_shard_call(
 			shard_id: ShardId,
 			network: Network,
@@ -172,7 +171,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::CannotRegisterShardBeforeGateway)?;
 			let shard_public_key = T::Shards::tss_public_key(shard_id)
 				.ok_or(Error::<T>::CannotRegisterShardWithoutShardTssKey)?;
-			time_primitives::make_register_shard_call(shard_public_key, contract_address)
+			Ok(time_primitives::register_shard_call(shard_public_key, contract_address))
 		}
 		/// Schedule register a shard
 		fn schedule_register_shard(shard_id: ShardId, network: Network) -> DispatchResult {
@@ -181,35 +180,25 @@ pub mod pallet {
 				Error::<T>::ShardAlreadyRegisteredInGateway
 			);
 			ensure!(
-				!Self::is_shard_registered(shard_id, network),
+				!Self::is_register_shard_scheduled(shard_id, network),
 				Error::<T>::RegisterShardAlreadyScheduled
 			);
 			let function = Self::register_shard_call(shard_id, network)?;
-			if !Self::is_shard_registered(shard_id, network)
-				&& !Self::is_register_shard_scheduled(shard_id, network)
-			{
-				// TODO: flatten
-				if let Some(function) = Self::register_shard_call(shard_id, network) {
-					let start = frame_system::Pallet::<T>::block_number()
-						.try_into()
-						.map_err(|_| Error::<T>::BlockNumberConversionFailed)?;
-					if T::Tasks::make_task(
-						[0u8; 32].into(),
-						TaskDescriptorParams {
-							network,
-							cycle: 1,
-							start: frame_system::Pallet::<T>::block_number().try_into().unwrap(),
-							period: 1,
-							hash: "".to_string(),
-							function,
-						},
-					)
-					.is_ok()
-					{
-						RegisterShardScheduled::<T>::insert(shard_id, network, ());
-					} // TODO: handle error branch
-				} // TODO: handle error branch
-			}
+			let start = frame_system::Pallet::<T>::block_number()
+				.try_into()
+				.map_err(|_| Error::<T>::BlockNumberConversionFailed)?;
+			T::Tasks::make_task(
+				[0u8; 32].into(),
+				TaskDescriptorParams {
+					network,
+					cycle: 1,
+					start,
+					period: 1,
+					hash: "".to_string(),
+					function,
+				},
+			)?;
+			RegisterShardScheduled::<T>::insert(shard_id, network, ());
 			Ok(())
 		}
 	}

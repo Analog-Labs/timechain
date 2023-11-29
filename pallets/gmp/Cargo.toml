@@ -13,7 +13,6 @@ version = "0.0.1"
 targets = [ "x86_64-unknown-linux-gnu" ]
 
 [dependencies]
-alloy-sol-types = { version = "0.5.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
 	"derive",
 ] }
@@ -39,4 +38,4 @@ sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch 
 
 [features]
 default = [ "std" ]
-std = [ "codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "scale-info/std", "serde/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "time-primitives/std", "alloy-sol-types/std", "schnorr-evm/std" ]
+std = [ "codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "scale-info/std", "serde/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "time-primitives/std", "schnorr-evm/std" ]

@@ -4,10 +4,7 @@ use codec::alloc::string::String;
 use sp_std::vec::Vec;
 use IGateway::*;
 
-pub fn make_register_shard_call(
-	shard_public_key: [u8; 33],
-	contract_address: [u8; 20],
-) -> Function {
+pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20]) -> Function {
 	Function::EvmCall {
 		address: String::from_utf8(contract_address.to_vec()).unwrap(),
 		function_signature: String::from("execute(Signature,GmpMessage)"),
@@ -26,11 +23,11 @@ pub fn make_register_shard_call(
 
 /// Inserts signature into call iff it is a register shard call
 /// else returns the passed input unaltered
-pub fn maybe_sign_register_shard(input: Vec<String>, sig: TssSignature) -> Vec<String> {
+pub fn insert_sig_iff_register_shard(input: Vec<String>, sig: TssSignature) -> Vec<String> {
 	let mut signed = Vec::new();
 	for arg in input {
 		let try_decode_register_shard =
-			registerTSSKeysCall::abi_decode(&arg.clone().into_bytes(), false);
+			registerTSSKeysCall::abi_decode(&arg.clone().into_bytes(), true);
 		if let Ok(call) = try_decode_register_shard {
 			// replace dummy signature but keep tssKeys unaltered
 			signed.push(
@@ -75,26 +72,11 @@ alloy_sol_macro::sol! {
 		uint256 s;
 	}
 
-	// impl From<crate::TssSignature> for Signature {
-	// 	fn from(signature: TssSignature) -> Signature {
-	// 		todo!()
-	// 	}
-	// }
-
 	#[derive(Debug, PartialEq, Eq)]
 	struct TssKey {
 		uint8 parity;    // public key y-coord parity (27 or 28)
 		bytes32 coordX;  // public key x-coord
 	}
-
-	// impl From<[u8; 33]> for TssKey {
-	// 	fn from(key: [u8; 33]) -> TssKey {
-	// 		let mut key_vec = shard_public_key.to_vec();
-	// 		let x_coordinate: [u8; 32] = shard_public_key[1..].try_into().unwrap();
-	// 		let (parity, coordX) = (key_vec.remove(0), x_coordinate.into());
-	// 		TssKey { parity, coordX }
-	// 	}
-	// }
 
 	#[derive(Debug, PartialEq, Eq)]
 	struct RegisterTssKeys {

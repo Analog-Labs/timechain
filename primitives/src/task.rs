@@ -18,6 +18,7 @@ pub enum Function {
 	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
 	EvmTxReceipt { tx: Vec<u8> },
 	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
+	WatchEvents { contract_address: Vec<u8> },
 }
 
 impl Function {

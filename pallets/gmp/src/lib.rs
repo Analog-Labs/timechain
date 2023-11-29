@@ -8,14 +8,14 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use alloy_sol_types::SolCall;
 	use codec::alloc::string::ToString;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::DispatchError;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		registerTSSKeysCall, AccountId, Function, GmpInterface, MakeTask, Network, ShardId,
-		ShardsEvents, ShardsInterface, TaskDescriptorParams, TssKey,
+		AccountId, Function, GmpInterface, MakeTask, Network, ShardId, ShardsEvents,
+		ShardsInterface, TaskDescriptorParams,
 	};
 
 	pub trait WeightInfo {
@@ -67,6 +67,11 @@ pub mod pallet {
 	pub enum Error<T> {
 		NoNetworkForChainID,
 		GatewayNotDeployed,
+		BlockNumberConversionFailed,
+		CannotRegisterShardBeforeGateway,
+		CannotRegisterShardWithoutShardTssKey,
+		ShardAlreadyRegisteredInGateway,
+		RegisterShardAlreadyScheduled,
 	}
 
 	#[pallet::event]
@@ -94,6 +99,23 @@ pub mod pallet {
 			for shard in shard_ids {
 				ShardRegistry::<T>::insert(shard, network, ());
 			}
+			// create recurring read task to watch events from deployed contract
+			let start = frame_system::Pallet::<T>::block_number()
+				.try_into()
+				.map_err(|_| Error::<T>::BlockNumberConversionFailed)?;
+			T::Tasks::make_task(
+				[0u8; 32].into(),
+				TaskDescriptorParams {
+					network,
+					cycle: u64::MAX, //recurring task, TODO: end once/if contract is removed
+					start,
+					period: 1,
+					hash: "".to_string(),
+					function: Function::WatchEvents {
+						contract_address: contract_address.clone().to_vec(),
+					},
+				},
+			)?;
 			Self::deposit_event(Event::GatewayContractDeployed(network, contract_address));
 			Ok(())
 		}
@@ -142,21 +164,35 @@ pub mod pallet {
 		}
 		/// Return Some(Function) if gateway contract deployed on network
 		// TODO: use results to propagate errors
-		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
-			let Some(contract_address) = GatewayAddress::<T>::get(network) else {
-				return None;
-			};
-			let Some(shard_public_key) = T::Shards::tss_public_key(shard_id) else {
-				return None;
-			};
-			Some(make_register_shard_call(shard_public_key, contract_address))
+		fn register_shard_call(
+			shard_id: ShardId,
+			network: Network,
+		) -> Result<Function, DispatchError> {
+			let contract_address = GatewayAddress::<T>::get(network)
+				.ok_or(Error::<T>::CannotRegisterShardBeforeGateway)?;
+			let shard_public_key = T::Shards::tss_public_key(shard_id)
+				.ok_or(Error::<T>::CannotRegisterShardWithoutShardTssKey)?;
+			time_primitives::make_register_shard_call(shard_public_key, contract_address)
 		}
 		/// Schedule register a shard
-		fn schedule_register_shard(shard_id: ShardId, network: Network) {
+		fn schedule_register_shard(shard_id: ShardId, network: Network) -> DispatchResult {
+			ensure!(
+				!Self::is_shard_registered(shard_id, network),
+				Error::<T>::ShardAlreadyRegisteredInGateway
+			);
+			ensure!(
+				!Self::is_shard_registered(shard_id, network),
+				Error::<T>::RegisterShardAlreadyScheduled
+			);
+			let function = Self::register_shard_call(shard_id, network)?;
 			if !Self::is_shard_registered(shard_id, network)
 				&& !Self::is_register_shard_scheduled(shard_id, network)
 			{
+				// TODO: flatten
 				if let Some(function) = Self::register_shard_call(shard_id, network) {
+					let start = frame_system::Pallet::<T>::block_number()
+						.try_into()
+						.map_err(|_| Error::<T>::BlockNumberConversionFailed)?;
 					if T::Tasks::make_task(
 						[0u8; 32].into(),
 						TaskDescriptorParams {
@@ -171,15 +207,16 @@ pub mod pallet {
 					.is_ok()
 					{
 						RegisterShardScheduled::<T>::insert(shard_id, network, ());
-					} // TODO: handle error branch by logging something
-				} // TODO: handle error branch by logging something
+					} // TODO: handle error branch
+				} // TODO: handle error branch
 			}
+			Ok(())
 		}
 	}
 
 	impl<T: Config> ShardsEvents for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
-			Self::schedule_register_shard(shard_id, network);
+			let _ = Self::schedule_register_shard(shard_id, network);
 		}
 
 		fn shard_offline(shard_id: ShardId, network: Network) {

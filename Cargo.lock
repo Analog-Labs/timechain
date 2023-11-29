@@ -7677,7 +7677,6 @@ dependencies = [
 name = "pallet-gmp"
 version = "0.0.1"
 dependencies = [
- "alloy-sol-types",
  "env_logger",
  "frame-benchmarking",
  "frame-support",

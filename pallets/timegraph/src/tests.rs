@@ -13,6 +13,15 @@ fn test_deposit() {
 		let amount = 100;
 		let init_sequence = 0;
 		assert_eq!(Timegraph::next_deposit_sequence(sender), init_sequence);
+		assert_noop!(
+			Timegraph::deposit(RawOrigin::Signed(sender).into(), sender, amount),
+			Error::<Test>::SenderSameWithReceiver
+		);
+
+		assert_noop!(
+			Timegraph::deposit(RawOrigin::Signed(sender).into(), receiver, 0_u128),
+			Error::<Test>::ZeroAmount
+		);
 
 		assert_ok!(Timegraph::deposit(RuntimeOrigin::signed(sender), receiver, amount));
 
@@ -36,6 +45,26 @@ fn test_withdraw() {
 		let amount = 100;
 		let init_sequence = 0;
 		assert_eq!(Timegraph::next_withdrawal_sequence(sender), init_sequence);
+
+		assert_noop!(
+			Timegraph::withdraw(
+				RawOrigin::Signed(sender).into(),
+				sender,
+				amount,
+				init_sequence + 1
+			),
+			Error::<Test>::SenderSameWithReceiver
+		);
+
+		assert_noop!(
+			Timegraph::withdraw(
+				RawOrigin::Signed(sender).into(),
+				receiver,
+				0_u128,
+				init_sequence + 1
+			),
+			Error::<Test>::ZeroAmount
+		);
 
 		assert_noop!(
 			Timegraph::withdraw(RawOrigin::Signed(sender).into(), receiver, amount, init_sequence),

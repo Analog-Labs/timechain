@@ -68,6 +68,10 @@ pub mod pallet {
 		WithDrawalSequenceMismatch,
 		/// sequence number overflow
 		SequenceNumberOverflow,
+		/// zero amount
+		ZeroAmount,
+		/// sender same with receiver
+		SenderSameWithReceiver,
 	}
 
 	#[pallet::call]
@@ -81,6 +85,8 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(amount > 0_u32.into(), Error::<T>::ZeroAmount);
+			ensure!(who != to, Error::<T>::SenderSameWithReceiver);
 			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
 			let deposit_sequence = Self::next_deposit_sequence(&to);
 			let next_sequence =
@@ -101,6 +107,8 @@ pub mod pallet {
 			sequence: u64,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(amount > 0_u32.into(), Error::<T>::ZeroAmount);
+			ensure!(who != to, Error::<T>::SenderSameWithReceiver);
 			let withdrawal_sequence = Self::next_withdrawal_sequence(&to);
 			let next_withdrawal_sequence =
 				withdrawal_sequence.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;

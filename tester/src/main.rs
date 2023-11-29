@@ -2,7 +2,6 @@ use std::u8;
 
 use crate::mock::*;
 use crate::tasks::*;
-use bincode;
 use clap::Parser;
 use num_bigint::BigUint;
 use rosetta_client::Blockchain;

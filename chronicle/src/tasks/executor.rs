@@ -5,8 +5,7 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, GMPMessage, Network, ShardId, TaskExecution, TaskPhase,
-	Tasks, TssId,
+	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
 };
 use tokio::task::JoinHandle;
 

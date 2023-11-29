@@ -141,6 +141,7 @@ pub mod pallet {
 			RegisterShardScheduled::<T>::get(shard_id, network).is_some()
 		}
 		/// Return Some(Function) if gateway contract deployed on network
+		// TODO: use results to propagate errors
 		fn register_shard_call(shard_id: ShardId, network: Network) -> Option<Function> {
 			let Some(contract_address) = GatewayAddress::<T>::get(network) else {
 				return None;
@@ -148,18 +149,7 @@ pub mod pallet {
 			let Some(shard_public_key) = T::Shards::tss_public_key(shard_id) else {
 				return None;
 			};
-			let mut key_vec = shard_public_key.to_vec();
-			let x_coordinate: [u8; 32] = shard_public_key[1..].try_into().unwrap();
-			let (parity, coord_x) = (key_vec.remove(0), x_coordinate.into());
-			Some(Function::SendMessage {
-				contract_address: contract_address.to_vec(),
-				payload: registerTSSKeysCall {
-					// signed at execution => dummy signature now
-					signature: Default::default(),
-					tssKeys: sp_std::vec![TssKey { parity, coordX: coord_x }],
-				}
-				.abi_encode(),
-			})
+			Some(make_register_shard_call(shard_public_key, contract_address))
 		}
 		/// Schedule register a shard
 		fn schedule_register_shard(shard_id: ShardId, network: Network) {
@@ -171,8 +161,8 @@ pub mod pallet {
 						[0u8; 32].into(),
 						TaskDescriptorParams {
 							network,
-							cycle: 0,
-							start: 0,
+							cycle: 1,
+							start: frame_system::Pallet::<T>::block_number().try_into().unwrap(),
 							period: 1,
 							hash: "".to_string(),
 							function,

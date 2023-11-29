@@ -13,7 +13,7 @@ mod member;
 mod shard;
 mod task;
 
-pub use crate::gmp::{IGateway::registerTSSKeysCall, TssKey};
+pub use crate::gmp::{IGateway::*, *};
 pub use crate::member::*;
 pub use crate::shard::*;
 pub use crate::task::*;

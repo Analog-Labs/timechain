@@ -312,6 +312,14 @@ contract Gateway is IGateway, SigUtils {
         _owner = msg.sender;
     }
 
+    function getGMPMessage(bytes32 id) public returns (GmpMessageInfo memory) {
+        return _messages[id];
+    }
+
+    function getShard(bytes32 id) public returns (ShardInfo memory) {
+        return _shards[id];
+    }
+
     // Check if shard exists, verify TSS signature and increment shard nonce
     function _processSignature(Signature memory signature, bytes32 message, uint32 sigNonce) private {
         // Load shard from storage

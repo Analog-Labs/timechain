@@ -181,13 +181,13 @@ async fn process_gmp_task(
 		data: gmp_data,
 	};
 	let serialized_data = bincode::serialize(&gmp_message_payload).unwrap();
-	let function = create_sign_task(astar_contract_address_gmp.into(), serialized_data);
+	let function = create_sign_task(eth_contract_address_gmp.into(), serialized_data);
 	let task_id = insert_task(
 		api,
 		1, //cycle
 		0, //period
 		astar_start_block_gmp,
-		Network::Astar,
+		Network::Ethereum,
 		function,
 	)
 	.await

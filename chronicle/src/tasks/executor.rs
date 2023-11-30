@@ -128,10 +128,8 @@ where
 									format!("{:?}", gmp_message.src_network),
 									hex::encode(gmp_message.dest),
 									format!("{:?}", gmp_message.dest_network),
-									// format!("{:?}", gmp_message.gas_limit),
-									// format!("{:?}", gmp_message.salt),
-									format!("{:?}", 64),
-									format!("{:?}", 1),
+									gmp_message.gas_limit.to_string(),
+									gmp_message.salt.to_string(),
 									format!("{:?}", gmp_message.data)
 								],
 								// TODO estimate gas required for gateway

@@ -414,7 +414,7 @@ contract Gateway is IGateway, SigUtils {
 
                 // Check y-parity
                 uint8 yParity = newKey.yParity;
-                require(yParity == (yParity & 1), "y parity bit must be 0 or 1, cannot register shard");
+                require(yParity == (yParity & 3), "y parity bit must be 0 or 1, cannot register shard");
                 
                 // If the shard exists, the y-parity must match the original one
                 if (nonce > 0) {

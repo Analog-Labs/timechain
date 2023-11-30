@@ -165,7 +165,8 @@ async fn process_gmp_task(
 	.await;
 
 	let mut eth_bytes = [0u8; 20];
-	hex::decode_to_slice(&eth_contract_address, &mut eth_bytes).unwrap();
+	let trimmed_address = eth_contract_address.trim_start_matches("0x");
+	hex::decode_to_slice(&trimmed_address, &mut eth_bytes).unwrap();
 	let gas_limit = U256::from(100);
 	let salt = U256::from(1);
 	let gmp_data = get_test_gmp_data("vote_yes()");

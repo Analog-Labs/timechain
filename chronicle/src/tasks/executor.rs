@@ -130,7 +130,7 @@ where
 									format!("{:?}", gmp_message.dest_network),
 									gmp_message.gas_limit.to_string(),
 									gmp_message.salt.to_string(),
-									format!("{:?}", gmp_message.data)
+									hex::encode(gmp_message.data)
 								],
 								// TODO estimate gas required for gateway
 								amount: 1u128, // >0 so failed execution is not due to lack of gas

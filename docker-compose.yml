@@ -45,7 +45,9 @@ services:
     - '--no-mdns'
     profiles:
     - astar
-
+    ports:
+      - 9949:9944
+  
   chronicle-eth1:
     image: 'analoglabs/timechain-node'
     command:

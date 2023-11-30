@@ -118,7 +118,6 @@ where
 						let _signature = self.substrate.get_task_signature(task_id)?.unwrap();
 						let gmp_message: WrappedGmpMessage =
 							bincode::deserialize(&payload).unwrap();
-						tracing::info!("gmp message {:?}", gmp_message);
 						Function::EvmCall {
 								address: String::from_utf8(contract_address.clone()).unwrap(),
 								//TODO right now it doesnt work, because connector doesnt support custom structs
@@ -133,12 +132,11 @@ where
 									hex::encode(gmp_message.data)
 								],
 								// TODO estimate gas required for gateway
-								amount: 1u128, // >0 so failed execution is not due to lack of gas
+								amount: 0, // >0 so failed execution is not due to lack of gas
 							}
 					} else {
 						function
 					};
-					tracing::info!("Calling function {:?}", function);
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

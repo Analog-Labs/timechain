@@ -47,7 +47,7 @@ pub(crate) async fn fund_wallet(config: &WalletConfig) {
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
-	wallet.faucet(1000000000000000000000).await.unwrap();
+	wallet.faucet(100000000000000000000000).await.unwrap();
 }
 
 pub(crate) fn drop_node(node_name: String) {

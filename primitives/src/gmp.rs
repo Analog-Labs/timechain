@@ -127,10 +127,27 @@ impl From<WrappedGmpMessage> for GMPMessage {
 			srcNetwork: wrapped_msg.src_network.into(),
 			dest: wrapped_msg.dest.into(),
 			destNetwork: wrapped_msg.dest_network.into(),
-			gasLimit: wrapped_msg.gas_limit,
-			salt: wrapped_msg.salt,
+			gasLimit: wrapped_msg.gas_limit.into(),
+			salt: wrapped_msg.salt.into(),
 			data: wrapped_msg.data,
 		}
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct U256Wrapper([u8; 32]);
+
+impl From<U256Wrapper> for U256 {
+	fn from(wrapper: U256Wrapper) -> Self {
+		U256::from_be_bytes(wrapper.0)
+	}
+}
+
+impl From<U256> for U256Wrapper {
+	fn from(value: U256) -> Self {
+		// let mut bytes = [0u8; 32];
+		let bytes = value.to_be_bytes();
+		U256Wrapper(bytes)
 	}
 }
 
@@ -140,7 +157,7 @@ pub struct WrappedGmpMessage {
 	pub src_network: ChainId,
 	pub dest: [u8; 20],
 	pub dest_network: ChainId,
-	pub gas_limit: U256,
-	pub salt: U256,
+	pub gas_limit: U256Wrapper,
+	pub salt: U256Wrapper,
 	pub data: Vec<u8>,
 }

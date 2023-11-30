@@ -6,6 +6,7 @@ use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
+	WrappedGmpMessage,
 };
 use tokio::task::JoinHandle;
 
@@ -111,23 +112,35 @@ where
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let function =
-						if let Function::SendMessage { contract_address, payload } = function {
-							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
-							Function::EvmCall {
+					let function = if let Function::SendMessage { contract_address, payload } =
+						function
+					{
+						let _signature = self.substrate.get_task_signature(task_id)?.unwrap();
+						let gmp_message: WrappedGmpMessage =
+							bincode::deserialize(&payload).unwrap();
+						tracing::info!("gmp message {:?}", gmp_message);
+						Function::EvmCall {
 								address: String::from_utf8(contract_address.clone()).unwrap(),
 								//TODO right now it doesnt work, because connector doesnt support custom structs
-								function_signature: String::from("execute(Signature,GmpMessage)"),
+								function_signature: String::from("rawSudoExecute(bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
 								input: vec![
-									String::from_utf8(signature.to_vec()).unwrap(),
-									String::from_utf8(payload).unwrap(),
+									hex::encode(gmp_message.source),
+									format!("{:?}", gmp_message.src_network),
+									hex::encode(gmp_message.dest),
+									format!("{:?}", gmp_message.dest_network),
+									// format!("{:?}", gmp_message.gas_limit),
+									// format!("{:?}", gmp_message.salt),
+									format!("{:?}", 64),
+									format!("{:?}", 1),
+									format!("{:?}", gmp_message.data)
 								],
 								// TODO estimate gas required for gateway
 								amount: 1u128, // >0 so failed execution is not due to lack of gas
 							}
-						} else {
-							function
-						};
+					} else {
+						function
+					};
+					tracing::info!("Calling function {:?}", function);
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

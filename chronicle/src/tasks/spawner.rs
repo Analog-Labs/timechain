@@ -111,10 +111,6 @@ where
 					"SendMessage must be transformed into EvmCall prior to execution"
 				))
 			},
-			Function::WatchEvents { contract_address: _ } => {
-				// watch for events for this contract_address
-				todo!()
-			},
 		})
 	}
 

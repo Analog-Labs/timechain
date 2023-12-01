@@ -99,23 +99,6 @@ pub mod pallet {
 			for shard in shard_ids {
 				ShardRegistry::<T>::insert(shard, network, ());
 			}
-			// create recurring read task to watch events from deployed contract
-			let start = frame_system::Pallet::<T>::block_number()
-				.try_into()
-				.map_err(|_| Error::<T>::BlockNumberConversionFailed)?;
-			T::Tasks::make_task(
-				[0u8; 32].into(),
-				TaskDescriptorParams {
-					network,
-					cycle: u64::MAX, //recurring task, TODO: end once/if contract is removed
-					start,
-					period: 1,
-					hash: "".to_string(),
-					function: Function::WatchEvents {
-						contract_address: contract_address.clone().to_vec(),
-					},
-				},
-			)?;
 			Self::deposit_event(Event::GatewayContractDeployed(network, contract_address));
 			Ok(())
 		}

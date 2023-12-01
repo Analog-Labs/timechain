@@ -134,6 +134,20 @@ where
 								// TODO estimate gas required for gateway
 								amount: 0, // >0 so failed execution is not due to lack of gas
 							}
+					} else if let Function::EvmCall {
+						address,
+						function_signature,
+						input,
+						amount,
+					} = function
+					{
+						let signature = self.substrate.get_task_signature(task_id)?.unwrap();
+						Function::EvmCall {
+							address,
+							function_signature,
+							input: time_primitives::insert_sig_iff_register_shard(input, signature),
+							amount,
+						}
 					} else {
 						function
 					};

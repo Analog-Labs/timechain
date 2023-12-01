@@ -4265,7 +4265,7 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/frost-evm#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
@@ -4832,6 +4832,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hex-literal"
@@ -11313,7 +11316,7 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/frost-evm#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
 dependencies = [
  "k256",
  "rand_core 0.6.4",
@@ -14017,12 +14020,16 @@ name = "tester"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "clap",
  "ethers-solc",
+ "hex 0.4.3",
  "num-bigint",
  "rosetta-client",
+ "sha3",
  "surf",
  "tc-subxt",
+ "time-primitives",
  "tokio",
 ]
 
@@ -14174,6 +14181,7 @@ dependencies = [
 name = "time-primitives"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "alloy-sol-macro",
  "alloy-sol-types",
  "anyhow",

@@ -23,6 +23,11 @@ run_astar() {
     fi
 }
 
+run_gmp() {
+    echo "Running all astar and eth node for gmp"
+    docker compose --profile ethereum --profile astar down -v && ./scripts/build_docker.sh && docker compose --profile ethereum --profile astar up
+}
+
 # Check the network type and mode and call the appropriate function
 case $network_type in
     eth)
@@ -30,6 +35,9 @@ case $network_type in
         ;;
     astar)
         run_astar $mode
+        ;;
+    gmp)
+        run_gmp
         ;;
     *)
         echo "Unknown network type. Please specify 'eth' or 'astar'."

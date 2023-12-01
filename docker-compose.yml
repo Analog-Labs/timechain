@@ -24,13 +24,21 @@ services:
     - '--dev'
     - '--ipcdisable'
     - '--dev.period=14'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
     - '--ws'
     - '--ws.addr=0.0.0.0'
     - '--ws.port=8545'
     - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
     profiles:
     - ethereum
+    ports:
+      - 8545:8545
 
   astar:
     image: "staketechnologies/astar-collator:latest"
@@ -45,7 +53,9 @@ services:
     - '--no-mdns'
     profiles:
     - astar
-
+    ports:
+      - 9949:9944
+  
   chronicle-eth1:
     image: 'analoglabs/timechain-node'
     command:

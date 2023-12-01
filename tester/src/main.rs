@@ -2,13 +2,14 @@ use std::u8;
 
 use crate::mock::*;
 use crate::tasks::*;
-use shards as Shards;
-
 use clap::Parser;
 use num_bigint::BigUint;
 use rosetta_client::Blockchain;
+use sha3::{Digest, Keccak256};
+use shards as Shards;
 use tc_subxt::Network;
 use tc_subxt::SubxtClient;
+use time_primitives::{ChainId, Network as PrimitiveNetwork, WrappedGmpMessage, U256};
 
 mod mock;
 mod shards;
@@ -34,9 +35,6 @@ enum TestCommand {
 	DeployContract,
 	Gmp,
 	FundWallet,
-	SetKeys,
-	InsertTask(InsertTaskParams),
-	InsertSignTask(InsertSignTaskParams),
 	WatchTask { task_id: u64 },
 }
 
@@ -138,9 +136,10 @@ async fn process_gmp_task(
 	eth_config: &WalletConfig,
 	astar_config: &WalletConfig,
 ) {
-	let (eth_contract_address, eth_start_block) = setup_env(eth_config).await;
+	let (eth_contract_address_gmp, eth_start_block_gmp) = setup_env(eth_config, true).await;
+	let (eth_contract_address, _eth_start_block) = setup_env(eth_config, false).await;
 	println!("Setup for eth done");
-	let (astar_contract_address, astar_start_block) = setup_env(astar_config).await;
+	let (astar_contract_address_gmp, astar_start_block_gmp) = setup_env(astar_config, true).await;
 	println!("Setup for astar done");
 
 	let eth_shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
@@ -155,16 +154,40 @@ async fn process_gmp_task(
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
-	register_eth_gmp(api, eth_shard_id, eth_contract_address.clone(), eth_start_block).await;
-	register_astar_gmp(api, astar_shard_id, astar_contract_address, astar_start_block).await;
+	register_eth_gmp(api, eth_shard_id, eth_contract_address_gmp.clone(), eth_start_block_gmp)
+		.await;
+	register_astar_gmp(
+		api,
+		astar_shard_id,
+		astar_contract_address_gmp.clone(),
+		astar_start_block_gmp,
+	)
+	.await;
 
-	let function = create_sign_task(eth_contract_address.into(), "vote_yes".into());
+	let mut eth_bytes = [0u8; 20];
+	let trimmed_address = eth_contract_address.trim_start_matches("0x");
+	hex::decode_to_slice(trimmed_address, &mut eth_bytes).unwrap();
+	let gas_limit = U256::from(100);
+	let salt = U256::from(1);
+	let gmp_data = get_test_gmp_data("vote_yes()");
+
+	let gmp_message_payload = WrappedGmpMessage {
+		source: [0; 32],
+		src_network: ChainId::try_from(PrimitiveNetwork::Astar).unwrap(),
+		dest: eth_bytes,
+		dest_network: ChainId::try_from(PrimitiveNetwork::Ethereum).unwrap(),
+		gas_limit,
+		salt,
+		data: gmp_data,
+	};
+	let serialized_data = bincode::serialize(&gmp_message_payload).unwrap();
+	let function = create_sign_task(eth_contract_address_gmp.into(), serialized_data);
 	let task_id = insert_task(
 		api,
 		1, //cycle
 		0, //period
-		astar_start_block,
-		Network::Astar,
+		astar_start_block_gmp,
+		Network::Ethereum,
 		function,
 	)
 	.await
@@ -172,6 +195,13 @@ async fn process_gmp_task(
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
+}
+
+fn get_test_gmp_data(arg: &str) -> Vec<u8> {
+	let mut hasher = Keccak256::new();
+	hasher.update(arg);
+	let hash = hasher.finalize();
+	hash[..4].into()
 }
 
 async fn register_astar_gmp(
@@ -249,7 +279,7 @@ async fn register_eth_gmp(
 }
 
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let call = create_evm_view_call(contract_address.clone());
 	let task_id = insert_task(
@@ -274,7 +304,7 @@ async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &Wall
 }
 
 async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let call = create_sign_task(contract_address.into(), "vote_yes()".into());
 	let task_id = insert_task(
@@ -293,7 +323,7 @@ async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletCon
 }
 
 async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let mut task_ids = vec![];
 	let call = create_evm_view_call(contract_address);
@@ -316,7 +346,7 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 }
 
 async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let call = create_evm_view_call(contract_address);
 	let task_id = insert_task(
@@ -356,7 +386,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 }
 
 async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let call = create_evm_view_call(contract_address);
 	let task_id = insert_task(

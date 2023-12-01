@@ -1,6 +1,8 @@
-use crate::{Function, TssSignature};
+use crate::{ChainId, Function, TssSignature};
+pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use codec::alloc::string::String;
+use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 use IGateway::*;
 
@@ -41,7 +43,7 @@ pub fn insert_sig_iff_register_shard(input: Vec<String>, sig: TssSignature) -> V
 				.unwrap(),
 			);
 		} else {
-			signed.push(arg.into());
+			signed.push(arg);
 		}
 	}
 	signed
@@ -92,11 +94,13 @@ alloy_sol_macro::sol! {
 
 	#[derive(Debug, PartialEq, Eq)]
 	struct GMPMessage {
-		uint128 nonce;
-		uint128 networkId; // source network id
-		bytes32 sender;    // sender public key
-		address dest;      // dest contract
-		bytes payload;     // message payload
+		bytes32 source;      // Pubkey/Address of who send the GMP message
+		uint128 srcNetwork;  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
+		address dest;        // Destination/Recipient contract address
+		uint128 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
+		uint256 gasLimit;    // gas limit of the GMP call
+		uint256 salt;        // Message salt, useful for sending two messages with same content
+		bytes data;          // message data with no specified format
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -114,4 +118,29 @@ alloy_sol_macro::sol! {
 		function sudoExecute(GMPMessage memory message) external returns (bool success);
 		function execute(Signature memory signature, GMPMessage memory message) external returns (bool success);
 	}
+}
+
+impl From<WrappedGmpMessage> for GMPMessage {
+	fn from(wrapped_msg: WrappedGmpMessage) -> Self {
+		Self {
+			source: wrapped_msg.source.into(),
+			srcNetwork: wrapped_msg.src_network.into(),
+			dest: wrapped_msg.dest.into(),
+			destNetwork: wrapped_msg.dest_network.into(),
+			gasLimit: wrapped_msg.gas_limit,
+			salt: wrapped_msg.salt,
+			data: wrapped_msg.data,
+		}
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrappedGmpMessage {
+	pub source: [u8; 32],
+	pub src_network: ChainId,
+	pub dest: [u8; 20],
+	pub dest_network: ChainId,
+	pub gas_limit: U256,
+	pub salt: U256,
+	pub data: Vec<u8>,
 }

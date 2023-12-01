@@ -60,7 +60,7 @@ pub fn create_sign_task(contract_address: Vec<u8>, payload: Vec<u8>) -> Function
 pub fn create_gmp_register_call(address: String, input: Vec<String>) -> Function {
 	Function::EvmCall {
 		address,
-		function_signature: "sudoUpdateTSSKeys(uint8[],uint256[],uint8[],uint256[])".to_string(),
+		function_signature: "rawSudoUpdateTSSKeys(uint8[],uint256[],uint8[],uint256[])".to_string(),
 		input,
 		amount: 0,
 	}

@@ -67,7 +67,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		NoNetworkForChainID,
 		GatewayNotDeployed,
-		BlockNumberConversionFailed,
 		CannotRegisterShardBeforeGateway,
 		CannotRegisterShardWithoutShardTssKey,
 		ShardAlreadyRegisteredInGateway,
@@ -167,15 +166,12 @@ pub mod pallet {
 				Error::<T>::RegisterShardAlreadyScheduled
 			);
 			let function = Self::register_shard_call(shard_id, network)?;
-			let start = frame_system::Pallet::<T>::block_number()
-				.try_into()
-				.map_err(|_| Error::<T>::BlockNumberConversionFailed)?;
 			T::Tasks::make_task(
 				[0u8; 32].into(),
 				TaskDescriptorParams {
 					network,
 					cycle: 1,
-					start,
+					start: 0,
 					period: 1,
 					hash: "".to_string(),
 					function,

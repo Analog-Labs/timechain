@@ -38,6 +38,7 @@ impl ShardsInterface for MockShardInterface {
 pub struct MockGmpInterface;
 
 impl GmpInterface for MockGmpInterface {
+	fn inc_shard_nonce(_: ShardId, _: Network) {}
 	fn task_assignable_to_shard(_: ShardId, _: Option<Network>) -> bool {
 		true
 	}

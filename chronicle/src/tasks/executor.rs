@@ -141,12 +141,17 @@ where
 						amount,
 					} = function
 					{
-						let signature = self.substrate.get_task_signature(task_id)?.unwrap();
-						Function::EvmCall {
-							address,
-							function_signature,
-							input: time_primitives::insert_sig_iff_register_shard(input, signature),
-							amount,
+						if let Ok(Some(signature)) = self.substrate.get_task_signature(task_id) {
+							Function::EvmCall {
+								address,
+								function_signature,
+								input: time_primitives::insert_sig_iff_register_shard(
+									input, signature,
+								),
+								amount,
+							}
+						} else {
+							function
 						}
 					} else {
 						function

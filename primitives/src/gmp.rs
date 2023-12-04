@@ -1,24 +1,17 @@
 use crate::{ChainId, Function, TssSignature};
 pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
-use codec::alloc::string::String;
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 use IGateway::*;
 
 pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20]) -> Function {
-	Function::EvmCall {
-		address: String::from_utf8(contract_address.to_vec()).unwrap(),
-		function_signature: String::from("execute(Signature,GmpMessage)"),
-		input: sp_std::vec![String::from_utf8(
-			sudoRegisterTSSKeysCall {
-				tssKeys: sp_std::vec![shard_public_key.into()],
-			}
-			.abi_encode()
-		)
-		.unwrap()],
-		// TODO estimate gas required for gateway
-		amount: 1u128, // >0 so failed execution is not due to lack of gas
+	Function::SendMessage {
+		contract_address: contract_address.to_vec(),
+		payload: sudoRegisterTSSKeysCall {
+			tssKeys: sp_std::vec![shard_public_key.into()],
+		}
+		.abi_encode(),
 	}
 }
 

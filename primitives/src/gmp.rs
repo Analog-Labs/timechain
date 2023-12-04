@@ -11,7 +11,7 @@ pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20
 		address: String::from_utf8(contract_address.to_vec()).unwrap(),
 		function_signature: String::from("execute(Signature,GmpMessage)"),
 		input: sp_std::vec![String::from_utf8(
-			sudoRegisterTSSKeys {
+			sudoRegisterTSSKeysCall {
 				tssKeys: sp_std::vec![shard_public_key.into()],
 			}
 			.abi_encode()
@@ -20,33 +20,6 @@ pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20
 		// TODO estimate gas required for gateway
 		amount: 1u128, // >0 so failed execution is not due to lack of gas
 	}
-}
-
-/// Inserts signature into call iff it is a register shard call
-/// else returns the passed input unaltered
-/// THIS APPROACH WAS NOT USED, will be re-evaluated in the future
-pub fn insert_sig_iff_register_shard(input: Vec<String>, sig: TssSignature) -> Vec<String> {
-	let mut signed = Vec::new();
-	for arg in input {
-		let try_decode_register_shard =
-			registerTSSKeysCall::abi_decode(&arg.clone().into_bytes(), true);
-		if let Ok(call) = try_decode_register_shard {
-			// replace dummy signature but keep tssKeys unaltered
-			signed.push(
-				String::from_utf8(
-					registerTSSKeysCall {
-						signature: sig.into(),
-						tssKeys: call.tssKeys,
-					}
-					.abi_encode(),
-				)
-				.unwrap(),
-			);
-		} else {
-			signed.push(arg);
-		}
-	}
-	signed
 }
 
 impl From<crate::TssSignature> for Signature {

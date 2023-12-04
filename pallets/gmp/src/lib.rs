@@ -10,8 +10,9 @@ mod tests;
 pub mod pallet {
 	use codec::alloc::string::ToString;
 	use frame_support::pallet_prelude::*;
+	use frame_support::traits::ConstU64;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::DispatchError;
+	use sp_runtime::{DispatchError, Saturating};
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Function, GmpInterface, MakeTask, Network, ShardId, ShardsEvents,
@@ -52,6 +53,20 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RegisterShardScheduled<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, Network, (), OptionQuery>;
+
+	/// Shard nonce for each network/gateway
+	/// Default = 1, incremented after every gateway call via inc_shard_nonce
+	#[pallet::storage]
+	pub type ShardNonce<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ShardId,
+		Blake2_128Concat,
+		Network,
+		u64,
+		ValueQuery,
+		ConstU64<1u64>,
+	>;
 
 	/// Whether or not a shard is registered to be assigned write tasks on a ChainId
 	#[pallet::storage]
@@ -193,6 +208,9 @@ pub mod pallet {
 	}
 
 	impl<T: Config> GmpInterface for Pallet<T> {
+		fn inc_shard_nonce(shard: ShardId, network: Network) {
+			ShardNonce::<T>::mutate(shard, network, |n| *n = n.saturating_plus_one());
+		}
 		fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool {
 			if let Some(network) = write {
 				// only registered && online shards can do write tasks

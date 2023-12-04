@@ -121,5 +121,6 @@ pub trait MakeTask {
 }
 
 pub trait GmpInterface {
+	fn inc_shard_nonce(shard: ShardId, network: Network);
 	fn task_assignable_to_shard(shard: ShardId, write: Option<Network>) -> bool;
 }

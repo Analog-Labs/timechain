@@ -229,7 +229,8 @@ pub mod pallet {
 			status: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			let TaskDescriptor { network, function, .. } =
+				Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskResults::<T>::get(task_id, cycle).is_some() {
 				return Ok(());
 			}
@@ -249,6 +250,10 @@ pub mod pallet {
 					ShardTasks::<T>::remove(shard_id, task_id);
 				}
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
+			}
+			if Self::is_gmp_call(function) {
+				// Increment shard nonce
+				T::Gmp::inc_shard_nonce(status.shard_id, network);
 			}
 			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
 			Ok(())
@@ -410,6 +415,10 @@ pub mod pallet {
 				return false;
 			};
 			task.function.is_payable()
+		}
+
+		fn is_gmp_call(function: Function) -> bool {
+			matches!(function, Function::SendMessage { .. })
 		}
 
 		fn validate_signature(

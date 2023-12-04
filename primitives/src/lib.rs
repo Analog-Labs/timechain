@@ -78,6 +78,10 @@ sp_api::decl_runtime_apis! {
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
 	}
 
+	pub trait GmpApi {
+		fn get_shard_nonce(shard_id: ShardId, network: Network) -> u64;
+	}
+
 	pub trait BlockTimeApi{
 		fn get_block_time_in_msec() -> u64;
 	}

@@ -207,6 +207,12 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> Pallet<T> {
+		pub fn get_shard_nonce(shard: ShardId, network: Network) -> u64 {
+			ShardNonce::<T>::get(shard, network)
+		}
+	}
+
 	impl<T: Config> GmpInterface for Pallet<T> {
 		fn inc_shard_nonce(shard: ShardId, network: Network) {
 			ShardNonce::<T>::mutate(shard, network, |n| *n = n.saturating_plus_one());

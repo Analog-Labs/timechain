@@ -1523,6 +1523,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::GmpApi<Block> for MockApi {
+		fn get_shard_nonce(shard_id: ShardId, network: Network) -> u64 {
+			Gmp::get_shard_nonce(shard, network)
+		}
+	}
+
 	impl time_primitives::BlockTimeApi<Block> for Runtime {
 		fn get_block_time_in_msec() -> u64{
 			MILLISECS_PER_BLOCK

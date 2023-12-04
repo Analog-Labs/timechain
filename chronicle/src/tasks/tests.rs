@@ -76,6 +76,12 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
+	impl GmpApi<Block> for MockApi {
+		fn get_shard_nonce(_: ShardId, _: Network) -> u64 {
+			1u64
+		}
+	}
+
 	impl time_primitives::BlockTimeApi<Block> for MockApi{
 		fn get_block_time_in_msec() -> u64{
 			6000

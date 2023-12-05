@@ -1,4 +1,4 @@
-use crate::{ChainId, Function};
+use crate::{ChainId, Function, TssSignature};
 pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use serde::{Deserialize, Serialize};
@@ -7,28 +7,32 @@ use sp_std::vec::Vec;
 use IGateway::*;
 
 /// Make Function::SendMessage that aligns with Gateway contract interface
-pub fn make_gmp(shard_nonce: u32, payload: GmpPayload) -> Function {
+pub fn make_gmp(
+	shard_nonce: u32,
+	raw_payload: WrappedGmpPayload,
+) -> Function {
 	let domain_separator = keccak_256(
 		[
 			keccak_256(b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
 			keccak_256(b"Analog Gateway Contract"),
 			keccak_256(b"0.1.0"),
-			payload.dest_network.into(),
-			payload.dest.as_slice(),
+			raw_payload.dest_network.into(),
+			raw_payload.dest.as_slice(),
 		].concat()
 	);
+	let gmp: GmpPayload = raw_payload.into();
 	let payload_hash = keccak_256(
 		[
 			keccak_256(
 				b"GMPPayload(bytes32 source,uint96 srcNetwork,address dest,uint96 destNetwork,bytes32 sender,uint256 gasLimit,uint256 value,uint256 salt,bytes data)"
 			),
-			payload.source.as_bytes(),
-			payload.srcNetwork.as_bytes(),
-			payload.dest.as_bytes(),
-			payload.destNetwork.as_bytes(),
-			payload.gasLimit.as_bytes(),
-			payload.salt.as_bytes(),
-			keccak_256(&payload.data),
+			gmp.source.as_bytes(),
+			gmp.srcNetwork.as_bytes(),
+			gmp.dest.as_bytes(),
+			gmp.destNetwork.as_bytes(),
+			gmp.gasLimit.as_bytes(),
+			gmp.salt.as_bytes(),
+			keccak_256(&gmp.data),
 		].concat()
 	);
 
@@ -45,7 +49,7 @@ pub fn make_gmp(shard_nonce: u32, payload: GmpPayload) -> Function {
 		),
 	];
 	Function::SendMessage {
-		contract_address: payload.dest.to_vec(),
+		contract_address: raw_payload.dest.to_vec(),
 		payload: gmp_eip712_message,
 	}
 }
@@ -76,11 +80,10 @@ pub fn sudo_register_shard(
 					nonce: shard_nonce,
 					register: sp_std::vec![shard_public_key.into()],
 					revoke: sp_std::vec![],
-				},
+				}
 			}
 			.abi_encode(),
-		}
-		.into(),
+		}.into()
 	)
 }
 

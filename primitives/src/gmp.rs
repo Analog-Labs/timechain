@@ -7,17 +7,14 @@ use sp_std::vec::Vec;
 use IGateway::*;
 
 /// Make Function::SendMessage that aligns with Gateway contract interface
-pub fn make_gmp(
-	shard_nonce: u32,
-	raw_payload: WrappedGmpPayload,
-) -> Function {
+pub fn make_gmp(shard_nonce: u32, raw_payload: WrappedGmpPayload) -> Function {
 	let domain_separator = keccak_256(
 		[
 			keccak_256(b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
 			keccak_256(b"Analog Gateway Contract"),
 			keccak_256(b"0.1.0"),
 			raw_payload.dest_network.into(),
-			raw_payload.dest.as_slice(),
+			raw_payload.dest,
 		].concat()
 	);
 	let gmp: GmpPayload = raw_payload.into();
@@ -80,10 +77,11 @@ pub fn sudo_register_shard(
 					nonce: shard_nonce,
 					register: sp_std::vec![shard_public_key.into()],
 					revoke: sp_std::vec![],
-				}
+				},
 			}
 			.abi_encode(),
-		}.into()
+		}
+		.into(),
 	)
 }
 
@@ -115,16 +113,17 @@ impl From<WrappedGmpPayload> for GmpPayload {
 }
 
 // TODO: uncomment and debug
-// impl From<crate::TssSignature> for Signature {
-// 	fn from(signature: TssSignature) -> Signature {
-// 		Signature {
-// 			parity: signature.parity,
-// 			px: signature.px,
-// 			e: signature.e,
-// 			s: signature.s,
-// 		}
-// 	}
-// }
+impl From<crate::TssSignature> for Signature {
+	fn from(signature: TssSignature) -> Signature {
+		todo!()
+		// Signature {
+		// 	parity: signature.parity,
+		// 	px: signature.px,
+		// 	e: signature.e,
+		// 	s: signature.s,
+		// }
+	}
+}
 
 impl From<[u8; 33]> for TssKey {
 	fn from(key: [u8; 33]) -> TssKey {

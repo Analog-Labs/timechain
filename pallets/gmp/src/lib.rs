@@ -168,7 +168,17 @@ pub mod pallet {
 				.ok_or(Error::<T>::CannotRegisterShardBeforeGateway)?;
 			let shard_public_key = T::Shards::tss_public_key(shard_id)
 				.ok_or(Error::<T>::CannotRegisterShardWithoutShardTssKey)?;
-			Ok(time_primitives::register_shard_call(shard_public_key, contract_address))
+			Ok(time_primitives::sudo_register_shard(
+				shard_public_key,
+				ShardNonce::<T>::get(shard_id, network), //shard_nonce
+				[0u8; 32],                               //source, TODO: what accountId is this?
+				1.into(),                                //src_network, TODO: what ChainId is this?
+				contract_address,                        //dest
+				network.into(),                          //dest_network
+				[0u8; 32],                               //sender, TODO: what value should this be?
+				1.into(),                                //gas_limit, TODO: what value should this be?
+				1.into(),                                //salt, TODO: what value should this be?
+			))
 		}
 		/// Schedule register a shard
 		fn schedule_register_shard(shard_id: ShardId, network: Network) -> DispatchResult {

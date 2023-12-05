@@ -5,8 +5,8 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
-	WrappedGmpMessage,
+	get_gmp_msg_hash, split_tss_sig, BlockHash, BlockNumber, Function, Network, ShardId, Shards,
+	TaskExecution, TaskPhase, Tasks, TssId, WrappedGmpPayload, U256,
 };
 use tokio::task::JoinHandle;
 
@@ -38,7 +38,7 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	S: Tasks + SubstrateClient,
+	S: Tasks + Shards + SubstrateClient,
 	T: TaskSpawner,
 {
 	fn network(&self) -> Network {
@@ -61,7 +61,7 @@ where
 
 impl<S, T> TaskExecutor<S, T>
 where
-	S: Tasks + SubstrateClient,
+	S: Tasks + Shards + SubstrateClient,
 	T: TaskSpawner,
 {
 	pub fn new(params: TaskExecutorParams<S, T>) -> Self {
@@ -102,11 +102,20 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					let Function::SendMessage { payload, .. } = function else {
+					let Function::SendMessage { contract_address, payload } = function else {
 						continue; // create_task ensures never hits this branch
 						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+					// TODO modify payload here according to gmppayload hash computation on contract side
+					let gmp_message: WrappedGmpPayload = bincode::deserialize(&payload)?;
+					let payload = get_gmp_msg_hash(gmp_message, contract_address);
+					self.task_spawner.execute_sign(
+						shard_id,
+						task_id,
+						cycle,
+						payload.into(),
+						block_number,
+					)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -115,14 +124,22 @@ where
 					let function = if let Function::SendMessage { contract_address, payload } =
 						function
 					{
-						let _signature = self.substrate.get_task_signature(task_id)?.unwrap();
-						let gmp_message: WrappedGmpMessage =
-							bincode::deserialize(&payload).unwrap();
+						let signature = self.substrate.get_task_signature(task_id)?.unwrap();
+						let shard_pubkey =
+							self.substrate.get_shard_commitment(block_hash, shard_id)?;
+						// shard_pubkey[0] must be available since this shard got the tasks.
+						let shard_commitment = &shard_pubkey[0][1..];
+						let x_coord = U256::from_be_slice(shard_commitment);
+						let (e, s) = split_tss_sig(signature);
+						let gmp_message: WrappedGmpPayload = bincode::deserialize(&payload)?;
 						Function::EvmCall {
 								address: String::from_utf8(contract_address.clone()).unwrap(),
 								//TODO right now it doesnt work, because connector doesnt support custom structs
-								function_signature: String::from("rawSudoExecute(bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
+								function_signature: String::from("rawExecute(uint256,uint256,uint256,bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
 								input: vec![
+									x_coord.to_string(),
+									e.to_string(),
+									s.to_string(),
 									hex::encode(gmp_message.source),
 									format!("{:?}", gmp_message.src_network),
 									hex::encode(gmp_message.dest),
@@ -132,22 +149,8 @@ where
 									hex::encode(gmp_message.data)
 								],
 								// TODO estimate gas required for gateway
-								amount: 0, // >0 so failed execution is not due to lack of gas
+								amount: 10000000, // >0 so failed execution is not due to lack of gas
 							}
-					} else if let Function::EvmCall {
-						address,
-						function_signature,
-						input,
-						amount,
-					} = function
-					{
-						let signature = self.substrate.get_task_signature(task_id)?.unwrap();
-						Function::EvmCall {
-							address,
-							function_signature,
-							input: time_primitives::insert_sig_iff_register_shard(input, signature),
-							amount,
-						}
 					} else {
 						function
 					};

@@ -47,8 +47,7 @@ pub fn create_evm_call(address: String) -> Function {
 pub fn create_evm_view_call(address: String) -> Function {
 	Function::EvmViewCall {
 		address,
-		function_signature: "function get_votes_stats() external view returns (uint[] memory)"
-			.to_string(),
+		function_signature: "get_votes_stats()".to_string(),
 		input: Default::default(),
 	}
 }

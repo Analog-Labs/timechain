@@ -2,8 +2,11 @@ use crate::{ChainId, Function, TssSignature};
 pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use codec::alloc::string::String;
+use ethabi::Token;
+use scale_info::prelude::vec::Vec;
 use serde::{Deserialize, Serialize};
-use sp_std::vec::Vec;
+#[cfg(feature = "std")]
+use sp_core::hashing::keccak_256;
 use IGateway::*;
 
 pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20]) -> Function {
@@ -68,8 +71,7 @@ alloy_sol_macro::sol! {
 
 	#[derive(Default, Debug, PartialEq, Eq)]
 	struct Signature {
-		uint8 parity;
-		uint256 px;
+		uint256 xCoord;
 		uint256 e;
 		uint256 s;
 	}
@@ -93,7 +95,7 @@ alloy_sol_macro::sol! {
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
-	struct GMPMessage {
+	struct GMPPayload {
 		bytes32 source;      // Pubkey/Address of who send the GMP message
 		uint128 srcNetwork;  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
 		address dest;        // Destination/Recipient contract address
@@ -101,6 +103,12 @@ alloy_sol_macro::sol! {
 		uint256 gasLimit;    // gas limit of the GMP call
 		uint256 salt;        // Message salt, useful for sending two messages with same content
 		bytes data;          // message data with no specified format
+	}
+
+	#[derive(Debug, PartialEq, Eq)]
+	struct GMPMessage{
+		uint256 nonce;
+		GMPPayload payload;
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -115,13 +123,13 @@ alloy_sol_macro::sol! {
 		function registerTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
 		function sudoRevokeTSSKeys(TssKey[] memory tssKeys);
 		function revokeTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
-		function sudoExecute(GMPMessage memory message) external returns (bool success);
+		function sudoExecute(GMPPayload memory message) external returns (bool success);
 		function execute(Signature memory signature, GMPMessage memory message) external returns (bool success);
 	}
 }
 
-impl From<WrappedGmpMessage> for GMPMessage {
-	fn from(wrapped_msg: WrappedGmpMessage) -> Self {
+impl From<WrappedGmpPayload> for GMPPayload {
+	fn from(wrapped_msg: WrappedGmpPayload) -> Self {
 		Self {
 			source: wrapped_msg.source.into(),
 			srcNetwork: wrapped_msg.src_network.into(),
@@ -135,7 +143,7 @@ impl From<WrappedGmpMessage> for GMPMessage {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WrappedGmpMessage {
+pub struct WrappedGmpPayload {
 	pub source: [u8; 32],
 	pub src_network: ChainId,
 	pub dest: [u8; 20],
@@ -143,4 +151,56 @@ pub struct WrappedGmpMessage {
 	pub gas_limit: U256,
 	pub salt: U256,
 	pub data: Vec<u8>,
+}
+
+pub fn split_tss_sig(signature: TssSignature) -> (U256, U256) {
+	let e_bytes = &signature[0..32];
+	let s_bytes = &signature[32..64];
+
+	let e_bigint = U256::from_be_slice(e_bytes.into());
+	let s_bigint = U256::from_be_slice(s_bytes.into());
+	(e_bigint, s_bigint)
+}
+
+#[cfg(feature = "std")]
+pub fn get_gmp_msg_hash(payload: WrappedGmpPayload, contract_address: Vec<u8>) -> [u8; 32] {
+	let chain_id = payload.src_network;
+	let mut contract_arr = [0u8; 20];
+	contract_arr.copy_from_slice(&contract_address);
+	let domain_seperator = compute_domain_separator(chain_id, contract_arr);
+	[0; 32]
+}
+
+#[cfg(feature = "std")]
+fn get_gmp_payload_hash(payload: WrappedGmpPayload) -> [u8; 32] {
+	let encoded_payload_type = keccak_256(b"GMPPayload(bytes32 source,uint96 srcNetwork,address dest,uint96 destNetwork,bytes32 sender,uint256 gasLimit,uint256 value,uint256 salt,bytes data)");
+
+	let encoded = ethabi::encode(&[
+		Token::FixedBytes(encoded_payload_type.to_vec()),
+		Token::FixedBytes(payload.source.to_vec()),
+		Token::Uint(payload.src_network.into()),
+		Token::FixedBytes(payload.dest.to_vec()),
+		Token::Uint(payload.dest_network.into()),
+		Token::Uint(sp_core::U256::from_big_endian(&payload.gas_limit.to_be_bytes_trimmed_vec())),
+		Token::Uint(sp_core::U256::from_big_endian(&payload.salt.to_be_bytes_trimmed_vec())),
+		Token::FixedBytes(keccak_256(&payload.data).to_vec()),
+	]);
+
+	keccak_256(&encoded).into()
+}
+
+#[cfg(feature = "std")]
+fn compute_domain_separator(chain_id: u64, contract_address: [u8; 20]) -> [u8; 32] {
+	let encoded = ethabi::encode(&[
+		Token::FixedBytes(
+			b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+				.to_vec(),
+		),
+		Token::FixedBytes(b"Analog Gateway Contract".to_vec()),
+		Token::FixedBytes(b"0.1.0".to_vec()),
+		Token::Uint(chain_id.into()),
+		Token::Address(contract_address.into()),
+	]);
+
+	keccak_256(&encoded)
 }

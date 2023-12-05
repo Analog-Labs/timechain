@@ -9,7 +9,7 @@ use sha3::{Digest, Keccak256};
 use shards as Shards;
 use tc_subxt::Network;
 use tc_subxt::SubxtClient;
-use time_primitives::{ChainId, Network as PrimitiveNetwork, WrappedGmpMessage, U256};
+use time_primitives::{ChainId, Network as PrimitiveNetwork, WrappedGmpPayload, U256};
 
 mod mock;
 mod shards;
@@ -167,11 +167,11 @@ async fn process_gmp_task(
 	let mut eth_bytes = [0u8; 20];
 	let trimmed_address = eth_contract_address.trim_start_matches("0x");
 	hex::decode_to_slice(trimmed_address, &mut eth_bytes).unwrap();
-	let gas_limit = U256::from(100);
+	let gas_limit = U256::from(100000000);
 	let salt = U256::from(1);
 	let gmp_data = get_test_gmp_data("vote_yes()");
 
-	let gmp_message_payload = WrappedGmpMessage {
+	let gmp_message_payload = WrappedGmpPayload {
 		source: [0; 32],
 		src_network: ChainId::try_from(PrimitiveNetwork::Astar).unwrap(),
 		dest: eth_bytes,
@@ -186,7 +186,7 @@ async fn process_gmp_task(
 		api,
 		1, //cycle
 		0, //period
-		astar_start_block_gmp,
+		_eth_start_block,
 		Network::Ethereum,
 		function,
 	)

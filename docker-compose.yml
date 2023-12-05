@@ -23,7 +23,7 @@ services:
     command:
     - '--dev'
     - '--ipcdisable'
-    - '--dev.period=14'
+    - '--dev.period=2'
     - '--http'
     - '--http.addr=0.0.0.0'
     - '--http.port=8545'

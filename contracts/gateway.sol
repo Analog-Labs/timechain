@@ -209,6 +209,27 @@ contract SigUtils {
             );
     }
 
+    // print hash
+    function getViewUpdateShardsMessageTypedHash(UpdateShardsMessage memory message)
+        public
+        view
+        returns (bytes memory)
+    {
+        return
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(
+                    abi.encode(
+                        keccak256("UpdateShardsMessage(uint256 nonce,TssKey[] revoke,TssKey[] register)"),
+                        message.nonce,
+                        _getTssKeyArrayHash(message.revoke),
+                        _getTssKeyArrayHash(message.register)
+                    )
+                )
+            );
+    }
+
     // computes the hash of an array of tss keys
     function _getGmpPayloadHash(GmpPayload memory gmp)
         internal

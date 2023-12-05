@@ -68,7 +68,6 @@ impl From<[u8; 33]> for TssKey {
 }
 
 alloy_sol_macro::sol! {
-
 	#[derive(Default, Debug, PartialEq, Eq)]
 	struct Signature {
 		uint256 xCoord;
@@ -95,7 +94,7 @@ alloy_sol_macro::sol! {
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
-	struct GMPPayload {
+	struct GmpPayload {
 		bytes32 source;      // Pubkey/Address of who send the GMP message
 		uint128 srcNetwork;  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
 		address dest;        // Destination/Recipient contract address
@@ -106,9 +105,9 @@ alloy_sol_macro::sol! {
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
-	struct GMPMessage{
-		uint256 nonce;
-		GMPPayload payload;
+	struct GmpMessage{
+		uint32 nonce;
+		GmpPayload payload;
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -123,12 +122,12 @@ alloy_sol_macro::sol! {
 		function registerTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
 		function sudoRevokeTSSKeys(TssKey[] memory tssKeys);
 		function revokeTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
-		function sudoExecute(GMPPayload memory message) external returns (bool success);
-		function execute(Signature memory signature, GMPMessage memory message) external returns (bool success);
+		function sudoExecute(GmpPayload memory message) external returns (bool success);
+		function execute(Signature memory signature, GmpMessage memory message) external returns (bool success);
 	}
 }
 
-impl From<WrappedGmpPayload> for GMPPayload {
+impl From<WrappedGmpPayload> for GmpPayload {
 	fn from(wrapped_msg: WrappedGmpPayload) -> Self {
 		Self {
 			source: wrapped_msg.source.into(),
@@ -140,6 +139,12 @@ impl From<WrappedGmpPayload> for GMPPayload {
 			data: wrapped_msg.data,
 		}
 	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrappedGmpMessage {
+	pub nonce: u32,
+	pub payload: WrappedGmpPayload,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -163,12 +168,22 @@ pub fn split_tss_sig(signature: TssSignature) -> (U256, U256) {
 }
 
 #[cfg(feature = "std")]
-pub fn get_gmp_msg_hash(payload: WrappedGmpPayload, contract_address: Vec<u8>) -> [u8; 32] {
-	let chain_id = payload.src_network;
+pub fn get_gmp_msg_hash(message: WrappedGmpMessage, contract_address: Vec<u8>) -> Vec<u8> {
+	let chain_id: u64 = message.payload.src_network.into();
 	let mut contract_arr = [0u8; 20];
 	contract_arr.copy_from_slice(&contract_address);
-	let domain_seperator = compute_domain_separator(chain_id, contract_arr);
-	[0; 32]
+	let domain_separator = compute_domain_separator(chain_id, contract_arr);
+	let payload_hash = get_gmp_payload_hash(message.payload);
+
+	let encoded = ethabi::encode(&[
+		Token::FixedBytes(b"GmpMessage(uint32 nonce,GmpPayload payload)".to_vec()),
+		Token::Uint(message.nonce.into()),
+		Token::FixedBytes(payload_hash.to_vec()),
+	]);
+
+	[&[0x19, 0x01], &domain_separator[..], &keccak_256(&encoded)[..]]
+		.concat()
+		.into()
 }
 
 #[cfg(feature = "std")]

@@ -6,7 +6,7 @@ use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	get_gmp_msg_hash, split_tss_sig, BlockHash, BlockNumber, Function, Network, ShardId, Shards,
-	TaskExecution, TaskPhase, Tasks, TssId, WrappedGmpPayload, U256,
+	TaskExecution, TaskPhase, Tasks, TssId, WrappedGmpMessage, U256,
 };
 use tokio::task::JoinHandle;
 
@@ -107,7 +107,7 @@ where
 						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
 					};
 					// TODO modify payload here according to gmppayload hash computation on contract side
-					let gmp_message: WrappedGmpPayload = bincode::deserialize(&payload)?;
+					let gmp_message: WrappedGmpMessage = bincode::deserialize(&payload)?;
 					let payload = get_gmp_msg_hash(gmp_message, contract_address);
 					self.task_spawner.execute_sign(
 						shard_id,
@@ -131,22 +131,23 @@ where
 						let shard_commitment = &shard_pubkey[0][1..];
 						let x_coord = U256::from_be_slice(shard_commitment);
 						let (e, s) = split_tss_sig(signature);
-						let gmp_message: WrappedGmpPayload = bincode::deserialize(&payload)?;
+						let gmp_message: WrappedGmpMessage = bincode::deserialize(&payload)?;
 						Function::EvmCall {
 								address: String::from_utf8(contract_address.clone()).unwrap(),
 								//TODO right now it doesnt work, because connector doesnt support custom structs
-								function_signature: String::from("rawExecute(uint256,uint256,uint256,bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
+								function_signature: String::from("rawExecute(uint256,uint256,uint256,uint32,bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
 								input: vec![
 									x_coord.to_string(),
 									e.to_string(),
 									s.to_string(),
-									hex::encode(gmp_message.source),
-									format!("{:?}", gmp_message.src_network),
-									hex::encode(gmp_message.dest),
-									format!("{:?}", gmp_message.dest_network),
-									gmp_message.gas_limit.to_string(),
-									gmp_message.salt.to_string(),
-									hex::encode(gmp_message.data)
+									gmp_message.nonce.to_string(),
+									hex::encode(gmp_message.payload.source),
+									format!("{:?}", gmp_message.payload.src_network),
+									hex::encode(gmp_message.payload.dest),
+									format!("{:?}", gmp_message.payload.dest_network),
+									gmp_message.payload.gas_limit.to_string(),
+									gmp_message.payload.salt.to_string(),
+									hex::encode(gmp_message.payload.data)
 								],
 								// TODO estimate gas required for gateway
 								amount: 10000000, // >0 so failed execution is not due to lack of gas

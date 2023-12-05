@@ -2,17 +2,71 @@ use crate::{ChainId, Function, TssSignature};
 pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use serde::{Deserialize, Serialize};
+use sp_core::keccak_256;
 use sp_std::vec::Vec;
 use IGateway::*;
 
-pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20]) -> Function {
+pub fn form_gmp_send_message(
+	chain_id: U256,
+	shard_nonce: u64,
+	contract_address: [u8; 20],
+	gmp: GmpPayload,
+) -> Function {
+	let domain_separator = keccak_256(
+		[
+			keccak_256(b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+			keccak_256(b"Analog Gateway Contract"),
+			keccak_256(b"0.1.0"),
+			chain_id.as_le_bytes(),
+			contract_address.as_slice(),
+		].concat()
+	);
+
+	let payload_hash = keccak_256(
+		[
+			keccak_256(
+				b"GMPPayload(bytes32 source,uint96 srcNetwork,address dest,uint96 destNetwork,bytes32 sender,uint256 gasLimit,uint256 value,uint256 salt,bytes data)"
+			),
+			gmp.source.as_bytes(),
+			gmp.srcNetwork.as_bytes(),
+			gmp.dest.as_bytes(),
+			gmp.destNetwork.as_bytes(),
+			gmp.gasLimit.as_bytes(),
+			gmp.salt.as_bytes(),
+			keccak_256(gmp.data),
+		].concat()
+	);
+
+	let gmp_eip712_message: Vec<u8> = [
+		[0x19, 0x01],
+		domain_separator,
+		keccak_256(
+			[
+				keccak_256(b"GmpMessage(uint32 nonce,GmpPayload payload)"),
+				shard_nonce.as_bytes(),
+				payload_hash,
+			]
+			.concat(),
+		),
+	];
 	Function::SendMessage {
 		contract_address: contract_address.to_vec(),
-		payload: sudoRegisterTSSKeysCall {
-			tssKeys: sp_std::vec![shard_public_key.into()],
-		}
-		.abi_encode(),
+		payload: gmp_eip712_message,
 	}
+}
+
+pub fn form_register_shard_send_message(
+	chain_id: U256,
+	shard_nonce: u64,
+	contract_address: [u8; 20],
+	shard_public_key: [u8; 33],
+) -> Function {
+	let gmp: GmpPayload = todo!();
+	// sudoRegisterTSSKeysCall {
+	// 	tssKeys: sp_std::vec![shard_public_key.into()],
+	// }
+	// .abi_encode()
+	form_gmp_send_message(chain_id, shard_nonce, contract_address, gmp)
 }
 
 impl From<crate::TssSignature> for Signature {

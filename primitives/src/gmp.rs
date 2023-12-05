@@ -1,4 +1,4 @@
-use crate::{ChainId, Function, TssSignature};
+use crate::{ChainId, Function};
 pub use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use serde::{Deserialize, Serialize};
@@ -6,34 +6,29 @@ use sp_core::keccak_256;
 use sp_std::vec::Vec;
 use IGateway::*;
 
-pub fn form_gmp_send_message(
-	chain_id: U256,
-	shard_nonce: u64,
-	contract_address: [u8; 20],
-	gmp: GmpPayload,
-) -> Function {
+/// Make Function::SendMessage that aligns with Gateway contract interface
+pub fn make_gmp(shard_nonce: u32, payload: GmpPayload) -> Function {
 	let domain_separator = keccak_256(
 		[
 			keccak_256(b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
 			keccak_256(b"Analog Gateway Contract"),
 			keccak_256(b"0.1.0"),
-			chain_id.as_le_bytes(),
-			contract_address.as_slice(),
+			payload.dest_network.into(),
+			payload.dest.as_slice(),
 		].concat()
 	);
-
 	let payload_hash = keccak_256(
 		[
 			keccak_256(
 				b"GMPPayload(bytes32 source,uint96 srcNetwork,address dest,uint96 destNetwork,bytes32 sender,uint256 gasLimit,uint256 value,uint256 salt,bytes data)"
 			),
-			gmp.source.as_bytes(),
-			gmp.srcNetwork.as_bytes(),
-			gmp.dest.as_bytes(),
-			gmp.destNetwork.as_bytes(),
-			gmp.gasLimit.as_bytes(),
-			gmp.salt.as_bytes(),
-			keccak_256(gmp.data),
+			payload.source.as_bytes(),
+			payload.srcNetwork.as_bytes(),
+			payload.dest.as_bytes(),
+			payload.destNetwork.as_bytes(),
+			payload.gasLimit.as_bytes(),
+			payload.salt.as_bytes(),
+			keccak_256(&payload.data),
 		].concat()
 	);
 
@@ -50,30 +45,83 @@ pub fn form_gmp_send_message(
 		),
 	];
 	Function::SendMessage {
-		contract_address: contract_address.to_vec(),
+		contract_address: payload.dest.to_vec(),
 		payload: gmp_eip712_message,
 	}
 }
 
-pub fn form_register_shard_send_message(
-	chain_id: U256,
-	shard_nonce: u64,
-	contract_address: [u8; 20],
+pub fn sudo_register_shard(
 	shard_public_key: [u8; 33],
+	shard_nonce: u32,
+	source: [u8; 32],
+	src_network: U256,
+	dest: [u8; 20],
+	dest_network: U256,
+	sender: [u8; 32],
+	gas_limit: U256,
+	salt: U256,
 ) -> Function {
-	let gmp: GmpPayload = todo!();
-	// sudoRegisterTSSKeysCall {
-	// 	tssKeys: sp_std::vec![shard_public_key.into()],
-	// }
-	// .abi_encode()
-	form_gmp_send_message(chain_id, shard_nonce, contract_address, gmp)
+	make_gmp(
+		shard_nonce,
+		WrappedGmpPayload {
+			source,
+			src_network,
+			dest,
+			dest_network,
+			sender,
+			gas_limit,
+			salt,
+			data: sudoUpdateTSSKeysCall {
+				message: UpdateShardsMessage {
+					nonce: shard_nonce,
+					register: sp_std::vec![shard_public_key.into()],
+					revoke: sp_std::vec![],
+				},
+			}
+			.abi_encode(),
+		}
+		.into(),
+	)
 }
 
-impl From<crate::TssSignature> for Signature {
-	fn from(_signature: TssSignature) -> Signature {
-		todo!()
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrappedGmpPayload {
+	pub source: [u8; 32],
+	pub src_network: ChainId,
+	pub dest: [u8; 20],
+	pub dest_network: ChainId,
+	pub sender: [u8; 32],
+	pub gas_limit: U256,
+	pub salt: U256,
+	pub data: Vec<u8>,
+}
+
+impl From<WrappedGmpPayload> for GmpPayload {
+	fn from(wrapped_payload: WrappedGmpPayload) -> GmpPayload {
+		GmpPayload {
+			source: wrapped_payload.source.into(),
+			srcNetwork: wrapped_payload.src_network.into(),
+			dest: wrapped_payload.dest.into(),
+			destNetwork: wrapped_payload.dest_network.into(),
+			sender: wrapped_payload.sender.into(),
+			gasLimit: wrapped_payload.gas_limit,
+			salt: wrapped_payload.salt,
+			data: wrapped_payload.data,
+		}
 	}
 }
+
+// TODO: uncomment and debug
+// impl From<crate::TssSignature> for Signature {
+// 	fn from(signature: TssSignature) -> Signature {
+// 		Signature {
+// 			parity: signature.parity,
+// 			px: signature.px,
+// 			e: signature.e,
+// 			s: signature.s,
+// 		}
+// 	}
+// }
 
 impl From<[u8; 33]> for TssKey {
 	fn from(key: [u8; 33]) -> TssKey {
@@ -85,7 +133,6 @@ impl From<[u8; 33]> for TssKey {
 }
 
 alloy_sol_macro::sol! {
-
 	#[derive(Default, Debug, PartialEq, Eq)]
 	struct Signature {
 		uint8 parity;
@@ -100,67 +147,45 @@ alloy_sol_macro::sol! {
 		bytes32 coordX;  // public key x-coord
 	}
 
+	/**
+	* @dev Message used to revoke or/and register new shards
+	*/
 	#[derive(Debug, PartialEq, Eq)]
-	struct RegisterTssKeys {
-		uint256 nonce;
-		TssKey[] keys;
+	struct UpdateShardsMessage {
+		uint32 nonce;       // shard's nonce to prevent replay attacks
+		TssKey[] revoke;    // Keys to revoke
+		TssKey[] register;  // Keys to add
 	}
 
+	/**
+	* @dev GMP payload, this is what the timechain creates as task payload
+	*/
 	#[derive(Debug, PartialEq, Eq)]
-	struct RevokeTssKeys {
-		uint256 nonce;
-		TssKey[] keys;
-	}
-
-	#[derive(Debug, PartialEq, Eq)]
-	struct GMPMessage {
+	struct GmpPayload {
 		bytes32 source;      // Pubkey/Address of who send the GMP message
 		uint128 srcNetwork;  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
 		address dest;        // Destination/Recipient contract address
 		uint128 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
+		bytes32 sender;      // Sender address or public key
 		uint256 gasLimit;    // gas limit of the GMP call
 		uint256 salt;        // Message salt, useful for sending two messages with same content
 		bytes data;          // message data with no specified format
 	}
 
+	/**
+	* @dev GMP message, this is what the shard signs
+	*/
 	#[derive(Debug, PartialEq, Eq)]
-	struct ShardInfo {
-		uint128 flags;
-		uint128 nonce;
+	struct GmpMessage {
+		uint32 nonce;
+		GmpPayload payload;
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
 	interface IGateway {
-		function sudoRegisterTSSKeys(TssKey[] memory tssKeys) external;
-		function registerTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
-		function sudoRevokeTSSKeys(TssKey[] memory tssKeys);
-		function revokeTSSKeys(Signature memory signature, TssKey[] memory tssKeys) external;
-		function sudoExecute(GMPMessage memory message) external returns (bool success);
-		function execute(Signature memory signature, GMPMessage memory message) external returns (bool success);
+		function updateTSSKeys(Signature memory signature, UpdateShardsMessage memory message) external;
+		function execute(Signature memory signature, GmpPayload memory message) external returns (bool success);
+		function sudoUpdateTSSKeys(UpdateShardsMessage memory message) external;
+		function sudoExecute(GmpMessage memory message) external returns (bool success);
 	}
-}
-
-impl From<WrappedGmpMessage> for GMPMessage {
-	fn from(wrapped_msg: WrappedGmpMessage) -> Self {
-		Self {
-			source: wrapped_msg.source.into(),
-			srcNetwork: wrapped_msg.src_network.into(),
-			dest: wrapped_msg.dest.into(),
-			destNetwork: wrapped_msg.dest_network.into(),
-			gasLimit: wrapped_msg.gas_limit,
-			salt: wrapped_msg.salt,
-			data: wrapped_msg.data,
-		}
-	}
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WrappedGmpMessage {
-	pub source: [u8; 32],
-	pub src_network: ChainId,
-	pub dest: [u8; 20],
-	pub dest_network: ChainId,
-	pub gas_limit: U256,
-	pub salt: U256,
-	pub data: Vec<u8>,
 }

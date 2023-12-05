@@ -12,11 +12,11 @@ interface IGmpReceiver {
      *
      * @param id The EIP-712 hash of the message payload, used as GMP unique identifier
      * @param network The chain_id of the source chain who send the message
-     * @param sender The pubkey/address which sent the GMP message
+     * @param source The pubkey/address which sent the GMP message
      * @param payload The message payload with no specified format
      * @return 32 byte result which will be stored together with GMP message
      */
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external returns (bytes32);
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 source, bytes calldata payload) payable external returns (bytes32);
 }
 
 /**

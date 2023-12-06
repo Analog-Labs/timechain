@@ -43,10 +43,12 @@ interface IGateway {
         TssKey[] registered    // new shards registered
     );
 
+    function updateShards(Signature memory signature, Message memory message) external;
+
     /**
      * Execute GMP message
      */
-    function execute(Signature memory signature, Message memory message) external;
+    function sendMessage(Signature memory signature, Message memory message) external returns (uint8 status, bytes32 result);
 }
 
 /**
@@ -89,7 +91,6 @@ struct SendMessagePayload {
 struct Message {
     uint256 xCoord;
     uint64 nonce;
-    uint8 payloadType;
     bytes payload;
 }
 
@@ -227,8 +228,7 @@ contract Gateway is IGateway, SigUtils {
         _shards[msg.xCoord] = SHARD_ACTIVE | msg.yParity ? SHARD_Y_PARITY : 0;
     }
 
-    // Execute a message
-    function execute(Signature memory signature, Message memory message) external returns (uint8 status, bytes32 result) {
+    function _verifySignature(Signature memory signature, Message memory message) private {
         // Load shard from storage
         ShardInfo storage shard = _shards[message.xCoord];
 
@@ -265,18 +265,12 @@ contract Gateway is IGateway, SigUtils {
 
         // Increment shard nonce
         signer.nonce = nonce + 1;
-
-        if (message.type == SEND_MESSAGE_PAYLOAD) {
-            // Execute GMP message
-            bytes32 messageId = keccak256(message.payload);
-            (status, result) = _execute(messageId, message.payload);
-        } else if (message.type == UPDATE_SHARDS_PAYLOAD) {
-            _updateShards(message.payload);
-        }
     }
 
     // Register/Revoke TSS keys
-    function _updateShards(UpdateShardsPayload memory message) private {
+    function updateShards(Signature memory signature, Message memory message) external {
+        _verifySignature(signature, message);
+
         // We don't perform any arithmetic operation, except iterate a loop
         unchecked {
             // Revoke tss keys
@@ -347,7 +341,11 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Execute GMP message
-    function _sendMessage(bytes32 messageId, SendMessagePayload memory message) private returns (uint8 status, bytes32 result) {
+    function sendMessage(Signature memory signature, Message memory message) external returns (uint8 status, bytes32 result) {
+        _verifySignature(signature, message);
+
+        bytes32 messageId = keccak256(message.payload);
+
         // Verify if this GMP message was already executed
         GmpMessageInfo storage gmpInfo = _messages[messageId];
         require(gmpInfo.status == GMP_STATUS_NOT_FOUND, "message already executed");

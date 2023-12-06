@@ -1522,6 +1522,9 @@ impl_runtime_apis! {
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
+		fn get_gateway(network: Network) -> Option<Vec<u8>> {
+			Tasks::get_gateway(network)
+		}
 	}
 
 	impl time_primitives::BlockTimeApi<Block> for Runtime {

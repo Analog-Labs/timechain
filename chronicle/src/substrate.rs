@@ -286,6 +286,10 @@ where
 		self.runtime_api().get_task_signature(self.best_block(), task_id)
 	}
 
+	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>> {
+		self.runtime_api().get_gateway(self.best_block(), network)
+	}
+
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
 		self.submit_transaction(Tx::TaskHash { task_id, cycle, hash })
 	}

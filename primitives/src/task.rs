@@ -19,7 +19,7 @@ pub enum Function {
 	EvmTxReceipt { tx: Vec<u8> },
 	RegisterShard { shard_id: ShardId },
 	UnregisterShard { shard_id: ShardId },
-	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
+	SendMessage { payload: Vec<u8> },
 }
 
 impl Function {
@@ -170,6 +170,8 @@ pub trait Tasks {
 	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
 
 	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
+
+	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>>;
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 

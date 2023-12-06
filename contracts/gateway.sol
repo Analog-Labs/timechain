@@ -76,7 +76,7 @@ struct UpdateShardsPayload {
 /**
  * @dev GMP payload, this is what the timechain creates as task payload
  */
-struct GmpPayload {
+struct SendMessagePayload {
     bytes32 source;      // Pubkey/Address of who send the GMP message
     uint128 srcNetwork;  // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
     address dest;        // Destination/Recipient contract address
@@ -89,7 +89,7 @@ struct GmpPayload {
 struct Message {
     uint256 xCoord;
     uint64 nonce;
-    uint8 type;
+    uint8 payloadType;
     bytes payload;
 }
 
@@ -152,9 +152,9 @@ contract SigUtils {
     function getMessageHash(Message memory message)
         public
         view
-        returns bytes32
+        returns (bytes32)
     {
-        keccak256(
+        return keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
@@ -166,6 +166,7 @@ contract SigUtils {
                         message.payload,
                     )
                 )
+            )
         );
     }
 
@@ -223,6 +224,7 @@ contract Gateway is IGateway, SigUtils {
     mapping (bytes32 => GmpMessageInfo) _messages;
 
     constructor() payable {
+        _shards[msg.xCoord] = SHARD_ACTIVE | msg.yParity ? SHARD_Y_PARITY : 0;
     }
 
     // Execute a message

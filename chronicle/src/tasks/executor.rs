@@ -123,8 +123,15 @@ where
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let function =
-						if let Function::SendMessage { contract_address, payload } = function {
+					let function = match function {
+						Function::RegisterShard { .. } => {
+							todo!()
+						},
+						Function::UnregisterShard { .. } => {
+							todo!()
+						},
+						Function::SendMessage { contract_address, payload } => {
+							// TODO
 							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
 							Function::EvmCall {
 								address: hex::encode(&contract_address),
@@ -135,9 +142,9 @@ where
 									.collect(),
 								amount: 0u128,
 							}
-						} else {
-							function
-						};
+						},
+						_ => function,
+					};
 					self.task_spawner.execute_write(task_id, cycle, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {

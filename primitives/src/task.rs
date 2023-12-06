@@ -28,7 +28,10 @@ impl Function {
 	}
 
 	pub fn is_gmp(&self) -> bool {
-		matches!(self, Self::SendMessage { .. })
+		matches!(
+			self,
+			Self::RegisterShard { .. } | Self::UnregisterShard { .. } | Self::SendMessage { .. }
+		)
 	}
 }
 

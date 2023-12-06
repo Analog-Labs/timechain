@@ -106,7 +106,9 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
-			Function::SendMessage { .. } => {
+			Function::RegisterShard { .. }
+			| Function::UnregisterShard { .. }
+			| Function::SendMessage { .. } => {
 				return Err(anyhow!(
 					"SendMessage must be transformed into EvmCall prior to execution"
 				))
@@ -144,12 +146,12 @@ where
 		task_id: TaskId,
 		task_cycle: TaskCycle,
 		function: &Function,
-		collection: String,
+		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
 		payload: &[u8],
 		signature: TssSignature,
 	) -> Result<()> {
-		if let Some(timegraph) = self.timegraph.as_ref() {
+		if let (Some(timegraph), Some(collection)) = (self.timegraph.as_ref(), collection) {
 			if matches!(function, Function::EvmViewCall { .. }) {
 				let result_json = serde_json::from_slice(payload)?;
 				let formatted_result = match result_json {
@@ -162,7 +164,7 @@ where
 				};
 				timegraph
 					.submit_data(TimegraphData {
-						collection,
+						collection: hex::encode(&collection),
 						task_id,
 						task_cycle,
 						target_block_number: target_block,
@@ -186,7 +188,7 @@ where
 		task_id: TaskId,
 		task_cycle: TaskCycle,
 		function: Function,
-		collection: String,
+		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Result<()> {
 		let result = self
@@ -272,7 +274,7 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		function: Function,
-		collection: String,
+		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		self.clone()

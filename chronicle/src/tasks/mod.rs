@@ -22,7 +22,7 @@ pub trait TaskSpawner {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		function: Function,
-		hash: String,
+		hash: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 

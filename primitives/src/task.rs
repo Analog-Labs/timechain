@@ -17,12 +17,18 @@ pub enum Function {
 	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
 	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
 	EvmTxReceipt { tx: Vec<u8> },
+	RegisterShard { shard_id: ShardId },
+	UnregisterShard { shard_id: ShardId },
 	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
 }
 
 impl Function {
 	pub fn is_payable(&self) -> bool {
 		matches!(self, Self::EvmDeploy { .. } | Self::EvmCall { .. })
+	}
+
+	pub fn is_gmp(&self) -> bool {
+		matches!(self, Self::SendMessage { .. })
 	}
 }
 
@@ -43,13 +49,13 @@ pub struct TaskError {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptor {
-	pub owner: AccountId,
+	pub owner: Option<AccountId>,
 	pub network: Network,
 	pub function: Function,
 	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
-	pub hash: String,
+	pub timegraph: Option<[u8; 32]>,
 }
 
 impl TaskDescriptor {
@@ -64,8 +70,21 @@ pub struct TaskDescriptorParams {
 	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
-	pub hash: String,
+	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
+}
+
+impl TaskDescriptorParams {
+	pub fn new(network: Network, function: Function) -> Self {
+		Self {
+			network,
+			cycle: 1,
+			start: 0,
+			period: 1,
+			timegraph: None,
+			function,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

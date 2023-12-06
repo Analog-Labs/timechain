@@ -136,6 +136,9 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -185,28 +188,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::create_task())]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
-			let task_id = TaskIdCounter::<T>::get();
-			if matches!(schedule.function, Function::SendMessage { .. }) {
-				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			}
-			Tasks::<T>::insert(
-				task_id,
-				TaskDescriptor {
-					owner: who,
-					network: schedule.network,
-					function: schedule.function,
-					cycle: schedule.cycle,
-					start: schedule.start,
-					period: schedule.period,
-					hash: schedule.hash,
-				},
-			);
-			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
-			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_tasks(schedule.network);
+			Self::start_task(schedule, Some(who))?;
 			Ok(())
 		}
 
@@ -247,7 +229,7 @@ pub mod pallet {
 			status: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskResults::<T>::get(task_id, cycle).is_some() {
 				return Ok(());
 			}
@@ -267,6 +249,9 @@ pub mod pallet {
 					ShardTasks::<T>::remove(shard_id, task_id);
 				}
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
+				if let Function::RegisterShard { shard_id } = task.function {
+					ShardRegistered::<T>::insert(shard_id, ());
+				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
 			Ok(())
@@ -363,11 +348,37 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn start_task(schedule: TaskDescriptorParams, who: Option<AccountId>) -> DispatchResult {
+			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
+			let task_id = TaskIdCounter::<T>::get();
+			if schedule.function.is_gmp() {
+				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
+			}
+			Tasks::<T>::insert(
+				task_id,
+				TaskDescriptor {
+					owner: who,
+					network: schedule.network,
+					function: schedule.function,
+					cycle: schedule.cycle,
+					start: schedule.start,
+					period: schedule.period,
+					timegraph: schedule.timegraph,
+				},
+			);
+			TaskState::<T>::insert(task_id, TaskStatus::Created);
+			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
+			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
+			Self::deposit_event(Event::TaskCreated(task_id));
+			Self::schedule_tasks(schedule.network);
+			Ok(())
+		}
+
 		fn try_root_or_owner(origin: OriginFor<T>, task_id: TaskId) -> bool {
 			ensure_root(origin.clone()).is_ok()
 				|| Tasks::<T>::get(task_id).map_or(false, |task| {
 					if let Ok(origin) = ensure_signed(origin) {
-						task.owner == origin
+						task.owner == Some(origin)
 					} else {
 						false
 					}
@@ -458,6 +469,13 @@ pub mod pallet {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
+					.filter(|(shard_id, _)| {
+						if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+							ShardRegistered::<T>::get(*shard_id).is_some()
+						} else {
+							true
+						}
+					})
 					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
 					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 						if task_count < task_count2 {
@@ -474,14 +492,7 @@ pub mod pallet {
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Sign)
 				{
-					TaskPhaseState::<T>::insert(
-						task_id,
-						TaskPhase::Write(T::Shards::random_signer(shard_id)),
-					);
-					WritePhaseStart::<T>::insert(
-						task_id,
-						frame_system::Pallet::<T>::block_number(),
-					);
+					Self::start_write_phase(task_id, shard_id);
 				}
 				ShardTasks::<T>::insert(shard_id, task_id, ());
 				TaskShard::<T>::insert(task_id, shard_id);
@@ -520,7 +531,11 @@ pub mod pallet {
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
-			Self::schedule_tasks(network);
+			Self::start_task(
+				TaskDescriptorParams::new(network, Function::RegisterShard { shard_id }),
+				None,
+			)
+			.unwrap();
 		}
 
 		fn shard_offline(shard_id: ShardId, network: Network) {
@@ -531,7 +546,12 @@ pub mod pallet {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
-			Self::schedule_tasks(network);
+			ShardRegistered::<T>::remove(shard_id);
+			Self::start_task(
+				TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
+				None,
+			)
+			.unwrap();
 		}
 	}
 }

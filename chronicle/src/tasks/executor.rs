@@ -98,13 +98,24 @@ where
 			let task_descr = self.substrate.get_task(block_hash, task_id)?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
-			let hash = task_descr.hash;
+			let hash = task_descr.timegraph;
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					let Function::SendMessage { payload, .. } = function else {
-						continue; // create_task ensures never hits this branch
-						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
+					let payload = match function {
+						Function::RegisterShard { .. } => {
+							// TODO
+							vec![]
+						},
+						Function::UnregisterShard { .. } => {
+							// TODO
+							vec![]
+						},
+						Function::SendMessage { .. } => {
+							// TODO
+							vec![]
+						},
+						_ => anyhow::bail!("invalid task"),
 					};
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {

@@ -9,6 +9,8 @@ use sha3::{Digest, Keccak256};
 use shards as Shards;
 use tc_subxt::Network;
 use tc_subxt::SubxtClient;
+use time_primitives::Address;
+use time_primitives::WrappedGmpMessage;
 use time_primitives::{ChainId, Network as PrimitiveNetwork, WrappedGmpPayload, U256};
 
 mod mock;
@@ -171,7 +173,7 @@ async fn process_gmp_task(
 	let salt = U256::from(1);
 	let gmp_data = get_test_gmp_data("vote_yes()");
 
-	let gmp_message_payload = WrappedGmpPayload {
+	let gmp_payload = WrappedGmpPayload {
 		source: [0; 32],
 		src_network: ChainId::try_from(PrimitiveNetwork::Astar).unwrap(),
 		dest: eth_bytes,
@@ -180,8 +182,13 @@ async fn process_gmp_task(
 		salt,
 		data: gmp_data,
 	};
+
+	let gmp_message_payload = WrappedGmpMessage { nonce: 1, payload: gmp_payload };
 	let serialized_data = bincode::serialize(&gmp_message_payload).unwrap();
-	let function = create_sign_task(eth_contract_address_gmp.into(), serialized_data);
+	let eth_gmp_address_decoded =
+		hex::decode(&eth_contract_address_gmp.strip_prefix("0x").unwrap()).unwrap();
+	println!("address decoded bytes for task creation {:?}", eth_gmp_address_decoded.len());
+	let function = create_sign_task(eth_gmp_address_decoded, serialized_data);
 	let task_id = insert_task(
 		api,
 		1, //cycle

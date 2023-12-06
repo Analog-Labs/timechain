@@ -5,8 +5,8 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	get_gmp_msg_hash, split_tss_sig, BlockHash, BlockNumber, Function, Network, ShardId, Shards,
-	TaskExecution, TaskPhase, Tasks, TssId, WrappedGmpMessage, U256,
+	address, split_tss_sig, Address, BlockHash, BlockNumber, Function, GmpMessage, Network,
+	ShardId, Shards, TaskExecution, TaskPhase, Tasks, TssId, WrappedGmpMessage, U256,
 };
 use tokio::task::JoinHandle;
 
@@ -107,8 +107,18 @@ where
 						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
 					};
 					// TODO modify payload here according to gmppayload hash computation on contract side
-					let gmp_message: WrappedGmpMessage = bincode::deserialize(&payload)?;
-					let payload = get_gmp_msg_hash(gmp_message, contract_address);
+					let wrapped_msg: WrappedGmpMessage = bincode::deserialize(&payload)?;
+					let gmp_message: GmpMessage = wrapped_msg.clone().into();
+					tracing::info!("gmp message {:?}", gmp_message);
+					if contract_address.len() != 20 {
+						return Err(anyhow::anyhow!("Invalid contract address"));
+					}
+					let mut address_bytes = [0u8; 20];
+					address_bytes.copy_from_slice(&contract_address);
+					let address = Address::new(address_bytes);
+					let payload = gmp_message
+						.to_eip712_bytes(wrapped_msg.payload.src_network.into(), address);
+					tracing::info!("singing payload sent: {:?}", payload);
 					self.task_spawner.execute_sign(
 						shard_id,
 						task_id,
@@ -133,14 +143,14 @@ where
 						let (e, s) = split_tss_sig(signature);
 						let gmp_message: WrappedGmpMessage = bincode::deserialize(&payload)?;
 						Function::EvmCall {
-								address: String::from_utf8(contract_address.clone()).unwrap(),
-								//TODO right now it doesnt work, because connector doesnt support custom structs
-								function_signature: String::from("rawExecute(uint256,uint256,uint256,uint32,bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
+								address: format!("0x{}",hex::encode(contract_address)),
+								function_signature: String::from("rawSudoExecute(bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
+								// function_signature: String::from("rawExecute(uint256,uint256,uint256,uint32,bytes32,uint128,address,uint128,uint256,uint256,bytes)"),
 								input: vec![
-									x_coord.to_string(),
-									e.to_string(),
-									s.to_string(),
-									gmp_message.nonce.to_string(),
+									// x_coord.to_string(),
+									// e.to_string(),
+									// s.to_string(),
+									// gmp_message.nonce.to_string(),
 									hex::encode(gmp_message.payload.source),
 									format!("{:?}", gmp_message.payload.src_network),
 									hex::encode(gmp_message.payload.dest),

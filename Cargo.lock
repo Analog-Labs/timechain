@@ -14186,7 +14186,6 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
- "ethabi",
  "frame-system",
  "futures",
  "impl-trait-for-tuples",

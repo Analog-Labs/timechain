@@ -209,27 +209,6 @@ contract SigUtils {
             );
     }
 
-    // print hash
-    function getViewUpdateShardsMessageTypedHash(UpdateShardsMessage memory message)
-        public
-        view
-        returns (bytes memory)
-    {
-        return
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(
-                    abi.encode(
-                        keccak256("UpdateShardsMessage(uint256 nonce,TssKey[] revoke,TssKey[] register)"),
-                        message.nonce,
-                        _getTssKeyArrayHash(message.revoke),
-                        _getTssKeyArrayHash(message.register)
-                    )
-                )
-            );
-    }
-
     // computes the hash of an array of tss keys
     function _getGmpPayloadHash(GmpPayload memory gmp)
         internal
@@ -243,8 +222,8 @@ contract SigUtils {
                         "GMPPayload(bytes32 source,uint96 srcNetwork,address dest,uint96 destNetwork,bytes32 sender,uint256 gasLimit,uint256 value,uint256 salt,bytes data)"
                     ),
                     gmp.source,
-                    gmp.srcNetwork,
                     gmp.dest,
+                    gmp.srcNetwork,
                     gmp.destNetwork,
                     gmp.gasLimit,
                     gmp.salt,
@@ -273,6 +252,54 @@ contract SigUtils {
                 )
             )
         );
+    }
+
+    // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
+    function getViewGmpMessageTypedHash(
+        uint32 nonce,
+        bytes32 source,      // Primitive equivalent of GmpPayload.source
+        uint128 srcNetwork,  // Primitive equivalent of GmpPayload.srcNetwork
+        address dest,        // Primitive equivalent of GmpPayload.dest
+        uint128 destNetwork, // Primitive equivalent of GmpPayload.destNetwork
+        uint256 gasLimit,    // Primitive equivalent of GmpPayload.gasLimit
+        uint256 salt,        // Primitive equivalent of GmpPayload.salt
+        bytes memory data    // Primitive equivalent of GmpPayload.data
+    )
+        public
+        view
+        returns (bytes memory messageHash, bytes32 payloadHash)
+    {
+        // Reconstruct the GmpPayload struct
+        GmpPayload memory payload = GmpPayload({
+            source: source,
+            srcNetwork: srcNetwork,
+            dest: dest,
+            destNetwork: destNetwork,
+            gasLimit: gasLimit,
+            salt: salt,
+            data: data
+        });
+
+        // Reconstruct the GmpMessage struct
+        GmpMessage memory message = GmpMessage({
+            nonce: nonce,
+            payload: payload
+        });
+
+        // Calculate the payload hash (assuming _getGmpPayloadHash accepts a GmpPayload struct)
+        payloadHash = _getGmpPayloadHash(payload);
+        messageHash = 
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(
+                    abi.encode(
+                        keccak256("GmpMessage(uint32 nonce,GmpPayload payload)"),
+                        message.nonce,
+                        payloadHash
+                    )
+                )
+            );
     }
 
     // secp256k1 group order

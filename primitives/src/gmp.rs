@@ -1,12 +1,10 @@
 use crate::{ChainId, Function, TssSignature};
-pub use alloy_primitives::U256;
+pub use alloy_primitives::{address, Address, U256};
 use alloy_sol_types::SolCall;
 use codec::alloc::string::String;
-use ethabi::Token;
 use scale_info::prelude::vec::Vec;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
-use sp_core::hashing::keccak_256;
+use sp_io::hashing::keccak_256;
 use IGateway::*;
 
 pub fn register_shard_call(shard_public_key: [u8; 33], contract_address: [u8; 20]) -> Function {
@@ -127,6 +125,54 @@ alloy_sol_macro::sol! {
 	}
 }
 
+impl GmpMessage {
+	#[must_use]
+	pub fn to_eip712_bytes(&self, chain_id: u64, gateway_contract: Address) -> [u8; 66] {
+		let domain_separator = {
+			let mut bytes = [0u8; 148];
+			bytes[0..32].copy_from_slice(&keccak_256(b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"));
+			bytes[32..64].copy_from_slice(&keccak_256(b"Analog Gateway Contract"));
+			bytes[64..96].copy_from_slice(&keccak_256(b"0.1.0"));
+			bytes[96..128].copy_from_slice(&U256::from(chain_id).to_le_bytes::<32>());
+			bytes[128..148].copy_from_slice(gateway_contract.as_ref());
+			keccak_256(&bytes)
+		};
+		let payload_hash = {
+			let mut bytes = [0u8; 212];
+			bytes[0..32].copy_from_slice(&keccak_256(b"GmpPayload(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"));
+			bytes[32..64].copy_from_slice(self.payload.source.as_ref());
+			bytes[64..80].copy_from_slice(&self.payload.srcNetwork.to_le_bytes());
+			bytes[80..100].copy_from_slice(self.payload.dest.as_ref());
+			bytes[100..116].copy_from_slice(&self.payload.destNetwork.to_le_bytes());
+			bytes[116..148].copy_from_slice(&self.payload.gasLimit.to_le_bytes::<32>());
+			bytes[148..180].copy_from_slice(&self.payload.salt.to_le_bytes::<32>());
+			bytes[180..212].copy_from_slice(&keccak_256(&self.payload.data));
+			keccak_256(&bytes)
+		};
+		let message_hash = {
+			let mut bytes = [0u8; 68];
+			bytes[0..32]
+				.copy_from_slice(&keccak_256(b"GmpMessage(uint32 nonce,GmpPayload payload)"));
+			bytes[32..36].copy_from_slice(&self.nonce.to_le_bytes());
+			bytes[36..68].copy_from_slice(&payload_hash);
+			keccak_256(&bytes)
+		};
+		let gmp_eip712_message = {
+			let mut bytes = [0u8; 66];
+			bytes[0..2].copy_from_slice(&[0x19u8, 0x01u8]);
+			bytes[2..34].copy_from_slice(&domain_separator);
+			bytes[34..66].copy_from_slice(&message_hash);
+			bytes
+		};
+		gmp_eip712_message
+	}
+
+	#[must_use]
+	pub fn to_eip712_typed_hash(&self, chain_id: u64, gateway_contract: Address) -> [u8; 32] {
+		keccak_256(self.to_eip712_bytes(chain_id, gateway_contract).as_ref())
+	}
+}
+
 impl From<WrappedGmpPayload> for GmpPayload {
 	fn from(wrapped_msg: WrappedGmpPayload) -> Self {
 		Self {
@@ -137,6 +183,15 @@ impl From<WrappedGmpPayload> for GmpPayload {
 			gasLimit: wrapped_msg.gas_limit,
 			salt: wrapped_msg.salt,
 			data: wrapped_msg.data,
+		}
+	}
+}
+
+impl From<WrappedGmpMessage> for GmpMessage {
+	fn from(wrapped_msg: WrappedGmpMessage) -> Self {
+		Self {
+			nonce: wrapped_msg.nonce.into(),
+			payload: wrapped_msg.payload.into(),
 		}
 	}
 }
@@ -165,57 +220,4 @@ pub fn split_tss_sig(signature: TssSignature) -> (U256, U256) {
 	let e_bigint = U256::from_be_slice(e_bytes.into());
 	let s_bigint = U256::from_be_slice(s_bytes.into());
 	(e_bigint, s_bigint)
-}
-
-#[cfg(feature = "std")]
-pub fn get_gmp_msg_hash(message: WrappedGmpMessage, contract_address: Vec<u8>) -> Vec<u8> {
-	let chain_id: u64 = message.payload.src_network.into();
-	let mut contract_arr = [0u8; 20];
-	contract_arr.copy_from_slice(&contract_address);
-	let domain_separator = compute_domain_separator(chain_id, contract_arr);
-	let payload_hash = get_gmp_payload_hash(message.payload);
-
-	let encoded = ethabi::encode(&[
-		Token::FixedBytes(b"GmpMessage(uint32 nonce,GmpPayload payload)".to_vec()),
-		Token::Uint(message.nonce.into()),
-		Token::FixedBytes(payload_hash.to_vec()),
-	]);
-
-	[&[0x19, 0x01], &domain_separator[..], &keccak_256(&encoded)[..]]
-		.concat()
-		.into()
-}
-
-#[cfg(feature = "std")]
-fn get_gmp_payload_hash(payload: WrappedGmpPayload) -> [u8; 32] {
-	let encoded_payload_type = keccak_256(b"GMPPayload(bytes32 source,uint96 srcNetwork,address dest,uint96 destNetwork,bytes32 sender,uint256 gasLimit,uint256 value,uint256 salt,bytes data)");
-
-	let encoded = ethabi::encode(&[
-		Token::FixedBytes(encoded_payload_type.to_vec()),
-		Token::FixedBytes(payload.source.to_vec()),
-		Token::Uint(payload.src_network.into()),
-		Token::FixedBytes(payload.dest.to_vec()),
-		Token::Uint(payload.dest_network.into()),
-		Token::Uint(sp_core::U256::from_big_endian(&payload.gas_limit.to_be_bytes_trimmed_vec())),
-		Token::Uint(sp_core::U256::from_big_endian(&payload.salt.to_be_bytes_trimmed_vec())),
-		Token::FixedBytes(keccak_256(&payload.data).to_vec()),
-	]);
-
-	keccak_256(&encoded).into()
-}
-
-#[cfg(feature = "std")]
-fn compute_domain_separator(chain_id: u64, contract_address: [u8; 20]) -> [u8; 32] {
-	let encoded = ethabi::encode(&[
-		Token::FixedBytes(
-			b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-				.to_vec(),
-		),
-		Token::FixedBytes(b"Analog Gateway Contract".to_vec()),
-		Token::FixedBytes(b"0.1.0".to_vec()),
-		Token::Uint(chain_id.into()),
-		Token::Address(contract_address.into()),
-	]);
-
-	keccak_256(&encoded)
 }

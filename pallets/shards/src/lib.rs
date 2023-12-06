@@ -306,6 +306,10 @@ pub mod pallet {
 			MemberShard::<T>::get(member).is_some()
 		}
 
+		fn shard_network(shard_id: ShardId) -> Option<Network> {
+			ShardNetwork::<T>::get(shard_id)
+		}
+
 		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);

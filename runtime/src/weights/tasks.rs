@@ -97,4 +97,8 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	fn submit_signature() -> Weight {
 		Default::default()
 	}
+
+	fn register_gateway() -> Weight {
+		Default::default()
+	}
 }

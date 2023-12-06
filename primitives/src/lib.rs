@@ -74,6 +74,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
+		fn get_gateway(network: Network) -> Option<Vec<u8>>;
 	}
 
 	pub trait BlockTimeApi{
@@ -103,6 +104,7 @@ pub trait ElectionsInterface {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
+	fn shard_network(shard_id: ShardId) -> Option<Network>;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
 	fn random_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;

@@ -30,6 +30,7 @@ pub mod pallet {
 		fn submit_error() -> Weight;
 		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
+		fn register_gateway() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -58,6 +59,10 @@ pub mod pallet {
 		}
 
 		fn submit_signature() -> Weight {
+			Weight::default()
+		}
+
+		fn register_gateway() -> Weight {
 			Weight::default()
 		}
 	}
@@ -138,6 +143,9 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
+
+	#[pallet::storage]
+	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, Network, Vec<u8>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -329,6 +337,22 @@ pub mod pallet {
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
 		}
+
+		/// Register gateway
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::register_gateway())] // TODO update bench, weights
+		pub fn register_gateway(
+			origin: OriginFor<T>,
+			bootstrap: ShardId,
+			address: Vec<u8>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
+			ShardRegistered::<T>::insert(bootstrap, ());
+			Gateway::<T>::insert(network, address);
+			Self::schedule_tasks(network);
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -413,6 +437,10 @@ pub mod pallet {
 
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
 			Tasks::<T>::get(task_id)
+		}
+
+		pub fn get_gateway(network: Network) -> Option<Vec<u8>> {
+			Gateway::<T>::get(network)
 		}
 
 		fn is_complete(task_id: TaskId) -> bool {

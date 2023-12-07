@@ -82,16 +82,10 @@ where
 			hash: None,
 		};
 		Ok(match function {
-			Function::EvmViewCall {
-				address,
-				function_signature,
-				input,
-			} => {
-				let data = self
-					.wallet
-					.eth_view_call(address, function_signature, input, Some(block))
-					.await?;
-				serde_json::to_string(&data)?.into_bytes()
+			Function::EvmViewCall { address, input } => {
+				//let data = self.wallet.eth_view_call(address, input, Some(block)).await?;
+				//serde_json::to_string(&data)?.into_bytes()
+				todo!();
 			},
 			Function::EvmTxReceipt { tx } => {
 				let data = self.wallet.eth_transaction_receipt(tx).await?;
@@ -100,12 +94,10 @@ where
 			Function::EvmDeploy { bytecode } => {
 				self.wallet.eth_deploy_contract(bytecode.clone()).await?
 			},
-			Function::EvmCall {
-				address,
-				function_signature,
-				input,
-				amount,
-			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
+			Function::EvmCall { address, input, amount } => {
+				// self.wallet.eth_send_call(address, input, *amount).await?
+				todo!()
+			},
 			Function::RegisterShard { .. }
 			| Function::UnregisterShard { .. }
 			| Function::SendMessage { .. } => {

@@ -51,7 +51,7 @@ interface IGateway {
     /**
      * Update TSS key set
      */
-    function updateTSSKeys(SignedPayload memory signature, UpdateKeysPayload memory message) external;
+    function updateKeys(SignedPayload memory signature, UpdateKeysPayload memory message) external;
 }
 
 /**
@@ -101,7 +101,7 @@ struct SignedPayload {
  * the shard info below 256 bit, so it can be stored in one single storage slot.
  * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
  **/
-struct ShardInfo {
+struct KeyInfo {
     uint216 _gap;  // gap, so we can use later for store more information about a shard
     uint8 status;  // status, 0 = unregisted, 1 = active, 3 = revoked
     uint32 nonce;  // shard nonce
@@ -276,27 +276,36 @@ contract Gateway is IGateway, SigUtils {
     address _owner;
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
-    mapping (bytes32 => ShardInfo) _shards;
+    mapping (bytes32 => KeyInfo) _shards;
 
     // GMP message status
     mapping (bytes32 => GmpInfo) _messages;
 
-    constructor() payable {
-        _owner = msg.sender;
+    constructor(uint256[2][] memory initialKeys) payable {
+        TssKey[] memory keys;
+        assembly {
+            // Transmute uint256[2][] to TssKey[], once they have the same layout in memory
+            keys := initialKeys
+        }
+        _registerKeys(keys);
+
+        // emit event
+        TssKey[] memory revoked = new TssKey[](0);
+        emit KeySetChanged(bytes32(0), revoked, keys);
     }
 
     function gmpInfo(bytes32 id) external view returns (GmpInfo memory) {
       return _messages[id];
     }
 
-    function keyInfo(bytes32 id) external view returns (ShardInfo memory) {
+    function keyInfo(bytes32 id) external view returns (KeyInfo memory) {
       return _shards[id];
     }
 
     // Check if shard exists, verify the nonce, verify TSS signature and increment shard nonce
     function _processSignature(SignedPayload memory signature, bytes32 message) private {
         // Load shard from storage
-        ShardInfo storage signer = _shards[bytes32(signature.xCoord)];
+        KeyInfo storage signer = _shards[bytes32(signature.xCoord)];
 
         // Verify if shard is active
         uint8 status = signer.status;
@@ -332,54 +341,24 @@ contract Gateway is IGateway, SigUtils {
         );
     }
 
-    // Transfer the ownership of this contract to another account
-    function transferOwnership(address newOwner) external returns (bool) {
-        require(msg.sender == _owner, "not autorized");
-        _owner = newOwner;
-        return true;
-    }
-
-    // Converts a `TssKey` into an `ShardInfo` unique identifier
+    // Converts a `TssKey` into an `KeyInfo` unique identifier
     function _tssKeyToShardId(TssKey memory tssKey) private pure returns (bytes32) {
         // The tssKey coord x is already collision resistant
         // if we are unsure about it, we can hash the coord and parity bit
         return bytes32(tssKey.xCoord);
     }
 
-    // Register/Revoke TSS keys
-    function _updateTssKeys(bytes32 messageHash, TssKey[] memory revokeKeys, TssKey[] memory registerKeys) private {
+    function _registerKeys(TssKey[] memory keys) private {
         // We don't perform any arithmetic operation, except iterate a loop
         unchecked {
-            // Revoke tss keys
-            for (uint256 i=0; i < revokeKeys.length; i++) {
-                TssKey memory revokedKey = revokeKeys[i];
-
-                // Read shard from storage
-                bytes32 shardId = _tssKeyToShardId(revokedKey);
-                ShardInfo storage shard = _shards[shardId];
-
-                // Check if the shard exists and is active
-                require(shard.nonce > 0, "shard doesn't exists, cannot revoke key");
-                require((shard.status & SHARD_ACTIVE) > 0, "cannot revoke a shard key already revoked");
-
-                // Check y-parity
-                {
-                    uint8 yParity = (shard.status & SHARD_Y_PARITY) > 0 ? 1 : 0;
-                    require(yParity == revokedKey.yParity, "invalid y parity bit, cannot revoke key");
-                }
-
-                // Disable SHARD_ACTIVE bitflag
-                shard.status = shard.status & (~SHARD_ACTIVE); // Disable active flag
-            }
-
             // Register or activate tss key (revoked keys keep the previous nonce)
-            for (uint256 i=0; i < registerKeys.length; i++) {
+            for (uint256 i=0; i < keys.length; i++) {
                 // Validate y-parity bit
-                TssKey memory newKey = registerKeys[i];
+                TssKey memory newKey = keys[i];
 
                 // Read shard from storage
                 bytes32 shardId = _tssKeyToShardId(newKey);
-                ShardInfo storage shard = _shards[shardId];
+                KeyInfo storage shard = _shards[shardId];
                 uint8 status = shard.status;
                 uint32 nonce = shard.nonce;
 
@@ -400,7 +379,7 @@ contract Gateway is IGateway, SigUtils {
                     require(actualYParity == yParity, "the provided y-parity doesn't match the existing y-parity, cannot register shard");
                 }
 
-                // store the y-parity in the `ShardInfo`
+                // store the y-parity in the `KeyInfo`
                 if (yParity > 0) {
                     // enable SHARD_Y_PARITY bitflag
                     status |= SHARD_Y_PARITY;
@@ -416,52 +395,79 @@ contract Gateway is IGateway, SigUtils {
                 shard.status = status;
             }
         }
-        emit KeySetChanged(messageHash, revokeKeys, registerKeys);
+    }
+
+    function _revokeKeys(TssKey[] memory keys) private {
+        // We don't perform any arithmetic operation, except iterate a loop
+        unchecked {
+            // Revoke tss keys
+            for (uint256 i=0; i < keys.length; i++) {
+                TssKey memory revokedKey = keys[i];
+
+                // Read shard from storage
+                bytes32 shardId = _tssKeyToShardId(revokedKey);
+                KeyInfo storage shard = _shards[shardId];
+
+                // Check if the shard exists and is active
+                require(shard.nonce > 0, "shard doesn't exists, cannot revoke key");
+                require((shard.status & SHARD_ACTIVE) > 0, "cannot revoke a shard key already revoked");
+
+                // Check y-parity
+                {
+                    uint8 yParity = (shard.status & SHARD_Y_PARITY) > 0 ? 1 : 0;
+                    require(yParity == revokedKey.yParity, "invalid y parity bit, cannot revoke key");
+                }
+
+                // Disable SHARD_ACTIVE bitflag
+                shard.status = shard.status & (~SHARD_ACTIVE); // Disable active flag
+            }
+        }
+    }
+
+    // Register/Revoke TSS keys and emits [`KeySetChanged`] event
+    function _updateKeys(bytes32 messageHash, TssKey[] memory keysToRevoke, TssKey[] memory newKeys) private {
+        // We don't perform any arithmetic operation, except iterate a loop
+        unchecked {
+            // Revoke tss keys (revoked keys can be registred again keeping the previous nonce)
+            _revokeKeys(keysToRevoke);
+
+            // Register or activate revoked keys
+            _registerKeys(newKeys);
+        }
+        emit KeySetChanged(messageHash, keysToRevoke, newKeys);
     }
 
     // Register/Revoke TSS keys using shard TSS signature
-    function updateTSSKeys(SignedPayload memory signature, UpdateKeysPayload memory payload) public {
+    function updateKeys(SignedPayload memory signature, UpdateKeysPayload memory payload) public {
         bytes32 payloadHash = _getUpdateKeysPayloadHash(payload);
         bytes32 messageHash = getMessageTypedHash(signature.nonce, payloadHash);
         _processSignature(signature, messageHash);
 
         // Register shards pubkeys
-        _updateTssKeys(messageHash, payload.register, payload.revoke);
+        _updateKeys(messageHash, payload.register, payload.revoke);
     }
 
     // Register/Revoke TSS keys using shard TSS signature
-    function updateTSSKeys(SignedPayload memory signature, bytes32[2][] memory rawRevoke, bytes32[2][] memory rawRegister) external {
-        TssKey[] memory revoke;
-        TssKey[] memory register;
-        // TypeCast bytes32[2][] to TssKey, once they have the same layout in memory
+    function updateKeys(uint256[4] memory sig, uint256[2][] memory revoke, uint256[2][] memory register) external {
+        SignedPayload memory signature;
         assembly {
-            revoke := rawRevoke
-            register := rawRegister
+            // Transmute uint256[4] to SignedPayload, once they have the same layout in memory
+            signature := sig
         }
+
+        TssKey[] memory keysToRevoke;
+        TssKey[] memory newKeys;
+        assembly {
+            // Transmute uint256[2][] to TssKey, once they have the same layout in memory
+            keysToRevoke := revoke
+            newKeys := register
+        }
+
         UpdateKeysPayload memory payload = UpdateKeysPayload({
-            revoke: revoke,
-            register: register
+            revoke: keysToRevoke,
+            register: newKeys
         });
-        updateTSSKeys(signature, payload);
-    }
-
-    // Register/Revoke TSS keys using sudo account
-    function sudoUpdateTSSKeys(TssKey[] memory revokeKeys, TssKey[] memory registerKeys) external {
-        require(msg.sender == _owner, "not autorized");
-        _updateTssKeys(0, revokeKeys, registerKeys);
-    }
-
-    // Raw register/Revoke TSS keys using sudo account
-    function sudoUpdateTSSKeys(bytes32[2][] memory rawRevoke, bytes32[2][] memory rawRegister) external {
-        require(msg.sender == _owner, "not autorized");
-        TssKey[] memory revokeKeys;
-        TssKey[] memory registerKeys;
-        // TypeCast bytes32[2][] to TssKey, once they have the same layout in memory
-        assembly {
-            revokeKeys := rawRevoke
-            registerKeys := rawRegister
-        }
-        _updateTssKeys(0, revokeKeys, registerKeys);
+        updateKeys(signature, payload);
     }
 
     // Execute GMP message
@@ -536,61 +542,23 @@ contract Gateway is IGateway, SigUtils {
 
     // Raw Execute GMP message using shard TSS signature
     function execute(
-        uint256 xCoord,             // affine x-coordinate from shard pubkey
-        uint32 nonce,               // 'nonce' from GmpMessage
-        uint256 signatureE,         // 'e' component from Signature
-        uint256 signatureS,         // 's' component from Signature
-        bytes32 messageSource,      // 'source' from GmpPayload within GmpMessage
-        uint128 messageSrcNetwork,  // 'srcNetwork' from GmpPayload within GmpMessage
-        address messageDest,        // 'dest' from GmpPayload within GmpMessage
-        uint128 messageDestNetwork, // 'destNetwork' from GmpPayload within GmpMessage
-        uint256 messageGasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
-        uint256 messageSalt,        // 'salt' from GmpPayload within GmpMessage
-        bytes memory messageData    // 'data' from GmpPayload within GmpMessage
+        uint256[4] memory sig,
+        bytes32 source,      // 'source' from GmpPayload within GmpMessage
+        uint128 srcNetwork,  // 'srcNetwork' from GmpPayload within GmpMessage
+        address dest,        // 'dest' from GmpPayload within GmpMessage
+        uint128 destNetwork, // 'destNetwork' from GmpPayload within GmpMessage
+        uint256 gasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
+        uint256 salt,        // 'salt' from GmpPayload within GmpMessage
+        bytes memory data    // 'data' from GmpPayload within GmpMessage
     ) external returns (uint8 status, bytes32 result) {
-        // Recreate the Signature struct from the provided arguments
-        SignedPayload memory signature = SignedPayload({
-            xCoord: xCoord,
-            nonce: nonce,
-            e: signatureE,
-            s: signatureS
-        });
+        SignedPayload memory signature;
+        assembly {
+            // Transmute uint256[4] to SignedPayload, once they have the same layout in memory
+            signature := sig
+        }
 
         // Recreate the GmpPayload struct from the provided arguments
         GmpPayload memory payload = GmpPayload({
-            source: messageSource,
-            srcNetwork: messageSrcNetwork,
-            dest: messageDest,
-            destNetwork: messageDestNetwork,
-            gasLimit: messageGasLimit,
-            salt: messageSalt,
-            data: messageData
-        });
-        // Execute GMP message
-        (status, result) = execute(signature, payload);
-    }
-
-    // Send GMP message using sudo account
-    function sudoExecute(GmpPayload memory message) external returns (uint8 status, bytes32 result) {
-        require(msg.sender == _owner, "not autorized");
-        bytes32 payloadHash = _getGmpPayloadHash(message);
-        (status, result) = _execute(payloadHash, message);
-    }
-
-    // Send GMP message using sudo account
-    function sudoExecute(
-        bytes32 source,      // Pubkey/Address of who sends the GMP message
-        uint128 srcNetwork,  // Source chain identifier (it's the EIP-155 chain_id for ethereum networks)
-        address dest,        // Destination/Recipient contract address
-        uint128 destNetwork, // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
-        uint256 gasLimit,    // Gas limit of the GMP call
-        uint256 salt,        // Message salt, useful for sending two messages with same content
-        bytes memory data    // Message data with no specified format
-    ) external returns (uint8 status, bytes32 result) {
-        require(msg.sender == _owner, "not authorized");
-
-        // Create a GmpPayload struct instance from the provided arguments
-        GmpPayload memory message = GmpPayload({
             source: source,
             srcNetwork: srcNetwork,
             dest: dest,
@@ -600,7 +568,7 @@ contract Gateway is IGateway, SigUtils {
             data: data
         });
 
-        bytes32 payloadHash = _getGmpPayloadHash(message);
-        (status, result) = _execute(payloadHash, message);
+        // Execute GMP message
+        (status, result) = execute(signature, payload);
     }
 }

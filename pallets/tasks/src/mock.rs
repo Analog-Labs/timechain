@@ -24,6 +24,10 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
+	fn shard_network(_: u64) -> Option<Network> {
+		Some(Network::Ethereum)
+	}
+
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
 
 	fn random_signer(shard_id: ShardId) -> PublicKey {

@@ -22,45 +22,42 @@ const A: [u8; 32] = [1u8; 32];
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
+		cycle,
+		start: 0,
+		period: 1,
+		timegraph: None,
 		function: Function::EvmViewCall {
 			address: Default::default(),
 			function_signature: Default::default(),
 			input: Default::default(),
 		},
-		cycle,
-		start: 0,
-		period: 1,
-		hash: "".to_string(),
 	}
 }
 
 fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
-		function: Function::SendMessage {
-			contract_address: Default::default(),
-			payload: Default::default(),
-		},
 		cycle,
 		start: 0,
 		period: 1,
-		hash: "".to_string(),
+		timegraph: None,
+		function: Function::SendMessage { payload: Default::default() },
 	}
 }
 
 fn mock_payable(network: Network) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
+		cycle: 1,
+		start: 0,
+		period: 0,
+		timegraph: None,
 		function: Function::EvmCall {
 			address: Default::default(),
 			function_signature: Default::default(),
 			input: Default::default(),
 			amount: 0,
 		},
-		cycle: 1,
-		start: 0,
-		period: 0,
-		hash: "".to_string(),
 	}
 }
 
@@ -133,7 +130,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 		assert_eq!(
 			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
-				owner: [0; 32].into(),
+				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
@@ -143,7 +140,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 				cycle: 1,
 				start: 0,
 				period: 1,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
@@ -165,7 +162,7 @@ fn task_auto_assigned_if_shard_online() {
 		assert_eq!(
 			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
-				owner: [0; 32].into(),
+				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
@@ -175,7 +172,7 @@ fn task_auto_assigned_if_shard_online() {
 				cycle: 1,
 				start: 0,
 				period: 1,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
@@ -194,7 +191,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 		assert_eq!(
 			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
-				owner: [0; 32].into(),
+				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
@@ -204,7 +201,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 				cycle: 1,
 				start: 0,
 				period: 1,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		);
 		Tasks::shard_online(1, Network::Ethereum);
@@ -746,3 +743,65 @@ fn submit_signature_fails_after_called_once() {
 		);
 	});
 }
+
+// #[test]
+// fn register_gateway_fails_if_not_root() {
+// 	new_test_ext().execute_with(|| {
+// 		assert_noop!(Tasks::register_gateway(
+// 			RawOrigin::Signed([0; 32].into()).into(),
+// 			1,
+// 			[0u8; 20].to_vec(),
+// 			),
+// 			Error::<Test>::GatewayRegistered
+// 		);
+// 	});
+// }
+
+// #[test]
+// fn register_gateway_fails_if_shard_not_registered() {
+
+// }
+
+// #[test]
+// fn register_gateway_emits_event() {
+
+// }
+
+// #[test]
+// fn register_gateway_updates_shard_registered_storage() {
+
+// }
+
+// #[test]
+// fn register_gateway_updates_gateway_storage() {
+
+// }
+
+// System::assert_last_event(Event::<Test>::TaskCreated(0).into());
+// Tasks::shard_online(1, Network::Ethereum);
+// assert_eq!(
+// 	Tasks::get_shard_tasks(1),
+// 	vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
+// );
+// let task_result = mock_result_ok(1, 0, 0);
+// assert_ok!(Tasks::submit_result(
+// 	RawOrigin::Signed([0; 32].into()).into(),
+// 	0,
+// 	0,
+// 	task_result.clone()
+// ));
+// System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
+// pub fn register_gateway(
+// 	origin: OriginFor<T>,
+// 	bootstrap: ShardId,
+// 	address: Vec<u8>,
+// ) -> DispatchResult {
+// 	ensure_root(origin)?;
+// 	let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
+// 	ensure!(Gateway::<T>::get(network).is_some(), Error::<T>::GatewayRegistered);
+// 	ShardRegistered::<T>::insert(bootstrap, ());
+// 	Gateway::<T>::insert(network, address.clone());
+// 	Self::schedule_tasks(network);
+// 	Self::deposit_event(Event::GatewayRegistered(network, address));
+// 	Ok(())
+// }

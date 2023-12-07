@@ -160,6 +160,8 @@ pub mod pallet {
 		TaskStopped(TaskId),
 		/// Task resumed by owner
 		TaskResumed(TaskId),
+		/// Gateway registered on network
+		GatewayRegistered(Network, Vec<u8>),
 	}
 
 	#[pallet::error]
@@ -188,6 +190,8 @@ pub mod pallet {
 		UnassignedTask,
 		/// Task already signed
 		TaskSigned,
+		/// Gateway already registered
+		GatewayRegistered,
 	}
 
 	#[pallet::call]
@@ -348,9 +352,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
+			ensure!(Gateway::<T>::get(network).is_some(), Error::<T>::GatewayRegistered);
 			ShardRegistered::<T>::insert(bootstrap, ());
-			Gateway::<T>::insert(network, address);
+			Gateway::<T>::insert(network, address.clone());
 			Self::schedule_tasks(network);
+			Self::deposit_event(Event::GatewayRegistered(network, address));
 			Ok(())
 		}
 	}

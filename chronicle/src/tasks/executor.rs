@@ -130,18 +130,14 @@ where
 						Function::UnregisterShard { .. } => {
 							todo!()
 						},
-						Function::SendMessage { payload } => {
+						Function::SendMessage { payload, .. } => {
 							// TODO
 							let contract_address =
 								self.substrate.get_gateway(self.network)?.unwrap();
 							let signature = self.substrate.get_task_signature(task_id)?.unwrap();
 							Function::EvmCall {
-								address: hex::encode(&contract_address),
-								function_signature: String::from("send_message(uint[],uint[])"),
-								input: vec![&payload, &signature.to_vec()]
-									.into_iter()
-									.map(hex::encode)
-									.collect(),
+								address: contract_address.try_into().unwrap(),
+								input: payload,
 								amount: 0u128,
 							}
 						},

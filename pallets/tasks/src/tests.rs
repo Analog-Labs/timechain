@@ -1,7 +1,8 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, NetworkShards, ShardTasks, TaskCycleState, TaskIdCounter, TaskPhaseState,
-	TaskResults, TaskRetryCounter, TaskSignature, TaskState, UnassignedTasks,
+	Error, Event, Gateway, NetworkShards, ShardRegistered, ShardTasks, TaskCycleState,
+	TaskIdCounter, TaskPhaseState, TaskResults, TaskRetryCounter, TaskSignature, TaskState,
+	UnassignedTasks,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -802,48 +803,18 @@ fn register_gateway_emits_event() {
 	});
 }
 
-// #[test]
-// fn register_gateway_updates_shard_registered_storage() {
-// 	new_test_ext().execute_with(|| {
-// 		assert_ok!(
-// 			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
-// 		);
-// 		assert_eq!();
-// 		assert_eq!();
-// 		System::assert_last_event(Event::<Test>::GatewayRegistered(Network::Ethereum, [0u8; 20].to_vec()).into());
-// 	});
-// }
+#[test]
+fn register_gateway_updates_shard_registered_storage() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+	});
+}
 
-// #[test]
-// fn register_gateway_updates_gateway_storage() {
-
-// }
-
-// System::assert_last_event(Event::<Test>::TaskCreated(0).into());
-// Tasks::shard_online(1, Network::Ethereum);
-// assert_eq!(
-// 	Tasks::get_shard_tasks(1),
-// 	vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
-// );
-// let task_result = mock_result_ok(1, 0, 0);
-// assert_ok!(Tasks::submit_result(
-// 	RawOrigin::Signed([0; 32].into()).into(),
-// 	0,
-// 	0,
-// 	task_result.clone()
-// ));
-// System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
-// pub fn register_gateway(
-// 	origin: OriginFor<T>,
-// 	bootstrap: ShardId,
-// 	address: Vec<u8>,
-// ) -> DispatchResult {
-// 	ensure_root(origin)?;
-// 	let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
-// 	ensure!(Gateway::<T>::get(network).is_some(), Error::<T>::GatewayRegistered);
-// 	ShardRegistered::<T>::insert(bootstrap, ());
-// 	Gateway::<T>::insert(network, address.clone());
-// 	Self::schedule_tasks(network);
-// 	Self::deposit_event(Event::GatewayRegistered(network, address));
-// 	Ok(())
-// }
+#[test]
+fn register_gateway_updates_gateway_storage() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(Gateway::<Test>::get(Network::Ethereum), Some([0u8; 20].to_vec()));
+	});
+}

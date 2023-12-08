@@ -505,7 +505,11 @@ pub mod pallet {
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
 					.filter(|(shard_id, _)| {
 						if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-							ShardRegistered::<T>::get(*shard_id).is_some()
+							if Gateway::<T>::get(network).is_some() {
+								ShardRegistered::<T>::get(*shard_id).is_some()
+							} else {
+								true
+							}
 						} else {
 							true
 						}

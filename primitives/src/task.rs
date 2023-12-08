@@ -14,12 +14,12 @@ pub type TaskRetryCount = u8;
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
 	EvmDeploy { bytecode: Vec<u8> },
-	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
-	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
+	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128 },
+	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 	EvmTxReceipt { tx: Vec<u8> },
 	RegisterShard { shard_id: ShardId },
 	UnregisterShard { shard_id: ShardId },
-	SendMessage { payload: Vec<u8> },
+	SendMessage { address: [u8; 20], payload: Vec<u8>, salt: [u8; 32], gas_limit: u64 },
 }
 
 impl Function {

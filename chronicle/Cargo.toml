@@ -28,6 +28,9 @@ timegraph-client = "0.1.9"
 tokio = "1.32.0"
 tracing = "0.1.37"
 tss = { path = "../tss" }
+alloy-primitives = { version = "0.5" }
+alloy-sol-types = { version = "0.5" }
+sha3 = { version = "0.10" }
 
 [dev-dependencies]
 env_logger = "0.10.0"

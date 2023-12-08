@@ -151,6 +151,9 @@ pub trait SubstrateClient {
 	fn public_key(&self) -> PublicKey;
 
 	fn account_id(&self) -> AccountId;
+
+	// TODO: store the gateway contract in the pallet
+	// fn get_gateway(&self) -> AccountId;
 }
 
 impl<B, C, R, S> SubstrateClient for Substrate<B, C, R, S>

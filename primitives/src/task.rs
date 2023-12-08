@@ -1,23 +1,63 @@
-use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+use crate::{AccountId, Network, PublicKey, ShardId, TssPublicKey, TssSignature};
 #[cfg(feature = "std")]
 use crate::{ApiResult, BlockHash, SubmitResult};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use sp_std::vec::Vec;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
 pub type TaskRetryCount = u8;
 
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub enum Function {
 	EvmDeploy { bytecode: Vec<u8> },
 	EvmCall { address: String, function_signature: String, input: Vec<String>, amount: u128 },
 	EvmViewCall { address: String, function_signature: String, input: Vec<String> },
 	EvmTxReceipt { tx: Vec<u8> },
+	RegisterKeys {
+		#[cfg_attr(feature = "std", serde(with="bytes_to_hex"))]
+		key: TssPublicKey
+	},
+	UnregisterKeys {
+		#[cfg_attr(feature = "std", serde(with="bytes_to_hex"))]
+		key: TssPublicKey
+	},
 	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
+}
+
+/// serde functions for handling primitive optional `u64` as [U64]
+#[cfg(feature = "std")]
+pub mod bytes_to_hex {
+	use serde::{Deserialize, Serialize, Serializer, Deserializer};
+	use const_hex::{decode, encode_prefixed, FromHexError};
+	use thiserror::Error;
+
+	#[derive(Debug, Clone, Error)]
+	#[error("Failed to parse bytes: {0}")]
+	pub struct ParseBytesError(FromHexError);
+
+	pub fn serialize<S, T>(x: T, s: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+		T: AsRef<[u8]>,
+	{
+		s.serialize_str(&encode_prefixed(x))
+	}
+
+	pub fn deserialize<'de, const N: usize, D>(d: D) -> Result<[u8;N], D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let value = String::deserialize(d)?;
+		let a = decode(value).map_err(serde::de::Error::custom)?;
+		let mut output = [0u8;N];
+		output.copy_from_slice(&a);
+		Ok(output)
+	}
 }
 
 impl Function {

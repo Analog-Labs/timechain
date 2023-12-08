@@ -1,6 +1,7 @@
 use crate::substrate::SubstrateClient;
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
+use crate::gmp::{GmpMessage, TssKey, UpdateKeysMessage, Eip712Ext};
 use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
@@ -8,6 +9,12 @@ use time_primitives::{
 	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
 };
 use tokio::task::JoinHandle;
+use alloy_primitives::{hex, U256, B256, b256, address, Address};
+
+// TODO: retrieve from the network
+const CHAIN_ID: u64 = 1337;
+// TODO: store the contract_address on the runtime
+const GATEWAY_CONTRACT: Address = address!("d9145CCE52D386f254917e481eB44e9943F39138");
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
@@ -102,11 +109,43 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					let Function::SendMessage { payload, .. } = function else {
-						continue; // create_task ensures never hits this branch
-						 // by only setting TaskPhase::Sign iff function == Function::SendMessage
+					let payload = match function {
+						Function::RegisterKeys { key } => {
+							let tss_key = TssKey::from(key);
+							let message = UpdateKeysMessage {
+								revoke: vec![],
+								register: vec![tss_key],
+							};
+							message.to_eip712_bytes(CHAIN_ID, GATEWAY_CONTRACT).to_vec()
+						},
+						Function::UnregisterKeys { key } => {
+							let tss_key = TssKey::from(key);
+							let message = UpdateKeysMessage {
+								revoke: vec![tss_key],
+								register: vec![],
+							};
+							message.to_eip712_bytes(CHAIN_ID, GATEWAY_CONTRACT).to_vec()
+						},
+						Function::SendMessage { payload, .. } => {
+							let message = GmpMessage {
+								source: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
+								srcNetwork: 1,
+								dest: address!("82d9730e487dcCd1106ebd9FfA5f1200950E7002"), // the GMP recipient address
+								destNetwork: u128::from(CHAIN_ID),
+								gasLimit: U256::MAX,
+								salt: U256::ZERO,
+								data: payload,
+							};
+							message.to_eip712_bytes(CHAIN_ID, GATEWAY_CONTRACT).to_vec()
+						},
+						_ => anyhow::bail!("invalid task"),
 					};
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+					// let Function::SendMessage { payload, .. } = function else {
+					// 	continue; // create_task ensures never hits this branch
+					// 	 // by only setting TaskPhase::Sign iff function == Function::SendMessage
+					// };
+					// self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);

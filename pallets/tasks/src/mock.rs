@@ -24,8 +24,13 @@ impl ShardsInterface for MockShardInterface {
 		true
 	}
 
-	fn shard_network(_: u64) -> Option<Network> {
-		Some(Network::Ethereum)
+	fn shard_network(id: u64) -> Option<Network> {
+		for (network, shard, _) in task_schedule::NetworkShards::<Test>::iter() {
+			if shard == id {
+				return Some(network);
+			}
+		}
+		None
 	}
 
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}

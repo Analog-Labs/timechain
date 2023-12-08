@@ -52,7 +52,7 @@ pub async fn insert_sign_task(
 		cycle,
 		start,
 		period,
-		hash: "".to_string(),
+		timegraph: None,
 	};
 	let payload = SubxtClient::create_task_payload(params);
 	let events = api.sign_and_submit_watch(&payload).await?;
@@ -74,15 +74,12 @@ pub async fn insert_evm_task(
 	let function = if is_payable {
 		Function::EvmCall {
 			address,
-			function_signature: "function vote_yes()".to_string(),
 			input: Default::default(),
 			amount: 0,
 		}
 	} else {
 		Function::EvmViewCall {
 			address,
-			function_signature: "function get_votes_stats() external view returns (uint[] memory)"
-				.to_string(),
 			input: Default::default(),
 		}
 	};
@@ -93,7 +90,7 @@ pub async fn insert_evm_task(
 		cycle,
 		start,
 		period,
-		hash: "".to_string(),
+		timegraph: None,
 	};
 
 	let payload = SubxtClient::create_task_payload(params);

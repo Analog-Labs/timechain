@@ -794,8 +794,19 @@ fn register_gateway_fails_if_not_root() {
 }
 
 #[test]
+fn register_gateway_fails_if_unknown_shard() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
+			Error::<Test>::UnknownShard
+		);
+	});
+}
+
+#[test]
 fn register_gateway_emits_event() {
 	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		System::assert_last_event(
 			Event::<Test>::GatewayRegistered(Network::Ethereum, [0u8; 20].to_vec()).into(),
@@ -806,6 +817,7 @@ fn register_gateway_emits_event() {
 #[test]
 fn register_gateway_updates_shard_registered_storage() {
 	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
 	});
@@ -814,6 +826,7 @@ fn register_gateway_updates_shard_registered_storage() {
 #[test]
 fn register_gateway_updates_gateway_storage() {
 	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		assert_eq!(Gateway::<Test>::get(Network::Ethereum), Some([0u8; 20].to_vec()));
 	});

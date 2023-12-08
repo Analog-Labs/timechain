@@ -92,9 +92,18 @@ fn test_create_task() {
 		));
 		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
 		Tasks::shard_online(1, Network::Ethereum);
+		System::assert_last_event(Event::<Test>::TaskCreated(1).into());
 		assert_eq!(
 			Tasks::get_shard_tasks(1),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
+			vec![
+				TaskExecution {
+					task_id: 1,
+					cycle: 0,
+					retry_count: 0,
+					phase: TaskPhase::Sign
+				},
+				TaskExecution::new(0, 0, 0, TaskPhase::default()),
+			]
 		);
 		let task_result = mock_result_ok(1, 0, 0);
 		assert_ok!(Tasks::submit_result(
@@ -160,7 +169,7 @@ fn task_auto_assigned_if_shard_online() {
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_eq!(
-			Tasks::tasks(0).unwrap(),
+			Tasks::tasks(1).unwrap(),
 			TaskDescriptor {
 				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
@@ -177,7 +186,7 @@ fn task_auto_assigned_if_shard_online() {
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 	});
 }
 
@@ -207,7 +216,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 	});
 }
 
@@ -238,10 +247,13 @@ fn shard_offline_removes_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		Tasks::shard_offline(1, Network::Ethereum);
-		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
+			vec![1, 0, 2]
+		);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -257,14 +269,14 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 		));
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(2, 0)]
+			vec![(1, 1), (2, 0), (2, 2)]
 		);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		Tasks::shard_offline(2, Network::Ethereum);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(1, 0)]
+			vec![(1, 3), (1, 1), (1, 0), (1, 2)]
 		);
 	});
 }
@@ -283,7 +295,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			0,
 			mock_result_ok(1, 0, 0)
 		));
-		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -306,7 +318,7 @@ fn shard_offline_doesnt_drops_failed_tasks() {
 		}
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len() == 1);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 3);
 	});
 }
 
@@ -541,7 +553,27 @@ fn task_stopped_and_moved_on_shard_offline() {
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
 		assert_eq!(
 			Tasks::get_shard_tasks(2),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
+			vec![
+				TaskExecution {
+					task_id: 3,
+					cycle: 0,
+					retry_count: 0,
+					phase: TaskPhase::Sign
+				},
+				TaskExecution {
+					task_id: 1,
+					cycle: 0,
+					retry_count: 0,
+					phase: TaskPhase::Sign
+				},
+				TaskExecution::new(0, 0, 0, TaskPhase::default()),
+				TaskExecution {
+					task_id: 2,
+					cycle: 0,
+					retry_count: 0,
+					phase: TaskPhase::Sign
+				}
+			]
 		);
 	});
 }
@@ -554,20 +586,22 @@ fn task_recurring_cycle_count() {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), mock_task.clone()));
 		Tasks::shard_online(1, Network::Ethereum);
 		loop {
-			let task = Tasks::get_shard_tasks(1);
-			if task.is_empty() {
+			let tasks = Tasks::get_shard_tasks(1);
+			if tasks.len() == 1 {
 				break;
 			}
-			for task in &task {
-				let task_id = task.task_id;
-				let cycle = task.cycle;
-				assert_ok!(Tasks::submit_result(
-					RawOrigin::Signed([0; 32].into()).into(),
-					task_id,
-					cycle,
-					mock_result_ok(1, task_id, cycle)
-				));
-				total_results += 1;
+			for task in &tasks {
+				if task.phase != TaskPhase::Sign {
+					let task_id = task.task_id;
+					let cycle = task.cycle;
+					assert_ok!(Tasks::submit_result(
+						RawOrigin::Signed([0; 32].into()).into(),
+						task_id,
+						cycle,
+						mock_result_ok(1, task_id, cycle)
+					));
+					total_results += 1;
+				}
 			}
 		}
 		assert_eq!(total_results, mock_task.cycle);
@@ -587,7 +621,7 @@ fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 			}
 		}
 		for i in 1..=10 {
-			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i);
+			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i + 1);
 		}
 	});
 }

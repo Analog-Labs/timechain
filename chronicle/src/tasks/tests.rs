@@ -51,12 +51,11 @@ sp_api::mock_impl_runtime_apis! {
 				cycle: 0,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				period: 0,
 				start: 0,
-				hash: "".to_string(),
+				timegraph: None,
 			})
 		}
 		fn get_task_signature(_: TaskId) -> Option<TssSignature>{

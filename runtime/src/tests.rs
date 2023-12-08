@@ -79,14 +79,13 @@ fn write_phase_timeout_reassigns_task() {
 				network: Network::Ethereum,
 				function: Function::EvmCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 					amount: 0,
 				},
 				cycle: 1,
 				start: 0,
 				period: 0,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		));
 		Shards::create_shard(Network::Ethereum, shard, 1);

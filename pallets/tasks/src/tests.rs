@@ -28,7 +28,6 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 		timegraph: None,
 		function: Function::EvmViewCall {
 			address: Default::default(),
-			function_signature: Default::default(),
 			input: Default::default(),
 		},
 	}
@@ -41,7 +40,12 @@ fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 		start: 0,
 		period: 1,
 		timegraph: None,
-		function: Function::SendMessage { payload: Default::default() },
+		function: Function::SendMessage {
+			address: Default::default(),
+			gas_limit: Default::default(),
+			salt: Default::default(),
+			payload: Default::default(),
+		},
 	}
 }
 
@@ -54,7 +58,6 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 		timegraph: None,
 		function: Function::EvmCall {
 			address: Default::default(),
-			function_signature: Default::default(),
 			input: Default::default(),
 			amount: 0,
 		},
@@ -143,7 +146,6 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				cycle: 1,
@@ -175,7 +177,6 @@ fn task_auto_assigned_if_shard_online() {
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				cycle: 1,
@@ -204,7 +205,6 @@ fn task_auto_assigned_if_shard_joins_after() {
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				cycle: 1,
@@ -778,18 +778,19 @@ fn submit_signature_fails_after_called_once() {
 	});
 }
 
-// #[test]
-// fn register_gateway_fails_if_not_root() {
-// 	new_test_ext().execute_with(|| {
-// 		assert_noop!(Tasks::register_gateway(
-// 			RawOrigin::Signed([0; 32].into()).into(),
-// 			1,
-// 			[0u8; 20].to_vec(),
-// 			),
-// 			Error::<Test>::GatewayRegistered
-// 		);
-// 	});
-// }
+#[test]
+fn register_gateway_fails_if_not_root() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::register_gateway(
+				RawOrigin::Signed([0; 32].into()).into(),
+				1,
+				[0u8; 20].to_vec(),
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
 
 // #[test]
 // fn register_gateway_fails_if_shard_not_registered() {

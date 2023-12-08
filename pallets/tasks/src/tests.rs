@@ -792,19 +792,26 @@ fn register_gateway_fails_if_not_root() {
 	});
 }
 
-// #[test]
-// fn register_gateway_fails_if_shard_not_registered() {
-
-// }
-
-// #[test]
-// fn register_gateway_emits_event() {
-
-// }
+#[test]
+fn register_gateway_emits_event() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		System::assert_last_event(
+			Event::<Test>::GatewayRegistered(Network::Ethereum, [0u8; 20].to_vec()).into(),
+		);
+	});
+}
 
 // #[test]
 // fn register_gateway_updates_shard_registered_storage() {
-
+// 	new_test_ext().execute_with(|| {
+// 		assert_ok!(
+// 			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
+// 		);
+// 		assert_eq!();
+// 		assert_eq!();
+// 		System::assert_last_event(Event::<Test>::GatewayRegistered(Network::Ethereum, [0u8; 20].to_vec()).into());
+// 	});
 // }
 
 // #[test]

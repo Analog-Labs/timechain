@@ -108,8 +108,10 @@ benchmarks! {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: Network::Ethereum,
 			function: Function::SendMessage {
-				contract_address: Default::default(),
+				address: [0u8; 20],
 				payload: Default::default(),
+				salt: [0u8; 32],
+				gas_limit: 1000u64
 			},
 			cycle: 1,
 			start: 0,

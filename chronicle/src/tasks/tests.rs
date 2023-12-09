@@ -46,7 +46,7 @@ sp_api::mock_impl_runtime_apis! {
 	impl TasksApi<Block> for MockApi{
 		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
 		fn get_task(_: TaskId) -> Option<TaskDescriptor> { Some(TaskDescriptor{
-				owner: AccountId32::new([0u8; 32]),
+				owner: Some(AccountId32::new([0u8; 32])),
 				network: Network::Ethereum,
 				cycle: 0,
 				function: Function::EvmViewCall {
@@ -117,7 +117,7 @@ impl TaskSpawner for MockTask {
 		_task_id: TaskId,
 		_cycle: TaskCycle,
 		_function: Function,
-		_hash: String,
+		_hash: Option<[u8; 32]>,
 		_block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		TASK_STATUS.lock().unwrap().push(self.is_ok);

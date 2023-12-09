@@ -1,11 +1,12 @@
-use alloy_sol_types::{sol, SolValue, SolCall, Eip712Domain, SolStruct};
-use alloy_primitives::{hex, U256, B256, b256, address, Address};
+use alloy_sol_types::{sol, SolCall, Eip712Domain, SolStruct};
+use alloy_primitives::{U256, Address};
 use sha3::{Keccak256, Digest};
 
 const EIP712_NAME: &str = "Analog Gateway Contract";
 const EIP712_VERSION: &str = "0.1.0";
 
 pub type Eip712Bytes = [u8; 66];
+#[allow(dead_code)]
 pub type Eip712Hash = [u8; 32];
 
 pub fn eip712_domain_separator(chain_id: u64, gateway_contract: Address) -> Eip712Domain {
@@ -21,75 +22,50 @@ pub fn eip712_domain_separator(chain_id: u64, gateway_contract: Address) -> Eip7
 sol! {
     #[derive(Debug, Default, PartialEq, Eq)]
     struct TssKey {
-        uint8 yParity;  // public key y-coord parity, the contract converts it to 27/28
-        uint256 xCoord; // affine x-coordinate
+        uint8 yParity;
+        uint256 xCoord;
     }
 
-    /**
-     * @dev Message payload used to revoke or/and register new shards
-     */
     #[derive(Debug, PartialEq, Eq)]
     struct UpdateKeysMessage {
-        TssKey[] revoke;    // Keys to revoke
-        TssKey[] register;  // Keys to add
+        TssKey[] revoke;
+        TssKey[] register;
     }
 
-    /**
-     * @dev GMP payload, this is what the timechain creates as task payload
-     */
     #[derive(Debug, PartialEq, Eq)]
     struct GmpMessage {
-        bytes32 source;      // Pubkey/Address of who send the GMP message
-        uint128 srcNetwork;  // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
-        address dest;        // Destination/Recipient contract address
-        uint128 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
-        uint256 gasLimit;    // gas limit of the GMP call
-        uint256 salt;        // Message salt, useful for sending two messages with same content
-        bytes data;          // message data with no specified format
+        bytes32 source;
+        uint128 srcNetwork;
+        address dest;
+        uint128 destNetwork;
+        uint256 gasLimit;
+        uint256 salt;
+        bytes data;
     }
 
-    /**
-     * @dev this is what must be signed using the schnorr signature,
-     */
     #[derive(Debug, PartialEq, Eq)]
     struct Signature {
-        uint256 xCoord; // public key x coordinates, y-parity is stored in the contract
-        uint256 e; // Schnorr signature e parameter
-        uint256 s; // Schnorr signature s parameter
+        uint256 xCoord;
+        uint256 e;
+        uint256 s;
     }
 
-    /**
-     * @dev Required interface of an Gateway compliant contract
-     */
     interface IGateway {
-        /**
-         * @dev Emitted when [`GmpMessage`] is executed.
-         */
         event GmpExecuted(
-            bytes32 indexed id,     // EIP-712 hash of the `GmpMessage`, which is it's unique identifier
-            bytes32 indexed source, // sender pubkey/address (the format depends on src chain)
-            address indexed dest,   // recipient address
-            uint256 status,         // GMP message execution status
-            bytes32 result          // GMP result
+            bytes32 indexed id,
+            bytes32 indexed source,
+            address indexed dest,
+            uint256 status,
+            bytes32 result
         );
 
-        /**
-         * @dev Emitted when [`UpdateKeysMessage`] is executed.
-         */
         event KeySetChanged(
-            bytes32 indexed id,    // EIP-712 hash of the UpdateKeysMessage, zero for sudo
-            TssKey[] revoked,      // shards with keys revoked
-            TssKey[] registered    // new shards registered
+            bytes32 indexed id,
+            TssKey[] revoked,
+            TssKey[] registered
         );
 
-        /**
-         * @dev Execute GMP message
-         */
         function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
-
-        /**
-         * @dev Update TSS key set
-         */
         function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
     }
 }

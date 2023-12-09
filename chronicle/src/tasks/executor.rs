@@ -9,7 +9,7 @@ use time_primitives::{
 	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
 };
 use tokio::task::JoinHandle;
-use alloy_primitives::{hex, U256, B256, b256, address, Address};
+use alloy_primitives::{hex, U256, b256, address, Address};
 
 // TODO: retrieve from the network
 const CHAIN_ID: u64 = 1337;

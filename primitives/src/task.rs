@@ -4,7 +4,7 @@ use crate::{ApiResult, BlockHash, SubmitResult};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -32,14 +32,17 @@ pub enum Function {
 /// serde functions for handling primitive optional `u64` as [U64]
 #[cfg(feature = "std")]
 pub mod bytes_to_hex {
-	use serde::{Deserialize, Serialize, Serializer, Deserializer};
-	use const_hex::{decode, encode_prefixed, FromHexError};
+	use serde::{Deserialize, Serializer, Deserializer};
+	use const_hex::{decode_to_array, encode_prefixed, FromHexError};
 	use thiserror::Error;
 
 	#[derive(Debug, Clone, Error)]
 	#[error("Failed to parse bytes: {0}")]
 	pub struct ParseBytesError(FromHexError);
 
+	/// Deserialize a byte slice into an hex string
+	/// # Errors
+	/// Never fails
 	pub fn serialize<S, T>(x: T, s: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -48,15 +51,16 @@ pub mod bytes_to_hex {
 		s.serialize_str(&encode_prefixed(x))
 	}
 
+	/// Deserialize a hex string into a fixed size array of bytes
+	/// # Errors
+	/// Returns an error if the string is not a valid hex string, or if has a length different than expected
 	pub fn deserialize<'de, const N: usize, D>(d: D) -> Result<[u8;N], D::Error>
 	where
 		D: Deserializer<'de>,
 	{
 		let value = String::deserialize(d)?;
-		let a = decode(value).map_err(serde::de::Error::custom)?;
-		let mut output = [0u8;N];
-		output.copy_from_slice(&a);
-		Ok(output)
+		let bytes: [u8;N] = decode_to_array(value).map_err(serde::de::Error::custom)?;
+		Ok(bytes)
 	}
 }
 

@@ -29,7 +29,7 @@ pub enum Function {
 	SendMessage { contract_address: Vec<u8>, payload: Vec<u8> },
 }
 
-/// serde functions for handling primitive optional `u64` as [U64]
+/// serde functions for handling `[u8]` to hexadecimal string conversion
 #[cfg(feature = "std")]
 pub mod bytes_to_hex {
 	use serde::{Deserialize, Serializer, Deserializer};
@@ -65,19 +65,20 @@ pub mod bytes_to_hex {
 }
 
 impl Function {
-	pub fn is_payable(&self) -> bool {
+	#[must_use]
+	pub const fn is_payable(&self) -> bool {
 		matches!(self, Self::EvmDeploy { .. } | Self::EvmCall { .. })
 	}
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub struct TaskResult {
 	pub shard_id: ShardId,
 	pub hash: [u8; 32],
 	pub signature: TssSignature,
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub struct TaskError {
 	pub shard_id: ShardId,
 	pub msg: String,
@@ -97,7 +98,8 @@ pub struct TaskDescriptor {
 }
 
 impl TaskDescriptor {
-	pub fn trigger(&self, cycle: TaskCycle) -> u64 {
+	#[must_use]
+	pub const fn trigger(&self, cycle: TaskCycle) -> u64 {
 		self.start + cycle * self.period
 	}
 }
@@ -112,7 +114,7 @@ pub struct TaskDescriptorParams {
 	pub function: Function,
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub enum TaskStatus {
 	Created,
 	Failed { error: TaskError },
@@ -129,7 +131,8 @@ pub enum TaskPhase {
 }
 
 impl TaskPhase {
-	pub fn public_key(&self) -> Option<&PublicKey> {
+	#[must_use]
+	pub const fn public_key(&self) -> Option<&PublicKey> {
 		if let Self::Write(public_key) = self {
 			Some(public_key)
 		} else {
@@ -137,6 +140,7 @@ impl TaskPhase {
 		}
 	}
 
+	#[must_use]
 	pub fn tx_hash(&self) -> Option<&[u8]> {
 		if let Self::Read(Some(tx_hash)) = self {
 			Some(tx_hash)
@@ -148,7 +152,7 @@ impl TaskPhase {
 
 impl Default for TaskPhase {
 	fn default() -> Self {
-		TaskPhase::Read(None)
+		Self::Read(None)
 	}
 }
 
@@ -162,7 +166,8 @@ pub struct TaskExecution {
 }
 
 impl TaskExecution {
-	pub fn new(
+	#[must_use]
+	pub const fn new(
 		task_id: TaskId,
 		cycle: TaskCycle,
 		retry_count: TaskRetryCount,
@@ -223,6 +228,7 @@ pub trait TasksPayload {
 	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8>;
 }
 
+#[must_use]
 pub fn append_hash_with_task_data(
 	data: [u8; 32],
 	task_id: TaskId,

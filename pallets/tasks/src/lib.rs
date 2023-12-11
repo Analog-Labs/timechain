@@ -251,13 +251,7 @@ pub mod pallet {
 			if TaskResults::<T>::get(task_id, cycle).is_some() {
 				return Ok(());
 			}
-			Self::validate_signature(
-				// task_id,
-				// cycle,
-				status.shard_id,
-				status.hash,
-				status.signature,
-			)?;
+			Self::validate_signature(status.shard_id, status.hash, status.signature)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, status.clone());
@@ -286,14 +280,7 @@ pub mod pallet {
 			let hash = append_hash_with_task_data(error.msg.clone().into_bytes(), task_id, cycle);
 			let final_hash = schnorr_evm::VerifyingKey::message_hash(&hash);
 
-			Self::validate_signature(
-				// task_id,
-				// cycle,
-				error.shard_id,
-				// schnorr_evm::VerifyingKey::message_hash(error.msg.as_bytes()),
-				final_hash,
-				error.signature,
-			)?;
+			Self::validate_signature(error.shard_id, final_hash, error.signature)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			let new_retry_count = retry_count.saturating_plus_one();

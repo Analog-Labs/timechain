@@ -130,7 +130,7 @@ impl TaskSpawner for MockTask {
 		_: ShardId,
 		_: TaskId,
 		_: TaskCycle,
-		_: Vec<u8>,
+		_: [u8; 32],
 		_: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		future::ready(Ok(())).boxed()

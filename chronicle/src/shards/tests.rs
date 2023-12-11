@@ -471,7 +471,7 @@ async fn tss_smoke(substrate_backend: bool) -> Result<()> {
 			request_id: TssId(1, 1),
 			shard_id: 0,
 			block_number: block_number.try_into().unwrap(),
-			data: message.to_vec(),
+			data: message,
 			tx,
 		})
 		.await?;

@@ -5,6 +5,7 @@ use crate::TW_LOG;
 use alloy_primitives::{address, b256, hex, Address, U256};
 use anyhow::Result;
 use futures::Stream;
+use schnorr_evm::VerifyingKey;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
@@ -140,7 +141,14 @@ where
 						},
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+					let hashed_payload = VerifyingKey::message_hash(&payload);
+					self.task_spawner.execute_sign(
+						shard_id,
+						task_id,
+						cycle,
+						hashed_payload,
+						block_number,
+					)
 				// let Function::SendMessage { payload, .. } = function else {
 				// 	continue; // create_task ensures never hits this branch
 				// 	 // by only setting TaskPhase::Sign iff function == Function::SendMessage

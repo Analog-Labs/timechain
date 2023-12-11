@@ -65,7 +65,6 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 }
 
 fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskResult {
-	// these values are taken after running a valid instance of submitting result
 	let hash = [
 		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
 		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
@@ -73,7 +72,11 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> 
 	let appended_hash = append_hash_with_task_data(hash.to_vec(), task_id, task_cycle);
 	let final_hash = VerifyingKey::message_hash(&appended_hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
-	TaskResult { shard_id, hash, signature }
+	TaskResult {
+		shard_id,
+		hash: final_hash,
+		signature,
+	}
 }
 
 fn mock_error_result(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskError {

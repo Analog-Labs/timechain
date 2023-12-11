@@ -1,7 +1,8 @@
+use crate::gmp::{Eip712Ext, GmpMessage, TssKey, UpdateKeysMessage};
 use crate::substrate::SubstrateClient;
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
-use crate::gmp::{GmpMessage, TssKey, UpdateKeysMessage, Eip712Ext};
+use alloy_primitives::{address, b256, hex, Address, U256};
 use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
@@ -9,7 +10,6 @@ use time_primitives::{
 	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
 };
 use tokio::task::JoinHandle;
-use alloy_primitives::{hex, U256, b256, address, Address};
 
 // TODO: retrieve from the network
 const CHAIN_ID: u64 = 1337;
@@ -141,11 +141,11 @@ where
 						_ => anyhow::bail!("invalid task"),
 					};
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
-					// let Function::SendMessage { payload, .. } = function else {
-					// 	continue; // create_task ensures never hits this branch
-					// 	 // by only setting TaskPhase::Sign iff function == Function::SendMessage
-					// };
-					// self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+				// let Function::SendMessage { payload, .. } = function else {
+				// 	continue; // create_task ensures never hits this branch
+				// 	 // by only setting TaskPhase::Sign iff function == Function::SendMessage
+				// };
+				// self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);

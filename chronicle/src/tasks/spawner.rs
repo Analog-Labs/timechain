@@ -106,7 +106,9 @@ where
 				input,
 				amount,
 			} => self.wallet.eth_send_call(address, function_signature, input, *amount).await?,
-			Function::SendMessage { .. } | Function::RegisterKeys { .. } | Function::UnregisterKeys { .. } => {
+			Function::SendMessage { .. }
+			| Function::RegisterKeys { .. }
+			| Function::UnregisterKeys { .. } => {
 				return Err(anyhow!(
 					"SendMessage must be transformed into EvmCall prior to execution"
 				))

@@ -23,6 +23,7 @@ mod network;
 mod shards;
 mod substrate;
 mod tasks;
+mod gmp;
 
 pub use crate::network::protocol_config;
 

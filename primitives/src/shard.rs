@@ -38,6 +38,20 @@ pub enum Network {
 	Polygon,
 }
 
+impl Network {
+	// TODO: For now all networks supported are Ethereum compatible, return Option<u64> when a
+	// non-Ethereum compatible network is added. Not do this now because there's a lot of other
+	// code which also depends on ethereum.
+	#[must_use]
+	pub const fn eip155_chain_id(&self) -> u64 {
+		match self {
+			Self::Ethereum => 1,
+			Self::Astar => 592,
+			Self::Polygon => 137,
+		}
+	}
+}
+
 impl core::str::FromStr for Network {
 	type Err = anyhow::Error;
 

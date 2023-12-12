@@ -6,7 +6,8 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId, Shards,
+	BlockHash, BlockNumber, Function, Network, ShardId, Shards, TaskExecution, TaskPhase, Tasks,
+	TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -24,8 +25,6 @@ pub struct TaskExecutor<S, T> {
 	network: Network,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
-
-
 
 impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 	fn clone(&self) -> Self {
@@ -106,37 +105,56 @@ where
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
 					let Some(msg_builder) = self.gmp_builder_for(shard_id, block_hash)? else {
-						tracing::warn!("gmp not configured for {shard_id:?}, skipping task {task_id}");
+						tracing::warn!(
+							"gmp not configured for {shard_id:?}, skipping task {task_id}"
+						);
 						continue;
 					};
 					let payload = match function {
 						Function::RegisterShard { shard_id } => {
-							let tss_public_key = self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+							let tss_public_key =
+								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
 							msg_builder.build_update_keys_message([tss_public_key], []).sighash()
 						},
 						Function::UnregisterShard { shard_id } => {
-							let tss_public_key = self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+							let tss_public_key =
+								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
 							msg_builder.build_update_keys_message([], [tss_public_key]).sighash()
 						},
-						Function::SendMessage { address, payload, salt, gas_limit  } => {
-							msg_builder.build_gmp_message(address, payload, salt, gas_limit).sighash()
-						},
+						Function::SendMessage {
+							address,
+							payload,
+							salt,
+							gas_limit,
+						} => msg_builder
+							.build_gmp_message(address, payload, salt, gas_limit)
+							.sighash(),
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload.to_vec(), block_number)
+					self.task_spawner.execute_sign(
+						shard_id,
+						task_id,
+						cycle,
+						payload.to_vec(),
+						block_number,
+					)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
 					let Some(msg_builder) = self.gmp_builder_for(shard_id, block_hash)? else {
-						tracing::warn!("gmp not configured for {shard_id:?}, skipping task {task_id}");
+						tracing::warn!(
+							"gmp not configured for {shard_id:?}, skipping task {task_id}"
+						);
 						continue;
 					};
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
-							let tss_public_key = self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
-							let Some(tss_signature) = self.substrate.get_task_signature(task_id)? else {
+							let tss_public_key =
+								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+							let Some(tss_signature) = self.substrate.get_task_signature(task_id)?
+							else {
 								anyhow::bail!("tss signature not found for task {task_id}");
 							};
 							msg_builder
@@ -144,16 +162,24 @@ where
 								.into_evm_call(tss_signature)
 						},
 						Function::UnregisterShard { shard_id } => {
-							let tss_public_key = self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
-							let Some(tss_signature) = self.substrate.get_task_signature(task_id)? else {
+							let tss_public_key =
+								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+							let Some(tss_signature) = self.substrate.get_task_signature(task_id)?
+							else {
 								anyhow::bail!("tss signature not found for task {task_id}");
 							};
 							msg_builder
 								.build_update_keys_message([], [tss_public_key])
 								.into_evm_call(tss_signature)
 						},
-						Function::SendMessage { address, payload, salt, gas_limit } => {
-							let Some(tss_signature) = self.substrate.get_task_signature(task_id)? else {
+						Function::SendMessage {
+							address,
+							payload,
+							salt,
+							gas_limit,
+						} => {
+							let Some(tss_signature) = self.substrate.get_task_signature(task_id)?
+							else {
 								anyhow::bail!("tss signature not found for task {task_id}");
 							};
 							msg_builder
@@ -228,7 +254,11 @@ where
 		Ok(completed_sessions)
 	}
 
-	pub fn gmp_builder_for(&self, shard_id: ShardId, block_hash: BlockHash) -> Result<Option<MessageBuilder>> {
+	pub fn gmp_builder_for(
+		&self,
+		shard_id: ShardId,
+		block_hash: BlockHash,
+	) -> Result<Option<MessageBuilder>> {
 		let gateway_contract = {
 			let Some(gateway_contract) = self.substrate.get_gateway(self.network)? else {
 				return Ok(None);
@@ -237,11 +267,13 @@ where
 				tracing::error!(target: "chronicle", "invalid gateway contract address for network {:?}, expect 20 bytes got {}", self.network, gateway_contract.len());
 				return Ok(None);
 			}
-			let mut output = [0u8;20];
+			let mut output = [0u8; 20];
 			output.copy_from_slice(&gateway_contract);
 			output
 		};
-		let Some(tss_public_key) = self.substrate.get_shard_commitment(block_hash, shard_id)?.first().copied() else {
+		let Some(tss_public_key) =
+			self.substrate.get_shard_commitment(block_hash, shard_id)?.first().copied()
+		else {
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);
 		};

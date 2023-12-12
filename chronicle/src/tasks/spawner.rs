@@ -2,8 +2,8 @@ use anyhow::{anyhow, Context as _, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::{Blockchain, Wallet};
+use rosetta_config_ethereum::{AtBlock, CallResult};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
-use rosetta_config_ethereum::{CallResult, AtBlock};
 use schnorr_evm::VerifyingKey;
 use serde_json::Value;
 use std::{
@@ -118,7 +118,9 @@ where
 					"contractAddress": receipt.contract_address.map(|contract| format!("{contract:?}")),
 					"status": receipt.status_code,
 					"type": receipt.transaction_type,
-				}).to_string().into_bytes()
+				})
+				.to_string()
+				.into_bytes()
 			},
 			Function::EvmDeploy { bytecode } => {
 				self.wallet.eth_deploy_contract(bytecode.clone()).await?.to_vec()

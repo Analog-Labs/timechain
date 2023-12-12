@@ -1,8 +1,8 @@
 pub mod types;
 use alloy_primitives::{b256, Address, U256};
 use alloy_sol_types::SolCall;
-use types::{Eip712Ext, GmpMessage, SignableMessage, TssKey, UpdateKeysMessage, Signature};
-use time_primitives::{Network, ShardId, TssPublicKey, TssSignature, Function};
+use time_primitives::{Function, Network, ShardId, TssPublicKey, TssSignature};
+use types::{Eip712Ext, GmpMessage, SignableMessage, Signature, TssKey, UpdateKeysMessage};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MessageBuilder {
@@ -13,7 +13,12 @@ pub(crate) struct MessageBuilder {
 }
 
 impl MessageBuilder {
-	pub fn new(shard_id: ShardId, network: Network, tss_public_key: TssPublicKey, gateway_contract: [u8; 20]) -> Self {
+	pub fn new(
+		shard_id: ShardId,
+		network: Network,
+		tss_public_key: TssPublicKey,
+		gateway_contract: [u8; 20],
+	) -> Self {
 		Self {
 			shard_id,
 			chain_id: network.eip155_chain_id(),
@@ -22,7 +27,15 @@ impl MessageBuilder {
 		}
 	}
 
-	pub fn build_update_keys_message<REGISTER, REVOKE>(&self, register: REGISTER, revoke: REVOKE) -> Message where REGISTER: IntoIterator<Item = TssPublicKey>, REVOKE: IntoIterator<Item = TssPublicKey> {
+	pub fn build_update_keys_message<REGISTER, REVOKE>(
+		&self,
+		register: REGISTER,
+		revoke: REVOKE,
+	) -> Message
+	where
+		REGISTER: IntoIterator<Item = TssPublicKey>,
+		REVOKE: IntoIterator<Item = TssPublicKey>,
+	{
 		let message = UpdateKeysMessage {
 			register: register.into_iter().map(TssKey::from).collect(),
 			revoke: revoke.into_iter().map(TssKey::from).collect(),
@@ -35,7 +48,13 @@ impl MessageBuilder {
 		}
 	}
 
-	pub fn build_gmp_message(&self, address: [u8;20], payload: Vec<u8>, salt: [u8;32], gas_limit: u64) -> Message {
+	pub fn build_gmp_message(
+		&self,
+		address: [u8; 20],
+		payload: Vec<u8>,
+		salt: [u8; 32],
+		gas_limit: u64,
+	) -> Message {
 		let message = GmpMessage {
 			// TODO: receive the sender address and network as parameter
 			source: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
@@ -73,8 +92,12 @@ impl Message {
 	/// compute the sighash of the message
 	pub fn sighash(&self) -> [u8; 32] {
 		match &self.message {
-			TypedMessage::UpdateKeys(message) => message.to_eip712_typed_hash(self.chain_id, self.gateway_contract),
-			TypedMessage::Gmp(message) => message.to_eip712_typed_hash(self.chain_id, self.gateway_contract),
+			TypedMessage::UpdateKeys(message) => {
+				message.to_eip712_typed_hash(self.chain_id, self.gateway_contract)
+			},
+			TypedMessage::Gmp(message) => {
+				message.to_eip712_typed_hash(self.chain_id, self.gateway_contract)
+			},
 		}
 	}
 

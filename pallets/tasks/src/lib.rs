@@ -160,6 +160,8 @@ pub mod pallet {
 		TaskStopped(TaskId),
 		/// Task resumed by owner
 		TaskResumed(TaskId),
+		/// Gateway registered on network
+		GatewayRegistered(Network, Vec<u8>),
 	}
 
 	#[pallet::error]
@@ -188,6 +190,12 @@ pub mod pallet {
 		UnassignedTask,
 		/// Task already signed
 		TaskSigned,
+		/// Cannot submit result for task stopped
+		TaskStopped,
+		/// Cannot submit result for GMP functions unless gateway is registered
+		GatewayNotRegistered,
+		/// Bootstrap shard must be online to call register_gateway
+		BootstrapShardMustBeOnline,
 	}
 
 	#[pallet::call]
@@ -234,23 +242,33 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			cycle: TaskCycle,
-			status: TaskResult,
+			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if TaskResults::<T>::get(task_id, cycle).is_some() {
+			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			if TaskResults::<T>::get(task_id, cycle).is_some()
+				|| matches!(status, TaskStatus::Completed)
+			{
 				return Ok(());
 			}
+			if task.function.is_gmp() {
+				ensure!(
+					Gateway::<T>::get(task.network).is_some(),
+					Error::<T>::GatewayNotRegistered
+				);
+			}
+			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
 			Self::validate_signature(
 				task_id,
 				cycle,
-				status.shard_id,
-				status.hash,
-				status.signature,
+				result.shard_id,
+				result.hash,
+				result.signature,
 			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
-			TaskResults::<T>::insert(task_id, cycle, status.clone());
+			TaskResults::<T>::insert(task_id, cycle, result.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
@@ -261,7 +279,7 @@ pub mod pallet {
 					ShardRegistered::<T>::insert(shard_id, ());
 				}
 			}
-			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
+			Self::deposit_event(Event::TaskResult(task_id, cycle, result));
 			Ok(())
 		}
 
@@ -347,10 +365,21 @@ pub mod pallet {
 			address: Vec<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
+			for (id, state) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id } = state.function {
+					if bootstrap == shard_id
+						&& matches!(TaskState::<T>::get(id), Some(TaskStatus::Created))
+					{
+						TaskState::<T>::insert(id, TaskStatus::Completed);
+					}
+				}
+			}
 			ShardRegistered::<T>::insert(bootstrap, ());
-			Gateway::<T>::insert(network, address);
+			Gateway::<T>::insert(network, address.clone());
 			Self::schedule_tasks(network);
+			Self::deposit_event(Event::GatewayRegistered(network, address));
 			Ok(())
 		}
 	}
@@ -499,7 +528,11 @@ pub mod pallet {
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
 					.filter(|(shard_id, _)| {
 						if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-							ShardRegistered::<T>::get(*shard_id).is_some()
+							if Gateway::<T>::get(network).is_some() {
+								ShardRegistered::<T>::get(*shard_id).is_some()
+							} else {
+								true
+							}
 						} else {
 							true
 						}
@@ -574,12 +607,22 @@ pub mod pallet {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
-			ShardRegistered::<T>::remove(shard_id);
-			Self::start_task(
-				TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
-				None,
-			)
-			.unwrap();
+			for (id, state) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id: x } = state.function {
+					if x == shard_id && matches!(TaskState::<T>::get(id), Some(TaskStatus::Created))
+					{
+						TaskState::<T>::insert(id, TaskStatus::Stopped);
+						break;
+					}
+				}
+			}
+			if ShardRegistered::<T>::take(shard_id).is_some() {
+				Self::start_task(
+					TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
+					None,
+				)
+				.unwrap();
+			}
 		}
 	}
 }

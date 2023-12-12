@@ -1,7 +1,8 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, NetworkShards, ShardTasks, TaskCycleState, TaskIdCounter, TaskPhaseState,
-	TaskResults, TaskRetryCounter, TaskSignature, TaskState, UnassignedTasks,
+	Error, Event, Gateway, NetworkShards, ShardRegistered, ShardTasks, TaskCycleState,
+	TaskIdCounter, TaskPhaseState, TaskResults, TaskRetryCounter, TaskSignature, TaskState,
+	UnassignedTasks,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -22,45 +23,45 @@ const A: [u8; 32] = [1u8; 32];
 fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
-		function: Function::EvmViewCall {
-			address: Default::default(),
-			function_signature: Default::default(),
-			input: Default::default(),
-		},
 		cycle,
 		start: 0,
 		period: 1,
-		hash: "".to_string(),
+		timegraph: None,
+		function: Function::EvmViewCall {
+			address: Default::default(),
+			input: Default::default(),
+		},
 	}
 }
 
 fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
-		function: Function::SendMessage {
-			contract_address: Default::default(),
-			payload: Default::default(),
-		},
 		cycle,
 		start: 0,
 		period: 1,
-		hash: "".to_string(),
+		timegraph: None,
+		function: Function::SendMessage {
+			address: Default::default(),
+			gas_limit: Default::default(),
+			salt: Default::default(),
+			payload: Default::default(),
+		},
 	}
 }
 
 fn mock_payable(network: Network) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
-		function: Function::EvmCall {
-			address: Default::default(),
-			function_signature: Default::default(),
-			input: Default::default(),
-			amount: 0,
-		},
 		cycle: 1,
 		start: 0,
 		period: 0,
-		hash: "".to_string(),
+		timegraph: None,
+		function: Function::EvmCall {
+			address: Default::default(),
+			input: Default::default(),
+			amount: 0,
+		},
 	}
 }
 
@@ -95,9 +96,18 @@ fn test_create_task() {
 		));
 		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
 		Tasks::shard_online(1, Network::Ethereum);
+		System::assert_last_event(Event::<Test>::TaskCreated(1).into());
 		assert_eq!(
 			Tasks::get_shard_tasks(1),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
+			vec![
+				TaskExecution {
+					task_id: 1,
+					cycle: 0,
+					retry_count: 0,
+					phase: TaskPhase::Sign
+				},
+				TaskExecution::new(0, 0, 0, TaskPhase::default()),
+			]
 		);
 		let task_result = mock_result_ok(1, 0, 0);
 		assert_ok!(Tasks::submit_result(
@@ -133,17 +143,16 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 		assert_eq!(
 			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
-				owner: [0; 32].into(),
+				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				cycle: 1,
 				start: 0,
 				period: 1,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
@@ -163,24 +172,23 @@ fn task_auto_assigned_if_shard_online() {
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_eq!(
-			Tasks::tasks(0).unwrap(),
+			Tasks::tasks(1).unwrap(),
 			TaskDescriptor {
-				owner: [0; 32].into(),
+				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				cycle: 1,
 				start: 0,
 				period: 1,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 	});
 }
 
@@ -194,23 +202,22 @@ fn task_auto_assigned_if_shard_joins_after() {
 		assert_eq!(
 			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
-				owner: [0; 32].into(),
+				owner: Some([0; 32].into()),
 				network: Network::Ethereum,
 				function: Function::EvmViewCall {
 					address: Default::default(),
-					function_signature: Default::default(),
 					input: Default::default(),
 				},
 				cycle: 1,
 				start: 0,
 				period: 1,
-				hash: "".to_string(),
+				timegraph: None,
 			}
 		);
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![]);
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 	});
 }
 
@@ -241,10 +248,15 @@ fn shard_offline_removes_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),));
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		Tasks::shard_offline(1, Network::Ethereum);
-		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
+			vec![1, 2]
+		);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -260,14 +272,17 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 		));
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(2, 0)]
+			vec![(1, 1), (2, 0), (2, 2)]
 		);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		Tasks::shard_offline(2, Network::Ethereum);
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().collect::<Vec<_>>(),
+			vec![(Network::Ethereum, 0, ()), (Network::Ethereum, 2, ())]
+		);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(1, 0)]
+			vec![(1, 1)]
 		);
 	});
 }
@@ -280,13 +295,14 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
 			mock_result_ok(1, 0, 0)
 		));
-		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -309,7 +325,7 @@ fn shard_offline_doesnt_drops_failed_tasks() {
 		}
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len() == 1);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 	});
 }
 
@@ -371,6 +387,7 @@ fn submit_task_result_resets_retry_count() {
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -544,7 +561,15 @@ fn task_stopped_and_moved_on_shard_offline() {
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
 		assert_eq!(
 			Tasks::get_shard_tasks(2),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default())]
+			vec![
+				TaskExecution::new(0, 0, 0, TaskPhase::default()),
+				TaskExecution {
+					task_id: 2,
+					cycle: 0,
+					retry_count: 0,
+					phase: TaskPhase::Sign
+				}
+			]
 		);
 	});
 }
@@ -557,20 +582,22 @@ fn task_recurring_cycle_count() {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), mock_task.clone()));
 		Tasks::shard_online(1, Network::Ethereum);
 		loop {
-			let task = Tasks::get_shard_tasks(1);
-			if task.is_empty() {
+			let tasks = Tasks::get_shard_tasks(1);
+			if tasks.len() == 1 {
 				break;
 			}
-			for task in &task {
-				let task_id = task.task_id;
-				let cycle = task.cycle;
-				assert_ok!(Tasks::submit_result(
-					RawOrigin::Signed([0; 32].into()).into(),
-					task_id,
-					cycle,
-					mock_result_ok(1, task_id, cycle)
-				));
-				total_results += 1;
+			for task in &tasks {
+				if task.phase != TaskPhase::Sign {
+					let task_id = task.task_id;
+					let cycle = task.cycle;
+					assert_ok!(Tasks::submit_result(
+						RawOrigin::Signed([0; 32].into()).into(),
+						task_id,
+						cycle,
+						mock_result_ok(1, task_id, cycle)
+					));
+					total_results += 1;
+				}
 			}
 		}
 		assert_eq!(total_results, mock_task.cycle);
@@ -590,7 +617,7 @@ fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 			}
 		}
 		for i in 1..=10 {
-			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i);
+			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i + 1);
 		}
 	});
 }
@@ -743,6 +770,187 @@ fn submit_signature_fails_after_called_once() {
 		assert_noop!(
 			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
 			Error::<Test>::TaskSigned
+		);
+	});
+}
+
+#[test]
+fn register_gateway_fails_if_not_root() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::register_gateway(
+				RawOrigin::Signed([0; 32].into()).into(),
+				1,
+				[0u8; 20].to_vec(),
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn register_gateway_fails_if_bootstrap_shard_is_offline() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
+			Error::<Test>::BootstrapShardMustBeOnline
+		);
+	});
+}
+
+#[test]
+fn register_gateway_emits_event() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		System::assert_last_event(
+			Event::<Test>::GatewayRegistered(Network::Ethereum, [0u8; 20].to_vec()).into(),
+		);
+	});
+}
+
+#[test]
+fn register_gateway_updates_shard_registered_storage() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+	});
+}
+
+#[test]
+fn register_gateway_updates_gateway_storage() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(Gateway::<Test>::get(Network::Ethereum), Some([0u8; 20].to_vec()));
+	});
+}
+
+#[test]
+fn shard_online_starts_register_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(
+			Tasks::tasks(0).unwrap(),
+			TaskDescriptor {
+				owner: None,
+				network: Network::Ethereum,
+				function: Function::RegisterShard { shard_id: 1 },
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+			}
+		);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		// register gateway to register shard
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		//when a register shard task is complete the shard is marked as registered
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+	});
+}
+
+#[test]
+fn register_gateway_completes_register_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Completed));
+		// submit result still succeeds because task is completed
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1, 0, 0)
+		));
+	});
+}
+
+#[test]
+fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		// register gateway registers shard
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+		Tasks::shard_offline(1, Network::Ethereum);
+		// shard not registered
+		assert_eq!(ShardRegistered::<Test>::get(1), None);
+		assert_eq!(
+			Tasks::tasks(1).unwrap(),
+			TaskDescriptor {
+				owner: None,
+				network: Network::Ethereum,
+				function: Function::UnregisterShard { shard_id: 1 },
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+			}
+		);
+		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
+		// complete task to unregister shard
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			1,
+			0,
+			mock_result_ok(1, 1, 0)
+		));
+		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
+	});
+}
+
+#[test]
+fn shard_offline_stops_pending_register_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		// shard not registered
+		assert_eq!(ShardRegistered::<Test>::get(1), None);
+		assert_noop!(
+			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
+			Error::<Test>::BootstrapShardMustBeOnline
+		);
+		Tasks::shard_online(2, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 2, [0u8; 20].to_vec(),));
+		// task to register 1st shard fails because it was stopped by `shard_offline`
+		assert_noop!(
+			Tasks::submit_result(
+				RawOrigin::Signed([0; 32].into()).into(),
+				0,
+				0,
+				mock_result_ok(1, 0, 0)
+			),
+			Error::<Test>::TaskStopped
+		);
+	});
+}
+
+#[test]
+fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert!(Tasks::tasks(1).is_none());
+		assert_eq!(Tasks::task_state(1), None);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		// task to unregister shard does not exist
+		assert!(Tasks::tasks(1).is_none());
+		assert_eq!(Tasks::task_state(1), None);
+		assert_noop!(
+			Tasks::submit_result(
+				RawOrigin::Signed([0; 32].into()).into(),
+				1,
+				0,
+				mock_result_ok(1, 1, 0)
+			),
+			Error::<Test>::UnknownTask
 		);
 	});
 }

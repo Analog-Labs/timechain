@@ -11,13 +11,12 @@ benchmarks! {
 		network: Network::Ethereum,
 		function: Function::EvmViewCall {
 			address: Default::default(),
-			function_signature: Default::default(),
 			input: Default::default(),
 		},
 		cycle: 1,
 		start: 0,
 		period: 1,
-		hash: "".to_string(),
+		timegraph: None,
 	}) verify {}
 
 	stop_task {
@@ -25,13 +24,12 @@ benchmarks! {
 			network: Network::Ethereum,
 			function: Function::EvmViewCall {
 				address: Default::default(),
-				function_signature: Default::default(),
 				input: Default::default(),
 			},
 			cycle: 1,
 			start: 0,
 			period: 1,
-			hash: "".to_string(),
+			timegraph: None,
 		});
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0)
 	verify { }
@@ -41,13 +39,12 @@ benchmarks! {
 			network: Network::Ethereum,
 			function: Function::EvmViewCall {
 				address: Default::default(),
-				function_signature: Default::default(),
 				input: Default::default(),
 			},
 			cycle: 1,
 			start: 0,
 			period: 1,
-			hash: "".to_string(),
+			timegraph: None,
 		});
 		let _ = Pallet::<T>::stop_task(RawOrigin::Signed(whitelisted_caller()).into(), 0);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0)
@@ -58,13 +55,12 @@ benchmarks! {
 			network: Network::Ethereum,
 			function: Function::EvmViewCall {
 				address: Default::default(),
-				function_signature: Default::default(),
 				input: Default::default(),
 			},
 			cycle: 1,
 			start: 0,
 			period: 1,
-			hash: "".to_string(),
+			timegraph: None,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, TaskResult {
@@ -78,13 +74,12 @@ benchmarks! {
 			network: Network::Ethereum,
 			function: Function::EvmViewCall {
 				address: Default::default(),
-				function_signature: Default::default(),
 				input: Default::default(),
 			},
 			cycle: 1,
 			start: 0,
 			period: 1,
-			hash: "".to_string(),
+			timegraph: None,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, TaskError {
@@ -98,14 +93,13 @@ benchmarks! {
 			network: Network::Ethereum,
 			function: Function::EvmCall {
 				address: Default::default(),
-				function_signature: Default::default(),
 				input: Default::default(),
 				amount: 0,
 			},
 			cycle: 1,
 			start: 0,
 			period: 0,
-			hash: "".to_string(),
+			timegraph: None,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, "mock_hash".into()) verify {}
@@ -114,13 +108,15 @@ benchmarks! {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: Network::Ethereum,
 			function: Function::SendMessage {
-				contract_address: Default::default(),
+				address: [0u8; 20],
 				payload: Default::default(),
+				salt: [0u8; 32],
+				gas_limit: 1000u64
 			},
 			cycle: 1,
 			start: 0,
 			period: 0,
-			hash: "".to_string(),
+			timegraph: None,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}

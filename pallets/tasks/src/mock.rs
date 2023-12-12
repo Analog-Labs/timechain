@@ -16,8 +16,10 @@ pub type Signature = MultiSignature;
 pub struct MockShardInterface;
 
 impl ShardsInterface for MockShardInterface {
-	fn is_shard_online(_: ShardId) -> bool {
-		true
+	fn is_shard_online(id: ShardId) -> bool {
+		task_schedule::NetworkShards::<Test>::iter()
+			.find(|(_, s, _)| s == &id)
+			.is_some()
 	}
 
 	fn is_shard_member(_: &AccountId) -> bool {
@@ -25,12 +27,9 @@ impl ShardsInterface for MockShardInterface {
 	}
 
 	fn shard_network(id: u64) -> Option<Network> {
-		for (network, shard, _) in task_schedule::NetworkShards::<Test>::iter() {
-			if shard == id {
-				return Some(network);
-			}
-		}
-		None
+		task_schedule::NetworkShards::<Test>::iter()
+			.find(|(_, s, _)| s == &id)
+			.map(|(n, _, _)| n)
 	}
 
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}

@@ -250,6 +250,14 @@ fn shard_offline_removes_tasks() {
 		));
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		// complete task to register shard
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1, 0, 0)
+		));
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
@@ -849,7 +857,32 @@ fn shard_online_starts_register_shard_task() {
 			}
 		);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
-		// TODO: take task to completion and check that storage is updated
+		// complete task to register shard
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1, 0, 0)
+		));
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+	});
+}
+
+#[test]
+fn register_gateway_completes_register_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Completed));
+		// submit result still succeeds because task is completed
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1, 0, 0)
+		));
 	});
 }
 
@@ -857,6 +890,14 @@ fn shard_online_starts_register_shard_task() {
 fn shard_offline_starts_unregister_shard_task() {
 	new_test_ext().execute_with(|| {
 		Tasks::shard_online(1, Network::Ethereum);
+		// complete task to register shard
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_result_ok(1, 0, 0)
+		));
+		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert_eq!(
 			Tasks::tasks(1).unwrap(),
@@ -871,6 +912,63 @@ fn shard_offline_starts_unregister_shard_task() {
 			}
 		);
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
-		// TODO: take task to completion and check that storage is updated
+		// complete task to unregister shard
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			1,
+			0,
+			mock_result_ok(0, 1, 0)
+		));
+		assert_eq!(ShardRegistered::<Test>::get(1), None);
 	});
 }
+
+#[test]
+fn shard_offline_stops_pending_register_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		// shard not registered
+		assert_eq!(ShardRegistered::<Test>::get(1), None);
+		// task to register shard fails because it was stopped by `shard_offline`
+		assert_noop!(
+			Tasks::submit_result(
+				RawOrigin::Signed([0; 32].into()).into(),
+				0,
+				0,
+				mock_result_ok(1, 0, 0)
+			),
+			Error::<Test>::TaskStoppedOrFailed
+		);
+	});
+}
+
+#[test]
+fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert!(Tasks::tasks(1).is_none());
+		assert_eq!(Tasks::task_state(1), None);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
+		// task to unregister shard does not exist
+		assert!(Tasks::tasks(1).is_none());
+		assert_eq!(Tasks::task_state(1), None);
+		assert_noop!(
+			Tasks::submit_result(
+				RawOrigin::Signed([0; 32].into()).into(),
+				1,
+				0,
+				mock_result_ok(1, 1, 0)
+			),
+			Error::<Test>::UnknownTask
+		);
+	});
+}
+
+//when a task is scheduled, it will not be scheduled on a unregistered shard if the task requires registration
+
+//when a register shard task is complete the shard is marked as registered

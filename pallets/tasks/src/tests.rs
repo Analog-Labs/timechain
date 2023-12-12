@@ -250,18 +250,12 @@ fn shard_offline_removes_tasks() {
 		));
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		// complete task to register shard
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			0,
-			mock_result_ok(1, 0, 0)
-		));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),));
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		Tasks::shard_offline(1, Network::Ethereum);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
-			vec![1, 0, 2]
+			vec![1, 2]
 		);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -932,7 +926,13 @@ fn shard_offline_stops_pending_register_shard_task() {
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
 		// shard not registered
 		assert_eq!(ShardRegistered::<Test>::get(1), None);
-		// task to register shard fails because it was stopped by `shard_offline`
+		assert_noop!(
+			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
+			Error::<Test>::BootstrapShardMustBeOnline
+		);
+		Tasks::shard_online(2, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 2, [0u8; 20].to_vec(),));
+		// task to register 1st shard fails because it was stopped by `shard_offline`
 		assert_noop!(
 			Tasks::submit_result(
 				RawOrigin::Signed([0; 32].into()).into(),

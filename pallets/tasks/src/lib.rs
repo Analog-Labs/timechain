@@ -190,6 +190,10 @@ pub mod pallet {
 		UnassignedTask,
 		/// Task already signed
 		TaskSigned,
+		/// Cannot submit result for task stopped or failed
+		TaskStoppedOrFailed,
+		/// Cannot submit result for GMP functions unless gateway is registered
+		GatewayNotRegistered,
 	}
 
 	#[pallet::call]
@@ -240,8 +244,20 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if TaskResults::<T>::get(task_id, cycle).is_some() {
+			if TaskResults::<T>::get(task_id, cycle).is_some()
+				|| matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Completed))
+			{
 				return Ok(());
+			}
+			if task.function.is_gmp() {
+				let network =
+					T::Shards::shard_network(status.shard_id).ok_or(Error::<T>::UnknownShard)?;
+				ensure!(Gateway::<T>::get(network).is_some(), Error::<T>::GatewayNotRegistered);
+			}
+			if let Some(status) = TaskState::<T>::get(task_id) {
+				let task_stopped_or_failed = matches!(status, TaskStatus::Stopped)
+					|| matches!(status, TaskStatus::Failed { .. });
+				ensure!(!task_stopped_or_failed, Error::<T>::TaskStoppedOrFailed);
 			}
 			Self::validate_signature(
 				task_id,
@@ -261,6 +277,8 @@ pub mod pallet {
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
 				if let Function::RegisterShard { shard_id } = task.function {
 					ShardRegistered::<T>::insert(shard_id, ());
+				} else if let Function::UnregisterShard { shard_id } = task.function {
+					ShardRegistered::<T>::remove(shard_id);
 				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
@@ -350,6 +368,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
+			for (id, state) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id } = state.function {
+					if bootstrap == shard_id
+						&& matches!(TaskState::<T>::get(id), Some(TaskStatus::Created))
+					{
+						TaskState::<T>::insert(id, TaskStatus::Completed);
+					}
+				}
+			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			Gateway::<T>::insert(network, address.clone());
 			Self::schedule_tasks(network);
@@ -581,12 +608,22 @@ pub mod pallet {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
-			ShardRegistered::<T>::remove(shard_id);
-			Self::start_task(
-				TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
-				None,
-			)
-			.unwrap();
+			for (id, state) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id: x } = state.function {
+					if x == shard_id && matches!(TaskState::<T>::get(id), Some(TaskStatus::Created))
+					{
+						TaskState::<T>::insert(id, TaskStatus::Stopped);
+						break;
+					}
+				}
+			}
+			if ShardRegistered::<T>::get(shard_id).is_some() {
+				Self::start_task(
+					TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
+					None,
+				)
+				.unwrap();
+			}
 		}
 	}
 }

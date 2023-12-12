@@ -45,8 +45,6 @@ where
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + 'static,
 {
-	use pallet_shards_rpc::{ShardsApiServer, ShardsRpcApi};
-	use pallet_tasks_rpc::{TasksApiServer, TasksRpcApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
@@ -55,8 +53,6 @@ where
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(TasksRpcApi::new(client.clone()).into_rpc())?;
-	module.merge(ShardsRpcApi::new(client).into_rpc())?;
 
 	Ok(module)
 }

@@ -195,6 +195,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-primitives"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08ca2c09d5911548a5cb620382ea0e1af99d3c898ce0efecbbd274a4676cf53e"
+dependencies = [
+ "alloy-rlp",
+ "bytes",
+ "cfg-if",
+ "const-hex",
+ "derive_more 0.99.17",
+ "hex-literal",
+ "itoa",
+ "proptest",
+ "rand 0.8.5",
+ "ruint",
+ "serde",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "alloy-rlp"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc0fac0fc16baf1f63f78b47c3d24718f3619b0714076f6a02957d808d52cbef"
+dependencies = [
+ "arrayvec 0.7.4",
+ "bytes",
+ "smol_str",
+]
+
+[[package]]
+name = "alloy-sol-macro"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e40cea54ac58080a1b88ea6556866eac1902b321186c77d53ad2b5ebbbf0e038"
+dependencies = [
+ "const-hex",
+ "dunce",
+ "heck",
+ "indexmap 2.0.2",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
+ "syn-solidity",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "alloy-sol-types"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f81aa34725607be118c395d62c1d8d97c8a343dd1ada5370ed508ed5232eab6a"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-macro",
+ "const-hex",
+ "serde",
+]
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -311,9 +372,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c775f0d12169cba7aae4caeb547bb6a50781c7449a8aa53793827c9ec4abf488"
 dependencies = [
  "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
 ]
 
 [[package]]
@@ -322,10 +383,10 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "defd9a439d56ac24968cca0571f598a61bc8c55f71d50a89cda591cb750670ba"
 dependencies = [
- "ark-ff",
+ "ark-ff 0.4.2",
  "ark-poly",
- "ark-serialize",
- "ark-std",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "derivative",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
@@ -341,8 +402,26 @@ checksum = "f9cde0f2aa063a2a5c28d39b47761aa102bda7c13c84fc118a61b87c7b2f785c"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
- "ark-ff",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-std 0.4.0",
+]
+
+[[package]]
+name = "ark-ff"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b3235cc41ee7a12aaaf2c575a2ad7b46713a8a50bda2fc3b003a04845c05dd6"
+dependencies = [
+ "ark-ff-asm 0.3.0",
+ "ark-ff-macros 0.3.0",
+ "ark-serialize 0.3.0",
+ "ark-std 0.3.0",
+ "derivative",
+ "num-bigint",
+ "num-traits",
+ "paste",
+ "rustc_version 0.3.3",
+ "zeroize",
 ]
 
 [[package]]
@@ -351,10 +430,10 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec847af850f44ad29048935519032c33da8aa03340876d351dfab5660d2966ba"
 dependencies = [
- "ark-ff-asm",
- "ark-ff-macros",
- "ark-serialize",
- "ark-std",
+ "ark-ff-asm 0.4.2",
+ "ark-ff-macros 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "derivative",
  "digest 0.10.7",
  "itertools 0.10.5",
@@ -367,10 +446,32 @@ dependencies = [
 
 [[package]]
 name = "ark-ff-asm"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db02d390bf6643fb404d3d22d31aee1c4bc4459600aef9113833d17e786c6e44"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-ff-asm"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ed4aa4fe255d0bc6d79373f7e31d2ea147bcf486cba1be5ba7ea85abdb92348"
 dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-ff-macros"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db2fd794a08ccb318058009eefdf15bcaaaaf6f8161eb3345f907222bac38b20"
+dependencies = [
+ "num-bigint",
+ "num-traits",
  "quote",
  "syn 1.0.109",
 ]
@@ -394,9 +495,9 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d320bfc44ee185d899ccbadfa8bc31aab923ce1558716e1997a1e74057fe86bf"
 dependencies = [
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "derivative",
  "hashbrown 0.13.2",
 ]
@@ -408,9 +509,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49b08346a3e38e2be792ef53ee168623c9244d968ff00cd70fb9932f6fe36393"
 dependencies = [
  "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "parity-scale-codec",
 ]
 
@@ -420,13 +521,23 @@ version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
  "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "ark-transcript",
  "digest 0.10.7",
  "rand_core 0.6.4",
  "zeroize",
+]
+
+[[package]]
+name = "ark-serialize"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d6c2b318ee6e10f8c2853e73a83adc0ccb88995aa978d8a3408d492ab2ee671"
+dependencies = [
+ "ark-std 0.3.0",
+ "digest 0.9.0",
 ]
 
 [[package]]
@@ -436,7 +547,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adb7b85a02b83d2f22f89bd5cac66c9c89474240cb6207cb1efc16d098e822a5"
 dependencies = [
  "ark-serialize-derive",
- "ark-std",
+ "ark-std 0.4.0",
  "digest 0.10.7",
  "num-bigint",
 ]
@@ -454,6 +565,16 @@ dependencies = [
 
 [[package]]
 name = "ark-std"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df2c09229cbc5a028b1d70e00fdb2acee28b1055dfb5ca73eea49c5a25c4e7c"
+dependencies = [
+ "num-traits",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "ark-std"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
@@ -467,9 +588,9 @@ name = "ark-transcript"
 version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "digest 0.10.7",
  "rand_core 0.6.4",
  "sha3",
@@ -937,9 +1058,9 @@ dependencies = [
  "ark-bls12-381",
  "ark-ec",
  "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "dleq_vrf",
  "fflonk",
  "merlin 3.0.0",
@@ -1533,6 +1654,8 @@ dependencies = [
 name = "chronicle"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "anyhow",
  "async-channel",
  "bincode",
@@ -1543,8 +1666,9 @@ dependencies = [
  "lazy_static",
  "log-panics",
  "p2p",
- "rosetta-client",
- "rosetta-core",
+ "rosetta-client 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
@@ -1554,6 +1678,7 @@ dependencies = [
  "schnorr-evm",
  "serde",
  "serde_json",
+ "sha3",
  "sp-api",
  "sp-consensus",
  "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
@@ -1781,10 +1906,10 @@ version = "0.1.0"
 source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
 dependencies = [
  "ark-ec",
- "ark-ff",
+ "ark-ff 0.4.2",
  "ark-poly",
- "ark-serialize",
- "ark-std",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "fflonk",
  "merlin 3.0.0",
  "rand_chacha 0.3.1",
@@ -2838,11 +2963,11 @@ version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
 dependencies = [
  "ark-ec",
- "ark-ff",
+ "ark-ff 0.4.2",
  "ark-scale",
  "ark-secret-scalar",
- "ark-serialize",
- "ark-std",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "ark-transcript",
  "arrayvec 0.7.4",
  "rand_core 0.6.4",
@@ -3611,6 +3736,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 
 [[package]]
+name = "fastrlp"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "139834ddba373bbdd213dffe02c8d110508dcf1726c2be27e8d1f7d7e1856418"
+dependencies = [
+ "arrayvec 0.7.4",
+ "auto_impl",
+ "bytes",
+]
+
+[[package]]
 name = "fdlimit"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3661,10 +3797,10 @@ version = "0.1.0"
 source = "git+https://github.com/w3f/fflonk#26a5045b24e169cffc1f9328ca83d71061145c40"
 dependencies = [
  "ark-ec",
- "ark-ff",
+ "ark-ff 0.4.2",
  "ark-poly",
- "ark-serialize",
- "ark-std",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "merlin 3.0.0",
 ]
 
@@ -5049,6 +5185,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba6a270039626615617f3f36d15fc827041df3b78c439da2cadfa47455a77f2f"
 dependencies = [
  "parity-scale-codec",
+]
+
+[[package]]
+name = "impl-num-traits"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "951641f13f873bff03d4bf19ae8bec531935ac0ac2cc775f84d7edfdcfed3f17"
+dependencies = [
+ "integer-sqrt",
+ "num-traits",
+ "uint",
 ]
 
 [[package]]
@@ -7665,19 +7812,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-shards-rpc"
-version = "0.0.1"
-dependencies = [
- "hex 0.4.3",
- "jsonrpsee 0.16.3",
- "sp-api",
- "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "thiserror",
- "time-primitives",
-]
-
-[[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
@@ -7742,19 +7876,6 @@ dependencies = [
  "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "time-primitives",
-]
-
-[[package]]
-name = "pallet-tasks-rpc"
-version = "0.0.1"
-dependencies = [
- "hex 0.4.3",
- "jsonrpsee 0.16.3",
- "sp-api",
- "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "thiserror",
  "time-primitives",
 ]
 
@@ -8592,6 +8713,7 @@ checksum = "0b34d9fd68ae0b74a41b21c03c2f62847aa0ffea044eee893b4c140b37e244e2"
 dependencies = [
  "fixed-hash",
  "impl-codec",
+ "impl-num-traits",
  "impl-rlp",
  "impl-serde",
  "scale-info",
@@ -8705,6 +8827,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
+]
+
+[[package]]
+name = "proptest"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31b476131c3c86cb68032fdc5cb6d5a1045e3e42d96b69fa599fd77701e1f5bf"
+dependencies = [
+ "bit-set",
+ "bit-vec",
+ "bitflags 2.4.1",
+ "lazy_static",
+ "num-traits",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_xorshift",
+ "regex-syntax 0.8.2",
+ "rusty-fork",
+ "tempfile",
+ "unarray",
 ]
 
 [[package]]
@@ -9007,6 +9149,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_xorshift"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
 name = "raw-cpuid"
 version = "10.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9281,10 +9432,10 @@ version = "0.1.0"
 source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
 dependencies = [
  "ark-ec",
- "ark-ff",
+ "ark-ff 0.4.2",
  "ark-poly",
- "ark-serialize",
- "ark-std",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "blake2",
  "common",
  "fflonk",
@@ -9364,6 +9515,36 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "derive_more 0.99.17",
+ "dirs-next",
+ "fraction",
+ "futures",
+ "getrandom 0.2.10",
+ "hex 0.4.3",
+ "js-sys",
+ "log",
+ "num-traits",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server-astar 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server-bitcoin 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-tx-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-tx-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde",
+ "serde_json",
+ "void",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "rosetta-client"
+version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
@@ -9377,13 +9558,13 @@ dependencies = [
  "js-sys",
  "log",
  "num-traits",
- "rosetta-core",
- "rosetta-server-astar",
- "rosetta-server-bitcoin",
- "rosetta-server-ethereum",
- "rosetta-server-polkadot",
- "rosetta-tx-ethereum",
- "rosetta-tx-polkadot",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server-astar 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server-bitcoin 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-tx-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-tx-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -9393,11 +9574,30 @@ dependencies = [
 [[package]]
 name = "rosetta-config-astar"
 version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "subxt",
+]
+
+[[package]]
+name = "rosetta-config-astar"
+version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
- "rosetta-core",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "subxt",
+]
+
+[[package]]
+name = "rosetta-config-bitcoin"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
 ]
 
 [[package]]
@@ -9406,7 +9606,19 @@ version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
- "rosetta-core",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+]
+
+[[package]]
+name = "rosetta-config-ethereum"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "ethereum-types",
+ "rosetta-config-astar 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde",
 ]
 
 [[package]]
@@ -9415,9 +9627,20 @@ version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
- "rosetta-config-astar",
- "rosetta-core",
+ "rosetta-config-astar 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde",
+]
+
+[[package]]
+name = "rosetta-config-polkadot"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde",
+ "subxt",
 ]
 
 [[package]]
@@ -9426,9 +9649,25 @@ version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
- "rosetta-core",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde",
  "subxt",
+]
+
+[[package]]
+name = "rosetta-core"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "fluent-uri",
+ "futures-util",
+ "rosetta-crypto 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-types 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -9440,10 +9679,37 @@ dependencies = [
  "async-trait",
  "fluent-uri",
  "futures-util",
- "rosetta-crypto",
- "rosetta-types",
+ "rosetta-crypto 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-types 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "rosetta-crypto"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "bech32 0.9.1",
+ "blake2-rfc",
+ "bs58 0.5.0",
+ "ecdsa 0.16.8",
+ "ed25519-dalek 1.0.1",
+ "ethers",
+ "hex 0.4.3",
+ "hmac 0.12.1",
+ "k256",
+ "p256 0.13.2",
+ "ripemd",
+ "rust-bip39",
+ "schnorrkel 0.10.2",
+ "sha2 0.10.8",
+ "sha3",
+ "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ss58-registry",
+ "substrate-bip39",
  "thiserror",
 ]
 
@@ -9477,6 +9743,23 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-rpc-client"
 version = "0.1.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "async-trait",
+ "dashmap",
+ "ethers",
+ "futures-util",
+ "jsonrpsee 0.20.3",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "rosetta-ethereum-rpc-client"
+version = "0.1.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "async-trait",
@@ -9489,6 +9772,32 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "rosetta-server"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "femme",
+ "futures",
+ "futures-timer",
+ "futures-util",
+ "hex 0.4.3",
+ "jsonrpsee 0.20.3",
+ "log",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "subxt",
+ "tokio",
+ "tokio-retry",
+ "tokio-tungstenite",
+ "tracing",
+ "url",
+ "vergen",
 ]
 
 [[package]]
@@ -9520,6 +9829,31 @@ dependencies = [
 [[package]]
 name = "rosetta-server-astar"
 version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ethers",
+ "futures",
+ "hex 0.4.3",
+ "log",
+ "parity-scale-codec",
+ "rosetta-config-astar 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde",
+ "serde_json",
+ "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-keyring 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subxt",
+ "tokio",
+]
+
+[[package]]
+name = "rosetta-server-astar"
+version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
@@ -9529,11 +9863,11 @@ dependencies = [
  "hex 0.4.3",
  "log",
  "parity-scale-codec",
- "rosetta-config-astar",
- "rosetta-config-ethereum",
- "rosetta-core",
- "rosetta-server",
- "rosetta-server-ethereum",
+ "rosetta-config-astar 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde",
  "serde_json",
  "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -9545,16 +9879,55 @@ dependencies = [
 [[package]]
 name = "rosetta-server-bitcoin"
 version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitcoincore-rpc-async",
+ "hex 0.4.3",
+ "rosetta-config-bitcoin 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde_json",
+ "tokio",
+ "void",
+]
+
+[[package]]
+name = "rosetta-server-bitcoin"
+version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
  "async-trait",
  "bitcoincore-rpc-async",
  "hex 0.4.3",
- "rosetta-config-bitcoin",
- "rosetta-core",
+ "rosetta-config-bitcoin 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "rosetta-server-ethereum"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ethabi",
+ "ethers",
+ "futures-timer",
+ "futures-util",
+ "hex 0.4.3",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-ethereum-rpc-client 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -9569,15 +9942,36 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
- "rosetta-config-ethereum",
- "rosetta-core",
- "rosetta-ethereum-rpc-client",
- "rosetta-server",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-ethereum-rpc-client 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "rosetta-server-polkadot"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "hex 0.4.3",
+ "parity-scale-codec",
+ "rosetta-config-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-server 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-keyring 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subxt",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -9589,9 +9983,9 @@ dependencies = [
  "async-trait",
  "hex 0.4.3",
  "parity-scale-codec",
- "rosetta-config-polkadot",
- "rosetta-core",
- "rosetta-server",
+ "rosetta-config-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-server 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "scale-info",
  "serde",
  "serde_json",
@@ -9604,15 +9998,43 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "ethabi",
+ "ethers-core",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde_json",
+ "sha3",
+]
+
+[[package]]
+name = "rosetta-tx-ethereum"
+version = "0.5.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0#f6a3e7e88d51699b0c5a3b8055d601a58a1c3e71"
 dependencies = [
  "anyhow",
  "ethabi",
  "ethers-core",
- "rosetta-config-ethereum",
- "rosetta-core",
+ "rosetta-config-ethereum 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "serde_json",
  "sha3",
+]
+
+[[package]]
+name = "rosetta-tx-polkadot"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "anyhow",
+ "blake2-rfc",
+ "bs58 0.5.0",
+ "parity-scale-codec",
+ "rosetta-config-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=master)",
+ "serde_json",
 ]
 
 [[package]]
@@ -9624,8 +10046,17 @@ dependencies = [
  "blake2-rfc",
  "bs58 0.5.0",
  "parity-scale-codec",
- "rosetta-config-polkadot",
- "rosetta-core",
+ "rosetta-config-polkadot 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "rosetta-core 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
+ "serde_json",
+]
+
+[[package]]
+name = "rosetta-types"
+version = "0.5.0"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=master#3e6390453e1745fa23d17fd104cdd220f79b1bce"
+dependencies = [
+ "serde",
  "serde_json",
 ]
 
@@ -9741,6 +10172,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruint"
+version = "1.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "608a5726529f2f0ef81b8fde9873c4bb829d6b5b5ca6be4d97345ddf0749c825"
+dependencies = [
+ "alloy-rlp",
+ "ark-ff 0.3.0",
+ "ark-ff 0.4.2",
+ "bytes",
+ "fastrlp",
+ "num-bigint",
+ "num-traits",
+ "parity-scale-codec",
+ "primitive-types",
+ "proptest",
+ "rand 0.8.5",
+ "rlp",
+ "ruint-macro",
+ "serde",
+ "valuable",
+ "zeroize",
+]
+
+[[package]]
+name = "ruint-macro"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e666a5496a0b2186dbcd0ff6106e29e093c15591bde62c20d3842007c6978a09"
+
+[[package]]
 name = "runtime-common"
 version = "1.0.0"
 dependencies = [
@@ -9785,6 +10246,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
  "semver 0.9.0",
+]
+
+[[package]]
+name = "rustc_version"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0dfe2087c51c460008730de8b57e6a320782fbfb312e1f4d520e6c6fae155ee"
+dependencies = [
+ "semver 0.11.0",
 ]
 
 [[package]]
@@ -9942,6 +10412,18 @@ name = "rustversion"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
+
+[[package]]
+name = "rusty-fork"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb3dcc6e454c328bb824492db107ab7c0ae8fcffe4ad210136ef014458c1bc4f"
+dependencies = [
+ "fnv",
+ "quick-error",
+ "tempfile",
+ "wait-timeout",
+]
 
 [[package]]
 name = "ruzstd"
@@ -11308,7 +11790,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a3186ec9e65071a2095434b1f5bb24838d4e8e130f584c790f6033c79943537"
 dependencies = [
- "semver-parser",
+ "semver-parser 0.7.0",
 ]
 
 [[package]]
@@ -11317,7 +11799,16 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
- "semver-parser",
+ "semver-parser 0.7.0",
+]
+
+[[package]]
+name = "semver"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
+dependencies = [
+ "semver-parser 0.10.2",
 ]
 
 [[package]]
@@ -11334,6 +11825,15 @@ name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
+
+[[package]]
+name = "semver-parser"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
+dependencies = [
+ "pest",
+]
 
 [[package]]
 name = "send_wrapper"
@@ -11695,6 +12195,15 @@ dependencies = [
  "async-process",
  "blocking",
  "futures-lite",
+]
+
+[[package]]
+name = "smol_str"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74212e6bbe9a4352329b2f68ba3130c15a3f26fe88ff22dbdc6cdd58fa85e99c"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -13659,6 +14168,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn-solidity"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2c7ad08db24862d5b787a94714ff6b047935c3e3f60af944ac969404debd7ff"
+dependencies = [
+ "paste",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13759,7 +14280,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ethers-solc",
- "rosetta-client",
+ "rosetta-client 0.5.0 (git+https://github.com/analog-labs/chain-connectors?branch=release-v0.5.0)",
  "surf",
  "tc-subxt",
  "tokio",
@@ -13943,8 +14464,6 @@ dependencies = [
  "hex-literal",
  "jsonrpsee 0.16.3",
  "pallet-im-online",
- "pallet-shards-rpc",
- "pallet-tasks-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -14655,6 +15174,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unarray"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
+
+[[package]]
 name = "unicase"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14873,6 +15398,15 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "wait-timeout"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "waitgroup"

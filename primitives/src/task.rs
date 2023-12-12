@@ -130,34 +130,6 @@ impl Default for TaskPhase {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
-pub struct RpcTaskDetails {
-	description: TaskDescriptor,
-	cycle: TaskCycle,
-	phase: TaskPhase,
-	shard_id: Option<ShardId>,
-	results: Vec<(TaskCycle, String)>,
-}
-
-impl RpcTaskDetails {
-	pub fn new(
-		description: TaskDescriptor,
-		cycle: TaskCycle,
-		phase: TaskPhase,
-		shard_id: Option<ShardId>,
-		results: Vec<(TaskCycle, String)>,
-	) -> Self {
-		Self {
-			description,
-			cycle,
-			phase,
-			shard_id,
-			results,
-		}
-	}
-}
-
 #[cfg_attr(feature = "std", derive(Serialize))]
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskExecution {

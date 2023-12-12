@@ -9,7 +9,7 @@ pub type Eip712Bytes = [u8; 66];
 #[allow(dead_code)]
 pub type Eip712Hash = [u8; 32];
 
-pub fn eip712_domain_separator(chain_id: u64, gateway_contract: Address) -> Eip712Domain {
+fn eip712_domain_separator(chain_id: u64, gateway_contract: Address) -> Eip712Domain {
 	Eip712Domain {
 		name: Some(EIP712_NAME.into()),
 		version: Some(EIP712_VERSION.into()),
@@ -80,14 +80,14 @@ impl From<[u8; 33]> for TssKey {
 }
 
 /// Extends the [`SolStruct`] to accept the chain_id and gateway contract address as parameter
-pub trait Eip712Ext {
+pub(crate) trait Eip712Ext {
 	fn to_eip712_bytes_with_domain(&self, domain_separator: &Eip712Domain) -> Eip712Bytes;
 	fn to_eip712_bytes(&self, chain_id: u64, gateway_contract: Address) -> Eip712Bytes {
 		let domain_separator = eip712_domain_separator(chain_id, gateway_contract);
 		Eip712Ext::to_eip712_bytes_with_domain(self, &domain_separator)
 	}
 	fn to_eip712_typed_hash(&self, chain_id: u64, gateway_contract: Address) -> Eip712Hash {
-		let bytes = Eip712Ext::to_eip712_bytes(self, chain_id, gateway_contract);
+		let bytes = self.to_eip712_bytes(chain_id, gateway_contract);
 		let mut hasher = Keccak256::new();
 		hasher.update(bytes.as_ref());
 		hasher.finalize().into()
@@ -109,7 +109,7 @@ where
 	}
 }
 
-pub trait SignableMessage: Eip712Ext {
+pub(crate) trait SignableMessage: Eip712Ext {
 	type Method: SolCall;
 	fn into_call(self, signature: Signature) -> Self::Method;
 }

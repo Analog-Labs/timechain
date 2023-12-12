@@ -277,8 +277,6 @@ pub mod pallet {
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
 				if let Function::RegisterShard { shard_id } = task.function {
 					ShardRegistered::<T>::insert(shard_id, ());
-				} else if let Function::UnregisterShard { shard_id } = task.function {
-					ShardRegistered::<T>::remove(shard_id);
 				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
@@ -617,7 +615,7 @@ pub mod pallet {
 					}
 				}
 			}
-			if ShardRegistered::<T>::get(shard_id).is_some() {
+			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
 					TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
 					None,

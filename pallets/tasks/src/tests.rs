@@ -888,7 +888,7 @@ fn register_gateway_completes_register_shard_task() {
 }
 
 #[test]
-fn shard_offline_starts_unregister_shard_task() {
+fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately() {
 	new_test_ext().execute_with(|| {
 		Tasks::shard_online(1, Network::Ethereum);
 		// complete task to register shard
@@ -900,6 +900,8 @@ fn shard_offline_starts_unregister_shard_task() {
 		));
 		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
 		Tasks::shard_offline(1, Network::Ethereum);
+		// shard not registered
+		assert_eq!(ShardRegistered::<Test>::get(1), None);
 		assert_eq!(
 			Tasks::tasks(1).unwrap(),
 			TaskDescriptor {
@@ -920,7 +922,7 @@ fn shard_offline_starts_unregister_shard_task() {
 			0,
 			mock_result_ok(0, 1, 0)
 		));
-		assert_eq!(ShardRegistered::<Test>::get(1), None);
+		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
 	});
 }
 

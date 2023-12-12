@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Context as _, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
-use rosetta_client::{types::PartialBlockIdentifier, Blockchain, Wallet};
+use rosetta_client::{Blockchain, Wallet};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
+use rosetta_config_ethereum::{CallResult, AtBlock};
 use schnorr_evm::VerifyingKey;
 use serde_json::Value;
 use std::{
@@ -77,33 +78,68 @@ where
 		function: &Function,
 		target_block_number: u64,
 	) -> Result<Vec<u8>> {
-		let block = PartialBlockIdentifier {
-			index: Some(target_block_number),
-			hash: None,
-		};
+		let block = AtBlock::Number(target_block_number);
 		Ok(match function {
 			Function::EvmViewCall { address, input } => {
-				//let data = self.wallet.eth_view_call(address, input, Some(block)).await?;
-				//serde_json::to_string(&data)?.into_bytes()
-				todo!();
+				let data = self.wallet.eth_view_call(*address, input.clone(), block).await?;
+				let json = match data {
+					// Call executed successfully
+					CallResult::Success(data) => serde_json::json!({
+						"success": hex::encode(data),
+					}),
+					// Call reverted
+					CallResult::Revert(data) => serde_json::json!({
+						"revert": hex::encode(data),
+					}),
+					// Call invalid or EVM error
+					CallResult::Error => serde_json::json!({
+						"error": null,
+					}),
+				};
+				json.to_string().into_bytes()
 			},
 			Function::EvmTxReceipt { tx } => {
-				let data = self.wallet.eth_transaction_receipt(tx).await?;
-				serde_json::to_string(&data)?.into_bytes()
+				if tx.len() != 66 {
+					anyhow::bail!("invalid transaction hash length, expected 32 got {}", tx.len());
+				}
+				let mut tx_hash = [0u8; 32];
+				tx_hash.copy_from_slice(tx.as_ref());
+				let Some(receipt) = self.wallet.eth_transaction_receipt(tx_hash).await? else {
+					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx_hash));
+				};
+				serde_json::json!({
+					"transactionHash": format!("{:?}", receipt.transaction_hash),
+					"transactionIndex": receipt.transaction_index,
+					"blockHash": receipt.block_hash.map(|block_hash| format!("{block_hash:?}")),
+					"blockNumber": receipt.block_number,
+					"from": format!("{:?}", receipt.from),
+					"to": receipt.to.map(|to| format!("{to:?}")),
+					"gasUsed": receipt.gas_used.map(|gas_used| format!("{gas_used:?}")),
+					"contractAddress": receipt.contract_address.map(|contract| format!("{contract:?}")),
+					"status": receipt.status_code,
+					"type": receipt.transaction_type,
+				}).to_string().into_bytes()
 			},
 			Function::EvmDeploy { bytecode } => {
-				self.wallet.eth_deploy_contract(bytecode.clone()).await?
+				self.wallet.eth_deploy_contract(bytecode.clone()).await?.to_vec()
 			},
 			Function::EvmCall { address, input, amount } => {
-				// self.wallet.eth_send_call(address, input, *amount).await?
-				todo!()
+				self.wallet.eth_send_call(*address, input.clone(), *amount).await?.to_vec()
 			},
-			Function::RegisterShard { .. }
-			| Function::UnregisterShard { .. }
-			| Function::SendMessage { .. } => {
+			Function::RegisterShard { .. } => {
+				return Err(anyhow!(
+					"RegisterShard must be transformed into EvmCall prior to execution"
+				));
+			},
+			Function::UnregisterShard { .. } => {
+				return Err(anyhow!(
+					"UnregisterShard must be transformed into EvmCall prior to execution"
+				));
+			},
+			Function::SendMessage { .. } => {
 				return Err(anyhow!(
 					"SendMessage must be transformed into EvmCall prior to execution"
-				))
+				));
 			},
 		})
 	}

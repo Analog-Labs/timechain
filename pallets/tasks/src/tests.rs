@@ -804,11 +804,11 @@ fn register_gateway_fails_if_not_root() {
 }
 
 #[test]
-fn register_gateway_fails_if_unknown_shard() {
+fn register_gateway_fails_if_bootstrap_shard_is_offline() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
-			Error::<Test>::UnknownShard
+			Error::<Test>::BootstrapShardMustBeOnline
 		);
 	});
 }

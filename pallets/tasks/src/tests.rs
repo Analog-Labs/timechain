@@ -915,7 +915,7 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
 			0,
-			mock_result_ok(0, 1, 0)
+			mock_result_ok(1, 1, 0)
 		));
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
 	});

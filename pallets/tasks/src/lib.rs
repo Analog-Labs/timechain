@@ -256,8 +256,8 @@ pub mod pallet {
 					Error::<T>::GatewayNotRegistered
 				);
 			}
-			let task_stopped_or_failed = matches!(status, TaskStatus::Stopped)
-				|| matches!(status, TaskStatus::Failed { .. });
+			let task_stopped_or_failed =
+				matches!(status, TaskStatus::Stopped | TaskStatus::Failed { .. });
 			ensure!(!task_stopped_or_failed, Error::<T>::TaskStoppedOrFailed);
 			Self::validate_signature(
 				task_id,

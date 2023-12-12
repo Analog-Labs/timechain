@@ -864,6 +864,7 @@ fn shard_online_starts_register_shard_task() {
 			0,
 			mock_result_ok(1, 0, 0)
 		));
+		//when a register shard task is complete the shard is marked as registered
 		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
 	});
 }
@@ -968,7 +969,3 @@ fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 		);
 	});
 }
-
-//when a task is scheduled, it will not be scheduled on a unregistered shard if the task requires registration
-
-//when a register shard task is complete the shard is marked as registered

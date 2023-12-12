@@ -298,13 +298,14 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
 			mock_result_ok(1, 0, 0)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -389,6 +390,7 @@ fn submit_task_result_resets_retry_count() {
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -938,7 +940,7 @@ fn shard_offline_stops_pending_register_shard_task() {
 				0,
 				mock_result_ok(1, 0, 0)
 			),
-			Error::<Test>::TaskStoppedOrFailed
+			Error::<Test>::TaskStopped
 		);
 	});
 }

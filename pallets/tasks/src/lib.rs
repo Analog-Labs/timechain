@@ -190,10 +190,12 @@ pub mod pallet {
 		UnassignedTask,
 		/// Task already signed
 		TaskSigned,
-		/// Cannot submit result for task stopped or failed
-		TaskStoppedOrFailed,
+		/// Cannot submit result for task stopped
+		TaskStopped,
 		/// Cannot submit result for GMP functions unless gateway is registered
 		GatewayNotRegistered,
+		/// Bootstrap shard must be online to call register_gateway
+		BootstrapShardMustBeOnline,
 	}
 
 	#[pallet::call]
@@ -256,9 +258,7 @@ pub mod pallet {
 					Error::<T>::GatewayNotRegistered
 				);
 			}
-			let task_stopped_or_failed =
-				matches!(status, TaskStatus::Stopped | TaskStatus::Failed { .. });
-			ensure!(!task_stopped_or_failed, Error::<T>::TaskStoppedOrFailed);
+			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
 			Self::validate_signature(
 				task_id,
 				cycle,
@@ -365,6 +365,7 @@ pub mod pallet {
 			address: Vec<u8>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
 			for (id, state) in Tasks::<T>::iter() {
 				if let Function::RegisterShard { shard_id } = state.function {

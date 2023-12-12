@@ -99,7 +99,7 @@ where
 				json.to_string().into_bytes()
 			},
 			Function::EvmTxReceipt { tx } => {
-				if tx.len() != 66 {
+				if tx.len() != 32 {
 					anyhow::bail!("invalid transaction hash length, expected 32 got {}", tx.len());
 				}
 				let mut tx_hash = [0u8; 32];

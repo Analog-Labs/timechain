@@ -66,8 +66,6 @@ frame-benchmarking-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.gi
 chronicle = { path = "../chronicle" }
 time-primitives = { path = "../primitives" }
 timechain-runtime = { path = "../runtime", version = "0.0.1" }
-pallet-tasks-rpc = { path = "../pallets/tasks/rpc"} 
-pallet-shards-rpc = {path = "../pallets/shards/rpc"}
 
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", optional = true }

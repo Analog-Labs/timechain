@@ -143,31 +143,6 @@ impl<B: Copy> ShardStatus<B> {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
-pub struct RpcShardDetails<T> {
-	state: ShardStatus<T>,
-	tss_threshold: u16,
-	members: Vec<(AccountId, SerializedMemberStatus)>,
-	signatures: Vec<String>,
-}
-
-impl<T> RpcShardDetails<T> {
-	pub fn new(
-		state: ShardStatus<T>,
-		tss_threshold: u16,
-		members: Vec<(AccountId, SerializedMemberStatus)>,
-		signatures: Vec<String>,
-	) -> Self {
-		Self {
-			state,
-			tss_threshold,
-			members,
-			signatures,
-		}
-	}
-}
-
 #[cfg(feature = "std")]
 pub trait Shards {
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;

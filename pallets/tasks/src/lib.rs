@@ -240,35 +240,35 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			cycle: TaskCycle,
-			status: TaskResult,
+			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskResults::<T>::get(task_id, cycle).is_some()
-				|| matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Completed))
+				|| matches!(status, TaskStatus::Completed)
 			{
 				return Ok(());
 			}
 			if task.function.is_gmp() {
-				let network =
-					T::Shards::shard_network(status.shard_id).ok_or(Error::<T>::UnknownShard)?;
-				ensure!(Gateway::<T>::get(network).is_some(), Error::<T>::GatewayNotRegistered);
+				ensure!(
+					Gateway::<T>::get(task.network).is_some(),
+					Error::<T>::GatewayNotRegistered
+				);
 			}
-			if let Some(status) = TaskState::<T>::get(task_id) {
-				let task_stopped_or_failed = matches!(status, TaskStatus::Stopped)
-					|| matches!(status, TaskStatus::Failed { .. });
-				ensure!(!task_stopped_or_failed, Error::<T>::TaskStoppedOrFailed);
-			}
+			let task_stopped_or_failed = matches!(status, TaskStatus::Stopped)
+				|| matches!(status, TaskStatus::Failed { .. });
+			ensure!(!task_stopped_or_failed, Error::<T>::TaskStoppedOrFailed);
 			Self::validate_signature(
 				task_id,
 				cycle,
-				status.shard_id,
-				status.hash,
-				status.signature,
+				result.shard_id,
+				result.hash,
+				result.signature,
 			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
-			TaskResults::<T>::insert(task_id, cycle, status.clone());
+			TaskResults::<T>::insert(task_id, cycle, result.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
@@ -279,7 +279,7 @@ pub mod pallet {
 					ShardRegistered::<T>::insert(shard_id, ());
 				}
 			}
-			Self::deposit_event(Event::TaskResult(task_id, cycle, status));
+			Self::deposit_event(Event::TaskResult(task_id, cycle, result));
 			Ok(())
 		}
 

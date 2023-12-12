@@ -831,3 +831,46 @@ fn register_gateway_updates_gateway_storage() {
 		assert_eq!(Gateway::<Test>::get(Network::Ethereum), Some([0u8; 20].to_vec()));
 	});
 }
+
+#[test]
+fn shard_online_starts_register_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(
+			Tasks::tasks(0).unwrap(),
+			TaskDescriptor {
+				owner: None,
+				network: Network::Ethereum,
+				function: Function::RegisterShard { shard_id: 1 },
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+			}
+		);
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
+		// TODO: take task to completion and check that storage is updated
+	});
+}
+
+#[test]
+fn shard_offline_starts_unregister_shard_task() {
+	new_test_ext().execute_with(|| {
+		Tasks::shard_online(1, Network::Ethereum);
+		Tasks::shard_offline(1, Network::Ethereum);
+		assert_eq!(
+			Tasks::tasks(1).unwrap(),
+			TaskDescriptor {
+				owner: None,
+				network: Network::Ethereum,
+				function: Function::UnregisterShard { shard_id: 1 },
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+			}
+		);
+		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
+		// TODO: take task to completion and check that storage is updated
+	});
+}

@@ -1,11 +1,13 @@
+use crate::gmp::{GmpBuilder, types::{Eip712Ext, GmpMessage, TssKey, UpdateKeysMessage}};
 use crate::substrate::SubstrateClient;
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
+use schnorr_evm::VerifyingKey;
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId,
+	BlockHash, BlockNumber, Function, Network, ShardId, TaskExecution, TaskPhase, Tasks, TssId, Shards,
 };
 use tokio::task::JoinHandle;
 
@@ -23,6 +25,8 @@ pub struct TaskExecutor<S, T> {
 	network: Network,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
+
+
 
 impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 	fn clone(&self) -> Self {
@@ -61,7 +65,7 @@ where
 
 impl<S, T> TaskExecutor<S, T>
 where
-	S: Tasks + SubstrateClient,
+	S: Tasks + Shards + SubstrateClient,
 	T: TaskSpawner,
 {
 	pub fn new(params: TaskExecutorParams<S, T>) -> Self {
@@ -102,22 +106,25 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
+					let Some(gmp_builder) = self.gmp_builder_for(shard_id, block_hash)? else {
+						tracing::warn!("gmp not configured for {shard_id:?}, skipping task {task_id}");
+						continue;
+					};
 					let payload = match function {
-						Function::RegisterShard { .. } => {
-							// TODO
-							vec![]
+						Function::RegisterShard { shard_id } => {
+							let tss_public_key = self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+							gmp_builder.compute_register_sighash(tss_public_key)
 						},
-						Function::UnregisterShard { .. } => {
-							// TODO
-							vec![]
+						Function::UnregisterShard { shard_id } => {
+							let tss_public_key = self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+							gmp_builder.compute_revoke_sighash(tss_public_key)
 						},
-						Function::SendMessage { .. } => {
-							// TODO
-							vec![]
+						Function::SendMessage { address, payload, salt, gas_limit  } => {
+							gmp_builder.compute_gmp_sighash(address, payload, salt, gas_limit)
 						},
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload.to_vec(), block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -207,5 +214,25 @@ where
 			}
 		});
 		Ok(completed_sessions)
+	}
+
+	pub fn gmp_builder_for(&self, shard_id: ShardId, block_hash: BlockHash) -> Result<Option<GmpBuilder>> {
+		let gateway_contract = {
+			let Some(gateway_contract) = self.substrate.get_gateway(self.network)? else {
+				return Ok(None);
+			};
+			if gateway_contract.len() != 20 {
+				tracing::error!(target: "chronicle", "invalid gateway contract address for network {:?}, expect 20 bytes got {}", self.network, gateway_contract.len());
+				return Ok(None);
+			}
+			let mut output = [0u8;20];
+			output.copy_from_slice(&gateway_contract);
+			output
+		};
+		let Some(tss_public_key) = self.substrate.get_shard_commitment(block_hash, shard_id)?.first().copied() else {
+			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
+			return Ok(None);
+		};
+		Ok(Some(GmpBuilder::new(shard_id, self.network, tss_public_key, gateway_contract)))
 	}
 }

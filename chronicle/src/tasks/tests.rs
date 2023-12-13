@@ -26,6 +26,14 @@ use time_primitives::{
 lazy_static::lazy_static! {
 	pub static ref TASK_STATUS: Mutex<Vec<bool>> = Default::default();
 }
+lazy_static::lazy_static! {
+	pub static ref GMP_TASK_PHASE: Mutex<TaskPhase> = Mutex::new(TaskPhase::Sign);
+}
+
+fn get_mock_pubkey() -> PublicKey {
+	let bytes = [0; 32];
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+}
 
 #[derive(Clone, Default)]
 struct MockApi;
@@ -39,16 +47,25 @@ sp_api::mock_impl_runtime_apis! {
 			ShardStatus::Offline
 		}
 		fn get_shard_commitment(_: ShardId) -> Commitment{
-			vec![]
+			vec![[0; 33]]
 		}
 	}
 
 	impl TasksApi<Block> for MockApi{
-		fn get_shard_tasks(_: ShardId) -> Vec<TaskExecution> { vec![TaskExecution::new(1,0,0, TaskPhase::default())] }
-		fn get_task(_: TaskId) -> Option<TaskDescriptor> { Some(TaskDescriptor{
+		// shard 1 returns a viewcall task, shard 2 returns gmp task
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
+			if shard_id == 1 {
+				vec![TaskExecution::new(1,1,0, self.get_task_phase(Default::default(), 1).unwrap())]
+			}else {
+				vec![TaskExecution::new(2,1,0, self.get_task_phase(Default::default(), 2).unwrap())]
+			}
+		}
+		fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
+			if task_id == 1 {
+				Some(TaskDescriptor{
 				owner: Some(AccountId32::new([0u8; 32])),
 				network: Network::Ethereum,
-				cycle: 0,
+				cycle: 1,
 				function: Function::EvmViewCall {
 					address: Default::default(),
 					input: Default::default(),
@@ -56,22 +73,45 @@ sp_api::mock_impl_runtime_apis! {
 				period: 0,
 				start: 0,
 				timegraph: None,
-			})
+				})
+			} else {
+				Some(TaskDescriptor{
+				owner: Some(AccountId32::new([0u8; 32])),
+				network: Network::Ethereum,
+				cycle: 1,
+				function: Function::SendMessage {
+					address: Default::default(),
+					gas_limit: Default::default(),
+					salt: Default::default(),
+					payload: Default::default(),
+				},
+				period: 0,
+				start: 0,
+				timegraph: None,
+				})
+			}
 		}
 		fn get_task_signature(_: TaskId) -> Option<TssSignature>{
-			None
+			Some([0; 64])
 		}
 		fn get_task_cycle(_: TaskId) -> TaskCycle{
 			0
 		}
-		fn get_task_phase(_: TaskId) -> TaskPhase{
-			TaskPhase::Read(None)
+		fn get_task_phase(task_id: TaskId) -> TaskPhase{
+			if task_id == 1 {
+				TaskPhase::Read(None)
+			}else {
+				GMP_TASK_PHASE.lock().unwrap().clone()
+			}
 		}
 		fn get_task_results(_: TaskId, _: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{
 			vec![]
 		}
 		fn get_task_shard(_: TaskId) -> Option<ShardId>{
 			None
+		}
+		fn get_gateway(_: Network) -> Option<Vec<u8>> {
+			Some([0; 20].into())
 		}
 	}
 
@@ -132,6 +172,7 @@ impl TaskSpawner for MockTask {
 		_: Vec<u8>,
 		_: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Write(get_mock_pubkey().into());
 		future::ready(Ok(())).boxed()
 	}
 
@@ -141,6 +182,7 @@ impl TaskSpawner for MockTask {
 		_: TaskId,
 		_: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Read(None);
 		future::ready(Ok(())).boxed()
 	}
 }
@@ -191,8 +233,7 @@ impl AccountInterface for MockSubxt {
 	fn increment_nonce(&self) {}
 
 	fn public_key(&self) -> PublicKey {
-		let bytes = [0; 32];
-		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+		get_mock_pubkey()
 	}
 
 	fn account_id(&self) -> AccountId {
@@ -257,6 +298,55 @@ async fn task_executor_smoke() -> Result<()> {
 				break;
 			}
 		}
+	}
+	Ok(())
+}
+#[tokio::test]
+async fn gmp_smoke() -> Result<()> {
+	env_logger::try_init().ok();
+
+	let (mut client, _) = {
+		let builder = TestClientBuilder::with_default_backend();
+		let backend = builder.backend();
+		let (client, _) = builder.build_with_longest_chain();
+		(Arc::new(client), backend)
+	};
+	let api = Arc::new(MockApi);
+
+	let substrate = Substrate::new(
+		false,
+		OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		client.clone(),
+		api,
+		MockSubxt {},
+	);
+
+	//import block
+	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	let dummy_block_hash = block.header.hash();
+
+	let task_spawner = MockTask::new(true);
+
+	let params = TaskExecutorParams {
+		task_spawner,
+		network: Network::Ethereum,
+		substrate: substrate.clone(),
+	};
+
+	let mut task_executor = TaskExecutor::new(params);
+
+	loop {
+		task_executor.process_tasks(dummy_block_hash, 1, 2, 1).unwrap();
+		tracing::info!("Watching for result");
+		let Some(status) = TASK_STATUS.lock().unwrap().pop() else {
+			tokio::time::sleep(Duration::from_secs(5)).await;
+			tracing::info!("task phase {:?}", GMP_TASK_PHASE.lock().unwrap());
+			continue;
+		};
+		tracing::info!("Task passed");
+		assert!(status);
+		break;
 	}
 	Ok(())
 }

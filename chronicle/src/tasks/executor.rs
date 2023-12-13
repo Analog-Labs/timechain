@@ -39,7 +39,7 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	S: Tasks + SubstrateClient,
+	S: Tasks + Shards + SubstrateClient,
 	T: TaskSpawner,
 {
 	fn network(&self) -> Network {
@@ -57,7 +57,7 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
-		self.process_tasks(block_hash, block_number, shard_id, target_block_height)
+		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
 	}
 }
 

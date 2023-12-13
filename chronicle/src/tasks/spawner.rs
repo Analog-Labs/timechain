@@ -194,7 +194,7 @@ where
 				};
 				timegraph
 					.submit_data(TimegraphData {
-						collection: hex::encode(&collection),
+						collection: hex::encode(collection),
 						task_id,
 						task_cycle,
 						target_block_number: target_block,

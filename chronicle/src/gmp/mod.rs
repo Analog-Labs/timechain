@@ -5,7 +5,7 @@ use time_primitives::{Function, Network, ShardId, TssPublicKey, TssSignature};
 use types::{Eip712Ext, GmpMessage, SignableMessage, Signature, TssKey, UpdateKeysMessage};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct MessageBuilder {
+pub struct MessageBuilder {
 	pub shard_id: ShardId,
 	pub chain_id: u64,
 	pub tss_public_key: TssKey,
@@ -81,7 +81,7 @@ enum TypedMessage {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Message {
+pub struct Message {
 	chain_id: u64,
 	gateway_contract: Address,
 	tss_public_key: TssKey,

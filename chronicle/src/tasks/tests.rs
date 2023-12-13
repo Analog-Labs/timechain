@@ -153,14 +153,24 @@ impl TaskSpawner for MockTask {
 	fn execute_read(
 		&self,
 		_target_block: u64,
-		_shard_id: ShardId,
+		shard_id: ShardId,
 		_task_id: TaskId,
 		_cycle: TaskCycle,
-		_function: Function,
+		function: Function,
 		_hash: Option<[u8; 32]>,
 		_block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		TASK_STATUS.lock().unwrap().push(self.is_ok);
+		if shard_id == 1 {
+			TASK_STATUS.lock().unwrap().push(self.is_ok);
+		}
+
+		if shard_id == 2 {
+			let tx_receipt: Vec<u8> = [0; 32].into();
+			let is_receipt_valid =
+				matches!(function, Function::EvmTxReceipt { tx } if tx == tx_receipt);
+			TASK_STATUS.lock().unwrap().push(is_receipt_valid);
+		}
+
 		future::ready(Ok(())).boxed()
 	}
 
@@ -182,7 +192,7 @@ impl TaskSpawner for MockTask {
 		_: TaskId,
 		_: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Read(None);
+		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Read(Some([0; 32].into()));
 		future::ready(Ok(())).boxed()
 	}
 }
@@ -344,7 +354,6 @@ async fn gmp_smoke() -> Result<()> {
 			tracing::info!("task phase {:?}", GMP_TASK_PHASE.lock().unwrap());
 			continue;
 		};
-		tracing::info!("Task passed");
 		assert!(status);
 		break;
 	}

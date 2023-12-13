@@ -172,7 +172,7 @@ impl TaskSpawner for MockTask {
 		_: Vec<u8>,
 		_: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Write(get_mock_pubkey().into());
+		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Write(get_mock_pubkey());
 		future::ready(Ok(())).boxed()
 	}
 

@@ -17,9 +17,7 @@ pub struct MockShardInterface;
 
 impl ShardsInterface for MockShardInterface {
 	fn is_shard_online(id: ShardId) -> bool {
-		task_schedule::NetworkShards::<Test>::iter()
-			.find(|(_, s, _)| s == &id)
-			.is_some()
+		task_schedule::NetworkShards::<Test>::iter().any(|(_, s, _)| s == id)
 	}
 
 	fn is_shard_member(_: &AccountId) -> bool {

@@ -24,44 +24,13 @@ struct Args {
 #[derive(Parser, Debug)]
 enum TestCommand {
 	Basic,
-	BasicSign,
 	BatchTask { tasks: u64, max_cycle: u64 },
-	NodeDropTest,
 	KeyRecovery { nodes: u8 },
 	ShardRestart,
 	DeployContract,
+	Gmp,
 	FundWallet,
-	InsertTask(InsertTaskParams),
-	InsertSignTask(InsertSignTaskParams),
 	WatchTask { task_id: u64 },
-}
-
-#[derive(Parser, Debug)]
-struct InsertSignTaskParams {
-	#[arg(default_value_t = 2)]
-	cycle: u64,
-	#[arg(default_value_t = 20)]
-	start: u64,
-	#[arg(default_value_t = 2)]
-	period: u64,
-	#[arg(default_value_t = String::new())]
-	contract_address: String,
-	#[arg(default_value_t = String::new())]
-	payload: String,
-}
-
-#[derive(Parser, Debug)]
-struct InsertTaskParams {
-	#[arg(default_value_t=String::from(""))]
-	address: String,
-	#[arg(default_value_t = 2)]
-	cycle: u64,
-	#[arg(default_value_t = 20)]
-	start: u64,
-	#[arg(default_value_t = 2)]
-	period: u64,
-	#[arg(default_value_t = false)]
-	is_payable: bool,
 }
 
 #[tokio::main]
@@ -77,23 +46,19 @@ async fn main() {
 		break api;
 	};
 
+	let eth_config = WalletConfig {
+		blockchain: Blockchain::Ethereum,
+		network: "dev".to_string(),
+		url: "ws://ethereum:8545".to_string(),
+	};
+	let astar_config = WalletConfig {
+		blockchain: Blockchain::Astar,
+		network: "dev".to_string(),
+		url: "ws://astar:9944".to_string(),
+	};
 	let (network, config) = match args.network.as_str() {
-		"ethereum" => (
-			Network::Ethereum,
-			WalletConfig {
-				blockchain: Blockchain::Ethereum,
-				network: "dev".to_string(),
-				url: "ws://ethereum:8545".to_string(),
-			},
-		),
-		"astar" => (
-			Network::Astar,
-			WalletConfig {
-				blockchain: Blockchain::Astar,
-				network: "dev".to_string(),
-				url: "ws://astar:9944".to_string(),
-			},
-		),
+		"ethereum" => (Network::Ethereum, eth_config.clone()),
+		"astar" => (Network::Astar, astar_config.clone()),
 		network => panic!("unsupported network {}", network),
 	};
 
@@ -101,14 +66,8 @@ async fn main() {
 		TestCommand::Basic => {
 			basic_test_timechain(&api, network, &config).await;
 		},
-		TestCommand::BasicSign => {
-			basic_sign_test(&api, network, &config).await;
-		},
 		TestCommand::BatchTask { tasks, max_cycle } => {
 			batch_test(&api, tasks, max_cycle, &config).await;
-		},
-		TestCommand::NodeDropTest => {
-			node_drop_test(&api, &config).await;
 		},
 		TestCommand::KeyRecovery { nodes } => {
 			key_recovery_after_drop(&api, &config, nodes).await;
@@ -120,55 +79,53 @@ async fn main() {
 			fund_wallet(&config).await;
 		},
 		TestCommand::DeployContract => {
-			if let Err(e) = deploy_contract(&config).await {
+			if let Err(e) = deploy_contract(&config, false).await {
 				println!("error {:?}", e);
 			}
-		},
-		TestCommand::InsertTask(params) => {
-			insert_evm_task(
-				&api,
-				params.address,
-				params.cycle,
-				params.start,
-				params.period,
-				network,
-				params.is_payable,
-			)
-			.await
-			.unwrap();
-		},
-		TestCommand::InsertSignTask(params) => {
-			insert_sign_task(
-				&api,
-				params.cycle,
-				params.start,
-				params.period,
-				network,
-				params.contract_address.into_bytes().to_vec(),
-				params.payload.into_bytes().to_vec(),
-			)
-			.await
-			.unwrap();
 		},
 		TestCommand::WatchTask { task_id } => {
 			while !watch_task(&api, task_id).await {
 				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 			}
 		},
+		TestCommand::Gmp => process_gmp_task(&api, &eth_config, &astar_config).await,
+	}
+}
+
+async fn process_gmp_task(
+	api: &SubxtClient,
+	eth_config: &WalletConfig,
+	astar_config: &WalletConfig,
+) {
+	let (eth_contract_address_gmp, eth_start_block_gmp) = setup_env(eth_config, true).await;
+	let (eth_contract_address, _eth_start_block) = setup_env(eth_config, false).await;
+	println!("Setup for eth done");
+	let (astar_contract_address_gmp, astar_start_block_gmp) = setup_env(astar_config, true).await;
+	println!("Setup for astar done");
+
+	let eth_shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
+	let astar_shard_id = Shards::get_shard_id(api, Network::Astar).await;
+	while !Shards::is_shard_online(api, eth_shard_id).await {
+		println!("Waiting for eth shard to go online");
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+	while !Shards::is_shard_online(api, astar_shard_id).await {
+		println!("Waiting for astar shard to go online");
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }
 
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
-	let task_id = insert_evm_task(
+	let call = create_evm_view_call(contract_address.clone());
+	let task_id = insert_task(
 		api,
-		contract_address.clone(),
 		2, //cycle
 		start_block,
 		2, //period
 		network.clone(),
-		false,
+		call,
 	)
 	.await
 	.unwrap();
@@ -176,47 +133,26 @@ async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &Wall
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
-	let task_id = insert_evm_task(api, contract_address, 1, start_block, 0, network, true)
-		.await
-		.unwrap();
-	while !watch_task(api, task_id).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-	}
-}
-
-async fn basic_sign_test(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
-
-	let task_id = insert_sign_task(
-		api,
-		2, //cycle
-		2, //period
-		start_block,
-		network.clone(),
-		contract_address.clone().into(),
-		"vote_yes()".into(), //payload
-	)
-	.await
-	.unwrap();
+	let paid_call = create_evm_call(contract_address);
+	let task_id = insert_task(api, 1, start_block, 0, network, paid_call).await.unwrap();
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }
 
 async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
 	let mut task_ids = vec![];
-
+	let call = create_evm_view_call(contract_address);
 	for _ in 0..total_tasks {
-		let task_id = insert_evm_task(
+		let task_id = insert_task(
 			api,
-			contract_address.clone(),
 			max_cycle,
 			start_block,
 			2, //period
 			Network::Ethereum,
-			false,
+			call.clone(),
 		)
 		.await
 		.unwrap();
@@ -227,41 +163,17 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 	}
 }
 
-async fn node_drop_test(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
-
-	let task_id = insert_evm_task(
-		api,
-		contract_address.clone(),
-		5, //cycle
-		start_block,
-		5, //period
-		Network::Ethereum,
-		false,
-	)
-	.await
-	.unwrap();
-	//wait for some cycles to run
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-	//drop 1 node
-	drop_node("testnet-validator1-1".to_string());
-	//watch task
-	while !watch_task(api, task_id).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-	}
-}
-
 async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
-	let task_id = insert_evm_task(
+	let call = create_evm_view_call(contract_address);
+	let task_id = insert_task(
 		api,
-		contract_address.clone(),
 		10, //cycle
 		start_block,
 		5, //period
 		Network::Ethereum,
-		false,
+		call,
 	)
 	.await
 	.unwrap();
@@ -269,20 +181,21 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
 	// drop 2 nodes
-	drop_node("testnet-validator1-1".to_string());
-	drop_node("testnet-validator2-1".to_string());
+	drop_node("testnet-chronicle-eth1-1".to_string());
+	drop_node("testnet-chronicle-eth1-1".to_string());
 	println!("dropped 2 nodes");
 
 	// wait for some time
-	while Shards::is_shard_online(api, Network::Ethereum).await {
+	let shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
+	while Shards::is_shard_online(api, shard_id).await {
 		println!("Waiting for shard offline");
 		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;
 	}
 	println!("Shard is offline, starting nodes");
 
 	// start nodes again
-	start_node("validator1".to_string());
-	start_node("validator2".to_string());
+	start_node("testnet-chronicle-eth1-1".to_string());
+	start_node("testnet-chronicle-eth1-1".to_string());
 
 	// watch task
 	while !watch_task(api, task_id).await {
@@ -291,16 +204,16 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 }
 
 async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
-	let (contract_address, start_block) = setup_env(config).await;
+	let (contract_address, start_block) = setup_env(config, false).await;
 
-	let task_id = insert_evm_task(
+	let call = create_evm_view_call(contract_address);
+	let task_id = insert_task(
 		api,
-		contract_address.clone(),
 		10, //cycle
 		start_block,
 		2, //period
 		Network::Ethereum,
-		false,
+		call,
 	)
 	.await
 	.unwrap();

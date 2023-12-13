@@ -23,14 +23,22 @@ services:
     command:
     - '--dev'
     - '--ipcdisable'
-    - '--dev.period=14'
+    - '--dev.period=2'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
     - '--ws'
     - '--ws.addr=0.0.0.0'
     - '--ws.port=8545'
     - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
     profiles:
     - ethereum
+    ports:
+    - 8545:8545
 
   astar:
     image: "staketechnologies/astar-collator:latest"
@@ -110,6 +118,7 @@ services:
     - '/var/run/docker.sock:/var/run/docker.sock'
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
+    - './contracts/gateway.sol:/etc/gateway.sol:ro'
 
   prometheus:
     image: prom/prometheus:v2.36.2

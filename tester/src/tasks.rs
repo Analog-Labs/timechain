@@ -60,7 +60,7 @@ pub fn create_register_shard_call(shard_id: u64) -> Function {
 
 pub fn create_send_msg_call(
 	address: String,
-	function: String,
+	function: &str,
 	salt: [u8; 32],
 	gas_limit: u64,
 ) -> Function {

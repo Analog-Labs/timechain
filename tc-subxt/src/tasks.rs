@@ -7,11 +7,15 @@ use timechain_runtime::runtime_types::time_primitives::task;
 use timechain_runtime::runtime_types::time_primitives::task::{
 	TaskDescriptor, TaskDescriptorParams, TaskStatus,
 };
-use timechain_runtime::tasks::calls::types::CreateTask;
+use timechain_runtime::tasks::calls::types::{CreateTask, RegisterGateway};
 
 impl SubxtClient {
 	pub fn create_task_payload(task: TaskDescriptorParams) -> Payload<CreateTask> {
 		timechain_runtime::tx().tasks().create_task(task)
+	}
+
+	pub fn create_register_gateway(shard_id: u64, address: Vec<u8>) -> Payload<RegisterGateway> {
+		timechain_runtime::tx().tasks().register_gateway(shard_id, address)
 	}
 
 	pub async fn get_tasks(&self) -> Result<StreamOfResults<(Vec<u8>, TaskDescriptor)>> {

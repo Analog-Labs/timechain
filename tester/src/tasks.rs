@@ -58,6 +58,20 @@ pub fn create_register_shard_call(shard_id: u64) -> Function {
 	Function::RegisterShard { shard_id }
 }
 
+pub fn create_send_msg_call(
+	address: String,
+	payload: Vec<u8>,
+	salt: [u8; 32],
+	gas_limit: u64,
+) -> Function {
+	Function::SendMessage {
+		address: get_eth_address_to_bytes(&address),
+		payload,
+		salt,
+		gas_limit,
+	}
+}
+
 pub async fn insert_task(
 	api: &SubxtClient,
 	cycle: u64,
@@ -91,6 +105,7 @@ pub async fn register_gateway_address(
 		SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
 	let events = api.sign_and_submit_watch(&payload).await?;
 	let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
+	println!("Gateway registered with event {:?}", gateway_event);
 	Ok(())
 }
 

@@ -280,4 +280,4 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
-
+}

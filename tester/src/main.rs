@@ -98,7 +98,7 @@ async fn process_gmp_task(
 	astar_config: &WalletConfig,
 ) {
 	let (eth_contract_address_gmp, eth_start_block_gmp) = setup_env(eth_config, true).await;
-	let (eth_contract_address, _eth_start_block) = setup_env(eth_config, false).await;
+	let (_eth_contract_address, _eth_start_block) = setup_env(eth_config, false).await;
 	println!("Setup for eth done");
 	let (astar_contract_address_gmp, astar_start_block_gmp) = setup_env(astar_config, true).await;
 	println!("Setup for astar done");
@@ -115,10 +115,12 @@ async fn process_gmp_task(
 	}
 
 	//register gateway here:
-	let register_eth_gateway =
-		register_gateway_address(api, eth_shard_id, &eth_contract_address_gmp).await;
-	let register_astar_gateway =
-		register_gateway_address(api, astar_shard_id, &astar_contract_address_gmp).await;
+	register_gateway_address(api, eth_shard_id, &eth_contract_address_gmp)
+		.await
+		.unwrap();
+	register_gateway_address(api, astar_shard_id, &astar_contract_address_gmp)
+		.await
+		.unwrap();
 
 	let eth_call = create_register_shard_call(eth_shard_id);
 	let astar_call = create_register_shard_call(astar_shard_id);
@@ -143,6 +145,22 @@ async fn process_gmp_task(
 	.await
 	.unwrap();
 	while !watch_batch(api, eth_task_id, 2, 1).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+
+	println!("Registering Send Msg Call");
+	let send_msg = create_send_msg_call(eth_contract_address_gmp, vec![], [1; 32], 10000000);
+	let task_id = insert_task(
+		api,
+		1, //cycle
+		eth_start_block_gmp,
+		0, //period
+		Network::Ethereum,
+		send_msg,
+	)
+	.await
+	.unwrap();
+	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }

@@ -60,13 +60,13 @@ pub fn create_register_shard_call(shard_id: u64) -> Function {
 
 pub fn create_send_msg_call(
 	address: String,
-	payload: Vec<u8>,
+	function: String,
 	salt: [u8; 32],
 	gas_limit: u64,
 ) -> Function {
 	Function::SendMessage {
 		address: get_eth_address_to_bytes(&address),
-		payload,
+		payload: get_evm_function_hash(&function),
 		salt,
 		gas_limit,
 	}

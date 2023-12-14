@@ -149,7 +149,7 @@ async fn process_gmp_task(
 	}
 
 	println!("Registering Send Msg Call");
-	let send_msg = create_send_msg_call(eth_contract_address_gmp, vec![], [1; 32], 10000000);
+	let send_msg = create_send_msg_call(eth_contract_address_gmp, "vote_yes()", [1; 32], 10000000);
 	let task_id = insert_task(
 		api,
 		1, //cycle
@@ -280,4 +280,4 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes
 	while !watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
-}
+

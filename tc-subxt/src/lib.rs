@@ -32,7 +32,7 @@ pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, Shar
 pub use timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
 };
-pub use timechain_runtime::tasks::events::TaskCreated;
+pub use timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 
 pub trait AccountInterface {
 	fn nonce(&self) -> u64;

@@ -1,6 +1,10 @@
 use anyhow::Result;
+use sha3::{Digest, Keccak256};
 use std::collections::{BTreeMap, HashMap};
-use tc_subxt::{Function, Network, SubxtClient, TaskCreated, TaskDescriptorParams, TaskStatus};
+use tc_subxt::{
+	Function, GatewayRegistered, Network, SubxtClient, TaskCreated, TaskDescriptorParams,
+	TaskStatus,
+};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
 	let task_state = api.get_task_state(task_id).await.unwrap();
@@ -37,29 +41,21 @@ pub async fn watch_batch(
 
 pub fn create_evm_call(address: String) -> Function {
 	Function::EvmCall {
-		address,
-		function_signature: "function vote_yes()".to_string(),
-		input: Default::default(),
+		address: get_eth_address_to_bytes(&address),
+		input: get_evm_function_hash("vote_yes()"),
 		amount: 0,
 	}
 }
 
 pub fn create_evm_view_call(address: String) -> Function {
 	Function::EvmViewCall {
-		address,
-		function_signature: "function get_votes_stats() external view returns (uint[] memory)"
-			.to_string(),
-		input: Default::default(),
+		address: get_eth_address_to_bytes(&address),
+		input: get_evm_function_hash("get_votes_stats()"),
 	}
 }
 
-pub fn create_gmp_register_call(address: String, input: Vec<String>) -> Function {
-	Function::EvmCall {
-		address,
-		function_signature: "rawSudoUpdateTSSKeys(uint8[],uint256[],uint8[],uint256[])".to_string(),
-		input,
-		amount: 0,
-	}
+pub fn create_register_shard_call(shard_id: u64) -> Function {
+	Function::RegisterShard { shard_id }
 }
 
 pub async fn insert_task(
@@ -76,7 +72,7 @@ pub async fn insert_task(
 		cycle,
 		start,
 		period,
-		hash: "".to_string(),
+		timegraph: Some([0; 32]),
 	};
 	let payload = SubxtClient::create_task_payload(params);
 	let events = api.sign_and_submit_watch(&payload).await?;
@@ -84,4 +80,30 @@ pub async fn insert_task(
 	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
 	println!("Task registered: {:?}", id);
 	Ok(id)
+}
+
+pub async fn register_gateway_address(
+	api: &SubxtClient,
+	shard_id: u64,
+	address: &str,
+) -> Result<()> {
+	let payload =
+		SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
+	let events = api.sign_and_submit_watch(&payload).await?;
+	let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
+	Ok(())
+}
+
+fn get_evm_function_hash(arg: &str) -> Vec<u8> {
+	let mut hasher = Keccak256::new();
+	hasher.update(arg);
+	let hash = hasher.finalize();
+	hash[..4].into()
+}
+
+fn get_eth_address_to_bytes(address: &str) -> [u8; 20] {
+	let mut eth_bytes = [0u8; 20];
+	let trimmed_address = address.trim_start_matches("0x");
+	hex::decode_to_slice(trimmed_address, &mut eth_bytes).unwrap();
+	eth_bytes
 }

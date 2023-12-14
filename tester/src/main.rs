@@ -113,6 +113,38 @@ async fn process_gmp_task(
 		println!("Waiting for astar shard to go online");
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
+
+	//register gateway here:
+	let register_eth_gateway =
+		register_gateway_address(api, eth_shard_id, &eth_contract_address_gmp).await;
+	let register_astar_gateway =
+		register_gateway_address(api, astar_shard_id, &astar_contract_address_gmp).await;
+
+	let eth_call = create_register_shard_call(eth_shard_id);
+	let astar_call = create_register_shard_call(astar_shard_id);
+	let eth_task_id = insert_task(
+		api,
+		1, //cycle
+		eth_start_block_gmp,
+		0, //period
+		Network::Ethereum,
+		eth_call,
+	)
+	.await
+	.unwrap();
+	let _astar_task_id = insert_task(
+		api,
+		1, //cycle
+		astar_start_block_gmp,
+		0, //period
+		Network::Astar,
+		astar_call,
+	)
+	.await
+	.unwrap();
+	while !watch_batch(api, eth_task_id, 2, 1).await {
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
 }
 
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {

@@ -14,8 +14,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use schnorr_evm::VerifyingKey;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_std::vec;
 	use sp_std::vec::Vec;
-	use sp_std::{if_std, vec};
 	use time_primitives::{
 		append_hash_with_task_data, AccountId, Function, Network, ShardId, ShardsInterface,
 		TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId,
@@ -546,7 +546,8 @@ pub mod pallet {
 						}
 					});
 				let Some((shard_id, _)) = shard else {
-					break;
+					// on gmp task sometimes returns none and it stops every other schedule
+					continue;
 				};
 
 				if Self::is_payable(task_id)
@@ -622,6 +623,8 @@ pub mod pallet {
 					None,
 				)
 				.unwrap();
+			} else {
+				Self::schedule_tasks(network);
 			}
 		}
 	}

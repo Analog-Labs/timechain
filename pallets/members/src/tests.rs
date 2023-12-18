@@ -26,6 +26,8 @@ fn register_member_works() {
 		System::assert_last_event(Event::<Test>::MemberOnline(a.clone()).into());
 		assert_eq!(Members::member_peer_id(&a), Some(A));
 		assert_eq!(MemberStake::<Test>::get(&a), 5);
+		assert_eq!(Balances::reserved_balance(&a), 5);
+		assert_eq!(Balances::free_balance(&a), 9999999995);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));
 		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
@@ -173,6 +175,25 @@ fn cannot_unregister_if_not_member() {
 }
 
 #[test]
+fn cannot_unregister_twice() {
+	new_test_ext().execute_with(|| {
+		let a: AccountId = A.into();
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(a.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(A),
+			A,
+			5,
+		));
+		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into()),);
+		assert_noop!(
+			Members::unregister_member(RawOrigin::Signed(a.clone()).into()),
+			Error::<Test>::NotMember
+		);
+	});
+}
+
+#[test]
 fn unregister_member_works() {
 	new_test_ext().execute_with(|| {
 		let a: AccountId = A.into();
@@ -187,6 +208,8 @@ fn unregister_member_works() {
 		System::assert_last_event(Event::<Test>::MemberOffline(a.clone()).into());
 		assert_eq!(Members::member_peer_id(&a), None);
 		assert_eq!(MemberStake::<Test>::get(&a), 0);
+		assert_eq!(Balances::reserved_balance(&a), 0);
+		assert_eq!(Balances::free_balance(&a), 10000000000);
 		assert_eq!(MemberPeerId::<Test>::get(&a), None);
 		assert_eq!(MemberNetwork::<Test>::get(&a), None);
 		assert!(Heartbeat::<Test>::get(&a).is_none());

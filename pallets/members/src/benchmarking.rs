@@ -12,7 +12,7 @@ fn public_key() -> PublicKey {
 
 benchmarks! {
 	register_member {
-	}: _(RawOrigin::Signed(ALICE.into()), Network::Ethereum, public_key(), ALICE)
+	}: _(RawOrigin::Signed(ALICE.into()), Network::Ethereum, public_key(), <T as Config>::MinStake::get())
 	verify { }
 
 	send_heartbeat {

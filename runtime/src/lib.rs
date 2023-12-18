@@ -1134,6 +1134,8 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
+	type Currency = Balances;
+	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU32<50>;
 }
 

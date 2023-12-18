@@ -60,18 +60,21 @@ fn write_phase_timeout_reassigns_task() {
 			Network::Ethereum,
 			pubkey_from_bytes(A),
 			A,
+			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			Network::Ethereum,
 			pubkey_from_bytes(B),
 			B,
+			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			Network::Ethereum,
 			pubkey_from_bytes(C),
 			C,
+			5,
 		));
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),

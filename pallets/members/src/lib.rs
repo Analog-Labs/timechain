@@ -126,7 +126,6 @@ pub mod pallet {
 			ensure!(member == public_key.clone().into_account(), Error::<T>::InvalidPublicKey);
 			ensure!(MemberNetwork::<T>::get(&member).is_none(), Error::<T>::AlreadyMember);
 			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
-			// TODO: unreserve for all members when shard goes offline
 			T::Currency::reserve(&member, bond)?;
 			MemberStake::<T>::insert(&member, bond);
 			MemberNetwork::<T>::insert(&member, network);

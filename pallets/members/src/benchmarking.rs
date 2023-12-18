@@ -20,5 +20,10 @@ benchmarks! {
 	}: _(RawOrigin::Signed(ALICE.into()))
 	verify { }
 
+	unregister_member {
+		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), Network::Ethereum, public_key(), ALICE);
+	}: _(RawOrigin::Signed(ALICE.into()))
+	verify { }
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

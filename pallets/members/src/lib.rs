@@ -22,6 +22,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn register_member() -> Weight;
 		fn send_heartbeat() -> Weight;
+		fn unregister_member() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -29,6 +30,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn send_heartbeat() -> Weight {
+			Weight::default()
+		}
+		fn unregister_member() -> Weight {
 			Weight::default()
 		}
 	}
@@ -77,7 +81,7 @@ pub mod pallet {
 	/// Get stake for member
 	#[pallet::storage]
 	pub type MemberStake<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, BalanceOf<T>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, AccountId, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -86,6 +90,7 @@ pub mod pallet {
 		HeartbeatReceived(AccountId),
 		MemberOnline(AccountId),
 		MemberOffline(AccountId),
+		UnRegisteredMember(AccountId, Network),
 	}
 
 	#[pallet::error]
@@ -155,6 +160,20 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::unregister_member())]
+		pub fn unregister_member(origin: OriginFor<T>) -> DispatchResult {
+			let member = ensure_signed(origin)?;
+			let network = MemberNetwork::<T>::take(&member).ok_or(Error::<T>::NotMember)?;
+			T::Currency::unreserve(&member, MemberStake::<T>::take(&member));
+			MemberPublicKey::<T>::remove(&member);
+			MemberPeerId::<T>::remove(&member);
+			Heartbeat::<T>::remove(&member);
+			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
+			Self::member_offline(&member);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -180,7 +199,7 @@ pub mod pallet {
 	impl<T: Config> MemberStorage for Pallet<T> {
 		type Balance = BalanceOf<T>;
 		fn member_stake(account: &AccountId) -> BalanceOf<T> {
-			MemberStake::<T>::get(account).unwrap_or_default()
+			MemberStake::<T>::get(account)
 		}
 
 		fn member_peer_id(account: &AccountId) -> Option<PeerId> {

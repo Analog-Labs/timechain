@@ -3,12 +3,13 @@ use crate::*;
 use frame_support::traits::WhitelistedStorageKeys;
 use frame_support::{assert_ok, traits::OnInitialize};
 use frame_system::RawOrigin;
+use pallet_shards::ShardMembers;
 use pallet_tasks::TaskPhaseState;
 use sp_core::hexdisplay::HexDisplay;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, Function, Network, PublicKey, ShardStatus, ShardsInterface, TaskDescriptorParams,
-	TaskPhase, TasksInterface,
+	AccountId, ElectionsInterface, Function, Network, PublicKey, ShardStatus, ShardsInterface,
+	TaskDescriptorParams, TaskPhase, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -21,15 +22,18 @@ fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 const A: [u8; 32] = [1u8; 32];
 const B: [u8; 32] = [2u8; 32];
 const C: [u8; 32] = [3u8; 32];
+const D: [u8; 32] = [4u8; 32];
 
 // Build genesis storage according to the mock runtime.
 fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
+	let mut balances = vec![];
+	for i in 1..=SHARD_SIZE + 1 {
+		balances.push((acc_pub(i.try_into().unwrap()).into(), 10_000_000_000));
 	}
-	.assimilate_storage(&mut storage)
-	.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> { balances }
+		.assimilate_storage(&mut storage)
+		.unwrap();
 	pallet_elections::GenesisConfig::<Runtime>::default()
 		.assimilate_storage(&mut storage)
 		.unwrap();
@@ -45,6 +49,53 @@ fn roll_to(n: u32) {
 		System::set_block_number(i);
 		Tasks::on_initialize(i);
 	}
+}
+
+#[test]
+fn elections_chooses_top_members_by_stake() {
+	let a: AccountId = A.into();
+	let b: AccountId = B.into();
+	let c: AccountId = C.into();
+	let d: AccountId = D.into();
+	let first_shard = [c.clone(), b.clone(), a.clone()].to_vec();
+	let second_shard = [d.clone(), c.clone(), b.clone()].to_vec();
+	new_test_ext().execute_with(|| {
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(a.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(A),
+			A,
+			5,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(b.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(B),
+			B,
+			6,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(c.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(C),
+			C,
+			7,
+		));
+		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
+			assert!(first_shard.contains(&m));
+		}
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(d.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(D),
+			D,
+			8,
+		));
+		Elections::shard_offline(Network::Ethereum, vec![a.clone(), b.clone(), c.clone()]);
+		for (m, _) in ShardMembers::<Runtime>::iter_prefix(1) {
+			assert!(second_shard.contains(&m));
+		}
+	});
 }
 
 #[test]

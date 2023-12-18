@@ -91,6 +91,8 @@ pub trait MemberEvents {
 }
 
 pub trait MemberStorage {
+	type Balance: Ord;
+	fn member_stake(account: &AccountId) -> Self::Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;

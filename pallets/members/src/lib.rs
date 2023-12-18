@@ -178,6 +178,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberStorage for Pallet<T> {
+		type Balance = BalanceOf<T>;
+		fn member_stake(account: &AccountId) -> BalanceOf<T> {
+			MemberStake::<T>::get(account).unwrap_or_default()
+		}
+
 		fn member_peer_id(account: &AccountId) -> Option<PeerId> {
 			MemberPeerId::<T>::get(account)
 		}

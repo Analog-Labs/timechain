@@ -147,10 +147,10 @@ pub mod pallet {
 			}
 			// else members.len() > shard_members_len:
 			members.sort_unstable_by(|a, b| {
-				T::Members::member_stake(&a)
-					.cmp(&T::Members::member_stake(&b))
+				T::Members::member_stake(a)
+					.cmp(&T::Members::member_stake(b))
 					// sort by AccountId iff amounts are equal to uphold determinism
-					.then_with(|| a.cmp(&b))
+					.then_with(|| a.cmp(b))
 					.reverse()
 			});
 			Some(members.into_iter().take(shard_members_len).collect())

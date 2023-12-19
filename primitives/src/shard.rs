@@ -44,8 +44,11 @@ impl Network {
 	// code which also depends on ethereum.
 	#[must_use]
 	pub const fn eip155_chain_id(&self) -> u64 {
+		if cfg!(feature = "use-local-testnode") {
+			return 1337;
+		}
 		match self {
-			Self::Ethereum => 1337,
+			Self::Ethereum => 1,
 			Self::Astar => 592,
 			Self::Polygon => 137,
 		}

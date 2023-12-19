@@ -64,7 +64,7 @@ frame-benchmarking-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.gi
 
 # Local Dependencies
 chronicle = { path = "../chronicle" }
-time-primitives = { path = "../primitives" , features = ["use-local-testnode"]}
+time-primitives = { path = "../primitives" }
 timechain-runtime = { path = "../runtime", version = "0.0.1" }
 
 # CLI-specific dependencies
@@ -80,3 +80,5 @@ runtime-benchmarks = ["frame-benchmarking-cli/runtime-benchmarks", "frame-benchm
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = ["timechain-runtime/try-runtime", "try-runtime-cli"]
+# Enabled EIP155_chain_id to be 1 with below feature
+local-testnode = ["time-primitives/use-local-testnode"]

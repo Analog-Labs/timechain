@@ -32,7 +32,7 @@ pub(crate) async fn deploy_contract(
 	let bytes = if let Some(gmp_bytes) = gmp_params {
 		let mut gateway_bytes = compile_file("/etc/gateway.sol")?;
 		gateway_bytes.extend(gmp_bytes);
-		gateway_bytes.into()
+		gateway_bytes
 	} else {
 		compile_file("/etc/test_contract.sol")?
 	};

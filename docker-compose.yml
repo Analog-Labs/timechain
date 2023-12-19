@@ -52,6 +52,7 @@ services:
     - ethereum
     ports:
     - 8545:8545
+
   astar:
     image: "staketechnologies/astar-collator:latest"
     command:

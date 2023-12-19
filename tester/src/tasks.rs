@@ -62,7 +62,7 @@ pub fn create_send_msg_call(
 ) -> Function {
 	Function::SendMessage {
 		address: get_eth_address_to_bytes(&address),
-		payload: get_evm_function_hash(&function),
+		payload: get_evm_function_hash(function),
 		salt,
 		gas_limit,
 	}

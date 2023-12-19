@@ -115,7 +115,7 @@ async fn process_gmp_task(
 
 	let (eth_contract_address_gmp, eth_start_block_gmp) =
 		setup_env(eth_config, Some(eth_constructor_params)).await;
-	let (_eth_contract_address, _eth_start_block) = setup_env(eth_config, None).await;
+	let (eth_contract_address, _eth_start_block) = setup_env(eth_config, None).await;
 	println!("Setup for eth done");
 	let (astar_contract_address_gmp, _astar_start_block_gmp) =
 		setup_env(astar_config, Some(astar_constructor_params)).await;
@@ -129,7 +129,7 @@ async fn process_gmp_task(
 		.await
 		.unwrap();
 
-	let send_msg = create_send_msg_call(eth_contract_address_gmp, "vote_yes()", [1; 32], 10000000);
+	let send_msg = create_send_msg_call(eth_contract_address, "vote_yes()", [1; 32], 10000000);
 	let task_id = insert_task(
 		api,
 		1, //cycle

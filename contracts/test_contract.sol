@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-interface IGmpReceiver {
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external returns (bytes32);
-}
-
-contract VotingMachine is IGmpReceiver{
+contract VotingMachine {
     uint yes_votes;
     uint no_votes;
 
@@ -38,7 +34,7 @@ contract VotingMachine is IGmpReceiver{
     }
 
     // Implementing the IGmpReceiver interface
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external override returns (bytes32) {
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external returns (bytes32) {
         require(payload.length >= 4, "Invalid payload");
         bytes4 sig = bytes4(payload);
         emit GmpReceived(sig);
@@ -54,3 +50,7 @@ contract VotingMachine is IGmpReceiver{
         return bytes32(yes_votes << 128 | no_votes);
     }
 }
+
+// interface IGmpReceiver {
+//     function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external returns (bytes32);
+// }

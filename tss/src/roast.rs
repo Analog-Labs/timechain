@@ -24,12 +24,12 @@ pub struct RoastSignerResponse {
 
 struct RoastSigner {
 	key_package: KeyPackage,
-	data: Vec<u8>,
+	data: [u8; 32],
 	coordinators: BTreeMap<Identifier, SigningNonces>,
 }
 
 impl RoastSigner {
-	pub fn new(key_package: KeyPackage, data: Vec<u8>) -> Self {
+	pub fn new(key_package: KeyPackage, data: [u8; 32]) -> Self {
 		Self {
 			key_package,
 			data,
@@ -37,7 +37,7 @@ impl RoastSigner {
 		}
 	}
 
-	pub fn data(&self) -> &[u8] {
+	pub fn data(&self) -> &[u8; 32] {
 		&self.data
 	}
 
@@ -183,7 +183,7 @@ impl Roast {
 		threshold: u16,
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
-		data: Vec<u8>,
+		data: [u8; 32],
 		coordinators: BTreeSet<Identifier>,
 	) -> Self {
 		let is_coordinator = coordinators.contains(&id);
@@ -260,7 +260,7 @@ mod tests {
 		let signers = 3;
 		let threshold = 2;
 		let coordinator = 1;
-		let data = b"a message to sing".to_vec();
+		let data = [1u8; 32];
 		let (secret_shares, public_key_package) =
 			generate_with_dealer(signers, threshold, IdentifierList::Default, OsRng).unwrap();
 		let coordinators: BTreeSet<_> = secret_shares.keys().copied().take(coordinator).collect();

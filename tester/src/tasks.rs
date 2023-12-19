@@ -54,10 +54,6 @@ pub fn create_evm_view_call(address: String) -> Function {
 	}
 }
 
-pub fn create_register_shard_call(shard_id: u64) -> Function {
-	Function::RegisterShard { shard_id }
-}
-
 pub fn create_send_msg_call(
 	address: String,
 	function: &str,
@@ -103,7 +99,7 @@ pub async fn register_gateway_address(
 ) -> Result<()> {
 	let payload =
 		SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
-	let events = api.sign_and_submit_watch(&payload).await?;
+	let events = api.sudo_sign_and_submit_watch(payload).await?;
 	let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
 	println!("Gateway registered with event {:?}", gateway_event);
 	Ok(())

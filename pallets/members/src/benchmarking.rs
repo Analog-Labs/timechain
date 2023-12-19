@@ -1,6 +1,7 @@
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use time_primitives::{Network, PublicKey};
 
@@ -12,16 +13,16 @@ fn public_key() -> PublicKey {
 
 benchmarks! {
 	register_member {
-	}: _(RawOrigin::Signed(ALICE.into()), Network::Ethereum, public_key(), <T as Config>::MinStake::get())
+	}: _(RawOrigin::Signed(ALICE.into()), Network::Ethereum, public_key(), ALICE, <T as Config>::MinStake::get())
 	verify { }
 
 	send_heartbeat {
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), Network::Ethereum, public_key(), ALICE);
+		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), Network::Ethereum, public_key(), ALICE, <T as Config>::MinStake::get());
 	}: _(RawOrigin::Signed(ALICE.into()))
 	verify { }
 
 	unregister_member {
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), Network::Ethereum, public_key(), ALICE);
+		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), Network::Ethereum, public_key(), ALICE, <T as Config>::MinStake::get());
 	}: _(RawOrigin::Signed(ALICE.into()))
 	verify { }
 

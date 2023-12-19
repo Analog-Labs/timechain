@@ -197,10 +197,9 @@ where
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
-								let msg = msg_builder
-									.build_gmp_message(address, payload, salt, gas_limit);
-								tracing::info!("signing data in write phase {:?}", msg.sighash());
-								msg.into_evm_call(tss_signature)
+								msg_builder
+									.build_gmp_message(address, payload, salt, gas_limit)
+									.into_evm_call(tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check
 								anyhow::bail!(

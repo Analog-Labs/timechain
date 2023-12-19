@@ -64,7 +64,7 @@ frame-benchmarking-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.gi
 
 # Local Dependencies
 chronicle = { path = "../chronicle" }
-time-primitives = { path = "../primitives" }
+time-primitives = { path = "../primitives" , features = ["use-local-testnode"]}
 timechain-runtime = { path = "../runtime", version = "0.0.1" }
 
 # CLI-specific dependencies

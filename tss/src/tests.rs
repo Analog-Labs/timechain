@@ -23,11 +23,11 @@ impl TssEvents {
 		Some(*first)
 	}
 
-	fn assert_signatures(&self, n: usize, pubkey: &VerifyingKey, id: Id, message: &[u8]) {
+	fn assert_signatures(&self, n: usize, pubkey: &VerifyingKey, id: Id, message: [u8; 32]) {
 		let signatures = self.signatures.get(&id).unwrap();
 		assert_eq!(signatures.len(), n);
 		for sig in signatures.values() {
-			pubkey.verify(message, sig).unwrap();
+			pubkey.verify(&message, sig).unwrap();
 		}
 	}
 }
@@ -71,9 +71,9 @@ impl TssTester {
 		}
 	}
 
-	pub fn sign(&mut self, id: u8, data: &[u8]) {
+	pub fn sign(&mut self, id: u8, data: [u8; 32]) {
 		for tss in &mut self.tss {
-			tss.on_sign(id, data.to_vec());
+			tss.on_sign(id, data);
 		}
 	}
 
@@ -152,7 +152,7 @@ fn test_basic() {
 	let n = 3;
 	let t = 3;
 	let sigs = n - t + 1;
-	let msg = b"a message";
+	let msg = [0u8; 32];
 	let mut tester = TssTester::new(n, t);
 	let pubkey = tester.run().assert_pubkeys(n).unwrap();
 	tester.sign(0, msg);
@@ -165,8 +165,8 @@ fn test_multiple_signing_sessions() {
 	let n = 3;
 	let t = 3;
 	let sigs = n - t + 1;
-	let msg_a = b"a message";
-	let msg_b = b"another message";
+	let msg_a = [0u8; 32];
+	let msg_b = [1u8; 32];
 	let mut tester = TssTester::new(n, t);
 	let pubkey = tester.run().assert_pubkeys(n).unwrap();
 	tester.sign(0, msg_a);
@@ -182,7 +182,7 @@ fn test_threshold_sign() {
 	let n = 3;
 	let t = 2;
 	let sigs = n - t + 1;
-	let msg = b"a message";
+	let msg = [0u8; 32];
 	let mut tester = TssTester::new(n, t);
 	let pubkey = tester.run().assert_pubkeys(n).unwrap();
 	tester.sign(0, msg);

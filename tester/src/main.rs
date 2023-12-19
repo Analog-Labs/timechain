@@ -79,7 +79,7 @@ async fn main() {
 			fund_wallet(&config).await;
 		},
 		TestCommand::DeployContract => {
-			if let Err(e) = deploy_contract(&config, false).await {
+			if let Err(e) = deploy_contract(&config, None).await {
 				println!("error {:?}", e);
 			}
 		},
@@ -97,12 +97,6 @@ async fn process_gmp_task(
 	eth_config: &WalletConfig,
 	astar_config: &WalletConfig,
 ) {
-	let (eth_contract_address_gmp, eth_start_block_gmp) = setup_env(eth_config, true).await;
-	let (_eth_contract_address, _eth_start_block) = setup_env(eth_config, false).await;
-	println!("Setup for eth done");
-	let (astar_contract_address_gmp, astar_start_block_gmp) = setup_env(astar_config, true).await;
-	println!("Setup for astar done");
-
 	let eth_shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
 	let astar_shard_id = Shards::get_shard_id(api, Network::Astar).await;
 	while !Shards::is_shard_online(api, eth_shard_id).await {
@@ -114,7 +108,20 @@ async fn process_gmp_task(
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
-	//register gateway here:
+	let eth_public_key = api.shard_public_key(eth_shard_id).await.unwrap();
+	let astar_public_key = api.shard_public_key(astar_shard_id).await.unwrap();
+	let eth_constructor_params = get_gmp_constructor_params(eth_public_key);
+	let astar_constructor_params = get_gmp_constructor_params(astar_public_key);
+
+	let (eth_contract_address_gmp, eth_start_block_gmp) =
+		setup_env(eth_config, Some(eth_constructor_params)).await;
+	let (_eth_contract_address, _eth_start_block) = setup_env(eth_config, None).await;
+	println!("Setup for eth done");
+	let (astar_contract_address_gmp, _astar_start_block_gmp) =
+		setup_env(astar_config, Some(astar_constructor_params)).await;
+	println!("Setup for astar done");
+
+	//register_gateway contract
 	register_gateway_address(api, eth_shard_id, &eth_contract_address_gmp)
 		.await
 		.unwrap();
@@ -122,33 +129,6 @@ async fn process_gmp_task(
 		.await
 		.unwrap();
 
-	let eth_call = create_register_shard_call(eth_shard_id);
-	let astar_call = create_register_shard_call(astar_shard_id);
-	let eth_task_id = insert_task(
-		api,
-		1, //cycle
-		eth_start_block_gmp,
-		0, //period
-		Network::Ethereum,
-		eth_call,
-	)
-	.await
-	.unwrap();
-	let _astar_task_id = insert_task(
-		api,
-		1, //cycle
-		astar_start_block_gmp,
-		0, //period
-		Network::Astar,
-		astar_call,
-	)
-	.await
-	.unwrap();
-	while !watch_batch(api, eth_task_id, 2, 1).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-	}
-
-	println!("Registering Send Msg Call");
 	let send_msg = create_send_msg_call(eth_contract_address_gmp, "vote_yes()", [1; 32], 10000000);
 	let task_id = insert_task(
 		api,
@@ -166,7 +146,7 @@ async fn process_gmp_task(
 }
 
 async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config, None).await;
 
 	let call = create_evm_view_call(contract_address.clone());
 	let task_id = insert_task(
@@ -191,7 +171,7 @@ async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &Wall
 }
 
 async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config, None).await;
 
 	let mut task_ids = vec![];
 	let call = create_evm_view_call(contract_address);
@@ -214,7 +194,7 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 }
 
 async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfig) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config, None).await;
 
 	let call = create_evm_view_call(contract_address);
 	let task_id = insert_task(
@@ -254,7 +234,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 }
 
 async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes_to_restart: u8) {
-	let (contract_address, start_block) = setup_env(config, false).await;
+	let (contract_address, start_block) = setup_env(config, None).await;
 
 	let call = create_evm_view_call(contract_address);
 	let task_id = insert_task(

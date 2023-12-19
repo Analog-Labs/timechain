@@ -69,4 +69,15 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Same as register_member until measured
+	fn unregister_member() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `137`
+		//  Estimated: `6077`
+		// Minimum execution time: 159_569_000 picoseconds.
+		Weight::from_parts(169_016_000, 0)
+			.saturating_add(Weight::from_parts(0, 6077))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
 }

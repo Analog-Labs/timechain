@@ -114,7 +114,7 @@ impl Tss {
 
 	pub fn on_sign(&mut self, request_id: TssId, data: [u8; 32]) {
 		match self {
-			Self::Enabled(tss) => tss.on_sign(request_id, data.into()),
+			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {
 				*actions =
 					Some(tss::TssAction::Signature(request_id, data, key.sign_prehashed(data)));

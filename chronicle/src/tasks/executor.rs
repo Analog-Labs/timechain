@@ -131,13 +131,7 @@ where
 							.sighash(),
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(
-						shard_id,
-						task_id,
-						cycle,
-						payload.to_vec(),
-						block_number,
-					)
+					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -203,9 +197,10 @@ where
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
-								msg_builder
-									.build_gmp_message(address, payload, salt, gas_limit)
-									.into_evm_call(tss_signature)
+								let msg = msg_builder
+									.build_gmp_message(address, payload, salt, gas_limit);
+								tracing::info!("signing data in write phase {:?}", msg.sighash());
+								msg.into_evm_call(tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check
 								anyhow::bail!(

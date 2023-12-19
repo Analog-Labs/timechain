@@ -1,3 +1,5 @@
+use alloy_primitives::U256;
+use alloy_sol_types::{sol, SolValue};
 use anyhow::{Context, Result};
 use ethers_solc::{artifacts::Source, CompilerInput, Solc};
 use rosetta_client::{Blockchain, Wallet};
@@ -12,23 +14,29 @@ pub(crate) struct WalletConfig {
 	pub url: String,
 }
 
-pub(crate) async fn setup_env(config: &WalletConfig, is_gmp: bool) -> (String, u64) {
+pub(crate) async fn setup_env(config: &WalletConfig, gmp_params: Option<Vec<u8>>) -> (String, u64) {
 	fund_wallet(config).await;
-	deploy_contract(config, is_gmp).await.unwrap()
+	deploy_contract(config, gmp_params).await.unwrap()
 }
 
-pub(crate) async fn deploy_contract(config: &WalletConfig, is_gmp: bool) -> Result<(String, u64)> {
+pub(crate) async fn deploy_contract(
+	config: &WalletConfig,
+	gmp_params: Option<Vec<u8>>,
+) -> Result<(String, u64)> {
 	println!("Deploying eth contract");
 	let wallet =
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
 
-	let bytes = if is_gmp {
-		compile_file("/etc/gateway.sol")?
+	let bytes = if let Some(gmp_bytes) = gmp_params {
+		let mut gateway_bytes = compile_file("/etc/gateway.sol")?;
+		gateway_bytes.extend(gmp_bytes);
+		gateway_bytes.into()
 	} else {
 		compile_file("/etc/test_contract.sol")?
 	};
+
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
 	let contract_address = tx_receipt
@@ -42,12 +50,11 @@ pub(crate) async fn deploy_contract(config: &WalletConfig, is_gmp: bool) -> Resu
 }
 
 pub(crate) async fn fund_wallet(config: &WalletConfig) {
-	println!("funding wallet for {:?}", config.blockchain);
 	let wallet =
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
-	println!("{:?}", wallet.public_key());
+	println!("funding wallet for {:?} {:?}", config.blockchain, wallet.account().address);
 	wallet.faucet(1000000000000000000000).await.unwrap();
 }
 
@@ -73,6 +80,24 @@ pub(crate) fn restart_node(node_name: String) {
 		.output()
 		.expect("failed to start node");
 	println!("Restart node {:?}", output.stderr.is_empty());
+}
+
+pub(crate) fn get_gmp_constructor_params(data: [u8; 33]) -> Vec<u8> {
+	let parity_bit = if data[0] % 2 == 0 { 0 } else { 1 };
+	let x_coords = hex::encode(&data[1..]);
+	sol! {
+		#[derive(Debug, PartialEq, Eq)]
+		struct TssKey {
+			uint8 yParity;
+			uint256 xCoord;
+		}
+	}
+
+	let tss_keys = vec![TssKey {
+		yParity: parity_bit,
+		xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+	}];
+	tss_keys.abi_encode_params()
 }
 
 pub(crate) fn compile_file(path: &str) -> Result<Vec<u8>> {

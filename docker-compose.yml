@@ -18,6 +18,19 @@ services:
     ports:
       - 9944:9944
 
+  # ethereum:
+  #   image: 'ethereum/client-go:v1.12.2'
+  #   entrypoint: /home/ethereum/start_eth_testnode.sh
+  #   profiles:
+  #   - ethereum
+  #   volumes:
+  #   - './config/genesis.json:/home/ethereum/genesis.json:ro'
+  #   - './config/keystore:/home/ethereum/keystore:ro'
+  #   - './config/start_eth_testnode.sh:/home/ethereum/start_eth_testnode.sh:ro'
+  #   ports:
+  #   - 8545:8545
+
+
   ethereum:
     image: 'ethereum/client-go:v1.12.2'
     command:
@@ -39,7 +52,6 @@ services:
     - ethereum
     ports:
     - 8545:8545
-
   astar:
     image: "staketechnologies/astar-collator:latest"
     command:
@@ -97,6 +109,7 @@ services:
     - '--url=ws://astar:9944'
     - '--blockchain=astar'
     - '--network=dev'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -105,6 +118,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

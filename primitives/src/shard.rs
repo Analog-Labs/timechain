@@ -45,7 +45,7 @@ impl Network {
 	#[must_use]
 	pub const fn eip155_chain_id(&self) -> u64 {
 		match self {
-			Self::Ethereum => 1,
+			Self::Ethereum => 1337,
 			Self::Astar => 592,
 			Self::Polygon => 137,
 		}
@@ -204,6 +204,6 @@ pub struct TssSigningRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub block_number: BlockNumber,
-	pub data: Vec<u8>,
+	pub data: [u8; 32],
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }

@@ -11,6 +11,8 @@ use subxt::tx::TxPayload;
 use subxt::utils::{MultiAddress, MultiSignature, H256};
 use subxt_signer::SecretUri;
 use time_primitives::{AccountId, PublicKey};
+use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
+
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"
@@ -160,6 +162,20 @@ impl SubxtClient {
 			.client
 			.tx()
 			.sign_and_submit_then_watch_default(call, self.signer.as_ref())
+			.await?
+			.wait_for_finalized_success()
+			.await?)
+	}
+
+	pub async fn sudo_sign_and_submit_watch(
+		&self,
+		call: RuntimeCall,
+	) -> Result<ExtrinsicEvents<PolkadotConfig>> {
+		let sudo_call = timechain_runtime::tx().sudo().sudo(call);
+		Ok(self
+			.client
+			.tx()
+			.sign_and_submit_then_watch_default(&sudo_call, self.signer.as_ref())
 			.await?
 			.wait_for_finalized_success()
 			.await?)

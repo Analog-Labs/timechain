@@ -5,7 +5,7 @@ pub(crate) async fn is_shard_online(api: &SubxtClient, shard_id: u64) -> bool {
 }
 
 pub(crate) async fn get_shard_id(api: &SubxtClient, network: Network) -> u64 {
-	let shard_ids = api.shard_id_counter().await.unwrap();
+	let shard_ids = api.shard_id_counter().await.expect("No shard available yet");
 	let mut shard_id = 0;
 	for i in 0..shard_ids {
 		let shard_network = api.shard_network(i).await.unwrap();

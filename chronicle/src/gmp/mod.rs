@@ -91,7 +91,6 @@ pub struct Message {
 impl Message {
 	/// compute the sighash of the message
 	pub fn sighash(&self) -> [u8; 32] {
-		tracing::info!("feaured chain_id: {:?}", self.chain_id);
 		match &self.message {
 			TypedMessage::UpdateKeys(message) => {
 				message.to_eip712_typed_hash(self.chain_id, self.gateway_contract)

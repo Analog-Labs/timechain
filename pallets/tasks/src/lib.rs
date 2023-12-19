@@ -531,7 +531,7 @@ pub mod pallet {
 							if Gateway::<T>::get(network).is_some() {
 								ShardRegistered::<T>::get(*shard_id).is_some()
 							} else {
-								true
+								false
 							}
 						} else {
 							true

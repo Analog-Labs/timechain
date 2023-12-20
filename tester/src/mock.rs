@@ -38,11 +38,8 @@ pub(crate) async fn deploy_contract(
 	};
 
 	let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-	let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-	let contract_address = tx_receipt
-		.get("contractAddress")
-		.and_then(|v| v.as_str().map(str::to_string))
-		.ok_or(anyhow::anyhow!("Unable to get contract address"))?;
+	let tx_receipt = wallet.eth_transaction_receipt(tx_hash).await?;
+	let contract_address = format!("{:?}", tx_receipt.unwrap().contract_address.unwrap());
 	let status = wallet.status().await?;
 
 	println!("Deploy contract address {:?} on {:?}", contract_address, status.index);

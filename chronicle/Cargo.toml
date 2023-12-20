@@ -46,5 +46,5 @@ log-panics = "2.1.0"
 lazy_static = "1.4.0"
 
 [features]
-# Enabled EIP155_chain_id to be 1 with below feature
+# Fixes EIP155_chain_id to be 1337 for testing
 local-testnode = ["time-primitives/use-local-testnode"]

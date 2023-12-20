@@ -43,10 +43,6 @@ interface IGateway {
         TssKey[] registered    // new shards registered
     );
 
-    event MessageHashReceived(
-        bytes32 msghash
-    );
-
     /**
      * Execute GMP message
      */
@@ -538,7 +534,6 @@ contract Gateway is IGateway, SigUtils {
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         bytes32 messageHash = getGmpTypedHash(message);
-        emit MessageHashReceived(messageHash);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
     }

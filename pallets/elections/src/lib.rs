@@ -134,17 +134,26 @@ pub mod pallet {
 		}
 
 		fn new_shard_members(network: Network) -> Option<Vec<AccountId>> {
-			let shard_size = ShardSize::<T>::get() as usize;
-			let members = Unassigned::<T>::iter_prefix(network)
+			let shard_members_len = ShardSize::<T>::get() as usize;
+			let mut members = Unassigned::<T>::iter_prefix(network)
 				.map(|(m, _)| m)
 				.filter(T::Members::is_member_online)
-				.take(shard_size)
 				.collect::<Vec<_>>();
-			if members.len() == shard_size {
-				Some(members)
-			} else {
-				None
+			if members.len() < shard_members_len {
+				return None;
 			}
+			if members.len() == shard_members_len {
+				return Some(members);
+			}
+			// else members.len() > shard_members_len:
+			members.sort_unstable_by(|a, b| {
+				T::Members::member_stake(a)
+					.cmp(&T::Members::member_stake(b))
+					// sort by AccountId iff amounts are equal to uphold determinism
+					.then_with(|| a.cmp(b))
+					.reverse()
+			});
+			Some(members.into_iter().take(shard_members_len).collect())
 		}
 	}
 }

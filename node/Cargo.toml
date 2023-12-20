@@ -80,5 +80,5 @@ runtime-benchmarks = ["frame-benchmarking-cli/runtime-benchmarks", "frame-benchm
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = ["timechain-runtime/try-runtime", "try-runtime-cli"]
-# Enabled EIP155_chain_id to be 1 with below feature
+# Fixes EIP155_chain_id to be 1337 for testing
 local-testnode = ["time-primitives/use-local-testnode"]

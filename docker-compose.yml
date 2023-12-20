@@ -18,19 +18,6 @@ services:
     ports:
       - 9944:9944
 
-  # ethereum:
-  #   image: 'ethereum/client-go:v1.12.2'
-  #   entrypoint: /home/ethereum/start_eth_testnode.sh
-  #   profiles:
-  #   - ethereum
-  #   volumes:
-  #   - './config/genesis.json:/home/ethereum/genesis.json:ro'
-  #   - './config/keystore:/home/ethereum/keystore:ro'
-  #   - './config/start_eth_testnode.sh:/home/ethereum/start_eth_testnode.sh:ro'
-  #   ports:
-  #   - 8545:8545
-
-
   ethereum:
     image: 'ethereum/client-go:v1.12.2'
     command:

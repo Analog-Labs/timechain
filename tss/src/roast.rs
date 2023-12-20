@@ -274,7 +274,7 @@ mod tests {
 						threshold,
 						KeyPackage::try_from(secret_share).unwrap(),
 						public_key_package.clone(),
-						data.clone(),
+						data,
 						coordinators.clone(),
 					),
 				)

@@ -50,7 +50,3 @@ contract VotingMachine {
         return bytes32(yes_votes << 128 | no_votes);
     }
 }
-
-// interface IGmpReceiver {
-//     function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external returns (bytes32);
-// }

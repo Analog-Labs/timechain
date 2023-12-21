@@ -230,7 +230,7 @@ impl ShardsPayload for MockSubxt {
 }
 
 impl MembersPayload for MockSubxt {
-	fn submit_register_member(&self, _: Network, _: PublicKey, _: PeerId) -> Vec<u8> {
+	fn submit_register_member(&self, _: Network, _: PublicKey, _: PeerId, _: u128) -> Vec<u8> {
 		vec![]
 	}
 

@@ -9,10 +9,16 @@ impl MembersPayload for SubxtClient {
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
+		stake_amount: u128,
 	) -> Vec<u8> {
 		let network: shard::Network = unsafe { std::mem::transmute(network) };
 		let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
-		let tx = timechain_runtime::tx().members().register_member(network, public_key, peer_id);
+		let tx = timechain_runtime::tx().members().register_member(
+			network,
+			public_key,
+			peer_id,
+			stake_amount,
+		);
 		self.create_signed_payload(&tx)
 	}
 

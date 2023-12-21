@@ -33,7 +33,14 @@ pub trait Members {
 
 	fn get_heartbeat_timeout(&self) -> ApiResult<u64>;
 
-	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult;
+	fn get_min_stake(&self) -> ApiResult<u128>;
+
+	fn submit_register_member(
+		&self,
+		network: Network,
+		peer_id: PeerId,
+		stake_amount: u128,
+	) -> SubmitResult;
 
 	fn submit_heartbeat(&self) -> SubmitResult;
 }
@@ -45,6 +52,7 @@ pub trait MembersPayload {
 		network: Network,
 		public_key: PublicKey,
 		peer_id: PeerId,
+		stake_amount: u128,
 	) -> Vec<u8>;
 	fn submit_heartbeat(&self) -> Vec<u8>;
 }

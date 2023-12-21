@@ -1474,6 +1474,10 @@ impl_runtime_apis! {
 		fn get_heartbeat_timeout() -> u64 {
 			Members::get_heartbeat_timeout().into()
 		}
+
+		fn get_min_stake() -> u128 {
+			Members::get_min_stake()
+		}
 	}
 
 	impl time_primitives::ShardsApi<Block> for Runtime {

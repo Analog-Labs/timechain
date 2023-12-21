@@ -327,9 +327,10 @@ where
 			Level::DEBUG,
 			"starting tss",
 		);
+		let min_stake = self.substrate.get_min_stake().unwrap();
 		while let Err(e) = self
 			.substrate
-			.submit_register_member(self.task_executor.network(), self.network.peer_id())
+			.submit_register_member(self.task_executor.network(), self.network.peer_id(), min_stake)
 			.unwrap()
 		{
 			event!(

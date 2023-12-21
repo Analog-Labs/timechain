@@ -194,6 +194,10 @@ pub mod pallet {
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {
 			T::HeartbeatTimeout::get()
 		}
+
+		pub fn get_min_stake() -> BalanceOf<T> {
+			T::MinStake::get()
+		}
 	}
 
 	impl<T: Config> MemberStorage for Pallet<T> {

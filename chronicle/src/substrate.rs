@@ -22,7 +22,7 @@ enum Tx {
 	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
 	TaskError { task_id: TaskId, cycle: TaskCycle, error: TaskError },
 	TaskSignature { task_id: TaskId, signature: TssSignature },
-	RegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId },
+	RegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId, stake_amount: u128 },
 	Heartbeat,
 }
 
@@ -110,9 +110,17 @@ where
 				Tx::TaskSignature { task_id, signature } => {
 					self.subxt_client.submit_task_signature(task_id, signature)
 				},
-				Tx::RegisterMember { network, public_key, peer_id } => {
-					self.subxt_client.submit_register_member(network, public_key, peer_id)
-				},
+				Tx::RegisterMember {
+					network,
+					public_key,
+					peer_id,
+					stake_amount,
+				} => self.subxt_client.submit_register_member(
+					network,
+					public_key,
+					peer_id,
+					stake_amount,
+				),
 				Tx::Heartbeat => self.subxt_client.submit_heartbeat(),
 			};
 			let result = self.runtime_api().submit_transaction(self.best_block(), tx);
@@ -344,9 +352,23 @@ where
 		self.runtime_api().get_heartbeat_timeout(self.best_block())
 	}
 
-	fn submit_register_member(&self, network: Network, peer_id: PeerId) -> SubmitResult {
+	fn get_min_stake(&self) -> ApiResult<u128> {
+		self.runtime_api().get_min_stake(self.best_block())
+	}
+
+	fn submit_register_member(
+		&self,
+		network: Network,
+		peer_id: PeerId,
+		stake_amount: u128,
+	) -> SubmitResult {
 		let public_key = self.subxt_client.public_key();
-		self.submit_transaction(Tx::RegisterMember { network, public_key, peer_id })
+		self.submit_transaction(Tx::RegisterMember {
+			network,
+			public_key,
+			peer_id,
+			stake_amount,
+		})
 	}
 
 	fn submit_heartbeat(&self) -> SubmitResult {

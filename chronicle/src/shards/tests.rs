@@ -163,6 +163,9 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_heartbeat_timeout() -> u64 {
 			1000
 		}
+		fn get_min_stake() -> u128 {
+			0
+		}
 	}
 
 	impl TasksApi<Block> for MockApi{
@@ -338,7 +341,7 @@ impl ShardsPayload for MockSubxt {
 }
 
 impl MembersPayload for MockSubxt {
-	fn submit_register_member(&self, _: Network, _: PublicKey, _: PeerId) -> Vec<u8> {
+	fn submit_register_member(&self, _: Network, _: PublicKey, _: PeerId, _: u128) -> Vec<u8> {
 		vec![]
 	}
 

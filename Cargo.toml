@@ -4,6 +4,7 @@ members = [
 	"node",
 	"pallets/elections",
 	"pallets/members",
+	"pallets/networks",
 	"pallets/shards",
 	"pallets/tasks",
 	"pallets/timegraph",

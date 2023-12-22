@@ -13,6 +13,8 @@ frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branc
 frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+time-primitives = { path = "../../primitives", default-features = false }
+
 [features]
 default = [ "std" ]
 std = [
@@ -21,4 +23,5 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
+	"time-primitives/std"
 ]

@@ -1,9 +1,13 @@
 [package]
-name = "networks"
-version = "0.1.0"
+name = "pallet-networks"
+authors = [ "Analog Devs <https://github.com/analog-labs>" ]
+description = "A pallet for tokenomics of timegraph."
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+homepage = "https://analog.one"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/Analog-Labs/testnet"
+version = "0.0.1"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [

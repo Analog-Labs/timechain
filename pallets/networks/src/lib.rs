@@ -12,6 +12,8 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
+	use scale_info::prelude::vec::Vec;
 	use time_primitives::{NetworkBlockchain, NetworkId, NetworkName};
 
 	pub trait WeightInfo {
@@ -85,12 +87,12 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			let bounded_blockchain = BoundedVec::<u8, T::MaxBlockchainSize>::try_from(
-				blockchain.trim().to_string().into_bytes(),
+				blockchain.trim().as_bytes().to_vec(),
 			)
 			.map_err(|_| Error::<T>::BlockchainTooLong)?;
 
 			let bounded_name =
-				BoundedVec::<u8, T::MaxNameSize>::try_from(name.trim().to_string().into_bytes())
+				BoundedVec::<u8, T::MaxNameSize>::try_from(name.trim().as_bytes().to_vec())
 					.map_err(|_| Error::<T>::NameTooLong)?;
 
 			let mut networks = NetworkNames::<T>::get(&bounded_blockchain);

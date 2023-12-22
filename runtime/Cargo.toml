@@ -73,6 +73,7 @@ frame-system-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk
 pallet-members = { path = "../pallets/members", version = "0.0.1", default-features = false }
 pallet-shards = { path = "../pallets/shards", version = "4.0.0-dev", default-features = false }
 pallet-elections = { path = "../pallets/elections", default-features = false }
+pallet-networks = { path = "../pallets/networks", version = "0.0.1", default-features = false }
 pallet-tasks = { path = "../pallets/tasks", version = "0.0.1", default-features = false }
 pallet-timegraph = { path = "../pallets/timegraph", version = "0.0.1", default-features = false }
 pallet-treasury = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }

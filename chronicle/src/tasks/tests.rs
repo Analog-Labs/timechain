@@ -289,6 +289,7 @@ async fn task_executor_smoke() -> Result<()> {
 			task_spawner,
 			network: Network::Ethereum,
 			substrate: substrate.clone(),
+			chain_id: 0u64,
 		};
 
 		let mut task_executor = TaskExecutor::new(params);
@@ -342,6 +343,7 @@ async fn gmp_smoke() -> Result<()> {
 		task_spawner,
 		network: Network::Ethereum,
 		substrate: substrate.clone(),
+		chain_id: 0u64,
 	};
 
 	let mut task_executor = TaskExecutor::new(params);

@@ -109,6 +109,7 @@ std = [
 	"pallet-im-online/std",
 	"pallet-elections/std",
 	"pallet-members/std",
+	"pallet-networks/std",
 	"pallet-offences/std",
 	"pallet-session/std",
 	"pallet-shards/std",

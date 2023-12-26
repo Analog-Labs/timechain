@@ -80,6 +80,45 @@ pub mod pallet {
 	pub(super) type NetworkIdToChainId<T: Config> =
 		StorageMap<_, Twox64Concat, NetworkId, ChainId, OptionQuery>;
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T> {
+		pub networks: Vec<(Vec<u8>, Vec<u8>, ChainId)>,
+		pub _marker: PhantomData<T>,
+	}
+
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self {
+				networks: Default::default(),
+				_marker: Default::default(),
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for (blockchain, network, chain_id) in &self.networks {
+				// Convert to bounded vectors
+				let bounded_blockchain =
+					BoundedVec::<u8, T::MaxBlockchainSize>::try_from(blockchain.clone())
+						.expect("Invalid blockchain name");
+				let bounded_network = BoundedVec::<u8, T::MaxNameSize>::try_from(network.clone())
+					.expect("Invalid network name");
+
+				let network_id = NetworkIdCounter::<T>::get();
+				NetworkIdCounter::<T>::put(network_id + 1);
+
+				let mut networks = ChainNetworks::<T>::get(&bounded_blockchain);
+				networks.push(bounded_network.clone());
+				ChainNetworks::<T>::insert(&bounded_blockchain, networks);
+
+				NetworkIdToChain::<T>::insert(network_id, (bounded_blockchain, bounded_network));
+				NetworkIdToChainId::<T>::insert(network_id, *chain_id);
+			}
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]

@@ -830,6 +830,16 @@ fn generate_analog_genesis(
 			authorities: vec![],
 			..Default::default()
 		},
+		networks: timechain_runtime::NetworksConfig {
+			networks: vec![
+				("ethereum".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 1),
+				("astar".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 592),
+				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 137),
+				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 1337),
+				("ethereum".as_bytes().to_vec(), "testnet".as_bytes().to_vec(), 5),
+			],
+			..Default::default()
+		},
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),

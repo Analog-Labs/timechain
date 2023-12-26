@@ -61,6 +61,11 @@ sp_api::decl_runtime_apis! {
 		fn get_min_stake() -> u128;
 	}
 
+	pub trait NetworksApi {
+		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
+		fn get_chain_id(network_id: NetworkId) -> Option<ChainId>;
+	}
+
 	pub trait ShardsApi {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;

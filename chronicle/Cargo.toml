@@ -44,7 +44,3 @@ sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch
 substrate-test-runtime-client = {  git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 log-panics = "2.1.0"
 lazy_static = "1.4.0"
-
-[features]
-# Fixes EIP155_chain_id to be 1337 for testing
-local-testnode = ["time-primitives/use-local-testnode"]

@@ -15,7 +15,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tc_subxt::{AccountInterface, SubxtClient};
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, Network, ShardsApi, SubmitTransactionApi, TasksApi,
+	BlockHash, BlockTimeApi, MembersApi, Network, NetworkId, NetworksApi, ShardsApi,
+	SubmitTransactionApi, TasksApi,
 };
 use tracing::{event, span, Level};
 
@@ -33,8 +34,7 @@ pub struct ChronicleConfig {
 	pub secret: Option<PathBuf>,
 	pub bind_port: Option<u16>,
 	pub pkarr_relay: Option<String>,
-	pub blockchain: Network,
-	pub network: String,
+	pub network_id: NetworkId,
 	pub url: String,
 	pub timechain_keyfile: PathBuf,
 	pub keyfile: Option<PathBuf>,
@@ -55,7 +55,12 @@ where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + ShardsApi<B> + TasksApi<B> + BlockTimeApi<B> + SubmitTransactionApi<B>,
+	R::Api: MembersApi<B>
+		+ NetworksApi<B>
+		+ ShardsApi<B>
+		+ TasksApi<B>
+		+ BlockTimeApi<B>
+		+ SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
 	let secret = if let Some(path) = params.config.secret {
@@ -91,13 +96,30 @@ where
 	let subxt_client =
 		SubxtClient::new("ws://127.0.0.1:9944", Some(&params.config.timechain_keyfile)).await?;
 	tracing::info!("Nonce at creation {:?}", subxt_client.nonce());
+
+	//get blockchain and network from storage
+	let best_block = params.client.info().best_hash;
+	let (blockchain, chain_network) = params
+		.runtime
+		.runtime_api()
+		.get_network(best_block, params.config.network_id)?
+		.ok_or(anyhow::anyhow!("Network Id not supported"))?;
+
+	let chain_id = params
+		.runtime
+		.runtime_api()
+		.get_chain_id(best_block, params.config.network_id)?
+		.ok_or(anyhow::anyhow!("Chain id not found"))?;
+
 	let substrate =
 		Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);
 
+	let blockchain: Network = blockchain.parse::<Network>()?;
+
 	let task_spawner_params = TaskSpawnerParams {
 		tss: tss_tx,
-		blockchain: params.config.blockchain,
-		network: params.config.network,
+		blockchain,
+		network: chain_network,
 		url: params.config.url,
 		keyfile: params.config.keyfile,
 		timegraph_url: params.config.timegraph_url,
@@ -121,9 +143,10 @@ where
 	};
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		network: params.config.blockchain,
+		network: blockchain,
 		task_spawner,
 		substrate: substrate.clone(),
+		chain_id,
 	});
 
 	let time_worker = TimeWorker::new(TimeWorkerParams {

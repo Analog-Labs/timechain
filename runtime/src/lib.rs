@@ -55,9 +55,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, Commitment, MemberStatus, MemberStorage, Network, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Signature, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, TxError, TxResult,
+	AccountId, ChainId, ChainName, ChainNetwork, Commitment, MemberStatus, MemberStorage, Network,
+	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
+	TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1486,6 +1487,15 @@ impl_runtime_apis! {
 
 		fn get_min_stake() -> u128 {
 			Members::get_min_stake()
+		}
+	}
+
+	impl time_primitives::NetworksApi<Block> for Runtime {
+		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+			Networks::get_network(network_id)
+		}
+		fn get_chain_id(network_id: NetworkId) -> Option<ChainId> {
+			Networks::get_chain_id(network_id)
 		}
 	}
 

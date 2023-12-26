@@ -22,5 +22,3 @@ sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "ti
 [features]
 default = ["std"]
 std = ["codec/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std", ]
-# Fixes EIP155_chain_id to be 1337 for testing
-use-local-testnode = []

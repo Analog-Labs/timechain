@@ -1,7 +1,7 @@
 pub mod types;
 use alloy_primitives::{b256, Address, U256};
 use alloy_sol_types::SolCall;
-use time_primitives::{Function, Network, ShardId, TssPublicKey, TssSignature};
+use time_primitives::{ChainId, Function, ShardId, TssPublicKey, TssSignature};
 use types::{Eip712Ext, GmpMessage, SignableMessage, Signature, TssKey, UpdateKeysMessage};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,13 +15,13 @@ pub struct MessageBuilder {
 impl MessageBuilder {
 	pub fn new(
 		shard_id: ShardId,
-		network: Network,
+		chain_id: ChainId,
 		tss_public_key: TssPublicKey,
 		gateway_contract: [u8; 20],
 	) -> Self {
 		Self {
 			shard_id,
-			chain_id: network.eip155_chain_id(),
+			chain_id,
 			tss_public_key: TssKey::from(tss_public_key),
 			gateway_contract: Address(gateway_contract.into()),
 		}
@@ -58,7 +58,8 @@ impl MessageBuilder {
 		let message = GmpMessage {
 			// TODO: receive the sender address and network as parameter
 			source: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
-			srcNetwork: 1337,
+			// TODO: fix this during cross chain communication
+			srcNetwork: u128::from(self.chain_id),
 			dest: Address(address.into()),
 			destNetwork: u128::from(self.chain_id),
 			gasLimit: U256::from(gas_limit),

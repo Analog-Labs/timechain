@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use time_primitives::NetworkId;
+
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
 	#[clap(subcommand)]
@@ -19,18 +21,13 @@ pub struct RunCmd {
 
 #[derive(Debug, clap::Parser)]
 /// workaround for https://github.com/clap-rs/clap/issues/5092
-#[group(requires_all = ["blockchain", "network", "url"], multiple = true)]
+#[group(requires_all = ["network_id", "url"], multiple = true)]
 pub struct ChronicleArgs {
-	/// workaround for https://github.com/clap-rs/clap/issues/5092
-	#[arg(required = false)]
-	/// The chain used by Analog Connector.
-	#[clap(long)]
-	pub blockchain: time_primitives::Network,
 	/// workaround for https://github.com/clap-rs/clap/issues/5092
 	#[arg(required = false)]
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
-	pub network: String,
+	pub network_id: NetworkId,
 	/// workaround for https://github.com/clap-rs/clap/issues/5092
 	#[arg(required = false)]
 	/// The address of Analog Connector.

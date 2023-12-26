@@ -6,8 +6,8 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, Shards, TaskExecution, TaskPhase, Tasks,
-	TssId,
+	BlockHash, BlockNumber, ChainId, Function, Network, ShardId, Shards, TaskExecution, TaskPhase,
+	Tasks, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -17,12 +17,14 @@ pub struct TaskExecutorParams<S, T> {
 	pub substrate: S,
 	pub task_spawner: T,
 	pub network: Network,
+	pub chain_id: ChainId,
 }
 
 pub struct TaskExecutor<S, T> {
 	substrate: S,
 	task_spawner: T,
 	network: Network,
+	chain_id: ChainId,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
@@ -32,6 +34,7 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 			substrate: self.substrate.clone(),
 			task_spawner: self.task_spawner.clone(),
 			network: self.network,
+			chain_id: self.chain_id,
 			running_tasks: Default::default(),
 		}
 	}
@@ -71,11 +74,13 @@ where
 			substrate,
 			task_spawner,
 			network,
+			chain_id,
 		} = params;
 		Self {
 			substrate,
 			task_spawner,
 			network,
+			chain_id,
 			running_tasks: Default::default(),
 		}
 	}
@@ -298,6 +303,6 @@ where
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);
 		};
-		Ok(Some(MessageBuilder::new(shard_id, self.network, tss_public_key, gateway_contract)))
+		Ok(Some(MessageBuilder::new(shard_id, self.chain_id, tss_public_key, gateway_contract)))
 	}
 }

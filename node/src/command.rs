@@ -203,8 +203,7 @@ pub fn run() -> sc_cli::Result<()> {
 				service::new_full(
 					config,
 					cli.run.chronicle.map(|args| chronicle::ChronicleConfig {
-						blockchain: args.blockchain,
-						network: args.network,
+						network_id: args.network_id,
 						url: args.url,
 						timechain_keyfile: args.timechain_keyfile,
 						keyfile: args.keyfile,

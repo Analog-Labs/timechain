@@ -13,24 +13,29 @@ version = "0.0.1"
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
 	"derive",
 ] }
+
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
 frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true}
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false}
 sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std", 
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"time-primitives/std"
 ]
+runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
+try-runtime = [ "frame-support/try-runtime" ]

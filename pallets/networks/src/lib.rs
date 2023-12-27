@@ -2,11 +2,12 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub use pallet::*;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+
+pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {

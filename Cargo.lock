@@ -7756,6 +7756,7 @@ dependencies = [
 name = "pallet-networks"
 version = "0.0.1"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",

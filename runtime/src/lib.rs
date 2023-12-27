@@ -1259,6 +1259,7 @@ mod benches {
 		[pallet_shards, Shards]
 		[pallet_tasks, Tasks]
 		[pallet_timegraph, Timegraph]
+		[pallet_networks, Networks]
 	);
 }
 
@@ -1578,6 +1579,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
 			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmark!(list, extra, pallet_timegraph, Timegraph);
+			list_benchmark!(list, extra, pallet_networks, Networks);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1605,6 +1607,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
 			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmark!(params, batches, pallet_timegraph, Timegraph);
+			add_benchmark!(params, batches, pallet_network, Networks);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

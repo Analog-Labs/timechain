@@ -24,8 +24,13 @@ run_astar() {
 }
 
 run_gmp() {
-    echo "Running all astar and eth node for gmp"
-    docker compose --profile ethereum --profile astar down -v && ./scripts/build_docker.sh && docker compose --profile ethereum --profile astar up
+    if [ "$1" == "single"]; then
+        echo "Running single astar and eth node for gmp"
+        docker compose --profile ethereum --profile astar down -v && ./scripts/build_docker.sh && docker compose --profile ethereum --profile astar up
+    elif [ "$1" == "multi" ]; then
+        echo "Running multi astar and eth node for gmp"
+        docker compose -f docker-compose-multinode.yml --profile ethereum --profile astar down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile ethereum --profile astar up
+    fi
 }
 
 # Check the network type and mode and call the appropriate function
@@ -37,7 +42,7 @@ case $network_type in
         run_astar $mode
         ;;
     gmp)
-        run_gmp
+        run_gmp $mode
         ;;
     *)
         echo "Unknown network type. Please specify 'eth' or 'astar'."

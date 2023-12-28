@@ -837,6 +837,7 @@ fn generate_analog_genesis(
 				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 137),
 				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 1337),
 				("ethereum".as_bytes().to_vec(), "testnet".as_bytes().to_vec(), 5),
+				("astar".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 4369),
 			],
 			..Default::default()
 		},

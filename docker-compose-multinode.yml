@@ -23,14 +23,22 @@ services:
     command:
     - '--dev'
     - '--ipcdisable'
-    - '--dev.period=14'
+    - '--dev.period=2'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
     - '--ws'
     - '--ws.addr=0.0.0.0'
     - '--ws.port=8545'
     - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
     profiles:
     - ethereum
+    ports:
+    - 8545:8545
 
   astar:
     image: "staketechnologies/astar-collator:latest"
@@ -59,8 +67,7 @@ services:
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--enable-iroh'
     - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
@@ -89,8 +96,7 @@ services:
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--enable-iroh'
     - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
@@ -119,8 +125,7 @@ services:
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--enable-iroh'
     - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
@@ -147,9 +152,10 @@ services:
     - '--prometheus-external'
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--enable-iroh'
     - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
+    - '--network-id=5'
+    - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -158,7 +164,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
+    - './config/wallets/timechain_keyfile4:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -175,9 +181,10 @@ services:
     - '--prometheus-external'
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--enable-iroh'
     - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
+    - '--network-id=5'
+    - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -186,7 +193,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
+    - './config/wallets/timechain_keyfile5:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -203,9 +210,10 @@ services:
     - '--prometheus-external'
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
+    - '--enable-iroh'
     - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
+    - '--network-id=5'
+    - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -214,7 +222,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile3:/etc/timechain_keyfile:ro'
+    - './config/wallets/timechain_keyfile6:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

@@ -23,7 +23,6 @@ pub(crate) async fn deploy_contract(
 	config: &WalletConfig,
 	gmp_params: Option<Vec<u8>>,
 ) -> Result<(String, u64)> {
-	println!("Deploying eth contract");
 	let wallet =
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
@@ -52,7 +51,9 @@ pub(crate) async fn fund_wallet(config: &WalletConfig) {
 			.await
 			.unwrap();
 	println!("funding wallet for {:?} {:?}", config.blockchain, wallet.account().address);
-	wallet.faucet(1000000000000000000000).await.unwrap();
+	if let Err(err) = wallet.faucet(1000000000000000000000).await {
+		println!("Error occured while funding wallet {:?}", err);
+	}
 }
 
 pub(crate) fn drop_node(node_name: String) {

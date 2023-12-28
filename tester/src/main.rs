@@ -27,7 +27,7 @@ enum TestCommand {
 	BatchTask { tasks: u64, max_cycle: u64 },
 	KeyRecovery { nodes: u8 },
 	ShardRestart,
-	DeployContract,
+	DeployGatewayContract { shard_id: u64 },
 	Gmp,
 	FundWallet,
 	WatchTask { task_id: u64 },
@@ -78,10 +78,8 @@ async fn main() {
 		TestCommand::FundWallet => {
 			fund_wallet(&config).await;
 		},
-		TestCommand::DeployContract => {
-			if let Err(e) = deploy_contract(&config, None).await {
-				println!("error {:?}", e);
-			}
+		TestCommand::DeployGatewayContract { shard_id } => {
+			deploy_gateway_contract(&api, &config, shard_id).await
 		},
 		TestCommand::WatchTask { task_id } => {
 			while !watch_task(&api, task_id).await {
@@ -90,6 +88,16 @@ async fn main() {
 		},
 		TestCommand::Gmp => process_gmp_task(&api, &eth_config, &astar_config).await,
 	}
+}
+
+async fn deploy_gateway_contract(api: &SubxtClient, config: &WalletConfig, shard_id: u64) {
+	while !Shards::is_shard_online(api, shard_id).await {
+		println!("Waiting for eth shard to go online");
+		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	}
+	let shard_public_key = api.shard_public_key(shard_id).await.unwrap();
+	let constructor_params = get_gmp_constructor_params(shard_public_key);
+	setup_env(config, Some(constructor_params)).await;
 }
 
 async fn process_gmp_task(

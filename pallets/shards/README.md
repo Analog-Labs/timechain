@@ -1,5 +1,7 @@
 # Shards Pallet
 
+Main purpose of this pallet is to create and manages shards in network.
+
 ## Storage:
 ### Name: 
     ShardIdCounter
@@ -69,7 +71,7 @@
 
 ## Extrinsics:
 ### Name: 
-    Commit
+    Commit(shard_id: ShardId, commitment: Commitment, _proof_of_knowledge: ProofOfKnowledge)
 ### Origin:
     ShardMember
 ### Purpose:
@@ -78,7 +80,7 @@
     Automatic submission by node.
     
 ### Name:
-    ready
+    ready(shard_id: ShardId) 
 ### Origin:
     ShardMember
 ### Purpose:

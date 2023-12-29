@@ -1,6 +1,6 @@
 # Members Pallet
 
-Manages member registeration and keep status of heartbeat status to keep online/offline.
+Manages member registeration and keep status of heartbeat status to set member online/offline.
 
 ## Storage:
 ### MemberNetwork

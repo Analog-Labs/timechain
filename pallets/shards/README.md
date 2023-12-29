@@ -32,7 +32,7 @@ Main purpose of this pallet is to create and manages shards in network.
 `New shard was created`
 
 ### ShardCommitted(ShardId, Commitment),
-'Shard commited'
+`Shard commited`
 
 ### ShardKeyGenTimedOut(ShardId),
 `Shard DKG timed out`

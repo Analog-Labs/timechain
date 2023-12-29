@@ -3,87 +3,59 @@
 Main purpose of this pallet is to create and manages shards in network.
 
 ## Storage:
-### Name: 
-    ShardIdCounter
-### Purpose:
-    Contains counter for total shards in network.
+### ShardIdCounter
+Contains counter for total shards in network.
     
-### Name: 
-    ShardNetwork
-### Purpose:
-    Stores what network given shard is working on.
+### ShardNetwork
+Stores what network given shard is working on.
     
-### Name: 
-    ShartState
-### Purpose:
-    Tells the state of shard e.g. created, committed, online, offline
+### ShartState
+Tells the state of shard e.g. created, committed, online, offline
 
-### Name: 
-    ShardThreshold
-### Purpose:
-    Stores the threshold for shard tss signing.
+### ShardThreshold
+Stores the threshold for shard tss signing.
 
-### Name: 
-    ShardCommitment
-### Purpose:
-    Stores shard commitment.
+### ShardCommitment
+Stores shard commitment.
     
-### Name: 
-    MemberShard
-### Purpose:
-    Stores shard id against each member of timechain.
+### MemberShard
+Stores shard id against each member of timechain.
     
-### Name: 
-    ShardMembers
-### Purpose:
-    Stores members per shard.
+### ShardMembers
+Stores members per shard.
     
-### Name: 
-    PastSigners
-### Purpose:
-    Stores signers which already did signing for a specific shard. 
+### PastSigners
+Stores signers which already did signing for a specific shard. 
     
 ## Events:
-### Name: 
-    ShardCreated(ShardId, Network),
-### Purpose:
-    New shard was created
+### ShardCreated(ShardId, Network),
+New shard was created
 
-### Name: 
-    ShardCommitted(ShardId, Commitment),
-### Purpose:
-    Shard commited
+### ShardCommitted(ShardId, Commitment),
+Shard commited
 
-### Name: 
-    ShardKeyGenTimedOut(ShardId),
-### Purpose:
-    Shard DKG timed out
+### ShardKeyGenTimedOut(ShardId),
+Shard DKG timed out
 
-### Name: 
-    ShardOnline(ShardId, TssPublicKey),
-### Purpose:
-    Shard completed dkg and submitted public key to runtime
+### ShardOnline(ShardId, TssPublicKey),
+Shard completed dkg and submitted public key to runtime
 
-### Name: 
-    ShardOffline(ShardId),
-### Purpose:
-    Shard went offline
+### ShardOffline(ShardId),
+Shard went offline
 
 ## Extrinsics:
-### Name: 
-    Commit(shard_id: ShardId, commitment: Commitment, _proof_of_knowledge: ProofOfKnowledge)
+### Commit(shard_id: ShardId, commitment: Commitment, _proof_of_knowledge: ProofOfKnowledge)
 ### Origin:
-    ShardMember
+ShardMember
 ### Purpose:
-    Submits Commitment and proof of knowledge. 
+Submits Commitment and proof of knowledge. 
 ### Nature:
-    Automatic submission by node.
+Automatic submission by node.
     
-### Name:
-    ready(shard_id: ShardId) 
+### ready(shard_id: ShardId) 
 ### Origin:
-    ShardMember
+ShardMember
 ### Purpose:
-    Turns shard status online and ready to receive tasks for execution.
+Turns shard status online and ready to receive tasks for execution.
 ### Nature:
-    Automatic submission by node.
+Automatic submission by node.

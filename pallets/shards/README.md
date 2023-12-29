@@ -43,29 +43,29 @@
     
 ## Events:
 ### Name: 
-		ShardCreated(ShardId, Network),
+    ShardCreated(ShardId, Network),
 ### Purpose:
-		New shard was created
+    New shard was created
 
 ### Name: 
-		ShardCommitted(ShardId, Commitment),
+    ShardCommitted(ShardId, Commitment),
 ### Purpose:
-		Shard commited
+    Shard commited
 
 ### Name: 
-		ShardKeyGenTimedOut(ShardId),
+    ShardKeyGenTimedOut(ShardId),
 ### Purpose:
-		Shard DKG timed out
+    Shard DKG timed out
 
 ### Name: 
-		ShardOnline(ShardId, TssPublicKey),
+    ShardOnline(ShardId, TssPublicKey),
 ### Purpose:
-		Shard completed dkg and submitted public key to runtime
+    Shard completed dkg and submitted public key to runtime
 
 ### Name: 
-		ShardOffline(ShardId),
+    ShardOffline(ShardId),
 ### Purpose:
-		Shard went offline
+    Shard went offline
 
 ## Extrinsics:
 ### Name: 

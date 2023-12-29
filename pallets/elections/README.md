@@ -1,4 +1,7 @@
 # Elections Pallet
+
+Manage unassigned members and shard config
+
 ## Storage:
 ### ShardSize
 `Size of each new shard`

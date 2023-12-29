@@ -1,4 +1,7 @@
 # Networks Pallet
+
+Manage timechain supported networks for task execution.
+
 ## Storage:
 ### NetworkIdCounter
 `Stores a counter for each network type supported`

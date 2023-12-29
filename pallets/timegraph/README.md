@@ -1,4 +1,7 @@
 # Timegraph Pallet
+
+Manages timegraph payment system
+
 ## Storage:
 ### NextDepositSequence
 `Counter for previous number of deposits made`

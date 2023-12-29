@@ -24,4 +24,4 @@
 ### Origin:
 `Timegraph account`
 ### Purpose:
-`/// The extrinsic from timegraph user to deposit funds into the timegraph account`
+`The extrinsic from timegraph user to deposit funds into the timegraph account`

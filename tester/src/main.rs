@@ -97,6 +97,7 @@ async fn deploy_gateway_contract(api: &SubxtClient, config: &WalletConfig, shard
 	}
 	let shard_public_key = api.shard_public_key(shard_id).await.unwrap();
 	let constructor_params = get_gmp_constructor_params(shard_public_key);
+	setup_env(config, Some(constructor_params)).await;
 }
 
 async fn process_gmp_task(

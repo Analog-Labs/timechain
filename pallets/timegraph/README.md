@@ -1,17 +1,27 @@
 # Timegraph Pallet
 ## Storage:
-### Name: 
-### Purpose:
+### NextDepositSequence
+`Counter for previous number of deposits made`
+
+### NextWithdrawalSequence
+`Counter for previous number of withdrawal made`
 
 ## Events:
-### Name: 
-### Purpose:
+### Deposit(T::AccountId, T::AccountId, BalanceOf<T>, u64),
+`Amount deposited from timegraph user to timegaph account`
 
-## Errors:
-### Name:
-### Purpose:
+### Withdrawal(T::AccountId, T::AccountId, BalanceOf<T>, u64),
+`Amount refunded from timegraph amount to timegaph user`
 
 ## Extrinsics:
-### Name: 
+### deposit(T::AccountId,BalanceOf<T>)
 ### Origin:
+`Timegraph user`
 ### Purpose:
+`The extrinsic from timegraph user to deposit funds into the timegraph account`
+
+### withdraw(T::AccountId,BalanceOf<T>,u64)
+### Origin:
+`Timegraph account`
+### Purpose:
+`/// The extrinsic from timegraph user to deposit funds into the timegraph account`

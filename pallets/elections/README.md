@@ -1,17 +1,21 @@
 # Elections Pallet
 ## Storage:
-### Name: 
-### Purpose:
+### ShardSize
+`Size of each new shard`
+
+### ShardThreshold
+`Threshold of each new shard`
+
+### Unassigned
+`Unassigned members per network`
 
 ## Events:
-### Name: 
-### Purpose:
-
-## Errors:
-### Name:
-### Purpose:
+### ShardConfigSet(u16, u16),
+`Set shard config: size, threshold`
 
 ## Extrinsics:
-### Name: 
+### set_shard_config(u16,u16)
 ### Origin:
+`Root User`
 ### Purpose:
+`Set nodes required threshold signatures to make a valid TSS signature for a shard`

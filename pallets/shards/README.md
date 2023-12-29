@@ -4,58 +4,58 @@ Main purpose of this pallet is to create and manages shards in network.
 
 ## Storage:
 ### ShardIdCounter
-Contains counter for total shards in network.
+'Contains counter for total shards in network.'
     
 ### ShardNetwork
-Stores what network given shard is working on.
+'Stores what network given shard is working on.'
     
 ### ShartState
-Tells the state of shard e.g. created, committed, online, offline
+'Tells the state of shard e.g. created, committed, online, offline'
 
 ### ShardThreshold
-Stores the threshold for shard tss signing.
+'Stores the threshold for shard tss signing.'
 
 ### ShardCommitment
-Stores shard commitment.
+'Stores shard commitment.'
     
 ### MemberShard
-Stores shard id against each member of timechain.
+'Stores shard id against each member of timechain.'
     
 ### ShardMembers
-Stores members per shard.
+'Stores members per shard.'
     
 ### PastSigners
-Stores signers which already did signing for a specific shard. 
+'Stores signers which already did signing for a specific shard.' 
     
 ## Events:
 ### ShardCreated(ShardId, Network),
-New shard was created
+'New shard was created'
 
 ### ShardCommitted(ShardId, Commitment),
-Shard commited
+'Shard commited'
 
 ### ShardKeyGenTimedOut(ShardId),
-Shard DKG timed out
+'Shard DKG timed out'
 
 ### ShardOnline(ShardId, TssPublicKey),
-Shard completed dkg and submitted public key to runtime
+'Shard completed dkg and submitted public key to runtime'
 
 ### ShardOffline(ShardId),
-Shard went offline
+'Shard went offline'
 
 ## Extrinsics:
 ### Commit(shard_id: ShardId, commitment: Commitment, _proof_of_knowledge: ProofOfKnowledge)
 ### Origin:
-ShardMember
+'ShardMember'
 ### Purpose:
-Submits Commitment and proof of knowledge. 
+'Submits Commitment and proof of knowledge. '
 ### Nature:
-Automatic submission by node.
+'Automatic submission by node.'
     
 ### ready(shard_id: ShardId) 
 ### Origin:
-ShardMember
+'ShardMember'
 ### Purpose:
-Turns shard status online and ready to receive tasks for execution.
+'Turns shard status online and ready to receive tasks for execution.'
 ### Nature:
-Automatic submission by node.
+'Automatic submission by node.'

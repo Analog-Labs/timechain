@@ -1,6 +1,6 @@
 # Tasks Pallet
 
-Inserts and manage tasks and gateway contract of timechain
+Inserts and manage tasks and gateway contract of timechain.
 
 ## Storage:
 ### UnassignedTasks

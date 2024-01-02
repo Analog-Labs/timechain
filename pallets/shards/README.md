@@ -4,28 +4,28 @@ Main purpose of this pallet is to create and manages shards in network.
 
 ## Storage:
 ### ShardIdCounter
-`Contains counter for total shards in network.`
+`Contains counter for total shards in network`
     
 ### ShardNetwork
-`Stores what network given shard is working on.`
+`Stores what network given shard is working on`
     
 ### ShartState
 `Tells the state of shard e.g. created, committed, online, offline`
 
 ### ShardThreshold
-`Stores the threshold for shard tss signing.`
+`Stores the threshold for shard tss signing`
 
 ### ShardCommitment
-`Stores shard commitment.`
+`Stores shard commitment`
     
 ### MemberShard
-`Stores shard id against each member of timechain.`
+`Stores shard id against each member of timechain`
     
 ### ShardMembers
-`Stores members per shard.`
+`Stores members per shard`
     
 ### PastSigners
-`Stores signers which already did signing for a specific shard.`
+`Stores signers which already did signing for a specific shard`
     
 ## Events:
 ### ShardCreated(ShardId, Network),

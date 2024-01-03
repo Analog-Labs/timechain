@@ -43,6 +43,10 @@ interface IGateway {
         TssKey[] registered    // new shards registered
     );
 
+    event MessageHashReceived(
+        bytes32 msghash
+    );
+
     /**
      * Execute GMP message
      */
@@ -534,6 +538,7 @@ contract Gateway is IGateway, SigUtils {
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         bytes32 messageHash = getGmpTypedHash(message);
+        emit MessageHashReceived(messageHash);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
     }
@@ -568,5 +573,30 @@ contract Gateway is IGateway, SigUtils {
 
         // Execute GMP message
         (status, result) = execute(signature, message);
+    }
+
+
+    function raw_get_gmp_hash(
+        bytes32 source,      // 'source' from GmpPayload within GmpMessage
+        uint128 srcNetwork,  // 'srcNetwork' from GmpPayload within GmpMessage
+        address dest,        // 'dest' from GmpPayload within GmpMessage
+        uint128 destNetwork, // 'destNetwork' from GmpPayload within GmpMessage
+        uint256 gasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
+        uint256 salt,        // 'salt' from GmpPayload within GmpMessage
+        bytes memory data    // 'data' from GmpPayload within GmpMessage
+    ) public view returns (bytes32) {
+        // Recreate the GmpPayload struct from the provided arguments
+        GmpMessage memory message = GmpMessage({
+            source: source,
+            srcNetwork: srcNetwork,
+            dest: dest,
+            destNetwork: destNetwork,
+            gasLimit: gasLimit,
+            salt: salt,
+            data: data
+        });
+
+        // Execute GMP message
+        return getGmpTypedHash(message);
     }
 }

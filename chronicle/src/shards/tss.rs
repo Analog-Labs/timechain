@@ -113,6 +113,7 @@ impl Tss {
 	}
 
 	pub fn on_sign(&mut self, request_id: TssId, data: [u8; 32]) {
+		tracing::info!("paylod 2 {:?}", data);
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {

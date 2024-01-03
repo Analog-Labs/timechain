@@ -66,6 +66,7 @@ impl MessageBuilder {
 			salt: U256::from_be_bytes(salt),
 			data: payload,
 		};
+		tracing::info!("message is {:?}", message);
 		Message {
 			message: TypedMessage::Gmp(message),
 			chain_id: self.chain_id,

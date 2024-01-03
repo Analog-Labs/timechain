@@ -136,6 +136,7 @@ where
 							.sighash(),
 						_ => anyhow::bail!("invalid task"),
 					};
+					tracing::info!("payload 1: {:?}", payload);
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {
@@ -197,11 +198,35 @@ where
 							gas_limit,
 						} => {
 							if let Some(msg_builder) = msg_builder {
+								tracing::info!("task_id for this msg {:?}", task_id);
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id)?
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
+
+								//test sig validation
+								let sig_hash = msg_builder
+									.build_gmp_message(address, payload.clone(), salt, gas_limit)
+									.sighash();
+								tracing::info!("sig hash to verify {:?}", sig_hash);
+
+								let tss_public_key =
+									self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+								tracing::info!("tss public key {:?}", tss_public_key);
+
+								let schnorr_public_key =
+									schnorr_evm::VerifyingKey::from_bytes(tss_public_key)
+										.map_err(|_| anyhow::anyhow!("invalid public key"))?;
+
+								let signature =
+									schnorr_evm::Signature::from_bytes(tss_signature)
+										.map_err(|_| anyhow::anyhow!("signature making failed"))?;
+
+								schnorr_public_key
+									.verify_prehashed(sig_hash, &signature)
+									.map_err(|_| anyhow::anyhow!("verification failed"))?;
+								//////////////////////
 								msg_builder
 									.build_gmp_message(address, payload, salt, gas_limit)
 									.into_evm_call(tss_signature)

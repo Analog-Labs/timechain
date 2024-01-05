@@ -136,7 +136,6 @@ where
 							.sighash(),
 						_ => anyhow::bail!("invalid task"),
 					};
-					tracing::info!("payload 1: {:?}", payload);
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if *public_key != self.substrate.public_key() {

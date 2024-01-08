@@ -45,7 +45,7 @@ Also provides the interface to create shard to elections pallet, where election 
 ### ShardOffline(ShardId),
 `Shard went offline`
 
-## Extrinsic:
+## Extrinsics:
 ### Commit(ShardId, Commitment, ProofOfKnowledge)
 ### Origin:
 `ShardMember`

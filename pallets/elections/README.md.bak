@@ -1,6 +1,6 @@
 # Elections Pallet
 
-Manage unassigned members, creates shard if enough members are available. Contains the Shard Config i.e Shard Size, and Shard Threshold.
+Manage unassigned members, creates shard if enough members are available. Contains the Shard Config i.e ShardSize, and ShardThreshold.
 Shard config can be set via `ShardConfigSet` extrinsic, default is (3: shard_size, 2: shard_threshold).
 
 ## Storage:

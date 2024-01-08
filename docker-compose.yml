@@ -65,8 +65,8 @@ services:
     - '--prometheus-external'
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=wss://aged-aged-field.ethereum-sepolia.quiknode.pro/0b83e9859e010e08303fcbf9186d238d87214cfd'
-    - '--network-id=5'
+    - '--url=ws://ethereum:8545'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:

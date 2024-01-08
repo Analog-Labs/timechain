@@ -1,6 +1,15 @@
 # Tasks Pallet
 
-Inserts and manage tasks and gateway contract of timechain.
+Tasks pallet provides a number of extrinsics for managing tasks e.g. `create_task`, `resume_task`, `stop_task`, which are available to timechain users to use.
+It also provides extrinsics like `submit_result`, `submit_error`, `submit_signature` etc for timechain nodes to use when processing the tasks of external chains.
+`register_gateway` extrinsic is used to register the gateway contract address on which we can process gmp tasks. Following are some stats of a task.
+`Read only` tasks phase
+`Read(None)`: this is a view call tasks which read the data from the chain.
+`GMP` tasks phase
+`Sign`: This phase is of a gmp tasks, where the task parameters are signed by each shard member and it is then converted to payable task.
+`Payable` tasks phase
+`Write(Some(ID))`: In this phase task is ran for changing external chain state and `Some(Id)` user with the id will be responsible for paying for it.
+`Read(Some(hash))`: all shard members verifies the signature of hash and tss validate it then sends the result to pallet for task update.
 
 ## Storage:
 ### UnassignedTasks

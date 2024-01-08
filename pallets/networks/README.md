@@ -1,6 +1,7 @@
 # Networks Pallet
 
-Manage timechain supported networks for task execution.
+Provides interface to insert a new network on which we can run timechain tasks.
+Network is a collection of blockahin i.e. Ethereum, Astar etc, and its network i.e. mainnet, testnet etc.
 
 ## Storage:
 ### NetworkIdCounter

@@ -1,6 +1,8 @@
 # Shards Pallet
 
-Main purpose of this pallet is to create and manages shards in network.
+Main purpose of this pallet is to create and manages shards in network. It keeps track of shard status (Offline, Online, Committed). 
+Contains logic with members goes offline and if enough members are offline turns shard offline and rescheduled the respective tasks.
+Also provides the interface to create shard to elections pallet, where election pallet can use it when we have enough members to join.
 
 ## Storage:
 ### ShardIdCounter

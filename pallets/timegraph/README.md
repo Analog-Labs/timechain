@@ -1,6 +1,7 @@
 # Timegraph Pallet
 
-This pallet is used by timegraph user and timegraph account to transfer funds between each other.
+Timegraph pallet manages the funds received by other timegraph users to timegraph server account which are fees for querying data.
+Timegraph user can send funds using `deposit` extrinsic and withdraw funds using `withdraw` extrinsic.
 
 ## Storage:
 ### NextDepositSequence

@@ -1,6 +1,7 @@
 # Members Pallet
 
-Manages member registeration and keep status of heartbeat status to set member online/offline.
+Register member using `register_member` extrinsic, reserves a bond on registering, keeps track of member online status by continuously receiving heartbeats,
+If heartbeat is not received within configured block numbers (currently configured in runtime) then member is considered to be offline.
 
 ## Storage:
 ### MemberNetwork

@@ -23,12 +23,13 @@ const A: [u8; 32] = [1u8; 32];
 const B: [u8; 32] = [2u8; 32];
 const C: [u8; 32] = [3u8; 32];
 const D: [u8; 32] = [4u8; 32];
+const E: [u8; 32] = [5u8; 32];
 
 // Build genesis storage according to the mock runtime.
 fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut balances = vec![];
-	for i in 1..=SHARD_SIZE + 1 {
+	for i in 1..=(SHARD_SIZE * 2) {
 		balances.push((acc_pub(i.try_into().unwrap()).into(), 10_000_000_000));
 	}
 	pallet_balances::GenesisConfig::<Runtime> { balances }
@@ -154,6 +155,94 @@ fn write_phase_timeout_reassigns_task() {
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
 		roll_to(31);
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
+	});
+}
+
+#[test]
+fn register_unregister_preserves_task_migration() {
+	let a: AccountId = A.into();
+	let b: AccountId = B.into();
+	let c: AccountId = C.into();
+	let d: AccountId = D.into();
+	let e: AccountId = E.into();
+	let old_shard = [a.clone(), b.clone(), c.clone()].to_vec();
+	new_test_ext().execute_with(|| {
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(a.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(A),
+			A,
+			5,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(b.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(B),
+			B,
+			5,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(c.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(C),
+			C,
+			5,
+		));
+		// verify shard 0 created for Network Ethereum
+		assert_eq!(Shards::shard_network(0), Some(Network::Ethereum));
+		// create task
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed(a.clone()).into(),
+			TaskDescriptorParams {
+				network: Network::Ethereum,
+				function: Function::EvmCall {
+					address: Default::default(),
+					input: Default::default(),
+					amount: 0,
+				},
+				cycle: 1,
+				start: 0,
+				period: 0,
+				timegraph: None,
+			}
+		));
+		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
+		// verify task assigned to shard 0
+		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
+		// member unregisters
+		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(),));
+		// task still assigned to shard 0
+		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
+		// member unregisters
+		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(),));
+		Elections::shard_offline(Network::Ethereum, old_shard);
+		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, Network::Ethereum);
+		// task no longer assigned
+		assert!(Tasks::task_shard(0).is_none());
+		// new member
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(d.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(D),
+			D,
+			5,
+		));
+		// new member
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(e.clone()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(E),
+			E,
+			5,
+		));
+		// verify shard 1 created for Network Ethereum
+		assert_eq!(Shards::shard_network(1), Some(Network::Ethereum));
+		<pallet_shards::ShardState<Runtime>>::insert(1, ShardStatus::Online);
+		Tasks::shard_online(1, Network::Ethereum);
+		// verify task assigned to shard 1
+		assert_eq!(Tasks::task_shard(0).unwrap(), 1);
 	});
 }
 

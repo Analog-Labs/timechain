@@ -74,7 +74,8 @@ fn cannot_register_member_below_min_stake_bond() {
 }
 
 #[test]
-fn cannot_register_member_twice() {
+fn register_member_replaces_previous_call() {
+	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(A.into()).into(),
@@ -83,16 +84,29 @@ fn cannot_register_member_twice() {
 			A,
 			5,
 		));
-		assert_noop!(
-			Members::register_member(
-				RawOrigin::Signed(A.into()).into(),
-				Network::Ethereum,
-				pubkey_from_bytes(A),
-				A,
-				5,
-			),
-			Error::<Test>::AlreadyMember
-		);
+		assert_eq!(Members::member_peer_id(&a), Some(A));
+		assert_eq!(MemberStake::<Test>::get(&a), 5);
+		assert_eq!(Balances::reserved_balance(&a), 5);
+		assert_eq!(Balances::free_balance(&a), 9999999995);
+		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
+		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));
+		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
+		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(A.into()).into(),
+			Network::Ethereum,
+			pubkey_from_bytes(A),
+			A,
+			10,
+		));
+		assert_eq!(Members::member_peer_id(&a), Some(A));
+		assert_eq!(MemberStake::<Test>::get(&a), 10);
+		assert_eq!(Balances::reserved_balance(&a), 10);
+		assert_eq!(Balances::free_balance(&a), 9999999990);
+		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
+		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));
+		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
+		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
 	});
 }
 

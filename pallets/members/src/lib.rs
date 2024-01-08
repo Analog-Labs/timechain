@@ -129,7 +129,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			ensure!(member == public_key.clone().into_account(), Error::<T>::InvalidPublicKey);
-			ensure!(MemberNetwork::<T>::get(&member).is_none(), Error::<T>::AlreadyMember);
+			if let Some(old_network) = MemberNetwork::<T>::get(&member) {
+				// unregister before re-registering
+				Self::unregister_member_from_network(&member, old_network);
+			}
 			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
 			T::Currency::reserve(&member, bond)?;
 			MemberStake::<T>::insert(&member, bond);
@@ -166,12 +169,7 @@ pub mod pallet {
 		pub fn unregister_member(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::take(&member).ok_or(Error::<T>::NotMember)?;
-			T::Currency::unreserve(&member, MemberStake::<T>::take(&member));
-			MemberPublicKey::<T>::remove(&member);
-			MemberPeerId::<T>::remove(&member);
-			Heartbeat::<T>::remove(&member);
-			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
-			Self::member_offline(&member);
+			Self::unregister_member_from_network(&member, network);
 			Ok(())
 		}
 	}
@@ -189,6 +187,15 @@ pub mod pallet {
 			if let Some(network) = MemberNetwork::<T>::get(member) {
 				T::Elections::member_offline(member, network);
 			}
+		}
+
+		fn unregister_member_from_network(member: &AccountId, network: Network) {
+			T::Currency::unreserve(member, MemberStake::<T>::take(member));
+			MemberPublicKey::<T>::remove(member);
+			MemberPeerId::<T>::remove(member);
+			Heartbeat::<T>::remove(member);
+			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
+			Self::member_offline(member);
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

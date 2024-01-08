@@ -1,13 +1,14 @@
 # Elections Pallet
 
-Manage unassigned members and shard config
+Manage unassigned members, creates shard if enough members are available. Contains the Shard Config i.e ShardSize, and ShardThreshold.
+Shard config can be set via `ShardConfigSet` extrinsic, default is (3: shard_size, 2: shard_threshold).
 
 ## Storage:
 ### ShardSize
-`Size of each new shard`
+`Number of members each new shard`
 
 ### ShardThreshold
-`Threshold of each new shard`
+`Threshold from shard size whose signature can be validated as valid signature`
 
 ### Unassigned
 `Unassigned members per network`

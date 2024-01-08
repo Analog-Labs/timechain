@@ -1,6 +1,6 @@
 # Timegraph Pallet
 
-Manages timegraph payment system
+This pallet is used by timegraph user and timegraph account to transfer funds between each other.
 
 ## Storage:
 ### NextDepositSequence

@@ -10,10 +10,14 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::*, PalletId};
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{Currency, ExistenceRequirement},
+		PalletId,
+	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{AccountIdConversion, IdentifyAccount},
+		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
 	};
 	use sp_std::vec;
@@ -33,6 +37,7 @@ pub mod pallet {
 		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
+		fn fund_task() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -67,7 +72,14 @@ pub mod pallet {
 		fn register_gateway() -> Weight {
 			Weight::default()
 		}
+
+		fn fund_task() -> Weight {
+			Weight::default()
+		}
 	}
+
+	type BalanceOf<T> =
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -78,6 +90,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
+		/// The currency type
+		type Currency: Currency<Self::AccountId>;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 		#[pallet::constant]
@@ -168,6 +182,8 @@ pub mod pallet {
 		TaskResumed(TaskId),
 		/// Gateway registered on network
 		GatewayRegistered(Network, Vec<u8>),
+		/// Task funded
+		TaskFunded(TaskId, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -208,7 +224,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_task())]
-		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
+		pub fn create_task(
+			origin: OriginFor<T>,
+			schedule: TaskDescriptorParams<BalanceOf<T>>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::start_task(schedule, Some(who))?;
 			Ok(())
@@ -326,7 +345,10 @@ pub mod pallet {
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			WritePhaseStart::<T>::remove(task_id);
-			// TODO: if not funded, stop the task until it is funded
+			if Self::balance_above_read_task_min(Self::task_balance(task_id)) {
+				// Stop task execution until funded sufficiently
+				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
+			}
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
@@ -379,6 +401,34 @@ pub mod pallet {
 			Self::deposit_event(Event::GatewayRegistered(network, address));
 			Ok(())
 		}
+
+		/// Fund task balance
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::fund_task())]
+		pub fn fund_task(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let task_state = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let task_account_id = Self::task_balance_account(task_id);
+			T::Currency::transfer(
+				&caller,
+				&task_account_id,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
+			let new_task_balance = T::Currency::free_balance(&task_account_id);
+			if matches!(task_state, TaskStatus::Stopped) {
+				if Self::balance_above_read_task_min(new_task_balance) {
+					// UNstop the task
+					TaskState::<T>::insert(task_id, TaskStatus::Created);
+				}
+			}
+			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance));
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -398,14 +448,35 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// The account ID containing the funds for a READ task.
-		pub fn task_fund_account(id: TaskId) -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(id)
+		/// The account ID containing the funds for a task.
+		pub fn task_balance_account(task_id: TaskId) -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(task_id)
+		}
+		/// Balance for a task
+		pub fn task_balance(task_id: TaskId) -> BalanceOf<T> {
+			T::Currency::free_balance(&Self::task_balance_account(task_id))
+		}
+		/// Task is funded sufficiently to be a Read Task
+		/// TODO: consider constant min configurable instead of 0 bound
+		fn balance_above_read_task_min(task_balance: BalanceOf<T>) -> bool {
+			!task_balance.is_zero()
 		}
 
-		fn start_task(schedule: TaskDescriptorParams, who: Option<AccountId>) -> DispatchResult {
+		fn start_task(
+			schedule: TaskDescriptorParams<BalanceOf<T>>,
+			who: Option<AccountId>,
+		) -> DispatchResult {
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
+			if let Some(funded_by) = &who {
+				// transfer schedule.funds to task funded account
+				T::Currency::transfer(
+					funded_by,
+					&Self::task_balance_account(task_id),
+					schedule.funds,
+					ExistenceRequirement::KeepAlive,
+				)?;
+			} // else task is unfunded until `fund_task` is called?
 			if schedule.function.is_gmp() {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 			}
@@ -483,10 +554,18 @@ pub mod pallet {
 		}
 
 		fn is_resumable(task_id: TaskId) -> bool {
-			matches!(
-				TaskState::<T>::get(task_id),
-				Some(TaskStatus::Stopped) | Some(TaskStatus::Failed { .. })
-			)
+			match TaskState::<T>::get(task_id) {
+				Some(TaskStatus::Failed { .. }) => true,
+				Some(TaskStatus::Stopped) => {
+					if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
+						// only resume read task if task balance above min
+						Self::balance_above_read_task_min(Self::task_balance(task_id))
+					} else {
+						true
+					}
+				},
+				_ => false,
+			}
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {

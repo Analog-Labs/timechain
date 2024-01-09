@@ -68,16 +68,17 @@ impl TaskDescriptor {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskDescriptorParams {
+pub struct TaskDescriptorParams<Balance> {
 	pub network: Network,
 	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
 	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
+	pub funds: Balance,
 }
 
-impl TaskDescriptorParams {
+impl<B: Default> TaskDescriptorParams<B> {
 	pub fn new(network: Network, function: Function) -> Self {
 		Self {
 			network,
@@ -86,6 +87,7 @@ impl TaskDescriptorParams {
 			period: 1,
 			timegraph: None,
 			function,
+			funds: B::default(),
 		}
 	}
 }

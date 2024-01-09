@@ -15,6 +15,10 @@ mod tasks;
 struct Args {
 	#[arg(long, default_value = "ws://validator:9944")]
 	url: String,
+	#[arg(long, default_value = "ws://ethereum:8545")]
+	eth_connector_url: String,
+	#[arg(long, default_value = "ws://astar:9944")]
+	astar_connector_url: String,
 	#[arg(long)]
 	network: String,
 	#[clap(subcommand)]
@@ -49,13 +53,15 @@ async fn main() {
 	let eth_config = WalletConfig {
 		blockchain: Blockchain::Ethereum,
 		network: "dev".to_string(),
-		url: "ws://ethereum:8545".to_string(),
+		url: args.eth_connector_url,
 	};
+
 	let astar_config = WalletConfig {
 		blockchain: Blockchain::Astar,
 		network: "dev".to_string(),
-		url: "ws://astar:9944".to_string(),
+		url: args.astar_connector_url,
 	};
+
 	let (network, config) = match args.network.as_str() {
 		"ethereum" => (Network::Ethereum, eth_config.clone()),
 		"astar" => (Network::Astar, astar_config.clone()),
@@ -97,7 +103,7 @@ async fn deploy_gateway_contract(api: &SubxtClient, config: &WalletConfig, shard
 	}
 	let shard_public_key = api.shard_public_key(shard_id).await.unwrap();
 	let constructor_params = get_gmp_constructor_params(shard_public_key);
-	setup_env(config, Some(constructor_params)).await;
+	deploy_contract(config, Some(constructor_params)).await.unwrap();
 }
 
 async fn process_gmp_task(

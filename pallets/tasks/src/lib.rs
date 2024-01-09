@@ -10,9 +10,12 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, PalletId};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_runtime::{
+		traits::{AccountIdConversion, IdentifyAccount},
+		Saturating,
+	};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -79,6 +82,10 @@ pub mod pallet {
 		type MaxRetryCount: Get<u8>;
 		#[pallet::constant]
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
+		/// `PalletId` for the task pallet. An appropriate value could be
+		/// `PalletId(*b"py/tasks")`
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 	}
 
 	#[pallet::storage]
@@ -319,6 +326,7 @@ pub mod pallet {
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			WritePhaseStart::<T>::remove(task_id);
+			// TODO: if not funded, stop the task until it is funded
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
@@ -390,6 +398,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// The account ID containing the funds for a READ task.
+		pub fn task_fund_account(id: TaskId) -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(id)
+		}
+
 		fn start_task(schedule: TaskDescriptorParams, who: Option<AccountId>) -> DispatchResult {
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();

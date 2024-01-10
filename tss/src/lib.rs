@@ -7,12 +7,7 @@ use frost_evm::keys::{KeyPackage, PublicKeyPackage, SecretShare};
 use frost_evm::{Identifier, Scalar};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
-use sp_core::crypto::Ss58Codec;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{self, File};
-use std::io::{BufReader, Write};
-use std::path::PathBuf;
-use time_primitives::{AccountId, ShardId, TSS_KEY_PATH};
 
 pub use frost_evm::frost_core::frost::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
@@ -126,42 +121,6 @@ pub fn verify_proof_of_knowledge(
 	)?)
 }
 
-// read the secret from file stored in local
-// name fetched from peer_id and commitment combined.
-// Data returned could be SigningKey and SecretShare
-pub fn read_key_from_file(account_id: AccountId, shard_id: ShardId) -> Result<Vec<u8>> {
-	let file_path = get_or_create_key_path(account_id, shard_id)?;
-	let file = File::open(file_path)?;
-	let reader = BufReader::new(file);
-	let data: Vec<u8> = serde_json::from_reader(reader)?;
-	Ok(data)
-}
-
-// writes SignignKey to a local file
-pub fn write_key_to_file(key: Vec<u8>, account_id: AccountId, shard_id: ShardId) -> Result<()> {
-	let file_path = get_or_create_key_path(account_id, shard_id)?;
-	let mut file = File::create(file_path)?;
-
-	#[cfg(target_family = "unix")]
-	{
-		use std::os::unix::fs::PermissionsExt;
-		file.set_permissions(fs::Permissions::from_mode(0o600))?;
-	}
-
-	serde_json::to_writer(&file, &key)?;
-	file.flush()?;
-	Ok(())
-}
-
-// Take account_id and shard id to get or create key path
-fn get_or_create_key_path(account_id: AccountId, shard_id: ShardId) -> Result<PathBuf> {
-	let file_name = format!("{}-{}", account_id.to_ss58check(), shard_id);
-	let home_dir = dirs::home_dir().ok_or(anyhow::anyhow!("Home directory not found"))?;
-	let analog_dir = home_dir.join(TSS_KEY_PATH);
-	fs::create_dir_all(analog_dir.clone())?;
-	Ok(analog_dir.join(file_name))
-}
-
 /// Tss state machine.
 pub struct Tss<I, P> {
 	peer_id: P,
@@ -171,8 +130,6 @@ pub struct Tss<I, P> {
 	coordinators: BTreeSet<Identifier>,
 	state: TssState<I>,
 	committed: bool,
-	account_id: AccountId,
-	shard_id: ShardId,
 }
 
 impl<I, P> Tss<I, P>
@@ -185,8 +142,6 @@ where
 		members: BTreeSet<P>,
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
-		account_id: AccountId,
-		shard_id: ShardId,
 	) -> Self {
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_to_frost(&peer_id);
@@ -203,61 +158,18 @@ where
 			members.len(),
 			is_coordinator
 		);
-		let (state, committed) = match Self::get_or_create_state(
-			frost_id,
-			members.clone(),
-			threshold,
-			commitment,
-			account_id.clone(),
-			shard_id,
-		) {
-			Ok(data) => data,
-			Err(e) => {
-				tracing::error!("Error creating state {:?}", e);
-				(TssState::Dkg(Dkg::new(frost_id, members, threshold)), false)
-			},
-		};
 		Self {
 			peer_id,
 			frost_id,
 			frost_to_peer,
 			threshold,
 			coordinators,
-			state,
-			committed,
-			account_id,
-			shard_id,
-		}
-	}
-
-	fn get_or_create_state(
-		frost_id: Identifier,
-		members: BTreeSet<Identifier>,
-		threshold: u16,
-		commitment: Option<VerifiableSecretSharingCommitment>,
-		account_id: AccountId,
-		shard_id: ShardId,
-	) -> Result<(TssState<I>, bool)> {
-		if let Some(commitment) = commitment {
-			let secret_bytes = read_key_from_file(account_id, shard_id)
-				.map_err(|_| anyhow::anyhow!("Could not fetch secret key from local"))?;
-			let secret_share = SecretShare::deserialize(&secret_bytes)
-				.map_err(|_| anyhow::anyhow!("Could not parse secret_share"))?;
-			let rts = RtsHelper::new(frost_id, members.clone(), threshold, secret_share.clone());
-			let key_package = KeyPackage::try_from(secret_share)
-				.map_err(|_| anyhow::anyhow!("Could not make keypackage from secret_share"))?;
-			let public_key_package = PublicKeyPackage::from_commitment(&members, &commitment)
-				.map_err(|_| anyhow::anyhow!("Could not recover public key from commitment"))?;
-			let state = TssState::<I>::Roast {
-				rts,
-				key_package,
-				public_key_package,
-				signing_sessions: Default::default(),
-			};
-			Ok((state, true))
-		} else {
-			tracing::debug!("commitment not received for recovery");
-			Ok((TssState::Dkg(Dkg::new(frost_id, members, threshold)), false))
+			state: if let Some(commitment) = commitment {
+				TssState::Rts(Rts::new(frost_id, members, threshold, commitment))
+			} else {
+				TssState::Dkg(Dkg::new(frost_id, members, threshold))
+			},
+			committed: false,
 		}
 	}
 
@@ -428,13 +340,6 @@ where
 							*key_package.signing_share(),
 							commitment.clone(),
 						);
-						if let Err(e) = write_key_to_file(
-							secret_share.clone().serialize().unwrap(),
-							self.account_id.clone(),
-							self.shard_id,
-						) {
-							tracing::error!("error saving secret {:?}", e);
-						};
 						let public_key =
 							VerifyingKey::new(public_key_package.verifying_key().to_element());
 						let members = self.frost_to_peer.keys().copied().collect();

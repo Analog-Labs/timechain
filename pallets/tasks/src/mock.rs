@@ -5,7 +5,7 @@ use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
 	traits::{parameter_types, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature,
+	BuildStorage, MultiSignature, Percent,
 };
 use sp_std::vec::Vec;
 use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
@@ -100,6 +100,8 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
+	// reward declines by 5% every 10 blocks
+	pub const RewardDeclineRate: (u64, Percent) = (10, Percent::from_percent(5));
 }
 
 impl task_schedule::Config for Test {
@@ -110,6 +112,7 @@ impl task_schedule::Config for Test {
 	type Currency = Balances;
 	type MinReadTaskBalance = ConstU128<10>;
 	type MinReadTaskReward = ConstU128<1>;
+	type RewardDeclineRate = RewardDeclineRate;
 	type WritePhaseTimeout = ConstU64<10>;
 	type PalletId = PalletIdentifier;
 }

@@ -18,7 +18,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
-		Saturating,
+		Percent, Saturating,
 	};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
@@ -100,10 +100,12 @@ pub mod pallet {
 		/// Minimum and default read task reward for all networks
 		#[pallet::constant]
 		type MinReadTaskReward: Get<BalanceOf<Self>>;
+		/// Reward declines every N blocks since read task start by Percent * Amount
+		#[pallet::constant]
+		type RewardDeclineRate: Get<(BlockNumberFor<Self>, Percent)>;
 		#[pallet::constant]
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
-		/// `PalletId` for the task pallet. An appropriate value could be
-		/// `PalletId(*b"py/tasks")`
+		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 	}
@@ -147,6 +149,10 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type WritePhaseStart<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
+
+	#[pallet::storage]
+	pub type ReadPhaseStart<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
@@ -366,6 +372,7 @@ pub mod pallet {
 				// Stop task execution in read phase until funded sufficiently
 				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
 			}
+			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
@@ -707,6 +714,31 @@ pub mod pallet {
 			}
 		}
 
+		fn compute_shard_member_task_reward(network: Network, task_id: TaskId) -> BalanceOf<T> {
+			let full_reward = Self::read_task_reward(network);
+			let read_phase_start = ReadPhaseStart::<T>::get(task_id);
+			if read_phase_start.is_zero() {
+				// read phase never started => no reward
+				return BalanceOf::<T>::zero();
+			}
+			let (discount_period_len, discount_pct) = T::RewardDeclineRate::get();
+			let time_since_read_phase_start =
+				frame_system::Pallet::<T>::block_number().saturating_sub(read_phase_start);
+			if time_since_read_phase_start.is_zero() {
+				// no time elapsed since read phase started => full reward
+				return full_reward;
+			}
+			let mut remaining_reward = full_reward;
+			let discount_periods = time_since_read_phase_start / discount_period_len;
+			let mut discount_period_counter = BlockNumberFor::<T>::zero();
+			while discount_period_counter < discount_periods {
+				let amt_to_discount = discount_pct * remaining_reward;
+				remaining_reward = remaining_reward.saturating_sub(amt_to_discount);
+				discount_period_counter = discount_period_counter.saturating_plus_one();
+			}
+			remaining_reward
+		}
+
 		/// Returns true iff task is read and payout fails which requires
 		/// returning early.
 		/// Returns false if task is not in read phase OR if payout succeeded.
@@ -720,7 +752,7 @@ pub mod pallet {
 				// do NOT return early if task is not in read phase
 				return false;
 			} // else task is in read phase => reward the shard members
-			let read_task_reward = Self::read_task_reward(network);
+			let task_reward_per_member = Self::compute_shard_member_task_reward(network, task_id);
 			let task_account_id = Self::task_account(task_id);
 			let members = T::Shards::shard_members(shard_id);
 			let stop_task = |t| {
@@ -729,7 +761,7 @@ pub mod pallet {
 				Self::deposit_event(Event::TaskStopped(t));
 			};
 			if T::Currency::free_balance(&task_account_id)
-				< read_task_reward.saturating_mul((members.len() as u32).into())
+				< task_reward_per_member.saturating_mul((members.len() as u32).into())
 			{
 				// insufficient balance to payout rewards
 				stop_task(task_id);
@@ -739,7 +771,7 @@ pub mod pallet {
 				if T::Currency::transfer(
 					&task_account_id,
 					&member,
-					read_task_reward,
+					task_reward_per_member,
 					ExistenceRequirement::KeepAlive,
 				)
 				.is_err()
@@ -751,6 +783,8 @@ pub mod pallet {
 				} // else continue payout
 			}
 			// payout succeeded => do NOT return early in caller
+			// update read phase start because read task completed and rewarded
+			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 			false
 		}
 	}

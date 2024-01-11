@@ -20,7 +20,7 @@ fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 
 const A: [u8; 32] = [1u8; 32];
 
-fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
+fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
 	TaskDescriptorParams {
 		network,
 		cycle,
@@ -31,10 +31,11 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 			address: Default::default(),
 			input: Default::default(),
 		},
+		funds: 100,
 	}
 }
 
-fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
+fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
 	TaskDescriptorParams {
 		network,
 		cycle,
@@ -47,10 +48,11 @@ fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 			salt: Default::default(),
 			payload: Default::default(),
 		},
+		funds: 100,
 	}
 }
 
-fn mock_payable(network: Network) -> TaskDescriptorParams {
+fn mock_payable(network: Network) -> TaskDescriptorParams<u128> {
 	TaskDescriptorParams {
 		network,
 		cycle: 1,
@@ -62,6 +64,7 @@ fn mock_payable(network: Network) -> TaskDescriptorParams {
 			input: Default::default(),
 			amount: 0,
 		},
+		funds: 100,
 	}
 }
 

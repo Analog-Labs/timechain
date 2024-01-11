@@ -1,11 +1,13 @@
 use crate::{self as task_schedule};
+use frame_support::PalletId;
 use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	traits::{parameter_types, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
+use sp_std::vec::Vec;
 use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -28,6 +30,10 @@ impl ShardsInterface for MockShardInterface {
 		task_schedule::NetworkShards::<Test>::iter()
 			.find(|(_, s, _)| s == &id)
 			.map(|(n, _, _)| n)
+	}
+
+	fn shard_members(id: u64) -> Vec<AccountId> {
+		Vec::new()
 	}
 
 	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
@@ -92,12 +98,20 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 }
 
+parameter_types! {
+	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
+}
+
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Shards = MockShardInterface;
 	type MaxRetryCount = ConstU8<3>;
+	type Currency = Balances;
+	type MinReadTaskBalance = ConstU128<10>;
+	type MinReadTaskReward = ConstU128<1>;
 	type WritePhaseTimeout = ConstU64<10>;
+	type PalletId = PalletIdentifier;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

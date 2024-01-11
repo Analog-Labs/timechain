@@ -9,7 +9,7 @@ run_ethereum() {
         docker compose --profile ethereum down -v && ./scripts/build_docker.sh && docker compose --profile ethereum up
     elif [ "$1" == "multi" ]; then
         echo "Running multi node Ethereum configuration."
-        docker compose -f docker-compose-multinode.yml --profile ethereum down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile ethereum up -d
+        docker compose -f docker-compose-multinode.yml --profile ethereum down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile ethereum up
     fi
 }
 

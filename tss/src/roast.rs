@@ -228,9 +228,9 @@ impl Roast {
 					&session.signature_shares,
 					&self.public_key_package,
 				) {
-					let hash = VerifyingKey::message_hash(self.signer.data());
+					let hash = self.signer.data();
 					self.coordinator.take();
-					return Some(RoastAction::Complete(hash, signature));
+					return Some(RoastAction::Complete(*hash, signature));
 				}
 			}
 			if let Some(request) = coordinator.start_session() {

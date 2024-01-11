@@ -214,7 +214,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::ready())]
+		#[pallet::weight(T::WeightInfo::ready())]//TODO: update weights
 		pub fn pay_rewards(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			ensure_signed(origin)?;
 			Self::payout_shard_members_rewards(shard_id);

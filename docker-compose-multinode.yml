@@ -59,8 +59,7 @@ services:
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--enable-iroh'
     - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
@@ -89,8 +88,7 @@ services:
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--enable-iroh'
     - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
@@ -119,8 +117,7 @@ services:
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--enable-iroh'
     - '--url=ws://ethereum:8545'
-    - '--blockchain=ethereum'
-    - '--network=dev'
+    - '--network-id=3'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
     - '--keyfile=/etc/keyfile'
     environment:
@@ -148,8 +145,7 @@ services:
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
+    - '--network-id=1'
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -176,8 +172,7 @@ services:
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
+    - '--network-id=1'
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -204,8 +199,7 @@ services:
     - '--prometheus-port=9090'
     - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
     - '--url=ws://astar:9944'
-    - '--blockchain=astar'
-    - '--network=dev'
+    - '--network-id=1'
     - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'

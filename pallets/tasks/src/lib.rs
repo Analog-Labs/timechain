@@ -300,11 +300,9 @@ pub mod pallet {
 			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
 			Self::validate_signature(result.shard_id, result.hash, result.signature)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			// (try) reward shard iff task is in read phase
-			// if reward payout fails then stop the task and return early
-			if Self::reward_read_task_or_stop_task(task_id, result.shard_id, task.network) {
+			if Self::reward_if_read_task_or_return_early(task_id, result.shard_id, task.network) {
 				return Ok(());
-			}
+			} // else reward payout succeeded or task is not in read phase
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, result.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
@@ -709,33 +707,51 @@ pub mod pallet {
 			}
 		}
 
-		/// Returns true iff the task should be stopped and then return early
-		/// Returns false if task is not in read phase or reward was paid out
-		/// successfully.
-		fn reward_read_task_or_stop_task(
+		/// Returns true iff task is read and payout fails which requires
+		/// returning early.
+		/// Returns false if task is not in read phase OR if payout succeeded.
+		// TODO: clean/refactor
+		fn reward_if_read_task_or_return_early(
 			task_id: TaskId,
 			shard_id: ShardId,
 			network: Network,
 		) -> bool {
 			if !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
-				// early return if not read phase
+				// do NOT return early if task is not in read phase
 				return false;
-			} // else task is in read phase so reward the shard
-			let reward = Self::read_task_reward(network);
-			if T::Currency::transfer(
-				&Self::task_account(task_id),
-				&T::Shards::shard_account(shard_id),
-				reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.is_ok()
+			} // else task is in read phase => reward the shard members
+			let read_task_reward = Self::read_task_reward(network);
+			let task_account_id = Self::task_account(task_id);
+			let members = T::Shards::shard_members(shard_id);
+			let stop_task = |t| {
+				// insufficient balance to payout rewards
+				TaskState::<T>::insert(t, TaskStatus::Stopped);
+				Self::deposit_event(Event::TaskStopped(t));
+			};
+			if T::Currency::free_balance(&task_account_id)
+				< read_task_reward.saturating_mul((members.len() as u32).into())
 			{
-				// successful payout
-				return false;
-			} // else transfer failed:
-			TaskState::<T>::insert(task_id, TaskStatus::Stopped);
-			Self::deposit_event(Event::TaskStopped(task_id));
-			true
+				// insufficient balance to payout rewards
+				stop_task(task_id);
+				return true;
+			}
+			for member in T::Shards::shard_members(shard_id) {
+				if T::Currency::transfer(
+					&task_account_id,
+					&member,
+					read_task_reward,
+					ExistenceRequirement::KeepAlive,
+				)
+				.is_err()
+				{
+					// insufficient balance to payout rewards
+					// unlikely due to check above the loop
+					stop_task(task_id);
+					return true;
+				} // else continue payout
+			}
+			// payout succeeded => do NOT return early in caller
+			false
 		}
 	}
 

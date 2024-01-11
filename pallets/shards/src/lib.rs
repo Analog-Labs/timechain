@@ -11,14 +11,10 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{
-		pallet_prelude::{ValueQuery, *},
-		traits::{Currency, ExistenceRequirement},
-		PalletId,
-	};
+	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 	use schnorr_evm::VerifyingKey;
-	use sp_runtime::{traits::AccountIdConversion, Perbill, Saturating};
+	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -42,9 +38,6 @@ pub mod pallet {
 		}
 	}
 
-	type BalanceOf<T> =
-		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -56,15 +49,8 @@ pub mod pallet {
 		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
 		type TaskScheduler: TasksInterface;
-		type Currency: Currency<Self::AccountId>;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
-		/// `PalletId` for the shard pallet. An appropriate value could be
-		/// `PalletId(*b"py/shard")`
-		#[pallet::constant]
-		type PalletId: Get<PalletId>;
-		#[pallet::constant]
-		type MinShardBalanceForAutoPayout: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::storage]
@@ -128,8 +114,6 @@ pub mod pallet {
 		ShardOnline(ShardId, TssPublicKey),
 		/// Shard went offline
 		ShardOffline(ShardId),
-		/// Shard paid out rewards to all of its members
-		ShardPaidRewards(ShardId, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -212,14 +196,6 @@ pub mod pallet {
 			}
 			Ok(())
 		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::ready())]//TODO: update weights
-		pub fn pay_rewards(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			ensure_signed(origin)?;
-			Self::payout_shard_members_rewards(shard_id);
-			Ok(())
-		}
 	}
 
 	#[pallet::hooks]
@@ -236,24 +212,6 @@ pub mod pallet {
 				}
 			});
 			T::DbWeight::get().writes(writes)
-		}
-		// Payout shard members whenever there is block space available
-		// and shard balance is above `MinShardBalanceForAutoPayout`
-		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let mut weight_used = Weight::default();
-			for (shard_id, _) in ShardState::<T>::iter() {
-				// if shard has sufficient balance, auto payout to members
-				if Self::shard_balance(shard_id) >= T::MinShardBalanceForAutoPayout::get() {
-					let weight_consumed = Self::payout_shard_members_rewards(shard_id);
-					weight_used.saturating_add(weight_consumed);
-				}
-				// each ShardState is 1 read
-				weight_used = weight_used.saturating_add(T::DbWeight::get().read.into());
-				if weight_used.any_lt(remaining_weight) {
-					break;
-				}
-			}
-			weight_used
 		}
 	}
 
@@ -305,32 +263,6 @@ pub mod pallet {
 		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
 			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
 		}
-
-		/// Return weight consumed
-		fn payout_shard_members_rewards(shard_id: ShardId) -> Weight {
-			let shard_account = Self::shard_account(shard_id);
-			let members_len = ShardMembers::<T>::iter_prefix(shard_id).collect::<Vec<_>>().len();
-			let member_share = Perbill::from_rational(1u32, members_len as u32);
-			let member_payout = member_share.mul_floor(T::Currency::free_balance(&shard_account));
-			for (member, _) in ShardMembers::<T>::iter_prefix(shard_id) {
-				T::Currency::transfer(
-					&shard_account,
-					&member,
-					member_payout,
-					ExistenceRequirement::KeepAlive,
-				).expect("member_share * member_payout < T::Currency::free_balance(&shard_account because of mul_floor QED");
-			}
-			Self::deposit_event(Event::ShardPaidRewards(shard_id, member_payout));
-			// READs: 1 shard_account read + shard_members.len() members read
-			// WRITEs: shard_members.len() transfers written + 1 event emitted
-			// so read_count == write_count
-			let read_and_write_count = members_len
-				.saturating_plus_one()
-				.try_into()
-				.expect("members_len + 1 usize will fit in u64");
-			T::DbWeight::get().reads(read_and_write_count)
-				+ T::DbWeight::get().writes(read_and_write_count)
-		}
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
@@ -366,7 +298,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ShardsInterface for Pallet<T> {
-		type Balance = BalanceOf<T>;
 		fn is_shard_online(shard_id: ShardId) -> bool {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
@@ -377,6 +308,10 @@ pub mod pallet {
 
 		fn shard_network(shard_id: ShardId) -> Option<Network> {
 			ShardNetwork::<T>::get(shard_id)
+		}
+
+		fn shard_members(shard_id: ShardId) -> Vec<AccountId> {
+			ShardMembers::<T>::iter_prefix(shard_id).map(|(a, _)| a).collect::<Vec<_>>()
 		}
 
 		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
@@ -424,14 +359,6 @@ pub mod pallet {
 
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
 			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
-		}
-
-		fn shard_account(shard_id: ShardId) -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(shard_id)
-		}
-
-		fn shard_balance(shard_id: ShardId) -> BalanceOf<T> {
-			T::Currency::free_balance(&Self::shard_account(shard_id))
 		}
 	}
 }

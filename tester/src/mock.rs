@@ -28,6 +28,7 @@ pub(crate) async fn deploy_contract(
 			.await
 			.unwrap();
 
+	println!("Deploying contract from {:?}", wallet.account().address);
 	let bytes = if let Some(gmp_bytes) = gmp_params {
 		let mut gateway_bytes = compile_file("/etc/gateway.sol")?;
 		gateway_bytes.extend(gmp_bytes);
@@ -50,7 +51,6 @@ pub(crate) async fn fund_wallet(config: &WalletConfig) {
 		Wallet::new(config.blockchain, &config.network, &config.url, Some("/etc/keyfile".as_ref()))
 			.await
 			.unwrap();
-	println!("funding wallet for {:?} {:?}", config.blockchain, wallet.account().address);
 	if let Err(err) = wallet.faucet(1000000000000000000000).await {
 		println!("Error occured while funding wallet {:?}", err);
 	}

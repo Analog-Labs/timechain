@@ -94,6 +94,12 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
+		/// Minimum task balance for tasks in the READ phase (to pay out reward)
+		#[pallet::constant]
+		type MinReadTaskBalance: Get<BalanceOf<Self>>;
+		/// Minimum and default read task reward for all networks
+		#[pallet::constant]
+		type MinReadTaskReward: Get<BalanceOf<Self>>;
 		#[pallet::constant]
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
 		/// `PalletId` for the task pallet. An appropriate value could be
@@ -167,6 +173,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, Network, Vec<u8>, OptionQuery>;
 
+	#[pallet::storage]
+	pub type ReadTaskReward<T: Config> =
+		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -182,8 +192,10 @@ pub mod pallet {
 		TaskResumed(TaskId),
 		/// Gateway registered on network
 		GatewayRegistered(Network, Vec<u8>),
-		/// Task funded
+		/// Task funded with new free balance amount
 		TaskFunded(TaskId, BalanceOf<T>),
+		/// Read task reward set for network
+		ReadTaskRewardSet(Network, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -218,6 +230,8 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
+		/// Read task reward must be >= MinReadTaskReward
+		ReadTaskRewardBelowPalletMin,
 	}
 
 	#[pallet::call]
@@ -286,6 +300,11 @@ pub mod pallet {
 			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
 			Self::validate_signature(result.shard_id, result.hash, result.signature)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
+			// (try) reward shard iff task is in read phase
+			// if reward payout fails then stop the task and return early
+			if Self::reward_read_task_or_stop_task(task_id, result.shard_id, task.network) {
+				return Ok(());
+			}
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, result.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
@@ -345,8 +364,8 @@ pub mod pallet {
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			WritePhaseStart::<T>::remove(task_id);
-			if Self::balance_above_read_task_min(Self::task_balance(task_id)) {
-				// Stop task execution until funded sufficiently
+			if Self::task_balance(task_id) < T::MinReadTaskBalance::get() {
+				// Stop task execution in read phase until funded sufficiently
 				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
 			}
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
@@ -411,8 +430,8 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
+			let task_account_id = Self::task_account(task_id);
 			let task_state = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let task_account_id = Self::task_balance_account(task_id);
 			T::Currency::transfer(
 				&caller,
 				&task_account_id,
@@ -421,12 +440,30 @@ pub mod pallet {
 			)?;
 			let new_task_balance = T::Currency::free_balance(&task_account_id);
 			if matches!(task_state, TaskStatus::Stopped) {
-				if Self::balance_above_read_task_min(new_task_balance) {
-					// UNstop the task
+				if new_task_balance >= T::MinReadTaskBalance::get() {
+					// RESUME the task
 					TaskState::<T>::insert(task_id, TaskStatus::Created);
 				}
 			}
 			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance));
+			Ok(())
+		}
+
+		/// Set read task reward
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::fund_task())] //Update
+		pub fn set_read_task_reward(
+			origin: OriginFor<T>,
+			network: Network,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(
+				amount >= T::MinReadTaskReward::get(),
+				Error::<T>::ReadTaskRewardBelowPalletMin
+			);
+			ReadTaskReward::<T>::insert(network, amount);
+			Self::deposit_event(Event::ReadTaskRewardSet(network, amount));
 			Ok(())
 		}
 	}
@@ -449,19 +486,13 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// The account ID containing the funds for a task.
-		pub fn task_balance_account(task_id: TaskId) -> T::AccountId {
+		pub fn task_account(task_id: TaskId) -> T::AccountId {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 		/// Balance for a task
 		pub fn task_balance(task_id: TaskId) -> BalanceOf<T> {
-			T::Currency::free_balance(&Self::task_balance_account(task_id))
+			T::Currency::free_balance(&Self::task_account(task_id))
 		}
-		/// Task is funded sufficiently to be a Read Task
-		/// TODO: consider constant min configurable instead of 0 bound
-		fn balance_above_read_task_min(task_balance: BalanceOf<T>) -> bool {
-			!task_balance.is_zero()
-		}
-
 		fn start_task(
 			schedule: TaskDescriptorParams<BalanceOf<T>>,
 			who: Option<AccountId>,
@@ -472,7 +503,7 @@ pub mod pallet {
 				// transfer schedule.funds to task funded account
 				T::Currency::transfer(
 					funded_by,
-					&Self::task_balance_account(task_id),
+					&Self::task_account(task_id),
 					schedule.funds,
 					ExistenceRequirement::KeepAlive,
 				)?;
@@ -558,8 +589,8 @@ pub mod pallet {
 				Some(TaskStatus::Failed { .. }) => true,
 				Some(TaskStatus::Stopped) => {
 					if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
-						// only resume read task if task balance above min
-						Self::balance_above_read_task_min(Self::task_balance(task_id))
+						// only resumable if task balance > min
+						Self::task_balance(task_id) >= T::MinReadTaskBalance::get()
 					} else {
 						true
 					}
@@ -664,6 +695,47 @@ pub mod pallet {
 			} else {
 				TaskResults::<T>::iter_prefix(task_id).collect::<Vec<_>>()
 			}
+		}
+
+		fn read_task_reward(network: Network) -> BalanceOf<T> {
+			let read_task_reward = ReadTaskReward::<T>::get(network);
+			if read_task_reward.is_zero() {
+				let min_read_task_reward = T::MinReadTaskReward::get();
+				// set to minimum read task reward is not set
+				ReadTaskReward::<T>::insert(network, min_read_task_reward);
+				min_read_task_reward
+			} else {
+				read_task_reward
+			}
+		}
+
+		/// Returns true iff the task should be stopped and then return early
+		/// Returns false if task is not in read phase or reward was paid out
+		/// successfully.
+		fn reward_read_task_or_stop_task(
+			task_id: TaskId,
+			shard_id: ShardId,
+			network: Network,
+		) -> bool {
+			if !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
+				// early return if not read phase
+				return false;
+			} // else task is in read phase so reward the shard
+			let reward = Self::read_task_reward(network);
+			if T::Currency::transfer(
+				&Self::task_account(task_id),
+				&T::Shards::shard_account(shard_id),
+				reward,
+				ExistenceRequirement::KeepAlive,
+			)
+			.is_ok()
+			{
+				// successful payout
+				return false;
+			} // else transfer failed:
+			TaskState::<T>::insert(task_id, TaskStatus::Stopped);
+			Self::deposit_event(Event::TaskStopped(task_id));
+			true
 		}
 	}
 

@@ -198,8 +198,9 @@ pub mod pallet {
 		TaskResumed(TaskId),
 		/// Gateway registered on network
 		GatewayRegistered(Network, Vec<u8>),
-		/// Task funded with new free balance amount
-		TaskFunded(TaskId, BalanceOf<T>),
+		/// Task funded with new free balance amount, bool is true if task status
+		/// changed from stopped to resumed due to the new funding
+		TaskFunded(TaskId, BalanceOf<T>, bool),
 		/// Read task reward set for network
 		ReadTaskRewardSet(Network, BalanceOf<T>),
 	}
@@ -444,13 +445,18 @@ pub mod pallet {
 				ExistenceRequirement::KeepAlive,
 			)?;
 			let new_task_balance = T::Currency::free_balance(&task_account_id);
-			if matches!(task_state, TaskStatus::Stopped) {
+			let task_resumed = if matches!(task_state, TaskStatus::Stopped) {
 				if new_task_balance >= T::MinReadTaskBalance::get() {
 					// RESUME the task
 					TaskState::<T>::insert(task_id, TaskStatus::Created);
+					true
+				} else {
+					false
 				}
-			}
-			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance));
+			} else {
+				false
+			};
+			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance, task_resumed));
 			Ok(())
 		}
 

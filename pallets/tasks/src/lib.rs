@@ -18,14 +18,14 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
-		Percent, Saturating,
+		Saturating,
 	};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Function, Network, ShardId, ShardsInterface,
-		TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId,
-		TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
+		append_hash_with_task_data, AccountId, DepreciationRate, Function, Network, ShardId,
+		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution,
+		TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -97,12 +97,12 @@ pub mod pallet {
 		/// Minimum task balance for tasks in the READ phase (to pay out reward)
 		#[pallet::constant]
 		type MinReadTaskBalance: Get<BalanceOf<Self>>;
-		/// Minimum and default read task reward for all networks
+		/// Base read task reward (for all networks)
 		#[pallet::constant]
-		type MinReadTaskReward: Get<BalanceOf<Self>>;
+		type BaseReadReward: Get<BalanceOf<Self>>;
 		/// Reward declines every N blocks since read task start by Percent * Amount
 		#[pallet::constant]
-		type RewardDeclineRate: Get<(BlockNumberFor<Self>, Percent)>;
+		type RewardDeclineRate: Get<DepreciationRate<BlockNumberFor<Self>>>;
 		#[pallet::constant]
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
 		/// `PalletId` for this pallet, used to derive an account for each task.
@@ -180,7 +180,7 @@ pub mod pallet {
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, Network, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ReadTaskReward<T: Config> =
+	pub type NetworkReadReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::event]
@@ -237,8 +237,6 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
-		/// Read task reward must be >= MinReadTaskReward
-		ReadTaskRewardBelowPalletMin,
 	}
 
 	#[pallet::call]
@@ -469,11 +467,7 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(
-				amount >= T::MinReadTaskReward::get(),
-				Error::<T>::ReadTaskRewardBelowPalletMin
-			);
-			ReadTaskReward::<T>::insert(network, amount);
+			NetworkReadReward::<T>::insert(network, amount);
 			Self::deposit_event(Event::ReadTaskRewardSet(network, amount));
 			Ok(())
 		}
@@ -708,26 +702,15 @@ pub mod pallet {
 			}
 		}
 
-		fn read_task_reward(network: Network) -> BalanceOf<T> {
-			let read_task_reward = ReadTaskReward::<T>::get(network);
-			if read_task_reward.is_zero() {
-				let min_read_task_reward = T::MinReadTaskReward::get();
-				// set to minimum read task reward is not set
-				ReadTaskReward::<T>::insert(network, min_read_task_reward);
-				min_read_task_reward
-			} else {
-				read_task_reward
-			}
-		}
-
 		fn compute_shard_member_task_reward(network: Network, task_id: TaskId) -> BalanceOf<T> {
-			let full_reward = Self::read_task_reward(network);
+			let full_reward =
+				NetworkReadReward::<T>::get(network).saturating_add(T::BaseReadReward::get());
 			let read_phase_start = ReadPhaseStart::<T>::get(task_id);
 			if read_phase_start.is_zero() {
 				// read phase never started => no reward
 				return BalanceOf::<T>::zero();
 			}
-			let (discount_period_len, discount_pct) = T::RewardDeclineRate::get();
+			let rate = T::RewardDeclineRate::get();
 			let time_since_read_phase_start =
 				frame_system::Pallet::<T>::block_number().saturating_sub(read_phase_start);
 			if time_since_read_phase_start.is_zero() {
@@ -735,12 +718,11 @@ pub mod pallet {
 				return full_reward;
 			}
 			let mut remaining_reward = full_reward;
-			let discount_periods = time_since_read_phase_start / discount_period_len;
-			let mut discount_period_counter = BlockNumberFor::<T>::zero();
-			while discount_period_counter < discount_periods {
-				let amt_to_discount = discount_pct * remaining_reward;
-				remaining_reward = remaining_reward.saturating_sub(amt_to_discount);
-				discount_period_counter = discount_period_counter.saturating_plus_one();
+			let periods = time_since_read_phase_start / rate.blocks;
+			let mut i = BlockNumberFor::<T>::zero();
+			while i < periods {
+				remaining_reward = remaining_reward.saturating_sub(rate.percent * remaining_reward);
+				i = i.saturating_plus_one();
 			}
 			remaining_reward
 		}

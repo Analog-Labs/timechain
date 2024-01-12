@@ -5,6 +5,7 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_runtime::Percent;
 use sp_std::vec::Vec;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -222,4 +223,10 @@ pub fn append_hash_with_task_data(
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_cycle_bytes);
 	extended_payload
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct DepreciationRate<BlockNumber> {
+	pub blocks: BlockNumber,
+	pub percent: Percent,
 }

@@ -105,6 +105,8 @@ pub mod pallet {
 		type RewardDeclineRate: Get<DepreciationRate<BlockNumberFor<Self>>>;
 		#[pallet::constant]
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
+		type ReadPhaseTimeout: Get<BlockNumberFor<Self>>;
 		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -485,6 +487,12 @@ pub mod pallet {
 					}
 				}
 			});
+			ReadPhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
+				if n.saturating_sub(created_block) >= T::ReadPhaseTimeout::get() {
+					Self::schedule_task_to_new_shard(task_id);
+					writes += 3
+				}
+			});
 			T::DbWeight::get().writes(writes)
 		}
 	}
@@ -637,28 +645,7 @@ pub mod pallet {
 
 		fn schedule_tasks(network: Network) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
-				let shard = NetworkShards::<T>::iter_prefix(network)
-					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-					.filter(|(shard_id, _)| {
-						if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-							if Gateway::<T>::get(network).is_some() {
-								ShardRegistered::<T>::get(*shard_id).is_some()
-							} else {
-								false
-							}
-						} else {
-							true
-						}
-					})
-					.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
-					.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
-						if task_count < task_count2 {
-							(shard_id, task_count)
-						} else {
-							(shard_id2, task_count2)
-						}
-					});
-				let Some((shard_id, _)) = shard else {
+				let Some(shard_id) = Self::select_shard(network, task_id, None) else {
 					// on gmp task sometimes returns none and it stops every other schedule
 					continue;
 				};
@@ -673,6 +660,70 @@ pub mod pallet {
 				TaskShard::<T>::insert(task_id, shard_id);
 				UnassignedTasks::<T>::remove(network, task_id);
 			}
+		}
+
+		/// Select shard for task assignment
+		/// Selects the shard for the input Network with the least number of tasks
+		/// assigned to it.
+		/// Excludes selecting the `old` shard_id optional input if it is passed
+		/// for task reassignment purposes.
+		fn select_shard(
+			network: Network,
+			task_id: TaskId,
+			old: Option<ShardId>,
+		) -> Option<ShardId> {
+			NetworkShards::<T>::iter_prefix(network)
+				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
+				.filter(|(shard_id, _)| {
+					if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+						if Gateway::<T>::get(network).is_some() {
+							ShardRegistered::<T>::get(*shard_id).is_some()
+						} else {
+							false
+						}
+					} else {
+						true
+					}
+				})
+				.filter(|(shard_id, _)| {
+					if let Some(previous_shard) = old {
+						shard_id != &previous_shard
+					} else {
+						true
+					}
+				})
+				.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
+				.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
+					if task_count < task_count2 {
+						(shard_id, task_count)
+					} else {
+						(shard_id2, task_count2)
+					}
+				})
+				.map(|(s, _)| s)
+		}
+
+		fn schedule_task_to_new_shard(task_id: TaskId) {
+			let Some(old_shard_id) = TaskShard::<T>::get(task_id) else {
+				// task not assigned to any existing shard so nothing changes
+				return;
+			};
+			let Some(TaskDescriptor { network, .. }) = Tasks::<T>::get(task_id) else {
+				// unexpected branch: network not found logic bug if this branch is hit
+				return;
+			};
+			let Some(new_shard_id) = Self::select_shard(network, task_id, Some(old_shard_id))
+			else {
+				// no new shard available for network for task reassignment
+				return;
+			};
+			if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
+				// reset read phase start for task (and consequently the reward)
+				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			}
+			ShardTasks::<T>::remove(old_shard_id, task_id);
+			ShardTasks::<T>::insert(new_shard_id, task_id, ());
+			TaskShard::<T>::insert(task_id, new_shard_id);
 		}
 
 		pub fn get_task_cycle(task_id: TaskId) -> TaskCycle {

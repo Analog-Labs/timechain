@@ -8,7 +8,9 @@ use sp_runtime::{
 	BuildStorage, MultiSignature, Percent,
 };
 use sp_std::vec::Vec;
-use time_primitives::{Network, PublicKey, ShardId, ShardsInterface, TssPublicKey};
+use time_primitives::{
+	DepreciationRate, Network, PublicKey, ShardId, ShardsInterface, TssPublicKey,
+};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -32,7 +34,7 @@ impl ShardsInterface for MockShardInterface {
 			.map(|(n, _, _)| n)
 	}
 
-	fn shard_members(id: u64) -> Vec<AccountId> {
+	fn shard_members(_id: u64) -> Vec<AccountId> {
 		Vec::new()
 	}
 
@@ -101,7 +103,7 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
 	// reward declines by 5% every 10 blocks
-	pub const RewardDeclineRate: (u64, Percent) = (10, Percent::from_percent(5));
+	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 10, percent: Percent::from_percent(5) };
 }
 
 impl task_schedule::Config for Test {
@@ -111,9 +113,10 @@ impl task_schedule::Config for Test {
 	type MaxRetryCount = ConstU8<3>;
 	type Currency = Balances;
 	type MinReadTaskBalance = ConstU128<10>;
-	type MinReadTaskReward = ConstU128<1>;
+	type BaseReadReward = ConstU128<1>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type WritePhaseTimeout = ConstU64<10>;
+	type ReadPhaseTimeout = ConstU64<20>;
 	type PalletId = PalletIdentifier;
 }
 

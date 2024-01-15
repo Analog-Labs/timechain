@@ -40,7 +40,7 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	tss_states: HashMap<ShardId, Tss>,
 	executor_states: HashMap<ShardId, T>,
 	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
-	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, [u8; 32])>>,
+	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	#[allow(clippy::type_complexity)]
 	outgoing_requests: FuturesUnordered<
@@ -163,7 +163,7 @@ where
 					self.channels.remove(&request_id);
 					continue;
 				};
-				tss.on_sign(request_id, data);
+				tss.on_sign(request_id, data.to_vec());
 				self.poll_actions(&span, shard_id, block_number);
 			}
 		}

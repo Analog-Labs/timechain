@@ -9,9 +9,7 @@ version = "0.0.1"
 
 [dependencies]
 anyhow = "1.0.75"
-# frost-evm = { git = "https://github.com/analog-labs/frost-evm.git", version = "0.1.0", features = ["serde"] }
-frost-evm = { git = "https://github.com/analog-labs/frost-evm.git", branch = "prehash-sig", features = ["serde"] }
-# frost-evm = { path = "../../frost-evm/frost", features = ["serde"] }
+frost-evm = { git = "https://github.com/analog-labs/frost-evm.git", version = "0.1.0", features = ["serde"] }
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 serde = { version = "1.0.188", features = [ "derive" ] }
 tracing = "0.1.37"

@@ -90,8 +90,19 @@ pub struct Message {
 }
 
 impl Message {
+	pub fn hash(&self) -> Vec<u8> {
+		match &self.message {
+			TypedMessage::UpdateKeys(message) => {
+				message.to_eip712_bytes(self.chain_id, self.gateway_contract).into()
+			},
+			TypedMessage::Gmp(message) => {
+				message.to_eip712_bytes(self.chain_id, self.gateway_contract).into()
+			},
+		}
+	}
+
 	/// compute the sighash of the message
-	pub fn sighash(&self) -> [u8; 32] {
+	pub fn _sighash(&self) -> [u8; 32] {
 		match &self.message {
 			TypedMessage::UpdateKeys(message) => {
 				message.to_eip712_typed_hash(self.chain_id, self.gateway_contract)

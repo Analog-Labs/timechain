@@ -946,3 +946,60 @@ fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 		);
 	});
 }
+
+#[test]
+fn cannot_fund_task_beyond_caller_balance() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::create_task(
+				RawOrigin::Signed([2; 32].into()).into(),
+				mock_task(Network::Ethereum, 1)
+			),
+			sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable,),
+		);
+	});
+}
+
+#[test]
+fn task_may_not_be_funded_by_caller_without_balance() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::create_task(
+				RawOrigin::Signed([2; 32].into()).into(),
+				mock_task(Network::Ethereum, 1)
+			),
+			sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable,),
+		);
+	});
+}
+
+#[test]
+fn fund_task_fails_if_task_not_created() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 100,),
+			Error::<Test>::UnknownTask
+		);
+	});
+}
+
+//fund_task_correctly_funds_task
+
+// fund_task_resumes_task_iff_task_balance_above_min_read_
+
+// fund_task extrinsic emits correct event
+// makes correct storage changes
+
+// task funded from creation
+// can add funds
+
+// task not funded from creation
+// can add funds
+
+// stop task if submit_hash is called to start the Read phase
+// and task balance is unfunded
+
+// reward decline rate works as expected
+// works with more cycles as well
+
+// do not allow resuming read task if the task balance is unfunded

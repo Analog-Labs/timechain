@@ -13,6 +13,7 @@ use sc_network_test::{
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_transaction_pool_api::RejectAllTxPool;
+use schnorr_evm::VerifyingKey;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_runtime::generic::BlockId;
@@ -32,7 +33,6 @@ use time_primitives::{
 };
 use tracing::{span, Level};
 use tss::{sum_commitments, VerifiableSecretSharingCommitment};
-
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }

@@ -1675,7 +1675,7 @@ dependencies = [
  "sc-network",
  "sc-network-test",
  "sc-transaction-pool-api",
- "schnorr-evm",
+ "schnorr-evm 0.1.0 (git+https://github.com/Analog-labs/frost-evm.git)",
  "serde",
  "serde_json",
  "sha3",
@@ -4269,11 +4269,11 @@ dependencies = [
 [[package]]
 name = "frost-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "git+https://github.com/analog-labs/frost-evm.git?branch=prehash-sig#04f13a1ec70b84caf1a1812aa1eb387da798a717"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
- "schnorr-evm",
+ "schnorr-evm 0.1.0 (git+https://github.com/analog-labs/frost-evm.git?branch=prehash-sig)",
 ]
 
 [[package]]
@@ -7819,7 +7819,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "schnorr-evm",
+ "schnorr-evm 0.1.0 (git+https://github.com/Analog-labs/frost-evm.git)",
  "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
@@ -7887,7 +7887,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "schnorr-evm",
+ "schnorr-evm 0.1.0 (git+https://github.com/Analog-labs/frost-evm.git)",
  "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
  "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
@@ -11317,11 +11317,21 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "git+https://github.com/analog-labs/frost-evm.git?branch=prehash-sig#04f13a1ec70b84caf1a1812aa1eb387da798a717"
 dependencies = [
  "k256",
  "rand_core 0.6.4",
  "serde",
+ "sha3",
+]
+
+[[package]]
+name = "schnorr-evm"
+version = "0.1.0"
+source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+dependencies = [
+ "k256",
+ "rand_core 0.6.4",
  "sha3",
 ]
 

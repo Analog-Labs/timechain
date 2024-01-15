@@ -230,6 +230,13 @@ impl Roast {
 				) {
 					let hash = self.signer.data();
 					self.coordinator.take();
+					let verifying_key =
+						VerifyingKey::new(self.public_key_package.verifying_key().to_element());
+					tracing::info!("{:?}", verifying_key.to_bytes());
+					tracing::info!(
+						"verifying key after aggregating signature {:?}",
+						verifying_key.verify_prehashed((*hash).clone(), &signature)
+					);
 					return Some(RoastAction::Complete(*hash, signature));
 				}
 			}

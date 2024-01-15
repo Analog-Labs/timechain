@@ -152,7 +152,7 @@ where
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		payload: [u8; 32],
+		payload: &[u8],
 	) -> Result<(TssHash, TssSignature)> {
 		let (tx, rx) = oneshot::channel();
 		self.tss
@@ -161,7 +161,7 @@ where
 				request_id: TssId(task_id, cycle),
 				shard_id,
 				block_number,
-				data: payload,
+				data: payload.to_vec(),
 				tx,
 			})
 			.await?;
@@ -229,10 +229,10 @@ where
 			Ok(payload) => payload.as_slice(),
 			Err(payload) => payload.as_bytes(),
 		};
-		let filled_payload = append_hash_with_task_data(payload.to_vec(), task_id, task_cycle);
-		let hashed_payload = VerifyingKey::message_hash(&filled_payload);
-		let (_, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, hashed_payload).await?;
+		let prehashed_payload = VerifyingKey::message_hash(payload);
+		let hash = append_hash_with_task_data(prehashed_payload.to_vec(), task_id, task_cycle);
+		let (sig_hash, signature) =
+			self.tss_sign(block_num, shard_id, task_id, task_cycle, &hash).await?;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(
@@ -249,7 +249,7 @@ where
 				.await?;
 				let result = TaskResult {
 					shard_id,
-					hash: hashed_payload,
+					hash: sig_hash,
 					signature,
 				};
 				if let Err(e) = self.substrate.submit_task_result(task_id, task_cycle, result) {
@@ -271,10 +271,10 @@ where
 		shard_id: ShardId,
 		task_id: TaskId,
 		task_cycle: TaskCycle,
-		payload: [u8; 32],
+		payload: Vec<u8>,
 		block_number: u32,
 	) -> Result<()> {
-		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, task_cycle, payload).await?;
+		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, task_cycle, &payload).await?;
 		if let Err(e) = self.substrate.submit_task_signature(task_id, sig) {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
@@ -318,7 +318,7 @@ where
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		payload: [u8; 32],
+		payload: Vec<u8>,
 		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		self.clone().sign(shard_id, task_id, cycle, payload, block_num).boxed()

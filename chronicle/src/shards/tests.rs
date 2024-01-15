@@ -13,7 +13,6 @@ use sc_network_test::{
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_transaction_pool_api::RejectAllTxPool;
-use schnorr_evm::VerifyingKey;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_runtime::generic::BlockId;
@@ -474,7 +473,7 @@ async fn tss_smoke(substrate_backend: bool) -> Result<()> {
 			request_id: TssId(1, 1),
 			shard_id: 0,
 			block_number: block_number.try_into().unwrap(),
-			data: message,
+			data: message.to_vec(),
 			tx,
 		})
 		.await?;

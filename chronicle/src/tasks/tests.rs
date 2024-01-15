@@ -179,7 +179,7 @@ impl TaskSpawner for MockTask {
 		_: ShardId,
 		_: TaskId,
 		_: TaskCycle,
-		_: [u8; 32],
+		_: Vec<u8>,
 		_: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		*GMP_TASK_PHASE.lock().unwrap() = TaskPhase::Write(get_mock_pubkey());

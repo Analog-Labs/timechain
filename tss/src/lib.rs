@@ -278,7 +278,7 @@ where
 		}
 	}
 
-	pub fn on_sign(&mut self, id: I, data: [u8; 32]) {
+	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
 		tracing::debug!("{} sign {}", self.peer_id, id);
 		match &mut self.state {
 			TssState::Roast {

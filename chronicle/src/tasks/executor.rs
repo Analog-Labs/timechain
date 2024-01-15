@@ -119,21 +119,19 @@ where
 						Function::RegisterShard { shard_id } => {
 							let tss_public_key =
 								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
-							msg_builder.build_update_keys_message([tss_public_key], []).sighash()
+							msg_builder.build_update_keys_message([tss_public_key], []).hash()
 						},
 						Function::UnregisterShard { shard_id } => {
 							let tss_public_key =
 								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
-							msg_builder.build_update_keys_message([], [tss_public_key]).sighash()
+							msg_builder.build_update_keys_message([], [tss_public_key]).hash()
 						},
 						Function::SendMessage {
 							address,
 							payload,
 							salt,
 							gas_limit,
-						} => msg_builder
-							.build_gmp_message(address, payload, salt, gas_limit)
-							.sighash(),
+						} => msg_builder.build_gmp_message(address, payload, salt, gas_limit).hash(),
 						_ => anyhow::bail!("invalid task"),
 					};
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)

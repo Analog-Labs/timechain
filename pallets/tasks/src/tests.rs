@@ -528,7 +528,7 @@ fn cannot_resume_task_if_not_owner() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_noop!(
-			Tasks::resume_task(RawOrigin::Signed([1; 32].into()).into(), 0, 0, 0),
+			Tasks::resume_task(RawOrigin::Signed([1; 32].into()).into(), 0, 0, 10),
 			Error::<Test>::InvalidOwner
 		);
 	});

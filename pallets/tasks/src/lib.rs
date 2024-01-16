@@ -275,7 +275,7 @@ pub mod pallet {
 					&task_account,
 					&owner,
 					task_balance,
-					ExistenceRequirement::KeepAlive,
+					ExistenceRequirement::AllowDeath,
 				)?;
 			} // else owner was NOT set => task balance NOT drained anywhere
 			ensure!(
@@ -293,13 +293,17 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			start: u64,
-			funds: BalanceOf<T>,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(
+				Self::is_resumable_post_transfer(task_id, amount),
+				Error::<T>::InvalidTaskState
+			);
 			if let Some(owner) = Self::try_root_or_owner(origin, task_id)? {
-				Self::transfer_to_task(&owner, task_id, funds)?;
+				Self::transfer_to_task(&owner, task_id, amount)?;
 			}
-			Self::try_resume_task(task_id, task, start);
+			Self::do_resume_task(task_id, task, start);
 			Ok(())
 		}
 
@@ -460,7 +464,9 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			Self::transfer_to_task(&caller, task_id, amount)?;
-			Self::try_resume_task(task_id, task, start);
+			if Self::is_resumable(task_id) {
+				Self::do_resume_task(task_id, task, start);
+			}
 			Ok(())
 		}
 
@@ -533,13 +539,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn try_resume_task(task_id: TaskId, task: TaskDescriptor, start: u64) {
-			if Self::is_resumable(task_id) {
-				Tasks::<T>::insert(task_id, TaskDescriptor { start, ..task });
-				TaskState::<T>::insert(task_id, TaskStatus::Created);
-				TaskRetryCounter::<T>::insert(task_id, 0);
-				Self::deposit_event(Event::TaskResumed(task_id));
-			}
+		fn do_resume_task(task_id: TaskId, task: TaskDescriptor, start: u64) {
+			Tasks::<T>::insert(task_id, TaskDescriptor { start, ..task });
+			TaskState::<T>::insert(task_id, TaskStatus::Created);
+			TaskRetryCounter::<T>::insert(task_id, 0);
+			Self::deposit_event(Event::TaskResumed(task_id));
 		}
 
 		/// Start task
@@ -639,19 +643,26 @@ pub mod pallet {
 			}
 		}
 
-		fn is_resumable(task_id: TaskId) -> bool {
+		/// Check if task is resumable after `add` is added to its balance
+		fn is_resumable_post_transfer(task_id: TaskId, add: BalanceOf<T>) -> bool {
 			match TaskState::<T>::get(task_id) {
 				Some(TaskStatus::Failed { .. }) => true,
 				Some(TaskStatus::Stopped) => {
 					if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
-						// only resumable if task balance > min
-						Self::task_balance(task_id) >= T::MinReadTaskBalance::get()
+						println!("x");
+						Self::task_balance(task_id).saturating_add(add)
+							>= T::MinReadTaskBalance::get()
 					} else {
+						println!("x");
 						true
 					}
 				},
 				_ => false,
 			}
+		}
+
+		fn is_resumable(task_id: TaskId) -> bool {
+			Self::is_resumable_post_transfer(task_id, BalanceOf::<T>::zero())
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {

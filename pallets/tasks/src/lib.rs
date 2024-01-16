@@ -12,6 +12,7 @@ mod tests;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
@@ -258,7 +259,13 @@ pub mod pallet {
 				);
 			}
 			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
-			Self::validate_signature(result.shard_id, result.hash, result.signature)?;
+			Self::validate_signature(
+				task_id,
+				cycle,
+				result.shard_id,
+				result.hash,
+				result.signature,
+			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, result.clone());
@@ -287,9 +294,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			let hash = append_hash_with_task_data(error.msg.clone().into_bytes(), task_id, cycle);
-			let final_hash = schnorr_evm::VerifyingKey::message_hash(&hash);
-			Self::validate_signature(error.shard_id, final_hash, error.signature)?;
+			Self::validate_signature(
+				task_id,
+				cycle,
+				error.shard_id,
+				VerifyingKey::message_hash(error.msg.as_bytes()),
+				error.signature,
+			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			let new_retry_count = retry_count.saturating_plus_one();
@@ -488,10 +499,14 @@ pub mod pallet {
 		}
 
 		fn validate_signature(
+			task_id: TaskId,
+			task_cycle: TaskCycle,
 			shard_id: ShardId,
 			hash: [u8; 32],
 			signature: TssSignature,
 		) -> DispatchResult {
+			let data = append_hash_with_task_data(hash, task_id, task_cycle);
+			let hash = VerifyingKey::message_hash(&data);
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let signature = schnorr_evm::Signature::from_bytes(signature)
 				.map_err(|_| Error::<T>::InvalidSignature)?;

@@ -983,23 +983,146 @@ fn fund_task_fails_if_task_not_created() {
 	});
 }
 
-//fund_task_correctly_funds_task
+#[test]
+fn fund_task_correctly_funds_task() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		let mut task_balance = Tasks::task_balance(0);
+		for i in 100..110 {
+			assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, i));
+			task_balance = task_balance.saturating_add(i);
+			assert_eq!(Tasks::task_balance(0), task_balance);
+		}
+	});
+}
 
-// fund_task_resumes_task_iff_task_balance_above_min_read_
+#[test]
+fn fund_task_already_funded_emits_event() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		let mut task_balance = Tasks::task_balance(0);
+		let balance_added = 100;
+		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, balance_added));
+		task_balance = task_balance.saturating_add(balance_added);
+		System::assert_last_event(Event::<Test>::TaskFunded(0, task_balance).into());
+	});
+}
 
-// fund_task extrinsic emits correct event
-// makes correct storage changes
+#[test]
+fn fund_task_resumes_unfunded_stopped_task_iff_new_balance_above_min() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			TaskDescriptorParams {
+				network: Network::Ethereum,
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+				function: Function::EvmViewCall {
+					address: Default::default(),
+					input: Default::default(),
+				},
+				funds: 5,
+			}
+		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 4));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
+		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 1));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
+	});
+}
 
-// task funded from creation
-// can add funds
+#[test]
+fn may_add_funds_for_task_not_funded_from_creation() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			TaskDescriptorParams {
+				network: Network::Ethereum,
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+				function: Function::EvmViewCall {
+					address: Default::default(),
+					input: Default::default(),
+				},
+				funds: 0,
+			}
+		));
+		assert_eq!(Tasks::task_balance(0), 0);
+		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 10));
+		assert_eq!(Tasks::task_balance(0), 10);
+	});
+}
 
-// task not funded from creation
-// can add funds
+#[test]
+fn resume_read_task_fails_if_task_balance_below_min() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			TaskDescriptorParams {
+				network: Network::Ethereum,
+				cycle: 1,
+				start: 0,
+				period: 1,
+				timegraph: None,
+				function: Function::EvmViewCall {
+					address: Default::default(),
+					input: Default::default(),
+				},
+				funds: 0,
+			}
+		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		TaskPhaseState::<Test>::insert(0, TaskPhase::Read(None));
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0),
+			Error::<Test>::InvalidTaskState,
+		);
+		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 10));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
+	});
+}
 
-// stop task if submit_hash is called to start the Read phase
-// and task balance is unfunded
+#[test]
+fn submit_hash_stops_unfunded_tasks() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			TaskDescriptorParams {
+				network: Network::Ethereum,
+				cycle: 1,
+				start: 0,
+				period: 0,
+				timegraph: None,
+				function: Function::EvmCall {
+					address: Default::default(),
+					input: Default::default(),
+					amount: 0,
+				},
+				funds: 0,
+			}
+		));
+		Tasks::shard_online(0, Network::Ethereum);
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			"mock_hash".into()
+		));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
+	});
+}
 
 // reward decline rate works as expected
 // works with more cycles as well
-
-// do not allow resuming read task if the task balance is unfunded

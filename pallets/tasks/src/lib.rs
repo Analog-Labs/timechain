@@ -200,9 +200,8 @@ pub mod pallet {
 		TaskResumed(TaskId),
 		/// Gateway registered on network
 		GatewayRegistered(Network, Vec<u8>),
-		/// Task funded with new free balance amount, bool is true if task status
-		/// changed from stopped to resumed due to the new funding
-		TaskFunded(TaskId, BalanceOf<T>, bool),
+		/// Task funded with new free balance amount
+		TaskFunded(TaskId, BalanceOf<T>),
 		/// Read task reward set for network
 		ReadTaskRewardSet(Network, BalanceOf<T>),
 	}
@@ -438,25 +437,22 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			let task_account_id = Self::task_account(task_id);
 			let task_state = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let funds_before = T::Currency::free_balance(&task_account_id);
 			T::Currency::transfer(
 				&caller,
 				&task_account_id,
 				amount,
 				ExistenceRequirement::KeepAlive,
 			)?;
-			let new_task_balance = T::Currency::free_balance(&task_account_id);
-			let task_resumed = if matches!(task_state, TaskStatus::Stopped) {
-				if new_task_balance >= T::MinReadTaskBalance::get() {
-					// RESUME the task
-					TaskState::<T>::insert(task_id, TaskStatus::Created);
-					true
-				} else {
-					false
-				}
-			} else {
-				false
-			};
-			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance, task_resumed));
+			let new_task_balance = funds_before.saturating_add(amount);
+			let resume_unfunded_stopped_task = matches!(task_state, TaskStatus::Stopped)
+				&& funds_before < T::MinReadTaskBalance::get()
+				&& new_task_balance >= T::MinReadTaskBalance::get();
+			if resume_unfunded_stopped_task {
+				TaskState::<T>::insert(task_id, TaskStatus::Created);
+				Self::deposit_event(Event::TaskResumed(task_id));
+			}
+			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance));
 			Ok(())
 		}
 

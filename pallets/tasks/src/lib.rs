@@ -38,6 +38,7 @@ pub mod pallet {
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
 		fn fund_task() -> Weight;
+		fn set_read_task_reward() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -74,6 +75,10 @@ pub mod pallet {
 		}
 
 		fn fund_task() -> Weight {
+			Weight::default()
+		}
+
+		fn set_read_task_reward() -> Weight {
 			Weight::default()
 		}
 	}
@@ -461,7 +466,7 @@ pub mod pallet {
 
 		/// Set read task reward
 		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::fund_task())] //Update
+		#[pallet::weight(T::WeightInfo::set_read_task_reward())]
 		pub fn set_read_task_reward(
 			origin: OriginFor<T>,
 			network: Network,

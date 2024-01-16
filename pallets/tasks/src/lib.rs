@@ -256,8 +256,23 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::stop_task())]
 		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
+			let tasks = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let maybe_owner = if let Some(caller) = Self::try_root_or_owner(origin, task_id)? {
+				Some(caller)
+			} else {
+				tasks.owner
+			};
+			if let Some(owner) = maybe_owner {
+				// return task balance to owner
+				let task_account = Self::task_account(task_id);
+				let task_balance = T::Currency::free_balance(&task_account);
+				T::Currency::transfer(
+					&task_account,
+					&owner,
+					task_balance,
+					ExistenceRequirement::KeepAlive,
+				)?;
+			} // else owner was NOT set => task balance NOT drained anywhere
 			ensure!(
 				TaskState::<T>::get(task_id) == Some(TaskStatus::Created),
 				Error::<T>::InvalidTaskState
@@ -269,15 +284,17 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::resume_task())]
-		pub fn resume_task(origin: OriginFor<T>, task_id: TaskId, start: u64) -> DispatchResult {
-			let mut task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(Self::try_root_or_owner(origin, task_id), Error::<T>::InvalidOwner);
-			ensure!(Self::is_resumable(task_id), Error::<T>::InvalidTaskState);
-			task.start = start;
-			Tasks::<T>::insert(task_id, task);
-			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			TaskRetryCounter::<T>::insert(task_id, 0);
-			Self::deposit_event(Event::TaskResumed(task_id));
+		pub fn resume_task(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			start: u64,
+			funds: BalanceOf<T>,
+		) -> DispatchResult {
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			if let Some(owner) = Self::try_root_or_owner(origin, task_id)? {
+				Self::transfer_to_task(&owner, task_id, funds)?;
+			}
+			Self::try_resume_task(task_id, task, start);
 			Ok(())
 		}
 
@@ -433,26 +450,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			amount: BalanceOf<T>,
+			start: u64,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let task_account_id = Self::task_account(task_id);
-			let task_state = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let funds_before = T::Currency::free_balance(&task_account_id);
-			T::Currency::transfer(
-				&caller,
-				&task_account_id,
-				amount,
-				ExistenceRequirement::KeepAlive,
-			)?;
-			let new_task_balance = funds_before.saturating_add(amount);
-			let resume_unfunded_stopped_task = matches!(task_state, TaskStatus::Stopped)
-				&& funds_before < T::MinReadTaskBalance::get()
-				&& new_task_balance >= T::MinReadTaskBalance::get();
-			if resume_unfunded_stopped_task {
-				TaskState::<T>::insert(task_id, TaskStatus::Created);
-				Self::deposit_event(Event::TaskResumed(task_id));
-			}
-			Self::deposit_event(Event::TaskFunded(task_id, new_task_balance));
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			Self::transfer_to_task(&caller, task_id, amount)?;
+			Self::try_resume_task(task_id, task, start);
 			Ok(())
 		}
 
@@ -502,6 +505,39 @@ pub mod pallet {
 		pub fn task_balance(task_id: TaskId) -> BalanceOf<T> {
 			T::Currency::free_balance(&Self::task_account(task_id))
 		}
+
+		/// Returns Ok(task_should_be_resumed: bool) so
+		/// Ok(true) if task needs to be resumed
+		/// Ok(false) if not
+		fn transfer_to_task(
+			caller: &T::AccountId,
+			task_id: TaskId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let task_account_id = Self::task_account(task_id);
+			T::Currency::transfer(
+				caller,
+				&task_account_id,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
+			Self::deposit_event(Event::TaskFunded(
+				task_id,
+				T::Currency::free_balance(&task_account_id),
+			));
+			Ok(())
+		}
+
+		fn try_resume_task(task_id: TaskId, task: TaskDescriptor, start: u64) {
+			if Self::is_resumable(task_id) {
+				Tasks::<T>::insert(task_id, TaskDescriptor { start, ..task });
+				TaskState::<T>::insert(task_id, TaskStatus::Created);
+				TaskRetryCounter::<T>::insert(task_id, 0);
+				Self::deposit_event(Event::TaskResumed(task_id));
+			}
+		}
+
+		/// Start task
 		fn start_task(
 			schedule: TaskDescriptorParams<BalanceOf<T>>,
 			who: Option<AccountId>,
@@ -540,15 +576,20 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn try_root_or_owner(origin: OriginFor<T>, task_id: TaskId) -> bool {
-			ensure_root(origin.clone()).is_ok()
-				|| Tasks::<T>::get(task_id).map_or(false, |task| {
-					if let Ok(origin) = ensure_signed(origin) {
-						task.owner == Some(origin)
-					} else {
-						false
-					}
-				})
+		/// Returns Ok(None) if root, Ok(Some(owner)) if owner, and Err otherwise
+		fn try_root_or_owner(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+		) -> Result<Option<T::AccountId>, DispatchError> {
+			if ensure_root(origin.clone()).is_ok() {
+				// origin is root
+				return Ok(None);
+			} // else try ensure_signed to check if caller is task owner
+			let caller = ensure_signed(origin)?;
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			ensure!(task.owner == Some(caller.clone()), Error::<T>::InvalidOwner);
+			// origin is owner
+			Ok(Some(caller))
 		}
 
 		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {

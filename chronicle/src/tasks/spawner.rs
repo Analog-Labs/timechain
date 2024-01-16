@@ -230,9 +230,8 @@ where
 			Err(payload) => payload.as_bytes(),
 		};
 		let prehashed_payload = VerifyingKey::message_hash(payload);
-		let hash = append_hash_with_task_data(prehashed_payload.to_vec(), task_id, task_cycle);
-		let (sig_hash, signature) =
-			self.tss_sign(block_num, shard_id, task_id, task_cycle, &hash).await?;
+		let hash = append_hash_with_task_data(prehashed_payload, task_id, task_cycle);
+		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, task_cycle, &hash).await?;
 		match result {
 			Ok(result) => {
 				self.submit_timegraph(
@@ -249,7 +248,7 @@ where
 				.await?;
 				let result = TaskResult {
 					shard_id,
-					hash: sig_hash,
+					hash: prehashed_payload,
 					signature,
 				};
 				if let Err(e) = self.substrate.submit_task_result(task_id, task_cycle, result) {

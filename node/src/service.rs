@@ -344,7 +344,7 @@ pub fn new_full(
 		);
 
 		if let Some(config) = chronicle_config {
-			let network = if enable_iroh { Some((network, protocol_rx)) } else { None };
+			let network = if enable_iroh { None } else { Some((network, protocol_rx)) };
 			let params = chronicle::ChronicleParams {
 				client: client.clone(),
 				runtime: client.clone(),

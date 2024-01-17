@@ -19,6 +19,10 @@ struct Args {
 	eth_connector_url: String,
 	#[arg(long, default_value = "ws://astar:9944")]
 	astar_connector_url: String,
+	#[arg(long, default_value = "dev")]
+	eth_connector_network: String,
+	#[arg(long, default_value = "dev")]
+	astar_connector_network: String,
 	#[arg(long)]
 	network: String,
 	#[clap(subcommand)]
@@ -52,13 +56,13 @@ async fn main() {
 
 	let eth_config = WalletConfig {
 		blockchain: Blockchain::Ethereum,
-		network: "dev".to_string(),
+		network: args.eth_connector_network,
 		url: args.eth_connector_url,
 	};
 
 	let astar_config = WalletConfig {
 		blockchain: Blockchain::Astar,
-		network: "dev".to_string(),
+		network: args.astar_connector_network,
 		url: args.astar_connector_url,
 	};
 

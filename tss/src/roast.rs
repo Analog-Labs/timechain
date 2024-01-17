@@ -97,6 +97,7 @@ struct RoastCoordinator {
 	session_id: u16,
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 	sessions: BTreeMap<u16, RoastSession>,
+	committed: BTreeSet<Identifier>,
 }
 
 impl RoastCoordinator {
@@ -106,11 +107,15 @@ impl RoastCoordinator {
 			session_id: 0,
 			commitments: Default::default(),
 			sessions: Default::default(),
+			committed: Default::default(),
 		}
 	}
 
 	fn on_commit(&mut self, peer: Identifier, commitment: SigningCommitments) {
-		self.commitments.insert(peer, commitment);
+		if !self.committed.contains(&peer) {
+			self.commitments.insert(peer, commitment);
+			self.committed.insert(peer);
+		}
 	}
 
 	fn on_response(&mut self, peer: Identifier, message: RoastSignerResponse) {

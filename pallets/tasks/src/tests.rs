@@ -474,14 +474,14 @@ fn task_resumed_by_owner() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
-		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 0));
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 10));
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
 }
 
 #[test]
-fn task_resumed_by_root() {
+fn cannot_resume_unfunded_task_by_root() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -489,7 +489,23 @@ fn task_resumed_by_root() {
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
-		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 0));
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 10),
+			Error::<Test>::InvalidTaskState
+		);
+	});
+}
+
+#[test]
+fn task_resumable_by_root() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		// Task is stopped but not drained as expected so may be resumed by root
+		TaskState::<Test>::insert(0, TaskStatus::Stopped);
+		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 10));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
@@ -556,10 +572,15 @@ fn task_stopped_and_moved_on_shard_offline() {
 			mock_task(Network::Ethereum, 1)
 		));
 		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(
+			Tasks::get_shard_tasks(1),
+			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
+		);
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 10));
 		Tasks::shard_offline(1, Network::Ethereum);
 		Tasks::shard_online(2, Network::Ethereum);
-		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 0));
 		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
 		assert_eq!(
 			Tasks::get_shard_tasks(2),
@@ -1033,7 +1054,7 @@ fn fund_task_resumes_unfunded_stopped_task_iff_new_balance_above_min() {
 			}
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 4, 0));
+		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 9, 0));
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
 		assert_ok!(Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 1, 0));
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));

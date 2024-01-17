@@ -296,12 +296,15 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			ensure!(
-				Self::is_resumable_post_transfer(task_id, amount),
-				Error::<T>::InvalidTaskState
-			);
 			if let Some(owner) = Self::try_root_or_owner(origin, task_id)? {
+				ensure!(
+					Self::is_resumable_post_transfer(task_id, amount),
+					Error::<T>::InvalidTaskState
+				);
 				Self::transfer_to_task(&owner, task_id, amount)?;
+			} else {
+				// caller is root origin so `amount` field is unused
+				ensure!(Self::is_resumable(task_id), Error::<T>::InvalidTaskState);
 			}
 			Self::do_resume_task(task_id, task, start);
 			Ok(())
@@ -649,11 +652,9 @@ pub mod pallet {
 				Some(TaskStatus::Failed { .. }) => true,
 				Some(TaskStatus::Stopped) => {
 					if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
-						println!("x");
 						Self::task_balance(task_id).saturating_add(add)
 							>= T::MinReadTaskBalance::get()
 					} else {
-						println!("x");
 						true
 					}
 				},

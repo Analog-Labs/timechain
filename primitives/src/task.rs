@@ -207,7 +207,7 @@ pub trait TasksPayload {
 }
 
 pub fn append_hash_with_task_data(
-	data: Vec<u8>,
+	data: [u8; 32],
 	task_id: TaskId,
 	task_cycle: TaskCycle,
 ) -> Vec<u8> {

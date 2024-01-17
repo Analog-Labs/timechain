@@ -40,7 +40,7 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	tss_states: HashMap<ShardId, Tss>,
 	executor_states: HashMap<ShardId, T>,
 	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
-	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, [u8; 32])>>,
+	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, Vec<u8>)>>,
 	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	#[allow(clippy::type_complexity)]
 	outgoing_requests: FuturesUnordered<
@@ -119,23 +119,8 @@ where
 					}
 				})
 				.collect();
-			let commitment = self.substrate.get_shard_commitment(block, shard_id)?;
-			let ss_commitment = if commitment.is_empty() {
-				None
-			} else {
-				Some(VerifiableSecretSharingCommitment::deserialize(commitment)?)
-			};
-			self.tss_states.insert(
-				shard_id,
-				Tss::new(
-					self.network.peer_id(),
-					members,
-					threshold,
-					ss_commitment,
-					account_id.clone(),
-					shard_id,
-				),
-			);
+			self.tss_states
+				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));
 			self.poll_actions(&span, shard_id, block_number);
 		}
 		for shard_id in shards.iter().copied() {
@@ -178,7 +163,7 @@ where
 					self.channels.remove(&request_id);
 					continue;
 				};
-				tss.on_sign(request_id, data);
+				tss.on_sign(request_id, data.to_vec());
 				self.poll_actions(&span, shard_id, block_number);
 			}
 		}

@@ -32,7 +32,6 @@ use time_primitives::{
 };
 use tracing::{span, Level};
 use tss::{sum_commitments, VerifiableSecretSharingCommitment};
-
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }
@@ -474,7 +473,7 @@ async fn tss_smoke(substrate_backend: bool) -> Result<()> {
 			request_id: TssId(1, 1),
 			shard_id: 0,
 			block_number: block_number.try_into().unwrap(),
-			data: message,
+			data: message.to_vec(),
 			tx,
 		})
 		.await?;

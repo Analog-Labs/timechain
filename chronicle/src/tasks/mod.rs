@@ -31,7 +31,7 @@ pub trait TaskSpawner {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		payload: [u8; 32],
+		payload: Vec<u8>,
 		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 

@@ -9,14 +9,9 @@ version = "0.0.1"
 
 [dependencies]
 anyhow = "1.0.75"
-dirs = "5.0.1"
-hex = "0.4"
 frost-evm = { git = "https://github.com/analog-labs/frost-evm.git", version = "0.1.0", features = ["serde"] }
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 serde = { version = "1.0.188", features = [ "derive" ] }
-serde_json = "1.0.108"
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
-time-primitives = { path = "../primitives" }
 tracing = "0.1.37"
 
 [dev-dependencies]

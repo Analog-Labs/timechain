@@ -190,6 +190,6 @@ pub struct TssSigningRequest {
 	pub request_id: TssId,
 	pub shard_id: ShardId,
 	pub block_number: BlockNumber,
-	pub data: [u8; 32],
+	pub data: Vec<u8>,
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }

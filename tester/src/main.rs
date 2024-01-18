@@ -147,8 +147,7 @@ async fn process_gmp_task(
 		.await
 		.unwrap();
 
-	let send_msg =
-		create_send_msg_call(eth_contract_address.clone(), "vote_yes()", [1; 32], 10000000);
+	let send_msg = create_send_msg_call(eth_contract_address, "vote_yes()", [1; 32], 10000000);
 	let task_id = insert_task(
 		api,
 		1, //cycle

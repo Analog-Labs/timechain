@@ -188,6 +188,7 @@ pub mod pallet {
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, Network, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
 
@@ -343,6 +344,8 @@ pub mod pallet {
 			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			if Self::reward_if_read_task_or_return_early(task_id, result.shard_id, task.network) {
+				// Return early IFF task is in read phase and payout failed
+				// because task is stopped
 				return Ok(());
 			} // else reward payout succeeded or task is not in read phase
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
@@ -848,9 +851,8 @@ pub mod pallet {
 		}
 
 		/// Returns true iff task is read and payout fails which requires
-		/// returning early.
+		/// returning early but also persisting storage changes related to stopping the task.
 		/// Returns false if task is not in read phase OR if payout succeeded.
-		// TODO: clean/refactor
 		fn reward_if_read_task_or_return_early(
 			task_id: TaskId,
 			shard_id: ShardId,

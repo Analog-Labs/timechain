@@ -1142,5 +1142,86 @@ fn submit_hash_stops_unfunded_tasks() {
 	});
 }
 
-// reward decline rate works as expected
-// works with more cycles as well
+#[test]
+fn set_read_task_reward_only_callable_by_root() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Tasks::network_read_reward(Network::Ethereum), 0);
+		assert_ok!(Tasks::set_read_task_reward(RawOrigin::Root.into(), Network::Ethereum, 100,));
+		assert_noop!(
+			Tasks::set_read_task_reward(
+				RawOrigin::Signed([0; 32].into()).into(),
+				Network::Ethereum,
+				100,
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn set_read_task_reward_updates_storage_and_emits_event() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Tasks::network_read_reward(Network::Ethereum), 0);
+		assert_ok!(Tasks::set_read_task_reward(RawOrigin::Root.into(), Network::Ethereum, 100,));
+		assert_eq!(Tasks::network_read_reward(Network::Ethereum), 100);
+		System::assert_last_event(Event::<Test>::ReadTaskRewardSet(Network::Ethereum, 100).into());
+	});
+}
+
+#[test]
+fn stop_task_returns_task_balance_to_owner() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(Balances::free_balance(&[0; 32].into()), 9999999900);
+		assert_eq!(Tasks::task_balance(0), 100);
+		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
+		assert_eq!(Balances::free_balance(&[0; 32].into()), 10000000000);
+		assert_eq!(Tasks::task_balance(0), 0);
+	});
+}
+
+#[test]
+fn stop_task_enables_owner_to_drain_task_balance_at_will() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_eq!(Balances::free_balance(&[0; 32].into()), 9999999900);
+		assert_eq!(Tasks::task_balance(0), 100);
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(Balances::free_balance(&[0; 32].into()), 10000000000);
+		assert_eq!(Tasks::task_balance(0), 0);
+		System::assert_last_event(Event::<Test>::TaskStopped(0).into());
+	});
+}
+
+#[test]
+fn resume_task_transfers_amount_to_task() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Stopped));
+		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 10));
+		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
+		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
+	});
+}
+
+// reward payout sends equal funds to all shard members
+
+// reward payout failure stops the task but persists changes
+
+// reward is full for the first `blocks` after a task is started
+
+// reward is `percent`% off after the second `blocks`
+
+// reward is off by the expected amount after n `blocks`
+
+// read phase timeout works

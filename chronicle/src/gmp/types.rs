@@ -73,7 +73,7 @@ sol! {
 impl From<[u8; 33]> for TssKey {
 	fn from(bytes: [u8; 33]) -> Self {
 		Self {
-			yParity: bytes[0],
+			yParity: if bytes[0] % 2 == 0 { 0 } else { 1 },
 			xCoord: U256::from_be_slice(&bytes[1..]),
 		}
 	}

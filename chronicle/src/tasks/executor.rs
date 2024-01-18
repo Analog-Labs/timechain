@@ -119,12 +119,12 @@ where
 						Function::RegisterShard { shard_id } => {
 							let tss_public_key =
 								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
-							msg_builder.build_update_keys_message([tss_public_key], []).hash()
+							msg_builder.build_update_keys_message([], [tss_public_key]).hash()
 						},
 						Function::UnregisterShard { shard_id } => {
 							let tss_public_key =
 								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
-							msg_builder.build_update_keys_message([], [tss_public_key]).hash()
+							msg_builder.build_update_keys_message([tss_public_key], []).hash()
 						},
 						Function::SendMessage {
 							address,
@@ -160,7 +160,7 @@ where
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
 								msg_builder
-									.build_update_keys_message([tss_public_key], [])
+									.build_update_keys_message([], [tss_public_key])
 									.into_evm_call(tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check
@@ -179,7 +179,7 @@ where
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
 								msg_builder
-									.build_update_keys_message([], [tss_public_key])
+									.build_update_keys_message([tss_public_key], [])
 									.into_evm_call(tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check

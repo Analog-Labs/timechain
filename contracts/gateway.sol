@@ -150,7 +150,7 @@ contract SigUtils {
     }
 
     // computes the hash of an array of tss keys
-    function _getTssKeyArrayHash(TssKey[] memory tssKeys)
+    function _getTssKeyHash(TssKey memory tssKey)
         private
         pure
         returns (bytes32)
@@ -158,31 +158,53 @@ contract SigUtils {
         return
             keccak256(
                 abi.encode(
-                    keccak256("TssKey(uint8 yParity,uint256 x)[]"),
-                    tssKeys
+                    keccak256("TssKey(uint8 yParity,uint256 xCoord)"),
+                    tssKey.yParity,
+                    tssKey.xCoord
                 )
             );
     }
 
+    // computes the hash of an array of tss keys
+    function _getTssKeyArrayHash(TssKey[] memory tssKeys)
+        private
+        pure
+        returns (bytes32)
+    {
+        bytes memory keysHashed = new bytes(tssKeys.length * 32);
+        uint256 ptr;
+        assembly {
+            ptr := keysHashed
+        }
+        for (uint256 i=0; i<tssKeys.length; i++) {
+            bytes32 hash = _getTssKeyHash(tssKeys[i]);
+            assembly {
+                ptr := add(ptr, 32)
+                mstore(ptr, hash)
+            }
+        }
+        
+        return keccak256(keysHashed);
+    }
+
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
     function _getUpdateKeysHash(UpdateKeysMessage memory message)
-        public
+        private
         pure
         returns (bytes32)
     {
         return
             keccak256(
                 abi.encode(
-                    keccak256("UpdateKeysMessage(TssKey[] revoke,TssKey[] register)"),
+                    keccak256("UpdateKeysMessage(TssKey[] revoke,TssKey[] register)TssKey(uint8 yParity,uint256 xCoord)"),
                     _getTssKeyArrayHash(message.revoke),
                     _getTssKeyArrayHash(message.register)
                 )
             );
     }
 
-    // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
     function getUpdateKeysTypedHash(UpdateKeysMessage memory message)
-        public
+        internal
         view
         returns (bytes32)
     {
@@ -197,7 +219,7 @@ contract SigUtils {
 
     // computes the hash of an array of tss keys
     function _getGmpHash(GmpMessage memory gmp)
-        internal
+        private
         pure
         returns (bytes32)
     {
@@ -220,7 +242,7 @@ contract SigUtils {
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
     function getGmpTypedHash(GmpMessage memory message)
-        public
+        internal
         view
         returns (bytes32)
     {
@@ -443,7 +465,7 @@ contract Gateway is IGateway, SigUtils {
         _verifySignature(signature, messageHash);
 
         // Register shards pubkeys
-        _updateKeys(messageHash, message.register, message.revoke);
+        _updateKeys(messageHash, message.revoke, message.register);
     }
 
     // Register/Revoke TSS keys using shard TSS signature

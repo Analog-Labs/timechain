@@ -29,16 +29,16 @@ impl MessageBuilder {
 
 	pub fn build_update_keys_message<REGISTER, REVOKE>(
 		&self,
-		register: REGISTER,
 		revoke: REVOKE,
+		register: REGISTER,
 	) -> Message
 	where
 		REGISTER: IntoIterator<Item = TssPublicKey>,
 		REVOKE: IntoIterator<Item = TssPublicKey>,
 	{
 		let message = UpdateKeysMessage {
-			register: register.into_iter().map(TssKey::from).collect(),
 			revoke: revoke.into_iter().map(TssKey::from).collect(),
+			register: register.into_iter().map(TssKey::from).collect(),
 		};
 		Message {
 			message: TypedMessage::UpdateKeys(message),

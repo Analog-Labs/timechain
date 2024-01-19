@@ -55,10 +55,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ChainId, ChainName, ChainNetwork, Commitment, MemberStatus, MemberStorage, Network,
-	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
-	TssSignature, TxError, TxResult,
+	AccountId, ChainId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus,
+	MemberStorage, Network, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
+	Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TssPublicKey, TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

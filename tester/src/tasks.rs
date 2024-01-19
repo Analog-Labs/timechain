@@ -83,6 +83,7 @@ pub async fn insert_task(
 		start,
 		period,
 		timegraph: Some([0; 32]),
+		funds: 100u128,
 	};
 	let payload = SubxtClient::create_task_payload(params);
 	let events = api.sign_and_submit_watch(&payload).await?;

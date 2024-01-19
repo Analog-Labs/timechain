@@ -1213,15 +1213,3 @@ fn resume_task_transfers_amount_to_task() {
 		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
 	});
 }
-
-// reward payout sends equal funds to all shard members
-
-// reward payout failure stops the task but persists changes
-
-// reward is full for the first `blocks` after a task is started
-
-// reward is `percent`% off after the second `blocks`
-
-// reward is off by the expected amount after n `blocks`
-
-// read phase timeout works

@@ -1168,8 +1168,8 @@ impl pallet_shards::Config for Runtime {
 parameter_types! {
 	// PalletId used for generating task accounts to fund read tasks.
 	pub const TaskPalletId: PalletId = PalletId(*b"py/tasks");
-	// Rewards decline by 1% every 10 blocks.
-	pub const RewardDeclineRate: (u64, Percent) = (50, Percent::from_percent(1));
+	// Rewards decline by 1% every 20 blocks.
+	pub const RewardDeclineRate: DepreciationRate<BlockNumber> = DepreciationRate { blocks: 20, percent: Percent::from_percent(1) };
 }
 
 impl pallet_tasks::Config for Runtime {

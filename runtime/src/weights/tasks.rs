@@ -101,4 +101,12 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	fn register_gateway() -> Weight {
 		Default::default()
 	}
+
+	fn fund_task() -> Weight {
+		Default::default()
+	}
+
+	fn set_read_task_reward() -> Weight {
+		Default::default()
+	}
 }

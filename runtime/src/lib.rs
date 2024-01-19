@@ -1168,7 +1168,7 @@ impl pallet_shards::Config for Runtime {
 parameter_types! {
 	// PalletId used for generating task accounts to fund read tasks.
 	pub const TaskPalletId: PalletId = PalletId(*b"py/tasks");
-	// Rewards decline by 1% every 50 blocks.
+	// Rewards decline by 1% every 10 blocks.
 	pub const RewardDeclineRate: (u64, Percent) = (50, Percent::from_percent(1));
 }
 
@@ -1177,14 +1177,12 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Shards = Shards;
 	type Currency = Balances;
-	// TODO: get config from research
-	type MinReadTaskBalance = ConstU128<10>;
-	// TODO: get config from research
-	type MinReadTaskReward = ConstU128<1>;
-	// TODO: get config from research
+	type MinReadTaskBalance = ConstU128<{ 10 * DOLLARS }>;
+	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU32<10>;
+	type ReadPhaseTimeout = ConstU32<10>;
 	type PalletId = TaskPalletId;
 }
 

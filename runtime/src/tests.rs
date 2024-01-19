@@ -141,6 +141,7 @@ fn write_phase_timeout_reassigns_task() {
 				start: 0,
 				period: 0,
 				timegraph: None,
+				funds: 100,
 			}
 		));
 		Shards::create_shard(Network::Ethereum, shard, 1);
@@ -204,6 +205,7 @@ fn register_unregister_preserves_task_migration() {
 				start: 0,
 				period: 0,
 				timegraph: None,
+				funds: 100,
 			}
 		));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);

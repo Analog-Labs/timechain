@@ -50,7 +50,7 @@ benchmarks! {
 			funds: 100u32.into(),
 		});
 		let _ = Pallet::<T>::stop_task(RawOrigin::Signed(whitelisted_caller()).into(), 0);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0)
+	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, 0u32.into())
 	verify { }
 
 	submit_result {

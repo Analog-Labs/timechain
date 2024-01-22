@@ -33,15 +33,15 @@ impl Function {
 			Self::RegisterShard { .. } | Self::UnregisterShard { .. } | Self::SendMessage { .. }
 		)
 	}
-	pub fn get_input_length(&self) -> usize {
+	pub fn get_input_length(&self) -> u64 {
 		match self {
-			Function::EvmDeploy { bytecode } => bytecode.len(),
-			Function::EvmCall { input, .. } => input.len(),
-			Function::EvmViewCall { input, .. } => input.len(),
-			Function::EvmTxReceipt { tx } => tx.len(),
+			Function::EvmDeploy { bytecode } => bytecode.len() as u64,
+			Function::EvmCall { input, .. } => input.len() as u64,
+			Function::EvmViewCall { input, .. } => input.len() as u64,
+			Function::EvmTxReceipt { tx } => tx.len() as u64,
 			Function::RegisterShard { .. } => 0,
 			Function::UnregisterShard { .. } => 0,
-			Function::SendMessage { payload, .. } => payload.len(),
+			Function::SendMessage { payload, .. } => payload.len() as u64,
 		}
 	}
 }

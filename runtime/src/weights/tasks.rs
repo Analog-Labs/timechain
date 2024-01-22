@@ -53,6 +53,12 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+
+	//generate weights for this
+	fn single_byte() -> Weight {
+		Weight::default()
+	}
+	
 	/// Storage: `Tasks::Tasks` (r:1 w:0)
 	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::TaskState` (r:1 w:1)

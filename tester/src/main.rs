@@ -137,7 +137,6 @@ async fn process_gmp_task(
 	println!("Setup for eth done");
 	let (astar_contract_address_gmp, _astar_start_block_gmp) =
 		setup_env(astar_config, Some(astar_constructor_params)).await;
-	// let (astar_contract_address, _astar_start_block) = setup_env(eth_config, None).await;
 	println!("Setup for astar done");
 
 	//register_gateway contract

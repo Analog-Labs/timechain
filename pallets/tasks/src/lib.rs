@@ -24,9 +24,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, DepreciationRate, Function, Network, ShardId,
-		ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution,
-		TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
+		append_hash_with_task_data, AccountId, DepreciationRate, Function, Network, RewardConfig,
+		ShardId, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
+		TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -106,6 +106,12 @@ pub mod pallet {
 		/// Base read task reward (for all networks)
 		#[pallet::constant]
 		type BaseReadReward: Get<BalanceOf<Self>>;
+		/// Base write task reward (for all networks)
+		#[pallet::constant]
+		type BaseWriteReward: Get<BalanceOf<Self>>;
+		/// Base send message task reward (for all networks)
+		#[pallet::constant]
+		type BaseSendMessageReward: Get<BalanceOf<Self>>;
 		/// Reward declines every N blocks since read task start by Percent * Amount
 		#[pallet::constant]
 		type RewardDeclineRate: Get<DepreciationRate<BlockNumberFor<Self>>>;
@@ -191,6 +197,26 @@ pub mod pallet {
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn network_write_reward)]
+	pub type NetworkWriteReward<T: Config> =
+		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn network_send_message_reward)]
+	pub type NetworkSendMessageReward<T: Config> =
+		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn task_reward_config)]
+	pub type TaskRewardConfig<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		RewardConfig<BalanceOf<T>, BlockNumberFor<T>>,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -338,11 +364,12 @@ pub mod pallet {
 				result.signature,
 			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			if Self::reward_if_read_task_or_return_early(task_id, result.shard_id, task.network) {
-				// Return early IFF task is in read phase and payout failed
-				// because task is stopped
+			if Self::try_reward_catch_return_early(task_id, result.shard_id, task.network) {
+				// Return early to persist storage changes related to error handling
+				// but result was not successfully submitted so return Ok(()) early
+				// without persisting any changes related to successful result submission
 				return Ok(());
-			} // else reward payout succeeded or task is not in read phase
+			} //else reward payout succeeded or task is not in read phase
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, result.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
@@ -576,6 +603,21 @@ pub mod pallet {
 			if schedule.function.is_gmp() {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 			}
+			// Snapshot the reward config in storage
+			// TODO: use this when computing all rewards
+			TaskRewardConfig::<T>::insert(
+				task_id,
+				RewardConfig {
+					read_task_reward: T::BaseReadReward::get()
+						+ NetworkReadReward::<T>::get(schedule.network),
+					write_task_reward: T::BaseWriteReward::get()
+						+ NetworkWriteReward::<T>::get(schedule.network),
+					send_message_reward: T::BaseSendMessageReward::get()
+						+ NetworkSendMessageReward::<T>::get(schedule.network),
+					depreciation_rate: T::RewardDeclineRate::get(),
+				},
+			); // TODO: cleanup when task is cleared from storage
+   // TODO: enforce shard_size in shard assignment
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {
@@ -586,6 +628,7 @@ pub mod pallet {
 					start: schedule.start,
 					period: schedule.period,
 					timegraph: schedule.timegraph,
+					shard_size: schedule.shard_size,
 				},
 			);
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
@@ -723,7 +766,11 @@ pub mod pallet {
 
 		fn schedule_tasks(network: Network) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
-				let Some(shard_id) = Self::select_shard(network, task_id, None) else {
+				let Some(TaskDescriptor { shard_size, .. }) = Tasks::<T>::get(task_id) else {
+					// this branch should never be hit, maybe turn this into expect
+					continue;
+				};
+				let Some(shard_id) = Self::select_shard(network, task_id, None, shard_size) else {
 					// on gmp task sometimes returns none and it stops every other schedule
 					continue;
 				};
@@ -749,9 +796,13 @@ pub mod pallet {
 			network: Network,
 			task_id: TaskId,
 			old: Option<ShardId>,
+			shard_size: u32,
 		) -> Option<ShardId> {
 			NetworkShards::<T>::iter_prefix(network)
 				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
+				.filter(|(shard_id, _)| {
+					T::Shards::shard_members(*shard_id).len() as u32 == shard_size
+				})
 				.filter(|(shard_id, _)| {
 					if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
 						if Gateway::<T>::get(network).is_some() {
@@ -786,11 +837,12 @@ pub mod pallet {
 				// task not assigned to any existing shard so nothing changes
 				return;
 			};
-			let Some(TaskDescriptor { network, .. }) = Tasks::<T>::get(task_id) else {
+			let Some(TaskDescriptor { network, shard_size, .. }) = Tasks::<T>::get(task_id) else {
 				// unexpected branch: network not found logic bug if this branch is hit
 				return;
 			};
-			let Some(new_shard_id) = Self::select_shard(network, task_id, Some(old_shard_id))
+			let Some(new_shard_id) =
+				Self::select_shard(network, task_id, Some(old_shard_id), shard_size)
 			else {
 				// no new shard available for network for task reassignment
 				return;
@@ -859,15 +911,20 @@ pub mod pallet {
 		/// Returns true iff task is read and payout fails which requires
 		/// returning early but also persisting storage changes related to stopping the task.
 		/// Returns false if task is not in read phase OR if payout succeeded.
-		fn reward_if_read_task_or_return_early(
+		/// TODO: match on task phase state here
+		/// --> one path for write tasks
+		/// --> one path for read tasks
+		/// -> if SendMessage `task.function.is_gmp()` { reward for that too }
+		fn try_reward_catch_return_early(
 			task_id: TaskId,
 			shard_id: ShardId,
 			network: Network,
 		) -> bool {
 			if !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
 				// do NOT return early if task is not in read phase
+				// but do skip anything else so return early now
 				return false;
-			} // else task is in read phase => reward the shard members
+			} // else task is in read phase => reward the shard members:
 			let task_reward_per_member = Self::compute_shard_member_task_reward(network, task_id);
 			let task_account_id = Self::task_account(task_id);
 			let members = T::Shards::shard_members(shard_id);

@@ -60,6 +60,7 @@ pub struct TaskDescriptor {
 	pub start: u64,
 	pub period: u64,
 	pub timegraph: Option<[u8; 32]>,
+	pub shard_size: u32,
 }
 
 impl TaskDescriptor {
@@ -77,6 +78,7 @@ pub struct TaskDescriptorParams<Balance> {
 	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
 	pub funds: Balance,
+	pub shard_size: u32,
 }
 
 impl<B: Default> TaskDescriptorParams<B> {
@@ -89,6 +91,7 @@ impl<B: Default> TaskDescriptorParams<B> {
 			timegraph: None,
 			function,
 			funds: B::default(),
+			shard_size: 1u32,
 		}
 	}
 }
@@ -229,4 +232,18 @@ pub fn append_hash_with_task_data(
 pub struct DepreciationRate<BlockNumber> {
 	pub blocks: BlockNumber,
 	pub percent: Percent,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+/// Struct representing a task's reward configuration
+/// Stored at task creation
+pub struct RewardConfig<Balance, BlockNumber> {
+	/// For each shard member
+	pub read_task_reward: Balance,
+	/// For the signer
+	pub write_task_reward: Balance,
+	/// For each shard member
+	pub send_message_reward: Balance,
+	/// Depreciation rate for all rewards
+	pub depreciation_rate: DepreciationRate<BlockNumber>,
 }

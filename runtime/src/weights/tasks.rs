@@ -91,7 +91,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		Default::default()
 	}
 
-	fn submit_hash() -> Weight {
+	fn submit_hash(_: u64) -> Weight {
 		Default::default()
 	}
 

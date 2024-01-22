@@ -28,7 +28,7 @@ pub mod pallet {
 		fn resume_task() -> Weight;
 		fn submit_result() -> Weight;
 		fn submit_error() -> Weight;
-		fn submit_hash() -> Weight;
+		fn submit_hash(input_length: u64) -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
 	}
@@ -54,7 +54,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn submit_hash() -> Weight {
+		fn submit_hash(_: u64) -> Weight {
 			Weight::default()
 		}
 
@@ -315,7 +315,7 @@ pub mod pallet {
 
 		/// Submit Task Hash
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::submit_hash())]
+		#[pallet::weight(T::WeightInfo::submit_hash(hash.len() as u64))]
 		pub fn submit_hash(
 			origin: OriginFor<T>,
 			task_id: TaskId,

@@ -43,7 +43,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::TaskState` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::Tasks` (r:0 w:1)
 	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn create_task() -> Weight {
+	fn create_task(_: u64) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `46`
 		//  Estimated: `3511`
@@ -52,11 +52,6 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3511))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
-	}
-
-	//generate weights for this
-	fn single_byte() -> Weight {
-		Weight::default()
 	}
 	
 	/// Storage: `Tasks::Tasks` (r:1 w:0)

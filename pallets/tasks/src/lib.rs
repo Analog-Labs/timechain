@@ -23,8 +23,7 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn create_task() -> Weight;
-		fn single_byte() -> Weight;
+		fn create_task(input_length: u64) -> Weight;
 		fn stop_task() -> Weight;
 		fn resume_task() -> Weight;
 		fn submit_result() -> Weight;
@@ -35,11 +34,7 @@ pub mod pallet {
 	}
 
 	impl WeightInfo for () {
-		fn create_task() -> Weight {
-			Weight::default()
-		}
-
-		fn single_byte() -> Weight {
+		fn create_task(_: u64) -> Weight {
 			Weight::default()
 		}
 
@@ -206,7 +201,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::create_task().saturating_add(T::WeightInfo::single_byte().saturating_mul(schedule.function.get_input_length())))]
+		#[pallet::weight(T::WeightInfo::create_task(schedule.function.get_input_length()))]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::start_task(schedule, Some(who))?;

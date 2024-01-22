@@ -341,7 +341,7 @@ pub mod pallet {
 			cycle: TaskCycle,
 			result: TaskResult,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskResults::<T>::get(task_id, cycle).is_some()
@@ -364,12 +364,10 @@ pub mod pallet {
 				result.signature,
 			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			if Self::try_reward_catch_return_early(task_id, result.shard_id, task.network) {
-				// Return early to persist storage changes related to error handling
-				// but result was not successfully submitted so return Ok(()) early
-				// without persisting any changes related to successful result submission
+			if Self::try_reward_catch_return_early(task_id, result.shard_id, caller) {
+				// Return early to persist stopping the task due to failed payout
 				return Ok(());
-			} //else reward payout succeeded or task is not in read phase
+			} //else payout succeeded OR task is not in read nor write phase
 			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
 			TaskResults::<T>::insert(task_id, cycle, result.clone());
 			TaskRetryCounter::<T>::insert(task_id, 0);
@@ -883,56 +881,131 @@ pub mod pallet {
 			}
 		}
 
-		fn compute_shard_member_task_reward(network: Network, task_id: TaskId) -> BalanceOf<T> {
-			let full_reward =
-				NetworkReadReward::<T>::get(network).saturating_add(T::BaseReadReward::get());
-			let read_phase_start = ReadPhaseStart::<T>::get(task_id);
-			if read_phase_start.is_zero() {
-				// read phase never started => no reward
-				return BalanceOf::<T>::zero();
-			}
-			let rate = T::RewardDeclineRate::get();
-			let time_since_read_phase_start =
-				frame_system::Pallet::<T>::block_number().saturating_sub(read_phase_start);
-			if time_since_read_phase_start.is_zero() {
+		/// Apply the depreciation rate
+		fn apply_depreciation(
+			start: BlockNumberFor<T>,
+			amount: BalanceOf<T>,
+			rate: DepreciationRate<BlockNumberFor<T>>,
+		) -> BalanceOf<T> {
+			let time_since_start = frame_system::Pallet::<T>::block_number().saturating_sub(start);
+			if time_since_start.is_zero() {
 				// no time elapsed since read phase started => full reward
-				return full_reward;
+				return amount;
 			}
-			let mut remaining_reward = full_reward;
-			let periods = time_since_read_phase_start / rate.blocks;
+			let mut remaining = amount;
+			let periods = time_since_start / rate.blocks;
 			let mut i = BlockNumberFor::<T>::zero();
 			while i < periods {
-				remaining_reward = remaining_reward.saturating_sub(rate.percent * remaining_reward);
+				remaining = remaining.saturating_sub(rate.percent * remaining);
 				i = i.saturating_plus_one();
 			}
-			remaining_reward
+			remaining
 		}
 
-		/// Returns true iff task is read and payout fails which requires
-		/// returning early but also persisting storage changes related to stopping the task.
-		/// Returns false if task is not in read phase OR if payout succeeded.
-		/// TODO: match on task phase state here
-		/// --> one path for write tasks
-		/// --> one path for read tasks
-		/// -> if SendMessage `task.function.is_gmp()` { reward for that too }
+		/// Compute task reward due to write task submitter
+		fn compute_write_reward(task_id: TaskId) -> BalanceOf<T> {
+			let Some(RewardConfig {
+				write_task_reward,
+				depreciation_rate,
+				..
+			}) = TaskRewardConfig::<T>::get(task_id)
+			else {
+				// reward config never stored => bug edge case
+				return BalanceOf::<T>::zero();
+			};
+			Self::apply_depreciation(
+				WritePhaseStart::<T>::get(task_id),
+				write_task_reward,
+				depreciation_rate,
+			)
+		}
+
+		fn compute_read_reward(task_id: TaskId) -> BalanceOf<T> {
+			let Some(RewardConfig {
+				read_task_reward,
+				depreciation_rate,
+				..
+			}) = TaskRewardConfig::<T>::get(task_id)
+			else {
+				// reward config never stored, bug edge case
+				return BalanceOf::<T>::zero();
+			};
+			Self::apply_depreciation(
+				ReadPhaseStart::<T>::get(task_id),
+				read_task_reward,
+				depreciation_rate,
+			)
+		}
+
+		fn compute_send_message_reward(task_id: TaskId) -> BalanceOf<T> {
+			let Some(RewardConfig {
+				send_message_reward,
+				depreciation_rate,
+				..
+			}) = TaskRewardConfig::<T>::get(task_id)
+			else {
+				// reward config never stored, bug edge case
+				return BalanceOf::<T>::zero();
+			};
+			Self::apply_depreciation(
+				WritePhaseStart::<T>::get(task_id),
+				send_message_reward,
+				depreciation_rate,
+			)
+		}
+
+		/// Returns true iff payout fails and task was stopped
+		/// Return false if any of the following conditions were met:
+		/// 1. task phase was read or write && payout succeeded
+		/// 2. task phase was not read nor write so payout was skipped
+		/// 3. necessary storage items were not found so payout was skipped
 		fn try_reward_catch_return_early(
 			task_id: TaskId,
 			shard_id: ShardId,
-			network: Network,
+			caller: AccountId,
 		) -> bool {
-			if !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
-				// do NOT return early if task is not in read phase
-				// but do skip anything else so return early now
+			// payout to all shard members if possible
+			let Some(TaskDescriptor { function, .. }) = Tasks::<T>::get(task_id) else {
+				// bug wherein task state is lost => skip reward payout
 				return false;
-			} // else task is in read phase => reward the shard members:
-			let task_reward_per_member = Self::compute_shard_member_task_reward(network, task_id);
+			};
 			let task_account_id = Self::task_account(task_id);
-			let members = T::Shards::shard_members(shard_id);
 			let stop_task = |t| {
 				// insufficient balance to payout rewards
 				TaskState::<T>::insert(t, TaskStatus::Stopped);
 				Self::deposit_event(Event::TaskStopped(t));
 			};
+			let task_reward_per_member = match TaskPhaseState::<T>::get(task_id) {
+				TaskPhase::Read(_) => {
+					// payout per shard_member
+					Self::compute_read_reward(task_id)
+				},
+				TaskPhase::Write(_) => {
+					// first try payout to caller
+					if T::Currency::transfer(
+						&task_account_id,
+						&caller,
+						Self::compute_write_reward(task_id),
+						ExistenceRequirement::KeepAlive,
+					)
+					.is_err()
+					{
+						// if payout fails then stop the task and return early
+						stop_task(task_id);
+						return true;
+					}
+					// TODO: confirm if this should be moved outside of match
+					// or stay here
+					if function.is_gmp() {
+						Self::compute_send_message_reward(task_id)
+					} else {
+						BalanceOf::<T>::zero()
+					}
+				},
+				_ => return false, // skip reward payout altogether
+			};
+			// payout to shard members
+			let members = T::Shards::shard_members(shard_id);
 			if T::Currency::free_balance(&task_account_id)
 				< task_reward_per_member.saturating_mul((members.len() as u32).into())
 			{
@@ -955,9 +1028,17 @@ pub mod pallet {
 					return true;
 				} // else continue payout
 			}
-			// payout succeeded => do NOT return early in caller
-			// update read phase start because read task completed and rewarded
-			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			// update the start of the phase for the next reward
+			match TaskPhaseState::<T>::get(task_id) {
+				TaskPhase::Read(_) => {
+					ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number())
+				},
+				TaskPhase::Write(_) => {
+					WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number())
+				},
+				_ => (),
+			}
+			// payout has succeeded => do NOT return early
 			false
 		}
 	}

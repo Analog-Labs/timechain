@@ -947,11 +947,12 @@ pub mod pallet {
 				// reward config never stored, bug edge case
 				return BalanceOf::<T>::zero();
 			};
-			Self::apply_depreciation(
-				WritePhaseStart::<T>::get(task_id),
-				send_message_reward,
-				depreciation_rate,
-			)
+			let start = match TaskPhaseState::<T>::get(task_id) {
+				TaskPhase::Read(_) => ReadPhaseStart::<T>::get(task_id),
+				TaskPhase::Write(_) => WritePhaseStart::<T>::get(task_id),
+				_ => return BalanceOf::<T>::zero(),
+			};
+			Self::apply_depreciation(start, send_message_reward, depreciation_rate)
 		}
 
 		/// Returns true iff payout fails and task was stopped
@@ -969,19 +970,24 @@ pub mod pallet {
 				// bug wherein task state is lost => skip reward payout
 				return false;
 			};
+			let mut task_reward_per_member = if function.is_gmp() {
+				Self::compute_send_message_reward(task_id)
+			} else {
+				BalanceOf::<T>::zero()
+			};
 			let task_account_id = Self::task_account(task_id);
 			let stop_task = |t| {
 				// insufficient balance to payout rewards
 				TaskState::<T>::insert(t, TaskStatus::Stopped);
 				Self::deposit_event(Event::TaskStopped(t));
 			};
-			let task_reward_per_member = match TaskPhaseState::<T>::get(task_id) {
+			match TaskPhaseState::<T>::get(task_id) {
 				TaskPhase::Read(_) => {
-					// payout per shard_member
-					Self::compute_read_reward(task_id)
+					// add read task reward to shard member payout
+					task_reward_per_member =
+						task_reward_per_member.saturating_add(Self::compute_read_reward(task_id));
 				},
 				TaskPhase::Write(_) => {
-					// first try payout to caller
 					if T::Currency::transfer(
 						&task_account_id,
 						&caller,
@@ -993,13 +999,6 @@ pub mod pallet {
 						// if payout fails then stop the task and return early
 						stop_task(task_id);
 						return true;
-					}
-					// TODO: confirm if this should be moved outside of match
-					// or stay here
-					if function.is_gmp() {
-						Self::compute_send_message_reward(task_id)
-					} else {
-						BalanceOf::<T>::zero()
 					}
 				},
 				_ => return false, // skip reward payout altogether
@@ -1013,7 +1012,7 @@ pub mod pallet {
 				stop_task(task_id);
 				return true;
 			}
-			for member in T::Shards::shard_members(shard_id) {
+			for member in members {
 				if T::Currency::transfer(
 					&task_account_id,
 					&member,
@@ -1022,13 +1021,11 @@ pub mod pallet {
 				)
 				.is_err()
 				{
-					// insufficient balance to payout rewards
-					// unlikely due to check above the loop
 					stop_task(task_id);
 					return true;
-				} // else continue payout
+				}
 			}
-			// update the start of the phase for the next reward
+			// update phase start for next reward payout
 			match TaskPhaseState::<T>::get(task_id) {
 				TaskPhase::Read(_) => {
 					ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number())

@@ -15,7 +15,7 @@ benchmarks! {
 			network: Network::Ethereum,
 			function: Function::EvmViewCall {
 				address: Default::default(),
-				input: Default::default(),
+				input,
 			},
 			cycle: 1,
 			start: 0,

@@ -17,7 +17,7 @@ benchmarks! {
 		start: 0,
 		period: 1,
 		timegraph: None,
-		funds: 100u128,
+		funds: 100u32.into(),
 	}) verify {}
 
 	stop_task {
@@ -31,7 +31,7 @@ benchmarks! {
 			start: 0,
 			period: 1,
 			timegraph: None,
-			funds: 100u128,
+			funds: 100u32.into(),
 		});
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0)
 	verify { }
@@ -47,7 +47,7 @@ benchmarks! {
 			start: 0,
 			period: 1,
 			timegraph: None,
-			funds: 100u128,
+			funds: 100u32.into(),
 		});
 		let _ = Pallet::<T>::stop_task(RawOrigin::Signed(whitelisted_caller()).into(), 0);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0)
@@ -64,7 +64,7 @@ benchmarks! {
 			start: 0,
 			period: 1,
 			timegraph: None,
-			funds: 100u128,
+			funds: 100u32.into(),
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, TaskResult {
@@ -84,7 +84,7 @@ benchmarks! {
 			start: 0,
 			period: 1,
 			timegraph: None,
-			funds: 100u128,
+			funds: 100u32.into(),
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, TaskError {
@@ -105,7 +105,7 @@ benchmarks! {
 			start: 0,
 			period: 0,
 			timegraph: None,
-			funds: 100u128,
+			funds: 100u32.into(),
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, "mock_hash".into()) verify {}
@@ -123,7 +123,7 @@ benchmarks! {
 			start: 0,
 			period: 0,
 			timegraph: None,
-			funds: 100u128,
+			funds: 100u32.into(),
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}

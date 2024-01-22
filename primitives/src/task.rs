@@ -73,8 +73,9 @@ pub struct TaskDescriptor {
 }
 
 impl TaskDescriptor {
-	pub fn trigger(&self, cycle: TaskCycle) -> u64 {
-		self.start + cycle * self.period
+	pub fn trigger(&self, cycle: TaskCycle) -> Option<u64> {
+		let cycle_period = cycle.checked_mul(self.period)?;
+		self.start.checked_add(cycle_period)
 	}
 }
 

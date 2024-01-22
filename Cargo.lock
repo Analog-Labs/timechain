@@ -14313,9 +14313,9 @@ dependencies = [
 
 [[package]]
 name = "timegraph-client"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e602d63442feb639245f1e09c029d90f78bbbc7bc9db03c874ca2ea7b81001"
+checksum = "234a97909fc8ddada37dc0fb3ac19309cb87cd63ae07f10f0d7a17fffffc143f"
 dependencies = [
  "anyhow",
  "graphql_client",

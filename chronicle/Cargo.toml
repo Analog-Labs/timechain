@@ -28,7 +28,7 @@ sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch 
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 tc-subxt = { path = "../tc-subxt" }
 time-primitives = { path = "../primitives" }
-timegraph-client = "0.1.9"
+timegraph-client = "0.1.10"
 tokio = "1.32.0"
 tracing = "0.1.37"
 tss = { path = "../tss" }

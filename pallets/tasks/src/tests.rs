@@ -1062,7 +1062,6 @@ fn fund_task_only_callable_by_owner() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		let balance_added = 100;
 		assert_noop!(
 			Tasks::fund_task(RawOrigin::Signed([1; 32].into()).into(), 0, 100, 0),
 			Error::<Test>::InvalidOwner

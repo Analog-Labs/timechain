@@ -9,7 +9,7 @@ use time_primitives::{
 
 benchmarks! {
 	create_task {
-		let b in 1..1000;
+		let b in 1..10000;
 		let input = vec![0u8; b as usize];
 		let descriptor = TaskDescriptorParams {
 			network: Network::Ethereum,
@@ -94,6 +94,7 @@ benchmarks! {
 	}) verify {}
 
 	submit_hash {
+		let b in 1..10000;
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: Network::Ethereum,
 			function: Function::EvmCall {
@@ -107,7 +108,7 @@ benchmarks! {
 			timegraph: None,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, "mock_hash".into()) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, vec![0u8; b as usize]) verify {}
 
 	submit_signature {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {

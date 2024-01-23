@@ -271,11 +271,22 @@ fn shard_offline_removes_tasks() {
 	});
 }
 
-//gotta fix this yet shard offline doesnt assigns tasks to other shard yet.
 #[test]
 fn shard_offline_assigns_tasks_if_other_shard_online() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(2, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		ShardState::<Test>::insert(1, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		Tasks::shard_online(1, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -283,13 +294,14 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 		));
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(2, 2)]
+			vec![(0, 2)]
 		);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
 			vec![1, 0]
 		);
-		Tasks::shard_offline(2, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, Network::Ethereum);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().collect::<Vec<_>>(),
 			vec![(Network::Ethereum, 1, ()), (Network::Ethereum, 0, ())]
@@ -321,23 +333,32 @@ fn submit_completed_result_purges_task_from_storage() {
 	});
 }
 
+// TODO: is this change in behavior intended? intended to not drop failed tasks but test was incorrect before
 #[test]
-fn shard_offline_doesnt_drops_failed_tasks() {
+fn shard_offline_drops_failed_tasks() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 0..4 {
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(1, 0, 0)
+				mock_error_result(0, 0, 0)
 			));
 		}
-		Tasks::shard_offline(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_offline(0, Network::Ethereum);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 	});

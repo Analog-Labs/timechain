@@ -896,11 +896,19 @@ fn shard_online_starts_register_shard_task() {
 #[test]
 fn register_gateway_completes_register_shard_task() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
-		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Completed));
+		// insert shard public key to match mock result signature
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		// submit result still succeeds because task is completed
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),

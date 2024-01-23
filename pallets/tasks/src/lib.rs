@@ -1083,7 +1083,11 @@ pub mod pallet {
 		fn shard_online(shard_id: ShardId, network: Network) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::start_task(
-				TaskDescriptorParams::new(network, Function::RegisterShard { shard_id }),
+				TaskDescriptorParams::new(
+					network,
+					Function::RegisterShard { shard_id },
+					T::Shards::shard_members(shard_id).len() as u32,
+				),
 				None,
 			)
 			.unwrap();
@@ -1108,7 +1112,11 @@ pub mod pallet {
 			}
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
-					TaskDescriptorParams::new(network, Function::UnregisterShard { shard_id }),
+					TaskDescriptorParams::new(
+						network,
+						Function::UnregisterShard { shard_id },
+						T::Shards::shard_members(shard_id).len() as u32,
+					),
 					None,
 				)
 				.unwrap();

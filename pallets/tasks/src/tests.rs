@@ -865,13 +865,19 @@ fn register_gateway_updates_gateway_storage() {
 #[test]
 fn shard_online_starts_register_shard_task() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_eq!(
 			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
 				owner: None,
 				network: Network::Ethereum,
-				function: Function::RegisterShard { shard_id: 1 },
+				function: Function::RegisterShard { shard_id: 0 },
 				cycle: 1,
 				start: 0,
 				period: 1,
@@ -881,9 +887,9 @@ fn shard_online_starts_register_shard_task() {
 		);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		// register gateway to register shard
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		//when a register shard task is complete the shard is marked as registered
-		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
+		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
 	});
 }
 

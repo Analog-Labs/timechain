@@ -82,7 +82,7 @@ pub struct TaskDescriptorParams<Balance> {
 }
 
 impl<B: Default> TaskDescriptorParams<B> {
-	pub fn new(network: Network, function: Function) -> Self {
+	pub fn new(network: Network, function: Function, shard_size: u32) -> Self {
 		Self {
 			network,
 			cycle: 1,
@@ -91,7 +91,7 @@ impl<B: Default> TaskDescriptorParams<B> {
 			timegraph: None,
 			function,
 			funds: B::default(),
-			shard_size: 1u32,
+			shard_size,
 		}
 	}
 }

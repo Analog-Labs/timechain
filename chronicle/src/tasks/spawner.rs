@@ -14,8 +14,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Network, ShardId, TaskCycle, TaskError,
-	TaskId, TaskResult, Tasks, TssHash, TssId, TssSignature, TssSigningRequest,
+	append_hash_with_task_data, BlockNumber, Function, Network, Runtime, ShardId, TaskCycle,
+	TaskError, TaskId, TaskResult, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -42,7 +42,7 @@ pub struct TaskSpawner<S> {
 
 impl<S> TaskSpawner<S>
 where
-	S: Tasks + Send,
+	S: Runtime,
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
 		let blockchain = match params.blockchain {
@@ -294,7 +294,7 @@ where
 
 impl<S> super::TaskSpawner for TaskSpawner<S>
 where
-	S: Tasks + Clone + Send + Sync + 'static,
+	S: Runtime,
 {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(BlockStream::new(&self.wallet))

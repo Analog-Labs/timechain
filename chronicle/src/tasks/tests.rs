@@ -18,10 +18,10 @@ use std::{future::Future, pin::Pin};
 use substrate_test_runtime_client::ClientBlockImportExt;
 use tc_subxt::AccountInterface;
 use time_primitives::{
-	AccountId, BlockNumber, Commitment, Function, MemberStatus, MembersPayload, Network, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, ShardsPayload, TaskCycle,
+	AccountId, BlockNumber, ChainName, ChainNetwork, Commitment, Function, MemberStatus, Network,
+	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi, TaskCycle,
 	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TasksApi,
-	TasksPayload, TssSignature, TxResult,
+	TssSignature, TxBuilder, TxResult,
 };
 lazy_static::lazy_static! {
 	pub static ref TASK_STATUS: Mutex<Vec<bool>> = Default::default();
@@ -125,6 +125,24 @@ sp_api::mock_impl_runtime_apis! {
 			Ok(())
 		}
 	}
+
+	impl time_primitives::MembersApi<Block> for MockApi {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>{
+			Some((*account).clone().into())
+		}
+		fn get_heartbeat_timeout() -> u64 {
+			1000
+		}
+		fn get_min_stake() -> u128 {
+			0
+		}
+	}
+
+	impl time_primitives::NetworksApi<Block> for MockApi {
+		fn get_network(_: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+			None
+		}
+	}
 }
 
 impl ProvideRuntimeApi<Block> for MockApi {
@@ -203,7 +221,7 @@ impl TaskSpawner for MockTask {
 #[derive(Clone)]
 struct MockSubxt;
 
-impl TasksPayload for MockSubxt {
+impl TxBuilder for MockSubxt {
 	fn submit_task_hash(&self, _: TaskId, _: TaskCycle, _: Vec<u8>) -> Vec<u8> {
 		vec![]
 	}
@@ -221,9 +239,7 @@ impl TasksPayload for MockSubxt {
 		TASK_STATUS.lock().unwrap().push(false);
 		vec![]
 	}
-}
 
-impl ShardsPayload for MockSubxt {
 	fn submit_commitment(&self, _: ShardId, _: Commitment, _: ProofOfKnowledge) -> Vec<u8> {
 		vec![]
 	}
@@ -231,9 +247,7 @@ impl ShardsPayload for MockSubxt {
 	fn submit_online(&self, _: ShardId) -> Vec<u8> {
 		vec![]
 	}
-}
 
-impl MembersPayload for MockSubxt {
 	fn submit_register_member(&self, _: Network, _: PublicKey, _: PeerId, _: u128) -> Vec<u8> {
 		vec![]
 	}

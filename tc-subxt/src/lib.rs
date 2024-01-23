@@ -10,7 +10,12 @@ use subxt::tx::SubmittableExtrinsic;
 use subxt::tx::TxPayload;
 use subxt::utils::{MultiAddress, MultiSignature, H256};
 use subxt_signer::SecretUri;
-use time_primitives::{AccountId, PublicKey};
+use time_primitives::{
+	AccountId, PeerId, PublicKey, ShardId, TaskCycle, TaskError, TaskId, TaskResult, TssPublicKey,
+	TssSignature, TxBuilder,
+};
+use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
+use timechain_runtime::runtime_types::time_primitives::{shard, task};
 use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 
 #[subxt::subxt(
@@ -19,7 +24,6 @@ use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 )]
 pub mod timechain_runtime {}
 
-mod members;
 mod shards;
 mod tasks;
 
@@ -207,5 +211,69 @@ impl AccountInterface for SubxtClient {
 	fn account_id(&self) -> AccountId {
 		let account_id: subxt::utils::AccountId32 = self.signer.public_key().into();
 		unsafe { std::mem::transmute(account_id) }
+	}
+}
+
+impl TxBuilder for SubxtClient {
+	fn submit_register_member(
+		&self,
+		network: time_primitives::Network,
+		public_key: PublicKey,
+		peer_id: PeerId,
+		stake_amount: u128,
+	) -> Vec<u8> {
+		let network: shard::Network = unsafe { std::mem::transmute(network) };
+		let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
+		let tx = timechain_runtime::tx().members().register_member(
+			network,
+			public_key,
+			peer_id,
+			stake_amount,
+		);
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_heartbeat(&self) -> Vec<u8> {
+		let tx = timechain_runtime::tx().members().send_heartbeat();
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_commitment(
+		&self,
+		shard_id: ShardId,
+		commitment: Vec<TssPublicKey>,
+		proof_of_knowledge: [u8; 65],
+	) -> Vec<u8> {
+		let tx = timechain_runtime::tx()
+			.shards()
+			.commit(shard_id, commitment, proof_of_knowledge);
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_online(&self, shard_id: ShardId) -> Vec<u8> {
+		let tx = timechain_runtime::tx().shards().ready(shard_id);
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8> {
+		let error: task::TaskError = unsafe { std::mem::transmute(error) };
+		let tx = timechain_runtime::tx().tasks().submit_error(task_id, cycle, error);
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8> {
+		let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature);
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8> {
+		let tx = timechain_runtime::tx().tasks().submit_hash(task_id, cycle, hash);
+		self.create_signed_payload(&tx)
+	}
+
+	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8> {
+		let status: task::TaskResult = unsafe { std::mem::transmute(status) };
+		let tx = timechain_runtime::tx().tasks().submit_result(task_id, cycle, status);
+		self.create_signed_payload(&tx)
 	}
 }

@@ -24,11 +24,11 @@ use std::task::Poll;
 use std::time::Duration;
 use tc_subxt::AccountInterface;
 use time_primitives::{
-	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
-	MembersPayload, Network, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsApi,
-	ShardsPayload, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase,
-	TaskResult, TasksApi, TasksPayload, TssId, TssPublicKey, TssSignature, TssSigningRequest,
-	TxResult,
+	AccountId, BlockHash, BlockNumber, BlockTimeApi, ChainName, ChainNetwork, Commitment,
+	MemberStatus, MembersApi, Network, NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey,
+	ShardId, ShardStatus, ShardsApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
+	TaskPhase, TaskResult, TasksApi, TssId, TssPublicKey, TssSignature, TssSigningRequest,
+	TxBuilder, TxResult,
 };
 use tracing::{span, Level};
 use tss::{sum_commitments, VerifiableSecretSharingCommitment};
@@ -193,6 +193,12 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
+	impl NetworksApi<Block> for MockApi {
+		fn get_network(_: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+			None
+		}
+	}
+
 	impl time_primitives::SubmitTransactionApi<Block> for MockApi {
 		fn submit_transaction(_: Vec<u8>) -> TxResult {
 			Ok(())
@@ -300,7 +306,7 @@ struct MockSubxt {
 	api: Arc<MockApi>,
 }
 
-impl TasksPayload for MockSubxt {
+impl TxBuilder for MockSubxt {
 	fn submit_task_hash(&self, _: TaskId, _: TaskCycle, _: Vec<u8>) -> Vec<u8> {
 		vec![]
 	}
@@ -316,9 +322,7 @@ impl TasksPayload for MockSubxt {
 	fn submit_task_error(&self, _: TaskId, _: TaskCycle, _: TaskError) -> Vec<u8> {
 		vec![]
 	}
-}
 
-impl ShardsPayload for MockSubxt {
 	fn submit_commitment(
 		&self,
 		shard_id: ShardId,
@@ -337,9 +341,7 @@ impl ShardsPayload for MockSubxt {
 		self.api.inner.lock().unwrap().submit_online(shard_id);
 		vec![]
 	}
-}
 
-impl MembersPayload for MockSubxt {
 	fn submit_register_member(&self, _: Network, _: PublicKey, _: PeerId, _: u128) -> Vec<u8> {
 		vec![]
 	}

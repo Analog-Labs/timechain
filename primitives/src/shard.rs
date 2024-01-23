@@ -1,6 +1,6 @@
-use crate::{AccountId, TaskCycle, TaskId};
 #[cfg(feature = "std")]
-use crate::{ApiResult, BlockHash, BlockNumber, SubmitResult};
+use crate::BlockNumber;
+use crate::{TaskCycle, TaskId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
@@ -141,48 +141,6 @@ impl<B: Copy> ShardStatus<B> {
 			_ => *self,
 		}
 	}
-}
-
-#[cfg(feature = "std")]
-pub trait Shards {
-	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;
-
-	fn get_shard_members(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> ApiResult<Vec<(AccountId, MemberStatus)>>;
-
-	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16>;
-
-	fn get_shard_status(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> ApiResult<ShardStatus<BlockNumber>>;
-
-	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment>;
-
-	fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	) -> SubmitResult;
-
-	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
-}
-
-#[cfg(feature = "std")]
-pub trait ShardsPayload {
-	fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	) -> Vec<u8>;
-
-	fn submit_online(&self, shard_id: ShardId) -> Vec<u8>;
 }
 
 #[cfg(feature = "std")]

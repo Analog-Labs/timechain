@@ -9,11 +9,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tc_subxt::AccountInterface;
 use time_primitives::{
-	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, Members,
-	MembersApi, MembersPayload, Network, NetworkId, Networks, NetworksApi, PeerId, PublicKey,
-	ShardId, ShardStatus, Shards, ShardsApi, ShardsPayload, SubmitResult, SubmitTransactionApi,
-	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, Tasks, TasksApi,
-	TasksPayload, TssSignature,
+	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus,
+	MembersApi, Network, NetworkId, NetworksApi, PeerId, PublicKey, Runtime, ShardId, ShardStatus,
+	ShardsApi, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError,
+	TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxBuilder,
 };
 
 enum Tx {
@@ -39,18 +38,16 @@ pub struct Substrate<B: Block, C, R, S> {
 
 impl<B, C, R, S> Substrate<B, C, R, S>
 where
-	B: Block,
-	C: HeaderBackend<B> + 'static,
+	B: Block<Hash = BlockHash>,
+	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
+	R::Api: BlockTimeApi<B>
+		+ NetworksApi<B>
+		+ MembersApi<B>
+		+ ShardsApi<B>
+		+ TasksApi<B>
+		+ SubmitTransactionApi<B>,
+	S: AccountInterface + TxBuilder + Clone + Send + Sync + 'static,
 {
 	fn best_block(&self) -> B::Hash {
 		self.client.info().best_hash
@@ -150,32 +147,18 @@ impl<B: Block, C, R, S: Clone> Clone for Substrate<B, C, R, S> {
 	}
 }
 
-pub trait SubstrateClient {
-	fn get_block_time_in_ms(&self) -> ApiResult<u64>;
-
-	fn finality_notification_stream(
-		&self,
-	) -> Pin<Box<dyn Stream<Item = (BlockHash, BlockNumber)> + Send + 'static>>;
-
-	fn public_key(&self) -> PublicKey;
-
-	fn account_id(&self) -> AccountId;
-}
-
-impl<B, C, R, S> SubstrateClient for Substrate<B, C, R, S>
+impl<B, C, R, S> Runtime for Substrate<B, C, R, S>
 where
 	B: Block<Hash = BlockHash>,
-	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
+	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: BlockTimeApi<B> + SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
+	R::Api: BlockTimeApi<B>
+		+ NetworksApi<B>
+		+ MembersApi<B>
+		+ ShardsApi<B>
+		+ TasksApi<B>
+		+ SubmitTransactionApi<B>,
+	S: AccountInterface + TxBuilder + Clone + Send + Sync + 'static,
 {
 	fn get_block_time_in_ms(&self) -> ApiResult<u64> {
 		self.runtime_api().get_block_time_in_msec(self.best_block())
@@ -201,23 +184,7 @@ where
 	fn account_id(&self) -> AccountId {
 		self.subxt_client.account_id()
 	}
-}
 
-impl<B, C, R, S> Shards for Substrate<B, C, R, S>
-where
-	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B> + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: ShardsApi<B> + SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
-{
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {
 		self.runtime_api().get_shards(block, account)
 	}
@@ -262,23 +229,7 @@ where
 	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
 		self.submit_transaction(Tx::Ready { shard_id })
 	}
-}
 
-impl<B, C, R, S> Tasks for Substrate<B, C, R, S>
-where
-	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B> + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: TasksApi<B> + SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
-{
 	fn get_shard_tasks(
 		&self,
 		block: BlockHash,
@@ -324,23 +275,7 @@ where
 	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
 		self.submit_transaction(Tx::TaskSignature { task_id, signature })
 	}
-}
 
-impl<B, C, R, S> Members for Substrate<B, C, R, S>
-where
-	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B> + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B> + SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
-{
 	fn get_member_peer_id(
 		&self,
 		block: BlockHash,
@@ -375,51 +310,8 @@ where
 	fn submit_heartbeat(&self) -> SubmitResult {
 		self.submit_transaction(Tx::Heartbeat)
 	}
-}
 
-impl<B, C, R, S> Networks for Substrate<B, C, R, S>
-where
-	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B> + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: NetworksApi<B> + SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
-{
 	fn get_network(&self, network_id: NetworkId) -> ApiResult<Option<(String, String)>> {
 		self.runtime_api().get_network(self.best_block(), network_id)
 	}
-}
-
-pub trait Runtime:
-	Clone + SubstrateClient + Networks + Tasks + Members + Shards + Send + Sync + 'static
-{
-}
-
-impl<B, C, R, S> Runtime for Substrate<B, C, R, S>
-where
-	B: Block<Hash = BlockHash>,
-	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
-	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: BlockTimeApi<B>
-		+ NetworksApi<B>
-		+ MembersApi<B>
-		+ ShardsApi<B>
-		+ TasksApi<B>
-		+ SubmitTransactionApi<B>,
-	S: AccountInterface
-		+ TasksPayload
-		+ MembersPayload
-		+ ShardsPayload
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
-{
 }

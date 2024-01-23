@@ -1,6 +1,6 @@
 use crate::network::{Message, Network, NetworkConfig, PeerId};
 use crate::shards::{TimeWorker, TimeWorkerParams};
-use crate::substrate::{Runtime, Substrate};
+use crate::substrate::Substrate;
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
 use anyhow::Result;
@@ -16,8 +16,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tc_subxt::{AccountInterface, SubxtClient};
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, NetworkId, NetworksApi, ShardsApi, SubmitTransactionApi,
-	TasksApi,
+	BlockHash, BlockTimeApi, MembersApi, NetworkId, NetworksApi, Runtime, ShardsApi,
+	SubmitTransactionApi, TasksApi,
 };
 use tracing::{event, span, Level};
 

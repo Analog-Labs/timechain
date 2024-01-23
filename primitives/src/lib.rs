@@ -2,6 +2,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use futures::stream::BoxStream;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_api::ApiError;
@@ -121,4 +123,119 @@ pub trait ShardsInterface {
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: Network);
 	fn shard_offline(shard_id: ShardId, network: Network);
+}
+
+#[cfg(feature = "std")]
+pub trait Runtime: Clone + Send + Sync + 'static {
+	fn get_block_time_in_ms(&self) -> ApiResult<u64>;
+
+	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
+
+	fn public_key(&self) -> PublicKey;
+
+	fn account_id(&self) -> AccountId;
+
+	fn get_network(&self, network: NetworkId) -> ApiResult<Option<(String, String)>>;
+
+	fn get_member_peer_id(
+		&self,
+		block: BlockHash,
+		account: &AccountId,
+	) -> ApiResult<Option<PeerId>>;
+
+	fn get_heartbeat_timeout(&self) -> ApiResult<u64>;
+
+	fn get_min_stake(&self) -> ApiResult<u128>;
+
+	fn submit_register_member(
+		&self,
+		network: Network,
+		peer_id: PeerId,
+		stake_amount: u128,
+	) -> SubmitResult;
+
+	fn submit_heartbeat(&self) -> SubmitResult;
+
+	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;
+
+	fn get_shard_members(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<Vec<(AccountId, MemberStatus)>>;
+
+	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16>;
+
+	fn get_shard_status(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<ShardStatus<BlockNumber>>;
+
+	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment>;
+
+	fn submit_commitment(
+		&self,
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	) -> SubmitResult;
+
+	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
+
+	fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId)
+		-> ApiResult<Vec<TaskExecution>>;
+
+	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
+
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
+
+	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>>;
+
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
+
+	fn submit_task_result(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		status: TaskResult,
+	) -> SubmitResult;
+
+	fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> SubmitResult;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult;
+}
+
+#[cfg(feature = "std")]
+pub trait TxBuilder {
+	fn submit_register_member(
+		&self,
+		network: Network,
+		public_key: PublicKey,
+		peer_id: PeerId,
+		stake_amount: u128,
+	) -> Vec<u8>;
+	fn submit_heartbeat(&self) -> Vec<u8>;
+
+	fn submit_commitment(
+		&self,
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	) -> Vec<u8>;
+
+	fn submit_online(&self, shard_id: ShardId) -> Vec<u8>;
+
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8>;
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8>;
+
+	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8>;
+
+	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8>;
 }

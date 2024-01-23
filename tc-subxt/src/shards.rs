@@ -1,6 +1,6 @@
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::{anyhow, Result};
-use time_primitives::{ShardId, ShardsPayload, TssPublicKey};
+use time_primitives::ShardId;
 use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
 
 impl SubxtClient {
@@ -47,24 +47,5 @@ impl SubxtClient {
 			.fetch(&storage_query)
 			.await?
 			.ok_or(anyhow!("Shard Status not found"))
-	}
-}
-
-impl ShardsPayload for SubxtClient {
-	fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Vec<TssPublicKey>,
-		proof_of_knowledge: [u8; 65],
-	) -> Vec<u8> {
-		let tx = timechain_runtime::tx()
-			.shards()
-			.commit(shard_id, commitment, proof_of_knowledge);
-		self.create_signed_payload(&tx)
-	}
-
-	fn submit_online(&self, shard_id: ShardId) -> Vec<u8> {
-		let tx = timechain_runtime::tx().shards().ready(shard_id);
-		self.create_signed_payload(&tx)
 	}
 }

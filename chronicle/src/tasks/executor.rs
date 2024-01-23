@@ -1,13 +1,11 @@
 use crate::gmp::MessageBuilder;
-use crate::substrate::SubstrateClient;
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, Shards, TaskExecution, TaskPhase, Tasks,
-	TssId,
+	BlockHash, BlockNumber, Function, Network, Runtime, ShardId, TaskExecution, TaskPhase, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -39,7 +37,7 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
-	S: Tasks + Shards + SubstrateClient,
+	S: Runtime,
 	T: TaskSpawner,
 {
 	fn network(&self) -> Network {
@@ -63,7 +61,7 @@ where
 
 impl<S, T> TaskExecutor<S, T>
 where
-	S: Tasks + Shards + SubstrateClient,
+	S: Runtime,
 	T: TaskSpawner,
 {
 	pub fn new(params: TaskExecutorParams<S, T>) -> Self {

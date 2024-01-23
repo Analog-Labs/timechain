@@ -1,6 +1,5 @@
 use super::tss::{Tss, TssAction, VerifiableSecretSharingCommitment};
 use crate::network::{Message, Network, PeerId, TssMessage};
-use crate::substrate::SubstrateClient;
 use crate::tasks::TaskExecutor;
 use crate::TW_LOG;
 use anyhow::Result;
@@ -16,8 +15,7 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, Members, ShardId, ShardStatus, Shards, TssId, TssSignature,
-	TssSigningRequest,
+	BlockHash, BlockNumber, Runtime, ShardId, ShardStatus, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{interval_at, sleep, Duration, Instant};
 use tracing::{event, span, Level, Span};
@@ -50,7 +48,7 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 
 impl<S, T, Tx, Rx> TimeWorker<S, T, Tx, Rx>
 where
-	S: SubstrateClient + Shards + Members,
+	S: Runtime,
 	T: TaskExecutor + Clone,
 	Tx: Network + Clone,
 	Rx: Stream<Item = (PeerId, Message)> + Send + Unpin,
@@ -358,7 +356,7 @@ where
 						);
 						continue;
 					};
-					if let Err(e) = self.on_finality(span, block_hash, block_number){
+					if let Err(e) = self.on_finality(span, block_hash, block_number) {
 						tracing::error!("Error running on_finality {:?}", e);
 					}
 				},

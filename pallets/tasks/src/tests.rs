@@ -32,6 +32,7 @@ fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
 			input: Default::default(),
 		},
 		funds: 100,
+		shard_size: 3,
 	}
 }
 
@@ -49,6 +50,7 @@ fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u1
 			payload: Default::default(),
 		},
 		funds: 100,
+		shard_size: 3,
 	}
 }
 
@@ -65,6 +67,7 @@ fn mock_payable(network: Network) -> TaskDescriptorParams<u128> {
 			amount: 0,
 		},
 		funds: 100,
+		shard_size: 3,
 	}
 }
 
@@ -148,6 +151,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 				start: 0,
 				period: 1,
 				timegraph: None,
+				shard_size: 3,
 			}
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
@@ -179,6 +183,7 @@ fn task_auto_assigned_if_shard_online() {
 				start: 0,
 				period: 1,
 				timegraph: None,
+				shard_size: 3,
 			}
 		);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
@@ -207,6 +212,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 				start: 0,
 				period: 1,
 				timegraph: None,
+				shard_size: 3,
 			}
 		);
 		Tasks::shard_online(1, Network::Ethereum);
@@ -848,6 +854,7 @@ fn shard_online_starts_register_shard_task() {
 				start: 0,
 				period: 1,
 				timegraph: None,
+				shard_size: 3,
 			}
 		);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
@@ -896,6 +903,7 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 				start: 0,
 				period: 1,
 				timegraph: None,
+				shard_size: 3,
 			}
 		);
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
@@ -1045,6 +1053,7 @@ fn fund_task_resumes_unfunded_stopped_task_iff_new_balance_above_min() {
 					input: Default::default(),
 				},
 				funds: 5,
+				shard_size: 3,
 			}
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
@@ -1086,6 +1095,7 @@ fn may_add_funds_for_task_not_funded_from_creation() {
 					input: Default::default(),
 				},
 				funds: 0,
+				shard_size: 3,
 			}
 		));
 		assert_eq!(Tasks::task_balance(0), 0);
@@ -1110,6 +1120,7 @@ fn resume_read_task_fails_if_task_balance_below_min() {
 					input: Default::default(),
 				},
 				funds: 0,
+				shard_size: 3,
 			}
 		));
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
@@ -1140,6 +1151,7 @@ fn submit_hash_stops_unfunded_tasks() {
 					amount: 0,
 				},
 				funds: 0,
+				shard_size: 3,
 			}
 		));
 		Tasks::shard_online(0, Network::Ethereum);

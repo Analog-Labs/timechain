@@ -100,9 +100,9 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
-		/// Minimum task balance for tasks in the READ phase (to pay out reward)
+		/// Minimum task balance for tasks to payout expected rewards
 		#[pallet::constant]
-		type MinReadTaskBalance: Get<BalanceOf<Self>>;
+		type MinTaskBalance: Get<BalanceOf<Self>>;
 		/// Base read task reward (for all networks)
 		#[pallet::constant]
 		type BaseReadReward: Get<BalanceOf<Self>>;
@@ -462,9 +462,10 @@ pub mod pallet {
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			WritePhaseStart::<T>::remove(task_id);
-			if Self::task_balance(task_id) < T::MinReadTaskBalance::get() {
+			if Self::task_balance(task_id) < T::MinTaskBalance::get() {
 				// Stop task execution in read phase until funded sufficiently
 				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
+				Self::deposit_event(Event::TaskStopped(task_id));
 			}
 			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
@@ -741,7 +742,13 @@ pub mod pallet {
 			match TaskState::<T>::get(task_id) {
 				Some(TaskStatus::Failed { .. }) => true,
 				Some(TaskStatus::Stopped) => {
-					Self::task_balance(task_id).saturating_add(add) > TotalPayout::<T>::get(task_id)
+					let task_balance_post_transfer =
+						Self::task_balance(task_id).saturating_add(add);
+					// to be resumed from stopped state:
+					// 1. must be able to afford executing payout
+					task_balance_post_transfer > TotalPayout::<T>::get(task_id)
+					// 2. must be have >= min task balance
+					&& task_balance_post_transfer >= T::MinTaskBalance::get()
 				},
 				_ => false,
 			}

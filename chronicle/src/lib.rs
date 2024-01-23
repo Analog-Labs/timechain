@@ -14,7 +14,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tc_subxt::{AccountInterface, SubxtClient};
+use tc_subxt::SubxtClient;
 use time_primitives::{
 	BlockHash, BlockTimeApi, MembersApi, NetworkId, NetworksApi, Runtime, ShardsApi,
 	SubmitTransactionApi, TasksApi,

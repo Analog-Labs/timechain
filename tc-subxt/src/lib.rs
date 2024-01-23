@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use futures::stream::BoxStream;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
@@ -11,8 +12,10 @@ use subxt::tx::TxPayload;
 use subxt::utils::{MultiAddress, MultiSignature, H256};
 use subxt_signer::SecretUri;
 use time_primitives::{
-	AccountId, PeerId, PublicKey, ShardId, TaskCycle, TaskError, TaskId, TaskResult, TssPublicKey,
-	TssSignature, TxBuilder,
+	AccountId, ApiResult, BlockHash, BlockNumber, Commitment, MemberStatus, Network, NetworkId,
+	PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, SubmitResult, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey, TssSignature,
+	TxBuilder,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::{shard, task};
@@ -24,9 +27,6 @@ use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 )]
 pub mod timechain_runtime {}
 
-mod shards;
-mod tasks;
-
 pub use subxt::backend::rpc::{rpc_params, RpcParams};
 pub use subxt::config::{Config, ExtrinsicParams};
 pub use subxt::tx::PartialExtrinsic;
@@ -34,18 +34,6 @@ pub use subxt::utils::AccountId32;
 pub use subxt::{ext, tx, utils};
 pub use subxt::{OnlineClient, PolkadotConfig};
 pub use subxt_signer::sr25519::Keypair;
-pub use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
-pub use timechain_runtime::runtime_types::time_primitives::task::{
-	Function, TaskDescriptor, TaskDescriptorParams, TaskStatus,
-};
-pub use timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
-
-pub trait AccountInterface {
-	fn nonce(&self) -> u64;
-	fn increment_nonce(&self);
-	fn public_key(&self) -> PublicKey;
-	fn account_id(&self) -> AccountId;
-}
 
 #[derive(Clone)]
 pub struct SubxtClient {
@@ -192,23 +180,21 @@ impl SubxtClient {
 	pub async fn rpc(&self, method: &str, params: RpcParams) -> Result<()> {
 		Ok(self.rpc.request(method, params).await?)
 	}
-}
 
-impl AccountInterface for SubxtClient {
-	fn nonce(&self) -> u64 {
+	pub fn nonce(&self) -> u64 {
 		self.nonce.load(Ordering::SeqCst)
 	}
 
-	fn increment_nonce(&self) {
+	pub fn increment_nonce(&self) {
 		self.nonce.fetch_add(1, Ordering::SeqCst);
 	}
 
-	fn public_key(&self) -> PublicKey {
+	pub fn public_key(&self) -> PublicKey {
 		let public_key = self.signer.public_key();
 		PublicKey::Sr25519(unsafe { std::mem::transmute(public_key) })
 	}
 
-	fn account_id(&self) -> AccountId {
+	pub fn account_id(&self) -> AccountId {
 		let account_id: subxt::utils::AccountId32 = self.signer.public_key().into();
 		unsafe { std::mem::transmute(account_id) }
 	}
@@ -275,5 +261,143 @@ impl TxBuilder for SubxtClient {
 		let status: task::TaskResult = unsafe { std::mem::transmute(status) };
 		let tx = timechain_runtime::tx().tasks().submit_result(task_id, cycle, status);
 		self.create_signed_payload(&tx)
+	}
+}
+
+impl Runtime for SubxtClient {
+	fn get_block_time_in_ms(&self) -> ApiResult<u64> {
+		todo!()
+	}
+
+	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
+		todo!()
+	}
+
+	fn public_key(&self) -> PublicKey {
+		self.public_key()
+	}
+
+	fn account_id(&self) -> AccountId {
+		self.account_id()
+	}
+
+	fn get_network(&self, network: NetworkId) -> ApiResult<Option<(String, String)>> {
+		todo!()
+	}
+
+	fn get_member_peer_id(
+		&self,
+		block: BlockHash,
+		account: &AccountId,
+	) -> ApiResult<Option<PeerId>> {
+		todo!()
+	}
+
+	fn get_heartbeat_timeout(&self) -> ApiResult<u64> {
+		todo!()
+	}
+
+	fn get_min_stake(&self) -> ApiResult<u128> {
+		todo!()
+	}
+
+	fn submit_register_member(
+		&self,
+		network: time_primitives::Network,
+		peer_id: PeerId,
+		stake_amount: u128,
+	) -> SubmitResult {
+		todo!()
+	}
+
+	fn submit_heartbeat(&self) -> SubmitResult {
+		todo!()
+	}
+
+	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {
+		todo!()
+	}
+
+	fn get_shard_members(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<Vec<(AccountId, MemberStatus)>> {
+		todo!()
+	}
+
+	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16> {
+		todo!()
+	}
+
+	fn get_shard_status(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<ShardStatus<BlockNumber>> {
+		todo!()
+	}
+
+	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment> {
+		todo!()
+	}
+
+	fn submit_commitment(
+		&self,
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	) -> SubmitResult {
+		todo!()
+	}
+
+	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
+		todo!()
+	}
+
+	fn get_shard_tasks(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> ApiResult<Vec<TaskExecution>> {
+		todo!()
+	}
+
+	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>> {
+		todo!()
+	}
+
+	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>> {
+		todo!()
+	}
+
+	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>> {
+		todo!()
+	}
+
+	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
+		todo!()
+	}
+
+	fn submit_task_result(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		status: TaskResult,
+	) -> SubmitResult {
+		todo!()
+	}
+
+	fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> SubmitResult {
+		todo!()
+	}
+
+	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
+		todo!()
 	}
 }

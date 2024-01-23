@@ -4,7 +4,7 @@ use shards as Shards;
 
 use clap::Parser;
 use rosetta_client::Blockchain;
-use tc_subxt::Network;
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::Network;
 use tc_subxt::SubxtClient;
 
 mod mock;

@@ -1,10 +1,12 @@
 use anyhow::Result;
 use sha3::{Digest, Keccak256};
 use std::collections::{BTreeMap, HashMap};
-use tc_subxt::{
-	Function, GatewayRegistered, Network, SubxtClient, TaskCreated, TaskDescriptorParams,
-	TaskStatus,
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::Network;
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::{
+	Function, TaskDescriptorParams, TaskStatus,
 };
+use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
+use tc_subxt::SubxtClient;
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
 	let task_state = api.get_task_state(task_id).await.unwrap();

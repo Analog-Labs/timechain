@@ -21,6 +21,9 @@ use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSi
 use timechain_runtime::runtime_types::time_primitives::{shard, task};
 use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 
+mod shards;
+mod tasks;
+
 #[subxt::subxt(
 	runtime_metadata_path = "../config/subxt/metadata.scale",
 	derive_for_all_types = "PartialEq, Clone"

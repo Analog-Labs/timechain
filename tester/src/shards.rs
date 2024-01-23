@@ -1,4 +1,5 @@
-use tc_subxt::{Network, ShardStatus, SubxtClient};
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
+use tc_subxt::SubxtClient;
 
 pub(crate) async fn is_shard_online(api: &SubxtClient, shard_id: u64) -> bool {
 	api.shard_state(shard_id).await.unwrap() == ShardStatus::Online

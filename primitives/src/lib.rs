@@ -62,7 +62,6 @@ sp_api::decl_runtime_apis! {
 
 	pub trait NetworksApi {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
-		fn get_chain_id(network_id: NetworkId) -> Option<ChainId>;
 	}
 
 	pub trait ShardsApi {

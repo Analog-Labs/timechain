@@ -355,7 +355,7 @@ pub fn new_full(
 			task_manager
 				.spawn_essential_handle()
 				.spawn_blocking("chronicle", None, async move {
-					chronicle::run_chronicle(params).await.unwrap()
+					chronicle::run_node_with_chronicle(params).await.unwrap()
 				});
 		}
 	}

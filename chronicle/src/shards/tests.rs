@@ -491,7 +491,6 @@ async fn tss_smoke_substrate() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore]
 async fn tss_smoke_iroh() -> Result<()> {
 	tss_smoke(false).await
 }

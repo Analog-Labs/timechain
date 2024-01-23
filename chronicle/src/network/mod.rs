@@ -8,6 +8,7 @@ use sc_network::request_responses::IncomingRequest;
 use sc_network::{NetworkRequest, NetworkSigner};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{BlockNumber, ShardId, TssId};
@@ -24,7 +25,7 @@ pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 
 #[derive(Default)]
 pub struct NetworkConfig {
-	pub secret: Option<[u8; 32]>,
+	pub secret: Option<PathBuf>,
 	pub relay: Option<String>,
 	pub bind_port: Option<u16>,
 }

@@ -1,8 +1,8 @@
 use super::{Message, Network, NetworkConfig, PeerId, PROTOCOL_NAME};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use futures::channel::mpsc;
 use futures::{Future, FutureExt, SinkExt};
-use p2p::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
+use peernet::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
 use std::pin::Pin;
 
 pub struct TssEndpoint {
@@ -31,7 +31,7 @@ impl TssProtocolHandler {
 }
 
 impl NotificationHandler<TssProtocol> for TssProtocolHandler {
-	fn notify(&self, peer: p2p::PeerId, req: Message) -> Result<()> {
+	fn notify(&self, peer: peernet::PeerId, req: Message) -> Result<()> {
 		let mut tx = self.tx.clone();
 		tokio::spawn(async move {
 			tx.send((*peer.as_bytes(), req)).await.ok();
@@ -47,7 +47,11 @@ impl TssEndpoint {
 		let handler = builder.build();
 
 		let mut builder = Endpoint::builder(PROTOCOL_NAME.as_bytes().to_vec());
-		if let Some(secret) = config.secret {
+		if let Some(path) = config.secret {
+			let secret = std::fs::read(path)
+				.context("secret doesn't exist")?
+				.try_into()
+				.map_err(|_| anyhow::anyhow!("invalid secret"))?;
 			builder.secret(secret);
 		}
 		if let Some(port) = config.bind_port {
@@ -56,7 +60,7 @@ impl TssEndpoint {
 		if let Some(relay) = config.relay {
 			builder.relay(relay.parse()?);
 		} else {
-			builder.localhost_relay();
+			builder.enable_dht();
 		};
 		builder.handler(handler);
 		let endpoint = builder.build().await?;
@@ -72,7 +76,7 @@ impl Network for TssEndpoint {
 	fn send(&self, peer: PeerId, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
 		let endpoint = self.endpoint.clone();
 		async move {
-			let peer = p2p::PeerId::from_bytes(&peer).unwrap();
+			let peer = peernet::PeerId::from_bytes(&peer).unwrap();
 			endpoint.notify::<TssProtocol>(&peer, &msg).await
 		}
 		.boxed()

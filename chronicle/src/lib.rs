@@ -1,10 +1,11 @@
-use crate::network::NetworkConfig;
+use crate::network::{Message, Network, NetworkConfig, PeerId};
 use crate::shards::{TimeWorker, TimeWorkerParams};
-use crate::substrate::Substrate;
+use crate::substrate::{Runtime, Substrate};
 use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
 use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::channel::mpsc;
+use futures::stream::BoxStream;
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::request_responses::IncomingRequest;
 use sc_network::{NetworkRequest, NetworkSigner};
@@ -15,8 +16,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tc_subxt::{AccountInterface, SubxtClient};
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, Network, NetworkId, NetworksApi, ShardsApi,
-	SubmitTransactionApi, TasksApi,
+	BlockHash, BlockTimeApi, MembersApi, NetworkId, NetworksApi, ShardsApi, SubmitTransactionApi,
+	TasksApi,
 };
 use tracing::{event, span, Level};
 
@@ -26,6 +27,7 @@ mod shards;
 mod substrate;
 mod tasks;
 
+pub use crate::network::create_iroh_network;
 pub use crate::network::protocol_config;
 
 pub const TW_LOG: &str = "chronicle";
@@ -42,6 +44,16 @@ pub struct ChronicleConfig {
 	pub timegraph_ssk: Option<String>,
 }
 
+impl ChronicleConfig {
+	pub fn network_config(&self) -> NetworkConfig {
+		NetworkConfig {
+			secret: self.secret.clone(),
+			bind_port: self.bind_port,
+			relay: self.pkarr_relay.clone(),
+		}
+	}
+}
+
 pub struct ChronicleParams<B: Block, C, R, N> {
 	pub client: Arc<C>,
 	pub runtime: Arc<R>,
@@ -50,7 +62,7 @@ pub struct ChronicleParams<B: Block, C, R, N> {
 	pub config: ChronicleConfig,
 }
 
-pub async fn run_chronicle<B, C, R, N>(params: ChronicleParams<B, C, R, N>) -> Result<()>
+pub async fn run_node_with_chronicle<B, C, R, N>(params: ChronicleParams<B, C, R, N>) -> Result<()>
 where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
@@ -63,26 +75,27 @@ where
 		+ SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
-	let secret = if let Some(path) = params.config.secret {
-		Some(
-			std::fs::read(path)
-				.context("secret doesn't exist")?
-				.try_into()
-				.map_err(|_| anyhow::anyhow!("invalid secret"))?,
-		)
-	} else {
-		None
-	};
 	let (network, net_request) = if let Some((network, incoming)) = params.network {
 		crate::network::create_substrate_network(network, incoming).await?
 	} else {
-		crate::network::create_iroh_network(NetworkConfig {
-			secret,
-			bind_port: params.config.bind_port,
-			relay: params.config.pkarr_relay,
-		})
-		.await?
+		crate::network::create_iroh_network(params.config.network_config()).await?
 	};
+
+	let subxt_client =
+		SubxtClient::new("ws://127.0.0.1:9944", Some(&params.config.timechain_keyfile)).await?;
+	tracing::info!("Nonce at creation {:?}", subxt_client.nonce());
+	let substrate =
+		Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);
+
+	run_chronicle(params.config, network, net_request, substrate).await
+}
+
+pub async fn run_chronicle(
+	config: ChronicleConfig,
+	network: Arc<dyn Network>,
+	net_request: BoxStream<'static, (PeerId, Message)>,
+	substrate: impl Runtime,
+) -> Result<()> {
 	let peer_id = network.peer_id();
 	let span = span!(
 		target: TW_LOG,
@@ -92,38 +105,20 @@ where
 	);
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
-	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let subxt_client =
-		SubxtClient::new("ws://127.0.0.1:9944", Some(&params.config.timechain_keyfile)).await?;
-	tracing::info!("Nonce at creation {:?}", subxt_client.nonce());
-
-	//get blockchain and network from storage
-	let best_block = params.client.info().best_hash;
-	let (blockchain, chain_network) = params
-		.runtime
-		.runtime_api()
-		.get_network(best_block, params.config.network_id)?
+	let (chain, subchain) = substrate
+		.get_network(config.network_id)?
 		.ok_or(anyhow::anyhow!("Network Id not supported"))?;
+	let chain: time_primitives::Network = chain.parse()?;
 
-	let chain_id = params
-		.runtime
-		.runtime_api()
-		.get_chain_id(best_block, params.config.network_id)?
-		.ok_or(anyhow::anyhow!("Chain id not found"))?;
-
-	let substrate =
-		Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);
-
-	let blockchain: Network = blockchain.parse::<Network>()?;
-
+	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let task_spawner_params = TaskSpawnerParams {
 		tss: tss_tx,
-		blockchain,
-		network: chain_network,
-		url: params.config.url,
-		keyfile: params.config.keyfile,
-		timegraph_url: params.config.timegraph_url,
-		timegraph_ssk: params.config.timegraph_ssk,
+		blockchain: chain,
+		network: subchain,
+		url: config.url,
+		keyfile: config.keyfile,
+		timegraph_url: config.timegraph_url,
+		timegraph_ssk: config.timegraph_ssk,
 		substrate: substrate.clone(),
 	};
 	let task_spawner = loop {
@@ -143,10 +138,9 @@ where
 	};
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		network: blockchain,
+		network: chain,
 		task_spawner,
 		substrate: substrate.clone(),
-		chain_id,
 	});
 
 	let time_worker = TimeWorker::new(TimeWorkerParams {

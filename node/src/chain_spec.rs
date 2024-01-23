@@ -832,14 +832,14 @@ fn generate_analog_genesis(
 		},
 		networks: timechain_runtime::NetworksConfig {
 			networks: vec![
-				("ethereum".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 1),
+				("ethereum".as_bytes().to_vec(), "mainnet".as_bytes().to_vec()),
 				//astar mainnet
-				("astar".as_bytes().to_vec(), "astar".as_bytes().to_vec(), 592),
-				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 137),
-				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 1337),
-				("ethereum".as_bytes().to_vec(), "goerli".as_bytes().to_vec(), 5),
-				("ethereum".as_bytes().to_vec(), "sepolia".as_bytes().to_vec(), 11155111),
-				("astar".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 4369),
+				("astar".as_bytes().to_vec(), "astar".as_bytes().to_vec()),
+				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec()),
+				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec()),
+				("ethereum".as_bytes().to_vec(), "goerli".as_bytes().to_vec()),
+				("ethereum".as_bytes().to_vec(), "sepolia".as_bytes().to_vec()),
+				("astar".as_bytes().to_vec(), "dev".as_bytes().to_vec()),
 			],
 			..Default::default()
 		},

@@ -37,6 +37,7 @@ pub struct TaskSpawner<S> {
 	wallet: Arc<Wallet>,
 	timegraph: Option<Arc<Timegraph>>,
 	substrate: S,
+	chain_id: u64,
 }
 
 impl<S> TaskSpawner<S>
@@ -53,6 +54,7 @@ where
 			Wallet::new(blockchain, &params.network, &params.url, params.keyfile.as_deref())
 				.await?,
 		);
+		let chain_id = wallet.eth_chain_id().await?;
 		let timegraph = if let Some(url) = params.timegraph_url {
 			Some(Arc::new(Timegraph::new(
 				url,
@@ -70,6 +72,7 @@ where
 			wallet,
 			timegraph,
 			substrate: params.substrate,
+			chain_id,
 		})
 	}
 
@@ -295,6 +298,10 @@ where
 {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(BlockStream::new(&self.wallet))
+	}
+
+	fn chain_id(&self) -> u64 {
+		self.chain_id
 	}
 
 	fn execute_read(

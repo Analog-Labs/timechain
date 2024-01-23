@@ -15,7 +15,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
 	use scale_info::prelude::vec::Vec;
-	use time_primitives::{ChainId, ChainName, ChainNetwork, NetworkId};
+	use time_primitives::{ChainName, ChainNetwork, NetworkId};
 
 	pub trait WeightInfo {
 		fn add_network() -> Weight;
@@ -76,14 +76,9 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	// stores chain id for specific networkid
-	#[pallet::storage]
-	pub(super) type NetworkIdToChainId<T: Config> =
-		StorageMap<_, Twox64Concat, NetworkId, ChainId, OptionQuery>;
-
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
-		pub networks: Vec<(Vec<u8>, Vec<u8>, ChainId)>,
+		pub networks: Vec<(Vec<u8>, Vec<u8>)>,
 		pub _marker: PhantomData<T>,
 	}
 
@@ -99,7 +94,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (blockchain, network, chain_id) in &self.networks {
+			for (blockchain, network) in &self.networks {
 				// Convert to bounded vectors
 				let bounded_blockchain =
 					BoundedVec::<u8, T::MaxBlockchainSize>::try_from(blockchain.clone())
@@ -115,7 +110,6 @@ pub mod pallet {
 				ChainNetworks::<T>::insert(&bounded_blockchain, networks);
 
 				NetworkIdToChain::<T>::insert(network_id, (bounded_blockchain, bounded_network));
-				NetworkIdToChainId::<T>::insert(network_id, *chain_id);
 			}
 		}
 	}
@@ -128,7 +122,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			blockchain: ChainName,
 			name: ChainNetwork,
-			chain_id: ChainId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -151,7 +144,6 @@ pub mod pallet {
 			ChainNetworks::<T>::insert(&bounded_blockchain, networks);
 
 			NetworkIdToChain::<T>::insert(network_id, (bounded_blockchain, bounded_name));
-			NetworkIdToChainId::<T>::insert(network_id, chain_id);
 			Self::deposit_event(Event::NetworkAdded(network_id));
 			Ok(())
 		}
@@ -166,10 +158,6 @@ pub mod pallet {
 				let network_str = String::from_utf8(name).unwrap_or("".into());
 				(blockchain_str, network_str)
 			})
-		}
-
-		pub fn get_chain_id(id: NetworkId) -> Option<ChainId> {
-			NetworkIdToChainId::<T>::get(id)
 		}
 	}
 }

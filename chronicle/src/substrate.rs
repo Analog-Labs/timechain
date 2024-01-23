@@ -10,9 +10,10 @@ use std::sync::Arc;
 use tc_subxt::AccountInterface;
 use time_primitives::{
 	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, Members,
-	MembersApi, MembersPayload, Network, PeerId, PublicKey, ShardId, ShardStatus, Shards,
-	ShardsApi, ShardsPayload, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskResult, Tasks, TasksApi, TasksPayload, TssSignature,
+	MembersApi, MembersPayload, Network, NetworkId, Networks, NetworksApi, PeerId, PublicKey,
+	ShardId, ShardStatus, Shards, ShardsApi, ShardsPayload, SubmitResult, SubmitTransactionApi,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, Tasks, TasksApi,
+	TasksPayload, TssSignature,
 };
 
 enum Tx {
@@ -374,4 +375,51 @@ where
 	fn submit_heartbeat(&self) -> SubmitResult {
 		self.submit_transaction(Tx::Heartbeat)
 	}
+}
+
+impl<B, C, R, S> Networks for Substrate<B, C, R, S>
+where
+	B: Block<Hash = BlockHash>,
+	C: HeaderBackend<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: NetworksApi<B> + SubmitTransactionApi<B>,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
+{
+	fn get_network(&self, network_id: NetworkId) -> ApiResult<Option<(String, String)>> {
+		self.runtime_api().get_network(self.best_block(), network_id)
+	}
+}
+
+pub trait Runtime:
+	Clone + SubstrateClient + Networks + Tasks + Members + Shards + Send + Sync + 'static
+{
+}
+
+impl<B, C, R, S> Runtime for Substrate<B, C, R, S>
+where
+	B: Block<Hash = BlockHash>,
+	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: BlockTimeApi<B>
+		+ NetworksApi<B>
+		+ MembersApi<B>
+		+ ShardsApi<B>
+		+ TasksApi<B>
+		+ SubmitTransactionApi<B>,
+	S: AccountInterface
+		+ TasksPayload
+		+ MembersPayload
+		+ ShardsPayload
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static,
+{
 }

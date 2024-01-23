@@ -576,23 +576,36 @@ fn cannot_resume_running_task() {
 #[test]
 fn task_stopped_and_moved_on_shard_offline() {
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[1u8; 32].into(), [2u8; 32].into(), [3u8; 32].into()].to_vec(),
+			1,
+		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		Tasks::shard_online(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_eq!(
-			Tasks::get_shard_tasks(1),
+			Tasks::get_shard_tasks(0),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
 		);
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
+		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 10));
-		Tasks::shard_offline(1, Network::Ethereum);
-		Tasks::shard_online(2, Network::Ethereum);
-		assert_eq!(Tasks::get_shard_tasks(1), vec![]);
+		Tasks::shard_offline(0, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		ShardState::<Test>::insert(1, ShardStatus::Online);
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
 		assert_eq!(
-			Tasks::get_shard_tasks(2),
+			Tasks::get_shard_tasks(1),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
 		);
 	});

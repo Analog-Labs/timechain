@@ -6,12 +6,13 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use pallet_shards::{ShardCommitment, ShardState};
 use schnorr_evm::VerifyingKey;
 use sp_runtime::Saturating;
 use time_primitives::{
-	append_hash_with_task_data, AccountId, Function, Network, PublicKey, ShardId, TaskCycle,
-	TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
-	TaskStatus, TasksInterface,
+	append_hash_with_task_data, AccountId, Function, Network, PublicKey, ShardId, ShardStatus,
+	ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution,
+	TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -96,18 +97,26 @@ fn mock_error_result(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) 
 #[test]
 fn test_create_task() {
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
 		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
-		Tasks::shard_online(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		System::assert_last_event(Event::<Test>::TaskCreated(1).into());
 		assert_eq!(
-			Tasks::get_shard_tasks(1),
+			Tasks::get_shard_tasks(0),
 			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
 		);
-		let task_result = mock_result_ok(1, 0, 0);
+		// insert shard public key to match mock result signature
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let task_result = mock_result_ok(0, 0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,

@@ -7885,6 +7885,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-shards",
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",

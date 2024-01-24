@@ -329,9 +329,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.75"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
 dependencies = [
  "backtrace",
 ]
@@ -1671,10 +1671,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
- "async-channel",
- "bincode",
  "clap",
- "dirs",
  "env_logger",
  "futures",
  "hex 0.4.3",
@@ -1684,22 +1681,10 @@ dependencies = [
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sc-network",
- "sc-network-test",
- "sc-transaction-pool-api",
  "schnorr-evm",
  "serde",
  "serde_json",
  "sha3",
- "sp-api",
- "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "substrate-test-runtime-client",
  "surf",
  "tc-subxt",
  "time-primitives",
@@ -10877,37 +10862,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-network-test"
-version = "0.8.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
-dependencies = [
- "async-trait",
- "futures",
- "futures-timer",
- "libp2p",
- "log",
- "parking_lot 0.12.1",
- "rand 0.8.5",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sc-network",
- "sc-network-common",
- "sc-network-light",
- "sc-network-sync",
- "sc-service",
- "sc-utils",
- "sp-blockchain",
- "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "substrate-test-runtime",
- "substrate-test-runtime-client",
- "tokio",
-]
-
-[[package]]
 name = "sc-network-transactions"
 version = "0.10.0-dev"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
@@ -13620,93 +13574,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "substrate-test-client"
-version = "2.0.1"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
-dependencies = [
- "array-bytes 6.1.0",
- "async-trait",
- "futures",
- "parity-scale-codec",
- "sc-client-api",
- "sc-client-db",
- "sc-consensus",
- "sc-executor",
- "sc-offchain",
- "sc-service",
- "serde",
- "serde_json",
- "sp-blockchain",
- "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-keyring 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
-]
-
-[[package]]
-name = "substrate-test-runtime"
-version = "2.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
-dependencies = [
- "array-bytes 6.1.0",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-babe",
- "pallet-balances",
- "pallet-timestamp",
- "parity-scale-codec",
- "sc-service",
- "scale-info",
- "serde",
- "serde_json",
- "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-babe",
- "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-keyring 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-offchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-session",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-transaction-pool",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-version",
- "substrate-wasm-builder",
- "trie-db 0.28.0",
-]
-
-[[package]]
-name = "substrate-test-runtime-client"
-version = "2.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
-dependencies = [
- "futures",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sp-api",
- "sp-blockchain",
- "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing)",
- "substrate-test-client",
- "substrate-test-runtime",
-]
-
-[[package]]
 name = "substrate-wasm-builder"
 version = "5.0.0-dev"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?branch=timechain/full-tracing#992b3b42f0e9db1474db955b3521bdd199fa3c10"
@@ -14305,7 +14172,9 @@ dependencies = [
 name = "timechain-node"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "async-channel",
+ "bincode",
  "chronicle",
  "clap",
  "frame-benchmarking",
@@ -14348,8 +14217,11 @@ dependencies = [
  "sp-timestamp",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "tc-subxt",
  "time-primitives",
  "timechain-runtime",
+ "tokio",
+ "tracing",
  "try-runtime-cli",
 ]
 

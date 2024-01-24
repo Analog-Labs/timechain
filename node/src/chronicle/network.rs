@@ -1,12 +1,14 @@
-use super::{Message, Network, PeerId, PROTOCOL_NAME};
 use anyhow::Result;
+use chronicle::{Message, Network, PeerId, PROTOCOL_NAME};
 use futures::channel::oneshot;
-use futures::{Future, Stream};
+use futures::stream::BoxStream;
+use futures::{Future, Stream, StreamExt};
 use sc_network::config::{IncomingRequest, RequestResponseConfig};
 use sc_network::multiaddr::multihash::MultihashGeneric as Multihash;
 use sc_network::request_responses::OutgoingResponse;
 use sc_network::{IfDisconnected, NetworkRequest, NetworkSigner, PublicKey};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -117,4 +119,13 @@ impl Stream for SubstrateNetworkAdapter {
 			}
 		}
 	}
+}
+
+pub async fn create_substrate_network<N: NetworkRequest + NetworkSigner + Send + Sync + 'static>(
+	network: N,
+	incoming: async_channel::Receiver<IncomingRequest>,
+) -> Result<(Arc<dyn Network>, BoxStream<'static, (PeerId, Message)>)> {
+	let network = Arc::new(SubstrateNetwork::new(network)?) as Arc<dyn Network + Send + Sync>;
+	let incoming = SubstrateNetworkAdapter::new(incoming).boxed();
+	Ok((network, incoming))
 }

@@ -178,7 +178,7 @@ pub fn new_full(
 
 	// registering time p2p protocol
 	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
-	net_config.add_request_response_protocol(chronicle::protocol_config(protocol_tx));
+	net_config.add_request_response_protocol(crate::chronicle::protocol_config(protocol_tx));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -345,7 +345,7 @@ pub fn new_full(
 
 		if let Some(config) = chronicle_config {
 			let network = if enable_iroh { None } else { Some((network, protocol_rx)) };
-			let params = chronicle::ChronicleParams {
+			let params = crate::chronicle::ChronicleParams {
 				client: client.clone(),
 				runtime: client.clone(),
 				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
@@ -355,7 +355,7 @@ pub fn new_full(
 			task_manager
 				.spawn_essential_handle()
 				.spawn_blocking("chronicle", None, async move {
-					chronicle::run_node_with_chronicle(params).await.unwrap()
+					crate::chronicle::run_node_with_chronicle(params).await.unwrap()
 				});
 		}
 	}

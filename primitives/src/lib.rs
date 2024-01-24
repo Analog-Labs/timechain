@@ -1,6 +1,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use anyhow::Result;
+use async_trait::async_trait;
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
@@ -134,22 +136,23 @@ pub trait AccountInterface {
 }
 
 #[cfg(feature = "std")]
+#[async_trait]
 pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
-	fn get_block_time_in_ms(&self) -> ApiResult<u64>;
+	async fn get_block_time_in_ms(&self) -> Result<u64>;
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
-	fn get_network(&self, network: NetworkId) -> ApiResult<Option<(String, String)>>;
+	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;
 
-	fn get_member_peer_id(
+	async fn get_member_peer_id(
 		&self,
 		block: BlockHash,
 		account: &AccountId,
-	) -> ApiResult<Option<PeerId>>;
+	) -> Result<Option<PeerId>>;
 
-	fn get_heartbeat_timeout(&self) -> ApiResult<u64>;
+	async fn get_heartbeat_timeout(&self) -> Result<u64>;
 
-	fn get_min_stake(&self) -> ApiResult<u128>;
+	async fn get_min_stake(&self) -> Result<u128>;
 
 	fn submit_register_member(
 		&self,
@@ -160,23 +163,24 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	fn submit_heartbeat(&self) -> SubmitResult;
 
-	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;
+	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>>;
 
-	fn get_shard_members(
+	async fn get_shard_members(
 		&self,
 		block: BlockHash,
 		shard_id: ShardId,
-	) -> ApiResult<Vec<(AccountId, MemberStatus)>>;
+	) -> Result<Vec<(AccountId, MemberStatus)>>;
 
-	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16>;
+	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16>;
 
-	fn get_shard_status(
+	async fn get_shard_status(
 		&self,
 		block: BlockHash,
 		shard_id: ShardId,
-	) -> ApiResult<ShardStatus<BlockNumber>>;
+	) -> Result<ShardStatus<BlockNumber>>;
 
-	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment>;
+	async fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId)
+		-> Result<Commitment>;
 
 	fn submit_commitment(
 		&self,
@@ -187,14 +191,17 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
 
-	fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId)
-		-> ApiResult<Vec<TaskExecution>>;
+	async fn get_shard_tasks(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> Result<Vec<TaskExecution>>;
 
-	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
+	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>>;
 
-	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
+	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
 
-	fn get_gateway(&self, network: NetworkId) -> ApiResult<Option<Vec<u8>>>;
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>>;
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 

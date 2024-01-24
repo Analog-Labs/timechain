@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use futures::stream::BoxStream;
 use std::fs;
 use std::path::Path;
@@ -269,8 +270,20 @@ impl TxBuilder for SubxtClient {
 	}
 }
 
+#[async_trait]
 impl Runtime for SubxtClient {
-	fn get_block_time_in_ms(&self) -> ApiResult<u64> {
+	async fn get_block_time_in_ms(&self) -> Result<u64> {
+		let runtime_call =
+			subxt::dynamic::runtime_api_call("BlockTimeApi", "get_block_time_in_msec", vec![]);
+		let value = self
+			.client
+			.runtime_api()
+			.at_latest()
+			.await
+			.unwrap()
+			.call(runtime_call)
+			.await
+			.unwrap();
 		todo!()
 	}
 
@@ -278,23 +291,23 @@ impl Runtime for SubxtClient {
 		todo!()
 	}
 
-	fn get_network(&self, network: NetworkId) -> ApiResult<Option<(String, String)>> {
+	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {
 		todo!()
 	}
 
-	fn get_member_peer_id(
+	async fn get_member_peer_id(
 		&self,
 		block: BlockHash,
 		account: &AccountId,
-	) -> ApiResult<Option<PeerId>> {
+	) -> Result<Option<PeerId>> {
 		todo!()
 	}
 
-	fn get_heartbeat_timeout(&self) -> ApiResult<u64> {
+	async fn get_heartbeat_timeout(&self) -> Result<u64> {
 		todo!()
 	}
 
-	fn get_min_stake(&self) -> ApiResult<u128> {
+	async fn get_min_stake(&self) -> Result<u128> {
 		todo!()
 	}
 
@@ -311,31 +324,35 @@ impl Runtime for SubxtClient {
 		todo!()
 	}
 
-	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {
+	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>> {
 		todo!()
 	}
 
-	fn get_shard_members(
+	async fn get_shard_members(
 		&self,
 		block: BlockHash,
 		shard_id: ShardId,
-	) -> ApiResult<Vec<(AccountId, MemberStatus)>> {
+	) -> Result<Vec<(AccountId, MemberStatus)>> {
 		todo!()
 	}
 
-	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16> {
+	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16> {
 		todo!()
 	}
 
-	fn get_shard_status(
+	async fn get_shard_status(
 		&self,
 		block: BlockHash,
 		shard_id: ShardId,
-	) -> ApiResult<ShardStatus<BlockNumber>> {
+	) -> Result<ShardStatus<BlockNumber>> {
 		todo!()
 	}
 
-	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment> {
+	async fn get_shard_commitment(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> Result<Commitment> {
 		todo!()
 	}
 
@@ -352,23 +369,23 @@ impl Runtime for SubxtClient {
 		todo!()
 	}
 
-	fn get_shard_tasks(
+	async fn get_shard_tasks(
 		&self,
 		block: BlockHash,
 		shard_id: ShardId,
-	) -> ApiResult<Vec<TaskExecution>> {
+	) -> Result<Vec<TaskExecution>> {
 		todo!()
 	}
 
-	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>> {
+	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
 		todo!()
 	}
 
-	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>> {
+	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>> {
 		todo!()
 	}
 
-	fn get_gateway(&self, network: NetworkId) -> ApiResult<Option<Vec<u8>>> {
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
 		todo!()
 	}
 

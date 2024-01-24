@@ -1671,6 +1671,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
+ "async-trait",
  "clap",
  "env_logger",
  "futures",
@@ -14175,6 +14176,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "async-channel",
+ "async-trait",
  "bincode",
  "chronicle",
  "clap",

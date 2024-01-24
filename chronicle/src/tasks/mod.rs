@@ -1,4 +1,5 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use futures::{Future, Stream};
 use std::pin::Pin;
 use time_primitives::{
@@ -45,12 +46,13 @@ pub trait TaskSpawner {
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }
 
+#[async_trait]
 pub trait TaskExecutor {
 	fn network(&self) -> NetworkId;
 
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 
-	fn process_tasks(
+	async fn process_tasks(
 		&mut self,
 		block_hash: BlockHash,
 		block_number: BlockNumber,

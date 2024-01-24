@@ -3,12 +3,14 @@ use crate::network::{Message, Network, PeerId, TssMessage};
 use crate::tasks::TaskExecutor;
 use crate::TW_LOG;
 use anyhow::Result;
+use futures::future::join_all;
 use futures::{
 	channel::{mpsc, oneshot},
 	future::poll_fn,
 	stream::FuturesUnordered,
 	Future, FutureExt, Stream, StreamExt,
 };
+use std::collections::BTreeSet;
 use std::{
 	collections::{BTreeMap, HashMap},
 	pin::Pin,
@@ -77,7 +79,7 @@ where
 		}
 	}
 
-	fn on_finality(
+	async fn on_finality(
 		&mut self,
 		span: &Span,
 		block: BlockHash,
@@ -92,14 +94,14 @@ where
 			block_number,
 		);
 		let account_id = self.substrate.account_id();
-		let shards = self.substrate.get_shards(block, &account_id)?;
+		let shards = self.substrate.get_shards(&account_id).await?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
 			if self.tss_states.get(&shard_id).is_some() {
 				continue;
 			}
-			let members = self.substrate.get_shard_members(block, shard_id)?;
+			let members = self.substrate.get_shard_members(shard_id).await?;
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -107,16 +109,25 @@ where
 				shard_id,
 				"joining shard",
 			);
-			let threshold = self.substrate.get_shard_threshold(block, shard_id)?;
-			let members = members
+			let threshold = self.substrate.get_shard_threshold(shard_id).await?;
+			let futures: Vec<_> = members
 				.into_iter()
-				.filter_map(|(account, _)| {
-					match self.substrate.get_member_peer_id(block, &account) {
-						Ok(Some(peer_id)) => Some(peer_id),
-						Ok(None) | Err(_) => None, // Handles both the None and Error cases
+				.map(|(account, _)| {
+					let substrate = self.substrate.clone();
+					async move {
+						match substrate.get_member_peer_id(&account).await {
+							Ok(Some(peer_id)) => Some(peer_id),
+							Ok(None) | Err(_) => None, // Handles both the None and Error cases
+						}
 					}
 				})
 				.collect();
+			let members = join_all(futures)
+				.await
+				.into_iter()
+				.filter_map(|x| x)
+				.collect::<BTreeSet<PeerId>>();
+
 			self.tss_states
 				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));
 			self.poll_actions(&span, shard_id, block_number);
@@ -128,10 +139,10 @@ where
 			if tss.committed() {
 				continue;
 			}
-			if self.substrate.get_shard_status(block, shard_id)? != ShardStatus::Committed {
+			if self.substrate.get_shard_status(shard_id).await? != ShardStatus::Committed {
 				continue;
 			}
-			let commitment = self.substrate.get_shard_commitment(block, shard_id)?;
+			let commitment = self.substrate.get_shard_commitment(shard_id).await?;
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number);
@@ -194,7 +205,7 @@ where
 			}
 		}
 		for shard_id in shards {
-			if self.substrate.get_shard_status(block, shard_id)? != ShardStatus::Online {
+			if self.substrate.get_shard_status(shard_id).await? != ShardStatus::Online {
 				continue;
 			}
 			let executor =
@@ -206,21 +217,23 @@ where
 				shard_id,
 				"running task executor"
 			);
-			let complete_sessions =
-				match executor.process_tasks(block, block_number, shard_id, self.block_height) {
-					Ok(complete_sessions) => complete_sessions,
-					Err(error) => {
-						event!(
-							target: TW_LOG,
-							parent: &span,
-							Level::INFO,
-							shard_id,
-							"failed to start tasks: {:?}",
-							error,
-						);
-						continue;
-					},
-				};
+			let complete_sessions = match executor
+				.process_tasks(block, block_number, shard_id, self.block_height)
+				.await
+			{
+				Ok(complete_sessions) => complete_sessions,
+				Err(error) => {
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::INFO,
+						shard_id,
+						"failed to start tasks: {:?}",
+						error,
+					);
+					continue;
+				},
+			};
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
 			};
@@ -310,7 +323,7 @@ where
 			Level::DEBUG,
 			"starting tss",
 		);
-		let min_stake = self.substrate.get_min_stake().unwrap();
+		let min_stake = self.substrate.get_min_stake().await.unwrap();
 		while let Err(e) = self
 			.substrate
 			.submit_register_member(self.task_executor.network(), self.network.peer_id(), min_stake)
@@ -332,8 +345,9 @@ where
 			"Registered Member successfully",
 		);
 
-		let min_block_time = self.substrate.get_block_time_in_ms().unwrap();
-		let heartbeat_time = (self.substrate.get_heartbeat_timeout().unwrap() / 2) * min_block_time;
+		let min_block_time = self.substrate.get_block_time_in_ms().await.unwrap();
+		let heartbeat_time =
+			(self.substrate.get_heartbeat_timeout().await.unwrap() / 2) * min_block_time;
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
@@ -356,7 +370,7 @@ where
 						);
 						continue;
 					};
-					if let Err(e) = self.on_finality(span, block_hash, block_number) {
+					if let Err(e) = self.on_finality(span, block_hash, block_number).await {
 						tracing::error!("Error running on_finality {:?}", e);
 					}
 				},

@@ -144,11 +144,7 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;
 
-	async fn get_member_peer_id(
-		&self,
-		block: BlockHash,
-		account: &AccountId,
-	) -> Result<Option<PeerId>>;
+	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>>;
 
 	async fn get_heartbeat_timeout(&self) -> Result<u64>;
 
@@ -163,24 +159,15 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	fn submit_heartbeat(&self) -> SubmitResult;
 
-	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>>;
+	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>>;
 
-	async fn get_shard_members(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<(AccountId, MemberStatus)>>;
+	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>>;
 
-	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16>;
+	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16>;
 
-	async fn get_shard_status(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<ShardStatus<BlockNumber>>;
+	async fn get_shard_status(&self, shard_id: ShardId) -> Result<ShardStatus<BlockNumber>>;
 
-	async fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId)
-		-> Result<Commitment>;
+	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Commitment>;
 
 	fn submit_commitment(
 		&self,
@@ -191,13 +178,9 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
 
-	async fn get_shard_tasks(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<TaskExecution>>;
+	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskExecution>>;
 
-	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>>;
+	async fn get_task(&self, task_id: TaskId) -> Result<Option<TaskDescriptor>>;
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
 

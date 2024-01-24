@@ -2,6 +2,7 @@ use crate::gmp::MessageBuilder;
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
+use async_trait::async_trait;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
@@ -35,10 +36,11 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 	}
 }
 
+#[async_trait]
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
 	S: Runtime,
-	T: TaskSpawner,
+	T: TaskSpawner + Send + Sync,
 {
 	fn network(&self) -> NetworkId {
 		self.network
@@ -48,7 +50,7 @@ where
 		self.task_spawner.block_stream()
 	}
 
-	fn process_tasks(
+	async fn process_tasks(
 		&mut self,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
@@ -56,6 +58,7 @@ where
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
 		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
+			.await
 	}
 }
 
@@ -78,14 +81,14 @@ where
 		}
 	}
 
-	pub fn process_tasks(
+	pub async fn process_tasks(
 		&mut self,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
-		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id)?;
+		let tasks = self.substrate.get_shard_tasks(shard_id).await?;
 		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
@@ -95,14 +98,15 @@ where
 				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
-			let task_descr = self.substrate.get_task(block_hash, task_id)?.unwrap();
+			let task_descr = self.substrate.get_task(task_id).await?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.timegraph;
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					let Some(msg_builder) = self.gmp_builder_for(shard_id, block_hash)? else {
+					let Some(msg_builder) = self.gmp_builder_for(shard_id, block_hash).await?
+					else {
 						tracing::warn!(
 							"gmp not configured for {shard_id:?}, skipping task {task_id}"
 						);
@@ -111,12 +115,12 @@ where
 					let payload = match function {
 						Function::RegisterShard { shard_id } => {
 							let tss_public_key =
-								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+								self.substrate.get_shard_commitment(shard_id).await?[0];
 							msg_builder.build_update_keys_message([], [tss_public_key]).hash()
 						},
 						Function::UnregisterShard { shard_id } => {
 							let tss_public_key =
-								self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+								self.substrate.get_shard_commitment(shard_id).await?[0];
 							msg_builder.build_update_keys_message([tss_public_key], []).hash()
 						},
 						Function::SendMessage {
@@ -133,7 +137,7 @@ where
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let msg_builder = self.gmp_builder_for(shard_id, block_hash)?;
+					let msg_builder = self.gmp_builder_for(shard_id, block_hash).await?;
 
 					if msg_builder.is_none() && function.is_gmp() {
 						tracing::warn!(
@@ -146,9 +150,9 @@ where
 						Function::RegisterShard { shard_id } => {
 							if let Some(msg_builder) = msg_builder {
 								let tss_public_key =
-									self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+									self.substrate.get_shard_commitment(shard_id).await?[0];
 								let Some(tss_signature) =
-									self.substrate.get_task_signature(task_id)?
+									self.substrate.get_task_signature(task_id).await?
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
@@ -165,9 +169,9 @@ where
 						Function::UnregisterShard { shard_id } => {
 							if let Some(msg_builder) = msg_builder {
 								let tss_public_key =
-									self.substrate.get_shard_commitment(block_hash, shard_id)?[0];
+									self.substrate.get_shard_commitment(shard_id).await?[0];
 								let Some(tss_signature) =
-									self.substrate.get_task_signature(task_id)?
+									self.substrate.get_task_signature(task_id).await?
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
@@ -189,7 +193,7 @@ where
 						} => {
 							if let Some(msg_builder) = msg_builder {
 								let Some(tss_signature) =
-									self.substrate.get_task_signature(task_id)?
+									self.substrate.get_task_signature(task_id).await?
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
@@ -271,13 +275,13 @@ where
 		Ok(completed_sessions)
 	}
 
-	pub fn gmp_builder_for(
+	pub async fn gmp_builder_for(
 		&self,
 		shard_id: ShardId,
 		block_hash: BlockHash,
 	) -> Result<Option<MessageBuilder>> {
 		let gateway_contract = {
-			let Some(gateway_contract) = self.substrate.get_gateway(self.network)? else {
+			let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
 				return Ok(None);
 			};
 			if gateway_contract.len() != 20 {
@@ -289,7 +293,7 @@ where
 			output
 		};
 		let Some(tss_public_key) =
-			self.substrate.get_shard_commitment(block_hash, shard_id)?.first().copied()
+			self.substrate.get_shard_commitment(shard_id).await?.first().copied()
 		else {
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);

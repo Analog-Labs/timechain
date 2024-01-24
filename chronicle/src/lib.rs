@@ -58,7 +58,8 @@ pub async fn run_chronicle(
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
 	let (chain, subchain) = substrate
-		.get_network(config.network_id)?
+		.get_network(config.network_id)
+		.await?
 		.ok_or(anyhow::anyhow!("Network Id not supported"))?;
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);

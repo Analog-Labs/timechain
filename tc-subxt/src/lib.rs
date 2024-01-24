@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use std::fs;
@@ -8,6 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
+use subxt::dynamic::Value;
+use subxt::ext::scale_value::Primitive;
 use subxt::tx::SubmittableExtrinsic;
 use subxt::tx::TxPayload;
 use subxt::utils::{MultiAddress, MultiSignature, H256};
@@ -273,18 +275,14 @@ impl TxBuilder for SubxtClient {
 #[async_trait]
 impl Runtime for SubxtClient {
 	async fn get_block_time_in_ms(&self) -> Result<u64> {
-		let runtime_call =
-			subxt::dynamic::runtime_api_call("BlockTimeApi", "get_block_time_in_msec", vec![]);
-		let value = self
-			.client
-			.runtime_api()
-			.at_latest()
-			.await
-			.unwrap()
-			.call(runtime_call)
-			.await
-			.unwrap();
-		todo!()
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"BlockTimeApi",
+			"get_block_time_in_msec",
+			Vec::<Value<()>>::new(),
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u64 = value.as_type()?;
+		Ok(value)
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
@@ -292,23 +290,47 @@ impl Runtime for SubxtClient {
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {
-		todo!()
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"NetworksApi",
+			"get_network",
+			vec![Value::primitive(Primitive::U128(network as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<(String, String)> = value.as_type()?;
+		Ok(value)
 	}
 
-	async fn get_member_peer_id(
-		&self,
-		block: BlockHash,
-		account: &AccountId,
-	) -> Result<Option<PeerId>> {
-		todo!()
+	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"MembersApi",
+			"get_member_peer_id",
+			vec![Value::from_bytes(account)],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<PeerId> = value.as_type()?;
+		Ok(value)
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<u64> {
-		todo!()
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"MembersApi",
+			"get_heartbeat_timeout",
+			Vec::<Value<()>>::new(),
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u64 = value.as_type()?;
+		Ok(value)
 	}
 
 	async fn get_min_stake(&self) -> Result<u128> {
-		todo!()
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"MembersApi",
+			"get_min_stake",
+			Vec::<Value<()>>::new(),
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u128 = value.as_type()?;
+		Ok(value)
 	}
 
 	fn submit_register_member(
@@ -324,36 +346,61 @@ impl Runtime for SubxtClient {
 		todo!()
 	}
 
-	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>> {
-		todo!()
+	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"ShardsApi",
+			"get_shards",
+			vec![Value::from_bytes(account)],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Vec<ShardId> = value.as_type()?;
+		Ok(value)
 	}
 
-	async fn get_shard_members(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<(AccountId, MemberStatus)>> {
-		todo!()
+	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"ShardsApi",
+			"get_shard_members",
+			vec![Value::primitive(Primitive::u128(shard_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		// let value: Vec<(AccountId, MemberStatus)> = value.as_type()?;
+		// Ok(value)
+		Ok(vec![])
 	}
 
-	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16> {
-		todo!()
+	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"ShardsApi",
+			"get_shard_threshold",
+			vec![Value::primitive(Primitive::u128(shard_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u16 = value.as_type()?;
+		Ok(value)
 	}
 
-	async fn get_shard_status(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<ShardStatus<BlockNumber>> {
-		todo!()
+	async fn get_shard_status(&self, shard_id: ShardId) -> Result<ShardStatus<BlockNumber>> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"ShardsApi",
+			"get_shard_status",
+			vec![Value::primitive(Primitive::u128(shard_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		// let value: ShardStatus<BlockNumber> = value.as_type()?;
+		// Ok(value)
+		Ok(ShardStatus::Online)
 	}
 
-	async fn get_shard_commitment(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Commitment> {
-		todo!()
+	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Commitment> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"ShardsApi",
+			"get_shard_commitment",
+			vec![Value::primitive(Primitive::u128(shard_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Commitment = value.as_type()?;
+		Ok(value)
 	}
 
 	fn submit_commitment(
@@ -369,24 +416,50 @@ impl Runtime for SubxtClient {
 		todo!()
 	}
 
-	async fn get_shard_tasks(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<TaskExecution>> {
-		todo!()
+	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskExecution>> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"TasksApi",
+			"get_shard_tasks",
+			vec![Value::primitive(Primitive::u128(shard_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		// let value: Vec<TaskExecution> = value.as_type()?;
+		// Ok(value)
+		Ok(vec![])
 	}
 
-	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
-		todo!()
+	async fn get_task(&self, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"TasksApi",
+			"get_task",
+			vec![Value::primitive(Primitive::u128(task_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		// let value: Option<TaskDescriptor> = value.as_type()?;
+		// Ok(value)
+		Ok(None)
 	}
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>> {
-		todo!()
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"TasksApi",
+			"get_task_signature",
+			vec![Value::primitive(Primitive::u128(task_id as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<TssSignature> = value.as_type()?;
+		Ok(value)
 	}
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
-		todo!()
+		let runtime_call = subxt::dynamic::runtime_api_call(
+			"TasksApi",
+			"get_gateway",
+			vec![Value::primitive(Primitive::u128(network as u128))],
+		);
+		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<Vec<u8>> = value.as_type()?;
+		Ok(value)
 	}
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {

@@ -14,7 +14,7 @@ pub mod pallet {
 	use sp_std::marker::PhantomData;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberEvents, MemberStorage, Network, ShardsInterface,
+		AccountId, ElectionsInterface, MemberEvents, MemberStorage, NetworkId, ShardsInterface,
 	};
 
 	#[pallet::pallet]
@@ -41,7 +41,7 @@ pub mod pallet {
 	pub type Unassigned<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		Network,
+		NetworkId,
 		Blake2_128Concat,
 		AccountId,
 		(),
@@ -105,35 +105,35 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
-		fn member_online(member: &AccountId, network: Network) {
+		fn member_online(member: &AccountId, network: NetworkId) {
 			if !T::Shards::is_shard_member(member) {
 				Unassigned::<T>::insert(network, member, ());
 				Self::try_elect_shard(network);
 			}
 			T::Shards::member_online(member, network);
 		}
-		fn member_offline(member: &AccountId, network: Network) {
+		fn member_offline(member: &AccountId, network: NetworkId) {
 			Unassigned::<T>::remove(network, member);
 			T::Shards::member_offline(member, network);
 		}
 	}
 
 	impl<T: Config> ElectionsInterface for Pallet<T> {
-		fn shard_offline(network: Network, members: Vec<AccountId>) {
+		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
 			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
 			Self::try_elect_shard(network);
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn try_elect_shard(network: Network) {
+		fn try_elect_shard(network: NetworkId) {
 			if let Some(members) = Self::new_shard_members(network) {
 				members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
 				T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
 			}
 		}
 
-		fn new_shard_members(network: Network) -> Option<Vec<AccountId>> {
+		fn new_shard_members(network: NetworkId) -> Option<Vec<AccountId>> {
 			let shard_members_len = ShardSize::<T>::get() as usize;
 			let mut members = Unassigned::<T>::iter_prefix(network)
 				.map(|(m, _)| m)

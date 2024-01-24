@@ -55,10 +55,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ChainName, ChainNetwork, Commitment, MemberStatus, MemberStorage, Network,
-	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
-	TssSignature, TxError, TxResult,
+	AccountId, ChainName, ChainNetwork, Commitment, MemberStatus, MemberStorage, NetworkId, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle, TaskDescriptor,
+	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, TxError,
+	TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1549,7 +1549,7 @@ impl_runtime_apis! {
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
-		fn get_gateway(network: Network) -> Option<Vec<u8>> {
+		fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
 			Tasks::get_gateway(network)
 		}
 	}

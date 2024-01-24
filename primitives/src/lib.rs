@@ -82,7 +82,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_gateway(network: Network) -> Option<Vec<u8>>;
+		fn get_gateway(network: NetworkId) -> Option<Vec<u8>>;
 	}
 
 	pub trait BlockTimeApi{
@@ -95,8 +95,8 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait MemberEvents {
-	fn member_online(id: &AccountId, network: Network);
-	fn member_offline(id: &AccountId, network: Network);
+	fn member_online(id: &AccountId, network: NetworkId);
+	fn member_offline(id: &AccountId, network: NetworkId);
 }
 
 pub trait MemberStorage {
@@ -108,21 +108,21 @@ pub trait MemberStorage {
 }
 
 pub trait ElectionsInterface {
-	fn shard_offline(network: Network, members: Vec<AccountId>);
+	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 }
 
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
-	fn shard_network(shard_id: ShardId) -> Option<Network>;
-	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
+	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
+	fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16);
 	fn random_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 
 pub trait TasksInterface {
-	fn shard_online(shard_id: ShardId, network: Network);
-	fn shard_offline(shard_id: ShardId, network: Network);
+	fn shard_online(shard_id: ShardId, network: NetworkId);
+	fn shard_offline(shard_id: ShardId, network: NetworkId);
 }
 
 #[cfg(feature = "std")]
@@ -153,7 +153,7 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	fn submit_register_member(
 		&self,
-		network: Network,
+		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> SubmitResult;
@@ -194,7 +194,7 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
 
-	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>>;
+	fn get_gateway(&self, network: NetworkId) -> ApiResult<Option<Vec<u8>>>;
 
 	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
 
@@ -219,7 +219,7 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 pub trait TxBuilder: AccountInterface {
 	fn submit_register_member(
 		&self,
-		network: Network,
+		network: NetworkId,
 		public_key: PublicKey,
 		peer_id: PeerId,
 		stake_amount: u128,

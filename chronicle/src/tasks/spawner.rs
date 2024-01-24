@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context as _, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
-use rosetta_client::{Blockchain, Wallet};
+use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallResult};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
@@ -14,15 +14,15 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Network, Runtime, ShardId, TaskCycle,
-	TaskError, TaskId, TaskResult, TssHash, TssId, TssSignature, TssSigningRequest,
+	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskCycle, TaskError,
+	TaskId, TaskResult, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
 	pub tss: mpsc::Sender<TssSigningRequest>,
-	pub blockchain: Network,
+	pub blockchain: String,
 	pub network: String,
 	pub url: String,
 	pub keyfile: Option<PathBuf>,
@@ -45,14 +45,14 @@ where
 	S: Runtime,
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
-		let blockchain = match params.blockchain {
-			Network::Ethereum => Blockchain::Ethereum,
-			Network::Astar => Blockchain::Astar,
-			Network::Polygon => Blockchain::Polygon,
-		};
 		let wallet = Arc::new(
-			Wallet::new(blockchain, &params.network, &params.url, params.keyfile.as_deref())
-				.await?,
+			Wallet::new(
+				params.blockchain.parse()?,
+				&params.network,
+				&params.url,
+				params.keyfile.as_deref(),
+			)
+			.await?,
 		);
 		let chain_id = wallet.eth_chain_id().await?;
 		let timegraph = if let Some(url) = params.timegraph_url {

@@ -29,28 +29,6 @@ impl std::fmt::Display for TssId {
 	}
 }
 
-/// Used to enforce one network per shard
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
-pub enum Network {
-	Ethereum,
-	Astar,
-	Polygon,
-}
-
-impl core::str::FromStr for Network {
-	type Err = anyhow::Error;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Ok(match s {
-			"ethereum" => Self::Ethereum,
-			"astar" => Self::Astar,
-			"polygon" => Self::Polygon,
-			_ => anyhow::bail!("unsupported network {}", s),
-		})
-	}
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {
 	Added,

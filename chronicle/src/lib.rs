@@ -60,7 +60,6 @@ pub async fn run_chronicle(
 	let (chain, subchain) = substrate
 		.get_network(config.network_id)?
 		.ok_or(anyhow::anyhow!("Network Id not supported"))?;
-	let chain: time_primitives::Network = chain.parse()?;
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let task_spawner_params = TaskSpawnerParams {
@@ -90,7 +89,7 @@ pub async fn run_chronicle(
 	};
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		network: chain,
+		network: config.network_id,
 		task_spawner,
 		substrate: substrate.clone(),
 	});

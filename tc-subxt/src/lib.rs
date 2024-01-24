@@ -13,12 +13,12 @@ use subxt::utils::{MultiAddress, MultiSignature, H256};
 use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, AccountInterface, ApiResult, BlockHash, BlockNumber, Commitment, MemberStatus,
-	Network, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	SubmitResult, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
-	TssPublicKey, TssSignature, TxBuilder,
+	NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, SubmitResult,
+	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey,
+	TssSignature, TxBuilder,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
-use timechain_runtime::runtime_types::time_primitives::{shard, task};
+use timechain_runtime::runtime_types::time_primitives::task;
 use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 
 mod shards;
@@ -208,12 +208,12 @@ impl AccountInterface for SubxtClient {
 impl TxBuilder for SubxtClient {
 	fn submit_register_member(
 		&self,
-		network: time_primitives::Network,
+		network: NetworkId,
 		public_key: PublicKey,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> Vec<u8> {
-		let network: shard::Network = unsafe { std::mem::transmute(network) };
+		let network = unsafe { std::mem::transmute(network) };
 		let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
 		let tx = timechain_runtime::tx().members().register_member(
 			network,
@@ -300,7 +300,7 @@ impl Runtime for SubxtClient {
 
 	fn submit_register_member(
 		&self,
-		network: time_primitives::Network,
+		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> SubmitResult {
@@ -368,7 +368,7 @@ impl Runtime for SubxtClient {
 		todo!()
 	}
 
-	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>> {
+	fn get_gateway(&self, network: NetworkId) -> ApiResult<Option<Vec<u8>>> {
 		todo!()
 	}
 

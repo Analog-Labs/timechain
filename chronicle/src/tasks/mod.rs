@@ -2,7 +2,7 @@ use anyhow::Result;
 use futures::{Future, Stream};
 use std::pin::Pin;
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, ShardId, TaskCycle, TaskId, TssId,
+	BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskCycle, TaskId, TssId,
 };
 
 pub mod executor;
@@ -46,7 +46,7 @@ pub trait TaskSpawner {
 }
 
 pub trait TaskExecutor {
-	fn network(&self) -> Network;
+	fn network(&self) -> NetworkId;
 
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 

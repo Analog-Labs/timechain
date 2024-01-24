@@ -17,7 +17,7 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Function, Network, ShardId, ShardsInterface,
+		append_hash_with_task_data, AccountId, Function, NetworkId, ShardId, ShardsInterface,
 		TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId,
 		TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
@@ -84,7 +84,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, TaskId, (), OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, NetworkId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
@@ -95,8 +95,15 @@ pub mod pallet {
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type NetworkShards<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, ShardId, (), OptionQuery>;
+	pub type NetworkShards<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		NetworkId,
+		Blake2_128Concat,
+		ShardId,
+		(),
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -145,7 +152,7 @@ pub mod pallet {
 	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
 
 	#[pallet::storage]
-	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, Network, Vec<u8>, OptionQuery>;
+	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, Vec<u8>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -161,7 +168,7 @@ pub mod pallet {
 		/// Task resumed by owner
 		TaskResumed(TaskId),
 		/// Gateway registered on network
-		GatewayRegistered(Network, Vec<u8>),
+		GatewayRegistered(NetworkId, Vec<u8>),
 	}
 
 	#[pallet::error]
@@ -468,7 +475,7 @@ pub mod pallet {
 			Tasks::<T>::get(task_id)
 		}
 
-		pub fn get_gateway(network: Network) -> Option<Vec<u8>> {
+		pub fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
 			Gateway::<T>::get(network)
 		}
 
@@ -522,7 +529,7 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
 
-		fn schedule_tasks(network: Network) {
+		fn schedule_tasks(network: NetworkId) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let shard = NetworkShards::<T>::iter_prefix(network)
 					.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
@@ -591,7 +598,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
-		fn shard_online(shard_id: ShardId, network: Network) {
+		fn shard_online(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::start_task(
 				TaskDescriptorParams::new(network, Function::RegisterShard { shard_id }),
@@ -600,7 +607,7 @@ pub mod pallet {
 			.unwrap();
 		}
 
-		fn shard_offline(shard_id: ShardId, network: Network) {
+		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);

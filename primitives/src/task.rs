@@ -1,4 +1,4 @@
-use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+use crate::{AccountId, NetworkId, PublicKey, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -51,7 +51,7 @@ pub struct TaskError {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptor {
 	pub owner: Option<AccountId>,
-	pub network: Network,
+	pub network: NetworkId,
 	pub function: Function,
 	pub cycle: TaskCycle,
 	pub start: u64,
@@ -67,7 +67,7 @@ impl TaskDescriptor {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptorParams {
-	pub network: Network,
+	pub network: NetworkId,
 	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
@@ -76,7 +76,7 @@ pub struct TaskDescriptorParams {
 }
 
 impl TaskDescriptorParams {
-	pub fn new(network: Network, function: Function) -> Self {
+	pub fn new(network: NetworkId, function: Function) -> Self {
 		Self {
 			network,
 			cycle: 1,

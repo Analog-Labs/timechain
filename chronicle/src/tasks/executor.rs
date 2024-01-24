@@ -5,7 +5,7 @@ use anyhow::Result;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, Network, Runtime, ShardId, TaskExecution, TaskPhase, TssId,
+	BlockHash, BlockNumber, Function, NetworkId, Runtime, ShardId, TaskExecution, TaskPhase, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -14,13 +14,13 @@ use tokio::task::JoinHandle;
 pub struct TaskExecutorParams<S, T> {
 	pub substrate: S,
 	pub task_spawner: T,
-	pub network: Network,
+	pub network: NetworkId,
 }
 
 pub struct TaskExecutor<S, T> {
 	substrate: S,
 	task_spawner: T,
-	network: Network,
+	network: NetworkId,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
 }
 
@@ -40,7 +40,7 @@ where
 	S: Runtime,
 	T: TaskSpawner,
 {
-	fn network(&self) -> Network {
+	fn network(&self) -> NetworkId {
 		self.network
 	}
 

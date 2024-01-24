@@ -9,19 +9,45 @@ use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	AccountId, AccountInterface, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment,
-	MemberStatus, MembersApi, Network, NetworkId, NetworksApi, PeerId, PublicKey, Runtime, ShardId,
+	MemberStatus, MembersApi, NetworkId, NetworksApi, PeerId, PublicKey, Runtime, ShardId,
 	ShardStatus, ShardsApi, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor,
 	TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxBuilder,
 };
 
 enum Tx {
-	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: [u8; 65] },
-	Ready { shard_id: ShardId },
-	TaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
-	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
-	TaskError { task_id: TaskId, cycle: TaskCycle, error: TaskError },
-	TaskSignature { task_id: TaskId, signature: TssSignature },
-	RegisterMember { network: Network, public_key: PublicKey, peer_id: PeerId, stake_amount: u128 },
+	Commitment {
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: [u8; 65],
+	},
+	Ready {
+		shard_id: ShardId,
+	},
+	TaskHash {
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	},
+	TaskResult {
+		task_id: TaskId,
+		cycle: TaskCycle,
+		result: TaskResult,
+	},
+	TaskError {
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	},
+	TaskSignature {
+		task_id: TaskId,
+		signature: TssSignature,
+	},
+	RegisterMember {
+		network: NetworkId,
+		public_key: PublicKey,
+		peer_id: PeerId,
+		stake_amount: u128,
+	},
 	Heartbeat,
 }
 
@@ -259,7 +285,7 @@ where
 		self.runtime_api().get_task_signature(self.best_block(), task_id)
 	}
 
-	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>> {
+	fn get_gateway(&self, network: NetworkId) -> ApiResult<Option<Vec<u8>>> {
 		self.runtime_api().get_gateway(self.best_block(), network)
 	}
 
@@ -307,7 +333,7 @@ where
 
 	fn submit_register_member(
 		&self,
-		network: Network,
+		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> SubmitResult {

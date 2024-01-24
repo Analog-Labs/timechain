@@ -715,13 +715,17 @@ fn task_recurring_cycle_count() {
 #[test]
 fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 	new_test_ext().execute_with(|| {
-		for i in (0..10).rev() {
+		// register shard before task assignment
+		for i in 0..10 {
 			Shards::create_shard(
 				Network::Ethereum,
 				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 				1,
 			);
 			ShardState::<Test>::insert(i, ShardStatus::Online);
+		}
+		// shard online triggers task assignment
+		for i in (0..10).rev() {
 			Tasks::shard_online(i, Network::Ethereum);
 			for _ in 0..i {
 				assert_ok!(Tasks::create_task(
@@ -767,27 +771,37 @@ fn submit_task_result_inserts_at_input_cycle() {
 
 #[test]
 fn payable_task_smoke() {
-	let shard_id = 1;
+	let shard_id = 0;
 	let task_id = 0;
 	let task_cycle = 0;
 	let task_hash = "mock_hash";
 	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),
 			mock_payable(Network::Ethereum)
 		));
+		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(shard_id, Network::Ethereum);
-		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
+		assert_eq!(
+			<TaskPhaseState<Test>>::get(task_id),
+			TaskPhase::Write(pubkey_from_bytes([0u8; 32]))
+		);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed(a.clone()).into(),
+			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
 			task_hash.into()
 		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));
 		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed(a).into(),
+			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
 			mock_result_ok(shard_id, task_id, task_cycle)

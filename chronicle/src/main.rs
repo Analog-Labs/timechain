@@ -67,5 +67,4 @@ async fn main() -> Result<()> {
 		chronicle::create_iroh_network(config.network_config()).await?;
 	let subxt = SubxtClient::new("ws://127.0.0.1:9944", Some(&config.timechain_keyfile)).await?;
 	chronicle::run_chronicle(config, network, network_requests, subxt).await
-	Ok(())
 }

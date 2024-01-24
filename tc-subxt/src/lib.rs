@@ -12,10 +12,10 @@ use subxt::tx::TxPayload;
 use subxt::utils::{MultiAddress, MultiSignature, H256};
 use subxt_signer::SecretUri;
 use time_primitives::{
-	AccountId, ApiResult, BlockHash, BlockNumber, Commitment, MemberStatus, Network, NetworkId,
-	PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, SubmitResult, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey, TssSignature,
-	TxBuilder,
+	AccountId, AccountInterface, ApiResult, BlockHash, BlockNumber, Commitment, MemberStatus,
+	Network, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
+	SubmitResult, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
+	TssPublicKey, TssSignature, TxBuilder,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::{shard, task};
@@ -183,21 +183,23 @@ impl SubxtClient {
 	pub async fn rpc(&self, method: &str, params: RpcParams) -> Result<()> {
 		Ok(self.rpc.request(method, params).await?)
 	}
+}
 
-	pub fn nonce(&self) -> u64 {
+impl AccountInterface for SubxtClient {
+	fn nonce(&self) -> u64 {
 		self.nonce.load(Ordering::SeqCst)
 	}
 
-	pub fn increment_nonce(&self) {
+	fn increment_nonce(&self) {
 		self.nonce.fetch_add(1, Ordering::SeqCst);
 	}
 
-	pub fn public_key(&self) -> PublicKey {
+	fn public_key(&self) -> PublicKey {
 		let public_key = self.signer.public_key();
 		PublicKey::Sr25519(unsafe { std::mem::transmute(public_key) })
 	}
 
-	pub fn account_id(&self) -> AccountId {
+	fn account_id(&self) -> AccountId {
 		let account_id: subxt::utils::AccountId32 = self.signer.public_key().into();
 		unsafe { std::mem::transmute(account_id) }
 	}
@@ -274,14 +276,6 @@ impl Runtime for SubxtClient {
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		todo!()
-	}
-
-	fn public_key(&self) -> PublicKey {
-		self.public_key()
-	}
-
-	fn account_id(&self) -> AccountId {
-		self.account_id()
 	}
 
 	fn get_network(&self, network: NetworkId) -> ApiResult<Option<(String, String)>> {

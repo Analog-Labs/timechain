@@ -16,8 +16,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, NetworkId, NetworksApi, Runtime, ShardsApi,
-	SubmitTransactionApi, TasksApi,
+	AccountInterface, BlockHash, BlockTimeApi, MembersApi, NetworkId, NetworksApi, Runtime,
+	ShardsApi, SubmitTransactionApi, TasksApi,
 };
 use tracing::{event, span, Level};
 

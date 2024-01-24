@@ -126,14 +126,18 @@ pub trait TasksInterface {
 }
 
 #[cfg(feature = "std")]
-pub trait Runtime: Clone + Send + Sync + 'static {
+pub trait AccountInterface {
+	fn nonce(&self) -> u64;
+	fn increment_nonce(&self);
+	fn public_key(&self) -> PublicKey;
+	fn account_id(&self) -> AccountId;
+}
+
+#[cfg(feature = "std")]
+pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 	fn get_block_time_in_ms(&self) -> ApiResult<u64>;
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
-
-	fn public_key(&self) -> PublicKey;
-
-	fn account_id(&self) -> AccountId;
 
 	fn get_network(&self, network: NetworkId) -> ApiResult<Option<(String, String)>>;
 
@@ -212,7 +216,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 }
 
 #[cfg(feature = "std")]
-pub trait TxBuilder {
+pub trait TxBuilder: AccountInterface {
 	fn submit_register_member(
 		&self,
 		network: Network,

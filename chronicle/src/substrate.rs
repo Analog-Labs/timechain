@@ -8,10 +8,10 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	AccountId, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus,
-	MembersApi, Network, NetworkId, NetworksApi, PeerId, PublicKey, Runtime, ShardId, ShardStatus,
-	ShardsApi, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError,
-	TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxBuilder,
+	AccountId, AccountInterface, ApiResult, BlockHash, BlockNumber, BlockTimeApi, Commitment,
+	MemberStatus, MembersApi, Network, NetworkId, NetworksApi, PeerId, PublicKey, Runtime, ShardId,
+	ShardStatus, ShardsApi, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor,
+	TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxBuilder,
 };
 
 enum Tx {
@@ -46,7 +46,7 @@ where
 		+ ShardsApi<B>
 		+ TasksApi<B>
 		+ SubmitTransactionApi<B>,
-	S: AccountInterface + TxBuilder + Clone + Send + Sync + 'static,
+	S: TxBuilder + Clone + Send + Sync + 'static,
 {
 	fn best_block(&self) -> B::Hash {
 		self.client.info().best_hash
@@ -146,6 +146,28 @@ impl<B: Block, C, R, S: Clone> Clone for Substrate<B, C, R, S> {
 	}
 }
 
+impl<B, C, R, S> AccountInterface for Substrate<B, C, R, S>
+where
+	B: Block<Hash = BlockHash>,
+	S: AccountInterface,
+{
+	fn nonce(&self) -> u64 {
+		self.subxt_client.nonce()
+	}
+
+	fn increment_nonce(&self) {
+		self.subxt_client.increment_nonce()
+	}
+
+	fn public_key(&self) -> PublicKey {
+		self.subxt_client.public_key()
+	}
+
+	fn account_id(&self) -> AccountId {
+		self.subxt_client.account_id()
+	}
+}
+
 impl<B, C, R, S> Runtime for Substrate<B, C, R, S>
 where
 	B: Block<Hash = BlockHash>,
@@ -174,14 +196,6 @@ where
 				(block_hash, block_number)
 			})
 			.boxed()
-	}
-
-	fn public_key(&self) -> PublicKey {
-		self.subxt_client.public_key()
-	}
-
-	fn account_id(&self) -> AccountId {
-		self.subxt_client.account_id()
 	}
 
 	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>> {

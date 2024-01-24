@@ -28,7 +28,7 @@ impl MemberStorage for MockMembers {
 		None
 	}
 	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
-		None
+		Some(sp_runtime::MultiSigner::Sr25519(sp_core::sr25519::Public::from_raw([0u8; 32])))
 	}
 	fn is_member_online(_: &AccountId) -> bool {
 		true

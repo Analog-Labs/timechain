@@ -253,16 +253,23 @@ fn shard_offline_removes_network_shards() {
 #[test]
 fn shard_offline_removes_tasks() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1]);
 		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),));
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
-		Tasks::shard_offline(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, Network::Ethereum);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
 			vec![1, 2]
@@ -316,17 +323,24 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 #[test]
 fn submit_completed_result_purges_task_from_storage() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1, 0, 0)
+			mock_result_ok(0, 0, 0)
 		));
 		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
@@ -367,17 +381,24 @@ fn shard_offline_drops_failed_tasks() {
 #[test]
 fn submit_task_error_increments_retry_count() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 1..=10 {
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(1, 0, 0)
+				mock_error_result(0, 0, 0)
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
@@ -387,12 +408,19 @@ fn submit_task_error_increments_retry_count() {
 #[test]
 fn submit_task_error_over_max_retry_count_is_task_failure() {
 	new_test_ext().execute_with(|| {
-		let error = mock_error_result(1, 0, 0);
-		Tasks::shard_online(1, Network::Ethereum);
+		let error = mock_error_result(0, 0, 0);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 1..4 {
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
@@ -408,26 +436,33 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 #[test]
 fn submit_task_result_resets_retry_count() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 1..=10 {
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(1, 0, 0)
+				mock_error_result(0, 0, 0)
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1, 0, 0)
+			mock_result_ok(0, 0, 0)
 		));
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
@@ -679,12 +714,19 @@ fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 #[test]
 fn submit_task_result_inserts_at_input_cycle() {
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 5)
 		));
-		Tasks::shard_online(1, Network::Ethereum);
-		let task_result = mock_result_ok(1, 0, 0);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
+		let task_result = mock_result_ok(0, 0, 0);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -731,13 +773,20 @@ fn payable_task_smoke() {
 
 #[test]
 fn resume_failed_task_after_shard_offline() {
-	let mock_error = mock_error_result(1, 0, 0);
+	let mock_error = mock_error_result(0, 0, 0);
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		Tasks::shard_online(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		// fails 3 time to turn task status to failed
 		for _ in 0..3 {
 			assert_ok!(Tasks::submit_error(
@@ -747,13 +796,15 @@ fn resume_failed_task_after_shard_offline() {
 				mock_error.clone()
 			));
 		}
-		assert_eq!(Tasks::task_shard(0), Some(1));
+		assert_eq!(Tasks::task_shard(0), Some(0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));
-		Tasks::shard_offline(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, Network::Ethereum);
 		assert_eq!(Tasks::task_shard(0), None);
-		Tasks::shard_online(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_ok!(Tasks::resume_task(RawOrigin::Signed([0; 32].into()).into(), 0, 0, 0));
-		assert_eq!(Tasks::task_shard(0), Some(1));
+		assert_eq!(Tasks::task_shard(0), Some(0));
 	});
 }
 
@@ -961,19 +1012,26 @@ fn register_gateway_completes_register_shard_task() {
 #[test]
 fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		// register gateway registers shard
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
-		assert_eq!(ShardRegistered::<Test>::get(1), Some(()));
-		Tasks::shard_offline(1, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
+		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, Network::Ethereum);
 		// shard not registered
-		assert_eq!(ShardRegistered::<Test>::get(1), None);
+		assert_eq!(ShardRegistered::<Test>::get(0), None);
 		assert_eq!(
 			Tasks::tasks(1).unwrap(),
 			TaskDescriptor {
 				owner: None,
 				network: Network::Ethereum,
-				function: Function::UnregisterShard { shard_id: 1 },
+				function: Function::UnregisterShard { shard_id: 0 },
 				cycle: 1,
 				start: 0,
 				period: 1,
@@ -982,12 +1040,13 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 			}
 		);
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		// complete task to unregister shard
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
 			0,
-			mock_result_ok(1, 1, 0)
+			mock_result_ok(0, 1, 0)
 		));
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
 	});
@@ -996,18 +1055,32 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 #[test]
 fn shard_offline_stops_pending_register_shard_task() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, Network::Ethereum);
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, Network::Ethereum);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
-		Tasks::shard_offline(1, Network::Ethereum);
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, Network::Ethereum);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
 		// shard not registered
-		assert_eq!(ShardRegistered::<Test>::get(1), None);
+		assert_eq!(ShardRegistered::<Test>::get(0), None);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_noop!(
-			Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),
+			Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),
 			Error::<Test>::BootstrapShardMustBeOnline
 		);
-		Tasks::shard_online(2, Network::Ethereum);
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 2, [0u8; 20].to_vec(),));
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(1, ShardStatus::Online);
+		Tasks::shard_online(1, Network::Ethereum);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),));
 		// task to register 1st shard fails because it was stopped by `shard_offline`
 		assert_noop!(
 			Tasks::submit_result(
@@ -1212,6 +1285,11 @@ fn resume_read_task_fails_if_task_balance_below_min() {
 #[test]
 fn submit_hash_stops_unfunded_tasks() {
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			TaskDescriptorParams {
@@ -1229,6 +1307,7 @@ fn submit_hash_stops_unfunded_tasks() {
 				shard_size: 3,
 			}
 		));
+		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, Network::Ethereum);
 		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_ok!(Tasks::submit_hash(

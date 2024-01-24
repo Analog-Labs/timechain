@@ -3,7 +3,7 @@ use crate::{Error, Event, Heartbeat, MemberNetwork, MemberPeerId, MemberStake};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::{DispatchError, ModuleError};
-use time_primitives::{AccountId, MemberStorage, Network, PublicKey};
+use time_primitives::{AccountId, MemberStorage, NetworkId, PublicKey};
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
@@ -11,6 +11,7 @@ fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 
 const A: [u8; 32] = [1u8; 32];
 const C: [u8; 32] = [3u8; 32];
+const ETHEREUM: NetworkId = 0;
 
 #[test]
 fn register_member_works() {
@@ -18,7 +19,7 @@ fn register_member_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
@@ -29,7 +30,7 @@ fn register_member_works() {
 		assert_eq!(Balances::reserved_balance(&a), 5);
 		assert_eq!(Balances::free_balance(&a), 9999999995);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
-		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));
+		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
 		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
 		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
 	});
@@ -42,7 +43,7 @@ fn cannot_register_member_without_balance() {
 		assert_noop!(
 			Members::register_member(
 				RawOrigin::Signed(c.clone()).into(),
-				Network::Ethereum,
+				ETHEREUM,
 				pubkey_from_bytes(C),
 				C,
 				5,
@@ -63,7 +64,7 @@ fn cannot_register_member_below_min_stake_bond() {
 		assert_noop!(
 			Members::register_member(
 				RawOrigin::Signed(a.clone()).into(),
-				Network::Ethereum,
+				ETHEREUM,
 				pubkey_from_bytes(A),
 				A,
 				4,
@@ -79,7 +80,7 @@ fn register_member_replaces_previous_call() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(A.into()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
@@ -89,12 +90,12 @@ fn register_member_replaces_previous_call() {
 		assert_eq!(Balances::reserved_balance(&a), 5);
 		assert_eq!(Balances::free_balance(&a), 9999999995);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
-		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));
+		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
 		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
 		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(A.into()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			10,
@@ -104,7 +105,7 @@ fn register_member_replaces_previous_call() {
 		assert_eq!(Balances::reserved_balance(&a), 10);
 		assert_eq!(Balances::free_balance(&a), 9999999990);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
-		assert_eq!(MemberNetwork::<Test>::get(&a), Some(Network::Ethereum));
+		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
 		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
 		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
 	});
@@ -116,7 +117,7 @@ fn send_heartbeat_works() {
 		let a: AccountId = A.into();
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
@@ -135,7 +136,7 @@ fn no_heartbeat_sets_member_offline_after_timeout() {
 		let a: AccountId = A.into();
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
@@ -152,7 +153,7 @@ fn send_heartbeat_sets_member_back_online_after_timeout() {
 		let a: AccountId = A.into();
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
@@ -194,7 +195,7 @@ fn cannot_unregister_twice() {
 		let a: AccountId = A.into();
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
@@ -213,7 +214,7 @@ fn unregister_member_works() {
 		let a: AccountId = A.into();
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,

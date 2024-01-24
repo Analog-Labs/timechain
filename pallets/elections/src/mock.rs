@@ -4,7 +4,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface};
+use time_primitives::{MemberStorage, NetworkId, PeerId, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -32,8 +32,8 @@ impl MemberStorage for MockMembers {
 pub struct MockTaskScheduler;
 
 impl TasksInterface for MockTaskScheduler {
-	fn shard_online(_: ShardId, _: Network) {}
-	fn shard_offline(_: ShardId, _: Network) {}
+	fn shard_online(_: ShardId, _: NetworkId) {}
+	fn shard_offline(_: ShardId, _: NetworkId) {}
 }
 
 frame_support::construct_runtime!(

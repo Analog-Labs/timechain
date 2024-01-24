@@ -4,7 +4,9 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use schnorr_evm::k256::ProjectivePoint;
 use schnorr_evm::VerifyingKey;
-use time_primitives::{AccountId, MemberEvents, Network, ShardId, ShardStatus, ShardsInterface};
+use time_primitives::{AccountId, MemberEvents, NetworkId, ShardId, ShardStatus, ShardsInterface};
+
+const ETHEREUM: NetworkId = 0;
 
 fn shards() -> [[AccountId; 3]; 2] {
 	let a: AccountId = [1u8; 32].into();
@@ -29,7 +31,7 @@ fn public_key() -> [u8; 33] {
 
 fn create_shard(shard_id: ShardId, shard: &[AccountId], threshold: u16) {
 	let public_key = public_key();
-	Shards::create_shard(Network::Ethereum, shard.to_vec(), threshold);
+	Shards::create_shard(ETHEREUM, shard.to_vec(), threshold);
 	for account in shard {
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(account.clone()).into(),
@@ -49,7 +51,7 @@ fn test_register_shard() {
 	let public_key = public_key();
 	new_test_ext().execute_with(|| {
 		for shard in &shards {
-			Shards::create_shard(Network::Ethereum, shard.to_vec(), 1);
+			Shards::create_shard(ETHEREUM, shard.to_vec(), 1);
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let members = Shards::get_shard_members(shard_id as _);
@@ -82,7 +84,7 @@ fn test_register_shard() {
 #[test]
 fn dkg_times_out() {
 	new_test_ext().execute_with(|| {
-		Shards::create_shard(Network::Ethereum, shard().to_vec(), 1);
+		Shards::create_shard(ETHEREUM, shard().to_vec(), 1);
 		roll_to(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
@@ -96,7 +98,7 @@ fn member_offline_sets_online_shard_partially_offline() {
 	let shard = shard();
 	new_test_ext().execute_with(|| {
 		create_shard(0, &shard, 1);
-		Shards::member_offline(&shard[0], Network::Ethereum);
+		Shards::member_offline(&shard[0], ETHEREUM);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
 	});
 }
@@ -106,7 +108,7 @@ fn member_offline_above_threshold_sets_online_shard_offline() {
 	let shard = shard();
 	new_test_ext().execute_with(|| {
 		create_shard(0, &shard, 3);
-		Shards::member_offline(&shard[0], Network::Ethereum);
+		Shards::member_offline(&shard[0], ETHEREUM);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 	});
 }
@@ -116,9 +118,9 @@ fn member_online_sets_partially_offline_shard_back_online() {
 	let shard = shard();
 	new_test_ext().execute_with(|| {
 		create_shard(0, &shard, 1);
-		Shards::member_offline(&shard[0], Network::Ethereum);
+		Shards::member_offline(&shard[0], ETHEREUM);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
-		Shards::member_online(&shard[0], Network::Ethereum);
+		Shards::member_online(&shard[0], ETHEREUM);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
 	});
 }

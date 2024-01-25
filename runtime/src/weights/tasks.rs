@@ -111,10 +111,6 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		Default::default()
 	}
 
-	fn set_read_task_reward() -> Weight {
-		Default::default()
-	}
-
 	fn set_write_task_reward() -> Weight {
 		Default::default()
 	}

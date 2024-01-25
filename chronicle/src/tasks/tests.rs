@@ -73,6 +73,7 @@ sp_api::mock_impl_runtime_apis! {
 				period: 0,
 				start: 0,
 				timegraph: None,
+				shard_size: 3,
 				})
 			} else {
 				Some(TaskDescriptor{
@@ -88,6 +89,7 @@ sp_api::mock_impl_runtime_apis! {
 				period: 0,
 				start: 0,
 				timegraph: None,
+				shard_size: 3,
 				})
 			}
 		}

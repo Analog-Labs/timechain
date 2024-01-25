@@ -11,6 +11,9 @@ mod mock;
 mod shards;
 mod tasks;
 
+const ETH_TEST_NETWORK_ID: u8 = 3;
+const ASTAR_TEST_NETWORK_ID: u8 = 6;
+
 #[derive(Parser, Debug)]
 struct Args {
 	#[arg(long, default_value = "ws://validator:9944")]
@@ -67,8 +70,8 @@ async fn main() {
 	};
 
 	let (network, config) = match args.network.as_str() {
-		"ethereum" => (Network::Ethereum, eth_config.clone()),
-		"astar" => (Network::Astar, astar_config.clone()),
+		"ethereum" => (ETH_TEST_NETWORK_ID, eth_config.clone()),
+		"astar" => (ASTAR_TEST_NETWORK_ID, astar_config.clone()),
 		network => panic!("unsupported network {}", network),
 	};
 
@@ -115,8 +118,8 @@ async fn process_gmp_task(
 	eth_config: &WalletConfig,
 	astar_config: &WalletConfig,
 ) {
-	let eth_shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
-	let astar_shard_id = Shards::get_shard_id(api, Network::Astar).await;
+	let eth_shard_id = Shards::get_shard_id(api, ETH_TEST_NETWORK_ID).await;
+	let astar_shard_id = Shards::get_shard_id(api, ASTAR_TEST_NETWORK_ID).await;
 	while !Shards::is_shard_online(api, eth_shard_id).await {
 		println!("Waiting for eth shard to go online");
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -152,8 +155,8 @@ async fn process_gmp_task(
 		api,
 		1, //cycle
 		eth_start_block_gmp,
-		0, //period
-		Network::Ethereum,
+		0,                   //period
+		ETH_TEST_NETWORK_ID, //ethereum localnet
 		send_msg,
 	)
 	.await
@@ -172,7 +175,7 @@ async fn basic_test_timechain(api: &SubxtClient, network: NetworkId, config: &Wa
 		2, //cycle
 		start_block,
 		2, //period
-		network.clone(),
+		network,
 		call,
 	)
 	.await
@@ -199,7 +202,7 @@ async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config:
 			max_cycle,
 			start_block,
 			2, //period
-			Network::Ethereum,
+			ETH_TEST_NETWORK_ID,
 			call.clone(),
 		)
 		.await
@@ -220,7 +223,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 		10, //cycle
 		start_block,
 		5, //period
-		Network::Ethereum,
+		ETH_TEST_NETWORK_ID,
 		call,
 	)
 	.await
@@ -234,7 +237,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 	println!("dropped 2 nodes");
 
 	// wait for some time
-	let shard_id = Shards::get_shard_id(api, Network::Ethereum).await;
+	let shard_id = Shards::get_shard_id(api, 3).await;
 	while Shards::is_shard_online(api, shard_id).await {
 		println!("Waiting for shard offline");
 		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;
@@ -260,7 +263,7 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes
 		10, //cycle
 		start_block,
 		2, //period
-		Network::Ethereum,
+		ETH_TEST_NETWORK_ID,
 		call,
 	)
 	.await

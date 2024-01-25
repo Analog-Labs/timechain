@@ -115,9 +115,9 @@ impl task_schedule::Config for Test {
 	type MaxRetryCount = ConstU8<3>;
 	type Currency = Balances;
 	type MinTaskBalance = ConstU128<10>;
-	type BaseReadReward = ConstU128<1>;
-	type BaseWriteReward = ConstU128<1>;
-	type BaseSendMessageReward = ConstU128<1>;
+	type BaseReadReward = ConstU128<2>;
+	type BaseWriteReward = ConstU128<3>;
+	type BaseSendMessageReward = ConstU128<4>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;

@@ -1068,7 +1068,7 @@ pub mod pallet {
 					);
 				}
 			}
-			for (account, payout) in SignerPayout::<T>::iter_prefix(task_id) {
+			for (account, payout) in SignerPayout::<T>::drain_prefix(task_id) {
 				let _ = T::Currency::transfer(
 					&task_account_id,
 					&account,
@@ -1076,6 +1076,7 @@ pub mod pallet {
 					ExistenceRequirement::AllowDeath,
 				);
 			}
+			TotalPayout::<T>::remove(task_id);
 		}
 	}
 

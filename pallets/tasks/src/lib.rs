@@ -799,12 +799,10 @@ pub mod pallet {
 					// this branch should never be hit, maybe turn this into expect
 					continue;
 				};
-				println!("shard not yet chosen for task #{}", task_id);
 				let Some(shard_id) = Self::select_shard(network, task_id, None, shard_size) else {
 					// on gmp task sometimes returns none and it stops every other schedule
 					continue;
 				};
-				println!("chose shard #{}", shard_id);
 
 				if Self::is_payable(task_id)
 					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
@@ -829,12 +827,10 @@ pub mod pallet {
 			old: Option<ShardId>,
 			shard_size: u32,
 		) -> Option<ShardId> {
-			println!("selecting shard for task");
 			NetworkShards::<T>::iter_prefix(network)
 				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
 				.filter(|(shard_id, _)| {
 					let shards_len = T::Shards::shard_members(*shard_id).len() as u32;
-					println!("shard has {} members", shards_len);
 					shards_len == shard_size
 				})
 				.filter(|(shard_id, _)| {

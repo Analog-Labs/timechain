@@ -103,7 +103,11 @@ where
 				continue;
 			}
 			let task_descr = self.substrate.get_task(block_hash, task_id)?.unwrap();
-			let target_block_number = task_descr.trigger(cycle);
+			let target_block_number = task_descr.trigger(cycle).ok_or(anyhow::anyhow!(
+				"Overflow while calculating target block: {}/{}",
+				task_id,
+				cycle
+			))?;
 			let function = task_descr.function;
 			let hash = task_descr.timegraph;
 			if target_block_height >= target_block_number {

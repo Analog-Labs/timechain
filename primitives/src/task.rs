@@ -34,6 +34,17 @@ impl Function {
 			Self::RegisterShard { .. } | Self::UnregisterShard { .. } | Self::SendMessage { .. }
 		)
 	}
+	pub fn get_input_length(&self) -> u64 {
+		match self {
+			Function::EvmDeploy { bytecode } => bytecode.len() as u64,
+			Function::EvmCall { input, .. } => input.len() as u64,
+			Function::EvmViewCall { input, .. } => input.len() as u64,
+			Function::EvmTxReceipt { tx } => tx.len() as u64,
+			Function::RegisterShard { .. } => 0,
+			Function::UnregisterShard { .. } => 0,
+			Function::SendMessage { payload, .. } => payload.len() as u64,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -64,8 +75,9 @@ pub struct TaskDescriptor {
 }
 
 impl TaskDescriptor {
-	pub fn trigger(&self, cycle: TaskCycle) -> u64 {
-		self.start + cycle * self.period
+	pub fn trigger(&self, cycle: TaskCycle) -> Option<u64> {
+		let cycle_period = cycle.checked_mul(self.period)?;
+		self.start.checked_add(cycle_period)
 	}
 }
 

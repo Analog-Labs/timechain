@@ -2,23 +2,28 @@ use crate::{Call, Config, Pallet};
 use codec::alloc::string::ToString;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
+use scale_info::prelude::vec;
 use time_primitives::{
 	Function, Network, TaskDescriptorParams, TaskError, TaskResult, TasksInterface,
 };
 
 benchmarks! {
-	create_task {}: _(RawOrigin::Signed(whitelisted_caller()), TaskDescriptorParams {
-		network: Network::Ethereum,
-		function: Function::EvmViewCall {
-			address: Default::default(),
-			input: Default::default(),
-		},
-		cycle: 1,
-		start: 0,
-		period: 1,
-		timegraph: None,
-		funds: 100u32.into(),
-	}) verify {}
+	create_task {
+		let b in 1..10000;
+		let input = vec![0u8; b as usize];
+		let descriptor = TaskDescriptorParams {
+			network: Network::Ethereum,
+			function: Function::EvmViewCall {
+				address: Default::default(),
+				input,
+			},
+			cycle: 1,
+			start: 0,
+			period: 1,
+			timegraph: None,
+			funds: 100u32.into(),
+		};
+	}: _(RawOrigin::Signed(whitelisted_caller()), descriptor) verify {}
 
 	stop_task {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
@@ -94,6 +99,7 @@ benchmarks! {
 	}) verify {}
 
 	submit_hash {
+		let b in 1..10000;
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: Network::Ethereum,
 			function: Function::EvmCall {
@@ -108,7 +114,7 @@ benchmarks! {
 			funds: 100u32.into(),
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, "mock_hash".into()) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, vec![0u8; b as usize]) verify {}
 
 	submit_signature {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {

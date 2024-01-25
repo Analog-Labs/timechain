@@ -295,7 +295,7 @@ impl Runtime for SubxtClient {
 
 	async fn get_member_peer_id(
 		&self,
-		block: BlockHash,
+		_: BlockHash,
 		account: &AccountId,
 	) -> Result<Option<PeerId>> {
 		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
@@ -319,17 +319,27 @@ impl Runtime for SubxtClient {
 		Ok(value)
 	}
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> SubmitResult {
-		todo!()
+		let payload = <SubxtClient as TxBuilder>::submit_register_member(
+			&self,
+			network,
+			self.public_key(),
+			peer_id,
+			stake_amount,
+		);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
-	fn submit_heartbeat(&self) -> SubmitResult {
-		todo!()
+	async fn submit_heartbeat(&self) -> SubmitResult {
+		let payload = <SubxtClient as TxBuilder>::submit_heartbeat(&self);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
 	async fn get_shards(&self, _: BlockHash, account: &AccountId) -> Result<Vec<ShardId>> {
@@ -376,17 +386,26 @@ impl Runtime for SubxtClient {
 		Ok(value)
 	}
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
 	) -> SubmitResult {
-		todo!()
+		let payload = <SubxtClient as TxBuilder>::submit_commitment(
+			&self,
+			shard_id,
+			commitment,
+			proof_of_knowledge,
+		);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
-	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
-		todo!()
+	async fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
+		let payload = <SubxtClient as TxBuilder>::submit_online(&self, shard_id);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
 	async fn get_shard_tasks(&self, _: BlockHash, shard_id: ShardId) -> Result<Vec<TaskExecution>> {
@@ -417,29 +436,46 @@ impl Runtime for SubxtClient {
 		Ok(value)
 	}
 
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
-		todo!()
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> SubmitResult {
+		let payload = <SubxtClient as TxBuilder>::submit_task_hash(&self, task_id, cycle, hash);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
 	) -> SubmitResult {
-		todo!()
+		let payload = <SubxtClient as TxBuilder>::submit_task_result(&self, task_id, cycle, status);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
-	fn submit_task_error(
+	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult {
-		todo!()
+		let payload = <SubxtClient as TxBuilder>::submit_task_error(&self, task_id, cycle, error);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
-		todo!()
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> SubmitResult {
+		let payload = <SubxtClient as TxBuilder>::submit_task_signature(&self, task_id, signature);
+		let _ = self.submit_transaction(payload).await;
+		Ok(Ok(()))
 	}
 }

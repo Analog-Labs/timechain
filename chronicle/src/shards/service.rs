@@ -130,7 +130,7 @@ where
 
 			self.tss_states
 				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));
-			self.poll_actions(&span, shard_id, block_number);
+			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		for shard_id in shards.iter().copied() {
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
@@ -145,7 +145,7 @@ where
 			let commitment = self.substrate.get_shard_commitment(block, shard_id).await?;
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
 			tss.on_commit(commitment);
-			self.poll_actions(&span, shard_id, block_number);
+			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
 			if n > block_number {
@@ -173,7 +173,7 @@ where
 					continue;
 				};
 				tss.on_sign(request_id, data.to_vec());
-				self.poll_actions(&span, shard_id, block_number);
+				self.poll_actions(&span, shard_id, block_number).await;
 			}
 		}
 		while let Some(n) = self.messages.keys().copied().next() {
@@ -201,7 +201,7 @@ where
 					};
 					self.send_message(&span, peer_id, msg);
 				}
-				self.poll_actions(&span, shard_id, n);
+				self.poll_actions(&span, shard_id, n).await;
 			}
 		}
 		for shard_id in shards {
@@ -244,7 +244,7 @@ where
 		Ok(())
 	}
 
-	fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: BlockNumber) {
+	async fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: BlockNumber) {
 		while let Some(action) = self.tss_states.get_mut(&shard_id).unwrap().next_action() {
 			match action {
 				TssAction::Send(msgs) => {
@@ -264,6 +264,7 @@ where
 							commitment.serialize(),
 							proof_of_knowledge.serialize(),
 						)
+						.await
 						.unwrap()
 						.unwrap();
 				},
@@ -277,7 +278,7 @@ where
 						"public key {:?}",
 						public_key,
 					);
-					self.substrate.submit_online(shard_id).unwrap().unwrap();
+					self.substrate.submit_online(shard_id).await.unwrap().unwrap();
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -327,6 +328,7 @@ where
 		while let Err(e) = self
 			.substrate
 			.submit_register_member(self.task_executor.network(), self.network.peer_id(), min_stake)
+			.await
 			.unwrap()
 		{
 			event!(
@@ -436,7 +438,7 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					if let Err(e) = self.substrate.submit_heartbeat().unwrap(){
+					if let Err(e) = self.substrate.submit_heartbeat().await.unwrap(){
 							event!(
 							target: TW_LOG,
 							parent: span,

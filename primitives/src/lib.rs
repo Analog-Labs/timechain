@@ -154,14 +154,14 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	async fn get_min_stake(&self) -> Result<u128>;
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> SubmitResult;
 
-	fn submit_heartbeat(&self) -> SubmitResult;
+	async fn submit_heartbeat(&self) -> SubmitResult;
 
 	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>>;
 
@@ -182,14 +182,14 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 	async fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId)
 		-> Result<Commitment>;
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
 	) -> SubmitResult;
 
-	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
+	async fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
 
 	async fn get_shard_tasks(
 		&self,
@@ -203,23 +203,29 @@ pub trait Runtime: AccountInterface + Clone + Send + Sync + 'static {
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>>;
 
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> SubmitResult;
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
 	) -> SubmitResult;
 
-	fn submit_task_error(
+	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> SubmitResult;
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult;
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature)
+		-> SubmitResult;
 }
 
 #[cfg(feature = "std")]

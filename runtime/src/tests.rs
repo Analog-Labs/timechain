@@ -142,6 +142,7 @@ fn write_phase_timeout_reassigns_task() {
 				period: 0,
 				timegraph: None,
 				funds: 10_000, //TODO: why does this underflow or below min error
+				shard_size: 3,
 			}
 		));
 		Shards::create_shard(Network::Ethereum, shard, 1);
@@ -206,6 +207,7 @@ fn register_unregister_preserves_task_migration() {
 				period: 0,
 				timegraph: None,
 				funds: 10_000, //TODO: why does this underflow if set to correct
+				shard_size: 3,
 			}
 		));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);

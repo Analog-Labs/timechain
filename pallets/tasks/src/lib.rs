@@ -40,6 +40,8 @@ pub mod pallet {
 		fn register_gateway() -> Weight;
 		fn fund_task() -> Weight;
 		fn set_read_task_reward() -> Weight;
+		fn set_write_task_reward() -> Weight;
+		fn set_send_message_task_reward() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -80,6 +82,14 @@ pub mod pallet {
 		}
 
 		fn set_read_task_reward() -> Weight {
+			Weight::default()
+		}
+
+		fn set_write_task_reward() -> Weight {
+			Weight::default()
+		}
+
+		fn set_send_message_task_reward() -> Weight {
 			Weight::default()
 		}
 	}
@@ -266,6 +276,10 @@ pub mod pallet {
 		TaskFunded(TaskId, BalanceOf<T>),
 		/// Read task reward set for network
 		ReadTaskRewardSet(Network, BalanceOf<T>),
+		/// Write task reward set for network
+		WriteTaskRewardSet(Network, BalanceOf<T>),
+		/// Send message task reward set for network
+		SendMessageTaskRewardSet(Network, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -406,6 +420,7 @@ pub mod pallet {
 				}
 				// payout all rewards due for the task at the very end upon completion
 				Self::payout_task_rewards(task_id);
+				TaskRewardConfig::<T>::remove(task_id);
 				TaskState::<T>::insert(task_id, TaskStatus::Completed);
 				if let Function::RegisterShard { shard_id } = task.function {
 					ShardRegistered::<T>::insert(shard_id, ());
@@ -551,6 +566,34 @@ pub mod pallet {
 			Self::deposit_event(Event::ReadTaskRewardSet(network, amount));
 			Ok(())
 		}
+
+		/// Set write task reward
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::set_write_task_reward())]
+		pub fn set_write_task_reward(
+			origin: OriginFor<T>,
+			network: Network,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			NetworkWriteReward::<T>::insert(network, amount);
+			Self::deposit_event(Event::WriteTaskRewardSet(network, amount));
+			Ok(())
+		}
+
+		/// Set send message task reward
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::set_send_message_task_reward())]
+		pub fn set_send_message_task_reward(
+			origin: OriginFor<T>,
+			network: Network,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			NetworkSendMessageReward::<T>::insert(network, amount);
+			Self::deposit_event(Event::SendMessageTaskRewardSet(network, amount));
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -645,7 +688,7 @@ pub mod pallet {
 						+ NetworkSendMessageReward::<T>::get(schedule.network),
 					depreciation_rate: T::RewardDeclineRate::get(),
 				},
-			); // TODO: cleanup when task is cleared from storage
+			);
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {

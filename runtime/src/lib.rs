@@ -1177,11 +1177,15 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Shards = Shards;
 	type Currency = Balances;
-	type MinReadTaskBalance = ConstU128<{ 10 * DOLLARS }>;
+	type MinTaskBalance = ConstU128<{ 10 * DOLLARS }>;
 	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
+	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;
+	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type MaxRetryCount = ConstU8<3>;
-	type WritePhaseTimeout = ConstU32<10>;
+	// TODO: express in seconds, units is still blocks
+	type WritePhaseTimeout = ConstU32<50>;
+	// TODO: express in seconds, units is still blocks
 	type ReadPhaseTimeout = ConstU32<10>;
 	type PalletId = TaskPalletId;
 }

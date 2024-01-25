@@ -9,7 +9,7 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 use time_primitives::{
-	DepreciationRate, Network, PublicKey, ShardId, ShardsInterface, TssPublicKey,
+	DepreciationRate, ElectionsInterface, MemberStorage, Network, PeerId, PublicKey,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -17,36 +17,28 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockShardInterface;
+pub struct MockMembers;
 
-impl ShardsInterface for MockShardInterface {
-	fn is_shard_online(id: ShardId) -> bool {
-		task_schedule::NetworkShards::<Test>::iter().any(|(_, s, _)| s == id)
+impl MemberStorage for MockMembers {
+	type Balance = u128;
+	fn member_stake(_: &AccountId) -> Self::Balance {
+		0u128
 	}
-
-	fn is_shard_member(_: &AccountId) -> bool {
+	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
+		None
+	}
+	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
+		Some(sp_runtime::MultiSigner::Sr25519(sp_core::sr25519::Public::from_raw([0u8; 32])))
+	}
+	fn is_member_online(_: &AccountId) -> bool {
 		true
 	}
+}
 
-	fn shard_network(id: u64) -> Option<Network> {
-		task_schedule::NetworkShards::<Test>::iter()
-			.find(|(_, s, _)| s == &id)
-			.map(|(n, _, _)| n)
-	}
+pub struct MockElections;
 
-	fn shard_members(_id: u64) -> Vec<AccountId> {
-		Vec::new()
-	}
-
-	fn create_shard(_: Network, _: Vec<AccountId>, _: u16) {}
-
-	fn random_signer(shard_id: ShardId) -> PublicKey {
-		PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([shard_id as _; 32]))
-	}
-
-	fn tss_public_key(_: ShardId) -> Option<TssPublicKey> {
-		Some(MockTssSigner::new().public_key())
-	}
+impl ElectionsInterface for MockElections {
+	fn shard_offline(_: Network, _: Vec<AccountId>) {}
 }
 
 // Configure a mock runtime to test the pallet.
@@ -55,6 +47,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Tasks: task_schedule::{Pallet, Call, Storage, Event<T>},
+		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -106,14 +99,25 @@ parameter_types! {
 	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 10, percent: Percent::from_percent(5) };
 }
 
+impl pallet_shards::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type TaskScheduler = Tasks;
+	type Members = MockMembers;
+	type Elections = MockElections;
+	type DkgTimeout = ConstU64<10>;
+}
+
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type Shards = MockShardInterface;
+	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
 	type Currency = Balances;
-	type MinReadTaskBalance = ConstU128<10>;
-	type BaseReadReward = ConstU128<1>;
+	type MinTaskBalance = ConstU128<10>;
+	type BaseReadReward = ConstU128<2>;
+	type BaseWriteReward = ConstU128<3>;
+	type BaseSendMessageReward = ConstU128<4>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;

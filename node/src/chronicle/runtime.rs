@@ -1,3 +1,5 @@
+use anyhow::Result;
+use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::{Stream, StreamExt};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
@@ -13,8 +15,6 @@ use time_primitives::{
 	ShardStatus, ShardsApi, SubmitResult, SubmitTransactionApi, TaskCycle, TaskDescriptor,
 	TaskError, TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxBuilder,
 };
-use anyhow::Result;
-use async_trait::async_trait;
 
 enum Tx {
 	Commitment {
@@ -210,7 +210,7 @@ where
 		+ SubmitTransactionApi<B>,
 	S: AccountInterface + TxBuilder + Clone + Send + Sync + 'static,
 {
-	 async fn get_block_time_in_ms(&self) -> Result<u64> {
+	async fn get_block_time_in_ms(&self) -> Result<u64> {
 		Ok(self.runtime_api().get_block_time_in_msec(self.best_block())?)
 	}
 
@@ -227,30 +227,36 @@ where
 			.boxed()
 	}
 
-	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {
-		Ok(self.runtime_api().get_shards(self.best_block(), account)?)
+	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>> {
+		Ok(self.runtime_api().get_shards(block, account)?)
 	}
 
 	async fn get_shard_members(
 		&self,
+		block: BlockHash,
 		shard_id: ShardId,
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
-		Ok(self.runtime_api().get_shard_members(self.best_block(), shard_id)?)
+		Ok(self.runtime_api().get_shard_members(block, shard_id)?)
 	}
 
-	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16> {
-		Ok(self.runtime_api().get_shard_threshold(self.best_block(), shard_id)?)
+	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16> {
+		Ok(self.runtime_api().get_shard_threshold(block, shard_id)?)
 	}
 
 	async fn get_shard_status(
 		&self,
+		block: BlockHash,
 		shard_id: ShardId,
 	) -> Result<ShardStatus<BlockNumber>> {
-		Ok(self.runtime_api().get_shard_status(self.best_block(), shard_id)?)
+		Ok(self.runtime_api().get_shard_status(block, shard_id)?)
 	}
 
-	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Commitment> {
-		Ok(self.runtime_api().get_shard_commitment(self.best_block(), shard_id)?)
+	async fn get_shard_commitment(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> Result<Commitment> {
+		Ok(self.runtime_api().get_shard_commitment(block, shard_id)?)
 	}
 
 	fn submit_commitment(
@@ -272,13 +278,14 @@ where
 
 	async fn get_shard_tasks(
 		&self,
+		block: BlockHash,
 		shard_id: ShardId,
 	) -> Result<Vec<TaskExecution>> {
-		Ok(self.runtime_api().get_shard_tasks(self.best_block(), shard_id)?)
+		Ok(self.runtime_api().get_shard_tasks(block, shard_id)?)
 	}
 
-	async fn get_task(&self, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
-		Ok(self.runtime_api().get_task(self.best_block(), task_id)?)
+	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
+		Ok(self.runtime_api().get_task(block, task_id)?)
 	}
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>> {
@@ -317,9 +324,10 @@ where
 
 	async fn get_member_peer_id(
 		&self,
+		block: BlockHash,
 		account: &AccountId,
 	) -> Result<Option<PeerId>> {
-		Ok(self.runtime_api().get_member_peer_id(self.best_block(), account)?)
+		Ok(self.runtime_api().get_member_peer_id(block, account)?)
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<u64> {

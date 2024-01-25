@@ -175,7 +175,7 @@ async fn basic_test_timechain(api: &SubxtClient, network: NetworkId, config: &Wa
 		2, //cycle
 		start_block,
 		2, //period
-		network,
+		ETH_TEST_NETWORK_ID,
 		call,
 	)
 	.await

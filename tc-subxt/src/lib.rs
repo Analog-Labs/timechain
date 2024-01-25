@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use futures::stream::BoxStream;
+use futures::stream::{self, BoxStream};
+use futures::StreamExt;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
@@ -283,7 +284,7 @@ impl Runtime for SubxtClient {
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		todo!()
+		stream::empty().boxed()
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {

@@ -88,7 +88,7 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
-		let tasks = self.substrate.get_shard_tasks(shard_id).await?;
+		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
 		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
@@ -98,7 +98,7 @@ where
 				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
 				continue;
 			}
-			let task_descr = self.substrate.get_task(task_id).await?.unwrap();
+			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
 			let target_block_number = task_descr.trigger(cycle);
 			let function = task_descr.function;
 			let hash = task_descr.timegraph;
@@ -115,12 +115,12 @@ where
 					let payload = match function {
 						Function::RegisterShard { shard_id } => {
 							let tss_public_key =
-								self.substrate.get_shard_commitment(shard_id).await?[0];
+								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
 							msg_builder.build_update_keys_message([], [tss_public_key]).hash()
 						},
 						Function::UnregisterShard { shard_id } => {
 							let tss_public_key =
-								self.substrate.get_shard_commitment(shard_id).await?[0];
+								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
 							msg_builder.build_update_keys_message([tss_public_key], []).hash()
 						},
 						Function::SendMessage {
@@ -149,8 +149,10 @@ where
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
 							if let Some(msg_builder) = msg_builder {
-								let tss_public_key =
-									self.substrate.get_shard_commitment(shard_id).await?[0];
+								let tss_public_key = self
+									.substrate
+									.get_shard_commitment(block_hash, shard_id)
+									.await?[0];
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
@@ -168,8 +170,10 @@ where
 						},
 						Function::UnregisterShard { shard_id } => {
 							if let Some(msg_builder) = msg_builder {
-								let tss_public_key =
-									self.substrate.get_shard_commitment(shard_id).await?[0];
+								let tss_public_key = self
+									.substrate
+									.get_shard_commitment(block_hash, shard_id)
+									.await?[0];
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
@@ -292,8 +296,12 @@ where
 			output.copy_from_slice(&gateway_contract);
 			output
 		};
-		let Some(tss_public_key) =
-			self.substrate.get_shard_commitment(shard_id).await?.first().copied()
+		let Some(tss_public_key) = self
+			.substrate
+			.get_shard_commitment(block_hash, shard_id)
+			.await?
+			.first()
+			.copied()
 		else {
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);

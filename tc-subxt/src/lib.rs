@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
+use subxt::client::OfflineClientT;
 use subxt::dynamic::Value;
 use subxt::ext::scale_value::Primitive;
 use subxt::tx::SubmittableExtrinsic;
@@ -275,13 +276,9 @@ impl TxBuilder for SubxtClient {
 #[async_trait]
 impl Runtime for SubxtClient {
 	async fn get_block_time_in_ms(&self) -> Result<u64> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"BlockTimeApi",
-			"get_block_time_in_msec",
-			Vec::<Value<()>>::new(),
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u64 = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().block_time_api().get_block_time_in_msec();
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u64 = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
@@ -290,46 +287,31 @@ impl Runtime for SubxtClient {
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"NetworksApi",
-			"get_network",
-			vec![Value::primitive(Primitive::U128(network as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<(String, String)> = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().networks_api().get_network(network);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<(String, String)> = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
 	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"MembersApi",
-			"get_member_peer_id",
-			vec![Value::from_bytes(account)],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<PeerId> = value.as_type()?;
+		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
+		let runtime_call = timechain_runtime::apis().members_api().get_member_peer_id(account);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<PeerId> = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<u64> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"MembersApi",
-			"get_heartbeat_timeout",
-			Vec::<Value<()>>::new(),
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u64 = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().members_api().get_heartbeat_timeout();
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u64 = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
 	async fn get_min_stake(&self) -> Result<u128> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"MembersApi",
-			"get_min_stake",
-			Vec::<Value<()>>::new(),
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u128 = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().members_api().get_min_stake();
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u128 = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
@@ -347,59 +329,38 @@ impl Runtime for SubxtClient {
 	}
 
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"ShardsApi",
-			"get_shards",
-			vec![Value::from_bytes(account)],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Vec<ShardId> = value.as_type()?;
+		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
+		let runtime_call = timechain_runtime::apis().shards_api().get_shards(account);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Vec<ShardId> = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
 	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"ShardsApi",
-			"get_shard_members",
-			vec![Value::primitive(Primitive::u128(shard_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		// let value: Vec<(AccountId, MemberStatus)> = value.as_type()?;
-		// Ok(value)
-		Ok(vec![])
+		let runtime_call = timechain_runtime::apis().shards_api().get_shard_members(shard_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Vec<(AccountId, MemberStatus)> = unsafe { std::mem::transmute(data) };
+		Ok(value)
 	}
 
 	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"ShardsApi",
-			"get_shard_threshold",
-			vec![Value::primitive(Primitive::u128(shard_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u16 = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().shards_api().get_shard_threshold(shard_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: u16 = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
 	async fn get_shard_status(&self, shard_id: ShardId) -> Result<ShardStatus<BlockNumber>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"ShardsApi",
-			"get_shard_status",
-			vec![Value::primitive(Primitive::u128(shard_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		// let value: ShardStatus<BlockNumber> = value.as_type()?;
-		// Ok(value)
-		Ok(ShardStatus::Online)
+		let runtime_call = timechain_runtime::apis().shards_api().get_shard_status(shard_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: ShardStatus<BlockNumber> = unsafe { std::mem::transmute(data) };
+		Ok(value)
 	}
 
 	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Commitment> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"ShardsApi",
-			"get_shard_commitment",
-			vec![Value::primitive(Primitive::u128(shard_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Commitment = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().shards_api().get_shard_commitment(shard_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Commitment = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
@@ -417,48 +378,30 @@ impl Runtime for SubxtClient {
 	}
 
 	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskExecution>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"TasksApi",
-			"get_shard_tasks",
-			vec![Value::primitive(Primitive::u128(shard_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		// let value: Vec<TaskExecution> = value.as_type()?;
-		// Ok(value)
-		Ok(vec![])
+		let runtime_call = timechain_runtime::apis().tasks_api().get_shard_tasks(shard_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Vec<TaskExecution> = unsafe { std::mem::transmute(data) };
+		Ok(value)
 	}
 
 	async fn get_task(&self, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"TasksApi",
-			"get_task",
-			vec![Value::primitive(Primitive::u128(task_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		// let value: Option<TaskDescriptor> = value.as_type()?;
-		// Ok(value)
-		Ok(None)
+		let runtime_call = timechain_runtime::apis().tasks_api().get_task(task_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<TaskDescriptor> = unsafe { std::mem::transmute(data) };
+		Ok(value)
 	}
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"TasksApi",
-			"get_task_signature",
-			vec![Value::primitive(Primitive::u128(task_id as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<TssSignature> = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().tasks_api().get_task_signature(task_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<TssSignature> = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
-		let runtime_call = subxt::dynamic::runtime_api_call(
-			"TasksApi",
-			"get_gateway",
-			vec![Value::primitive(Primitive::u128(network as u128))],
-		);
-		let value = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<Vec<u8>> = value.as_type()?;
+		let runtime_call = timechain_runtime::apis().tasks_api().get_gateway(network);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let value: Option<Vec<u8>> = unsafe { std::mem::transmute(data) };
 		Ok(value)
 	}
 

@@ -4,8 +4,8 @@ use shards as Shards;
 
 use clap::Parser;
 use rosetta_client::Blockchain;
-use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::Network;
 use tc_subxt::SubxtClient;
+use time_primitives::NetworkId;
 
 mod mock;
 mod shards;
@@ -163,7 +163,7 @@ async fn process_gmp_task(
 	}
 }
 
-async fn basic_test_timechain(api: &SubxtClient, network: Network, config: &WalletConfig) {
+async fn basic_test_timechain(api: &SubxtClient, network: NetworkId, config: &WalletConfig) {
 	let (contract_address, start_block) = setup_env(config, None).await;
 
 	let call = create_evm_view_call(contract_address.clone());

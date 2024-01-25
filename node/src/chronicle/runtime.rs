@@ -259,7 +259,7 @@ where
 		Ok(self.runtime_api().get_shard_commitment(block, shard_id)?)
 	}
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
@@ -272,7 +272,7 @@ where
 		})
 	}
 
-	fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
+	async fn submit_online(&self, shard_id: ShardId) -> SubmitResult {
 		self.submit_transaction(Tx::Ready { shard_id })
 	}
 
@@ -296,11 +296,16 @@ where
 		Ok(self.runtime_api().get_gateway(self.best_block(), network)?)
 	}
 
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult {
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> SubmitResult {
 		self.submit_transaction(Tx::TaskHash { task_id, cycle, hash })
 	}
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
@@ -309,7 +314,7 @@ where
 		self.submit_transaction(Tx::TaskResult { task_id, cycle, result })
 	}
 
-	fn submit_task_error(
+	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
@@ -318,7 +323,11 @@ where
 		self.submit_transaction(Tx::TaskError { task_id, cycle, error })
 	}
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult {
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> SubmitResult {
 		self.submit_transaction(Tx::TaskSignature { task_id, signature })
 	}
 
@@ -338,7 +347,7 @@ where
 		Ok(self.runtime_api().get_min_stake(self.best_block())?)
 	}
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
@@ -353,7 +362,7 @@ where
 		})?)
 	}
 
-	fn submit_heartbeat(&self) -> SubmitResult {
+	async fn submit_heartbeat(&self) -> SubmitResult {
 		self.submit_transaction(Tx::Heartbeat)
 	}
 

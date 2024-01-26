@@ -133,7 +133,7 @@ where
 					};
 					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
-					if *public_key != self.substrate.public_key() {
+					if public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}

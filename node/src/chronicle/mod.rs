@@ -7,8 +7,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::sync::Arc;
 use time_primitives::{
-	AccountInterface, BlockHash, BlockTimeApi, MembersApi, NetworksApi, ShardsApi,
-	SubmitTransactionApi, TasksApi,
+	BlockHash, BlockTimeApi, MembersApi, NetworksApi, ShardsApi, SubmitTransactionApi, TasksApi,
 };
 
 mod network;
@@ -43,10 +42,11 @@ where
 		chronicle::create_iroh_network(params.config.network_config()).await?
 	};
 
-	let subxt_client =
-		tc_subxt::SubxtClient::new("ws://127.0.0.1:9944", Some(&params.config.timechain_keyfile))
-			.await?;
-	tracing::info!("Nonce at creation {:?}", subxt_client.nonce());
+	let subxt_client = tc_subxt::SubxtClient::with_keyfile(
+		"ws://127.0.0.1:9944",
+		&params.config.timechain_keyfile,
+	)
+	.await?;
 	let substrate =
 		runtime::Substrate::new(true, params.tx_pool, params.client, params.runtime, subxt_client);
 

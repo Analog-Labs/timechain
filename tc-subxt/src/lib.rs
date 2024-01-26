@@ -1,29 +1,22 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::{self, BoxStream};
 use futures::StreamExt;
-use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 use subxt::backend::rpc::RpcClient;
-use subxt::blocks::ExtrinsicEvents;
-use subxt::dynamic::Value;
-use subxt::ext::scale_value::Primitive;
 use subxt::tx::SubmittableExtrinsic;
 use subxt::tx::TxPayload;
-use subxt::utils::{MultiAddress, MultiSignature, H256};
+use subxt::utils::H256;
 use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskResult, TssPublicKey, TssSignature,
+	TaskError, TaskExecution, TaskId, TaskResult, TssSignature,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::task;
-use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 
 mod shards;
 mod tasks;
@@ -45,7 +38,7 @@ pub use subxt_signer::sr25519::Keypair;
 enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
 	Heartbeat,
-	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: [u8; 65] },
+	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
 	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
@@ -162,14 +155,24 @@ impl SubxtWorker {
 pub struct SubxtClient {
 	client: OnlineClient<PolkadotConfig>,
 	tx: mpsc::UnboundedSender<Tx>,
+	public_key: PublicKey,
+	account_id: AccountId,
 }
 
 impl SubxtClient {
 	pub async fn new(url: &str, keypair: Keypair) -> Result<Self> {
 		let rpc_client = RpcClient::from_url(url).await?;
 		let client = OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone()).await?;
-		let tx = SubxtWorker::new(client.clone(), keypair).await?.into_sender();
-		Ok(Self { client, tx })
+		let worker = SubxtWorker::new(client.clone(), keypair).await?;
+		let public_key = worker.public_key();
+		let account_id = worker.account_id();
+		let tx = worker.into_sender();
+		Ok(Self {
+			client,
+			tx,
+			public_key,
+			account_id,
+		})
 	}
 
 	pub async fn with_keyfile(url: &str, keyfile: &Path) -> Result<Self> {
@@ -184,6 +187,14 @@ impl SubxtClient {
 
 #[async_trait]
 impl Runtime for SubxtClient {
+	fn public_key(&self) -> &PublicKey {
+		&self.public_key
+	}
+
+	fn account_id(&self) -> &AccountId {
+		&self.account_id
+	}
+
 	async fn get_block_time_in_ms(&self) -> Result<u64> {
 		let runtime_call = timechain_runtime::apis().block_time_api().get_block_time_in_msec();
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;

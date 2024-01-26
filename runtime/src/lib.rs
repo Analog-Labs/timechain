@@ -1183,9 +1183,7 @@ impl pallet_tasks::Config for Runtime {
 	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type MaxRetryCount = ConstU8<3>;
-	// TODO: express in seconds, units is still blocks
-	type WritePhaseTimeout = ConstU32<50>;
-	// TODO: express in seconds, units is still blocks
+	type WritePhaseTimeout = ConstU32<10>;
 	type ReadPhaseTimeout = ConstU32<10>;
 	type PalletId = TaskPalletId;
 }

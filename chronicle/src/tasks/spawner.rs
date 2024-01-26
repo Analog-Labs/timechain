@@ -254,14 +254,13 @@ where
 					hash: prehashed_payload,
 					signature,
 				};
-				if let Err(e) = self.substrate.submit_task_result(task_id, task_cycle, result).await
-				{
+				if let Err(e) = self.substrate.submit_task_result(task_id, task_cycle, result) {
 					tracing::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) = self.substrate.submit_task_error(task_id, task_cycle, error).await {
+				if let Err(e) = self.substrate.submit_task_error(task_id, task_cycle, error) {
 					tracing::error!("Error submitting task error {:?}", e);
 				}
 			},
@@ -278,7 +277,7 @@ where
 		block_number: u32,
 	) -> Result<()> {
 		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, task_cycle, &payload).await?;
-		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig) {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())
@@ -286,7 +285,7 @@ where
 
 	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.substrate.submit_task_hash(task_id, cycle, tx_hash).await {
+		if let Err(e) = self.substrate.submit_task_hash(task_id, cycle, tx_hash) {
 			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())

@@ -130,6 +130,10 @@ pub trait TasksInterface {
 #[cfg(feature = "std")]
 #[async_trait]
 pub trait Runtime: Clone + Send + Sync + 'static {
+	fn public_key(&self) -> &PublicKey;
+
+	fn account_id(&self) -> &AccountId;
+
 	async fn get_block_time_in_ms(&self) -> Result<u64>;
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;

@@ -22,6 +22,7 @@ benchmarks! {
 			period: 1,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		};
 	}: _(RawOrigin::Signed(whitelisted_caller()), descriptor) verify {}
 
@@ -37,6 +38,7 @@ benchmarks! {
 			period: 1,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		});
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0)
 	verify { }
@@ -53,6 +55,7 @@ benchmarks! {
 			period: 1,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		});
 		let _ = Pallet::<T>::stop_task(RawOrigin::Signed(whitelisted_caller()).into(), 0);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, 0u32.into())
@@ -70,6 +73,7 @@ benchmarks! {
 			period: 1,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, TaskResult {
@@ -90,6 +94,7 @@ benchmarks! {
 			period: 1,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, 0, TaskError {
@@ -112,6 +117,7 @@ benchmarks! {
 			period: 0,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 1, 0, vec![0u8; b as usize]) verify {}
@@ -130,6 +136,7 @@ benchmarks! {
 			period: 0,
 			timegraph: None,
 			funds: 100u32.into(),
+			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, Network::Ethereum);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}

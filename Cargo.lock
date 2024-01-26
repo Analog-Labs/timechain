@@ -13947,6 +13947,8 @@ dependencies = [
  "subxt",
  "subxt-signer",
  "time-primitives",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

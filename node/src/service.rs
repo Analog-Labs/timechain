@@ -343,20 +343,23 @@ pub fn new_full(
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 
-		if let Some(config) = chronicle_config {
-			let network = if enable_iroh { None } else { Some((network, protocol_rx)) };
-			let params = crate::chronicle::ChronicleParams {
-				client: client.clone(),
-				runtime: client.clone(),
-				tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-				network,
-				config,
-			};
-			task_manager
-				.spawn_essential_handle()
-				.spawn_blocking("chronicle", None, async move {
-					crate::chronicle::run_node_with_chronicle(params).await.unwrap()
-				});
+		#[cfg(feature = "chronicle")]
+		{
+			if let Some(config) = chronicle_config {
+				let network = if enable_iroh { None } else { Some((network, protocol_rx)) };
+				let params = crate::chronicle::ChronicleParams {
+					client: client.clone(),
+					runtime: client.clone(),
+					tx_pool: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+					network,
+					config,
+				};
+				task_manager.spawn_essential_handle().spawn_blocking(
+					"chronicle",
+					None,
+					async move { crate::chronicle::run_node_with_chronicle(params).await.unwrap() },
+				);
+			}
 		}
 	}
 

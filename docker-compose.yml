@@ -117,6 +117,7 @@ services:
     volumes:
     - '/var/run/docker.sock:/var/run/docker.sock'
     - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/alice:/etc/alice:ro'
     - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
     - './contracts/gateway.sol:/etc/gateway.sol:ro'
 

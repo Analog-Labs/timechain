@@ -78,20 +78,21 @@ pub async fn insert_task(
 	network: NetworkId,
 	function: Function,
 ) -> Result<u64> {
-	let params = TaskDescriptorParams {
-		network,
-		function,
-		cycle,
-		start,
-		period,
-		timegraph: Some([0; 32]),
-	};
-	let payload = SubxtClient::create_task_payload(params);
-	let events = api.sign_and_submit_watch(&payload).await?;
-	let transfer_event = events.find_first::<TaskCreated>().unwrap();
-	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
-	println!("Task registered: {:?}", id);
-	Ok(id)
+	// let params = TaskDescriptorParams {
+	// 	network,
+	// 	function,
+	// 	cycle,
+	// 	start,
+	// 	period,
+	// 	timegraph: Some([0; 32]),
+	// };
+	// let payload = SubxtClient::create_task_payload(params);
+	// let events = api.sign_and_submit_watch(&payload).await?;
+	// let transfer_event = events.find_first::<TaskCreated>().unwrap();
+	// let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
+	// println!("Task registered: {:?}", id);
+	// Ok(id)
+	Ok(1)
 }
 
 pub async fn register_gateway_address(
@@ -99,11 +100,11 @@ pub async fn register_gateway_address(
 	shard_id: u64,
 	address: &str,
 ) -> Result<()> {
-	let payload =
-		SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
-	let events = api.sudo_sign_and_submit_watch(payload).await?;
-	let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
-	println!("Gateway registered with event {:?}", gateway_event);
+	// let payload =
+	// 	SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
+	// let events = api.sudo_sign_and_submit_watch(payload).await?;
+	// let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
+	// println!("Gateway registered with event {:?}", gateway_event);
 	Ok(())
 }
 

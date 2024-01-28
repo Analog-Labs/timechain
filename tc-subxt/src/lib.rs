@@ -6,8 +6,8 @@ use futures::StreamExt;
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
-use subxt::tx::SubmittableExtrinsic;
 use subxt::tx::TxPayload;
+use subxt::tx::{Payload, SubmittableExtrinsic};
 use subxt::utils::H256;
 use subxt_signer::SecretUri;
 use time_primitives::{

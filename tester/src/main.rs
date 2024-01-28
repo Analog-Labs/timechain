@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::mock::*;
 use crate::tasks::*;
 use shards as Shards;
@@ -48,8 +50,10 @@ enum TestCommand {
 async fn main() {
 	let args = Args::parse();
 	let url = args.url;
+	let path = Path::new("/etc/alice");
+	SubxtClient::with_keyfile(&url, path).await.unwrap();
 	let api = loop {
-		let Ok(api) = SubxtClient::new(&url, None).await else {
+		let Ok(api) = SubxtClient::with_keyfile(&url, path).await else {
 			println!("waiting for chain to start");
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 			continue;

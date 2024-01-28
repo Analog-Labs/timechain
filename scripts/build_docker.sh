@@ -37,7 +37,7 @@ if ! rustup target list | grep -q "$rustTarget"; then
 fi
 
 # Build docker image
-cargo build -p timechain-node -p tester --target "$rustTarget" --release
+cargo build -p timechain-node -p tester --target "$rustTarget" --release 
 rm -rf target/docker
 mkdir -p target/docker
 

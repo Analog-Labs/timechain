@@ -6,8 +6,7 @@ use futures::StreamExt;
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
-use subxt::tx::TxPayload;
-use subxt::tx::{Payload, SubmittableExtrinsic};
+use subxt::tx::{Payload, SubmittableExtrinsic, TxPayload};
 use subxt::utils::H256;
 use subxt_signer::SecretUri;
 use time_primitives::{
@@ -31,6 +30,7 @@ pub mod timechain_runtime {}
 pub use subxt::backend::rpc::{rpc_params, RpcParams};
 pub use subxt::config::{Config, ExtrinsicParams};
 pub use subxt::tx::PartialExtrinsic;
+pub use subxt::tx::TxProgress;
 pub use subxt::utils::AccountId32;
 pub use subxt::{ext, tx, utils};
 pub use subxt::{OnlineClient, PolkadotConfig};
@@ -81,7 +81,10 @@ impl SubxtWorker {
 			.into_encoded()
 	}
 
-	pub async fn submit(&mut self, tx: (Tx, Sender<H256>)) -> Result<H256> {
+	pub async fn submit(
+		&mut self,
+		tx: (Tx, Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>),
+	) -> Result<H256> {
 		let tx = match tx.0 {
 			Tx::RegisterMember { network, peer_id, stake_amount } => {
 				let public_key = self.public_key();
@@ -139,7 +142,10 @@ impl SubxtWorker {
 		Ok(hash)
 	}
 
-	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<H256>)> {
+	fn into_sender(
+		mut self,
+	) -> mpsc::UnboundedSender<(Tx, Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>)>
+	{
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			while let Some(tx) = rx.next().await {
@@ -155,7 +161,10 @@ impl SubxtWorker {
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient<PolkadotConfig>,
-	tx: mpsc::UnboundedSender<(Tx, Sender<H256>)>,
+	tx: mpsc::UnboundedSender<(
+		Tx,
+		Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
+	)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
@@ -317,14 +326,16 @@ impl Runtime for SubxtClient {
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::RegisterMember { network, peer_id, stake_amount }, tx))?;
 		Ok(rx.await?)
 	}
 
-	async fn submit_heartbeat(&self) -> Result<H256> {
+	async fn submit_heartbeat(
+		&self,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
 		Ok(rx.await?)
@@ -335,7 +346,7 @@ impl Runtime for SubxtClient {
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: [u8; 65],
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
 			Tx::Commitment {
@@ -348,7 +359,10 @@ impl Runtime for SubxtClient {
 		Ok(rx.await?)
 	}
 
-	async fn submit_online(&self, shard_id: ShardId) -> Result<H256> {
+	async fn submit_online(
+		&self,
+		shard_id: ShardId,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Ready { shard_id }, tx))?;
 		Ok(rx.await?)
@@ -358,7 +372,7 @@ impl Runtime for SubxtClient {
 		&self,
 		task_id: TaskId,
 		signature: TssSignature,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskSignature { task_id, signature }, tx))?;
 		Ok(rx.await?)
@@ -369,7 +383,7 @@ impl Runtime for SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		hash: Vec<u8>,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskHash { task_id, cycle, hash }, tx))?;
 		Ok(rx.await?)
@@ -380,7 +394,7 @@ impl Runtime for SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		result: TaskResult,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskResult { task_id, cycle, result }, tx))?;
 		Ok(rx.await?)
@@ -391,7 +405,7 @@ impl Runtime for SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskError { task_id, cycle, error }, tx))?;
 		Ok(rx.await?)

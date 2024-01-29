@@ -9,6 +9,7 @@ use futures::stream::BoxStream;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_api::ApiError;
+use sp_core::H256;
 use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
@@ -181,34 +182,45 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>>;
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<()>;
+	) -> Result<H256>;
 
-	fn submit_heartbeat(&self) -> Result<()>;
+	async fn submit_heartbeat(&self) -> Result<H256>;
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<()>;
+	) -> Result<H256>;
 
-	fn submit_online(&self, shard_id: ShardId) -> Result<()>;
+	async fn submit_online(&self, shard_id: ShardId) -> Result<H256>;
 
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<()>;
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> Result<H256>;
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature)
+		-> Result<H256>;
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Result<()>;
+	) -> Result<H256>;
 
-	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<()>;
+	async fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> Result<H256>;
 }

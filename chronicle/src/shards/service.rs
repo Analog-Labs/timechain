@@ -264,6 +264,7 @@ where
 							commitment.serialize(),
 							proof_of_knowledge.serialize(),
 						)
+						.await
 						.unwrap();
 				},
 				TssAction::PublicKey(tss_public_key) => {
@@ -276,7 +277,7 @@ where
 						"public key {:?}",
 						public_key,
 					);
-					self.substrate.submit_online(shard_id).unwrap();
+					self.substrate.submit_online(shard_id).await.unwrap();
 				},
 				TssAction::Signature(request_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
@@ -323,11 +324,11 @@ where
 			"starting tss",
 		);
 		let min_stake = self.substrate.get_min_stake().await.unwrap();
-		while let Err(e) = self.substrate.submit_register_member(
-			self.task_executor.network(),
-			self.network.peer_id(),
-			min_stake,
-		) {
+		while let Err(e) = self
+			.substrate
+			.submit_register_member(self.task_executor.network(), self.network.peer_id(), min_stake)
+			.await
+		{
 			event!(
 				target: TW_LOG,
 				parent: span,
@@ -435,7 +436,7 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					if let Err(e) = self.substrate.submit_heartbeat() {
+					if let Err(e) = self.substrate.submit_heartbeat().await {
 							event!(
 							target: TW_LOG,
 							parent: span,

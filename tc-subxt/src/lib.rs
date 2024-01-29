@@ -17,6 +17,7 @@ use time_primitives::{
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::task;
+use tokio::sync::oneshot::{self, Sender};
 
 mod shards;
 mod tasks;
@@ -80,8 +81,8 @@ impl SubxtWorker {
 			.into_encoded()
 	}
 
-	pub async fn submit(&mut self, tx: Tx) -> Result<H256> {
-		let tx = match tx {
+	pub async fn submit(&mut self, tx: (Tx, Sender<H256>)) -> Result<H256> {
+		let tx = match tx.0 {
 			Tx::RegisterMember { network, peer_id, stake_amount } => {
 				let public_key = self.public_key();
 				let network = unsafe { std::mem::transmute(network) };
@@ -138,7 +139,7 @@ impl SubxtWorker {
 		Ok(hash)
 	}
 
-	fn into_sender(mut self) -> mpsc::UnboundedSender<Tx> {
+	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<H256>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			while let Some(tx) = rx.next().await {
@@ -154,7 +155,7 @@ impl SubxtWorker {
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient<PolkadotConfig>,
-	tx: mpsc::UnboundedSender<Tx>,
+	tx: mpsc::UnboundedSender<(Tx, Sender<H256>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
@@ -311,62 +312,88 @@ impl Runtime for SubxtClient {
 		Ok(value)
 	}
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<()> {
-		self.tx.unbounded_send(Tx::RegisterMember { network, peer_id, stake_amount })?;
-		Ok(())
+	) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx
+			.unbounded_send((Tx::RegisterMember { network, peer_id, stake_amount }, tx))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_heartbeat(&self) -> Result<()> {
-		self.tx.unbounded_send(Tx::Heartbeat)?;
-		Ok(())
+	async fn submit_heartbeat(&self) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: [u8; 65],
-	) -> Result<()> {
-		self.tx.unbounded_send(Tx::Commitment {
-			shard_id,
-			commitment,
-			proof_of_knowledge,
-		})?;
-		Ok(())
+	) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((
+			Tx::Commitment {
+				shard_id,
+				commitment,
+				proof_of_knowledge,
+			},
+			tx,
+		))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_online(&self, shard_id: ShardId) -> Result<()> {
-		self.tx.unbounded_send(Tx::Ready { shard_id })?;
-		Ok(())
+	async fn submit_online(&self, shard_id: ShardId) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::Ready { shard_id }, tx))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
-		self.tx.unbounded_send(Tx::TaskSignature { task_id, signature })?;
-		Ok(())
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::TaskSignature { task_id, signature }, tx))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<()> {
-		self.tx.unbounded_send(Tx::TaskHash { task_id, cycle, hash })?;
-		Ok(())
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::TaskHash { task_id, cycle, hash }, tx))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		result: TaskResult,
-	) -> Result<()> {
-		self.tx.unbounded_send(Tx::TaskResult { task_id, cycle, result })?;
-		Ok(())
+	) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::TaskResult { task_id, cycle, result }, tx))?;
+		Ok(rx.await?)
 	}
 
-	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<()> {
-		self.tx.unbounded_send(Tx::TaskError { task_id, cycle, error })?;
-		Ok(())
+	async fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> Result<H256> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::TaskError { task_id, cycle, error }, tx))?;
+		Ok(rx.await?)
 	}
 }

@@ -197,25 +197,8 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run.base)?;
-			let enable_iroh =
-				cli.run.chronicle.as_ref().map(|args| args.enable_iroh).unwrap_or_default();
 			runner.run_node_until_exit(|config| async move {
-				service::new_full(
-					config,
-					cli.run.chronicle.map(|args| chronicle::ChronicleConfig {
-						network_id: args.network_id,
-						url: args.url,
-						timechain_keyfile: args.timechain_keyfile,
-						keyfile: args.keyfile,
-						timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
-						timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
-						secret: args.secret,
-						bind_port: args.bind_port,
-						pkarr_relay: args.pkarr_relay,
-					}),
-					enable_iroh,
-				)
-				.map_err(sc_cli::Error::Service)
+				service::new_full(config, cli.run.chronicle).map_err(sc_cli::Error::Service)
 			})
 		},
 	}

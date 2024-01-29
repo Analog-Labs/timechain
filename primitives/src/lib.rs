@@ -12,6 +12,8 @@ use sp_api::ApiError;
 use sp_core::H256;
 use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
+#[cfg(feature = "std")]
+use subxt::{tx::TxProgress, OnlineClient, PolkadotConfig};
 
 mod member;
 mod network;
@@ -187,40 +189,47 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<H256>;
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 
-	async fn submit_heartbeat(&self) -> Result<H256>;
+	async fn submit_heartbeat(
+		&self,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 
 	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<H256>;
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 
-	async fn submit_online(&self, shard_id: ShardId) -> Result<H256>;
+	async fn submit_online(
+		&self,
+		shard_id: ShardId,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 
 	async fn submit_task_hash(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		hash: Vec<u8>,
-	) -> Result<H256>;
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature)
-		-> Result<H256>;
-
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Result<H256>;
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 
 	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Result<H256>;
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 }

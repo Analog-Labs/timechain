@@ -9,13 +9,14 @@ use sp_core::H256;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
-use tc_subxt::SubxtClient;
+use tc_subxt::{PolkadotConfig, OnlineClient, TxProgress, SubxtClient};
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
 	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
 	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
 	TaskResult, TasksApi, TssSignature,
 };
+
 
 pub struct Substrate<B: Block, C, R> {
 	_block: PhantomData<B>,
@@ -159,12 +160,13 @@ where
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
+
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge).await
 	}
 
-	async fn submit_online(&self, shard_id: ShardId) -> Result<H256> {
+	async fn submit_online(&self, shard_id: ShardId) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_online(shard_id).await
 	}
 
@@ -184,28 +186,32 @@ where
 		Ok(self.runtime_api().get_task_signature(self.best_block(), task_id)?)
 	}
 
+
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
 		Ok(self.runtime_api().get_gateway(self.best_block(), network)?)
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<H256> {
+	async fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_task_hash(task_id, cycle, hash).await
 	}
+
 
 	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
+
 		result: TaskResult,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_task_result(task_id, cycle, result).await
 	}
 
-	async fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<H256> {
+
+	async fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_task_error(task_id, cycle, error).await
 	}
 
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<H256> {
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_task_signature(task_id, signature).await	}
 
 	async fn get_member_peer_id(
@@ -224,16 +230,17 @@ where
 		Ok(self.runtime_api().get_min_stake(self.best_block())?)
 	}
 
+
 	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<H256> {
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_register_member(network, peer_id, stake_amount).await
 	}
 
-	async fn submit_heartbeat(&self) -> Result<H256> {
+	async fn submit_heartbeat(&self) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_heartbeat().await
 	}
 

@@ -332,18 +332,15 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::stop_task())]
 		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			let task = Self::ensure_root_or_owner(origin, task_id)?;
-			if let Some(owner) = task.owner {
-				// return task balance to owner
-				let task_account = Self::task_account(task_id);
-				let task_balance = T::Currency::free_balance(&task_account);
-				T::Currency::transfer(
-					&task_account,
-					&owner,
-					task_balance,
-					ExistenceRequirement::AllowDeath,
-				)?;
-			} // else caller was root && task.owner was NOT set => task balance NOT sent anywhere
+			let (owner, _) = Self::ensure_owner(origin, task_id)?;
+			let task_account = Self::task_account(task_id);
+			let task_balance = T::Currency::free_balance(&task_account);
+			T::Currency::transfer(
+				&task_account,
+				&owner,
+				task_balance,
+				ExistenceRequirement::AllowDeath,
+			)?;
 			ensure!(
 				TaskState::<T>::get(task_id) == Some(TaskStatus::Created),
 				Error::<T>::InvalidTaskState
@@ -361,17 +358,12 @@ pub mod pallet {
 			start: u64,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let task = Self::ensure_root_or_owner(origin, task_id)?;
-			if let Some(ref owner) = task.owner {
-				ensure!(
-					Self::is_resumable_post_transfer(task_id, amount),
-					Error::<T>::InvalidTaskState
-				);
-				Self::transfer_to_task(owner, task_id, amount)?;
-			} else {
-				// caller is root origin so `amount` field is unused
-				ensure!(Self::is_resumable(task_id), Error::<T>::InvalidTaskState);
-			}
+			let (owner, task) = Self::ensure_owner(origin, task_id)?;
+			ensure!(
+				Self::is_resumable_post_transfer(task_id, amount),
+				Error::<T>::InvalidTaskState
+			);
+			Self::transfer_to_task(&owner, task_id, amount)?;
 			Self::do_resume_task(task_id, task, start);
 			Ok(())
 		}
@@ -721,21 +713,6 @@ pub mod pallet {
 			let owner = task.owner.clone().ok_or(Error::<T>::InvalidOwner)?;
 			ensure!(owner == caller, Error::<T>::InvalidOwner);
 			Ok((owner, task))
-		}
-
-		/// Ensures origin may call the extrinsic with the input TaskId
-		/// Returns Ok(Task) if caller is root or origin
-		fn ensure_root_or_owner(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-		) -> Result<TaskDescriptor, DispatchError> {
-			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if ensure_root(origin.clone()).is_ok() {
-				return Ok(task);
-			} // else try ensure_signed to check if caller is task owner
-			let caller = ensure_signed(origin)?;
-			ensure!(task.owner == Some(caller), Error::<T>::InvalidOwner);
-			Ok(task)
 		}
 
 		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {

@@ -582,30 +582,32 @@ fn task_resumed_by_owner() {
 }
 
 #[test]
-fn root_may_resume_unfunded_task() {
+fn root_cannot_resume_unfunded_task() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Stopped));
-		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 10));
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 10),
+			sp_runtime::DispatchError::BadOrigin
+		);
 	});
 }
 
 #[test]
-fn task_resumable_by_root() {
+fn task_not_resumable_by_root() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		// Task is stopped but not drained as expected so may be resumed by root
-		TaskState::<Test>::insert(0, TaskStatus::Stopped);
-		assert_ok!(Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 10));
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
-		System::assert_last_event(Event::<Test>::TaskResumed(0).into());
+		assert_noop!(
+			Tasks::resume_task(RawOrigin::Root.into(), 0, 0, 10),
+			sp_runtime::DispatchError::BadOrigin
+		);
 	});
 }
 
@@ -1429,7 +1431,7 @@ fn stop_task_returns_task_balance_to_owner() {
 		));
 		assert_eq!(Balances::free_balance(&[0; 32].into()), 9999999900);
 		assert_eq!(Tasks::task_balance(0), 100);
-		assert_ok!(Tasks::stop_task(RawOrigin::Root.into(), 0));
+		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
 		assert_eq!(Balances::free_balance(&[0; 32].into()), 10000000000);
 		assert_eq!(Tasks::task_balance(0), 0);
 	});

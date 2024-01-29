@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use crate::cli::ChronicleArgs;
 use futures::prelude::*;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
@@ -151,8 +152,7 @@ pub fn new_partial(
 /// Builds a new service for a full client.
 pub fn new_full(
 	config: Configuration,
-	chronicle_config: Option<chronicle::ChronicleConfig>,
-	enable_iroh: bool,
+	#[allow(unused)] args: Option<ChronicleArgs>,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -177,7 +177,9 @@ pub fn new_full(
 	));
 
 	// registering time p2p protocol
+	#[cfg(feature = "chronicle")]
 	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
+	#[cfg(feature = "chronicle")]
 	net_config.add_request_response_protocol(crate::chronicle::protocol_config(protocol_tx));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
@@ -345,8 +347,19 @@ pub fn new_full(
 
 		#[cfg(feature = "chronicle")]
 		{
-			if let Some(config) = chronicle_config {
-				let network = if enable_iroh { None } else { Some((network, protocol_rx)) };
+			if let Some(args) = args {
+				let config = chronicle::ChronicleConfig {
+					network_id: args.network_id,
+					url: args.url,
+					timechain_keyfile: args.timechain_keyfile,
+					keyfile: args.keyfile,
+					timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
+					timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
+					secret: args.secret,
+					bind_port: args.bind_port,
+					pkarr_relay: args.pkarr_relay,
+				};
+				let network = if args.enable_iroh { None } else { Some((network, protocol_rx)) };
 				let params = crate::chronicle::ChronicleParams {
 					client: client.clone(),
 					runtime: client.clone(),

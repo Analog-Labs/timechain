@@ -5,6 +5,7 @@ use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ApiRef, HeaderT, ProvideRuntimeApi};
 use sp_runtime::traits::Block;
+use sp_core::H256;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -154,17 +155,17 @@ where
 		Ok(self.runtime_api().get_shard_commitment(block, shard_id)?)
 	}
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<()> {
-		self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge)
+	) -> Result<H256> {
+		self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge).await
 	}
 
-	fn submit_online(&self, shard_id: ShardId) -> Result<()> {
-		self.subxt_client.submit_online(shard_id)
+	async fn submit_online(&self, shard_id: ShardId) -> Result<H256> {
+		self.subxt_client.submit_online(shard_id).await
 	}
 
 	async fn get_shard_tasks(
@@ -187,26 +188,25 @@ where
 		Ok(self.runtime_api().get_gateway(self.best_block(), network)?)
 	}
 
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<()> {
-		self.subxt_client.submit_task_hash(task_id, cycle, hash)
+	async fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<H256> {
+		self.subxt_client.submit_task_hash(task_id, cycle, hash).await
 	}
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		result: TaskResult,
-	) -> Result<()> {
-		self.subxt_client.submit_task_result(task_id, cycle, result)
+	) -> Result<H256> {
+		self.subxt_client.submit_task_result(task_id, cycle, result).await
 	}
 
-	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<()> {
-		self.subxt_client.submit_task_error(task_id, cycle, error)
+	async fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<H256> {
+		self.subxt_client.submit_task_error(task_id, cycle, error).await
 	}
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
-		self.subxt_client.submit_task_signature(task_id, signature)
-	}
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<H256> {
+		self.subxt_client.submit_task_signature(task_id, signature).await	}
 
 	async fn get_member_peer_id(
 		&self,
@@ -224,17 +224,17 @@ where
 		Ok(self.runtime_api().get_min_stake(self.best_block())?)
 	}
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<()> {
-		self.subxt_client.submit_register_member(network, peer_id, stake_amount)
+	) -> Result<H256> {
+		self.subxt_client.submit_register_member(network, peer_id, stake_amount).await
 	}
 
-	fn submit_heartbeat(&self) -> Result<()> {
-		self.subxt_client.submit_heartbeat()
+	async fn submit_heartbeat(&self) -> Result<H256> {
+		self.subxt_client.submit_heartbeat().await
 	}
 
 	async fn get_network(&self, network_id: NetworkId) -> Result<Option<(String, String)>> {

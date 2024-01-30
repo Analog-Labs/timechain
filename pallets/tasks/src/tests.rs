@@ -1507,13 +1507,11 @@ fn read_task_reward_goes_to_all_shard_members() {
 			mock_result_ok(shard_id, task_id, task_cycle)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
-		let mut i = 0;
-		for member in shard_size_3() {
+		for (i, member) in shard_size_3().into_iter().enumerate() {
 			assert_eq!(
 				Balances::free_balance(&member) - balances[i],
 				<Test as crate::Config>::BaseReadReward::get()
 			);
-			i += 1;
 		}
 	});
 }
@@ -1568,12 +1566,9 @@ fn write_task_reward_goes_to_submitter() {
 	let shard_id = 0;
 	let task_id = 0;
 	let task_cycle = 0;
+	let a: AccountId = [0u8; 32].into();
 	new_test_ext().execute_with(|| {
-		Shards::create_shard(
-			Network::Ethereum,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
+		Shards::create_shard(Network::Ethereum, shard_size_3().to_vec(), 1);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			mock_payable(Network::Ethereum)
@@ -1586,7 +1581,7 @@ fn write_task_reward_goes_to_submitter() {
 			balances.push(Balances::free_balance(&member));
 		}
 		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0u8; 32].into()).into(),
+			RawOrigin::Signed(a.clone()).into(),
 			task_id,
 			task_cycle,
 			mock_result_ok(shard_id, task_id, task_cycle)
@@ -1601,7 +1596,7 @@ fn write_task_reward_goes_to_submitter() {
 		// submitter shard member received BaseWriteReward for submitting the
 		// result for a write task
 		assert_eq!(
-			Balances::free_balance(&[0u8; 32].into()) - balances[0],
+			Balances::free_balance(a) - balances[0],
 			<Test as crate::Config>::BaseWriteReward::get()
 		);
 	});
@@ -1676,6 +1671,7 @@ fn send_message_reward_goes_to_all_shard_members() {
 	let shard_id = 0;
 	let task_id = 0;
 	let task_cycle = 0;
+	let a: AccountId = [0u8; 32].into();
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
 			Network::Ethereum,
@@ -1710,10 +1706,7 @@ fn send_message_reward_goes_to_all_shard_members() {
 		}
 		let send_message_and_write_reward: u128 =
 			send_message_reward.saturating_add(<Test as crate::Config>::BaseWriteReward::get());
-		assert_eq!(
-			Balances::free_balance(&[0u8; 32].into()) - balances[0],
-			send_message_and_write_reward
-		);
+		assert_eq!(Balances::free_balance(a) - balances[0], send_message_and_write_reward);
 	});
 }
 

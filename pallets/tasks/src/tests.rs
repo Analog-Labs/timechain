@@ -17,6 +17,14 @@ use time_primitives::{
 	TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
 };
 
+fn shard_size_2() -> [AccountId; 2] {
+	[[1u8; 32].into(), [2u8; 32].into()]
+}
+
+fn shard_size_3() -> [AccountId; 3] {
+	[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()]
+}
+
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }
@@ -1425,14 +1433,15 @@ fn set_read_task_reward_updates_storage_and_emits_event() {
 #[test]
 fn stop_task_returns_task_balance_to_owner() {
 	new_test_ext().execute_with(|| {
+		let a: AccountId = [0; 32].into();
 		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0; 32].into()).into(),
+			RawOrigin::Signed(a.clone()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_eq!(Balances::free_balance(&[0; 32].into()), 9999999900);
+		assert_eq!(Balances::free_balance(&a), 9999999900);
 		assert_eq!(Tasks::task_balance(0), 100);
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_eq!(Balances::free_balance(&[0; 32].into()), 10000000000);
+		assert_eq!(Balances::free_balance(&a), 10000000000);
 		assert_eq!(Tasks::task_balance(0), 0);
 	});
 }
@@ -1440,14 +1449,15 @@ fn stop_task_returns_task_balance_to_owner() {
 #[test]
 fn stop_task_enables_owner_to_drain_task_balance_at_will() {
 	new_test_ext().execute_with(|| {
+		let a: AccountId = [0; 32].into();
 		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0; 32].into()).into(),
+			RawOrigin::Signed(a.clone()).into(),
 			mock_task(Network::Ethereum, 1)
 		));
-		assert_eq!(Balances::free_balance(&[0; 32].into()), 9999999900);
+		assert_eq!(Balances::free_balance(&a), 9999999900);
 		assert_eq!(Tasks::task_balance(0), 100);
 		assert_ok!(Tasks::stop_task(RawOrigin::Signed([0; 32].into()).into(), 0));
-		assert_eq!(Balances::free_balance(&[0; 32].into()), 10000000000);
+		assert_eq!(Balances::free_balance(&a), 10000000000);
 		assert_eq!(Tasks::task_balance(0), 0);
 		System::assert_last_event(Event::<Test>::TaskStopped(0).into());
 	});
@@ -1487,7 +1497,7 @@ fn read_task_reward_goes_to_all_shard_members() {
 		Tasks::shard_online(shard_id, Network::Ethereum);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		let mut balances = vec![];
-		for member in [[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec() {
+		for member in shard_size_3() {
 			balances.push(Balances::free_balance(&member));
 		}
 		assert_ok!(Tasks::submit_result(
@@ -1498,7 +1508,7 @@ fn read_task_reward_goes_to_all_shard_members() {
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let mut i = 0;
-		for member in [[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec() {
+		for member in shard_size_3() {
 			assert_eq!(
 				Balances::free_balance(&member) - balances[i],
 				<Test as crate::Config>::BaseReadReward::get()
@@ -1572,7 +1582,7 @@ fn write_task_reward_goes_to_submitter() {
 		Tasks::shard_online(shard_id, Network::Ethereum);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		let mut balances = vec![];
-		for member in [[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec() {
+		for member in shard_size_3() {
 			balances.push(Balances::free_balance(&member));
 		}
 		assert_ok!(Tasks::submit_result(
@@ -1584,7 +1594,7 @@ fn write_task_reward_goes_to_submitter() {
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let mut i = 1;
 		// unchanged balances for non-submitter shard members
-		for member in [[1u8; 32].into(), [2u8; 32].into()].to_vec() {
+		for member in shard_size_2() {
 			assert_eq!(Balances::free_balance(&member), balances[i]);
 			i += 1;
 		}
@@ -1682,7 +1692,7 @@ fn send_message_reward_goes_to_all_shard_members() {
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
 		let mut balances = vec![];
-		for member in [[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec() {
+		for member in shard_size_3() {
 			balances.push(Balances::free_balance(&member));
 		}
 		assert_ok!(Tasks::submit_result(
@@ -1694,7 +1704,7 @@ fn send_message_reward_goes_to_all_shard_members() {
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let mut i = 1;
 		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
-		for member in [[1u8; 32].into(), [2u8; 32].into()].to_vec() {
+		for member in shard_size_2() {
 			assert_eq!(Balances::free_balance(&member) - balances[i], send_message_reward);
 			i += 1;
 		}

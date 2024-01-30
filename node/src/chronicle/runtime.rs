@@ -14,7 +14,7 @@ use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
 	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
 	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssSignature,
+	TaskResult, TasksApi, TssSignature, TaskDescriptorParams
 };
 
 
@@ -246,5 +246,20 @@ where
 
 	async fn get_network(&self, network_id: NetworkId) -> Result<Option<(String, String)>> {
 		Ok(self.runtime_api().get_network(self.best_block(), network_id)?)
+	}
+
+	async fn create_task(
+		&self,
+		task: TaskDescriptorParams,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>{
+		self.subxt_client.create_task(task).await
+	}
+
+	async fn insert_gateway(
+		&self,
+		shard_id: ShardId,
+		address: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>{
+		self.subxt_client.insert_gateway(shard_id, address).await
 	}
 }

@@ -5,7 +5,7 @@ use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::{
 	Function, TaskDescriptorParams, TaskStatus,
 };
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
-use tc_subxt::SubxtClient;
+use tc_subxt::{SubxtClient, Tx};
 use time_primitives::NetworkId;
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
@@ -78,16 +78,15 @@ pub async fn insert_task(
 	network: NetworkId,
 	function: Function,
 ) -> Result<u64> {
-	// let params = TaskDescriptorParams {
-	// 	network,
-	// 	function,
-	// 	cycle,
-	// 	start,
-	// 	period,
-	// 	timegraph: Some([0; 32]),
-	// };
-	// let payload = SubxtClient::create_task_payload(params);
-	// let events = api.sign_and_submit_watch(&payload).await?;
+	let params = TaskDescriptorParams {
+		network,
+		function,
+		cycle,
+		start,
+		period,
+		timegraph: Some([0; 32]),
+	};
+	// let tx = Tx::InsertTask { task: params };
 	// let transfer_event = events.find_first::<TaskCreated>().unwrap();
 	// let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
 	// println!("Task registered: {:?}", id);

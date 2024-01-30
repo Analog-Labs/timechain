@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
-use futures::stream::{self, BoxStream};
+use futures::stream::{self, unfold, BoxStream};
 use futures::StreamExt;
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
+use subxt::config::Header;
 use subxt::tx::{Payload, SubmittableExtrinsic, TxPayload};
 use subxt::utils::H256;
 use subxt_signer::SecretUri;
@@ -231,7 +232,30 @@ impl Runtime for SubxtClient {
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		stream::empty().boxed()
+		let api = self.client.clone();
+
+		Box::pin(unfold(api, |api| async move {
+			let block_stream = match api.blocks().subscribe_finalized().await {
+				Ok(stream) => stream,
+				Err(e) => {
+					tracing::error!("Error fetching block {:?}", e);
+					return None;
+				},
+			};
+
+			tokio::pin!(block_stream);
+			match block_stream.next().await {
+				Some(Ok(block)) => {
+					let block_hash = block.header().hash();
+					let block_number = block.header().number;
+					Some(((block_hash, block_number), api))
+				},
+				_ => {
+					tracing::error!("Failed to get more blocks");
+					None
+				},
+			}
+		}))
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {

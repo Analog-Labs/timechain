@@ -12,10 +12,11 @@ use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskResult, TssSignature,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskResult, TssSignature,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::task;
+use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 use tokio::sync::oneshot::{self, Sender};
 
 mod shards;
@@ -36,10 +37,12 @@ pub use subxt::{ext, tx, utils};
 pub use subxt::{OnlineClient, PolkadotConfig};
 pub use subxt_signer::sr25519::Keypair;
 
-enum Tx {
+pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
+	InsertTask { task: TaskDescriptorParams },
+	InsertGateway { shard_id: ShardId, address: Vec<u8> },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, cycle: TaskCycle, hash: Vec<u8> },
 	TaskResult { task_id: TaskId, cycle: TaskCycle, result: TaskResult },
@@ -135,6 +138,21 @@ impl SubxtWorker {
 				let error: task::TaskError = unsafe { std::mem::transmute(error) };
 				let tx = timechain_runtime::tx().tasks().submit_error(task_id, cycle, error);
 				self.create_signed_payload(&tx)
+			},
+			Tx::InsertTask { task } => {
+				let task_params: task::TaskDescriptorParams = unsafe { std::mem::transmute(task) };
+				let tx = timechain_runtime::tx().tasks().create_task(task_params);
+				self.create_signed_payload(&tx)
+			},
+			Tx::InsertGateway { shard_id, address } => {
+				let runtime_call = RuntimeCall::Tasks(
+					timechain_runtime::runtime_types::pallet_tasks::pallet::Call::register_gateway {
+						bootstrap: shard_id,
+						address,
+					},
+				);
+				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
+				self.create_signed_payload(&sudo_call)
 			},
 		};
 		let hash = SubmittableExtrinsic::from_bytes(self.client.clone(), tx).submit().await?;
@@ -408,6 +426,25 @@ impl Runtime for SubxtClient {
 	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskError { task_id, cycle, error }, tx))?;
+		Ok(rx.await?)
+	}
+
+	async fn create_task(
+		&self,
+		task: TaskDescriptorParams,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::InsertTask { task }, tx))?;
+		Ok(rx.await?)
+	}
+
+	async fn insert_gateway(
+		&self,
+		shard_id: ShardId,
+		address: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
 		Ok(rx.await?)
 	}
 }

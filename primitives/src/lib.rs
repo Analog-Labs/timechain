@@ -232,4 +232,15 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		cycle: TaskCycle,
 		error: TaskError,
 	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+
+	async fn create_task(
+		&self,
+		task: TaskDescriptorParams,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+
+	async fn insert_gateway(
+		&self,
+		shard_id: ShardId,
+		address: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 }

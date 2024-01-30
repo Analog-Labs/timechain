@@ -51,7 +51,6 @@ async fn main() {
 	let args = Args::parse();
 	let url = args.url;
 	let path = Path::new("/etc/alice");
-	let subxt = SubxtClient::with_keyfile(&url, path).await.unwrap();
 	let api = loop {
 		let Ok(api) = SubxtClient::with_keyfile(&url, path).await else {
 			println!("waiting for chain to start");

@@ -88,8 +88,9 @@ impl SubxtWorker {
 	pub async fn submit(
 		&mut self,
 		tx: (Tx, Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>),
-	) -> Result<H256> {
-		let tx = match tx.0 {
+	) -> Result<()> {
+		let (transaction, sender) = tx;
+		let tx = match transaction {
 			Tx::RegisterMember { network, peer_id, stake_amount } => {
 				let public_key = self.public_key();
 				let network = unsafe { std::mem::transmute(network) };
@@ -156,9 +157,14 @@ impl SubxtWorker {
 				self.create_signed_payload(&sudo_call)
 			},
 		};
-		let hash = SubmittableExtrinsic::from_bytes(self.client.clone(), tx).submit().await?;
+		let tx_progress = SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
+			.submit_and_watch()
+			.await?;
+		sender
+			.send(tx_progress)
+			.map_err(|_| anyhow::anyhow!("failed to send tx progress"))?;
 		self.nonce += 1;
-		Ok(hash)
+		Ok(())
 	}
 
 	fn into_sender(
@@ -169,7 +175,7 @@ impl SubxtWorker {
 		tokio::task::spawn(async move {
 			while let Some(tx) = rx.next().await {
 				if let Err(err) = self.submit(tx).await {
-					tracing::error!("{err}");
+					tracing::error!("Error occured while submitting transaction: {err}");
 				}
 			}
 		});
@@ -242,7 +248,6 @@ impl Runtime for SubxtClient {
 					return None;
 				},
 			};
-
 			tokio::pin!(block_stream);
 			match block_stream.next().await {
 				Some(Ok(block)) => {

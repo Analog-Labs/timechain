@@ -2,13 +2,16 @@ use std::path::Path;
 
 use crate::mock::*;
 use crate::tasks::*;
+use hex::ToHex;
 use shards as Shards;
 
 use clap::Parser;
 use rosetta_client::Blockchain;
 use tc_subxt::SubxtClient;
 use time_primitives::NetworkId;
+use time_primitives::Runtime;
 
+use sp_core::crypto::Ss58Codec;
 mod mock;
 mod shards;
 mod tasks;
@@ -57,6 +60,7 @@ async fn main() {
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 			continue;
 		};
+		println!("api key is {:?}", api.account_id().to_ss58check());
 		break api;
 	};
 

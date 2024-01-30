@@ -1,12 +1,10 @@
 use anyhow::Result;
 use sha3::{Digest, Keccak256};
 use std::collections::{BTreeMap, HashMap};
-use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::{
-	Function, TaskDescriptorParams, TaskStatus,
-};
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
-use tc_subxt::{SubxtClient, Tx};
-use time_primitives::NetworkId;
+use tc_subxt::SubxtClient;
+use time_primitives::{Function, NetworkId, Runtime, TaskDescriptorParams};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
 	let task_state = api.get_task_state(task_id).await.unwrap();
@@ -86,12 +84,11 @@ pub async fn insert_task(
 		period,
 		timegraph: Some([0; 32]),
 	};
-	// let tx = Tx::InsertTask { task: params };
-	// let transfer_event = events.find_first::<TaskCreated>().unwrap();
-	// let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
-	// println!("Task registered: {:?}", id);
-	// Ok(id)
-	Ok(1)
+	let events = api.create_task(params).await?.wait_for_finalized_success().await?;
+	let transfer_event = events.find_first::<TaskCreated>().unwrap();
+	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
+	println!("Task registered: {:?}", id);
+	Ok(id)
 }
 
 pub async fn register_gateway_address(
@@ -99,11 +96,14 @@ pub async fn register_gateway_address(
 	shard_id: u64,
 	address: &str,
 ) -> Result<()> {
-	// let payload =
-	// 	SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
-	// let events = api.sudo_sign_and_submit_watch(payload).await?;
-	// let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
-	// println!("Gateway registered with event {:?}", gateway_event);
+	let address_bytes = get_eth_address_to_bytes(address);
+	let events = api
+		.insert_gateway(shard_id, address_bytes.into())
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+	let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
+	println!("Gateway registered with event {:?}", gateway_event);
 	Ok(())
 }
 

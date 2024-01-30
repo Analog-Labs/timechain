@@ -21,6 +21,7 @@ sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "ti
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
+pallet-shards = { path = "../shards" }
 pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }

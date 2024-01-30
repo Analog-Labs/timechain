@@ -310,6 +310,10 @@ pub mod pallet {
 			ShardNetwork::<T>::get(shard_id)
 		}
 
+		fn shard_members(shard_id: ShardId) -> Vec<AccountId> {
+			ShardMembers::<T>::iter_prefix(shard_id).map(|(a, _)| a).collect::<Vec<_>>()
+		}
+
 		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);

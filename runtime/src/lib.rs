@@ -55,10 +55,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ChainId, ChainName, ChainNetwork, Commitment, MemberStatus, MemberStorage, Network,
-	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
-	TssSignature, TxError, TxResult,
+	AccountId, ChainId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus,
+	MemberStorage, Network, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
+	Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TssPublicKey, TssSignature, TxError, TxResult,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1165,12 +1165,27 @@ impl pallet_shards::Config for Runtime {
 	type DkgTimeout = ConstU32<10>;
 }
 
+parameter_types! {
+	// PalletId used for generating task accounts to fund read tasks.
+	pub const TaskPalletId: PalletId = PalletId(*b"py/tasks");
+	// Rewards decline by 1% every 20 blocks.
+	pub const RewardDeclineRate: DepreciationRate<BlockNumber> = DepreciationRate { blocks: 20, percent: Percent::from_percent(1) };
+}
+
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Shards = Shards;
+	type Currency = Balances;
+	type MinTaskBalance = ConstU128<{ 10 * DOLLARS }>;
+	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
+	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;
+	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
+	type RewardDeclineRate = RewardDeclineRate;
 	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU32<10>;
+	type ReadPhaseTimeout = ConstU32<10>;
+	type PalletId = TaskPalletId;
 }
 
 impl pallet_timegraph::Config for Runtime {

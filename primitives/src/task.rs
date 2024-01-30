@@ -5,6 +5,7 @@ use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_runtime::Percent;
 use sp_std::vec::Vec;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -70,6 +71,7 @@ pub struct TaskDescriptor {
 	pub start: u64,
 	pub period: u64,
 	pub timegraph: Option<[u8; 32]>,
+	pub shard_size: u32,
 }
 
 impl TaskDescriptor {
@@ -80,17 +82,19 @@ impl TaskDescriptor {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskDescriptorParams {
+pub struct TaskDescriptorParams<Balance> {
 	pub network: Network,
 	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
 	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
+	pub funds: Balance,
+	pub shard_size: u32,
 }
 
-impl TaskDescriptorParams {
-	pub fn new(network: Network, function: Function) -> Self {
+impl<B: Default> TaskDescriptorParams<B> {
+	pub fn new(network: Network, function: Function, shard_size: u32) -> Self {
 		Self {
 			network,
 			cycle: 1,
@@ -98,6 +102,8 @@ impl TaskDescriptorParams {
 			period: 1,
 			timegraph: None,
 			function,
+			funds: B::default(),
+			shard_size,
 		}
 	}
 }
@@ -232,4 +238,24 @@ pub fn append_hash_with_task_data(
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_cycle_bytes);
 	extended_payload
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct DepreciationRate<BlockNumber> {
+	pub blocks: BlockNumber,
+	pub percent: Percent,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+/// Struct representing a task's reward configuration
+/// Stored at task creation
+pub struct RewardConfig<Balance, BlockNumber> {
+	/// For each shard member
+	pub read_task_reward: Balance,
+	/// For the signer
+	pub write_task_reward: Balance,
+	/// For each shard member
+	pub send_message_reward: Balance,
+	/// Depreciation rate for all rewards
+	pub depreciation_rate: DepreciationRate<BlockNumber>,
 }

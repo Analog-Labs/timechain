@@ -29,7 +29,7 @@ const E: [u8; 32] = [5u8; 32];
 fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut balances = vec![];
-	for i in 1..=(SHARD_SIZE * 2) {
+	for i in 1..=(SHARD_SIZE * 3) {
 		balances.push((acc_pub(i.try_into().unwrap()).into(), 10_000_000_000));
 	}
 	pallet_balances::GenesisConfig::<Runtime> { balances }
@@ -141,6 +141,8 @@ fn write_phase_timeout_reassigns_task() {
 				start: 0,
 				period: 0,
 				timegraph: None,
+				funds: 10_000, //TODO: why does this underflow or below min error
+				shard_size: 3,
 			}
 		));
 		Shards::create_shard(Network::Ethereum, shard, 1);
@@ -204,6 +206,8 @@ fn register_unregister_preserves_task_migration() {
 				start: 0,
 				period: 0,
 				timegraph: None,
+				funds: 10_000, //TODO: why does this underflow if set to correct
+				shard_size: 3,
 			}
 		));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);

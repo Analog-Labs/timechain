@@ -1,27 +1,24 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use futures::stream::{Stream, StreamExt};
+use futures::stream::{self, Stream, StreamExt};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ApiRef, HeaderT, ProvideRuntimeApi};
-use sp_runtime::traits::Block;
 use sp_core::H256;
+use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
-use tc_subxt::{PolkadotConfig, OnlineClient, TxProgress, SubxtClient};
+use tc_subxt::{OnlineClient, PolkadotConfig, StreamOfResults, SubxtClient, TxProgress};
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
 	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssSignature, TaskDescriptorParams
+	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
+	TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxSubmitter,
 };
-
 
 pub struct Substrate<B: Block, C, R> {
 	_block: PhantomData<B>,
-	register_extensions: bool,
-	pool: OffchainTransactionPoolFactory<B>,
 	client: Arc<C>,
 	runtime: Arc<R>,
 	subxt_client: SubxtClient,
@@ -43,17 +40,9 @@ where
 		self.client.info().best_hash
 	}
 
-	pub fn new(
-		register_extensions: bool,
-		pool: OffchainTransactionPoolFactory<B>,
-		client: Arc<C>,
-		runtime: Arc<R>,
-		subxt_client: SubxtClient,
-	) -> Self {
+	pub fn new(client: Arc<C>, runtime: Arc<R>, subxt_client: SubxtClient) -> Self {
 		Self {
 			_block: PhantomData,
-			register_extensions,
-			pool,
 			client,
 			runtime,
 			subxt_client,
@@ -61,24 +50,14 @@ where
 	}
 
 	fn runtime_api(&self) -> ApiRef<'_, R::Api> {
-		let mut runtime = self.runtime.runtime_api();
-		if self.register_extensions {
-			runtime.register_extension(self.pool.offchain_transaction_pool(self.best_block()));
-		}
-		runtime
+		self.runtime.runtime_api()
 	}
-
-	/*fn submit_transaction(&self, tx: Tx) -> SubmitResult {
-		let result = self.runtime_api().submit_transaction(self.best_block(), tx);
-	}*/
 }
 
 impl<B: Block, C, R> Clone for Substrate<B, C, R> {
 	fn clone(&self) -> Self {
 		Self {
 			_block: self._block,
-			register_extensions: self.register_extensions,
-			pool: self.pool.clone(),
 			client: self.client.clone(),
 			runtime: self.runtime.clone(),
 			subxt_client: self.subxt_client.clone(),
@@ -163,10 +142,15 @@ where
 
 		proof_of_knowledge: ProofOfKnowledge,
 	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
-		self.subxt_client.submit_commitment(shard_id, commitment, proof_of_knowledge).await
+		self.subxt_client
+			.submit_commitment(shard_id, commitment, proof_of_knowledge)
+			.await
 	}
 
-	async fn submit_online(&self, shard_id: ShardId) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_online(
+		&self,
+		shard_id: ShardId,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_online(shard_id).await
 	}
 
@@ -186,15 +170,18 @@ where
 		Ok(self.runtime_api().get_task_signature(self.best_block(), task_id)?)
 	}
 
-
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
 		Ok(self.runtime_api().get_gateway(self.best_block(), network)?)
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_task_hash(task_id, cycle, hash).await
 	}
-
 
 	async fn submit_task_result(
 		&self,
@@ -206,13 +193,22 @@ where
 		self.subxt_client.submit_task_result(task_id, cycle, result).await
 	}
 
-
-	async fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_task_error(
+		&self,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		error: TaskError,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_task_error(task_id, cycle, error).await
 	}
 
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
-		self.subxt_client.submit_task_signature(task_id, signature).await	}
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+		self.subxt_client.submit_task_signature(task_id, signature).await
+	}
 
 	async fn get_member_peer_id(
 		&self,
@@ -230,7 +226,6 @@ where
 		Ok(self.runtime_api().get_min_stake(self.best_block())?)
 	}
 
-
 	async fn submit_register_member(
 		&self,
 		network: NetworkId,
@@ -240,7 +235,9 @@ where
 		self.subxt_client.submit_register_member(network, peer_id, stake_amount).await
 	}
 
-	async fn submit_heartbeat(&self) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_heartbeat(
+		&self,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.submit_heartbeat().await
 	}
 
@@ -251,7 +248,7 @@ where
 	async fn create_task(
 		&self,
 		task: TaskDescriptorParams,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>{
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.create_task(task).await
 	}
 
@@ -259,7 +256,88 @@ where
 		&self,
 		shard_id: ShardId,
 		address: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>{
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
 		self.subxt_client.insert_gateway(shard_id, address).await
+	}
+}
+
+pub struct SubstrateTxSubmitter<B: Block, C, R> {
+	_marker: PhantomData<B>,
+	client: Arc<C>,
+	pool: OffchainTransactionPoolFactory<B>,
+	runtime: Arc<R>,
+	tx_client: OnlineClient<PolkadotConfig>,
+}
+
+impl<B: Block, C, R> Clone for SubstrateTxSubmitter<B, C, R> {
+	fn clone(&self) -> Self {
+		Self {
+			_marker: self._marker,
+			client: self.client.clone(),
+			pool: self.pool.clone(),
+			runtime: self.runtime.clone(),
+			tx_client: self.tx_client.clone(),
+		}
+	}
+}
+
+impl<B, C, R> SubstrateTxSubmitter<B, C, R>
+where
+	B: Block<Hash = BlockHash>,
+	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: SubmitTransactionApi<B>,
+{
+	pub fn new(
+		pool: OffchainTransactionPoolFactory<B>,
+		client: Arc<C>,
+		runtime: Arc<R>,
+		tx_client: OnlineClient<PolkadotConfig>,
+	) -> Self {
+		Self {
+			_marker: PhantomData,
+			client,
+			pool,
+			runtime,
+			tx_client,
+		}
+	}
+
+	fn best_block(&self) -> B::Hash {
+		self.client.info().best_hash
+	}
+
+	fn runtime_api(&self) -> ApiRef<'_, R::Api> {
+		let mut runtime = self.runtime.runtime_api();
+		runtime.register_extension(self.pool.offchain_transaction_pool(self.best_block()));
+		runtime
+	}
+}
+
+#[async_trait]
+impl<B, C, R> TxSubmitter for SubstrateTxSubmitter<B, C, R>
+where
+	B: Block<Hash = BlockHash>,
+	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: SubmitTransactionApi<B>,
+{
+	async fn submit(
+		&self,
+		tx: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+		self.runtime_api()
+			.submit_transaction(self.best_block(), tx)
+			.map_err(|_| anyhow::anyhow!("Error submitting transaction to runtime"))?
+			.map_err(|_| anyhow::anyhow!("Error submitting transaction onchain"))?;
+		let dummy_hash = H256::repeat_byte(0x01);
+		let dummy_stream = stream::iter(vec![]);
+		let empty_progress: TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>> =
+			TxProgress::new(
+				StreamOfResults::new(Box::pin(dummy_stream)),
+				self.tx_client.clone(),
+				dummy_hash,
+			);
+		Ok(empty_progress)
 	}
 }

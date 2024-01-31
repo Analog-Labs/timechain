@@ -55,13 +55,14 @@ async fn main() {
 	let url = args.url;
 	let path = Path::new("/etc/alice");
 	let api = loop {
-		let Ok(api) = SubxtClient::with_keyfile(&url, path).await else {
-			println!("waiting for chain to start");
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-			continue;
-		};
-		println!("api key is {:?}", api.account_id().to_ss58check());
-		break api;
+		todo!()
+		// let Ok(api) = SubxtClient::with_keyfile(&url, path).await else {
+		// 	println!("waiting for chain to start");
+		// 	tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+		// 	continue;
+		// };
+		// println!("api key is {:?}", api.account_id().to_ss58check());
+		// break api;
 	};
 
 	let eth_config = WalletConfig {

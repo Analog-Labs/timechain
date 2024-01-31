@@ -13,7 +13,7 @@ use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskCycle, TaskDescriptor,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskResult, TssSignature,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskResult, TssSignature, TxSubmitter,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::task;
@@ -29,7 +29,10 @@ mod tasks;
 )]
 pub mod timechain_runtime {}
 
-pub use subxt::backend::rpc::{rpc_params, RpcParams};
+pub use subxt::backend::{
+	rpc::{rpc_params, RpcParams},
+	StreamOfResults,
+};
 pub use subxt::config::{Config, ExtrinsicParams};
 pub use subxt::tx::PartialExtrinsic;
 pub use subxt::tx::TxProgress;
@@ -51,17 +54,27 @@ pub enum Tx {
 	TaskSignature { task_id: TaskId, signature: TssSignature },
 }
 
-struct SubxtWorker {
+struct SubxtWorker<T: TxSubmitter> {
 	client: OnlineClient<PolkadotConfig>,
 	keypair: Keypair,
 	nonce: u64,
+	tx_submitter: T,
 }
 
-impl SubxtWorker {
-	pub async fn new(client: OnlineClient<PolkadotConfig>, keypair: Keypair) -> Result<Self> {
+impl<T: TxSubmitter> SubxtWorker<T> {
+	pub async fn new(
+		client: OnlineClient<PolkadotConfig>,
+		keypair: Keypair,
+		tx_submitter: T,
+	) -> Result<Self> {
 		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
 		let nonce = client.tx().account_nonce(&account_id).await?;
-		Ok(Self { client, keypair, nonce })
+		Ok(Self {
+			client,
+			keypair,
+			nonce,
+			tx_submitter,
+		})
 	}
 
 	fn public_key(&self) -> PublicKey {
@@ -157,9 +170,7 @@ impl SubxtWorker {
 				self.create_signed_payload(&sudo_call)
 			},
 		};
-		let tx_progress = SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
-			.submit_and_watch()
-			.await?;
+		let tx_progress = self.tx_submitter.submit(tx).await?;
 		sender
 			.send(tx_progress)
 			.map_err(|_| anyhow::anyhow!("failed to send tx progress"))?;
@@ -185,7 +196,7 @@ impl SubxtWorker {
 
 #[derive(Clone)]
 pub struct SubxtClient {
-	client: OnlineClient<PolkadotConfig>,
+	pub client: OnlineClient<PolkadotConfig>,
 	tx: mpsc::UnboundedSender<(
 		Tx,
 		Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
@@ -195,10 +206,9 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	pub async fn new(url: &str, keypair: Keypair) -> Result<Self> {
-		let rpc_client = RpcClient::from_url(url).await?;
-		let client = OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone()).await?;
-		let worker = SubxtWorker::new(client.clone(), keypair).await?;
+	pub async fn new<T: TxSubmitter>(url: &str, keypair: Keypair, tx_submitter: T) -> Result<Self> {
+		let client = Self::get_client(url).await?;
+		let worker = SubxtWorker::new(client.clone(), keypair, tx_submitter).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		let tx = worker.into_sender();
@@ -210,13 +220,24 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn with_keyfile(url: &str, keyfile: &Path) -> Result<Self> {
+	pub async fn with_keyfile<T: TxSubmitter>(
+		url: &str,
+		keyfile: &Path,
+		tx_submitter: T,
+	) -> Result<Self> {
 		let content =
 			std::fs::read_to_string(keyfile).context("failed to read substrate keyfile")?;
 		let secret = SecretUri::from_str(&content).context("failed to parse substrate keyfile")?;
 		let keypair =
 			Keypair::from_uri(&secret).context("substrate keyfile contains invalid suri")?;
-		Self::new(url, keypair).await
+		Self::new(url, keypair, tx_submitter).await
+	}
+
+	pub async fn get_client(url: &str) -> Result<OnlineClient<PolkadotConfig>> {
+		let rpc_client = RpcClient::from_url(url).await?;
+		OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone())
+			.await
+			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))
 	}
 }
 
@@ -475,5 +496,31 @@ impl Runtime for SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
 		Ok(rx.await?)
+	}
+}
+
+#[derive(Clone)]
+pub struct SubxtTxSubmitter {
+	client: OnlineClient<PolkadotConfig>,
+}
+
+impl SubxtTxSubmitter {
+	pub async fn try_new(url: &str) -> Result<Self> {
+		Ok(Self {
+			client: SubxtClient::get_client(url).await?,
+		})
+	}
+}
+
+#[async_trait]
+impl TxSubmitter for SubxtTxSubmitter {
+	async fn submit(
+		&self,
+		tx: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+		Ok(SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
+			.submit_and_watch()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to Submit Tx {:?}", e))?)
 	}
 }

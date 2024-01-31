@@ -246,3 +246,12 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		address: Vec<u8>,
 	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
 }
+
+#[cfg(feature = "std")]
+#[async_trait]
+pub trait TxSubmitter: Clone + Send + Sync + 'static {
+	async fn submit(
+		&self,
+		tx: Vec<u8>,
+	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+}

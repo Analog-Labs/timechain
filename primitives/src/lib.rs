@@ -3,17 +3,10 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
-use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_api::ApiError;
-use sp_core::H256;
 use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
-#[cfg(feature = "std")]
-use subxt::{tx::TxProgress, OnlineClient, PolkadotConfig};
 
 mod member;
 mod network;
@@ -50,18 +43,6 @@ pub mod crypto {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub enum TxError {
-	MissingSigningKey,
-	TxPoolError,
-}
-
-pub type TxResult = Result<(), TxError>;
-#[cfg(feature = "std")]
-pub type SubmitResult = Result<TxResult, ApiError>;
-#[cfg(feature = "std")]
-pub type ApiResult<T> = Result<T, ApiError>;
-
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
@@ -94,10 +75,6 @@ sp_api::decl_runtime_apis! {
 
 	pub trait BlockTimeApi{
 		fn get_block_time_in_msec() -> u64;
-	}
-
-	pub trait SubmitTransactionApi{
-		fn submit_transaction(encoded_tx: Vec<u8>) -> TxResult;
 	}
 }
 
@@ -191,67 +168,39 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	) -> Result<()>;
 
-	async fn submit_heartbeat(
-		&self,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	async fn submit_heartbeat(&self) -> Result<()>;
 
 	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	) -> Result<()>;
 
-	async fn submit_online(
-		&self,
-		shard_id: ShardId,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
 
 	async fn submit_task_hash(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		hash: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	) -> Result<()>;
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
+
 	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		status: TaskResult,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	) -> Result<()>;
 
 	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
-
-	async fn create_task(
-		&self,
-		task: TaskDescriptorParams,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
-
-	async fn insert_gateway(
-		&self,
-		shard_id: ShardId,
-		address: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
-}
-
-#[cfg(feature = "std")]
-#[async_trait]
-pub trait TxSubmitter: Clone + Send + Sync + 'static {
-	async fn submit(
-		&self,
-		tx: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>;
+	) -> Result<()>;
 }

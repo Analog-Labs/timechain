@@ -1,19 +1,18 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
-use futures::stream::{self, unfold, BoxStream};
+use futures::stream::{unfold, BoxStream};
 use futures::StreamExt;
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
 use subxt::config::Header;
-use subxt::tx::{Payload, SubmittableExtrinsic, TxPayload};
-use subxt::utils::H256;
+use subxt::tx::{SubmittableExtrinsic, TxPayload};
 use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskCycle, TaskDescriptor,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskResult, TssSignature, TxSubmitter,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskResult, TssSignature,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::task;
@@ -35,11 +34,17 @@ pub use subxt::backend::{
 };
 pub use subxt::config::{Config, ExtrinsicParams};
 pub use subxt::tx::PartialExtrinsic;
-pub use subxt::tx::TxProgress;
 pub use subxt::utils::AccountId32;
 pub use subxt::{ext, tx, utils};
 pub use subxt::{OnlineClient, PolkadotConfig};
 pub use subxt_signer::sr25519::Keypair;
+
+pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>;
+
+#[async_trait]
+pub trait TxSubmitter: Clone + Send + Sync + 'static {
+	async fn submit(&self, tx: Vec<u8>) -> Result<TxProgress>;
+}
 
 pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
@@ -98,10 +103,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 			.into_encoded()
 	}
 
-	pub async fn submit(
-		&mut self,
-		tx: (Tx, Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>),
-	) -> Result<()> {
+	pub async fn submit(&mut self, tx: (Tx, Sender<TxProgress>)) -> Result<()> {
 		let (transaction, sender) = tx;
 		let tx = match transaction {
 			Tx::RegisterMember { network, peer_id, stake_amount } => {
@@ -178,10 +180,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 		Ok(())
 	}
 
-	fn into_sender(
-		mut self,
-	) -> mpsc::UnboundedSender<(Tx, Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>)>
-	{
+	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxProgress>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			while let Some(tx) = rx.next().await {
@@ -196,11 +195,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 
 #[derive(Clone)]
 pub struct SubxtClient {
-	pub client: OnlineClient<PolkadotConfig>,
-	tx: mpsc::UnboundedSender<(
-		Tx,
-		Sender<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
-	)>,
+	client: OnlineClient<PolkadotConfig>,
+	tx: mpsc::UnboundedSender<(Tx, Sender<TxProgress>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
@@ -238,6 +234,18 @@ impl SubxtClient {
 		OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone())
 			.await
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))
+	}
+
+	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxProgress> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::InsertTask { task }, tx))?;
+		Ok(rx.await?)
+	}
+
+	pub async fn insert_gateway(&self, shard_id: ShardId, address: Vec<u8>) -> Result<TxProgress> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
+		Ok(rx.await?)
 	}
 }
 
@@ -394,19 +402,19 @@ impl Runtime for SubxtClient {
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::RegisterMember { network, peer_id, stake_amount }, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
-	async fn submit_heartbeat(
-		&self,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_heartbeat(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
 	async fn submit_commitment(
@@ -414,7 +422,7 @@ impl Runtime for SubxtClient {
 		shard_id: ShardId,
 		commitment: Commitment,
 		proof_of_knowledge: [u8; 65],
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
 			Tx::Commitment {
@@ -424,26 +432,22 @@ impl Runtime for SubxtClient {
 			},
 			tx,
 		))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
-	async fn submit_online(
-		&self,
-		shard_id: ShardId,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_online(&self, shard_id: ShardId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Ready { shard_id }, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskSignature { task_id, signature }, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
 	async fn submit_task_hash(
@@ -451,10 +455,11 @@ impl Runtime for SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		hash: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskHash { task_id, cycle, hash }, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
 	async fn submit_task_result(
@@ -462,10 +467,11 @@ impl Runtime for SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		result: TaskResult,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskResult { task_id, cycle, result }, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 
 	async fn submit_task_error(
@@ -473,29 +479,11 @@ impl Runtime for SubxtClient {
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskError { task_id, cycle, error }, tx))?;
-		Ok(rx.await?)
-	}
-
-	async fn create_task(
-		&self,
-		task: TaskDescriptorParams,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
-		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::InsertTask { task }, tx))?;
-		Ok(rx.await?)
-	}
-
-	async fn insert_gateway(
-		&self,
-		shard_id: ShardId,
-		address: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
-		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
-		Ok(rx.await?)
+		rx.await?;
+		Ok(())
 	}
 }
 
@@ -514,10 +502,7 @@ impl SubxtTxSubmitter {
 
 #[async_trait]
 impl TxSubmitter for SubxtTxSubmitter {
-	async fn submit(
-		&self,
-		tx: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit(&self, tx: Vec<u8>) -> Result<TxProgress> {
 		Ok(SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
 			.submit_and_watch()
 			.await

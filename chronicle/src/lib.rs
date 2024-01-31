@@ -6,6 +6,7 @@ use futures::channel::mpsc;
 use futures::stream::BoxStream;
 use std::path::PathBuf;
 use std::sync::Arc;
+use time_primitives::TssSigningRequest;
 use time_primitives::{NetworkId, Runtime};
 use tracing::{event, span, Level};
 
@@ -49,15 +50,6 @@ pub async fn run_chronicle(
 	net_request: BoxStream<'static, (PeerId, Message)>,
 	substrate: impl Runtime,
 ) -> Result<()> {
-	let peer_id = network.peer_id();
-	let span = span!(
-		target: TW_LOG,
-		Level::INFO,
-		"run_chronicle",
-		?peer_id,
-	);
-	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
-
 	let (chain, subchain) = substrate
 		.get_network(config.network_id)
 		.await?
@@ -80,7 +72,6 @@ pub async fn run_chronicle(
 			Err(error) => {
 				event!(
 					target: TW_LOG,
-					parent: &span,
 					Level::INFO,
 					"Initializing wallet returned an error {:?}, retrying in one second",
 					error
@@ -89,21 +80,46 @@ pub async fn run_chronicle(
 			},
 		}
 	};
+	run_chronicle_with_spawner(
+		config.network_id,
+		network,
+		net_request,
+		task_spawner,
+		tss_rx,
+		substrate,
+	)
+	.await
+}
+
+async fn run_chronicle_with_spawner(
+	network_id: NetworkId,
+	network: Arc<dyn Network>,
+	net_request: BoxStream<'static, (PeerId, Message)>,
+	task_spawner: impl crate::tasks::TaskSpawner,
+	tss_request: mpsc::Receiver<TssSigningRequest>,
+	substrate: impl Runtime,
+) -> Result<()> {
+	let peer_id = network.peer_id();
+	let span = span!(
+		target: TW_LOG,
+		Level::INFO,
+		"run_chronicle",
+		?peer_id,
+	);
+	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		network: config.network_id,
+		network: network_id,
 		task_spawner,
 		substrate: substrate.clone(),
 	});
-
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,
 		task_executor,
 		substrate,
-		tss_request: tss_rx,
+		tss_request,
 		net_request,
 	});
-
 	time_worker.run(&span).await;
 	Ok(())
 }
@@ -112,31 +128,68 @@ pub async fn run_chronicle(
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
+	use std::time::Duration;
+	use time_primitives::{Function, ShardStatus, TaskDescriptor, TaskStatus};
 
-	pub struct MockChronicle {}
-
-	impl MockChronicle {
-		pub async fn new(network_id: NetworkId) -> Self {
-			let config = ChronicleConfig {
-				network_id,
-				url: None,
-				bind_port: None,
-				pkarr_relay: None,
-				timechain_keyfile: self.timechain_keyfile,
-				network_keyfile: None,
-				timegraph_url: None,
-				timegraph_ssk: None,
-			};
-			let (network, network_requests) =
-				chronicle::create_iroh_network(config.network_config()).await?;
-			let subxt =
-				SubxtClient::with_keyfile("ws://127.0.0.1:9944", &config.timechain_keyfile).await?;
-			chronicle::run_chronicle(config, network, network_requests, subxt).await
-		}
+	async fn chronicle(mock: Mock, network_id: NetworkId) {
+		let (network, network_requests) =
+			create_iroh_network(NetworkConfig { secret: None, bind_port: None })
+				.await
+				.unwrap();
+		run_chronicle_with_spawner(
+			network_id,
+			network,
+			network_requests,
+			mock.clone(),
+			tss_requests,
+			mock.clone(),
+		)
+		.await
+		.unwrap();
 	}
 
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
+		let mock = Mock::new();
+		let network_id = mock.create_network("ethereum".into(), "dev".into());
+		for i in 0..3 {
+			tokio::spawn(chronicle(mock.clone(), network_id));
+		}
+		loop {
+			tracing::info!("waiting for shard");
+			if mock.get_shard_status(Default::default(), shard_id).await.unwrap()
+				== ShardStatus::Online
+			{
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			break;
+		}
+		let task_id = mock.create_task(TaskDescriptor {
+			owner: Some(mock.account_id().clone()),
+			network: network_id,
+			cycle: 1,
+			function: Function::SendMessage {
+				address: Default::default(),
+				gas_limit: Default::default(),
+				salt: Default::default(),
+				payload: Default::default(),
+			},
+			period: 0,
+			start: 0,
+			timegraph: None,
+		});
+		mock.assign_task(task_id, shard_id);
+		loop {
+			tracing::info!("waiting for task");
+			let task = mock.task(task_id).unwrap();
+			if task.status != TaskStatus::Completed {
+				tracing::info!("task phase {:?}", task.phase);
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			break;
+		}
 		Ok(())
 	}
 }

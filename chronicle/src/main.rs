@@ -59,8 +59,9 @@ async fn main() -> Result<()> {
 	let config = ChronicleArgs::parse().config();
 	let (network, network_requests) =
 		chronicle::create_iroh_network(config.network_config()).await?;
-	let url = "ws://127.0.0.1:9944";
-	let tx_submitter = SubxtTxSubmitter::try_new(url).await?;
-	let subxt = SubxtClient::with_keyfile(url, &config.timechain_keyfile, tx_submitter).await?;
+	let tx_submitter = SubxtTxSubmitter::try_new(&config.timechain_url).await?;
+	let subxt =
+		SubxtClient::with_keyfile(&config.timechain_url, &config.timechain_keyfile, tx_submitter)
+			.await?;
 	chronicle::run_chronicle(config, network, network_requests, subxt).await
 }

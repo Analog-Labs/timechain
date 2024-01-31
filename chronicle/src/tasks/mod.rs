@@ -9,9 +9,6 @@ use time_primitives::{
 pub mod executor;
 pub mod spawner;
 
-#[cfg(test)]
-mod tests;
-
 pub trait TaskSpawner {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 
@@ -40,8 +37,8 @@ pub trait TaskSpawner {
 
 	fn execute_write(
 		&self,
-		shard_id: ShardId,
 		task_id: TaskId,
+		cycle: TaskCycle,
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }

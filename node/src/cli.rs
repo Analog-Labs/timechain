@@ -23,42 +23,33 @@ pub struct RunCmd {
 /// workaround for https://github.com/clap-rs/clap/issues/5092
 #[group(requires_all = ["network_id", "url"], multiple = true)]
 pub struct ChronicleArgs {
-	/// workaround for https://github.com/clap-rs/clap/issues/5092
-	#[arg(required = false)]
 	/// The network to be used from Analog Connector.
 	#[clap(long)]
 	pub network_id: NetworkId,
-	/// workaround for https://github.com/clap-rs/clap/issues/5092
-	#[arg(required = false)]
+	/// The secret to use for p2p networking.
+	#[clap(long)]
+	pub network_keyfile: Option<PathBuf>,
+	/// The port to bind to for p2p networking.
+	#[clap(long)]
+	pub bind_port: Option<u16>,
+	/// Enables iroh networking.
+	#[clap(long)]
+	pub enable_iroh: bool,
 	/// The address of Analog Connector.
 	#[clap(long)]
-	pub url: String,
-	/// workaround for https://github.com/clap-rs/clap/issues/5092
-	#[arg(required = false)]
+	pub target_url: String,
+	/// key file for connector wallet
+	#[clap(long)]
+	pub target_keyfile: PathBuf,
 	/// keyfile having an account with funds for timechain.
 	#[clap(long)]
 	pub timechain_keyfile: PathBuf,
-	/// key file for connector wallet
-	#[clap(long)]
-	pub keyfile: Option<PathBuf>,
 	/// The timegraph url (or TIMEGTAPH_URL environment variable).
 	#[clap(long)]
 	pub timegraph_url: Option<String>,
 	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
 	#[clap(long)]
 	pub timegraph_ssk: Option<String>,
-	/// The secret to use for p2p networking.
-	#[clap(long)]
-	pub secret: Option<PathBuf>,
-	/// The port to bind to for p2p networking.
-	#[clap(long)]
-	pub bind_port: Option<u16>,
-	/// The pkarr relay for looking up nodes.
-	#[clap(long)]
-	pub pkarr_relay: Option<String>,
-	/// Enables iroh networking.
-	#[clap(long)]
-	pub enable_iroh: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]

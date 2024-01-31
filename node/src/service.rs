@@ -350,14 +350,14 @@ pub fn new_full(
 			if let Some(args) = args {
 				let config = chronicle::ChronicleConfig {
 					network_id: args.network_id,
-					url: args.url,
+					network_port: args.bind_port,
+					network_keyfile: args.network_keyfile,
+					timechain_url: "ws://127.0.0.1:9944".into(),
 					timechain_keyfile: args.timechain_keyfile,
-					keyfile: args.keyfile,
+					target_url: args.target_url,
+					target_keyfile: args.target_keyfile,
 					timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
 					timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
-					secret: args.secret,
-					bind_port: args.bind_port,
-					pkarr_relay: args.pkarr_relay,
 				};
 				let network = if args.enable_iroh { None } else { Some((network, protocol_rx)) };
 				let params = crate::chronicle::ChronicleParams {

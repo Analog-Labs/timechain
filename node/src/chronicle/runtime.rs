@@ -9,12 +9,14 @@ use sp_runtime::traits::Block;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
-use tc_subxt::{OnlineClient, PolkadotConfig, StreamOfResults, SubxtClient, TxProgress};
+use tc_subxt::{
+	OnlineClient, PolkadotConfig, StreamOfResults, SubxtClient, TxProgress, TxSubmitter,
+};
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
 	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-	TaskExecution, TaskId, TaskResult, TasksApi, TssSignature, TxSubmitter,
+	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
+	TaskResult, TasksApi, TssSignature,
 };
 
 pub struct Substrate<B: Block, C, R> {
@@ -141,16 +143,13 @@ where
 		commitment: Commitment,
 
 		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		self.subxt_client
 			.submit_commitment(shard_id, commitment, proof_of_knowledge)
 			.await
 	}
 
-	async fn submit_online(
-		&self,
-		shard_id: ShardId,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_online(&self, shard_id: ShardId) -> Result<()> {
 		self.subxt_client.submit_online(shard_id).await
 	}
 
@@ -179,7 +178,7 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		hash: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		self.subxt_client.submit_task_hash(task_id, cycle, hash).await
 	}
 
@@ -189,7 +188,7 @@ where
 		cycle: TaskCycle,
 
 		result: TaskResult,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		self.subxt_client.submit_task_result(task_id, cycle, result).await
 	}
 
@@ -198,15 +197,11 @@ where
 		task_id: TaskId,
 		cycle: TaskCycle,
 		error: TaskError,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		self.subxt_client.submit_task_error(task_id, cycle, error).await
 	}
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
 		self.subxt_client.submit_task_signature(task_id, signature).await
 	}
 
@@ -231,33 +226,16 @@ where
 		network: NetworkId,
 		peer_id: PeerId,
 		stake_amount: u128,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	) -> Result<()> {
 		self.subxt_client.submit_register_member(network, peer_id, stake_amount).await
 	}
 
-	async fn submit_heartbeat(
-		&self,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit_heartbeat(&self) -> Result<()> {
 		self.subxt_client.submit_heartbeat().await
 	}
 
 	async fn get_network(&self, network_id: NetworkId) -> Result<Option<(String, String)>> {
 		Ok(self.runtime_api().get_network(self.best_block(), network_id)?)
-	}
-
-	async fn create_task(
-		&self,
-		task: TaskDescriptorParams,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
-		self.subxt_client.create_task(task).await
-	}
-
-	async fn insert_gateway(
-		&self,
-		shard_id: ShardId,
-		address: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
-		self.subxt_client.insert_gateway(shard_id, address).await
 	}
 }
 
@@ -322,22 +300,18 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: SubmitTransactionApi<B>,
 {
-	async fn submit(
-		&self,
-		tx: Vec<u8>,
-	) -> Result<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>> {
+	async fn submit(&self, tx: Vec<u8>) -> Result<TxProgress> {
 		self.runtime_api()
 			.submit_transaction(self.best_block(), tx)
 			.map_err(|_| anyhow::anyhow!("Error submitting transaction to runtime"))?
 			.map_err(|_| anyhow::anyhow!("Error submitting transaction onchain"))?;
 		let dummy_hash = H256::repeat_byte(0x01);
 		let dummy_stream = stream::iter(vec![]);
-		let empty_progress: TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>> =
-			TxProgress::new(
-				StreamOfResults::new(Box::pin(dummy_stream)),
-				self.tx_client.clone(),
-				dummy_hash,
-			);
+		let empty_progress = TxProgress::new(
+			StreamOfResults::new(Box::pin(dummy_stream)),
+			self.tx_client.clone(),
+			dummy_hash,
+		);
 		Ok(empty_progress)
 	}
 }

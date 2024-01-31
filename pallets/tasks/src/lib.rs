@@ -6,6 +6,8 @@ pub use pallet::*;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod rewards;
+#[cfg(test)]
 mod tests;
 
 #[frame_support::pallet]

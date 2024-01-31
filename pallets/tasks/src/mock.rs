@@ -1,6 +1,6 @@
 use crate::{self as task_schedule};
 use frame_support::PalletId;
-use schnorr_evm::SigningKey;
+use schnorr_evm::{SigningKey, VerifyingKey};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
@@ -9,7 +9,10 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 use time_primitives::{
-	DepreciationRate, ElectionsInterface, MemberStorage, Network, PeerId, PublicKey,
+	append_hash_with_task_data, DepreciationRate, ElectionsInterface, Function, MemberStorage,
+	Network, PeerId, PublicKey, RewardConfig, ShardId, ShardStatus, ShardsInterface, TaskCycle,
+	TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TaskStatus, TasksInterface,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -194,4 +197,91 @@ impl MockTssSigner {
 	pub fn sign(&self, data: [u8; 32]) -> schnorr_evm::Signature {
 		self.signing_key.sign_prehashed(data)
 	}
+}
+
+pub fn shard_size_2() -> [AccountId; 2] {
+	[[1u8; 32].into(), [2u8; 32].into()]
+}
+
+pub fn shard_size_3() -> [AccountId; 3] {
+	[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()]
+}
+
+pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+}
+
+pub const A: [u8; 32] = [1u8; 32];
+
+pub fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
+	TaskDescriptorParams {
+		network,
+		cycle,
+		start: 0,
+		period: 1,
+		timegraph: None,
+		function: Function::EvmViewCall {
+			address: Default::default(),
+			input: Default::default(),
+		},
+		funds: 100,
+		shard_size: 3,
+	}
+}
+
+pub fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
+	TaskDescriptorParams {
+		network,
+		cycle,
+		start: 0,
+		period: 1,
+		timegraph: None,
+		function: Function::SendMessage {
+			address: Default::default(),
+			gas_limit: Default::default(),
+			salt: Default::default(),
+			payload: Default::default(),
+		},
+		funds: 100,
+		shard_size: 3,
+	}
+}
+
+pub fn mock_payable(network: Network) -> TaskDescriptorParams<u128> {
+	TaskDescriptorParams {
+		network,
+		cycle: 1,
+		start: 0,
+		period: 0,
+		timegraph: None,
+		function: Function::EvmCall {
+			address: Default::default(),
+			input: Default::default(),
+			amount: 0,
+		},
+		funds: 100,
+		shard_size: 3,
+	}
+}
+
+pub fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskResult {
+	// these values are taken after running a valid instance of submitting result
+	let hash = [
+		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
+		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+	];
+	let appended_hash = append_hash_with_task_data(hash, task_id, task_cycle);
+	let final_hash = VerifyingKey::message_hash(&appended_hash);
+	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
+	TaskResult { shard_id, hash, signature }
+}
+
+pub fn mock_error_result(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskError {
+	// these values are taken after running a valid instance of submitting error
+	let msg: String = "Invalid input length".into();
+	let msg_hash = VerifyingKey::message_hash(&msg.clone().into_bytes());
+	let hash = append_hash_with_task_data(msg_hash, task_id, task_cycle);
+	let final_hash = VerifyingKey::message_hash(&hash);
+	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
+	TaskError { shard_id, msg, signature }
 }

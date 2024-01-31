@@ -333,11 +333,11 @@ where
 
 	fn execute_write(
 		&self,
-		shard_id: ShardId,
 		task_id: TaskId,
+		cycle: TaskCycle,
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().write(shard_id, task_id, function).boxed()
+		self.clone().write(task_id, cycle, function).boxed()
 	}
 }
 

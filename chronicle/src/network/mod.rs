@@ -21,7 +21,6 @@ pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 #[derive(Default)]
 pub struct NetworkConfig {
 	pub secret: Option<PathBuf>,
-	pub relay: Option<String>,
 	pub bind_port: Option<u16>,
 }
 

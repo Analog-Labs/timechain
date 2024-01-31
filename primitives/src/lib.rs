@@ -25,6 +25,7 @@ pub use crate::network::*;
 pub use crate::shard::*;
 pub use crate::task::*;
 pub use sp_core;
+pub use sp_runtime;
 
 /// Time key type
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =

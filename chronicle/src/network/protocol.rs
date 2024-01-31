@@ -57,11 +57,7 @@ impl TssEndpoint {
 		if let Some(port) = config.bind_port {
 			builder.port(port);
 		}
-		if let Some(relay) = config.relay {
-			builder.relay(relay.parse()?);
-		} else {
-			builder.enable_dht();
-		};
+		builder.enable_dht();
 		builder.handler(handler);
 		let endpoint = builder.build().await?;
 		Ok(Self { endpoint })

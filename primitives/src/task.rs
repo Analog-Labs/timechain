@@ -1,4 +1,4 @@
-use crate::{AccountId, Network, PublicKey, ShardId, TssSignature};
+use crate::{AccountId, Balance, Network, PublicKey, ShardId, TssSignature};
 #[cfg(feature = "std")]
 use crate::{ApiResult, BlockHash, SubmitResult};
 use codec::{Decode, Encode};
@@ -82,7 +82,7 @@ impl TaskDescriptor {
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskDescriptorParams<Balance> {
+pub struct TaskDescriptorParams {
 	pub network: Network,
 	pub cycle: TaskCycle,
 	pub start: u64,
@@ -93,7 +93,7 @@ pub struct TaskDescriptorParams<Balance> {
 	pub shard_size: u32,
 }
 
-impl<B: Default> TaskDescriptorParams<B> {
+impl TaskDescriptorParams {
 	pub fn new(network: Network, function: Function, shard_size: u32) -> Self {
 		Self {
 			network,
@@ -102,7 +102,7 @@ impl<B: Default> TaskDescriptorParams<B> {
 			period: 1,
 			timegraph: None,
 			function,
-			funds: B::default(),
+			funds: 0,
 			shard_size,
 		}
 	}

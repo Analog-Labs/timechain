@@ -23,6 +23,7 @@ pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
 
 pub type AccountId = AccountId32;
+pub type Balance = u128;
 pub type PublicKey = MultiSigner;
 pub type Signature = MultiSignature;
 pub type BlockNumber = u32;

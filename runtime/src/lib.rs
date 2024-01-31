@@ -57,8 +57,7 @@ use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, ChainName, ChainNetwork, Commitment, MemberStatus, MemberStorage, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle, TaskDescriptor,
-	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, TxError,
-	TxResult,
+	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1557,12 +1556,6 @@ impl_runtime_apis! {
 	impl time_primitives::BlockTimeApi<Block> for Runtime {
 		fn get_block_time_in_msec() -> u64{
 			MILLISECS_PER_BLOCK
-		}
-	}
-
-	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
-		fn submit_transaction(encoded_transaction: Vec<u8>) -> TxResult {
-			sp_io::offchain::submit_transaction(encoded_transaction).map_err(|_| TxError::TxPoolError)
 		}
 	}
 

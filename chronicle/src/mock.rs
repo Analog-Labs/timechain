@@ -138,6 +138,11 @@ impl Mock {
 		assigned_tasks.insert(task_id, shard_id);
 	}
 
+	pub fn shard(&self, shard_id: ShardId) -> Option<MockShard> {
+		let shards = self.shards.lock().unwrap();
+		shards.get(&shard_id).cloned()
+	}
+
 	pub fn task(&self, task_id: TaskId) -> Option<MockTask> {
 		let tasks = self.tasks.lock().unwrap();
 		tasks.get(&task_id).cloned()
@@ -282,7 +287,7 @@ impl Runtime for Mock {
 		Ok(Some([0; 20].into()))
 	}
 
-	fn submit_register_member(
+	async fn submit_register_member(
 		&self,
 		_network: NetworkId,
 		_peer_id: PeerId,
@@ -291,11 +296,11 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	fn submit_heartbeat(&self) -> Result<()> {
+	async fn submit_heartbeat(&self) -> Result<()> {
 		Ok(())
 	}
 
-	fn submit_commitment(
+	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
 		commitment: Commitment,
@@ -306,19 +311,24 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	fn submit_online(&self, shard_id: ShardId) -> Result<()> {
+	async fn submit_online(&self, shard_id: ShardId) -> Result<()> {
 		let mut shards = self.shards.lock().unwrap();
 		shards.get_mut(&shard_id).unwrap().online += 1;
 		Ok(())
 	}
 
-	fn submit_task_hash(&self, task_id: TaskId, _cycle: TaskCycle, hash: Vec<u8>) -> Result<()> {
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		_cycle: TaskCycle,
+		hash: Vec<u8>,
+	) -> Result<()> {
 		let mut tasks = self.tasks.lock().unwrap();
 		tasks.get_mut(&task_id).unwrap().phase = TaskPhase::Read(Some(hash.try_into().unwrap()));
 		Ok(())
 	}
 
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
 		let mut tasks = self.tasks.lock().unwrap();
 		let task = tasks.get_mut(&task_id).unwrap();
 		task.signature = Some(signature);
@@ -326,7 +336,7 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	fn submit_task_result(
+	async fn submit_task_result(
 		&self,
 		task_id: TaskId,
 		_cycle: TaskCycle,
@@ -339,7 +349,7 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	fn submit_task_error(
+	async fn submit_task_error(
 		&self,
 		task_id: TaskId,
 		_cycle: TaskCycle,
@@ -370,7 +380,7 @@ impl TaskSpawner for Mock {
 		_hash: Option<[u8; 32]>,
 		_block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		future::ready(self.submit_task_result(
+		self.submit_task_result(
 			task_id,
 			cycle,
 			TaskResult {
@@ -378,7 +388,7 @@ impl TaskSpawner for Mock {
 				hash: [0; 32],
 				signature: [0; 64],
 			},
-		))
+		)
 		.boxed()
 	}
 
@@ -390,7 +400,7 @@ impl TaskSpawner for Mock {
 		_: Vec<u8>,
 		_: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		future::ready(self.submit_task_signature(task_id, [0; 64])).boxed()
+		self.submit_task_signature(task_id, [0; 64]).boxed()
 	}
 
 	fn execute_write(
@@ -399,6 +409,6 @@ impl TaskSpawner for Mock {
 		cycle: TaskCycle,
 		_: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		future::ready(self.submit_task_hash(task_id, cycle, [0; 32].into())).boxed()
+		self.submit_task_hash(task_id, cycle, [0; 32].into()).boxed()
 	}
 }

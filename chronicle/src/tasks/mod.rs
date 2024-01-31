@@ -9,7 +9,7 @@ use time_primitives::{
 pub mod executor;
 pub mod spawner;
 
-pub trait TaskSpawner {
+pub trait TaskSpawner: Clone + Send + Sync + 'static {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 
 	fn chain_id(&self) -> u64;

@@ -23,13 +23,13 @@ pub use crate::network::{
 pub const TW_LOG: &str = "chronicle";
 
 pub struct ChronicleConfig {
-	pub secret: Option<PathBuf>,
-	pub bind_port: Option<u16>,
-	pub pkarr_relay: Option<String>,
 	pub network_id: NetworkId,
-	pub url: String,
+	pub network_keyfile: Option<PathBuf>,
+	pub network_port: Option<u16>,
+	pub timechain_url: String,
 	pub timechain_keyfile: PathBuf,
-	pub keyfile: Option<PathBuf>,
+	pub target_url: String,
+	pub target_keyfile: PathBuf,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 }
@@ -37,9 +37,8 @@ pub struct ChronicleConfig {
 impl ChronicleConfig {
 	pub fn network_config(&self) -> NetworkConfig {
 		NetworkConfig {
-			secret: self.secret.clone(),
-			bind_port: self.bind_port,
-			relay: self.pkarr_relay.clone(),
+			secret: self.network_keyfile.clone(),
+			bind_port: self.network_port,
 		}
 	}
 }
@@ -69,8 +68,8 @@ pub async fn run_chronicle(
 		tss: tss_tx,
 		blockchain: chain,
 		network: subchain,
-		url: config.url,
-		keyfile: config.keyfile,
+		url: config.target_url,
+		keyfile: config.target_keyfile,
 		timegraph_url: config.timegraph_url,
 		timegraph_ssk: config.timegraph_ssk,
 		substrate: substrate.clone(),
@@ -107,4 +106,37 @@ pub async fn run_chronicle(
 
 	time_worker.run(&span).await;
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::Mock;
+
+	pub struct MockChronicle {}
+
+	impl MockChronicle {
+		pub async fn new(network_id: NetworkId) -> Self {
+			let config = ChronicleConfig {
+				network_id,
+				url: None,
+				bind_port: None,
+				pkarr_relay: None,
+				timechain_keyfile: self.timechain_keyfile,
+				network_keyfile: None,
+				timegraph_url: None,
+				timegraph_ssk: None,
+			};
+			let (network, network_requests) =
+				chronicle::create_iroh_network(config.network_config()).await?;
+			let subxt =
+				SubxtClient::with_keyfile("ws://127.0.0.1:9944", &config.timechain_keyfile).await?;
+			chronicle::run_chronicle(config, network, network_requests, subxt).await
+		}
+	}
+
+	#[tokio::test]
+	async fn chronicle_smoke() -> Result<()> {
+		Ok(())
+	}
 }

@@ -25,7 +25,7 @@ pub struct TaskSpawnerParams<S> {
 	pub blockchain: String,
 	pub network: String,
 	pub url: String,
-	pub keyfile: Option<PathBuf>,
+	pub keyfile: PathBuf,
 	pub timegraph_url: Option<String>,
 	pub timegraph_ssk: Option<String>,
 	pub substrate: S,
@@ -50,7 +50,7 @@ where
 				params.blockchain.parse()?,
 				&params.network,
 				&params.url,
-				params.keyfile.as_deref(),
+				Some(&params.keyfile),
 			)
 			.await?,
 		);

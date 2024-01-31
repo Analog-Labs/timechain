@@ -113,7 +113,6 @@ impl task_schedule::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
-	type Currency = Balances;
 	type MinTaskBalance = ConstU128<10>;
 	type BaseReadReward = ConstU128<2>;
 	type BaseWriteReward = ConstU128<3>;

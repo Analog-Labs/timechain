@@ -1176,7 +1176,6 @@ impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Shards = Shards;
-	type Currency = Balances;
 	type MinTaskBalance = ConstU128<{ 10 * DOLLARS }>;
 	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
 	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;

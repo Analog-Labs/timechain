@@ -42,17 +42,19 @@ where
 		chronicle::create_iroh_network(params.config.network_config()).await?
 	};
 
-	let url = "ws://127.0.0.1:9944";
-	let tx_client = tc_subxt::SubxtClient::get_client(url).await?;
+	let tx_client = tc_subxt::SubxtClient::get_client(&params.config.timechain_url).await?;
 	let tx_submitter = runtime::SubstrateTxSubmitter::new(
 		params.tx_pool.clone(),
 		params.client.clone(),
 		params.runtime.clone(),
 		tx_client,
 	);
-	let subxt_client =
-		tc_subxt::SubxtClient::with_keyfile(url, &params.config.timechain_keyfile, tx_submitter)
-			.await?;
+	let subxt_client = tc_subxt::SubxtClient::with_keyfile(
+		&params.config.timechain_url,
+		&params.config.timechain_keyfile,
+		tx_submitter,
+	)
+	.await?;
 	let substrate = runtime::Substrate::new(params.client, params.runtime, subxt_client);
 
 	chronicle::run_chronicle(params.config, network, net_request, substrate).await

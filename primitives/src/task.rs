@@ -1,8 +1,9 @@
-use crate::{AccountId, NetworkId, PublicKey, ShardId, TssSignature};
+use crate::{AccountId, Balance, NetworkId, PublicKey, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_runtime::Percent;
 use sp_std::vec::Vec;
 pub type TaskId = u64;
 pub type TaskCycle = u64;
@@ -31,6 +32,17 @@ impl Function {
 			Self::RegisterShard { .. } | Self::UnregisterShard { .. } | Self::SendMessage { .. }
 		)
 	}
+	pub fn get_input_length(&self) -> u64 {
+		match self {
+			Function::EvmDeploy { bytecode } => bytecode.len() as u64,
+			Function::EvmCall { input, .. } => input.len() as u64,
+			Function::EvmViewCall { input, .. } => input.len() as u64,
+			Function::EvmTxReceipt { tx } => tx.len() as u64,
+			Function::RegisterShard { .. } => 0,
+			Function::UnregisterShard { .. } => 0,
+			Function::SendMessage { payload, .. } => payload.len() as u64,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -57,11 +69,13 @@ pub struct TaskDescriptor {
 	pub start: u64,
 	pub period: u64,
 	pub timegraph: Option<[u8; 32]>,
+	pub shard_size: u32,
 }
 
 impl TaskDescriptor {
-	pub fn trigger(&self, cycle: TaskCycle) -> u64 {
-		self.start + cycle * self.period
+	pub fn trigger(&self, cycle: TaskCycle) -> Option<u64> {
+		let cycle_period = cycle.checked_mul(self.period)?;
+		self.start.checked_add(cycle_period)
 	}
 }
 
@@ -73,10 +87,12 @@ pub struct TaskDescriptorParams {
 	pub period: u64,
 	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
+	pub funds: Balance,
+	pub shard_size: u32,
 }
 
 impl TaskDescriptorParams {
-	pub fn new(network: NetworkId, function: Function) -> Self {
+	pub fn new(network: NetworkId, function: Function, shard_size: u32) -> Self {
 		Self {
 			network,
 			cycle: 1,
@@ -84,6 +100,8 @@ impl TaskDescriptorParams {
 			period: 1,
 			timegraph: None,
 			function,
+			funds: 0,
+			shard_size,
 		}
 	}
 }
@@ -177,4 +195,24 @@ pub fn append_hash_with_task_data(
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_cycle_bytes);
 	extended_payload
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct DepreciationRate<BlockNumber> {
+	pub blocks: BlockNumber,
+	pub percent: Percent,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+/// Struct representing a task's reward configuration
+/// Stored at task creation
+pub struct RewardConfig<Balance, BlockNumber> {
+	/// For each shard member
+	pub read_task_reward: Balance,
+	/// For the signer
+	pub write_task_reward: Balance,
+	/// For each shard member
+	pub send_message_reward: Balance,
+	/// Depreciation rate for all rewards
+	pub depreciation_rate: DepreciationRate<BlockNumber>,
 }

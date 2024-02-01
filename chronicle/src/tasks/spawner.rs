@@ -237,18 +237,22 @@ where
 		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, task_cycle, &hash).await?;
 		match result {
 			Ok(result) => {
-				self.submit_timegraph(
-					target_block,
-					shard_id,
-					task_id,
-					task_cycle,
-					&function,
-					collection,
-					block_num,
-					&result,
-					signature,
-				)
-				.await?;
+				if let Err(e) = self
+					.submit_timegraph(
+						target_block,
+						shard_id,
+						task_id,
+						task_cycle,
+						&function,
+						collection,
+						block_num,
+						&result,
+						signature,
+					)
+					.await
+				{
+					tracing::error!("Error submitting to timegraph {:?}", e);
+				}
 				let result = TaskResult {
 					shard_id,
 					hash: prehashed_payload,

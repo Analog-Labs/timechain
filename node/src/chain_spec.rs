@@ -833,7 +833,6 @@ fn generate_analog_genesis(
 		networks: timechain_runtime::NetworksConfig {
 			networks: vec![
 				("ethereum".as_bytes().to_vec(), "mainnet".as_bytes().to_vec()),
-				//astar mainnet
 				("astar".as_bytes().to_vec(), "astar".as_bytes().to_vec()),
 				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec()),
 				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec()),

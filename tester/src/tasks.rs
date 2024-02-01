@@ -83,6 +83,8 @@ pub async fn insert_task(
 		start,
 		period,
 		timegraph: Some([0; 32]),
+		shard_size: 3,
+		funds: 1,
 	};
 	let events = api.create_task(params).await?.wait_for_finalized_success().await?;
 	let transfer_event = events.find_first::<TaskCreated>().unwrap();

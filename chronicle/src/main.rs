@@ -6,8 +6,6 @@ use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::NetworkId;
 
 #[derive(Debug, Parser)]
-/// workaround for https://github.com/clap-rs/clap/issues/5092
-#[group(requires_all = ["network_id", "url"], multiple = true)]
 pub struct ChronicleArgs {
 	/// The network to be used from Analog Connector.
 	#[clap(long)]

@@ -25,6 +25,7 @@ pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
 
 pub type AccountId = AccountId32;
+pub type Balance = u128;
 pub type PublicKey = MultiSigner;
 pub type Signature = MultiSignature;
 pub type BlockNumber = u32;
@@ -102,6 +103,7 @@ pub trait ElectionsInterface {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
+	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
 	fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16);
 	fn random_signer(shard_id: ShardId) -> PublicKey;

@@ -21,9 +21,10 @@ pub struct RunCmd {
 
 #[derive(Debug, clap::Parser)]
 /// workaround for https://github.com/clap-rs/clap/issues/5092
-#[group(requires_all = ["network_id", "url"], multiple = true)]
+#[group(requires_all = ["network_id", "target_url", "target_keyfile", "timechain_keyfile"], multiple = true)]
 pub struct ChronicleArgs {
 	/// The network to be used from Analog Connector.
+	#[arg(required = false)]
 	#[clap(long)]
 	pub network_id: NetworkId,
 	/// The secret to use for p2p networking.
@@ -36,12 +37,15 @@ pub struct ChronicleArgs {
 	#[clap(long)]
 	pub enable_iroh: bool,
 	/// The address of Analog Connector.
+	#[arg(required = false)]
 	#[clap(long)]
 	pub target_url: String,
 	/// key file for connector wallet
+	#[arg(required = false)]
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
 	/// keyfile having an account with funds for timechain.
+	#[arg(required = false)]
 	#[clap(long)]
 	pub timechain_keyfile: PathBuf,
 	/// The timegraph url (or TIMEGTAPH_URL environment variable).

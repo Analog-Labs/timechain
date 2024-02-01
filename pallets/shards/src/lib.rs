@@ -345,7 +345,6 @@ pub mod pallet {
 				} else {
 					signer_index.saturating_plus_one()
 				};
-			SignerIndex::<T>::insert(shard_id, next_signer_index as u32);
 			if members.len() == 1 {
 				// only one possible signer for shard size 1
 				return signer;

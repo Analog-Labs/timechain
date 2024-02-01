@@ -1,4 +1,5 @@
 use crate::{self as task_schedule};
+use frame_support::traits::OnInitialize;
 use frame_support::PalletId;
 use schnorr_evm::{SigningKey, VerifyingKey};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
@@ -124,6 +125,15 @@ impl task_schedule::Config for Test {
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;
 	type PalletId = PalletIdentifier;
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Tasks::on_initialize(i);
+	}
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

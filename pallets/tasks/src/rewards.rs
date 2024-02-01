@@ -302,6 +302,47 @@ fn send_message_payout_clears_storage() {
 	});
 }
 
+#[test]
+fn read_task_reward_depreciates_after_first_n_blocks() {
+	let shard_id = 0;
+	let task_id = 0;
+	let task_cycle = 0;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			Network::Ethereum,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_task(Network::Ethereum, 1)
+		));
+		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
+		Tasks::shard_online(shard_id, Network::Ethereum);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let mut balances = vec![];
+		for member in shard_size_3() {
+			balances.push(Balances::free_balance(&member));
+		}
+		// TODO: roll until reward depreciates please
+		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
+		roll_to(reward_config.depreciation_rate.blocks * 3);
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			task_id,
+			task_cycle,
+			mock_result_ok(shard_id, task_id, task_cycle)
+		));
+		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
+		for (i, member) in shard_size_3().into_iter().enumerate() {
+			assert_eq!(
+				Balances::free_balance(&member) - balances[i],
+				<Test as crate::Config>::BaseReadReward::get()
+			);
+		}
+	});
+}
+
 // TODO:
 // full reward up until first depreciation
 // expected depreciation after first n blocks

@@ -116,7 +116,6 @@ impl task_schedule::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type MaxRetryCount = ConstU8<3>;
-	type Currency = Balances;
 	type MinTaskBalance = ConstU128<10>;
 	type BaseReadReward = ConstU128<2>;
 	type BaseWriteReward = ConstU128<3>;
@@ -213,7 +212,7 @@ pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 
 pub const A: [u8; 32] = [1u8; 32];
 
-pub fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
+pub fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		cycle,
@@ -229,7 +228,7 @@ pub fn mock_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u12
 	}
 }
 
-pub fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams<u128> {
+pub fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		cycle,
@@ -247,7 +246,7 @@ pub fn mock_sign_task(network: Network, cycle: TaskCycle) -> TaskDescriptorParam
 	}
 }
 
-pub fn mock_payable(network: Network) -> TaskDescriptorParams<u128> {
+pub fn mock_payable(network: Network) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		cycle: 1,

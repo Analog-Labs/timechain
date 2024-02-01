@@ -26,9 +26,10 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, DepreciationRate, Function, Network, RewardConfig,
-		ShardId, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
+		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, Network,
+		RewardConfig, ShardId, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams,
+		TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
+		TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -96,20 +97,19 @@ pub mod pallet {
 		}
 	}
 
-	type BalanceOf<T> =
-		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
-		/// The currency type
-		type Currency: Currency<Self::AccountId>;
 		#[pallet::constant]
 		type MaxRetryCount: Get<u8>;
 		/// Minimum task balance for tasks to payout expected rewards
@@ -321,23 +321,20 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::create_task(schedule.function.get_input_length()))]
-		pub fn create_task(
-			origin: OriginFor<T>,
-			schedule: TaskDescriptorParams<BalanceOf<T>>,
-		) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::create_task(schedule.function.get_input_length()))]
+		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::start_task(schedule, Some(who))?;
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::stop_task())]
+		#[pallet::weight(<T as Config>::WeightInfo::stop_task())]
 		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			let (owner, _) = Self::ensure_owner(origin, task_id)?;
 			let task_account = Self::task_account(task_id);
-			let task_balance = T::Currency::free_balance(&task_account);
-			T::Currency::transfer(
+			let task_balance = pallet_balances::Pallet::<T>::free_balance(&task_account);
+			pallet_balances::Pallet::<T>::transfer(
 				&task_account,
 				&owner,
 				task_balance,
@@ -353,7 +350,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::resume_task())]
+		#[pallet::weight(<T as Config>::WeightInfo::resume_task())]
 		pub fn resume_task(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -371,7 +368,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::submit_result())]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_result())]
 		pub fn submit_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -426,7 +423,7 @@ pub mod pallet {
 
 		/// Submit Task Error
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::submit_error())]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_error())]
 		pub fn submit_error(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -456,7 +453,7 @@ pub mod pallet {
 
 		/// Submit Task Hash
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::submit_hash(hash.len() as u64))]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_hash(hash.len() as u64))]
 		pub fn submit_hash(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -483,7 +480,7 @@ pub mod pallet {
 
 		/// Submit Signature
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::submit_signature())] // TODO update bench, weights
+		#[pallet::weight(<T as Config>::WeightInfo::submit_signature())] // TODO update bench, weights
 		pub fn submit_signature(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -505,7 +502,7 @@ pub mod pallet {
 
 		/// Register gateway
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::register_gateway())] // TODO update bench, weights
+		#[pallet::weight(<T as Config>::WeightInfo::register_gateway())] // TODO update bench, weights
 		pub fn register_gateway(
 			origin: OriginFor<T>,
 			bootstrap: ShardId,
@@ -532,7 +529,7 @@ pub mod pallet {
 
 		/// Fund task balance
 		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::fund_task())]
+		#[pallet::weight(<T as Config>::WeightInfo::fund_task())]
 		pub fn fund_task(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -549,7 +546,7 @@ pub mod pallet {
 
 		/// Set read task reward
 		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::set_read_task_reward())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_read_task_reward())]
 		pub fn set_read_task_reward(
 			origin: OriginFor<T>,
 			network: Network,
@@ -563,7 +560,7 @@ pub mod pallet {
 
 		/// Set write task reward
 		#[pallet::call_index(10)]
-		#[pallet::weight(T::WeightInfo::set_write_task_reward())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_write_task_reward())]
 		pub fn set_write_task_reward(
 			origin: OriginFor<T>,
 			network: Network,
@@ -577,7 +574,7 @@ pub mod pallet {
 
 		/// Set send message task reward
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::set_send_message_task_reward())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_send_message_task_reward())]
 		pub fn set_send_message_task_reward(
 			origin: OriginFor<T>,
 			network: Network,
@@ -619,7 +616,7 @@ pub mod pallet {
 		}
 		/// Balance for a task
 		pub fn task_balance(task_id: TaskId) -> BalanceOf<T> {
-			T::Currency::free_balance(&Self::task_account(task_id))
+			pallet_balances::Pallet::<T>::free_balance(&Self::task_account(task_id))
 		}
 
 		/// Returns Ok(task_should_be_resumed: bool) so
@@ -631,7 +628,7 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let task_account_id = Self::task_account(task_id);
-			T::Currency::transfer(
+			pallet_balances::Pallet::<T>::transfer(
 				caller,
 				&task_account_id,
 				amount,
@@ -639,7 +636,7 @@ pub mod pallet {
 			)?;
 			Self::deposit_event(Event::TaskFunded(
 				task_id,
-				T::Currency::free_balance(&task_account_id),
+				pallet_balances::Pallet::<T>::free_balance(&task_account_id),
 			));
 			Ok(())
 		}
@@ -652,15 +649,12 @@ pub mod pallet {
 		}
 
 		/// Start task
-		fn start_task(
-			schedule: TaskDescriptorParams<BalanceOf<T>>,
-			who: Option<AccountId>,
-		) -> DispatchResult {
+		fn start_task(schedule: TaskDescriptorParams, who: Option<AccountId>) -> DispatchResult {
 			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
 			if let Some(funded_by) = &who {
 				// transfer schedule.funds to task funded account
-				T::Currency::transfer(
+				pallet_balances::Pallet::<T>::transfer(
 					funded_by,
 					&Self::task_account(task_id),
 					schedule.funds,
@@ -1078,7 +1072,7 @@ pub mod pallet {
 				// payout to shard members
 				let members = T::Shards::shard_members(shard_id);
 				for member in members {
-					let _ = T::Currency::transfer(
+					let _ = pallet_balances::Pallet::<T>::transfer(
 						&task_account_id,
 						&member,
 						payout,
@@ -1087,7 +1081,7 @@ pub mod pallet {
 				}
 			}
 			for (account, payout) in SignerPayout::<T>::drain_prefix(task_id) {
-				let _ = T::Currency::transfer(
+				let _ = pallet_balances::Pallet::<T>::transfer(
 					&task_account_id,
 					&account,
 					payout,

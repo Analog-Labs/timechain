@@ -712,7 +712,7 @@ pub mod pallet {
 		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {
 			TaskPhaseState::<T>::insert(
 				task_id,
-				TaskPhase::Write(T::Shards::random_signer(shard_id)),
+				TaskPhase::Write(T::Shards::next_signer(shard_id)),
 			);
 			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 		}

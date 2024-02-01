@@ -117,7 +117,7 @@ pub trait ShardsInterface {
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<Network>;
 	fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16);
-	fn random_signer(shard_id: ShardId) -> PublicKey;
+	fn next_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 

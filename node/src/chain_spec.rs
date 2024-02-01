@@ -763,6 +763,12 @@ pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 							.into(),
 						ANLOG * 2000000,
 					),
+					// dev prefund valiator account
+					(
+						hex!["862b57a754ebda4c4bbd5714b637becd83f868ff634df6c22d4a9a905596f911"]
+							.into(),
+						ANLOG * 2000000,
+					),
 				],
 				disable_tss,
 			)

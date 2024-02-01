@@ -355,7 +355,7 @@ pub mod pallet {
 					signer = T::Members::member_public_key(&members[next_signer_index].0)
 						.expect("All signers should be registered members");
 					next_signer_index = if members.len() as u32
-						== (next_signer_index as u32).saturating_less_one()
+						== (next_signer_index as u32).saturating_plus_one()
 					{
 						0
 					} else {

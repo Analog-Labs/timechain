@@ -24,6 +24,7 @@ time-primitives = { path = "../primitives" }
 timegraph-client = "0.1.10"
 tokio = "1.32.0"
 tracing = "0.1.37"
+tracing-subscriber = "0.3.18"
 tss = { path = "../tss" }
 
 [dev-dependencies]

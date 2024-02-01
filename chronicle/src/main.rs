@@ -54,6 +54,7 @@ impl ChronicleArgs {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 	let config = ChronicleArgs::parse().config();
 	let (network, network_requests) =
 		chronicle::create_iroh_network(config.network_config()).await?;

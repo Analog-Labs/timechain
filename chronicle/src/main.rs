@@ -18,13 +18,13 @@ pub struct ChronicleArgs {
 	/// The port to bind to for p2p networking.
 	#[clap(long)]
 	pub network_port: Option<u16>,
-	/// The address of Analog Connector.
+	/// The address of target chain rpc.
 	#[clap(long)]
 	pub target_url: String,
 	/// key file for connector wallet
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
-	/// keyfile having an account with funds for timechain.
+	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
 	/// keyfile having an account with funds for timechain.

@@ -13,10 +13,19 @@ services:
     - '--alice'
     - '--validator'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    - '--network-id=3'
+    - '--target-url=ws://ethereum:8545'
+    - '--target-keyfile=/etc/keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'    
     labels:
       prometheus-scrape.enabled: 'true'
+    volumes:
+    - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
     ports:
       - 9944:9944
+    profiles:
+    - ethereum
 
   ethereum:
     image: 'ethereum/client-go:v1.12.2'
@@ -55,25 +64,20 @@ services:
     - astar
 
   chronicle-eth1:
-    image: 'analoglabs/timechain-node'
+    image: 'analoglabs/chronicle'
     command:
-    - '--base-path=/data'
-    - '--chain=notss'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://ethereum:8545'
     - '--network-id=3'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-keyfile=/etc/keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'    
-    - '--keyfile=/etc/keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - validator
     - ethereum
+    # todo! implement a wait for validator image/script
+    restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
@@ -83,25 +87,20 @@ services:
     - ethereum
 
   chronicle-astar1:
-    image: 'analoglabs/timechain-node'
+    image: 'analoglabs/chronicle'
     command:
-    - '--base-path=/data'
-    - '--chain=notss'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://astar:9944'
     - '--network-id=1'
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--keyfile=/etc/keyfile'
+    - '--target-url=ws://astar:9944'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-keyfile=/etc/keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'    
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
     - validator
     - astar
+    # todo! implement a wait for validator image/script
+    restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'

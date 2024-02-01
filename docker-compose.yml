@@ -22,6 +22,8 @@ services:
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
+    expose:
+      - 9944
     ports:
       - 9944:9944
     profiles:

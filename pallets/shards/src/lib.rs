@@ -340,7 +340,7 @@ pub mod pallet {
 			let mut signer = T::Members::member_public_key(&members[signer_index].0)
 				.expect("All signers should be registered members");
 			let mut next_signer_index =
-				if members.len() as u32 == (signer_index as u32).saturating_less_one() {
+				if members.len() as u32 == (signer_index as u32).saturating_plus_one() {
 					0
 				} else {
 					signer_index.saturating_plus_one()

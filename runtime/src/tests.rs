@@ -148,15 +148,15 @@ fn write_phase_timeout_reassigns_task() {
 		Shards::create_shard(Network::Ethereum, shard, 1);
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, Network::Ethereum);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
-		roll_to(10);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
-		roll_to(11);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(B)));
-		roll_to(21);
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
-		roll_to(31);
+		roll_to(10);
+		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
+		roll_to(11);
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
+		roll_to(21);
+		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(B)));
+		roll_to(31);
+		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
 	});
 }
 

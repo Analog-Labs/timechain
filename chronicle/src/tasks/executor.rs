@@ -330,7 +330,7 @@ mod tests {
 	async fn task_executor_smoke() -> Result<()> {
 		env_logger::try_init().ok();
 
-		let mock = Mock::new();
+		let mock = Mock::new(0);
 
 		let network = mock.create_network("ethereum".into(), "dev".into());
 		let shard = mock.create_online_shard(vec![mock.account_id().clone()], 1);
@@ -347,6 +347,7 @@ mod tests {
 			period: 0,
 			start: 0,
 			timegraph: None,
+			shard_size: 2,
 		});
 		mock.assign_task(task, shard);
 		let (block_hash, block_number) = mock.finality_notification_stream().next().await.unwrap();

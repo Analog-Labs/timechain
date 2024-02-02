@@ -38,7 +38,7 @@ impl MemberStorage for MockMembers {
 pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
-	fn shard_offline(_: Network, _: Vec<AccountId>) {}
+	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
 }
 
 // Configure a mock runtime to test the pallet.

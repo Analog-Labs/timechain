@@ -136,12 +136,13 @@ mod tests {
 			create_iroh_network(NetworkConfig { secret: None, bind_port: None })
 				.await
 				.unwrap();
+		let (_, tss_rx) = mpsc::channel(10);
 		run_chronicle_with_spawner(
 			network_id,
 			network,
 			network_requests,
 			mock.clone(),
-			tss_requests,
+			tss_rx,
 			mock.clone(),
 		)
 		.await
@@ -150,16 +151,19 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
-		let mock = Mock::new();
-		let network_id = mock.create_network("ethereum".into(), "dev".into());
-		for i in 0..3 {
+		let mut mocks = vec![];
+		for id in 0..3 {
+			let mock = Mock::new(id);
+			let network_id = mock.create_network("ethereum".into(), "dev".into());
 			tokio::spawn(chronicle(mock.clone(), network_id));
+			mocks.push((mock, network_id));
 		}
+
+		let (mock, network_id) = &mocks[0];
 		loop {
 			tracing::info!("waiting for shard");
-			if mock.get_shard_status(Default::default(), shard_id).await.unwrap()
-				== ShardStatus::Online
-			{
+			//TODO fix change 0 to shard_id after creation
+			if mock.get_shard_status(Default::default(), 0).await.unwrap() == ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
@@ -167,7 +171,7 @@ mod tests {
 		}
 		let task_id = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
-			network: network_id,
+			network: *network_id,
 			cycle: 1,
 			function: Function::SendMessage {
 				address: Default::default(),
@@ -178,8 +182,10 @@ mod tests {
 			period: 0,
 			start: 0,
 			timegraph: None,
+			shard_size: 1,
 		});
-		mock.assign_task(task_id, shard_id);
+		//TODO replace 0 to a valid shard id
+		mock.assign_task(task_id, 0);
 		loop {
 			tracing::info!("waiting for task");
 			let task = mock.task(task_id).unwrap();

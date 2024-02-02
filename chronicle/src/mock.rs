@@ -57,14 +57,9 @@ pub struct MockTask {
 
 impl MockTask {
 	pub fn new(descriptor: TaskDescriptor) -> Self {
-		let phase = if descriptor.function.is_gmp() {
-			TaskPhase::Sign
-		} else if descriptor.function.is_payable() {
-			//TaskPhase::Write(self.public_key().clone().into())
-			todo!()
-		} else {
-			TaskPhase::Read(None)
-		};
+		//TODO fix deal payable here
+		let phase =
+			if descriptor.function.is_gmp() { TaskPhase::Sign } else { TaskPhase::Read(None) };
 		Self {
 			descriptor,
 			phase,

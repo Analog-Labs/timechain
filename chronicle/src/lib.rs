@@ -128,10 +128,11 @@ async fn run_chronicle_with_spawner(
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
-	use std::time::Duration;
+	use std::{thread, time::Duration};
 	use time_primitives::{Function, ShardStatus, TaskDescriptor, TaskStatus};
 
 	async fn chronicle(mock: Mock, network_id: NetworkId) {
+		tracing::info!("running chronicle ");
 		let (network, network_requests) =
 			create_iroh_network(NetworkConfig { secret: None, bind_port: None })
 				.await
@@ -151,24 +152,30 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
+		tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 		let mut mocks = vec![];
 		for id in 0..3 {
 			let mock = Mock::new(id);
 			let network_id = mock.create_network("ethereum".into(), "dev".into());
-			tokio::spawn(chronicle(mock.clone(), network_id));
+			let cloned_mock = mock.clone();
+			thread::spawn(move || {
+				let rt = tokio::runtime::Runtime::new().unwrap();
+				rt.block_on(chronicle(cloned_mock, network_id));
+			});
 			mocks.push((mock, network_id));
 		}
 
 		let (mock, network_id) = &mocks[0];
 		loop {
 			tracing::info!("waiting for shard");
-			//TODO fix change 0 to shard_id after creation
+			// TODO fix change 0 to shard_id after creation
 			if mock.get_shard_status(Default::default(), 0).await.unwrap() == ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
 			break;
 		}
+		tracing::info!("creating task");
 		let task_id = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
 			network: *network_id,
@@ -182,13 +189,15 @@ mod tests {
 			period: 0,
 			start: 0,
 			timegraph: None,
-			shard_size: 1,
+			shard_size: 3,
 		});
+		tracing::info!("assigning task");
 		//TODO replace 0 to a valid shard id
 		mock.assign_task(task_id, 0);
 		loop {
 			tracing::info!("waiting for task");
 			let task = mock.task(task_id).unwrap();
+			tracing::info!("task {:?}", task.status);
 			if task.status != TaskStatus::Completed {
 				tracing::info!("task phase {:?}", task.phase);
 				tokio::time::sleep(Duration::from_secs(1)).await;

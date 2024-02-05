@@ -127,10 +127,9 @@ async fn run_chronicle_with_spawner(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{
-		AssignedTasks, Mock, MockNetwork, MockShard, MockTask, Networks, Shards, Tasks,
-	};
+	use crate::mock::Mock;
 	use std::{collections::HashMap, sync::Mutex, thread, time::Duration};
+	use time_primitives::sp_runtime::traits::IdentifyAccount;
 	use time_primitives::{
 		AccountId, Function, ShardId, ShardStatus, TaskDescriptor, TaskId, TaskStatus,
 	};
@@ -157,39 +156,21 @@ mod tests {
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
 		tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
-		let mut mocks = vec![];
-		let networks: Networks = Default::default();
-		let shards: Shards = Default::default();
-		let tasks: Tasks = Default::default();
-		let assigned_tasks: AssignedTasks = Default::default();
+		let mock = Mock::default();
+		let network_id = mock.create_network("ethereum".into(), "dev".into());
 		for id in 0..3 {
-			let mock = Mock::new(
-				id,
-				networks.clone(),
-				shards.clone(),
-				tasks.clone(),
-				assigned_tasks.clone(),
-			);
-			let network_id = mock.create_network("ethereum".into(), "dev".into());
-			let cloned_mock = mock.clone();
+			let instance = mock.instance(id);
 			thread::spawn(move || {
 				let rt = tokio::runtime::Runtime::new().unwrap();
-				rt.block_on(chronicle(cloned_mock, network_id));
+				rt.block_on(chronicle(instance, network_id));
 			});
-			mocks.push((mock, network_id));
 		}
-
-		let (mock, network_id) = &mocks[0];
-		let members: Vec<AccountId> = vec![[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()];
+		let members: Vec<AccountId> = mock
+			.members(network_id)
+			.into_iter()
+			.map(|(public, _)| public.into_account())
+			.collect();
 		let shard_id = mock.create_shard(members.clone(), 2);
-		tracing::info!(
-			"shard is here {:?}",
-			mock.get_shards(Default::default(), &members.clone()[0]).await
-		);
-		tracing::info!(
-			"shard is here {:?}",
-			mocks[1].0.get_shards(Default::default(), &members[0]).await
-		);
 		loop {
 			tracing::info!("waiting for shard");
 			if mock.get_shard_status(Default::default(), shard_id).await.unwrap()
@@ -203,7 +184,7 @@ mod tests {
 		tracing::info!("creating task");
 		let task_id = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
-			network: *network_id,
+			network: network_id,
 			cycle: 1,
 			function: Function::SendMessage {
 				address: Default::default(),

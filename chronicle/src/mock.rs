@@ -8,6 +8,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use time_primitives::sp_runtime::traits::IdentifyAccount;
 use time_primitives::{
 	sp_core, AccountId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Function,
 	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
@@ -76,38 +77,30 @@ impl MockTask {
 	}
 }
 
-pub type Networks = Arc<Mutex<HashMap<NetworkId, MockNetwork>>>;
-pub type Shards = Arc<Mutex<HashMap<ShardId, MockShard>>>;
-pub type Tasks = Arc<Mutex<HashMap<TaskId, MockTask>>>;
-pub type AssignedTasks = Arc<Mutex<HashMap<TaskId, ShardId>>>;
+type Networks = Arc<Mutex<HashMap<NetworkId, MockNetwork>>>;
+type Members = Arc<Mutex<HashMap<NetworkId, Vec<(PublicKey, PeerId)>>>>;
+type Shards = Arc<Mutex<HashMap<ShardId, MockShard>>>;
+type Tasks = Arc<Mutex<HashMap<TaskId, MockTask>>>;
+type AssignedTasks = Arc<Mutex<HashMap<TaskId, ShardId>>>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Mock {
-	public_key: PublicKey,
-	account_id: AccountId,
+	public_key: Option<PublicKey>,
+	account_id: Option<AccountId>,
 	networks: Networks,
+	members: Members,
 	shards: Shards,
 	tasks: Tasks,
 	assigned_tasks: AssignedTasks,
 }
 
 impl Mock {
-	pub fn new(
-		id: u8,
-		networks: Networks,
-		shards: Shards,
-		tasks: Tasks,
-		assigned_tasks: AssignedTasks,
-	) -> Self {
+	pub fn instance(&self, id: u8) -> Self {
+		let mut mock = self.clone();
 		let public_key = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([id; 32]));
-		Self {
-			public_key,
-			account_id: [id; 32].into(),
-			networks,
-			shards,
-			tasks,
-			assigned_tasks,
-		}
+		mock.public_key = Some(public_key);
+		mock.account_id = Some(public_key.into_account());
+		mock
 	}
 
 	pub fn create_network(&self, chain_name: ChainName, chain_network: ChainNetwork) -> NetworkId {
@@ -152,6 +145,11 @@ impl Mock {
 	pub fn assign_task(&self, task_id: TaskId, shard_id: ShardId) {
 		let mut assigned_tasks = self.assigned_tasks.lock().unwrap();
 		assigned_tasks.insert(task_id, shard_id);
+	}
+
+	pub fn members(&self, network_id: NetworkId) -> Vec<(PublicKey, PeerId)> {
+		let members = self.members.lock().unwrap();
+		members.get(&network_id).cloned().unwrap()
 	}
 
 	pub fn shard(&self, shard_id: ShardId) -> Option<MockShard> {
@@ -204,11 +202,11 @@ impl Mock {
 #[async_trait::async_trait]
 impl Runtime for Mock {
 	fn public_key(&self) -> &PublicKey {
-		&self.public_key
+		self.public_key.as_ref().unwrap()
 	}
 
 	fn account_id(&self) -> &AccountId {
-		&self.account_id
+		self.account_id.as_ref().unwrap()
 	}
 
 	async fn get_block_time_in_ms(&self) -> Result<u64> {

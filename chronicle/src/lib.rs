@@ -156,7 +156,7 @@ mod tests {
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
 		tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
-		let mock = Mock::default();
+		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network("ethereum".into(), "dev".into());
 		for id in 0..3 {
 			let instance = mock.instance(id);
@@ -164,6 +164,14 @@ mod tests {
 				let rt = tokio::runtime::Runtime::new().unwrap();
 				rt.block_on(chronicle(instance, network_id));
 			});
+		}
+		loop {
+			tracing::info!("waiting for members to register");
+			if mock.members(network_id).len() < 3 {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			break;
 		}
 		let members: Vec<AccountId> = mock
 			.members(network_id)

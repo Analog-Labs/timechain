@@ -98,7 +98,7 @@ impl Mock {
 	pub fn instance(&self, id: u8) -> Self {
 		let mut mock = self.clone();
 		let public_key = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([id; 32]));
-		mock.public_key = Some(public_key);
+		mock.public_key = Some(public_key.clone());
 		mock.account_id = Some(public_key.into_account());
 		mock
 	}
@@ -149,7 +149,7 @@ impl Mock {
 
 	pub fn members(&self, network_id: NetworkId) -> Vec<(PublicKey, PeerId)> {
 		let members = self.members.lock().unwrap();
-		members.get(&network_id).cloned().unwrap()
+		members.get(&network_id).cloned().unwrap_or_default()
 	}
 
 	pub fn shard(&self, shard_id: ShardId) -> Option<MockShard> {
@@ -344,10 +344,12 @@ impl Runtime for Mock {
 
 	async fn submit_register_member(
 		&self,
-		_network: NetworkId,
-		_peer_id: PeerId,
+		network: NetworkId,
+		peer_id: PeerId,
 		_stake_amount: u128,
 	) -> Result<()> {
+		let mut members = self.members.lock().unwrap();
+		members.entry(network).or_default().push((self.public_key().clone(), peer_id));
 		Ok(())
 	}
 

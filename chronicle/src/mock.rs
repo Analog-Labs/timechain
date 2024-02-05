@@ -214,16 +214,15 @@ impl Runtime for Mock {
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		let stream = stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
+		stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
 			let n = n + 1;
 			Some(([n as _; 32].into(), n))
-		}));
-		// futures::stream::unfold(stream, move |mut stream| async move {
-		// 	tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
-		// 	let res = stream.next().await;
-		// 	res.map(|res| (res, stream))
-		// })
-		stream.boxed()
+		}))
+		.then(|e| async move {
+			tokio::time::sleep(Duration::from_secs(1)).await;
+			e
+		})
+		.boxed()
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {
@@ -413,7 +412,12 @@ impl Runtime for Mock {
 
 impl TaskSpawner for Mock {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
-		stream::iter(std::iter::successors(Some(0), |n| Some(n + 1))).boxed()
+		stream::iter(std::iter::successors(Some(0), |n| Some(n + 1)))
+			.then(|e| async move {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				e
+			})
+			.boxed()
 	}
 
 	fn chain_id(&self) -> u64 {

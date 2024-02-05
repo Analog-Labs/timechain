@@ -358,6 +358,7 @@ where
 		let task_executor = self.task_executor.clone();
 		let mut block_stream = task_executor.block_stream().fuse();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
+		event!(target: TW_LOG, parent: span, Level::INFO, "Started chronicle loop");
 		loop {
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {

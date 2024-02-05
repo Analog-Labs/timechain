@@ -6,8 +6,11 @@ use shards as Shards;
 
 use clap::Parser;
 use rosetta_client::Blockchain;
+use sp_core::crypto::Ss58Codec;
 use tc_subxt::SubxtClient;
+use tc_subxt::SubxtTxSubmitter;
 use time_primitives::NetworkId;
+use time_primitives::Runtime;
 
 mod mock;
 mod shards;
@@ -52,14 +55,14 @@ async fn main() {
 	let url = args.url;
 	let path = Path::new("/etc/alice");
 	let api = loop {
-		todo!()
-		// let Ok(api) = SubxtClient::with_keyfile(&url, path).await else {
-		// 	println!("waiting for chain to start");
-		// 	tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-		// 	continue;
-		// };
-		// println!("api key is {:?}", api.account_id().to_ss58check());
-		// break api;
+		let tx_submitter = SubxtTxSubmitter::try_new(&url).await.unwrap();
+		let Ok(api) = SubxtClient::with_keyfile(&url, path, tx_submitter).await else {
+			println!("waiting for chain to start");
+			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			continue;
+		};
+		println!("tester key is {:?}", api.account_id().to_ss58check());
+		break api;
 	};
 
 	let eth_config = WalletConfig {

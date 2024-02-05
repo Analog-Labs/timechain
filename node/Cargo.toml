@@ -80,7 +80,7 @@ tracing = "0.1.40"
 substrate-build-script-utils = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
 
 [features]
-default = [ "chronicle" ]
+default = []
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = ["frame-benchmarking-cli/runtime-benchmarks", "frame-benchmarking/runtime-benchmarks", "timechain-runtime/runtime-benchmarks"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change

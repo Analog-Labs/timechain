@@ -8261,9 +8261,9 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "peernet"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1433a897d25d56a9f3971f84046d9dbe8fba4c6426ab7b44e8cd56a4ed192e7c"
+checksum = "ca6ad79f3f4d68f5ad82b6fcd131be0af8d0fb2cfaafb128f31390d6cde2bd85"
 dependencies = [
  "anyhow",
  "async-trait",

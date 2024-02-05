@@ -4,6 +4,7 @@ use futures::channel::mpsc;
 use futures::{Future, FutureExt, SinkExt};
 use peernet::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
 use std::pin::Pin;
+use std::time::Duration;
 
 pub struct TssEndpoint {
 	endpoint: Endpoint,
@@ -60,6 +61,20 @@ impl TssEndpoint {
 		builder.enable_dht();
 		builder.handler(handler);
 		let endpoint = builder.build().await?;
+		let peer_id = endpoint.peer_id();
+		loop {
+			tracing::info!("waiting for peer id to be registered");
+			let Ok(addr) = endpoint.discovery().resolve(&peer_id).await else {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			};
+			if addr.direct_addresses.is_empty() {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			tracing::info!("peer id registered");
+			break;
+		}
 		Ok(Self { endpoint })
 	}
 }

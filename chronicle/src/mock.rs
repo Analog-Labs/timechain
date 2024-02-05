@@ -1,19 +1,19 @@
 use crate::tasks::TaskSpawner;
 use anyhow::Result;
+use futures::channel::{mpsc, oneshot};
 use futures::stream::BoxStream;
-use futures::{future, stream, FutureExt, Stream, StreamExt};
+use futures::{stream, FutureExt, SinkExt, Stream, StreamExt};
 use schnorr_evm::k256::ProjectivePoint;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use time_primitives::sp_runtime::traits::IdentifyAccount;
 use time_primitives::{
 	sp_core, AccountId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Function,
 	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
 	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
-	TssSignature,
+	TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -92,6 +92,7 @@ pub struct Mock {
 	shards: Shards,
 	tasks: Tasks,
 	assigned_tasks: AssignedTasks,
+	tss: Option<mpsc::Sender<TssSigningRequest>>,
 }
 
 impl Mock {
@@ -101,6 +102,10 @@ impl Mock {
 		mock.public_key = Some(public_key.clone());
 		mock.account_id = Some(public_key.into_account());
 		mock
+	}
+
+	pub fn with_tss(&mut self, tss: mpsc::Sender<TssSigningRequest>) {
+		self.tss = Some(tss);
 	}
 
 	pub fn create_network(&self, chain_name: ChainName, chain_network: ChainNetwork) -> NetworkId {
@@ -152,6 +157,7 @@ impl Mock {
 		members.get(&network_id).cloned().unwrap_or_default()
 	}
 
+	#[allow(unused)]
 	pub fn shard(&self, shard_id: ShardId) -> Option<MockShard> {
 		let shards = self.shards.lock().unwrap();
 		shards.get(&shard_id).cloned()
@@ -196,6 +202,30 @@ impl Mock {
 		let mut tasks = self.tasks.lock().unwrap();
 		tasks.get_mut(&task_id).unwrap().phase = TaskPhase::Read(Some(hash.try_into().unwrap()));
 		Ok(())
+	}
+
+	async fn tss_sign(
+		&self,
+		block_number: BlockNumber,
+		shard_id: ShardId,
+		task_id: TaskId,
+		cycle: TaskCycle,
+		payload: &[u8],
+	) -> Result<(TssHash, TssSignature)> {
+		if let Some(mut tss) = self.tss.clone() {
+			let (tx, rx) = oneshot::channel();
+			tss.send(TssSigningRequest {
+				request_id: TssId(task_id, cycle),
+				shard_id,
+				block_number,
+				data: payload.to_vec(),
+				tx,
+			})
+			.await?;
+			Ok(rx.await?)
+		} else {
+			Ok(([0; 32], [0; 64]))
+		}
 	}
 }
 
@@ -436,32 +466,38 @@ impl TaskSpawner for Mock {
 		shard_id: ShardId,
 		task_id: TaskId,
 		cycle: TaskCycle,
-		_function: Function,
+		function: Function,
 		_hash: Option<[u8; 32]>,
-		_block_num: BlockNumber,
+		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone()
-			.submit_task_result_core(
-				task_id,
-				cycle,
-				TaskResult {
-					shard_id,
-					hash: [0; 32],
-					signature: [0; 64],
-				},
-			)
-			.boxed()
+		let payload = serde_json::to_string(&function).unwrap();
+		let spawner = self.clone();
+		Box::pin(async move {
+			let (hash, signature) = spawner
+				.tss_sign(block_num, shard_id, task_id, cycle, payload.as_bytes())
+				.await?;
+			spawner
+				.submit_task_result_core(task_id, cycle, TaskResult { shard_id, hash, signature })
+				.await?;
+			Ok(())
+		})
 	}
 
 	fn execute_sign(
 		&self,
-		_: ShardId,
+		shard_id: ShardId,
 		task_id: TaskId,
-		_: TaskCycle,
-		_: Vec<u8>,
-		_: u32,
+		cycle: TaskCycle,
+		payload: Vec<u8>,
+		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().submit_task_signature_core(task_id, [0; 64]).boxed()
+		let spawner = self.clone();
+		Box::pin(async move {
+			let (_hash, sig) =
+				spawner.tss_sign(block_num, shard_id, task_id, cycle, &payload).await?;
+			spawner.submit_task_signature_core(task_id, sig).await?;
+			Ok(())
+		})
 	}
 
 	fn execute_write(

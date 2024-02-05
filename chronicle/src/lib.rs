@@ -128,19 +128,18 @@ async fn run_chronicle_with_spawner(
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
-	use std::{collections::HashMap, sync::Mutex, thread, time::Duration};
+	use std::time::Duration;
 	use time_primitives::sp_runtime::traits::IdentifyAccount;
-	use time_primitives::{
-		AccountId, Function, ShardId, ShardStatus, TaskDescriptor, TaskId, TaskStatus,
-	};
+	use time_primitives::{AccountId, Function, ShardStatus, TaskDescriptor, TaskStatus};
 
-	async fn chronicle(mock: Mock, network_id: NetworkId) {
+	async fn chronicle(mut mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
 		let (network, network_requests) =
 			create_iroh_network(NetworkConfig { secret: None, bind_port: None })
 				.await
 				.unwrap();
-		let (_, tss_rx) = mpsc::channel(10);
+		let (tss_tx, tss_rx) = mpsc::channel(10);
+		mock.with_tss(tss_tx);
 		run_chronicle_with_spawner(
 			network_id,
 			network,
@@ -161,7 +160,7 @@ mod tests {
 		let network_id = mock.create_network("ethereum".into(), "dev".into());
 		for id in 0..3 {
 			let instance = mock.instance(id);
-			thread::spawn(move || {
+			std::thread::spawn(move || {
 				let rt = tokio::runtime::Runtime::new().unwrap();
 				rt.block_on(chronicle(instance, network_id));
 			});

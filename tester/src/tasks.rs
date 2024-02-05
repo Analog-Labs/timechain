@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::SubxtClient;
-use time_primitives::{Function, NetworkId, Runtime, TaskDescriptorParams};
+use time_primitives::{Function, NetworkId, TaskDescriptorParams};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
 	let task_state = api.get_task_state(task_id).await.unwrap();

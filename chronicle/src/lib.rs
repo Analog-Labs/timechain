@@ -155,7 +155,9 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
-		tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
+		log_panics::init();
+		env_logger::try_init().ok();
+
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network("ethereum".into(), "dev".into());
 		for id in 0..3 {

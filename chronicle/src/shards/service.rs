@@ -258,6 +258,13 @@ where
 					}
 				},
 				TssAction::Commit(commitment, proof_of_knowledge) => {
+					event!(
+						target: TW_LOG,
+						parent: span,
+						Level::DEBUG,
+						shard_id,
+						"commit",
+					);
 					self.substrate
 						.submit_commitment(
 							shard_id,

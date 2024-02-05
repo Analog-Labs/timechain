@@ -239,7 +239,13 @@ impl Runtime for Mock {
 		_block: BlockHash,
 		account: &AccountId,
 	) -> Result<Option<PeerId>> {
-		Ok(Some((*account).clone().into()))
+		let members = self.members.lock().unwrap();
+		Ok(members
+			.iter()
+			.map(|(_, members)| members.iter())
+			.flatten()
+			.find(|(acc, _)| &acc.clone().into_account() == account)
+			.map(|(_, peer_id)| *peer_id))
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<u64> {

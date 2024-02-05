@@ -155,7 +155,6 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
-		log_panics::init();
 		env_logger::try_init().ok();
 
 		let mock = Mock::default().instance(42);
@@ -184,7 +183,7 @@ mod tests {
 		loop {
 			tracing::info!("waiting for shard");
 			if mock.get_shard_status(Default::default(), shard_id).await.unwrap()
-				== ShardStatus::Online
+				!= ShardStatus::Online
 			{
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;

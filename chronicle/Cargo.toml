@@ -32,6 +32,3 @@ env_logger = "0.10.0"
 log-panics = "2.1.0"
 lazy_static = "1.4.0"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
-
-[features]
-chronicle = []

@@ -7,12 +7,14 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use time_primitives::{
 	sp_core, AccountId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Function,
 	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
 	TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
 	TssSignature,
 };
+use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -74,26 +76,37 @@ impl MockTask {
 	}
 }
 
+pub type Networks = Arc<Mutex<HashMap<NetworkId, MockNetwork>>>;
+pub type Shards = Arc<Mutex<HashMap<ShardId, MockShard>>>;
+pub type Tasks = Arc<Mutex<HashMap<TaskId, MockTask>>>;
+pub type AssignedTasks = Arc<Mutex<HashMap<TaskId, ShardId>>>;
+
 #[derive(Clone)]
 pub struct Mock {
 	public_key: PublicKey,
 	account_id: AccountId,
-	networks: Arc<Mutex<HashMap<NetworkId, MockNetwork>>>,
-	shards: Arc<Mutex<HashMap<ShardId, MockShard>>>,
-	tasks: Arc<Mutex<HashMap<TaskId, MockTask>>>,
-	assigned_tasks: Arc<Mutex<HashMap<TaskId, ShardId>>>,
+	networks: Networks,
+	shards: Shards,
+	tasks: Tasks,
+	assigned_tasks: AssignedTasks,
 }
 
 impl Mock {
-	pub fn new(id: u8) -> Self {
+	pub fn new(
+		id: u8,
+		networks: Networks,
+		shards: Shards,
+		tasks: Tasks,
+		assigned_tasks: AssignedTasks,
+	) -> Self {
 		let public_key = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([id; 32]));
 		Self {
 			public_key,
 			account_id: [id; 32].into(),
-			networks: Default::default(),
-			shards: Default::default(),
-			tasks: Default::default(),
-			assigned_tasks: Default::default(),
+			networks,
+			shards,
+			tasks,
+			assigned_tasks,
 		}
 	}
 
@@ -203,11 +216,16 @@ impl Runtime for Mock {
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
+		let stream = stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
 			let n = n + 1;
 			Some(([n as _; 32].into(), n))
-		}))
-		.boxed()
+		}));
+		// futures::stream::unfold(stream, move |mut stream| async move {
+		// 	tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
+		// 	let res = stream.next().await;
+		// 	res.map(|res| (res, stream))
+		// })
+		stream.boxed()
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {

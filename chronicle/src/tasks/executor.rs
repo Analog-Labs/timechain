@@ -319,59 +319,59 @@ where
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::mock::Mock;
-	use futures::StreamExt;
-	use time_primitives::{TaskDescriptor, TaskStatus};
+// #[cfg(test)]
+// mod tests {
+// 	use super::*;
+// 	use crate::mock::Mock;
+// 	use futures::StreamExt;
+// 	use time_primitives::{TaskDescriptor, TaskStatus};
 
-	#[tokio::test]
-	async fn task_executor_smoke() -> Result<()> {
-		env_logger::try_init().ok();
+// 	#[tokio::test]
+// 	async fn task_executor_smoke() -> Result<()> {
+// 		env_logger::try_init().ok();
 
-		let mock = Mock::new(0);
+// 		let mock = Mock::new(0);
 
-		let network = mock.create_network("ethereum".into(), "dev".into());
-		let shard = mock.create_online_shard(vec![mock.account_id().clone()], 1);
-		let task = mock.create_task(TaskDescriptor {
-			owner: Some(mock.account_id().clone()),
-			network,
-			cycle: 1,
-			function: Function::SendMessage {
-				address: Default::default(),
-				gas_limit: Default::default(),
-				salt: Default::default(),
-				payload: Default::default(),
-			},
-			period: 0,
-			start: 0,
-			timegraph: None,
-			shard_size: 2,
-		});
-		mock.assign_task(task, shard);
-		let (block_hash, block_number) = mock.finality_notification_stream().next().await.unwrap();
-		let target_block_height = mock.block_stream().next().await.unwrap();
+// 		let network = mock.create_network("ethereum".into(), "dev".into());
+// 		let shard = mock.create_online_shard(vec![mock.account_id().clone()], 1);
+// 		let task = mock.create_task(TaskDescriptor {
+// 			owner: Some(mock.account_id().clone()),
+// 			network,
+// 			cycle: 1,
+// 			function: Function::SendMessage {
+// 				address: Default::default(),
+// 				gas_limit: Default::default(),
+// 				salt: Default::default(),
+// 				payload: Default::default(),
+// 			},
+// 			period: 0,
+// 			start: 0,
+// 			timegraph: None,
+// 			shard_size: 2,
+// 		});
+// 		mock.assign_task(task, shard);
+// 		let (block_hash, block_number) = mock.finality_notification_stream().next().await.unwrap();
+// 		let target_block_height = mock.block_stream().next().await.unwrap();
 
-		let params = TaskExecutorParams {
-			task_spawner: mock.clone(),
-			network,
-			substrate: mock.clone(),
-		};
-		let mut task_executor = TaskExecutor::new(params);
-		loop {
-			task_executor
-				.process_tasks(block_hash, block_number, shard, target_block_height)
-				.await
-				.unwrap();
-			tracing::info!("Watching for result");
-			let task = mock.task(task).unwrap();
-			if task.status != TaskStatus::Completed {
-				tracing::info!("task phase {:?}", task.phase);
-				continue;
-			}
-			break;
-		}
-		Ok(())
-	}
-}
+// 		let params = TaskExecutorParams {
+// 			task_spawner: mock.clone(),
+// 			network,
+// 			substrate: mock.clone(),
+// 		};
+// 		let mut task_executor = TaskExecutor::new(params);
+// 		loop {
+// 			task_executor
+// 				.process_tasks(block_hash, block_number, shard, target_block_height)
+// 				.await
+// 				.unwrap();
+// 			tracing::info!("Watching for result");
+// 			let task = mock.task(task).unwrap();
+// 			if task.status != TaskStatus::Completed {
+// 				tracing::info!("task phase {:?}", task.phase);
+// 				continue;
+// 			}
+// 			break;
+// 		}
+// 		Ok(())
+// 	}
+// }

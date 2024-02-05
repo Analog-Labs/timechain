@@ -127,9 +127,13 @@ async fn run_chronicle_with_spawner(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::Mock;
-	use std::{thread, time::Duration};
-	use time_primitives::{Function, ShardStatus, TaskDescriptor, TaskStatus};
+	use crate::mock::{
+		AssignedTasks, Mock, MockNetwork, MockShard, MockTask, Networks, Shards, Tasks,
+	};
+	use std::{collections::HashMap, sync::Mutex, thread, time::Duration};
+	use time_primitives::{
+		AccountId, Function, ShardId, ShardStatus, TaskDescriptor, TaskId, TaskStatus,
+	};
 
 	async fn chronicle(mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
@@ -154,8 +158,18 @@ mod tests {
 	async fn chronicle_smoke() -> Result<()> {
 		tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 		let mut mocks = vec![];
+		let networks: Networks = Default::default();
+		let shards: Shards = Default::default();
+		let tasks: Tasks = Default::default();
+		let assigned_tasks: AssignedTasks = Default::default();
 		for id in 0..3 {
-			let mock = Mock::new(id);
+			let mock = Mock::new(
+				id,
+				networks.clone(),
+				shards.clone(),
+				tasks.clone(),
+				assigned_tasks.clone(),
+			);
 			let network_id = mock.create_network("ethereum".into(), "dev".into());
 			let cloned_mock = mock.clone();
 			thread::spawn(move || {
@@ -166,10 +180,21 @@ mod tests {
 		}
 
 		let (mock, network_id) = &mocks[0];
+		let members: Vec<AccountId> = vec![[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()];
+		let shard_id = mock.create_shard(members.clone(), 2);
+		tracing::info!(
+			"shard is here {:?}",
+			mock.get_shards(Default::default(), &members.clone()[0]).await
+		);
+		tracing::info!(
+			"shard is here {:?}",
+			mocks[1].0.get_shards(Default::default(), &members[0]).await
+		);
 		loop {
 			tracing::info!("waiting for shard");
-			// TODO fix change 0 to shard_id after creation
-			if mock.get_shard_status(Default::default(), 0).await.unwrap() == ShardStatus::Online {
+			if mock.get_shard_status(Default::default(), shard_id).await.unwrap()
+				== ShardStatus::Online
+			{
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
@@ -192,8 +217,7 @@ mod tests {
 			shard_size: 3,
 		});
 		tracing::info!("assigning task");
-		//TODO replace 0 to a valid shard id
-		mock.assign_task(task_id, 0);
+		mock.assign_task(task_id, shard_id);
 		loop {
 			tracing::info!("waiting for task");
 			let task = mock.task(task_id).unwrap();

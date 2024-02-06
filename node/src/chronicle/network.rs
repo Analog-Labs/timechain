@@ -58,12 +58,13 @@ impl<N: NetworkRequest + Send + Sync + 'static> Network for SubstrateNetwork<N> 
 			peer_id,
 			PROTOCOL_NAME.into(),
 			bytes,
+			None,
 			tx,
 			IfDisconnected::TryConnect,
 		);
 		Box::pin(async move {
 			let response = rx.await??;
-			Ok(bincode::deserialize(&response)?)
+			Ok(bincode::deserialize(&response.0)?)
 		})
 	}
 }

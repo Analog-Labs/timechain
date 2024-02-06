@@ -4,7 +4,8 @@ use crate::{TaskExecutor, TaskExecutorParams};
 use anyhow::Result;
 use futures::executor::block_on;
 use futures::{future, stream, FutureExt, Stream};
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
+use sc_client_api::UsageProvider;
 use sc_network_test::{Block, TestClientBuilder, TestClientBuilderExt};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_transaction_pool_api::RejectAllTxPool;
@@ -279,7 +280,15 @@ async fn task_executor_smoke() -> Result<()> {
 	);
 
 	//import block
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let parent_hash = client.usage_info().chain.best_hash;
+	let block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(parent_hash)
+		.fetch_parent_block_number(&*client)
+		.unwrap()
+		.build()
+		.unwrap();
+
+	let block = block_builder.build().unwrap().block;
 	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 	let dummy_block_hash = block.header.hash();
 
@@ -335,7 +344,15 @@ async fn gmp_smoke() -> Result<()> {
 	);
 
 	//import block
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let parent_hash = client.usage_info().chain.best_hash;
+	let block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(parent_hash)
+		.fetch_parent_block_number(&*client)
+		.unwrap()
+		.build()
+		.unwrap();
+
+	let block = block_builder.build().unwrap().block;
 	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 	let dummy_block_hash = block.header.hash();
 

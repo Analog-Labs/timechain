@@ -21,47 +21,47 @@ clap = { version = "4.4.4", features = [ "derive" ] }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 
-frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-pallet-im-online = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-pallet-transaction-payment = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-chain-spec = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
-sc-client-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-consensus-babe = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-consensus-grandpa = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-executor = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-network = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-offchain = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-service = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
-sc-telemetry = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-transaction-pool = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-transaction-pool-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-consensus-babe = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-consensus-grandpa = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-inherents = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-keyring = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-statement-store = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-timestamp = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+pallet-im-online = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+pallet-transaction-payment = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-chain-spec = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
+sc-client-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-consensus-babe = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-consensus-grandpa = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-executor = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-network = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-offchain = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-service = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
+sc-telemetry = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-transaction-pool = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-transaction-pool-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-consensus = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-consensus-babe = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-consensus-grandpa = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-inherents = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-keyring = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-statement-store = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-timestamp = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
 
 # node 's RPCs deps
 jsonrpsee = { version = "0.16.2", features = [ "server" ] }
-pallet-transaction-payment-rpc = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-basic-authorship = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sc-rpc-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-sp-blockchain = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-substrate-frame-rpc-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+pallet-transaction-payment-rpc = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-basic-authorship = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sc-rpc-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-api = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-block-builder = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+sp-blockchain = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+substrate-frame-rpc-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
-frame-benchmarking-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+frame-benchmarking-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
 
 # Local Dependencies
 chronicle = { path = "../chronicle", optional = true }
@@ -70,14 +70,14 @@ timechain-runtime = { path = "../runtime", version = "0.0.1" }
 tc-subxt = { path = "../tc-subxt", optional = true }
 
 # CLI-specific dependencies
-try-runtime-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", optional = true }
+try-runtime-cli = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", optional = true }
 anyhow = "1.0.79"
 bincode = "1.3.3"
 tokio = "1.35.1"
 tracing = "0.1.40"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing" }
+substrate-build-script-utils = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
 
 [features]
 default = []

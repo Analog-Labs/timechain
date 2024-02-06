@@ -228,16 +228,16 @@ where
 			.await
 			.map_err(|err| format!("{:?}", err));
 		let payload = match &result {
-			Ok(payload) => payload.clone(),
-			Err(payload) => {
-				let mut msg_bytes = payload.as_bytes().to_vec();
-				msg_bytes.push(task_details.retry_count);
-				msg_bytes
-			},
+			Ok(payload) => payload.as_slice(),
+			Err(payload) => payload.as_bytes(),
 		};
-		let prehashed_payload = VerifyingKey::message_hash(payload.as_slice());
-		let hash =
-			append_hash_with_task_data(prehashed_payload, task_details.task_id, task_details.cycle);
+		let prehashed_payload = VerifyingKey::message_hash(payload);
+		let hash = append_hash_with_task_data(
+			prehashed_payload,
+			task_details.task_id,
+			task_details.cycle,
+			task_details.retry_count,
+		);
 		let (_, signature) = self
 			.tss_sign(block_num, shard_id, task_details.task_id, task_details.cycle, &hash)
 			.await?;

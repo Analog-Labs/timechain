@@ -83,13 +83,18 @@ fn mock_payable(network: NetworkId) -> TaskDescriptorParams {
 	}
 }
 
-fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskResult {
+fn mock_result_ok(
+	shard_id: ShardId,
+	task_id: TaskId,
+	task_cycle: TaskCycle,
+	retry_count: TaskRetryCount,
+) -> TaskResult {
 	// these values are taken after running a valid instance of submitting result
 	let hash = [
 		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
 		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
 	];
-	let appended_hash = append_hash_with_task_data(hash, task_id, task_cycle);
+	let appended_hash = append_hash_with_task_data(hash, task_id, task_cycle, retry_count);
 	let final_hash = VerifyingKey::message_hash(&appended_hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
 	TaskResult { shard_id, hash, signature }
@@ -103,10 +108,8 @@ fn mock_error_result(
 ) -> TaskError {
 	// these values are taken after running a valid instance of submitting error
 	let msg: String = "Invalid input length".into();
-	let mut msg_bytes = msg.clone().into_bytes();
-	msg_bytes.push(retry_count);
-	let msg_hash = VerifyingKey::message_hash(msg_bytes.as_slice());
-	let hash = append_hash_with_task_data(msg_hash, task_id, task_cycle);
+	let msg_hash = VerifyingKey::message_hash(&msg.clone().into_bytes());
+	let hash = append_hash_with_task_data(msg_hash, task_id, task_cycle, retry_count);
 	let final_hash = VerifyingKey::message_hash(&hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
 	TaskError { shard_id, msg, signature }
@@ -153,7 +156,7 @@ fn test_create_task() {
 		assert_eq!(Tasks::tasks(0).unwrap().shard_size, 3);
 		// insert shard public key to match mock result signature
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		let task_result = mock_result_ok(0, 0, 0);
+		let task_result = mock_result_ok(0, 0, 0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -386,7 +389,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(0, 0, 0)
+			mock_result_ok(0, 0, 0, 0)
 		));
 		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
@@ -505,11 +508,12 @@ fn submit_task_result_resets_retry_count() {
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
+		let retry_count = TaskRetryCounter::<Test>::get(0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(0, 0, 0)
+			mock_result_ok(0, 0, 0, retry_count)
 		));
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
 	});
@@ -736,7 +740,7 @@ fn task_recurring_cycle_count() {
 					RawOrigin::Signed([0; 32].into()).into(),
 					task_id,
 					cycle,
-					mock_result_ok(0, task_id, cycle)
+					mock_result_ok(0, task_id, cycle, 0)
 				));
 				cycle += 1;
 				total_results += 1;
@@ -788,7 +792,7 @@ fn submit_task_result_inserts_at_input_cycle() {
 		));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		let task_result = mock_result_ok(0, 0, 0);
+		let task_result = mock_result_ok(0, 0, 0, 0);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -835,7 +839,7 @@ fn payable_task_smoke() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 	});
@@ -1086,7 +1090,7 @@ fn register_gateway_completes_register_shard_task() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
 			0,
-			mock_result_ok(1, 0, 0)
+			mock_result_ok(1, 0, 0, 0)
 		));
 	});
 }
@@ -1128,7 +1132,7 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
 			0,
-			mock_result_ok(0, 1, 0)
+			mock_result_ok(0, 1, 0, 0)
 		));
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
 	});
@@ -1169,7 +1173,7 @@ fn shard_offline_stops_pending_register_shard_task() {
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_result_ok(1, 0, 0)
+				mock_result_ok(1, 0, 0, 0)
 			),
 			Error::<Test>::TaskStopped
 		);
@@ -1193,7 +1197,7 @@ fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 				RawOrigin::Signed([0; 32].into()).into(),
 				1,
 				0,
-				mock_result_ok(1, 1, 0)
+				mock_result_ok(1, 1, 0, 0)
 			),
 			Error::<Test>::UnknownTask
 		);
@@ -1486,7 +1490,7 @@ fn read_task_reward_goes_to_all_shard_members() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		for (i, member) in shard_size_3().into_iter().enumerate() {
@@ -1523,7 +1527,7 @@ fn read_task_completion_clears_payout_storage() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		let expected_per_member_payout: u128 = <Test as crate::Config>::BaseReadReward::get();
 		assert_eq!(MemberPayout::<Test>::get(task_id, shard_id), expected_per_member_payout);
@@ -1534,7 +1538,7 @@ fn read_task_completion_clears_payout_storage() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		assert_eq!(MemberPayout::<Test>::get(task_id, shard_id), 0);
@@ -1566,7 +1570,7 @@ fn write_task_reward_goes_to_submitter() {
 			RawOrigin::Signed(a.clone()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let mut i = 1;
@@ -1623,7 +1627,7 @@ fn write_task_payout_clears_storage() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(MemberPayout::<Test>::get(task_id, shard_id), 0);
 		assert_eq!(
@@ -1639,7 +1643,7 @@ fn write_task_payout_clears_storage() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		assert_eq!(MemberPayout::<Test>::get(task_id, shard_id), 0);
@@ -1677,7 +1681,7 @@ fn send_message_reward_goes_to_all_shard_members() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let mut i = 1;
@@ -1720,7 +1724,7 @@ fn send_message_payout_clears_storage() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		let write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
@@ -1735,7 +1739,7 @@ fn send_message_payout_clears_storage() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_cycle,
-			mock_result_ok(shard_id, task_id, task_cycle)
+			mock_result_ok(shard_id, task_id, task_cycle, 0)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		assert_eq!(MemberPayout::<Test>::get(task_id, shard_id), 0);

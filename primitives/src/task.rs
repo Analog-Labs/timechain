@@ -182,18 +182,26 @@ pub fn append_hash_with_task_data(
 	data: [u8; 32],
 	task_id: TaskId,
 	task_cycle: TaskCycle,
+	task_retry_count: TaskRetryCount,
 ) -> Vec<u8> {
 	let task_id_bytes = task_id.to_ne_bytes();
 	let task_cycle_bytes = task_cycle.to_ne_bytes();
+	let task_retry_bytes = task_retry_count.to_ne_bytes();
 	let filler = b";";
-	let mut extended_payload = Vec::with_capacity(
-		data.len() + filler.len() + task_id_bytes.len() + filler.len() + task_cycle_bytes.len(),
-	);
+	let mut extended_payload =
+		Vec::with_capacity(
+			data.len()
+				+ filler.len() + task_id_bytes.len()
+				+ filler.len() + task_cycle_bytes.len()
+				+ filler.len() + task_retry_bytes.len(),
+		);
 	extended_payload.extend_from_slice(&data);
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_id_bytes);
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_cycle_bytes);
+	extended_payload.extend_from_slice(filler);
+	extended_payload.extend_from_slice(&task_retry_bytes);
 	extended_payload
 }
 

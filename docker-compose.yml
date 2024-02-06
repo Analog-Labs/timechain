@@ -13,21 +13,13 @@ services:
     - '--alice'
     - '--validator'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
-    - '--network-id=3'
-    - '--target-url=ws://ethereum:8545'
-    - '--target-keyfile=/etc/keyfile'
-    - '--timechain-keyfile=/etc/timechain_keyfile'    
     labels:
       prometheus-scrape.enabled: 'true'
-    volumes:
-    - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile7:/etc/timechain_keyfile:ro'
-    expose:
-      - 9944
     ports:
       - 9944:9944
     profiles:
     - ethereum
+    - astar
 
   ethereum:
     image: 'ethereum/client-go:v1.12.2'
@@ -35,12 +27,6 @@ services:
     - '--dev'
     - '--ipcdisable'
     - '--dev.period=2'
-    - '--http'
-    - '--http.addr=0.0.0.0'
-    - '--http.port=8545'
-    - '--http.vhosts=*'
-    - '--http.corsdomain=*'
-    - '--http.api=eth,debug,admin,txpool,web3,net'
     - '--ws'
     - '--ws.addr=0.0.0.0'
     - '--ws.port=8545'
@@ -71,18 +57,17 @@ services:
     - '--network-id=3'
     - '--target-url=ws://ethereum:8545'
     - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/keyfile'
-    - '--timechain-keyfile=/etc/timechain_keyfile'    
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
     depends_on:
     - validator
     - ethereum
-    # todo! implement a wait for validator image/script
     restart: 'always'
     volumes:
-    - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
     - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
@@ -95,17 +80,17 @@ services:
     - '--network-id=1'
     - '--target-url=ws://astar:9944'
     - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/keyfile'
-    - '--timechain-keyfile=/etc/timechain_keyfile'    
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
     depends_on:
     - validator
     - astar
-    # todo! implement a wait for validator image/script
     restart: 'always'
     volumes:
-    - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
     - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'

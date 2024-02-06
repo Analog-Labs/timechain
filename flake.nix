@@ -33,7 +33,7 @@
           channel = "stable";
 
           # Default components and developer tools
-          components = [ "cargo" "rustc" "rust-docs" "rust-analyzer" "rustfmt" "clippy" ];
+          components = [ "cargo" "rustc" "rust-src" "rust-docs" "rust-analyzer" "rustfmt" "clippy" ];
 
           # Include toolchain for target and wasm32
           targets = [ tpkgs.stdenv.targetPlatform.config "wasm32-unknown-unknown" ];

@@ -437,15 +437,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			let retry_count = TaskRetryCounter::<T>::get(task_id);
+			let mut msg = error.msg.as_bytes().to_vec();
+			msg.push(retry_count);
 			Self::validate_signature(
 				task_id,
 				cycle,
 				error.shard_id,
-				VerifyingKey::message_hash(error.msg.as_bytes()),
+				VerifyingKey::message_hash(msg.as_slice()),
 				error.signature,
 			)?;
 			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			let retry_count = TaskRetryCounter::<T>::get(task_id);
 			let new_retry_count = retry_count.saturating_plus_one();
 			TaskRetryCounter::<T>::insert(task_id, new_retry_count);
 			// task fails when new retry count == max - 1 => old retry count == max

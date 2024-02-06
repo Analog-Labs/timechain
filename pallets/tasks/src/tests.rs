@@ -14,7 +14,7 @@ use sp_runtime::Saturating;
 use time_primitives::{
 	append_hash_with_task_data, AccountId, Function, NetworkId, PublicKey, RewardConfig, ShardId,
 	ShardStatus, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-	TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
+	TaskExecution, TaskId, TaskPhase, TaskResult, TaskRetryCount, TaskStatus, TasksInterface,
 };
 
 fn shard_size_2() -> [AccountId; 2] {
@@ -95,10 +95,17 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> 
 	TaskResult { shard_id, hash, signature }
 }
 
-fn mock_error_result(shard_id: ShardId, task_id: TaskId, task_cycle: TaskCycle) -> TaskError {
+fn mock_error_result(
+	shard_id: ShardId,
+	task_id: TaskId,
+	task_cycle: TaskCycle,
+	retry_count: TaskRetryCount,
+) -> TaskError {
 	// these values are taken after running a valid instance of submitting error
 	let msg: String = "Invalid input length".into();
-	let msg_hash = VerifyingKey::message_hash(&msg.clone().into_bytes());
+	let mut msg_bytes = msg.clone().into_bytes();
+	msg_bytes.push(retry_count);
+	let msg_hash = VerifyingKey::message_hash(msg_bytes.as_slice());
 	let hash = append_hash_with_task_data(msg_hash, task_id, task_cycle);
 	let final_hash = VerifyingKey::message_hash(&hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
@@ -403,11 +410,12 @@ fn shard_offline_drops_failed_tasks() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 0..4 {
+			let retry_count = TaskRetryCounter::<Test>::get(0);
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(0, 0, 0)
+				mock_error_result(0, 0, 0, retry_count)
 			));
 		}
 		ShardState::<Test>::insert(0, ShardStatus::Online);
@@ -433,11 +441,12 @@ fn submit_task_error_increments_retry_count() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 1..=10 {
+			let retry_count = TaskRetryCounter::<Test>::get(0);
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(0, 0, 0)
+				mock_error_result(0, 0, 0, retry_count)
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
@@ -447,7 +456,6 @@ fn submit_task_error_increments_retry_count() {
 #[test]
 fn submit_task_error_over_max_retry_count_is_task_failure() {
 	new_test_ext().execute_with(|| {
-		let error = mock_error_result(0, 0, 0);
 		Shards::create_shard(
 			ETHEREUM,
 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
@@ -460,15 +468,14 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 			mock_task(ETHEREUM, 1)
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let mut last_error = None;
 		for _ in 1..4 {
-			assert_ok!(Tasks::submit_error(
-				RawOrigin::Signed([0; 32].into()).into(),
-				0,
-				0,
-				error.clone()
-			));
+			let retry_count = TaskRetryCounter::<Test>::get(0);
+			let error = mock_error_result(0, 0, 0, retry_count);
+			last_error = Some(error.clone());
+			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, error));
 		}
-		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, error).into());
+		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, last_error.unwrap()).into());
 	});
 }
 
@@ -488,11 +495,12 @@ fn submit_task_result_resets_retry_count() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		for _ in 1..=10 {
+			let retry_count = TaskRetryCounter::<Test>::get(0);
 			assert_ok!(Tasks::submit_error(
 				RawOrigin::Signed([0; 32].into()).into(),
 				0,
 				0,
-				mock_error_result(0, 0, 0)
+				mock_error_result(0, 0, 0, retry_count)
 			));
 		}
 		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
@@ -835,7 +843,6 @@ fn payable_task_smoke() {
 
 #[test]
 fn resume_failed_task_after_shard_offline() {
-	let mock_error = mock_error_result(0, 0, 0);
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
 			ETHEREUM,
@@ -850,16 +857,15 @@ fn resume_failed_task_after_shard_offline() {
 		Tasks::shard_online(0, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		// fails 3 time to turn task status to failed
+		let mut last_error = None;
 		for _ in 0..3 {
-			assert_ok!(Tasks::submit_error(
-				RawOrigin::Signed([0; 32].into()).into(),
-				0,
-				0,
-				mock_error.clone()
-			));
+			let retry_count = TaskRetryCounter::<Test>::get(0);
+			let error = mock_error_result(0, 0, 0, retry_count);
+			last_error = Some(error.clone());
+			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, error));
 		}
 		assert_eq!(Tasks::task_shard(0), Some(0));
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: mock_error }));
+		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Failed { error: last_error.unwrap() }));
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert_eq!(Tasks::task_shard(0), None);

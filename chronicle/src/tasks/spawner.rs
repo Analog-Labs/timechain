@@ -15,7 +15,7 @@ use std::{
 };
 use time_primitives::{
 	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskCycle, TaskError,
-	TaskId, TaskResult, TssHash, TssId, TssSignature, TssSigningRequest,
+	TaskExecution, TaskId, TaskResult, TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use timegraph_client::{Timegraph, TimegraphData};
 
@@ -218,8 +218,7 @@ where
 		self,
 		target_block: u64,
 		shard_id: ShardId,
-		task_id: TaskId,
-		task_cycle: TaskCycle,
+		task_details: TaskExecution,
 		function: Function,
 		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
@@ -229,20 +228,27 @@ where
 			.await
 			.map_err(|err| format!("{:?}", err));
 		let payload = match &result {
-			Ok(payload) => payload.as_slice(),
-			Err(payload) => payload.as_bytes(),
+			Ok(payload) => payload.clone(),
+			Err(payload) => {
+				let mut msg_bytes = payload.as_bytes().to_vec();
+				msg_bytes.push(task_details.retry_count);
+				msg_bytes
+			},
 		};
-		let prehashed_payload = VerifyingKey::message_hash(payload);
-		let hash = append_hash_with_task_data(prehashed_payload, task_id, task_cycle);
-		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, task_cycle, &hash).await?;
+		let prehashed_payload = VerifyingKey::message_hash(payload.as_slice());
+		let hash =
+			append_hash_with_task_data(prehashed_payload, task_details.task_id, task_details.cycle);
+		let (_, signature) = self
+			.tss_sign(block_num, shard_id, task_details.task_id, task_details.cycle, &hash)
+			.await?;
 		match result {
 			Ok(result) => {
 				if let Err(e) = self
 					.submit_timegraph(
 						target_block,
 						shard_id,
-						task_id,
-						task_cycle,
+						task_details.task_id,
+						task_details.cycle,
 						&function,
 						collection,
 						block_num,
@@ -258,14 +264,21 @@ where
 					hash: prehashed_payload,
 					signature,
 				};
-				if let Err(e) = self.substrate.submit_task_result(task_id, task_cycle, result).await
+				if let Err(e) = self
+					.substrate
+					.submit_task_result(task_details.task_id, task_details.cycle, result)
+					.await
 				{
 					tracing::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) = self.substrate.submit_task_error(task_id, task_cycle, error).await {
+				if let Err(e) = self
+					.substrate
+					.submit_task_error(task_details.task_id, task_details.cycle, error)
+					.await
+				{
 					tracing::error!("Error submitting task error {:?}", e);
 				}
 			},
@@ -313,14 +326,13 @@ where
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
-		task_id: TaskId,
-		cycle: TaskCycle,
+		task_details: TaskExecution,
 		function: Function,
 		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		self.clone()
-			.read(target_block, shard_id, task_id, cycle, function, collection, block_num)
+			.read(target_block, shard_id, task_details, function, collection, block_num)
 			.boxed()
 	}
 

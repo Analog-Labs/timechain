@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use futures::{Future, Stream};
 use std::pin::Pin;
 use time_primitives::{
-	BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskCycle, TaskId, TssId,
+	BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskCycle, TaskExecution, TaskId, TssId,
 };
 
 pub mod executor;
@@ -19,8 +19,7 @@ pub trait TaskSpawner: Clone + Send + Sync + 'static {
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
-		task_id: TaskId,
-		cycle: TaskCycle,
+		task_details: TaskExecution,
 		function: Function,
 		hash: Option<[u8; 32]>,
 		block_num: BlockNumber,

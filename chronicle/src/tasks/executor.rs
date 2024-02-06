@@ -227,8 +227,7 @@ where
 					self.task_spawner.execute_read(
 						target_block_number,
 						shard_id,
-						task_id,
-						cycle,
+						executable_task.clone(),
 						function,
 						hash,
 						block_number,

@@ -463,8 +463,7 @@ impl TaskSpawner for Mock {
 		&self,
 		_target_block: u64,
 		shard_id: ShardId,
-		task_id: TaskId,
-		cycle: TaskCycle,
+		task_details: TaskExecution,
 		function: Function,
 		_hash: Option<[u8; 32]>,
 		block_num: BlockNumber,
@@ -473,10 +472,20 @@ impl TaskSpawner for Mock {
 		let spawner = self.clone();
 		Box::pin(async move {
 			let (hash, signature) = spawner
-				.tss_sign(block_num, shard_id, task_id, cycle, payload.as_bytes())
+				.tss_sign(
+					block_num,
+					shard_id,
+					task_details.task_id,
+					task_details.cycle,
+					payload.as_bytes(),
+				)
 				.await?;
 			spawner
-				.submit_task_result_core(task_id, cycle, TaskResult { shard_id, hash, signature })
+				.submit_task_result_core(
+					task_details.task_id,
+					task_details.cycle,
+					TaskResult { shard_id, hash, signature },
+				)
 				.await?;
 			Ok(())
 		})

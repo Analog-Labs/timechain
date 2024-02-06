@@ -92,6 +92,7 @@ pub fn analog_testnet_config(disable_tss: bool) -> Result<ChainSpec, String> {
 	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
 
+	#[allow(deprecated)]
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Analog Testnet",
@@ -100,7 +101,6 @@ pub fn analog_testnet_config(disable_tss: bool) -> Result<ChainSpec, String> {
 		ChainType::Live,
 		move || {
 			generate_analog_genesis(
-				wasm_binary,
 				// Sudo account
 				hex!["1260c29b59a365f07ac449e109cdf8f95905296af0707db9f3da0254e5db5741"].into(),
 				// Council account
@@ -388,6 +388,7 @@ pub fn analog_testnet_config(disable_tss: bool) -> Result<ChainSpec, String> {
 		Some(properties),
 		// Extensions
 		None,
+		wasm_binary,
 	))
 }
 
@@ -400,6 +401,8 @@ pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
 	properties.insert("tokenSymbol".into(), TOKEN_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
+
+	#[allow(deprecated)]
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Analog Staging",
@@ -408,7 +411,6 @@ pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
 		ChainType::Development,
 		move || {
 			generate_analog_genesis(
-				wasm_binary,
 				// Sudo account
 				hex!["166ce0ffbe439609d59ab5aec79c00f4d7da021b856ccb412510f75791cf0a7d"].into(),
 				// Council account
@@ -695,6 +697,7 @@ pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
 		Some(properties),
 		// Extensions
 		None,
+		wasm_binary,
 	))
 }
 
@@ -708,6 +711,7 @@ pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 	properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), SS_58_FORMAT.into());
 
+	#[allow(deprecated)]
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Analog Dev",
@@ -716,7 +720,6 @@ pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 		ChainType::Development,
 		move || {
 			generate_analog_genesis(
-				wasm_binary,
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Council account
@@ -784,12 +787,12 @@ pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 		Some(properties),
 		// Extensions
 		None,
+		wasm_binary,
 	))
 }
 
 /// Helper to generate genesis storage state.
 fn generate_analog_genesis(
-	wasm_binary: &[u8],
 	root_key: AccountId,
 	council_key: AccountId,
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
@@ -813,11 +816,7 @@ fn generate_analog_genesis(
 	let (shard_size, shard_threshold) =
 		if disable_tss { (1, 1) } else { (SHARD_SIZE, SHARD_THRESHOLD) };
 	GenesisConfig {
-		system: SystemConfig {
-			// Add Wasm runtime to storage.
-			code: wasm_binary.to_vec(),
-			..Default::default()
-		},
+		system: SystemConfig { ..Default::default() },
 		balances: BalancesConfig {
 			// Configure pool accounts with its initial supply.
 			balances: endowed_accounts,

@@ -127,4 +127,19 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
 	}
+
+	/// FIXME: Copied from westend, needs to be generated
+	fn authorize_upgrade() -> Weight {
+		Weight::from_parts(33_027_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
+	/// FIXME: Copied from westend, needs to be generated
+	fn apply_authorized_upgrade() -> Weight {
+		Weight::from_parts(118_101_992_000, 0)
+			.saturating_add(Weight::from_parts(0, 1518))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }

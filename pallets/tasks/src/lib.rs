@@ -257,6 +257,8 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
+		/// Task requires more funds at creation in order to payout rewards
+		InsufficientFundsToRewardTask,
 	}
 
 	#[pallet::call]
@@ -468,37 +470,48 @@ pub mod pallet {
 		}
 
 		/// Start task
-		fn start_task(schedule: TaskDescriptorParams, who: Option<AccountId>) -> DispatchResult {
+		fn start_task(owner: AccountId, schedule: TaskDescriptorParams) -> DispatchResult {
 			let task_id = TaskIdCounter::<T>::get();
-			if let Some(funded_by) = &who {
-				// transfer schedule.funds to task funded account
-				pallet_balances::Pallet::<T>::transfer(
-					funded_by,
-					&Self::task_account(task_id),
-					schedule.funds,
-					ExistenceRequirement::KeepAlive,
-				)?;
-			} // else task is unfunded until `fund_task` is called?
-			if schedule.function.is_gmp() {
+			let (read_task_reward, write_task_reward, send_message_reward) = (
+				T::BaseReadReward::get() + NetworkReadReward::<T>::get(schedule.network),
+				T::BaseWriteReward::get() + NetworkWriteReward::<T>::get(schedule.network),
+				T::BaseSendMessageReward::get()
+					+ NetworkSendMessageReward::<T>::get(schedule.network),
+			);
+			let mut required_funds = read_task_reward
+				.saturating_mul(schedule.shard_size)
+				.saturating_add(write_task_reward);
+			let is_gmp = if schedule.function.is_gmp() {
+				required_funds = required_funds
+					.saturating_add((send_message_reward.saturating_mul(schedule.shard_size)));
+				true
+			} else {
+				false
+			};
+			ensure!(schedule.funds >= required_funds, Error::<T>::InsufficientFundsToRewardTask);
+			pallet_balances::Pallet::<T>::transfer(
+				&owner,
+				&Self::task_account(task_id),
+				schedule.funds,
+				ExistenceRequirement::KeepAlive,
+			)?;
+			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 			}
 			// Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,
 				RewardConfig {
-					read_task_reward: T::BaseReadReward::get()
-						+ NetworkReadReward::<T>::get(schedule.network),
-					write_task_reward: T::BaseWriteReward::get()
-						+ NetworkWriteReward::<T>::get(schedule.network),
-					send_message_reward: T::BaseSendMessageReward::get()
-						+ NetworkSendMessageReward::<T>::get(schedule.network),
+					read_task_reward,
+					write_task_reward,
+					send_message_reward,
 					depreciation_rate: T::RewardDeclineRate::get(),
 				},
 			);
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {
-					owner: who,
+					owner: Some(owner),
 					network: schedule.network,
 					function: schedule.function,
 					start: schedule.start,
@@ -770,12 +783,12 @@ pub mod pallet {
 		fn shard_online(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::start_task(
+				// who should be the task owner
 				TaskDescriptorParams::new(
 					network,
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as u32,
 				),
-				None,
 			)
 			.unwrap();
 		}

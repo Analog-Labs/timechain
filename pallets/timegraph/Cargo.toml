@@ -10,16 +10,16 @@ repository = "https://github.com/Analog-Labs/testnet"
 version = "0.0.1"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [ "max-encoded-len" ] }
-frame-benchmarking = {  git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false, optional = true }
-frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false}
-frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false}
+frame-benchmarking = {  git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false, optional = true }
+frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false}
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false}
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
-sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
-sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing" }
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing" }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing" }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing" }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing" }
 
 [features]
 default = [ "std" ]

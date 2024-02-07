@@ -318,9 +318,9 @@ dependencies = [
 
 [[package]]
 name = "aquamarine"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "074b80d14d0240b6ce94d68f059a2d26a5d77280ae142662365a21ef6e2594ef"
+checksum = "21cc1548309245035eb18aa7f0967da6bc65587005170c56e6ef2788a4cf3f4e"
 dependencies = [
  "include_dir",
  "itertools 0.10.5",
@@ -1520,6 +1520,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bounded-collections"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d32385ecb91a31bddaf908e8dcf4a15aef1bcd3913cc03ebfad02ff6d568abc1"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
 name = "bounded-integer"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1539,16 +1551,6 @@ checksum = "f5353f36341f7451062466f0b755b96ac3a9547e4d7f6b70d603fc721a7d7896"
 dependencies = [
  "sha2 0.10.8",
  "tinyvec",
-]
-
-[[package]]
-name = "bstr"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c48f0051a4b4c5e0b6d365cd04af53aeaa209e3cc15ec2cdb69e73cc87fbd0dc"
-dependencies = [
- "memchr",
- "serde",
 ]
 
 [[package]]
@@ -3925,8 +3927,8 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "fork-tree"
-version = "3.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "12.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
 ]
@@ -3958,8 +3960,8 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "frame-support-procedural",
@@ -3971,20 +3973,20 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "static_assertions",
 ]
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "32.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "Inflector",
  "array-bytes 6.2.2",
@@ -4014,25 +4016,25 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-database",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-inherents",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
  "thousands",
 ]
 
 [[package]]
 name = "frame-election-provider-solution-type"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "13.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2",
@@ -4042,25 +4044,25 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-support"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
  "sp-npos-elections",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "frame-executive"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4068,11 +4070,11 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -4100,19 +4102,20 @@ dependencies = [
 
 [[package]]
 name = "frame-remote-externalities"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.35.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "futures",
  "indicatif",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "parity-scale-codec",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "spinners",
  "substrate-rpc-client",
  "tokio",
@@ -4121,8 +4124,8 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "aquamarine",
  "array-bytes 6.2.2",
@@ -4142,28 +4145,28 @@ dependencies = [
  "serde_json",
  "smallvec",
  "sp-api",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core-hashing-proc-macro",
- "sp-debug-derive 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing-proc-macro",
+ "sp-debug-derive 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
  "sp-metadata-ir",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "sp-staking",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-state-machine 0.35.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-weights 27.0.0",
  "static_assertions",
  "tt-call",
 ]
 
 [[package]]
 name = "frame-support-procedural"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "23.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -4175,14 +4178,14 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "sp-core-hashing 9.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-crypto-hashing",
  "syn 2.0.48",
 ]
 
 [[package]]
 name = "frame-support-procedural-tools"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "10.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support-procedural-tools-derive",
  "proc-macro-crate 3.1.0",
@@ -4193,8 +4196,8 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural-tools-derive"
-version = "3.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4203,8 +4206,8 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "cfg-if",
  "docify",
@@ -4213,33 +4216,33 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-version",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
 name = "frame-system-benchmarking"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "frame-system-rpc-runtime-api"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -4247,14 +4250,14 @@ dependencies = [
 
 [[package]]
 name = "frame-try-runtime"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
  "sp-api",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -4605,19 +4608,6 @@ name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
-
-[[package]]
-name = "globset"
-version = "0.4.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57da3b9b5b85bd66f31093f8c408b90a74431672542466497dcbdfdc02034be1"
-dependencies = [
- "aho-corasick",
- "bstr",
- "log",
- "regex-automata 0.4.5",
- "regex-syntax 0.8.2",
-]
 
 [[package]]
 name = "gloo-timers"
@@ -5101,7 +5091,6 @@ dependencies = [
  "rustls-native-certs",
  "tokio",
  "tokio-rustls",
- "webpki-roots 0.25.4",
 ]
 
 [[package]]
@@ -5615,53 +5604,19 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "367a292944c07385839818bb71c8d76611138e2dedb0677d035b8da21d29c78b"
-dependencies = [
- "jsonrpsee-core 0.16.3",
- "jsonrpsee-http-client 0.16.3",
- "jsonrpsee-proc-macros 0.16.3",
- "jsonrpsee-server",
- "jsonrpsee-types 0.16.3",
- "jsonrpsee-ws-client 0.16.3",
- "tracing",
-]
-
-[[package]]
-name = "jsonrpsee"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "affdc52f7596ccb2d7645231fc6163bb314630c989b64998f3699a28b4d5d4dc"
 dependencies = [
- "jsonrpsee-client-transport 0.20.3",
- "jsonrpsee-core 0.20.3",
- "jsonrpsee-http-client 0.20.3",
- "jsonrpsee-proc-macros 0.20.3",
- "jsonrpsee-types 0.20.3",
- "jsonrpsee-ws-client 0.20.3",
- "tracing",
-]
-
-[[package]]
-name = "jsonrpsee-client-transport"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8b3815d9f5d5de348e5f162b316dc9cdf4548305ebb15b4eb9328e66cf27d7a"
-dependencies = [
- "futures-util",
- "http",
- "jsonrpsee-core 0.16.3",
- "jsonrpsee-types 0.16.3",
- "pin-project",
- "rustls-native-certs",
- "soketto",
- "thiserror",
+ "jsonrpsee-client-transport",
+ "jsonrpsee-core",
+ "jsonrpsee-http-client",
+ "jsonrpsee-proc-macros",
+ "jsonrpsee-server",
+ "jsonrpsee-types",
+ "jsonrpsee-ws-client",
  "tokio",
- "tokio-rustls",
- "tokio-util",
  "tracing",
- "webpki-roots 0.25.4",
 ]
 
 [[package]]
@@ -5672,7 +5627,7 @@ checksum = "b5b005c793122d03217da09af68ba9383363caa950b90d3436106df8cabce935"
 dependencies = [
  "futures-util",
  "http",
- "jsonrpsee-core 0.20.3",
+ "jsonrpsee-core",
  "pin-project",
  "rustls-native-certs",
  "soketto",
@@ -5683,34 +5638,6 @@ dependencies = [
  "tracing",
  "url",
  "webpki-roots 0.25.4",
-]
-
-[[package]]
-name = "jsonrpsee-core"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b5dde66c53d6dcdc8caea1874a45632ec0fcf5b437789f1e45766a1512ce803"
-dependencies = [
- "anyhow",
- "arrayvec 0.7.4",
- "async-lock 2.8.0",
- "async-trait",
- "beef",
- "futures-channel",
- "futures-timer",
- "futures-util",
- "globset",
- "hyper",
- "jsonrpsee-types 0.16.3",
- "parking_lot 0.12.1",
- "rand 0.8.5",
- "rustc-hash",
- "serde",
- "serde_json",
- "soketto",
- "thiserror",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -5726,29 +5653,13 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hyper",
- "jsonrpsee-types 0.20.3",
+ "jsonrpsee-types",
+ "parking_lot 0.12.1",
+ "rand 0.8.5",
  "rustc-hash",
  "serde",
  "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "jsonrpsee-http-client"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e5f9fabdd5d79344728521bb65e3106b49ec405a78b66fbff073b72b389fa43"
-dependencies = [
- "async-trait",
- "hyper",
- "hyper-rustls",
- "jsonrpsee-core 0.16.3",
- "jsonrpsee-types 0.16.3",
- "rustc-hash",
- "serde",
- "serde_json",
+ "soketto",
  "thiserror",
  "tokio",
  "tracing",
@@ -5763,8 +5674,8 @@ dependencies = [
  "async-trait",
  "hyper",
  "hyper-rustls",
- "jsonrpsee-core 0.20.3",
- "jsonrpsee-types 0.20.3",
+ "jsonrpsee-core",
+ "jsonrpsee-types",
  "serde",
  "serde_json",
  "thiserror",
@@ -5772,19 +5683,6 @@ dependencies = [
  "tower",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "jsonrpsee-proc-macros"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44e8ab85614a08792b9bff6c8feee23be78c98d0182d4c622c05256ab553892a"
-dependencies = [
- "heck",
- "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -5802,37 +5700,24 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-server"
-version = "0.16.3"
+version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf4d945a6008c9b03db3354fb3c83ee02d2faa9f2e755ec1dfb69c3551b8f4ba"
+checksum = "82c39a00449c9ef3f50b84fc00fc4acba20ef8f559f07902244abf4c15c5ab9c"
 dependencies = [
- "futures-channel",
  "futures-util",
  "http",
  "hyper",
- "jsonrpsee-core 0.16.3",
- "jsonrpsee-types 0.16.3",
+ "jsonrpsee-core",
+ "jsonrpsee-types",
+ "route-recognizer",
  "serde",
  "serde_json",
  "soketto",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "tower",
- "tracing",
-]
-
-[[package]]
-name = "jsonrpsee-types"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "245ba8e5aa633dd1c1e4fae72bce06e71f42d34c14a2767c6b4d173b57bee5e5"
-dependencies = [
- "anyhow",
- "beef",
- "serde",
- "serde_json",
- "thiserror",
  "tracing",
 ]
 
@@ -5852,26 +5737,14 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-ws-client"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e1b3975ed5d73f456478681a417128597acd6a2487855fdb7b4a3d4d195bf5e"
-dependencies = [
- "http",
- "jsonrpsee-client-transport 0.16.3",
- "jsonrpsee-core 0.16.3",
- "jsonrpsee-types 0.16.3",
-]
-
-[[package]]
-name = "jsonrpsee-ws-client"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bca9cb3933ccae417eb6b08c3448eb1cb46e39834e5b503e395e5e5bd08546c0"
 dependencies = [
  "http",
- "jsonrpsee-client-transport 0.20.3",
- "jsonrpsee-core 0.20.3",
- "jsonrpsee-types 0.20.3",
+ "jsonrpsee-client-transport",
+ "jsonrpsee-core",
+ "jsonrpsee-types",
  "url",
 ]
 
@@ -6830,6 +6703,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memmap2"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe751422e4a8caa417e13c3ea66452215d7d63e19e604f4980461212f3ae1322"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "memoffset"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7598,22 +7480,22 @@ dependencies = [
 
 [[package]]
 name = "pallet-authorship"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-babe"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7624,20 +7506,20 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-bags-list"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "aquamarine",
  "docify",
@@ -7649,32 +7531,33 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-balances"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-collective"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7682,16 +7565,16 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-election-provider-multi-phase"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -7702,27 +7585,27 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
  "sp-npos-elections",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "strum 0.24.1",
 ]
 
 [[package]]
 name = "pallet-election-provider-support-benchmarking"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-system",
  "parity-scale-codec",
  "sp-npos-elections",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -7740,18 +7623,18 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "time-primitives",
 ]
 
 [[package]]
 name = "pallet-grandpa"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7761,20 +7644,20 @@ dependencies = [
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-im-online"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7783,12 +7666,12 @@ dependencies = [
  "pallet-authorship",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -7804,11 +7687,11 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "time-primitives",
 ]
 
@@ -7822,16 +7705,16 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "time-primitives",
 ]
 
 [[package]]
 name = "pallet-offences"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7840,15 +7723,15 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-session"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7857,14 +7740,14 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-state-machine 0.35.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -7879,17 +7762,17 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "time-primitives",
 ]
 
 [[package]]
 name = "pallet-staking"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -7901,17 +7784,17 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-staking-reward-curve"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2",
@@ -7921,8 +7804,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-sudo"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -7930,9 +7813,9 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -7948,10 +7831,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "time-primitives",
 ]
 
@@ -7965,15 +7848,15 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "pallet-timestamp"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -7983,61 +7866,61 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-inherents",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-timestamp",
 ]
 
 [[package]]
 name = "pallet-transaction-payment"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-transaction-payment-rpc"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "30.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
 name = "pallet-transaction-payment-rpc-runtime-api"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "sp-api",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
 name = "pallet-treasury"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -8048,25 +7931,25 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "pallet-utility"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -8082,7 +7965,7 @@ dependencies = [
  "libc",
  "log",
  "lz4",
- "memmap2",
+ "memmap2 0.5.10",
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "siphasher",
@@ -8984,7 +8867,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b82eaa1d779e9a4bc1c3217db8ffbeabaae1dca241bf70183242128d48681cd"
 dependencies = [
  "bytes",
- "prost-derive",
+ "prost-derive 0.11.9",
+]
+
+[[package]]
+name = "prost"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "146c289cda302b98a28d40c8b3b90498d6e526dd24ac2ecea73e4e491685b94a"
+dependencies = [
+ "bytes",
+ "prost-derive 0.12.3",
 ]
 
 [[package]]
@@ -9001,7 +8894,7 @@ dependencies = [
  "multimap",
  "petgraph",
  "prettyplease 0.1.25",
- "prost",
+ "prost 0.11.9",
  "prost-types",
  "regex",
  "syn 1.0.109",
@@ -9023,12 +8916,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "prost-derive"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efb6c9a1dd1def8e2124d17e83a20af56f1570d6c2d2bd9e266ccb768df3840e"
+dependencies = [
+ "anyhow",
+ "itertools 0.11.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "prost-types"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
- "prost",
+ "prost 0.11.9",
 ]
 
 [[package]]
@@ -9743,7 +9649,7 @@ dependencies = [
  "schnorrkel 0.10.2",
  "sha2 0.10.8",
  "sha3",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
@@ -9758,7 +9664,7 @@ dependencies = [
  "dashmap",
  "ethers",
  "futures-util",
- "jsonrpsee 0.20.3",
+ "jsonrpsee",
  "pin-project",
  "serde",
  "serde_json",
@@ -9778,7 +9684,7 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
- "jsonrpsee 0.20.3",
+ "jsonrpsee",
  "log",
  "pin-project",
  "serde",
@@ -9811,8 +9717,8 @@ dependencies = [
  "rosetta-server-ethereum",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-keyring 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-keyring 24.0.0",
  "subxt",
  "tokio",
 ]
@@ -9871,7 +9777,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-keyring 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-keyring 24.0.0",
  "subxt",
  "tokio",
  "tracing",
@@ -9913,6 +9819,12 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "route-recognizer"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
 name = "rpassword"
@@ -10023,8 +9935,8 @@ checksum = "e666a5496a0b2186dbcd0ff6106e29e093c15591bde62c20d3842007c6978a09"
 name = "runtime-common"
 version = "1.0.0"
 dependencies = [
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
@@ -10299,19 +10211,19 @@ dependencies = [
 
 [[package]]
 name = "sc-allocator"
-version = "4.1.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "23.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "log",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-basic-authorship"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "futures",
  "futures-timer",
@@ -10324,36 +10236,36 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
 ]
 
 [[package]]
 name = "sc-block-builder"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
 name = "sc-chain-spec"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "docify",
  "log",
- "memmap2",
+ "memmap2 0.9.4",
  "parity-scale-codec",
  "sc-chain-spec-derive",
  "sc-client-api",
@@ -10363,17 +10275,18 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
  "sp-genesis-builder",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
 ]
 
 [[package]]
 name = "sc-chain-spec-derive"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2",
@@ -10383,8 +10296,8 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.36.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "bip39",
@@ -10412,11 +10325,11 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keyring 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-panic-handler 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "sp-keystore 0.34.0",
+ "sp-panic-handler 13.0.0",
+ "sp-runtime 31.0.1",
  "sp-version",
  "thiserror",
  "tokio",
@@ -10424,8 +10337,8 @@ dependencies = [
 
 [[package]]
 name = "sc-client-api"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "fnv",
  "futures",
@@ -10438,21 +10351,21 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-database",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "sp-statement-store",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
 ]
 
 [[package]]
 name = "sc-client-db"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.35.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "hash-db",
  "kvdb",
@@ -10466,19 +10379,19 @@ dependencies = [
  "sc-client-api",
  "sc-state-db",
  "schnellru",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-database",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
 name = "sc-consensus"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "futures",
@@ -10493,17 +10406,17 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-consensus-babe"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -10521,37 +10434,38 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool-api",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
  "sp-inherents",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-consensus-epochs"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "fork-tree",
  "parity-scale-codec",
  "sc-client-api",
  "sc-consensus",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.19.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "ahash 0.8.7",
  "array-bytes 6.2.2",
@@ -10578,22 +10492,23 @@ dependencies = [
  "sc-utils",
  "serde_json",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-consensus-slots"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "futures",
@@ -10603,20 +10518,20 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-telemetry",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
 ]
 
 [[package]]
 name = "sc-executor"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.32.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -10624,33 +10539,33 @@ dependencies = [
  "sc-executor-wasmtime",
  "schnellru",
  "sp-api",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-panic-handler 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-io 30.0.0",
+ "sp-panic-handler 13.0.0",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
  "sp-version",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "tracing",
 ]
 
 [[package]]
 name = "sc-executor-common"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.29.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "sc-allocator",
  "sp-maybe-compressed-blob",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
  "wasm-instrument",
 ]
 
 [[package]]
 name = "sc-executor-wasmtime"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.29.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -10660,15 +10575,15 @@ dependencies = [
  "rustix 0.36.17",
  "sc-allocator",
  "sc-executor-common",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "wasmtime",
 ]
 
 [[package]]
 name = "sc-informant"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "ansi_term",
  "futures",
@@ -10679,27 +10594,27 @@ dependencies = [
  "sc-network-common",
  "sc-network-sync",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "sc-keystore"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "25.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "parking_lot 0.12.1",
  "serde_json",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-mixnet"
-version = "0.1.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.4.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 4.2.0",
  "arrayvec 0.7.4",
@@ -10718,17 +10633,17 @@ dependencies = [
  "sc-transaction-pool-api",
  "sp-api",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
  "sp-mixnet",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-network"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -10755,10 +10670,10 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
  "thiserror",
  "tokio",
@@ -10770,28 +10685,28 @@ dependencies = [
 
 [[package]]
 name = "sc-network-bitswap"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-channel 1.9.0",
  "cid",
  "futures",
  "libp2p-identity",
  "log",
- "prost",
+ "prost 0.12.3",
  "prost-build",
  "sc-client-api",
  "sc-network",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "thiserror",
  "unsigned-varint",
 ]
 
 [[package]]
 name = "sc-network-common"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "bitflags 1.3.2",
@@ -10802,13 +10717,13 @@ dependencies = [
  "sc-consensus",
  "sp-consensus",
  "sp-consensus-grandpa",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "sc-network-gossip"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "ahash 0.8.7",
  "futures",
@@ -10819,15 +10734,15 @@ dependencies = [
  "sc-network-common",
  "sc-network-sync",
  "schnellru",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
  "tracing",
 ]
 
 [[package]]
 name = "sc-network-light"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -10835,20 +10750,20 @@ dependencies = [
  "libp2p-identity",
  "log",
  "parity-scale-codec",
- "prost",
+ "prost 0.12.3",
  "prost-build",
  "sc-client-api",
  "sc-network",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-network-sync"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -10860,7 +10775,7 @@ dependencies = [
  "log",
  "mockall",
  "parity-scale-codec",
- "prost",
+ "prost 0.12.3",
  "prost-build",
  "sc-client-api",
  "sc-consensus",
@@ -10869,12 +10784,12 @@ dependencies = [
  "sc-utils",
  "schnellru",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
  "thiserror",
  "tokio",
@@ -10883,8 +10798,8 @@ dependencies = [
 
 [[package]]
 name = "sc-network-transactions"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "futures",
@@ -10896,14 +10811,14 @@ dependencies = [
  "sc-network-sync",
  "sc-utils",
  "sp-consensus",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
 ]
 
 [[package]]
 name = "sc-offchain"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "29.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "bytes",
@@ -10925,19 +10840,19 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "sp-api",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-keystore 0.34.0",
  "sp-offchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "threadpool",
  "tracing",
 ]
 
 [[package]]
 name = "sc-proposer-metrics"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.17.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "log",
  "substrate-prometheus-endpoint",
@@ -10945,11 +10860,11 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "29.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "futures",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -10964,11 +10879,11 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
  "sp-offchain",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "sp-session",
  "sp-statement-store",
  "sp-version",
@@ -10977,10 +10892,10 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-api"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-mixnet",
@@ -10988,20 +10903,20 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "sp-version",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-rpc-server"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "http",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "serde_json",
  "substrate-prometheus-endpoint",
@@ -11012,27 +10927,28 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-spec-v2"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "futures",
  "futures-util",
  "hex 0.4.3",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-chain-spec",
  "sc-client-api",
+ "sc-rpc",
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "sp-version",
  "thiserror",
  "tokio",
@@ -11041,15 +10957,15 @@ dependencies = [
 
 [[package]]
 name = "sc-service"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.35.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "directories",
  "exit-future",
  "futures",
  "futures-timer",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -11082,16 +10998,16 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
  "sp-session",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-state-machine 0.35.0",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-transaction-pool",
  "sp-transaction-storage-proof",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-trie 29.0.0",
  "sp-version",
  "static_init",
  "substrate-prometheus-endpoint",
@@ -11104,19 +11020,19 @@ dependencies = [
 
 [[package]]
 name = "sc-state-db"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.30.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
 ]
 
 [[package]]
 name = "sc-sysinfo"
-version = "6.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "derive_more 0.99.17",
  "futures",
@@ -11128,15 +11044,16 @@ dependencies = [
  "sc-telemetry",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sc-telemetry"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "15.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "chrono",
  "futures",
@@ -11154,8 +11071,8 @@ dependencies = [
 
 [[package]]
 name = "sc-tracing"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "ansi_term",
  "chrono",
@@ -11172,10 +11089,10 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
  "tracing",
  "tracing-log 0.1.4",
@@ -11184,8 +11101,8 @@ dependencies = [
 
 [[package]]
 name = "sc-tracing-proc-macro"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2",
@@ -11195,8 +11112,8 @@ dependencies = [
 
 [[package]]
 name = "sc-transaction-pool"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "futures",
@@ -11211,9 +11128,10 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-transaction-pool",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -11221,8 +11139,8 @@ dependencies = [
 
 [[package]]
 name = "sc-transaction-pool-api"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "futures",
@@ -11230,15 +11148,15 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
  "thiserror",
 ]
 
 [[package]]
 name = "sc-utils"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "14.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-channel 1.9.0",
  "futures",
@@ -11247,7 +11165,7 @@ dependencies = [
  "log",
  "parking_lot 0.12.1",
  "prometheus",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
 ]
 
 [[package]]
@@ -12201,29 +12119,29 @@ dependencies = [
 
 [[package]]
 name = "sp-api"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "hash-db",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-api-proc-macro",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-metadata-ir",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
  "sp-version",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-api-proc-macro"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "15.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "Inflector",
  "blake2 0.10.6",
@@ -12243,22 +12161,22 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-io 23.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
 name = "sp-application-crypto"
-version = "23.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "30.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -12272,21 +12190,21 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-std 8.0.0",
  "static_assertions",
 ]
 
 [[package]]
 name = "sp-arithmetic"
-version = "16.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "23.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "integer-sqrt",
  "num-traits",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "static_assertions",
 ]
 
@@ -12310,19 +12228,19 @@ dependencies = [
 
 [[package]]
 name = "sp-block-builder"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "sp-api",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-blockchain"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "futures",
  "log",
@@ -12332,66 +12250,66 @@ dependencies = [
  "sp-api",
  "sp-consensus",
  "sp-database",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-consensus"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.32.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "futures",
  "log",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-consensus-aura"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.32.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
  "sp-consensus-slots",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-timestamp",
 ]
 
 [[package]]
 name = "sp-consensus-babe"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.32.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-timestamp",
 ]
 
 [[package]]
 name = "sp-consensus-grandpa"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "13.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "finality-grandpa",
  "log",
@@ -12399,22 +12317,22 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-consensus-slots"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.32.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-timestamp",
 ]
 
@@ -12427,7 +12345,7 @@ dependencies = [
  "array-bytes 4.2.0",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections",
+ "bounded-collections 0.1.9",
  "bs58 0.4.0",
  "dyn-clonable",
  "ed25519-zebra",
@@ -12450,12 +12368,12 @@ dependencies = [
  "secp256k1 0.24.3",
  "secrecy",
  "serde",
- "sp-core-hashing 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-debug-derive 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime-interface 17.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-storage 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core-hashing",
+ "sp-debug-derive 8.0.0",
+ "sp-externalities 0.19.0",
+ "sp-runtime-interface 17.0.0",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
@@ -12465,15 +12383,15 @@ dependencies = [
 
 [[package]]
 name = "sp-core"
-version = "21.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "array-bytes 6.2.2",
  "bandersnatch_vrfs",
  "bip39",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections",
+ "bounded-collections 0.2.0",
  "bs58 0.5.0",
  "dyn-clonable",
  "ed25519-zebra",
@@ -12495,12 +12413,12 @@ dependencies = [
  "secp256k1 0.28.2",
  "secrecy",
  "serde",
- "sp-core-hashing 9.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-debug-derive 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-crypto-hashing",
+ "sp-debug-derive 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
@@ -12520,31 +12438,8 @@ dependencies = [
  "digest 0.10.7",
  "sha2 0.10.8",
  "sha3",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-std 8.0.0",
  "twox-hash",
-]
-
-[[package]]
-name = "sp-core-hashing"
-version = "9.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
-dependencies = [
- "blake2b_simd",
- "byteorder",
- "digest 0.10.7",
- "sha2 0.10.8",
- "sha3",
- "twox-hash",
-]
-
-[[package]]
-name = "sp-core-hashing-proc-macro"
-version = "9.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
-dependencies = [
- "quote",
- "sp-core-hashing 9.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "syn 2.0.48",
 ]
 
 [[package]]
@@ -12564,14 +12459,37 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-scale",
- "sp-runtime-interface 24.0.0",
- "sp-std 14.0.0",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+]
+
+[[package]]
+name = "sp-crypto-hashing"
+version = "0.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
+dependencies = [
+ "blake2b_simd",
+ "byteorder",
+ "digest 0.10.7",
+ "sha2 0.10.8",
+ "sha3",
+ "twox-hash",
+]
+
+[[package]]
+name = "sp-crypto-hashing-proc-macro"
+version = "0.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
+dependencies = [
+ "quote",
+ "sp-crypto-hashing",
+ "syn 2.0.48",
 ]
 
 [[package]]
 name = "sp-database"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "10.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.1",
@@ -12590,8 +12508,8 @@ dependencies = [
 
 [[package]]
 name = "sp-debug-derive"
-version = "8.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "14.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12616,19 +12534,19 @@ checksum = "a0f71c671e01a8ca60da925d43a1b351b69626e268b8837f8371e320cf1dd100"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-storage 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
 ]
 
 [[package]]
 name = "sp-externalities"
-version = "0.19.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.25.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -12638,32 +12556,32 @@ source = "git+https://github.com/paritytech/polkadot-sdk#9e6298e7f773c61d384677e
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 14.0.0",
- "sp-storage 19.0.0",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-storage 19.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
 name = "sp-genesis-builder"
-version = "0.1.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.7.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "serde_json",
  "sp-api",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-inherents"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
 ]
 
@@ -12682,22 +12600,22 @@ dependencies = [
  "parity-scale-codec",
  "rustversion",
  "secp256k1 0.24.3",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-keystore 0.27.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime-interface 17.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-state-machine 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-tracing 10.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-trie 22.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-externalities 0.19.0",
+ "sp-keystore 0.27.0",
+ "sp-runtime-interface 17.0.0",
+ "sp-state-machine 0.28.0",
+ "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+ "sp-trie 22.0.0",
  "tracing",
  "tracing-core",
 ]
 
 [[package]]
 name = "sp-io"
-version = "23.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "30.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "bytes",
  "ed25519-dalek 2.1.1",
@@ -12706,14 +12624,15 @@ dependencies = [
  "parity-scale-codec",
  "rustversion",
  "secp256k1 0.28.2",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-keystore 0.34.0",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-state-machine 0.35.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
  "tracing",
  "tracing-core",
 ]
@@ -12725,18 +12644,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4673405248580504a8bc4e09615ab25ccb182dfaccd27e000fda9dcb2ca1dab1"
 dependencies = [
  "lazy_static",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-runtime 24.0.0",
  "strum 0.24.1",
 ]
 
 [[package]]
 name = "sp-keyring"
-version = "24.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "31.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
  "strum 0.24.1",
 ]
 
@@ -12749,27 +12668,27 @@ dependencies = [
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.1",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-externalities 0.19.0",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-keystore"
-version = "0.27.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.34.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-maybe-compressed-blob"
-version = "4.1.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "thiserror",
  "zstd 0.12.4",
@@ -12777,49 +12696,49 @@ dependencies = [
 
 [[package]]
 name = "sp-metadata-ir"
-version = "0.1.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.6.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-metadata 16.0.0",
  "parity-scale-codec",
  "scale-info",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-mixnet"
-version = "0.1.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.4.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-npos-elections"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-offchain"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "sp-api",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -12835,8 +12754,8 @@ dependencies = [
 
 [[package]]
 name = "sp-panic-handler"
-version = "8.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "13.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -12845,12 +12764,12 @@ dependencies = [
 
 [[package]]
 name = "sp-rpc"
-version = "6.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "rustc-hash",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
 ]
 
 [[package]]
@@ -12868,18 +12787,18 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "sp-application-crypto 23.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-arithmetic 16.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-io 23.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-weights 20.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-application-crypto 23.0.0",
+ "sp-arithmetic 16.0.0",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-std 8.0.0",
+ "sp-weights 20.0.0",
 ]
 
 [[package]]
 name = "sp-runtime"
-version = "24.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "31.0.1"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "docify",
  "either",
@@ -12892,12 +12811,12 @@ dependencies = [
  "scale-info",
  "serde",
  "simple-mermaid",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
@@ -12910,30 +12829,30 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types",
- "sp-externalities 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime-interface-proc-macro 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-storage 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-tracing 10.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-wasm-interface 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-externalities 0.19.0",
+ "sp-runtime-interface-proc-macro 11.0.0",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
+ "sp-tracing 10.0.0",
+ "sp-wasm-interface 14.0.0",
  "static_assertions",
 ]
 
 [[package]]
 name = "sp-runtime-interface"
-version = "17.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "24.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime-interface-proc-macro 11.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-storage 13.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-tracing 10.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-runtime-interface-proc-macro 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-storage 19.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-tracing 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "static_assertions",
 ]
 
@@ -12947,12 +12866,12 @@ dependencies = [
  "parity-scale-codec",
  "polkavm-derive",
  "primitive-types",
- "sp-externalities 0.25.0",
- "sp-runtime-interface-proc-macro 17.0.0",
- "sp-std 14.0.0",
- "sp-storage 19.0.0",
- "sp-tracing 16.0.0",
- "sp-wasm-interface 20.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-runtime-interface-proc-macro 17.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-storage 19.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "static_assertions",
 ]
 
@@ -12971,8 +12890,8 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface-proc-macro"
-version = "11.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "17.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "Inflector",
  "expander",
@@ -12997,31 +12916,31 @@ dependencies = [
 
 [[package]]
 name = "sp-session"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
 name = "sp-staking"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -13036,19 +12955,19 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "smallvec",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-panic-handler 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-trie 22.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-externalities 0.19.0",
+ "sp-panic-handler 8.0.0",
+ "sp-std 8.0.0",
+ "sp-trie 22.0.0",
  "thiserror",
  "tracing",
 ]
 
 [[package]]
 name = "sp-state-machine"
-version = "0.28.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.35.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "hash-db",
  "log",
@@ -13056,11 +12975,11 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "smallvec",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-panic-handler 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-panic-handler 13.0.0",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
  "thiserror",
  "tracing",
  "trie-db 0.28.0",
@@ -13068,8 +12987,8 @@ dependencies = [
 
 [[package]]
 name = "sp-statement-store"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "10.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "aes-gcm 0.10.3",
  "curve25519-dalek 4.1.2",
@@ -13080,12 +12999,13 @@ dependencies = [
  "scale-info",
  "sha2 0.10.8",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
  "x25519-dalek 2.0.1",
 ]
@@ -13098,8 +13018,8 @@ checksum = "53458e3c57df53698b3401ec0934bea8e8cfce034816873c0b0abbd83d7bac0d"
 
 [[package]]
 name = "sp-std"
-version = "8.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "14.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 
 [[package]]
 name = "sp-std"
@@ -13116,21 +13036,21 @@ dependencies = [
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-debug-derive 8.0.0",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
 name = "sp-storage"
-version = "13.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "19.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -13142,20 +13062,20 @@ dependencies = [
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 14.0.0",
- "sp-std 14.0.0",
+ "sp-debug-derive 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
 name = "sp-timestamp"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
 ]
 
@@ -13166,7 +13086,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357f7591980dd58305956d32f8f6646d0a8ea9ea0e7e868e46f53b68ddf00cec"
 dependencies = [
  "parity-scale-codec",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-std 8.0.0",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.2.25",
@@ -13174,11 +13094,11 @@ dependencies = [
 
 [[package]]
 name = "sp-tracing"
-version = "10.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "16.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.2.25",
@@ -13190,7 +13110,7 @@ version = "16.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk#9e6298e7f773c61d384677e6eebfa8d7eee9d2ac"
 dependencies = [
  "parity-scale-codec",
- "sp-std 14.0.0",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.2.25",
@@ -13198,26 +13118,26 @@ dependencies = [
 
 [[package]]
 name = "sp-transaction-pool"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "sp-api",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "sp-transaction-storage-proof"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "26.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-trie 22.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -13236,8 +13156,8 @@ dependencies = [
  "parking_lot 0.12.1",
  "scale-info",
  "schnellru",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-std 8.0.0",
  "thiserror",
  "tracing",
  "trie-db 0.27.1",
@@ -13246,8 +13166,8 @@ dependencies = [
 
 [[package]]
 name = "sp-trie"
-version = "22.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "29.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "ahash 0.8.7",
  "hash-db",
@@ -13259,9 +13179,9 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "schnellru",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "thiserror",
  "tracing",
  "trie-db 0.28.0",
@@ -13270,25 +13190,25 @@ dependencies = [
 
 [[package]]
 name = "sp-version"
-version = "22.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "29.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
  "parity-wasm",
  "scale-info",
  "serde",
- "sp-core-hashing-proc-macro",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-crypto-hashing-proc-macro",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-version-proc-macro",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-version-proc-macro"
-version = "8.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "13.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "parity-scale-codec",
  "proc-macro2",
@@ -13306,20 +13226,20 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-std 8.0.0",
  "wasmtime",
 ]
 
 [[package]]
 name = "sp-wasm-interface"
-version = "14.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "20.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "wasmtime",
 ]
 
@@ -13332,7 +13252,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 14.0.0",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "wasmtime",
 ]
 
@@ -13346,25 +13266,25 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic 16.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-debug-derive 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-arithmetic 16.0.0",
+ "sp-core 21.0.0",
+ "sp-debug-derive 8.0.0",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
 name = "sp-weights"
-version = "20.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "27.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
- "bounded-collections",
+ "bounded-collections 0.2.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-debug-derive 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
+ "sp-debug-derive 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -13687,17 +13607,17 @@ dependencies = [
 
 [[package]]
 name = "substrate-build-script-utils"
-version = "3.0.0"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "11.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 
 [[package]]
 name = "substrate-frame-rpc-system"
-version = "4.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "28.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "frame-system-rpc-runtime-api",
  "futures",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "parity-scale-codec",
  "sc-rpc-api",
@@ -13705,14 +13625,14 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "substrate-prometheus-endpoint"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.17.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "hyper",
  "log",
@@ -13723,25 +13643,25 @@ dependencies = [
 
 [[package]]
 name = "substrate-rpc-client"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.33.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "log",
  "sc-rpc-api",
  "serde",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "5.0.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "17.0.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
- "ansi_term",
  "build-helper",
  "cargo_metadata 0.15.4",
+ "console",
  "filetime",
  "parity-wasm",
  "sp-maybe-compressed-blob",
@@ -13785,7 +13705,7 @@ dependencies = [
  "futures",
  "hex 0.4.3",
  "impl-serde",
- "jsonrpsee 0.20.3",
+ "jsonrpsee",
  "parity-scale-codec",
  "primitive-types",
  "scale-bits",
@@ -13795,9 +13715,9 @@ dependencies = [
  "scale-value",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-core-hashing 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime 24.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core 21.0.0",
+ "sp-core-hashing",
+ "sp-runtime 24.0.0",
  "subxt-lightclient",
  "subxt-macro",
  "subxt-metadata",
@@ -13814,7 +13734,7 @@ dependencies = [
  "frame-metadata 16.0.0",
  "heck",
  "hex 0.4.3",
- "jsonrpsee 0.20.3",
+ "jsonrpsee",
  "parity-scale-codec",
  "proc-macro2",
  "quote",
@@ -13863,7 +13783,7 @@ dependencies = [
  "frame-metadata 16.0.0",
  "parity-scale-codec",
  "scale-info",
- "sp-core-hashing 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core-hashing",
  "thiserror",
 ]
 
@@ -13883,7 +13803,7 @@ dependencies = [
  "secp256k1 0.27.0",
  "secrecy",
  "sha2 0.10.8",
- "sp-core-hashing 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-core-hashing",
  "subxt",
  "thiserror",
  "zeroize",
@@ -14185,7 +14105,7 @@ dependencies = [
  "hex 0.4.3",
  "rosetta-client",
  "sha3",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "surf",
  "tc-subxt",
  "time-primitives",
@@ -14351,11 +14271,11 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
 ]
 
 [[package]]
@@ -14373,7 +14293,7 @@ dependencies = [
  "frame-system",
  "futures",
  "hex-literal",
- "jsonrpsee 0.16.3",
+ "jsonrpsee",
  "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -14399,11 +14319,11 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-keyring 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-keyring 31.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
  "sp-statement-store",
  "sp-timestamp",
  "substrate-build-script-utils",
@@ -14459,18 +14379,18 @@ dependencies = [
  "scale-info",
  "separator",
  "sp-api",
- "sp-arithmetic 16.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-arithmetic 23.0.0",
  "sp-block-builder",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
  "sp-inherents",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
  "sp-npos-elections",
  "sp-offchain",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",
- "sp-std 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-transaction-pool",
  "sp-version",
  "static_assertions",
@@ -15001,8 +14921,8 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "try-runtime-cli"
-version = "0.10.0-dev"
-source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing#05e84b05a490b91f74328e6f7b1f523eaebd974a"
+version = "0.38.0"
+source = "git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing#1af6a7c7c0a55a436d1d9615b622000176163e92"
 dependencies = [
  "async-trait",
  "clap",
@@ -15017,19 +14937,19 @@ dependencies = [
  "sp-api",
  "sp-consensus-aura",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-debug-derive 8.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-externalities 0.19.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-core 28.0.0",
+ "sp-debug-derive 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
+ "sp-externalities 0.25.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.7.0-tracing)",
  "sp-inherents",
- "sp-io 23.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-keystore 0.27.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
- "sp-state-machine 0.28.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "sp-timestamp",
  "sp-transaction-storage-proof",
  "sp-version",
- "sp-weights 20.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk.git?tag=v1.6.0-tracing)",
+ "sp-weights 27.0.0",
  "substrate-rpc-client",
  "zstd 0.12.4",
 ]
@@ -15484,9 +15404,9 @@ checksum = "4f186bd2dcf04330886ce82d6f33dd75a7bfcf69ecf5763b89fcde53b6ac9838"
 
 [[package]]
 name = "wasm-instrument"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa1dafb3e60065305741e83db35c6c2584bb3725b692b5b66148a38d72ace6cd"
+checksum = "2a47ecb37b9734d1085eaa5ae1a81e60801fd8c28d4cabdd8aedb982021918bc"
 dependencies = [
  "parity-wasm",
 ]

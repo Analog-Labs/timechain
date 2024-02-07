@@ -1,10 +1,10 @@
 use anyhow::Result;
 use sha3::{Digest, Keccak256};
 use std::collections::{BTreeMap, HashMap};
-use tc_subxt::{
-	Function, GatewayRegistered, Network, SubxtClient, TaskCreated, TaskDescriptorParams,
-	TaskStatus,
-};
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
+use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
+use tc_subxt::SubxtClient;
+use time_primitives::{Function, NetworkId, TaskDescriptorParams};
 
 pub async fn watch_task(api: &SubxtClient, task_id: u64) -> bool {
 	let task_state = api.get_task_state(task_id).await.unwrap();
@@ -73,7 +73,7 @@ pub async fn insert_task(
 	cycle: u64,
 	start: u64,
 	period: u64,
-	network: Network,
+	network: NetworkId,
 	function: Function,
 ) -> Result<u64> {
 	let params = TaskDescriptorParams {
@@ -83,9 +83,10 @@ pub async fn insert_task(
 		start,
 		period,
 		timegraph: Some([0; 32]),
+		shard_size: 1,
+		funds: 0,
 	};
-	let payload = SubxtClient::create_task_payload(params);
-	let events = api.sign_and_submit_watch(&payload).await?;
+	let events = api.create_task(params).await?.wait_for_finalized_success().await?;
 	let transfer_event = events.find_first::<TaskCreated>().unwrap();
 	let TaskCreated(id) = transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
 	println!("Task registered: {:?}", id);
@@ -97,9 +98,12 @@ pub async fn register_gateway_address(
 	shard_id: u64,
 	address: &str,
 ) -> Result<()> {
-	let payload =
-		SubxtClient::create_register_gateway(shard_id, get_eth_address_to_bytes(address).into());
-	let events = api.sudo_sign_and_submit_watch(payload).await?;
+	let address_bytes = get_eth_address_to_bytes(address);
+	let events = api
+		.insert_gateway(shard_id, address_bytes.into())
+		.await?
+		.wait_for_finalized_success()
+		.await?;
 	let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
 	println!("Gateway registered with event {:?}", gateway_event);
 	Ok(())

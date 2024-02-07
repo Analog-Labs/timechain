@@ -6,7 +6,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 use time_primitives::{
-	ElectionsInterface, MemberStorage, Network, PeerId, PublicKey, ShardId, TasksInterface,
+	ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey, ShardId, TasksInterface,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -17,8 +17,8 @@ pub type Signature = MultiSignature;
 pub struct MockTaskScheduler;
 
 impl TasksInterface for MockTaskScheduler {
-	fn shard_online(_: ShardId, _: Network) {}
-	fn shard_offline(_: ShardId, _: Network) {}
+	fn shard_online(_: ShardId, _: NetworkId) {}
+	fn shard_offline(_: ShardId, _: NetworkId) {}
 }
 
 pub struct MockMembers;
@@ -42,7 +42,7 @@ impl MemberStorage for MockMembers {
 pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
-	fn shard_offline(_: Network, _: Vec<AccountId>) {}
+	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
 }
 
 frame_support::construct_runtime!(

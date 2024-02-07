@@ -9,7 +9,7 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 use time_primitives::{
-	DepreciationRate, ElectionsInterface, MemberStorage, Network, PeerId, PublicKey,
+	DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -38,7 +38,7 @@ impl MemberStorage for MockMembers {
 pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
-	fn shard_offline(_: Network, _: Vec<AccountId>) {}
+	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
 }
 
 // Configure a mock runtime to test the pallet.

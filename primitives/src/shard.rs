@@ -1,6 +1,6 @@
-use crate::{AccountId, TaskCycle, TaskId};
 #[cfg(feature = "std")]
-use crate::{ApiResult, BlockHash, BlockNumber, SubmitResult};
+use crate::BlockNumber;
+use crate::{TaskCycle, TaskId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
@@ -26,28 +26,6 @@ pub struct TssId(pub TaskId, pub TaskCycle);
 impl std::fmt::Display for TssId {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}/{}", self.0, self.1)
-	}
-}
-
-/// Used to enforce one network per shard
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
-pub enum Network {
-	Ethereum,
-	Astar,
-	Polygon,
-}
-
-impl core::str::FromStr for Network {
-	type Err = anyhow::Error;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Ok(match s {
-			"ethereum" => Self::Ethereum,
-			"astar" => Self::Astar,
-			"polygon" => Self::Polygon,
-			_ => anyhow::bail!("unsupported network {}", s),
-		})
 	}
 }
 
@@ -141,48 +119,6 @@ impl<B: Copy> ShardStatus<B> {
 			_ => *self,
 		}
 	}
-}
-
-#[cfg(feature = "std")]
-pub trait Shards {
-	fn get_shards(&self, block: BlockHash, account: &AccountId) -> ApiResult<Vec<ShardId>>;
-
-	fn get_shard_members(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> ApiResult<Vec<(AccountId, MemberStatus)>>;
-
-	fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<u16>;
-
-	fn get_shard_status(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> ApiResult<ShardStatus<BlockNumber>>;
-
-	fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId) -> ApiResult<Commitment>;
-
-	fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	) -> SubmitResult;
-
-	fn submit_online(&self, shard_id: ShardId) -> SubmitResult;
-}
-
-#[cfg(feature = "std")]
-pub trait ShardsPayload {
-	fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	) -> Vec<u8>;
-
-	fn submit_online(&self, shard_id: ShardId) -> Vec<u8>;
 }
 
 #[cfg(feature = "std")]

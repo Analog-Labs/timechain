@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{MemberEvents, Network};
+use time_primitives::{MemberEvents, NetworkId};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -15,8 +15,8 @@ pub type Signature = MultiSignature;
 pub struct MockShards;
 
 impl MemberEvents for MockShards {
-	fn member_online(_: &AccountId, _: Network) {}
-	fn member_offline(_: &AccountId, _: Network) {}
+	fn member_online(_: &AccountId, _: NetworkId) {}
+	fn member_offline(_: &AccountId, _: NetworkId) {}
 }
 
 frame_support::construct_runtime!(

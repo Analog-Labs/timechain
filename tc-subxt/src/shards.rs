@@ -1,7 +1,7 @@
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::{anyhow, Result};
-use time_primitives::{ShardId, ShardsPayload, TssPublicKey};
-use timechain_runtime::runtime_types::time_primitives::shard::{Network, ShardStatus};
+use time_primitives::{NetworkId, ShardId};
+use timechain_runtime::runtime_types::time_primitives::shard::ShardStatus;
 
 impl SubxtClient {
 	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<[u8; 33]> {
@@ -27,7 +27,7 @@ impl SubxtClient {
 			.ok_or(anyhow!("Shard id counter not found"))
 	}
 
-	pub async fn shard_network(&self, shard_id: u64) -> Result<Network> {
+	pub async fn shard_network(&self, shard_id: u64) -> Result<NetworkId> {
 		let storage_query = timechain_runtime::storage().shards().shard_network(shard_id);
 		self.client
 			.storage()
@@ -47,24 +47,5 @@ impl SubxtClient {
 			.fetch(&storage_query)
 			.await?
 			.ok_or(anyhow!("Shard Status not found"))
-	}
-}
-
-impl ShardsPayload for SubxtClient {
-	fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Vec<TssPublicKey>,
-		proof_of_knowledge: [u8; 65],
-	) -> Vec<u8> {
-		let tx = timechain_runtime::tx()
-			.shards()
-			.commit(shard_id, commitment, proof_of_knowledge);
-		self.create_signed_payload(&tx)
-	}
-
-	fn submit_online(&self, shard_id: ShardId) -> Vec<u8> {
-		let tx = timechain_runtime::tx().shards().ready(shard_id);
-		self.create_signed_payload(&tx)
 	}
 }

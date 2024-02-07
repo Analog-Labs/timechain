@@ -19,7 +19,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
-		Network, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
 		TasksInterface, TssPublicKey,
 	};
 
@@ -60,7 +60,7 @@ pub mod pallet {
 	/// Network for which shards can be assigned tasks
 	#[pallet::storage]
 	pub type ShardNetwork<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, Network, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, NetworkId, OptionQuery>;
 
 	/// Status for shard
 	#[pallet::storage]
@@ -105,7 +105,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// New shard was created
-		ShardCreated(ShardId, Network),
+		ShardCreated(ShardId, NetworkId),
 		/// Shard commited
 		ShardCommitted(ShardId, Commitment),
 		/// Shard DKG timed out
@@ -247,9 +247,7 @@ pub mod pallet {
 		}
 
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
-			ShardMembers::<T>::iter_prefix(shard_id)
-				.map(|(time_id, status)| (time_id, status))
-				.collect()
+			ShardMembers::<T>::iter_prefix(shard_id).collect()
 		}
 
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
@@ -266,7 +264,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
-		fn member_online(id: &AccountId, network: Network) {
+		fn member_online(id: &AccountId, network: NetworkId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			let new_status = old_status.online_member();
@@ -278,7 +276,7 @@ pub mod pallet {
 			}
 		}
 
-		fn member_offline(id: &AccountId, _: Network) {
+		fn member_offline(id: &AccountId, _: NetworkId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
@@ -306,7 +304,7 @@ pub mod pallet {
 			MemberShard::<T>::get(member).is_some()
 		}
 
-		fn shard_network(shard_id: ShardId) -> Option<Network> {
+		fn shard_network(shard_id: ShardId) -> Option<NetworkId> {
 			ShardNetwork::<T>::get(shard_id)
 		}
 
@@ -314,7 +312,7 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(a, _)| a).collect::<Vec<_>>()
 		}
 
-		fn create_shard(network: Network, members: Vec<AccountId>, threshold: u16) {
+		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);

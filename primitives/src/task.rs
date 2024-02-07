@@ -1,6 +1,4 @@
-use crate::{AccountId, Balance, Network, PublicKey, ShardId, TssSignature};
-#[cfg(feature = "std")]
-use crate::{ApiResult, BlockHash, SubmitResult};
+use crate::{AccountId, Balance, NetworkId, PublicKey, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -65,7 +63,7 @@ pub struct TaskError {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptor {
 	pub owner: Option<AccountId>,
-	pub network: Network,
+	pub network: NetworkId,
 	pub function: Function,
 	pub cycle: TaskCycle,
 	pub start: u64,
@@ -83,7 +81,7 @@ impl TaskDescriptor {
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptorParams {
-	pub network: Network,
+	pub network: NetworkId,
 	pub cycle: TaskCycle,
 	pub start: u64,
 	pub period: u64,
@@ -94,7 +92,7 @@ pub struct TaskDescriptorParams {
 }
 
 impl TaskDescriptorParams {
-	pub fn new(network: Network, function: Function, shard_size: u32) -> Self {
+	pub fn new(network: NetworkId, function: Function, shard_size: u32) -> Self {
 		Self {
 			network,
 			cycle: 1,
@@ -178,47 +176,6 @@ impl std::fmt::Display for TaskExecution {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
 	}
-}
-
-#[cfg(feature = "std")]
-pub trait Tasks {
-	fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId)
-		-> ApiResult<Vec<TaskExecution>>;
-
-	fn get_task(&self, block: BlockHash, task_id: TaskId) -> ApiResult<Option<TaskDescriptor>>;
-
-	fn get_task_signature(&self, task_id: TaskId) -> ApiResult<Option<TssSignature>>;
-
-	fn get_gateway(&self, network: Network) -> ApiResult<Option<Vec<u8>>>;
-
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> SubmitResult;
-
-	fn submit_task_result(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		status: TaskResult,
-	) -> SubmitResult;
-
-	fn submit_task_error(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		error: TaskError,
-	) -> SubmitResult;
-
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> SubmitResult;
-}
-
-#[cfg(feature = "std")]
-pub trait TasksPayload {
-	fn submit_task_hash(&self, task_id: TaskId, cycle: TaskCycle, hash: Vec<u8>) -> Vec<u8>;
-
-	fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Vec<u8>;
-
-	fn submit_task_result(&self, task_id: TaskId, cycle: TaskCycle, status: TaskResult) -> Vec<u8>;
-
-	fn submit_task_error(&self, task_id: TaskId, cycle: TaskCycle, error: TaskError) -> Vec<u8>;
 }
 
 pub fn append_hash_with_task_data(

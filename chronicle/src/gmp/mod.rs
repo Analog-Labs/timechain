@@ -1,7 +1,7 @@
 pub mod types;
 use alloy_primitives::{b256, Address, U256};
 use alloy_sol_types::SolCall;
-use time_primitives::{ChainId, Function, ShardId, TssPublicKey, TssSignature};
+use time_primitives::{Function, ShardId, TssPublicKey, TssSignature};
 use types::{Eip712Ext, GmpMessage, SignableMessage, Signature, TssKey, UpdateKeysMessage};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,7 +15,7 @@ pub struct MessageBuilder {
 impl MessageBuilder {
 	pub fn new(
 		shard_id: ShardId,
-		chain_id: ChainId,
+		chain_id: u64,
 		tss_public_key: TssPublicKey,
 		gateway_contract: [u8; 20],
 	) -> Self {
@@ -41,8 +41,8 @@ impl MessageBuilder {
 			register: register.into_iter().map(TssKey::from).collect(),
 		};
 		Message {
-			message: TypedMessage::UpdateKeys(message),
 			chain_id: self.chain_id,
+			message: TypedMessage::UpdateKeys(message),
 			tss_public_key: self.tss_public_key.clone(),
 			gateway_contract: self.gateway_contract,
 		}

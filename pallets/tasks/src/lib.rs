@@ -352,6 +352,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			signature: TssSignature,
+			hash: [u8; 32],
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
@@ -362,6 +363,7 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
+			Self::validate_signature(task_id, shard_id, hash, signature)?;
 			Self::start_write_phase(task_id, shard_id);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())

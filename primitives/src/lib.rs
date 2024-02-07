@@ -193,7 +193,12 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()>;
 
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+		hash: [u8; 32],
+	) -> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 

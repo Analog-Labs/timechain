@@ -79,6 +79,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait SubmitTransactionApi{
+		#[allow(clippy::result_unit_err)]
 		fn submit_transaction(encoded_tx: Vec<u8>) -> Result<(), ()>;
 	}
 }

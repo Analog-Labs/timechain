@@ -247,9 +247,7 @@ pub mod pallet {
 		}
 
 		pub fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
-			ShardMembers::<T>::iter_prefix(shard_id)
-				.map(|(time_id, status)| (time_id, status))
-				.collect()
+			ShardMembers::<T>::iter_prefix(shard_id).collect()
 		}
 
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {

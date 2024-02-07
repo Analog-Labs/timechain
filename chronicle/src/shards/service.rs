@@ -94,7 +94,7 @@ where
 			block_number,
 		);
 		let account_id = self.substrate.account_id();
-		let shards = self.substrate.get_shards(block, &account_id).await?;
+		let shards = self.substrate.get_shards(block, account_id).await?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
@@ -122,11 +122,8 @@ where
 					}
 				})
 				.collect();
-			let members = join_all(futures)
-				.await
-				.into_iter()
-				.filter_map(|x| x)
-				.collect::<BTreeSet<PeerId>>();
+			let members =
+				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
 
 			self.tss_states
 				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));

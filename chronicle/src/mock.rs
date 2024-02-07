@@ -114,7 +114,7 @@ impl Mock {
 		if let Some(existing_id) =
 			networks
 				.iter()
-				.find_map(|(key, &ref val)| if *val == mock_network { Some(key) } else { None })
+				.find_map(|(key, val)| if *val == mock_network { Some(key) } else { None })
 		{
 			return *existing_id;
 		}
@@ -200,7 +200,7 @@ impl Mock {
 		hash: Vec<u8>,
 	) -> Result<()> {
 		let mut tasks = self.tasks.lock().unwrap();
-		tasks.get_mut(&task_id).unwrap().phase = TaskPhase::Read(Some(hash.try_into().unwrap()));
+		tasks.get_mut(&task_id).unwrap().phase = TaskPhase::Read(Some(hash));
 		Ok(())
 	}
 
@@ -272,8 +272,7 @@ impl Runtime for Mock {
 		let members = self.members.lock().unwrap();
 		Ok(members
 			.iter()
-			.map(|(_, members)| members.iter())
-			.flatten()
+			.flat_map(|(_, members)| members.iter())
 			.find(|(acc, _)| &acc.clone().into_account() == account)
 			.map(|(_, peer_id)| *peer_id))
 	}
@@ -290,7 +289,7 @@ impl Runtime for Mock {
 		let shards = self.shards.lock().unwrap();
 		let shards = shards
 			.iter()
-			.filter(|(_, shard)| shard.members.iter().find(|(acc, _)| acc == account).is_some())
+			.filter(|(_, shard)| shard.members.iter().any(|(acc, _)| acc == account))
 			.map(|(shard, _)| *shard)
 			.collect();
 		Ok(shards)

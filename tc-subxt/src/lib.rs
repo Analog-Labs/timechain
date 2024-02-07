@@ -107,7 +107,6 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 		let tx = match transaction {
 			Tx::RegisterMember { network, peer_id, stake_amount } => {
 				let public_key = self.public_key();
-				let network = unsafe { std::mem::transmute(network) };
 				let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
 				let tx = timechain_runtime::tx().members().register_member(
 					network,
@@ -261,8 +260,7 @@ impl Runtime for SubxtClient {
 	async fn get_block_time_in_ms(&self) -> Result<u64> {
 		let runtime_call = timechain_runtime::apis().block_time_api().get_block_time_in_msec();
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u64 = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
@@ -310,8 +308,7 @@ impl Runtime for SubxtClient {
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {
 		let runtime_call = timechain_runtime::apis().networks_api().get_network(network);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<(String, String)> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_member_peer_id(
@@ -322,30 +319,26 @@ impl Runtime for SubxtClient {
 		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
 		let runtime_call = timechain_runtime::apis().members_api().get_member_peer_id(account);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<PeerId> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<u64> {
 		let runtime_call = timechain_runtime::apis().members_api().get_heartbeat_timeout();
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u64 = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_min_stake(&self) -> Result<u128> {
 		let runtime_call = timechain_runtime::apis().members_api().get_min_stake();
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u128 = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_shards(&self, _: BlockHash, account: &AccountId) -> Result<Vec<ShardId>> {
 		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
 		let runtime_call = timechain_runtime::apis().shards_api().get_shards(account);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Vec<ShardId> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_shard_members(
@@ -355,15 +348,13 @@ impl Runtime for SubxtClient {
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_members(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Vec<(AccountId, MemberStatus)> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_shard_threshold(&self, _: BlockHash, shard_id: ShardId) -> Result<u16> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_threshold(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: u16 = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_shard_status(
@@ -373,43 +364,37 @@ impl Runtime for SubxtClient {
 	) -> Result<ShardStatus<BlockNumber>> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_status(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: ShardStatus<BlockNumber> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_shard_commitment(&self, _: BlockHash, shard_id: ShardId) -> Result<Commitment> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_commitment(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Commitment = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_shard_tasks(&self, _: BlockHash, shard_id: ShardId) -> Result<Vec<TaskExecution>> {
 		let runtime_call = timechain_runtime::apis().tasks_api().get_shard_tasks(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Vec<TaskExecution> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_task(&self, _: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
 		let runtime_call = timechain_runtime::apis().tasks_api().get_task(task_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<TaskDescriptor> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>> {
 		let runtime_call = timechain_runtime::apis().tasks_api().get_task_signature(task_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<TssSignature> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
 		let runtime_call = timechain_runtime::apis().tasks_api().get_gateway(network);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		let value: Option<Vec<u8>> = unsafe { std::mem::transmute(data) };
-		Ok(value)
+		Ok(data)
 	}
 
 	async fn submit_register_member(

@@ -64,7 +64,6 @@ pub struct TaskDescriptor {
 	pub network: NetworkId,
 	pub function: Function,
 	pub start: u64,
-	pub timegraph: Option<[u8; 32]>,
 	pub shard_size: u32,
 }
 
@@ -72,7 +71,6 @@ pub struct TaskDescriptor {
 pub struct TaskDescriptorParams {
 	pub network: NetworkId,
 	pub start: u64,
-	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
 	pub funds: Balance,
 	pub shard_size: u32,
@@ -83,7 +81,6 @@ impl TaskDescriptorParams {
 		Self {
 			network,
 			start: 0,
-			timegraph: None,
 			function,
 			funds: 0,
 			shard_size,

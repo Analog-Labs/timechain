@@ -517,7 +517,6 @@ pub mod pallet {
 					network: schedule.network,
 					function: schedule.function,
 					start: schedule.start,
-					timegraph: schedule.timegraph,
 					shard_size: schedule.shard_size,
 				},
 			);

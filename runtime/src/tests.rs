@@ -141,7 +141,6 @@ fn write_phase_timeout_reassigns_task() {
 				cycle: 1,
 				start: 0,
 				period: 0,
-				timegraph: None,
 				funds: 10_000, //TODO: why does this underflow or below min error
 				shard_size: 3,
 			}
@@ -203,10 +202,7 @@ fn register_unregister_preserves_task_migration() {
 					input: Default::default(),
 					amount: 0,
 				},
-				cycle: 1,
 				start: 0,
-				period: 0,
-				timegraph: None,
 				funds: 10_000, //TODO: why does this underflow if set to correct
 				shard_size: 3,
 			}

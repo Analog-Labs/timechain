@@ -2,8 +2,7 @@ use crate::mock::*;
 use crate::{
 	Error, Event, Gateway, MemberPayout, NetworkReadReward, NetworkSendMessageReward,
 	NetworkShards, NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskIdCounter,
-	TaskPhaseState, TaskResults, TaskRetryCounter, TaskRewardConfig, TaskSignature, TaskState,
-	UnassignedTasks,
+	TaskPhaseState, TaskResults, TaskRewardConfig, TaskSignature, TaskState, UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -36,7 +35,6 @@ fn mock_task(network: NetworkId) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		start: 0,
-		timegraph: None,
 		function: Function::EvmViewCall {
 			address: Default::default(),
 			input: Default::default(),
@@ -50,7 +48,6 @@ fn mock_sign_task(network: NetworkId) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		start: 0,
-		timegraph: None,
 		function: Function::SendMessage {
 			address: Default::default(),
 			gas_limit: Default::default(),
@@ -67,7 +64,6 @@ fn mock_payable(network: NetworkId) -> TaskDescriptorParams {
 		network,
 		start: 0,
 		period: 0,
-		timegraph: None,
 		function: Function::EvmCall {
 			address: Default::default(),
 			input: Default::default(),
@@ -182,7 +178,6 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 					input: Default::default(),
 				},
 				start: 0,
-				timegraph: None,
 				shard_size: 3,
 			}
 		);
@@ -215,7 +210,6 @@ fn task_auto_assigned_if_shard_online() {
 					input: Default::default(),
 				},
 				start: 0,
-				timegraph: None,
 				shard_size: 3,
 			}
 		);
@@ -247,7 +241,6 @@ fn task_auto_assigned_if_shard_joins_after() {
 					input: Default::default(),
 				},
 				start: 0,
-				timegraph: None,
 				shard_size: 3,
 			}
 		);
@@ -391,15 +384,11 @@ fn shard_offline_drops_failed_tasks() {
 			mock_task(ETHEREUM)
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		for _ in 0..4 {
-			let retry_count = TaskRetryCounter::<Test>::get(0);
-			assert_ok!(Tasks::submit_error(
-				RawOrigin::Signed([0; 32].into()).into(),
-				0,
-				0,
-				mock_error_result(0, 0, 0, retry_count)
-			));
-		}
+		assert_ok!(Tasks::submit_error(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			mock_error_result(0, 0)
+		));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
@@ -422,21 +411,17 @@ fn submit_task_error_increments_retry_count() {
 			mock_task(ETHEREUM)
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		for _ in 1..=10 {
-			let retry_count = TaskRetryCounter::<Test>::get(0);
-			assert_ok!(Tasks::submit_error(
-				RawOrigin::Signed([0; 32].into()).into(),
-				0,
-				0,
-				mock_error_result(0, 0, 0, retry_count)
-			));
-		}
-		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
+		assert_ok!(Tasks::submit_error(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			0,
+			mock_error_result(0, 0)
+		));
 	});
 }
 
 #[test]
-fn submit_task_error_over_max_retry_count_is_task_failure() {
+fn submit_task_error_is_task_failure() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
 			ETHEREUM,
@@ -451,50 +436,9 @@ fn submit_task_error_over_max_retry_count_is_task_failure() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		let mut last_error = None;
-		for _ in 1..4 {
-			let retry_count = TaskRetryCounter::<Test>::get(0);
-			let error = mock_error_result(0, 0, 0, retry_count);
-			last_error = Some(error.clone());
-			assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, 0, error));
-		}
-		System::assert_last_event(Event::<Test>::TaskFailed(0, 0, last_error.unwrap()).into());
-	});
-}
-
-#[test]
-fn submit_task_result_resets_retry_count() {
-	new_test_ext().execute_with(|| {
-		Shards::create_shard(
-			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
-		ShardState::<Test>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, ETHEREUM);
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0; 32].into()).into(),
-			mock_task(ETHEREUM)
-		));
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		for _ in 1..=10 {
-			let retry_count = TaskRetryCounter::<Test>::get(0);
-			assert_ok!(Tasks::submit_error(
-				RawOrigin::Signed([0; 32].into()).into(),
-				0,
-				0,
-				mock_error_result(0, 0, 0, retry_count)
-			));
-		}
-		assert_eq!(TaskRetryCounter::<Test>::get(0), 10);
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
-		let retry_count = TaskRetryCounter::<Test>::get(0);
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			0,
-			mock_result_ok(0, 0, 0, retry_count)
-		));
-		assert_eq!(TaskRetryCounter::<Test>::get(0), 0);
+		let error = mock_error_result(0, 0);
+		assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, error.clone()));
+		System::assert_last_event(Event::<Test>::TaskFailed(0, error.unwrap()).into());
 	});
 }
 
@@ -799,7 +743,6 @@ fn shard_online_starts_register_shard_task() {
 				network: ETHEREUM,
 				function: Function::RegisterShard { shard_id: 0 },
 				start: 0,
-				timegraph: None,
 				shard_size: 3,
 			}
 		);
@@ -861,7 +804,6 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 				network: ETHEREUM,
 				function: Function::UnregisterShard { shard_id: 0 },
 				start: 0,
-				timegraph: None,
 				shard_size: 3,
 			}
 		);
@@ -906,16 +848,6 @@ fn shard_offline_stops_pending_register_shard_task() {
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),));
-		// task to register 1st shard fails because it was stopped by `shard_offline`
-		assert_noop!(
-			Tasks::submit_result(
-				RawOrigin::Signed([0; 32].into()).into(),
-				0,
-				0,
-				mock_result_ok(1, 0)
-			),
-			Error::<Test>::TaskStopped
-		);
 	});
 }
 
@@ -931,12 +863,7 @@ fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 		assert!(Tasks::tasks(1).is_none());
 		assert_eq!(Tasks::task_state(1), None);
 		assert_noop!(
-			Tasks::submit_result(
-				RawOrigin::Signed([0; 32].into()).into(),
-				1,
-				0,
-				mock_result_ok(1, 1)
-			),
+			Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 1, mock_result_ok(1, 1)),
 			Error::<Test>::UnknownTask
 		);
 	});
@@ -1109,7 +1036,6 @@ fn write_task_payout_clears_storage() {
 			TaskDescriptorParams {
 				network: ETHEREUM,
 				start: 0,
-				timegraph: None,
 				function: Function::EvmCall {
 					address: Default::default(),
 					input: Default::default(),

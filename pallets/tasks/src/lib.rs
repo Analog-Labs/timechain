@@ -216,18 +216,6 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn member_payout)]
-	pub type MemberPayout<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		TaskId,
-		Blake2_128Concat,
-		ShardId,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn signer_payout)]
 	pub type SignerPayout<T: Config> = StorageDoubleMap<
 		_,
@@ -238,11 +226,6 @@ pub mod pallet {
 		BalanceOf<T>,
 		ValueQuery,
 	>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn total_payout)]
-	pub type TotalPayout<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -308,37 +291,32 @@ pub mod pallet {
 			task_id: TaskId,
 			result: TaskResult,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
 				return Ok(());
 			}
-			if task.function.is_gmp() {
+			let is_gmp = if task.function.is_gmp() {
 				ensure!(
 					Gateway::<T>::get(task.network).is_some(),
 					Error::<T>::GatewayNotRegistered
 				);
-			}
+				true
+			} else {
+				false
+			};
 			Self::validate_signature(task_id, result.shard_id, result.hash, result.signature)?;
-			// NO LONGER NECESSARY, need to just check at task creation
-			// if Self::snapshot_rewards(task_id, result.shard_id, caller) {
-			// 	// persist task stoppage due to task balance below total payout
-			// 	return Ok(());
-			// }
 			TaskOutput::<T>::insert(task_id, result.clone());
-			// TODO: isn't it always complete
-			if Self::is_complete(task_id) {
-				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-					ShardTasks::<T>::remove(shard_id, task_id);
-				}
-				// payout all rewards due for the task at the very end upon completion
-				Self::payout_task_rewards(task_id);
-				TaskRewardConfig::<T>::remove(task_id);
-				TaskState::<T>::insert(task_id, TaskStatus::Completed);
-				if let Function::RegisterShard { shard_id } = task.function {
-					ShardRegistered::<T>::insert(shard_id, ());
-				}
+			TaskState::<T>::insert(task_id, TaskStatus::Completed);
+			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
+				ShardTasks::<T>::remove(shard_id, task_id);
+			}
+			// payout all due rewards
+			Self::payout_task_rewards(task_id, result.shard_id, is_gmp);
+			TaskRewardConfig::<T>::remove(task_id);
+			if let Function::RegisterShard { shard_id } = task.function {
+				ShardRegistered::<T>::insert(shard_id, ());
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
@@ -376,7 +354,7 @@ pub mod pallet {
 				return Err(Error::<T>::NotWritePhase.into());
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
-			WritePhaseStart::<T>::remove(task_id);
+			Self::snapshot_write_reward(task_id, signer);
 			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
@@ -553,19 +531,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Ensure origin is signed and signature corresponds to TaskId owner
-		/// Returns Ok(owner, task) iff origin is signed and task exists
-		fn ensure_owner(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-		) -> Result<(T::AccountId, TaskDescriptor), DispatchError> {
-			let caller = ensure_signed(origin)?;
-			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let owner = task.owner.clone().ok_or(Error::<T>::InvalidOwner)?;
-			ensure!(owner == caller, Error::<T>::InvalidOwner);
-			Ok((owner, task))
-		}
-
 		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {
 			TaskPhaseState::<T>::insert(
 				task_id,
@@ -591,14 +556,6 @@ pub mod pallet {
 
 		pub fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
 			Gateway::<T>::get(network)
-		}
-
-		fn is_complete(task_id: TaskId) -> bool {
-			if let Some(task) = Tasks::<T>::get(task_id) {
-				TaskOutput::<T>::contains_key(task_id)
-			} else {
-				true
-			}
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {
@@ -761,8 +718,7 @@ pub mod pallet {
 			remaining
 		}
 
-		/// Compute task reward due to write task submitter
-		fn compute_write_reward(task_id: TaskId) -> BalanceOf<T> {
+		fn snapshot_write_reward(task_id: TaskId, signer: AccountId) {
 			let Some(RewardConfig {
 				write_task_reward,
 				depreciation_rate,
@@ -770,130 +726,61 @@ pub mod pallet {
 			}) = TaskRewardConfig::<T>::get(task_id)
 			else {
 				// reward config never stored => bug edge case
-				return BalanceOf::<T>::zero();
+				return;
 			};
-			Self::apply_depreciation(
-				WritePhaseStart::<T>::get(task_id),
-				write_task_reward,
-				depreciation_rate,
-			)
+			SignerPayout::<T>::insert(
+				task_id,
+				signer,
+				Self::apply_depreciation(
+					WritePhaseStart::<T>::take(task_id),
+					write_task_reward,
+					depreciation_rate,
+				),
+			);
 		}
 
-		fn compute_read_reward(task_id: TaskId) -> BalanceOf<T> {
-			let Some(RewardConfig {
+		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, is_gmp: bool) {
+			let task_account_id = Self::task_account(task_id);
+			let start = ReadPhaseStart::<T>::get(task_id);
+			let shard_member_reward = if let Some(RewardConfig {
 				read_task_reward,
-				depreciation_rate,
-				..
-			}) = TaskRewardConfig::<T>::get(task_id)
-			else {
-				// reward config never stored, bug edge case
-				return BalanceOf::<T>::zero();
-			};
-			Self::apply_depreciation(
-				ReadPhaseStart::<T>::get(task_id),
-				read_task_reward,
-				depreciation_rate,
-			)
-		}
-
-		fn compute_send_message_reward(task_id: TaskId) -> BalanceOf<T> {
-			let Some(RewardConfig {
 				send_message_reward,
 				depreciation_rate,
 				..
 			}) = TaskRewardConfig::<T>::get(task_id)
-			else {
-				// reward config never stored, bug edge case
-				return BalanceOf::<T>::zero();
-			};
-			let start = match TaskPhaseState::<T>::get(task_id) {
-				TaskPhase::Read(_) => ReadPhaseStart::<T>::get(task_id),
-				TaskPhase::Write(_) => WritePhaseStart::<T>::get(task_id),
-				_ => return BalanceOf::<T>::zero(),
-			};
-			Self::apply_depreciation(start, send_message_reward, depreciation_rate)
-		}
-
-		/// Snapshots rewards in storage to be paid out once task is complete
-		/// Return true if task stoppage should be persisted due to low
-		/// task balance
-		fn snapshot_rewards(task_id: TaskId, shard_id: ShardId, caller: AccountId) -> bool {
-			// payout to all shard members if possible
-			let Some(TaskDescriptor { function, .. }) = Tasks::<T>::get(task_id) else {
-				return false;
-			};
-			let mut task_reward_per_member = if function.is_gmp() {
-				Self::compute_send_message_reward(task_id)
+			{
+				let mut reward =
+					Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());
+				if is_gmp {
+					reward = reward.saturating_add(Self::apply_depreciation(
+						start,
+						send_message_reward,
+						depreciation_rate,
+					));
+				}
+				reward
 			} else {
+				// reward config never stored, bug edge case
 				BalanceOf::<T>::zero()
 			};
-			let new_payout = match TaskPhaseState::<T>::get(task_id) {
-				TaskPhase::Read(_) => {
-					// add read task reward to shard member payout
-					task_reward_per_member =
-						task_reward_per_member.saturating_add(Self::compute_read_reward(task_id));
-					task_reward_per_member
-						.saturating_mul((T::Shards::shard_members(shard_id).len() as u32).into())
-				},
-				TaskPhase::Write(_) => {
-					let old_signer_payout = SignerPayout::<T>::get(task_id, &caller);
-					let new_signer_reward = Self::compute_write_reward(task_id);
-					SignerPayout::<T>::insert(
-						task_id,
-						caller,
-						old_signer_payout.saturating_add(new_signer_reward),
-					);
-					task_reward_per_member
-						.saturating_mul((T::Shards::shard_members(shard_id).len() as u32).into())
-						.saturating_add(new_signer_reward)
-				},
-				_ => return false, // skip reward payout altogether
-			};
-			let old_member_payout = MemberPayout::<T>::get(task_id, shard_id);
-			MemberPayout::<T>::insert(
-				task_id,
-				shard_id,
-				old_member_payout.saturating_add(task_reward_per_member),
-			);
-			let old_total_payout = TotalPayout::<T>::get(task_id);
-			let new_total_payout = old_total_payout.saturating_add(new_payout);
-			TotalPayout::<T>::insert(task_id, new_total_payout);
-			// update phase start for next reward payout
-			match TaskPhaseState::<T>::get(task_id) {
-				TaskPhase::Read(_) => {
-					ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number())
-				},
-				TaskPhase::Write(_) => {
-					WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number())
-				},
-				_ => (),
-			}
-			false
-		}
-
-		fn payout_task_rewards(task_id: TaskId) {
-			let task_account_id = Self::task_account(task_id);
-			for (shard_id, payout) in MemberPayout::<T>::drain_prefix(task_id) {
-				// payout to shard members
-				let members = T::Shards::shard_members(shard_id);
-				for member in members {
-					let _ = pallet_balances::Pallet::<T>::transfer(
-						&task_account_id,
-						&member,
-						payout,
-						ExistenceRequirement::AllowDeath,
-					);
-				}
-			}
-			for (account, payout) in SignerPayout::<T>::drain_prefix(task_id) {
+			// payout each member of the shard
+			T::Shards::shard_members(shard_id).into_iter().for_each(|account| {
 				let _ = pallet_balances::Pallet::<T>::transfer(
 					&task_account_id,
 					&account,
-					payout,
+					shard_member_reward,
 					ExistenceRequirement::AllowDeath,
 				);
-			}
-			TotalPayout::<T>::remove(task_id);
+			});
+			// payout write signer reward and cleanup storage
+			SignerPayout::<T>::drain_prefix(task_id).for_each(|(account, amount)| {
+				let _ = pallet_balances::Pallet::<T>::transfer(
+					&task_account_id,
+					&account,
+					amount,
+					ExistenceRequirement::AllowDeath,
+				);
+			});
 		}
 	}
 

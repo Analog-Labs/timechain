@@ -4284,8 +4284,9 @@ dependencies = [
 
 [[package]]
 name = "frost-core"
-version = "0.7.0"
-source = "git+https://github.com/zcashfoundation/frost?branch=main#71c092532c90ea08f694186fc5d6c4355fff44a5"
+version = "1.0.0-rc.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eae732628620e7e52b3146df2eef3636f321b63dfba6e92b3b67147e0c5b2bb2"
 dependencies = [
  "byteorder",
  "const-crc32",
@@ -4293,7 +4294,7 @@ dependencies = [
  "derive-getters",
  "document-features",
  "hex 0.4.3",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "postcard",
  "rand_core 0.6.4",
  "serde",
@@ -4305,8 +4306,9 @@ dependencies = [
 
 [[package]]
 name = "frost-evm"
-version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dbd4789a39037e0f2d23b375cccad6852ffa33435ced29982d1d731e3b2180d"
 dependencies = [
  "frost-core",
  "frost-secp256k1",
@@ -4315,8 +4317,9 @@ dependencies = [
 
 [[package]]
 name = "frost-rerandomized"
-version = "0.7.0"
-source = "git+https://github.com/zcashfoundation/frost?branch=main#71c092532c90ea08f694186fc5d6c4355fff44a5"
+version = "1.0.0-rc.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "abc9f0445f27262bd1e1d4754ad8ce7ac03c8d079704e6c696f5e40bab85d1e2"
 dependencies = [
  "derive-getters",
  "document-features",
@@ -4326,8 +4329,9 @@ dependencies = [
 
 [[package]]
 name = "frost-secp256k1"
-version = "0.7.0"
-source = "git+https://github.com/zcashfoundation/frost?branch=main#71c092532c90ea08f694186fc5d6c4355fff44a5"
+version = "1.0.0-rc.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18b425f757e72102725afb6d0810b651f1b36996d2adba98a1c5729aebbc0a1e"
 dependencies = [
  "document-features",
  "frost-core",
@@ -5585,6 +5589,15 @@ name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
@@ -11402,7 +11415,8 @@ dependencies = [
 [[package]]
 name = "schnorr-evm"
 version = "0.1.0"
-source = "git+https://github.com/Analog-labs/frost-evm.git#0c67e0e4ff60ea37f5455ab209160a18505c94c6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a23361ad022a39a819af8606f6e622284681bddf91ffd28a7ebb5132c798e2c"
 dependencies = [
  "k256",
  "rand_core 0.6.4",

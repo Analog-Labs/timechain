@@ -312,9 +312,7 @@ pub mod pallet {
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
 			}
-			// payout all due rewards
 			Self::payout_task_rewards(task_id, result.shard_id, is_gmp);
-			TaskRewardConfig::<T>::remove(task_id);
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
 			}
@@ -747,7 +745,7 @@ pub mod pallet {
 				send_message_reward,
 				depreciation_rate,
 				..
-			}) = TaskRewardConfig::<T>::get(task_id)
+			}) = TaskRewardConfig::<T>::take(task_id)
 			{
 				let mut reward =
 					Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());

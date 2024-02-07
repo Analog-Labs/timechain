@@ -838,13 +838,13 @@ fn generate_analog_genesis(
 		},
 		networks: timechain_runtime::NetworksConfig {
 			networks: vec![
-				("ethereum".as_bytes().to_vec(), "mainnet".as_bytes().to_vec()),
-				("astar".as_bytes().to_vec(), "astar".as_bytes().to_vec()),
-				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec()),
-				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec()),
-				("ethereum".as_bytes().to_vec(), "goerli".as_bytes().to_vec()),
-				("ethereum".as_bytes().to_vec(), "sepolia".as_bytes().to_vec()),
-				("astar".as_bytes().to_vec(), "dev".as_bytes().to_vec()),
+				("ethereum".into(), "mainnet".into()),
+				("astar".into(), "astar".into()),
+				("polygon".into(), "mainnet".into()),
+				("ethereum".into(), "dev".into()),
+				("ethereum".into(), "goerli".into()),
+				("ethereum".into(), "sepolia".into()),
+				("astar".into(), "dev".into()),
 			],
 			..Default::default()
 		},

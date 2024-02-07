@@ -1197,8 +1197,6 @@ impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// TODO fix weights
 	type WeightInfo = ();
-	type MaxBlockchainSize = ConstU32<32>;
-	type MaxNameSize = ConstU32<32>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

@@ -15,7 +15,7 @@ peernet = "0.1.2"
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
 rosetta-core = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
 rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
-schnorr-evm = { git = "https://github.com/Analog-labs/frost-evm.git", version = "0.1.0" }
+schnorr-evm = { version = "0.1.0" }
 serde = "1.0.188"
 serde_json = "1.0.105"
 sha3 = { version = "0.10" }

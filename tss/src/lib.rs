@@ -9,7 +9,7 @@ use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use frost_evm::frost_core::frost::keys::sum_commitments;
+pub use frost_evm::frost_core::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
 pub use frost_evm::keys::VerifiableSecretSharingCommitment;
 pub use frost_evm::schnorr::SigningKey;
@@ -100,7 +100,7 @@ pub fn construct_proof_of_knowledge(
 	commitment: &VerifiableSecretSharingCommitment,
 ) -> Result<ProofOfKnowledge> {
 	let identifier = peer_to_frost(peer);
-	Ok(frost_evm::frost_core::frost::keys::dkg::compute_proof_of_knowledge(
+	Ok(frost_evm::frost_core::keys::dkg::compute_proof_of_knowledge(
 		identifier,
 		coefficients,
 		commitment,
@@ -114,7 +114,7 @@ pub fn verify_proof_of_knowledge(
 	proof_of_knowledge: ProofOfKnowledge,
 ) -> Result<()> {
 	let identifier = peer_to_frost(peer);
-	Ok(frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge(
+	Ok(frost_evm::frost_core::keys::dkg::verify_proof_of_knowledge(
 		identifier,
 		commitment,
 		proof_of_knowledge,

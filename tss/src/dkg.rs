@@ -120,8 +120,8 @@ impl Dkg {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frost_evm::frost_core::frost::keys::dkg::verify_proof_of_knowledge;
-	use frost_evm::frost_core::frost::keys::{default_identifiers, sum_commitments};
+	use frost_evm::frost_core::keys::dkg::verify_proof_of_knowledge;
+	use frost_evm::frost_core::keys::{default_identifiers, sum_commitments};
 
 	#[test]
 	fn test_dkg() {

@@ -11,9 +11,8 @@ clap = { version = "4.4.2", features = [ "derive" ] }
 ethers-solc = "2.0.1"
 hex = "0.4.3"
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "master" }
-
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 sha3 = "0.10.8"
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 tc-subxt = { path = "../tc-subxt"}
 tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread"]}

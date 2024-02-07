@@ -16,20 +16,20 @@ targets = [ "x86_64-unknown-linux-gnu" ]
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
 	"derive",
 ] }
-frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false, optional = true }
-frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
-frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
+frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false, optional = true }
+frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
+frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 schnorr-evm = { version = "0.1.0", default-features = false }
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false, optional = true }
-sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
-sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false, optional = true }
+sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
+sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", version = "4.0.0-dev" }
-sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.6.0-tracing", default-features = false }
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing" }
+sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
 
 [features]
 default = [ "std" ]

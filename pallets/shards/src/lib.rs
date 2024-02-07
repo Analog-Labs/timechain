@@ -93,17 +93,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	#[pallet::storage]
-	pub type PastSigners<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		ShardId,
-		Blake2_128Concat,
-		PublicKey,
-		(),
-		OptionQuery,
-	>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -335,33 +324,15 @@ pub mod pallet {
 			let members = Self::get_shard_members(shard_id);
 			let signer_index: usize =
 				SignerIndex::<T>::get(shard_id).try_into().expect("Checked indexing already");
-			let mut signer = T::Members::member_public_key(&members[signer_index].0)
+			let signer = T::Members::member_public_key(&members[signer_index].0)
 				.expect("All signers should be registered members");
-			let mut next_signer_index =
+			let next_signer_index =
 				if members.len() as u32 == (signer_index as u32).saturating_plus_one() {
 					0
 				} else {
 					signer_index.saturating_plus_one()
 				};
-			if members.len() == 1 {
-				// only one possible signer for shard size 1
-				return signer;
-			}
-			if PastSigners::<T>::iter_prefix(shard_id).count() < members.len() {
-				while PastSigners::<T>::get(shard_id, &signer).is_some() {
-					signer = T::Members::member_public_key(&members[next_signer_index].0)
-						.expect("All signers should be registered members");
-					next_signer_index = if members.len() as u32
-						== (next_signer_index as u32).saturating_plus_one()
-					{
-						0
-					} else {
-						next_signer_index.saturating_plus_one()
-					};
-				}
-			}
 			SignerIndex::<T>::insert(shard_id, next_signer_index as u32);
-			PastSigners::<T>::insert(shard_id, &signer, ());
 			signer
 		}
 

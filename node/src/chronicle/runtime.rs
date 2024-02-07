@@ -185,7 +185,12 @@ where
 		self.subxt_client.submit_task_error(task_id, error).await
 	}
 
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature, hash: [u8; 32]) -> Result<()> {
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+		hash: [u8; 32],
+	) -> Result<()> {
 		self.subxt_client.submit_task_signature(task_id, signature, hash).await
 	}
 

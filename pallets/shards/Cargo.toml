@@ -16,7 +16,6 @@ targets = [ "x86_64-unknown-linux-gnu" ]
 codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
 	"derive",
 ] }
-fastrand = { version = "2.0.0", default-features = false }
 frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
 frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
@@ -44,7 +43,6 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"time-primitives/std",
-	"fastrand/std",
 ]
 runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
 try-runtime = [ "frame-support/try-runtime" ]

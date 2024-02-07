@@ -25,9 +25,8 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, NetworkId,
-		RewardConfig, ShardId, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams,
-		TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
-		TssSignature,
+		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskError,
+		TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -108,8 +107,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
-		#[pallet::constant]
-		type MaxRetryCount: Get<u8>;
 		/// Minimum task balance for tasks to payout expected rewards
 		#[pallet::constant]
 		type MinTaskBalance: Get<BalanceOf<Self>>;
@@ -187,22 +184,8 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	pub type TaskRetryCounter<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, u8, ValueQuery>;
-
-	#[pallet::storage]
-	pub type TaskCycleState<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, TaskCycle, ValueQuery>;
-
-	#[pallet::storage]
-	pub type TaskResults<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		TaskId,
-		Blake2_128Concat,
-		TaskCycle,
-		TaskResult,
-		OptionQuery,
-	>;
+	pub type TaskOutput<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskResult, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
@@ -269,10 +252,10 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// the record id that uniquely identify
 		TaskCreated(TaskId),
-		/// Updated cycle status
-		TaskResult(TaskId, TaskCycle, TaskResult),
-		/// Task failed due to more errors than max retry count
-		TaskFailed(TaskId, TaskCycle, TaskError),
+		/// Task succeeded with result
+		TaskResult(TaskId, TaskResult),
+		/// Task failed with error
+		TaskFailed(TaskId, TaskError),
 		/// Task stopped by owner
 		TaskStopped(TaskId),
 		/// Task resumed by owner
@@ -301,10 +284,6 @@ pub mod pallet {
 		InvalidTaskState,
 		/// Invalid Owner
 		InvalidOwner,
-		/// Invalid cycle
-		InvalidCycle,
-		/// Cycle must be greater than zero
-		CycleMustBeGreaterThanZero,
 		/// Not sign phase
 		NotSignPhase,
 		/// Not write phase
@@ -377,15 +356,12 @@ pub mod pallet {
 		pub fn submit_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,
-			cycle: TaskCycle,
 			result: TaskResult,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if TaskResults::<T>::get(task_id, cycle).is_some()
-				|| matches!(status, TaskStatus::Completed)
-			{
+			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
 				return Ok(());
 			}
 			if task.function.is_gmp() {
@@ -395,21 +371,13 @@ pub mod pallet {
 				);
 			}
 			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
-			Self::validate_signature(
-				task_id,
-				cycle,
-				result.shard_id,
-				result.hash,
-				result.signature,
-			)?;
-			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			if Self::snapshot_rewards(task_id, result.shard_id, caller) {
-				// persist task stoppage due to task balance below total payout
-				return Ok(());
-			}
-			TaskCycleState::<T>::insert(task_id, cycle.saturating_plus_one());
-			TaskResults::<T>::insert(task_id, cycle, result.clone());
-			TaskRetryCounter::<T>::insert(task_id, 0);
+			Self::validate_signature(task_id, result.shard_id, result.hash, result.signature)?;
+			// NO LONGER NECESSARY, need to just check at task creation
+			// if Self::snapshot_rewards(task_id, result.shard_id, caller) {
+			// 	// persist task stoppage due to task balance below total payout
+			// 	return Ok(());
+			// }
+			TaskOutput::<T>::insert(task_id, result.clone());
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 					ShardTasks::<T>::remove(shard_id, task_id);
@@ -422,7 +390,7 @@ pub mod pallet {
 					ShardRegistered::<T>::insert(shard_id, ());
 				}
 			}
-			Self::deposit_event(Event::TaskResult(task_id, cycle, result));
+			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
 		}
 
@@ -432,42 +400,28 @@ pub mod pallet {
 		pub fn submit_error(
 			origin: OriginFor<T>,
 			task_id: TaskId,
-			cycle: TaskCycle,
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			Self::validate_signature(
 				task_id,
-				cycle,
 				error.shard_id,
 				VerifyingKey::message_hash(error.msg.as_bytes()),
 				error.signature,
 			)?;
-			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
-			let retry_count = TaskRetryCounter::<T>::get(task_id);
-			let new_retry_count = retry_count.saturating_plus_one();
-			TaskRetryCounter::<T>::insert(task_id, new_retry_count);
-			// task fails when new retry count == max - 1 => old retry count == max
-			if new_retry_count == T::MaxRetryCount::get() {
-				TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
-				Self::deposit_event(Event::TaskFailed(task_id, cycle, error));
-			}
+			// Task fails on first error submission (no more retry counter post no recurring tasks)
+			TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
+			Self::deposit_event(Event::TaskFailed(task_id, error));
 			Ok(())
 		}
 
 		/// Submit Task Hash
 		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config>::WeightInfo::submit_hash(hash.len() as u64))]
-		pub fn submit_hash(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-			cycle: TaskCycle,
-			hash: Vec<u8>,
-		) -> DispatchResult {
+		pub fn submit_hash(origin: OriginFor<T>, task_id: TaskId, hash: Vec<u8>) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			ensure!(TaskCycleState::<T>::get(task_id) == cycle, Error::<T>::InvalidCycle);
 			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
 				return Err(Error::<T>::NotWritePhase.into());
 			};
@@ -646,10 +600,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// TODO: delete
 		fn do_resume_task(task_id: TaskId, task: TaskDescriptor, start: u64) {
 			Tasks::<T>::insert(task_id, TaskDescriptor { start, ..task });
 			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			TaskRetryCounter::<T>::insert(task_id, 0);
 			Self::deposit_event(Event::TaskResumed(task_id));
 		}
 
@@ -731,14 +685,7 @@ pub mod pallet {
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
 				.filter(|(task_id, _)| Self::is_runnable(*task_id))
-				.map(|(task_id, _)| {
-					TaskExecution::new(
-						task_id,
-						TaskCycleState::<T>::get(task_id),
-						TaskRetryCounter::<T>::get(task_id),
-						TaskPhaseState::<T>::get(task_id),
-					)
-				})
+				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
 				.collect()
 		}
 
@@ -752,7 +699,7 @@ pub mod pallet {
 
 		fn is_complete(task_id: TaskId) -> bool {
 			if let Some(task) = Tasks::<T>::get(task_id) {
-				TaskResults::<T>::contains_key(task_id, task.cycle.saturating_less_one())
+				TaskOutput::<T>::contains_key(task_id)
 			} else {
 				true
 			}
@@ -792,13 +739,11 @@ pub mod pallet {
 
 		fn validate_signature(
 			task_id: TaskId,
-			task_cycle: TaskCycle,
 			shard_id: ShardId,
 			hash: [u8; 32],
 			signature: TssSignature,
 		) -> DispatchResult {
-			let retry_count = TaskRetryCounter::<T>::get(task_id);
-			let data = append_hash_with_task_data(hash, task_id, task_cycle, retry_count);
+			let data = append_hash_with_task_data(hash, task_id);
 			let hash = VerifyingKey::message_hash(&data);
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let signature = schnorr_evm::Signature::from_bytes(signature)
@@ -908,10 +853,6 @@ pub mod pallet {
 			TaskShard::<T>::insert(task_id, new_shard_id);
 		}
 
-		pub fn get_task_cycle(task_id: TaskId) -> TaskCycle {
-			TaskCycleState::<T>::get(task_id)
-		}
-
 		pub fn get_task_phase(task_id: TaskId) -> TaskPhase {
 			TaskPhaseState::<T>::get(task_id)
 		}
@@ -920,19 +861,8 @@ pub mod pallet {
 			TaskShard::<T>::get(task_id)
 		}
 
-		pub fn get_task_results(
-			task_id: TaskId,
-			cycle: Option<TaskCycle>,
-		) -> Vec<(TaskCycle, TaskResult)> {
-			if let Some(cycle) = cycle {
-				let mut results = vec![];
-				if let Some(result) = TaskResults::<T>::get(task_id, cycle) {
-					results.push((cycle, result))
-				}
-				results
-			} else {
-				TaskResults::<T>::iter_prefix(task_id).collect::<Vec<_>>()
-			}
+		pub fn get_task_result(task_id: TaskId) -> Option<TaskResult> {
+			TaskOutput::<T>::get(task_id)
 		}
 
 		/// Apply the depreciation rate

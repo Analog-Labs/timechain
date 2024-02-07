@@ -1,6 +1,6 @@
 #[cfg(feature = "std")]
 use crate::BlockNumber;
-use crate::{TaskCycle, TaskId};
+use crate::TaskId;
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
@@ -20,12 +20,12 @@ pub type Commitment = Vec<TssPublicKey>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "std", derive(Deserialize, Serialize))]
-pub struct TssId(pub TaskId, pub TaskCycle);
+pub struct TssId(pub TaskId);
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for TssId {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}/{}", self.0, self.1)
+		write!(f, "{}", self.0)
 	}
 }
 

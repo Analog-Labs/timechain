@@ -138,14 +138,8 @@ pub struct TaskExecution {
 }
 
 impl TaskExecution {
-	pub fn new(
-		task_id: TaskId,
-		phase: TaskPhase,
-	) -> Self {
-		Self {
-			task_id,
-			phase,
-		}
+	pub fn new(task_id: TaskId, phase: TaskPhase) -> Self {
+		Self { task_id, phase }
 	}
 }
 
@@ -156,17 +150,10 @@ impl std::fmt::Display for TaskExecution {
 	}
 }
 
-pub fn append_hash_with_task_data(
-	data: [u8; 32],
-	task_id: TaskId,
-) -> Vec<u8> {
+pub fn append_hash_with_task_data(data: [u8; 32], task_id: TaskId) -> Vec<u8> {
 	let task_id_bytes = task_id.to_ne_bytes();
 	let filler = b";";
-	let mut extended_payload =
-		Vec::with_capacity(
-			data.len()
-				+ filler.len() + task_id_bytes.len()
-		);
+	let mut extended_payload = Vec::with_capacity(data.len() + filler.len() + task_id_bytes.len());
 	extended_payload.extend_from_slice(&data);
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_id_bytes);

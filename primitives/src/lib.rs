@@ -67,9 +67,8 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
-		fn get_task_cycle(task_id: TaskId) -> TaskCycle;
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
-		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>;
+		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
 		fn get_gateway(network: NetworkId) -> Option<Vec<u8>>;
 	}
@@ -188,26 +187,11 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
 
-	async fn submit_task_hash(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		hash: Vec<u8>,
-	) -> Result<()>;
+	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()>;
 
 	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
 
-	async fn submit_task_result(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		status: TaskResult,
-	) -> Result<()>;
+	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 
-	async fn submit_task_error(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		error: TaskError,
-	) -> Result<()>;
+	async fn submit_task_error(&self, task_id: TaskId, error: TaskError) -> Result<()>;
 }

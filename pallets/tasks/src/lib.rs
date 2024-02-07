@@ -107,9 +107,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
-		/// Minimum task balance for tasks to payout expected rewards
-		#[pallet::constant]
-		type MinTaskBalance: Get<BalanceOf<Self>>;
 		/// Base read task reward (for all networks)
 		#[pallet::constant]
 		type BaseReadReward: Get<BalanceOf<Self>>;
@@ -256,14 +253,8 @@ pub mod pallet {
 		TaskResult(TaskId, TaskResult),
 		/// Task failed with error
 		TaskFailed(TaskId, TaskError),
-		/// Task stopped by owner
-		TaskStopped(TaskId),
-		/// Task resumed by owner
-		TaskResumed(TaskId),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, Vec<u8>),
-		/// Task funded with new free balance amount
-		TaskFunded(TaskId, BalanceOf<T>),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -294,8 +285,6 @@ pub mod pallet {
 		UnassignedTask,
 		/// Task already signed
 		TaskSigned,
-		/// Cannot submit result for task stopped
-		TaskStopped,
 		/// Cannot submit result for GMP functions unless gateway is registered
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
@@ -313,45 +302,6 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::stop_task())]
-		pub fn stop_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			let (owner, _) = Self::ensure_owner(origin, task_id)?;
-			let task_account = Self::task_account(task_id);
-			let task_balance = pallet_balances::Pallet::<T>::free_balance(&task_account);
-			pallet_balances::Pallet::<T>::transfer(
-				&task_account,
-				&owner,
-				task_balance,
-				ExistenceRequirement::AllowDeath,
-			)?;
-			ensure!(
-				TaskState::<T>::get(task_id) == Some(TaskStatus::Created),
-				Error::<T>::InvalidTaskState
-			);
-			TaskState::<T>::insert(task_id, TaskStatus::Stopped);
-			Self::deposit_event(Event::TaskStopped(task_id));
-			Ok(())
-		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::resume_task())]
-		pub fn resume_task(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-			start: u64,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			let (owner, task) = Self::ensure_owner(origin, task_id)?;
-			ensure!(
-				Self::is_resumable_post_transfer(task_id, amount),
-				Error::<T>::InvalidTaskState
-			);
-			Self::transfer_to_task(&owner, task_id, amount)?;
-			Self::do_resume_task(task_id, task, start);
-			Ok(())
-		}
-
-		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::submit_result())]
 		pub fn submit_result(
 			origin: OriginFor<T>,
@@ -370,7 +320,6 @@ pub mod pallet {
 					Error::<T>::GatewayNotRegistered
 				);
 			}
-			ensure!(!matches!(status, TaskStatus::Stopped), Error::<T>::TaskStopped);
 			Self::validate_signature(task_id, result.shard_id, result.hash, result.signature)?;
 			// NO LONGER NECESSARY, need to just check at task creation
 			// if Self::snapshot_rewards(task_id, result.shard_id, caller) {
@@ -378,6 +327,7 @@ pub mod pallet {
 			// 	return Ok(());
 			// }
 			TaskOutput::<T>::insert(task_id, result.clone());
+			// TODO: isn't it always complete
 			if Self::is_complete(task_id) {
 				if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 					ShardTasks::<T>::remove(shard_id, task_id);
@@ -410,7 +360,7 @@ pub mod pallet {
 				VerifyingKey::message_hash(error.msg.as_bytes()),
 				error.signature,
 			)?;
-			// Task fails on first error submission (no more retry counter post no recurring tasks)
+			// Task fails on first error submission (no retry counter post no recurring tasks)
 			TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
 			Self::deposit_event(Event::TaskFailed(task_id, error));
 			Ok(())
@@ -427,11 +377,6 @@ pub mod pallet {
 			};
 			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
 			WritePhaseStart::<T>::remove(task_id);
-			if Self::task_balance(task_id) < T::MinTaskBalance::get() {
-				// Stop task execution in read phase until funded sufficiently
-				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
-				Self::deposit_event(Event::TaskStopped(task_id));
-			}
 			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
@@ -483,23 +428,6 @@ pub mod pallet {
 			Gateway::<T>::insert(network, address.clone());
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address));
-			Ok(())
-		}
-
-		/// Fund task balance
-		#[pallet::call_index(8)]
-		#[pallet::weight(<T as Config>::WeightInfo::fund_task())]
-		pub fn fund_task(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-			amount: BalanceOf<T>,
-			start: u64,
-		) -> DispatchResult {
-			let (owner, task) = Self::ensure_owner(origin, task_id)?;
-			Self::transfer_to_task(&owner, task_id, amount)?;
-			if Self::is_resumable(task_id) {
-				Self::do_resume_task(task_id, task, start);
-			}
 			Ok(())
 		}
 
@@ -578,38 +506,8 @@ pub mod pallet {
 			pallet_balances::Pallet::<T>::free_balance(&Self::task_account(task_id))
 		}
 
-		/// Returns Ok(task_should_be_resumed: bool) so
-		/// Ok(true) if task needs to be resumed
-		/// Ok(false) if not
-		fn transfer_to_task(
-			caller: &T::AccountId,
-			task_id: TaskId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			let task_account_id = Self::task_account(task_id);
-			pallet_balances::Pallet::<T>::transfer(
-				caller,
-				&task_account_id,
-				amount,
-				ExistenceRequirement::KeepAlive,
-			)?;
-			Self::deposit_event(Event::TaskFunded(
-				task_id,
-				pallet_balances::Pallet::<T>::free_balance(&task_account_id),
-			));
-			Ok(())
-		}
-
-		// TODO: delete
-		fn do_resume_task(task_id: TaskId, task: TaskDescriptor, start: u64) {
-			Tasks::<T>::insert(task_id, TaskDescriptor { start, ..task });
-			TaskState::<T>::insert(task_id, TaskStatus::Created);
-			Self::deposit_event(Event::TaskResumed(task_id));
-		}
-
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: Option<AccountId>) -> DispatchResult {
-			ensure!(schedule.cycle > 0, Error::<T>::CycleMustBeGreaterThanZero);
 			let task_id = TaskIdCounter::<T>::get();
 			if let Some(funded_by) = &who {
 				// transfer schedule.funds to task funded account
@@ -642,9 +540,7 @@ pub mod pallet {
 					owner: who,
 					network: schedule.network,
 					function: schedule.function,
-					cycle: schedule.cycle,
 					start: schedule.start,
-					period: schedule.period,
 					timegraph: schedule.timegraph,
 					shard_size: schedule.shard_size,
 				},
@@ -703,27 +599,6 @@ pub mod pallet {
 			} else {
 				true
 			}
-		}
-
-		/// Check if task is resumable after `add` is added to its balance
-		fn is_resumable_post_transfer(task_id: TaskId, add: BalanceOf<T>) -> bool {
-			match TaskState::<T>::get(task_id) {
-				Some(TaskStatus::Failed { .. }) => true,
-				Some(TaskStatus::Stopped) => {
-					let task_balance_post_transfer =
-						Self::task_balance(task_id).saturating_add(add);
-					// to be resumed from stopped state:
-					// 1. must be able to afford executing payout
-					task_balance_post_transfer > TotalPayout::<T>::get(task_id)
-					// 2. must be have >= min task balance
-					&& task_balance_post_transfer >= T::MinTaskBalance::get()
-				},
-				_ => false,
-			}
-		}
-
-		fn is_resumable(task_id: TaskId) -> bool {
-			Self::is_resumable_post_transfer(task_id, BalanceOf::<T>::zero())
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {
@@ -983,12 +858,6 @@ pub mod pallet {
 			let old_total_payout = TotalPayout::<T>::get(task_id);
 			let new_total_payout = old_total_payout.saturating_add(new_payout);
 			TotalPayout::<T>::insert(task_id, new_total_payout);
-			if new_total_payout > Self::task_balance(task_id) {
-				// stop task if new total payout exceeds task balance
-				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
-				Self::deposit_event(Event::TaskStopped(task_id));
-				return true;
-			}
 			// update phase start for next reward payout
 			match TaskPhaseState::<T>::get(task_id) {
 				TaskPhase::Read(_) => {
@@ -1046,19 +915,10 @@ pub mod pallet {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				if Self::is_runnable(task_id) || Self::is_resumable(task_id) {
+				if Self::is_runnable(task_id) {
 					UnassignedTasks::<T>::insert(network, task_id, ());
 				}
 			});
-			for (id, state) in Tasks::<T>::iter() {
-				if let Function::RegisterShard { shard_id: x } = state.function {
-					if x == shard_id && matches!(TaskState::<T>::get(id), Some(TaskStatus::Created))
-					{
-						TaskState::<T>::insert(id, TaskStatus::Stopped);
-						break;
-					}
-				}
-			}
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
 					TaskDescriptorParams::new(

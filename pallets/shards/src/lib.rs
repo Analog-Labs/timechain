@@ -345,6 +345,7 @@ pub mod pallet {
 				// only one possible signer for shard size 1
 				return signer;
 			}
+
 			if PastSigners::<T>::iter_prefix(shard_id).count() < members.len() {
 				while PastSigners::<T>::get(shard_id, &signer).is_some() {
 					signer_index =

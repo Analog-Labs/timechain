@@ -1705,7 +1705,7 @@ fn send_message_payout_clears_storage() {
 		Tasks::shard_online(shard_id, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
-		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]));
 		let signer: AccountId = [0u8; 32].into();
 		assert_eq!(MemberPayout::<Test>::get(task_id, shard_id), 0);
 		assert_eq!(TotalPayout::<Test>::get(task_id), 0);

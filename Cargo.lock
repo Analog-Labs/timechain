@@ -7896,7 +7896,6 @@ dependencies = [
 name = "pallet-shards"
 version = "4.0.0-dev"
 dependencies = [
- "fastrand 2.0.1",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

@@ -80,6 +80,9 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, AccountId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
+	pub type SignerIndex<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u32, ValueQuery>;
+
+	#[pallet::storage]
 	pub type ShardMembers<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -87,17 +90,6 @@ pub mod pallet {
 		Blake2_128Concat,
 		AccountId,
 		MemberStatus,
-		OptionQuery,
-	>;
-
-	#[pallet::storage]
-	pub type PastSigners<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		ShardId,
-		Blake2_128Concat,
-		PublicKey,
-		(),
 		OptionQuery,
 	>;
 
@@ -328,30 +320,19 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 
-		fn random_signer(shard_id: ShardId) -> PublicKey {
-			let seed = u64::from_ne_bytes(
-				frame_system::Pallet::<T>::parent_hash().encode().as_slice()[0..8]
-					.try_into()
-					.expect("Block hash should convert into [u8; 8]"),
-			);
-			let mut rng = fastrand::Rng::with_seed(seed);
+		fn next_signer(shard_id: ShardId) -> PublicKey {
 			let members = Self::get_shard_members(shard_id);
-			let mut signer_index = rng.usize(..members.len());
-			let mut signer = T::Members::member_public_key(&members[signer_index].0)
+			let signer_index: usize =
+				SignerIndex::<T>::get(shard_id).try_into().expect("Checked indexing already");
+			let signer = T::Members::member_public_key(&members[signer_index].0)
 				.expect("All signers should be registered members");
-			if members.len() == 1 {
-				// only one possible signer for shard size 1
-				return signer;
-			}
-			if PastSigners::<T>::iter_prefix(shard_id).count() < members.len() {
-				while PastSigners::<T>::get(shard_id, &signer).is_some() {
-					signer_index =
-						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
-					signer = T::Members::member_public_key(&members[signer_index].0)
-						.expect("All signers should be registered members");
-				}
-			}
-			PastSigners::<T>::insert(shard_id, &signer, ());
+			let next_signer_index =
+				if members.len() as u32 == (signer_index as u32).saturating_plus_one() {
+					0
+				} else {
+					signer_index.saturating_plus_one()
+				};
+			SignerIndex::<T>::insert(shard_id, next_signer_index as u32);
 			signer
 		}
 

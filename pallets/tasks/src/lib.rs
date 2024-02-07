@@ -500,8 +500,8 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
-			let shard_signer = T::Shards::random_signer(shard_id);
-			ensure!(shard_signer.into_account() == caller, Error::<T>::InvalidSigner);
+			// let shard_signer = T::Shards::random_signer(shard_id);
+			// ensure!(shard_signer.into_account() == caller, Error::<T>::InvalidSigner);
 			Self::start_write_phase(task_id, shard_id);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())

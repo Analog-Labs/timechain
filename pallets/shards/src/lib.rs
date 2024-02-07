@@ -348,10 +348,21 @@ pub mod pallet {
 
 			if PastSigners::<T>::iter_prefix(shard_id).count() < members.len() {
 				while PastSigners::<T>::get(shard_id, &signer).is_some() {
+					sp_std::if_std! {
+						println!("{:?} < {:?}", PastSigners::<T>::iter_prefix(shard_id).count(), members.len());
+					}
 					signer_index =
 						if signer_index == members.len() - 1 { 0 } else { signer_index + 1 };
+					sp_std::if_std! {
+						println!("signer index {:?}", signer_index);
+						println!("memer at signer_index: {:?}", members[signer_index].0);
+						println!("members {:?}", members);
+					}
 					signer = T::Members::member_public_key(&members[signer_index].0)
 						.expect("All signers should be registered members");
+					sp_std::if_std! {
+						println!("signer {:?}", signer);
+					}
 				}
 			}
 			PastSigners::<T>::insert(shard_id, &signer, ());

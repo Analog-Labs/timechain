@@ -1,23 +1,8 @@
 use crate::{self as pallet_networks};
-use crate::{mock::*, Error, NetworkIdToChain};
-use frame_support::{assert_noop, assert_ok, BoundedVec};
+use crate::{mock::*, Error};
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use time_primitives::{ChainName, ChainNetwork};
-
-fn blockchain_to_vec(
-	data: String,
-) -> BoundedVec<u8, <Test as pallet_networks::Config>::MaxNameSize> {
-	BoundedVec::<u8, <Test as pallet_networks::Config>::MaxBlockchainSize>::try_from(
-		data.trim().to_string().into_bytes(),
-	)
-	.unwrap()
-}
-fn network_to_vec(data: String) -> BoundedVec<u8, <Test as pallet_networks::Config>::MaxNameSize> {
-	BoundedVec::<u8, <Test as pallet_networks::Config>::MaxNameSize>::try_from(
-		data.trim().to_string().into_bytes(),
-	)
-	.unwrap()
-}
 
 #[test]
 fn test_add_network() {
@@ -29,10 +14,7 @@ fn test_add_network() {
 			blockchain.clone(),
 			network.clone(),
 		));
-		assert_eq!(
-			NetworkIdToChain::<Test>::get(0),
-			Some((blockchain_to_vec(blockchain), network_to_vec(network)))
-		);
+		assert_eq!(pallet_networks::Networks::<Test>::get(0), Some((blockchain, network)));
 	});
 }
 
@@ -48,7 +30,7 @@ fn test_duplicate_insertion() {
 		));
 		assert_noop!(
 			Networks::add_network(RawOrigin::Root.into(), blockchain, network),
-			<Error<Test>>::NetworkAlreadyExists
+			<Error<Test>>::NetworkExists
 		);
 	});
 }
@@ -69,13 +51,7 @@ fn test_single_blockchain_multiple_networks() {
 			blockchain.clone(),
 			network2.clone(),
 		));
-		assert_eq!(
-			NetworkIdToChain::<Test>::get(0),
-			Some((blockchain_to_vec(blockchain.clone()), network_to_vec(network)))
-		);
-		assert_eq!(
-			NetworkIdToChain::<Test>::get(1),
-			Some((blockchain_to_vec(blockchain), network_to_vec(network2)))
-		);
+		assert_eq!(pallet_networks::Networks::<Test>::get(0), Some((blockchain.clone(), network)));
+		assert_eq!(pallet_networks::Networks::<Test>::get(1), Some((blockchain, network2)));
 	});
 }

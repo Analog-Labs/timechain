@@ -60,8 +60,6 @@ impl pallet_balances::Config for Test {
 impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type MaxBlockchainSize = ConstU32<32>;
-	type MaxNameSize = ConstU32<32>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

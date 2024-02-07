@@ -8,7 +8,7 @@ use pallet_tasks::TaskPhaseState;
 use sp_core::hexdisplay::HexDisplay;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, Function, Network, PublicKey, ShardStatus, ShardsInterface,
+	AccountId, ElectionsInterface, Function, NetworkId, PublicKey, ShardStatus, ShardsInterface,
 	TaskDescriptorParams, TaskPhase, TasksInterface,
 };
 
@@ -19,6 +19,7 @@ fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
 }
 
+const ETHEREUM: NetworkId = 0;
 const A: [u8; 32] = [1u8; 32];
 const B: [u8; 32] = [2u8; 32];
 const C: [u8; 32] = [3u8; 32];
@@ -63,21 +64,21 @@ fn elections_chooses_top_members_by_stake() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(B),
 			B,
 			6,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(C),
 			C,
 			7,
@@ -87,12 +88,12 @@ fn elections_chooses_top_members_by_stake() {
 		}
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(d.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(D),
 			D,
 			8,
 		));
-		Elections::shard_offline(Network::Ethereum, vec![a.clone(), b.clone(), c.clone()]);
+		Elections::shard_offline(ETHEREUM, vec![a.clone(), b.clone(), c.clone()]);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(1) {
 			assert!(second_shard.contains(&m));
 		}
@@ -109,21 +110,21 @@ fn write_phase_timeout_reassigns_task() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(B),
 			B,
 			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(C),
 			C,
 			5,
@@ -131,7 +132,7 @@ fn write_phase_timeout_reassigns_task() {
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),
 			TaskDescriptorParams {
-				network: Network::Ethereum,
+				network: ETHEREUM,
 				function: Function::EvmCall {
 					address: Default::default(),
 					input: Default::default(),
@@ -145,9 +146,9 @@ fn write_phase_timeout_reassigns_task() {
 				shard_size: 3,
 			}
 		));
-		Shards::create_shard(Network::Ethereum, shard, 1);
+		Shards::create_shard(ETHEREUM, shard, 1);
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, Network::Ethereum);
+		Tasks::shard_online(0, ETHEREUM);
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
 		roll_to(10);
 		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
@@ -171,32 +172,32 @@ fn register_unregister_preserves_task_migration() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(A),
 			A,
 			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(B),
 			B,
 			5,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(C),
 			C,
 			5,
 		));
 		// verify shard 0 created for Network Ethereum
-		assert_eq!(Shards::shard_network(0), Some(Network::Ethereum));
+		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
 		// create task
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),
 			TaskDescriptorParams {
-				network: Network::Ethereum,
+				network: ETHEREUM,
 				function: Function::EvmCall {
 					address: Default::default(),
 					input: Default::default(),
@@ -211,7 +212,7 @@ fn register_unregister_preserves_task_migration() {
 			}
 		));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, Network::Ethereum);
+		Tasks::shard_online(0, ETHEREUM);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters
@@ -220,15 +221,15 @@ fn register_unregister_preserves_task_migration() {
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(),));
-		Elections::shard_offline(Network::Ethereum, old_shard);
+		Elections::shard_offline(ETHEREUM, old_shard);
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Offline);
-		Tasks::shard_offline(0, Network::Ethereum);
+		Tasks::shard_offline(0, ETHEREUM);
 		// task no longer assigned
 		assert!(Tasks::task_shard(0).is_none());
 		// new member
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(d.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(D),
 			D,
 			5,
@@ -236,15 +237,15 @@ fn register_unregister_preserves_task_migration() {
 		// new member
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(e.clone()).into(),
-			Network::Ethereum,
+			ETHEREUM,
 			pubkey_from_bytes(E),
 			E,
 			5,
 		));
 		// verify shard 1 created for Network Ethereum
-		assert_eq!(Shards::shard_network(1), Some(Network::Ethereum));
+		assert_eq!(Shards::shard_network(1), Some(ETHEREUM));
 		<pallet_shards::ShardState<Runtime>>::insert(1, ShardStatus::Online);
-		Tasks::shard_online(1, Network::Ethereum);
+		Tasks::shard_online(1, ETHEREUM);
 		// verify task assigned to shard 1
 		assert_eq!(Tasks::task_shard(0).unwrap(), 1);
 	});

@@ -1,6 +1,5 @@
 use scale_info::prelude::string::String;
 
-pub type NetworkId = u64;
-pub type ChainId = u64;
+pub type NetworkId = u8;
 pub type ChainName = String;
 pub type ChainNetwork = String;

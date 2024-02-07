@@ -16,7 +16,7 @@ pub mod pallet {
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, Network, PeerId, PublicKey,
+		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, NetworkId, PeerId, PublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -61,7 +61,7 @@ pub mod pallet {
 	/// Get network for member
 	#[pallet::storage]
 	pub type MemberNetwork<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, Network, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, AccountId, NetworkId, OptionQuery>;
 
 	/// Get PeerId for member
 	#[pallet::storage]
@@ -86,11 +86,11 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		RegisteredMember(AccountId, Network, PeerId),
+		RegisteredMember(AccountId, NetworkId, PeerId),
 		HeartbeatReceived(AccountId),
 		MemberOnline(AccountId),
 		MemberOffline(AccountId),
-		UnRegisteredMember(AccountId, Network),
+		UnRegisteredMember(AccountId, NetworkId),
 	}
 
 	#[pallet::error]
@@ -122,7 +122,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::register_member())]
 		pub fn register_member(
 			origin: OriginFor<T>,
-			network: Network,
+			network: NetworkId,
 			public_key: PublicKey,
 			peer_id: PeerId,
 			bond: BalanceOf<T>,
@@ -189,7 +189,7 @@ pub mod pallet {
 			}
 		}
 
-		fn unregister_member_from_network(member: &AccountId, network: Network) {
+		fn unregister_member_from_network(member: &AccountId, network: NetworkId) {
 			T::Currency::unreserve(member, MemberStake::<T>::take(member));
 			MemberPublicKey::<T>::remove(member);
 			MemberPeerId::<T>::remove(member);

@@ -763,6 +763,12 @@ pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 							.into(),
 						ANLOG * 2000000,
 					),
+					// dev prefund valiator account
+					(
+						hex!["862b57a754ebda4c4bbd5714b637becd83f868ff634df6c22d4a9a905596f911"]
+							.into(),
+						ANLOG * 2000000,
+					),
 				],
 				disable_tss,
 			)
@@ -832,13 +838,13 @@ fn generate_analog_genesis(
 		},
 		networks: timechain_runtime::NetworksConfig {
 			networks: vec![
-				("ethereum".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 1),
-				("astar".as_bytes().to_vec(), "astar".as_bytes().to_vec(), 592),
-				("polygon".as_bytes().to_vec(), "mainnet".as_bytes().to_vec(), 137),
-				("ethereum".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 1337),
-				("ethereum".as_bytes().to_vec(), "goerli".as_bytes().to_vec(), 5),
-				("ethereum".as_bytes().to_vec(), "sepolia".as_bytes().to_vec(), 11155111),
-				("astar".as_bytes().to_vec(), "dev".as_bytes().to_vec(), 4369),
+				("ethereum".into(), "mainnet".into()),
+				("astar".into(), "astar".into()),
+				("polygon".into(), "mainnet".into()),
+				("ethereum".into(), "dev".into()),
+				("ethereum".into(), "goerli".into()),
+				("ethereum".into(), "sepolia".into()),
+				("astar".into(), "dev".into()),
 			],
 			..Default::default()
 		},

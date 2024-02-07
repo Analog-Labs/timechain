@@ -18,9 +18,7 @@ members = [
 resolver = "2"
 
 [profile.release]
-opt-level = "z"
-panic = "unwind"
-strip = true
+debug = true
 
 [profile.release-codecov]
 inherits = "release"

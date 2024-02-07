@@ -24,7 +24,7 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, Network,
+		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, NetworkId,
 		RewardConfig, ShardId, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams,
 		TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
 		TssSignature,
@@ -136,7 +136,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, TaskId, (), OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, NetworkId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
@@ -147,8 +147,15 @@ pub mod pallet {
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type NetworkShards<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, Network, Blake2_128Concat, ShardId, (), OptionQuery>;
+	pub type NetworkShards<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		NetworkId,
+		Blake2_128Concat,
+		ShardId,
+		(),
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -201,22 +208,22 @@ pub mod pallet {
 	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
 
 	#[pallet::storage]
-	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, Network, Vec<u8>, OptionQuery>;
+	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
-		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn network_write_reward)]
 	pub type NetworkWriteReward<T: Config> =
-		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn network_send_message_reward)]
 	pub type NetworkSendMessageReward<T: Config> =
-		StorageMap<_, Blake2_128Concat, Network, BalanceOf<T>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_reward_config)]
@@ -271,15 +278,15 @@ pub mod pallet {
 		/// Task resumed by owner
 		TaskResumed(TaskId),
 		/// Gateway registered on network
-		GatewayRegistered(Network, Vec<u8>),
+		GatewayRegistered(NetworkId, Vec<u8>),
 		/// Task funded with new free balance amount
 		TaskFunded(TaskId, BalanceOf<T>),
 		/// Read task reward set for network
-		ReadTaskRewardSet(Network, BalanceOf<T>),
+		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
-		WriteTaskRewardSet(Network, BalanceOf<T>),
+		WriteTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Send message task reward set for network
-		SendMessageTaskRewardSet(Network, BalanceOf<T>),
+		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -547,7 +554,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::set_read_task_reward())]
 		pub fn set_read_task_reward(
 			origin: OriginFor<T>,
-			network: Network,
+			network: NetworkId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -561,7 +568,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::set_write_task_reward())]
 		pub fn set_write_task_reward(
 			origin: OriginFor<T>,
-			network: Network,
+			network: NetworkId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -575,7 +582,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::set_send_message_task_reward())]
 		pub fn set_send_message_task_reward(
 			origin: OriginFor<T>,
-			network: Network,
+			network: NetworkId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -739,7 +746,7 @@ pub mod pallet {
 			Tasks::<T>::get(task_id)
 		}
 
-		pub fn get_gateway(network: Network) -> Option<Vec<u8>> {
+		pub fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
 			Gateway::<T>::get(network)
 		}
 
@@ -790,7 +797,8 @@ pub mod pallet {
 			hash: [u8; 32],
 			signature: TssSignature,
 		) -> DispatchResult {
-			let data = append_hash_with_task_data(hash, task_id, task_cycle);
+			let retry_count = TaskRetryCounter::<T>::get(task_id);
+			let data = append_hash_with_task_data(hash, task_id, task_cycle, retry_count);
 			let hash = VerifyingKey::message_hash(&data);
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let signature = schnorr_evm::Signature::from_bytes(signature)
@@ -807,7 +815,7 @@ pub mod pallet {
 			ShardTasks::<T>::iter_prefix(shard_id).count()
 		}
 
-		fn schedule_tasks(network: Network) {
+		fn schedule_tasks(network: NetworkId) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
 				let Some(TaskDescriptor { shard_size, .. }) = Tasks::<T>::get(task_id) else {
 					// this branch should never be hit, maybe turn this into expect
@@ -836,7 +844,7 @@ pub mod pallet {
 		/// Excludes selecting the `old` shard_id optional input if it is passed
 		/// for task reassignment purposes.
 		fn select_shard(
-			network: Network,
+			network: NetworkId,
 			task_id: TaskId,
 			old: Option<ShardId>,
 			shard_size: u32,
@@ -1091,7 +1099,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
-		fn shard_online(shard_id: ShardId, network: Network) {
+		fn shard_online(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::start_task(
 				TaskDescriptorParams::new(
@@ -1104,7 +1112,7 @@ pub mod pallet {
 			.unwrap();
 		}
 
-		fn shard_offline(shard_id: ShardId, network: Network) {
+		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);

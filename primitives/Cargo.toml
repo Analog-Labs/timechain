@@ -21,4 +21,4 @@ sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "ti
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std", ]
+std = ["codec/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std"]

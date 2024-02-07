@@ -55,10 +55,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ChainId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus,
-	MemberStorage, Network, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
-	Signature, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult,
-	TssPublicKey, TssSignature, TxError, TxResult,
+	AccountId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus, MemberStorage,
+	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle,
+	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
+	TssSignature,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1197,8 +1197,6 @@ impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// TODO fix weights
 	type WeightInfo = ();
-	type MaxBlockchainSize = ConstU32<32>;
-	type MaxNameSize = ConstU32<32>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1515,9 +1513,6 @@ impl_runtime_apis! {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
 			Networks::get_network(network_id)
 		}
-		fn get_chain_id(network_id: NetworkId) -> Option<ChainId> {
-			Networks::get_chain_id(network_id)
-		}
 	}
 
 	impl time_primitives::ShardsApi<Block> for Runtime {
@@ -1566,7 +1561,7 @@ impl_runtime_apis! {
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
-		fn get_gateway(network: Network) -> Option<Vec<u8>> {
+		fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
 			Tasks::get_gateway(network)
 		}
 	}
@@ -1578,8 +1573,8 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
-		fn submit_transaction(encoded_transaction: Vec<u8>) -> TxResult {
-			sp_io::offchain::submit_transaction(encoded_transaction).map_err(|_| TxError::TxPoolError)
+		fn submit_transaction(encoded_transaction: Vec<u8>) -> Result<(), ()> {
+			sp_io::offchain::submit_transaction(encoded_transaction)
 		}
 	}
 

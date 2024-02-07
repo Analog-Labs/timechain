@@ -1,8 +1,8 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, Gateway, MemberPayout, NetworkReadReward, NetworkSendMessageReward,
-	NetworkShards, NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskIdCounter,
-	TaskPhaseState, TaskResults, TaskRewardConfig, TaskSignature, TaskState, UnassignedTasks,
+	Error, Event, Gateway, NetworkReadReward, NetworkSendMessageReward, NetworkShards,
+	NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskIdCounter, TaskOutput,
+	TaskPhaseState, TaskRewardConfig, TaskSignature, TaskState, UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -13,7 +13,7 @@ use sp_runtime::Saturating;
 use time_primitives::{
 	append_hash_with_task_data, AccountId, Function, NetworkId, PublicKey, RewardConfig, ShardId,
 	ShardStatus, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskError, TaskExecution,
-	TaskId, TaskPhase, TaskResult, TaskRetryCount, TaskStatus, TasksInterface,
+	TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
 };
 
 fn shard_size_2() -> [AccountId; 2] {
@@ -63,7 +63,6 @@ fn mock_payable(network: NetworkId) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		start: 0,
-		period: 0,
 		function: Function::EvmCall {
 			address: Default::default(),
 			input: Default::default(),
@@ -86,7 +85,7 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	TaskResult { shard_id, hash, signature }
 }
 
-fn mock_error_result(shard_id: ShardId, task_id: TaskId, retry_count: TaskRetryCount) -> TaskError {
+fn mock_error_result(shard_id: ShardId, task_id: TaskId) -> TaskError {
 	// these values are taken after running a valid instance of submitting error
 	let msg: String = "Invalid input length".into();
 	let msg_hash = VerifyingKey::message_hash(&msg.clone().into_bytes());
@@ -112,10 +111,7 @@ fn test_create_task() {
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
 		System::assert_last_event(Event::<Test>::TaskCreated(1).into());
-		assert_eq!(
-			Tasks::get_shard_tasks(0),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
-		);
+		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::default()),]);
 		let mut read_task_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		read_task_reward =
 			read_task_reward.saturating_add(NetworkReadReward::<Test>::get(ETHEREUM));
@@ -141,10 +137,9 @@ fn test_create_task() {
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
-			0,
 			task_result.clone()
 		));
-		System::assert_last_event(Event::<Test>::TaskResult(0, 0, task_result).into());
+		System::assert_last_event(Event::<Test>::TaskResult(0, task_result).into());
 	});
 }
 
@@ -360,7 +355,6 @@ fn submit_completed_result_purges_task_from_storage() {
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
-			0,
 			mock_result_ok(0, 0)
 		));
 		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
@@ -397,30 +391,6 @@ fn shard_offline_drops_failed_tasks() {
 }
 
 #[test]
-fn submit_task_error_increments_retry_count() {
-	new_test_ext().execute_with(|| {
-		Shards::create_shard(
-			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
-		ShardState::<Test>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, ETHEREUM);
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0; 32].into()).into(),
-			mock_task(ETHEREUM)
-		));
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		assert_ok!(Tasks::submit_error(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			0,
-			mock_error_result(0, 0)
-		));
-	});
-}
-
-#[test]
 fn submit_task_error_is_task_failure() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
@@ -435,10 +405,9 @@ fn submit_task_error_is_task_failure() {
 			mock_task(ETHEREUM)
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		let mut last_error = None;
 		let error = mock_error_result(0, 0);
 		assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, error.clone()));
-		System::assert_last_event(Event::<Test>::TaskFailed(0, error.unwrap()).into());
+		System::assert_last_event(Event::<Test>::TaskFailed(0, error).into());
 	});
 }
 
@@ -461,20 +430,14 @@ fn task_moved_on_shard_offline() {
 		));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(
-			Tasks::get_shard_tasks(0),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
-		);
+		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::default()),]);
 		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
 		Tasks::shard_offline(0, ETHEREUM);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
 		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
-		assert_eq!(
-			Tasks::get_shard_tasks(1),
-			vec![TaskExecution::new(0, 0, 0, TaskPhase::default()),]
-		);
+		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, TaskPhase::default()),]);
 	});
 }
 
@@ -496,7 +459,7 @@ fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
 			for _ in 0..i {
 				assert_ok!(Tasks::create_task(
 					RawOrigin::Signed([0; 32].into()).into(),
-					mock_task(ETHEREUM, 5)
+					mock_task(ETHEREUM)
 				));
 			}
 		}
@@ -516,7 +479,7 @@ fn submit_task_result_inserts_task_output() {
 		);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
-			mock_task(ETHEREUM, 5)
+			mock_task(ETHEREUM)
 		));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
@@ -774,7 +737,6 @@ fn register_gateway_completes_register_shard_task() {
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
-			0,
 			mock_result_ok(1, 0)
 		));
 	});
@@ -813,7 +775,6 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
-			0,
 			mock_result_ok(0, 1)
 		));
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));

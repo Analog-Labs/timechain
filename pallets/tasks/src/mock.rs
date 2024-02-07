@@ -1,7 +1,7 @@
 use crate::{self as task_schedule};
 use frame_support::PalletId;
 use schnorr_evm::SigningKey;
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, H256};
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
 	traits::{parameter_types, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -112,7 +112,6 @@ impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Shards = Shards;
-	type MinTaskBalance = ConstU128<10>;
 	type BaseReadReward = ConstU128<2>;
 	type BaseWriteReward = ConstU128<3>;
 	type BaseSendMessageReward = ConstU128<4>;

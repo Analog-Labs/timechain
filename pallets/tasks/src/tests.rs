@@ -81,6 +81,17 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	TaskResult { shard_id, hash, signature }
 }
 
+fn mock_submit_sig(task_id: TaskId) -> ([u8; 32], [u8; 64]) {
+	let hash = [
+		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
+		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+	];
+	let appended_hash = append_hash_with_task_data(hash, task_id);
+	let final_hash = VerifyingKey::message_hash(&appended_hash);
+	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
+	(hash, signature)
+}
+
 fn mock_error_result(shard_id: ShardId, task_id: TaskId) -> TaskError {
 	// these values are taken after running a valid instance of submitting error
 	let msg: String = "Invalid input length".into();
@@ -552,16 +563,18 @@ fn submit_signature_inserts_signature_into_storage() {
 		Tasks::shard_online(0, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
-		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
-		assert_eq!(TaskSignature::<Test>::get(0), Some([0u8; 64]));
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
+		assert_eq!(TaskSignature::<Test>::get(0), Some(sig));
 	});
 }
 
 #[test]
 fn submit_signature_fails_when_task_dne() {
 	new_test_ext().execute_with(|| {
+		let (hash, sig) = mock_submit_sig(0);
 		assert_noop!(
-			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),
 			Error::<Test>::UnknownTask
 		);
 	});
@@ -574,8 +587,9 @@ fn submit_signature_fails_if_not_sign_phase() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
+		let (hash, sig) = mock_submit_sig(0);
 		assert_noop!(
-			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),
 			Error::<Test>::NotSignPhase
 		);
 	});
@@ -588,8 +602,9 @@ fn submit_signature_fails_if_unassigned() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_sign_task(ETHEREUM)
 		));
+		let (hash, sig) = mock_submit_sig(0);
 		assert_noop!(
-			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),
 			Error::<Test>::UnassignedTask
 		);
 	});
@@ -615,9 +630,10 @@ fn submit_signature_fails_after_called_once() {
 		Tasks::shard_online(0, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
-		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
 		assert_noop!(
-			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),
+			Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),
 			Error::<Test>::TaskSigned
 		);
 	});
@@ -973,7 +989,8 @@ fn send_message_for_all_plus_write_reward_for_signer() {
 		Tasks::shard_online(shard_id, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
-		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
 		let mut balances = vec![];
 		for member in shard() {
 			balances.push(Balances::free_balance(&member));
@@ -1032,7 +1049,8 @@ fn send_message_payout_clears_storage() {
 		Tasks::shard_online(shard_id, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
-		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,

@@ -200,8 +200,11 @@ where
 		payload: Vec<u8>,
 		block_number: u32,
 	) -> Result<()> {
-		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
-		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
+		let prehashed_payload = VerifyingKey::message_hash(&payload);
+		let hash = append_hash_with_task_data(prehashed_payload, task_id);
+		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &hash).await?;
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig, prehashed_payload).await
+		{
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())

@@ -21,7 +21,7 @@ frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branc
 frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
-schnorr-evm = { git = "https://github.com/analog-labs/frost-evm", default-features = false }
+schnorr-evm = { version = "0.1.0", default-features = false }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 sp-std = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }

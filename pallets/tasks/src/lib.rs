@@ -174,12 +174,26 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, TaskId, TssSignature, OptionQuery>;
 
 	#[pallet::storage]
-	pub type WritePhaseStart<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
+	pub type WritePhaseStart<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		Blake2_128Concat,
+		TaskCycle,
+		BlockNumberFor<T>,
+		ValueQuery,
+	>;
 
 	#[pallet::storage]
-	pub type ReadPhaseStart<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
+	pub type ReadPhaseStart<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		Blake2_128Concat,
+		TaskCycle,
+		BlockNumberFor<T>,
+		ValueQuery,
+	>;
 
 	#[pallet::storage]
 	pub type TaskRetryCounter<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, u8, ValueQuery>;
@@ -473,7 +487,7 @@ pub mod pallet {
 				TaskState::<T>::insert(task_id, TaskStatus::Stopped);
 				Self::deposit_event(Event::TaskStopped(task_id));
 			}
-			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			ReadPhaseStart::<T>::insert(task_id, cycle, frame_system::Pallet::<T>::block_number());
 			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
 			Ok(())
 		}
@@ -591,20 +605,24 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			WritePhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
-				if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
-					if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-						Self::start_write_phase(task_id, shard_id);
-						writes += 2;
+			WritePhaseStart::<T>::iter()
+				.filter(|task_id, cycle| TaskCycleState::<T>::get(task_id) == cycle)
+				.for_each(|(task_id, cycle, created_block)| {
+					if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
+						if let Some(shard_id) = TaskShard::<T>::get(task_id) {
+							Self::start_write_phase(task_id, shard_id);
+							writes += 2;
+						}
 					}
-				}
-			});
-			ReadPhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
-				if n.saturating_sub(created_block) >= T::ReadPhaseTimeout::get() {
-					Self::schedule_task_to_new_shard(task_id);
-					writes += 3
-				}
-			});
+				});
+			ReadPhaseStart::<T>::iter()
+				.filter(|task_id, cycle| TaskCycleState::<T>::get(task_id) == cycle)
+				.for_each(|(task_id, cycle, created_block)| {
+					if n.saturating_sub(created_block) >= T::ReadPhaseTimeout::get() {
+						Self::schedule_task_to_new_shard(task_id);
+						writes += 3
+					}
+				});
 			T::DbWeight::get().writes(writes)
 		}
 	}
@@ -895,7 +913,11 @@ pub mod pallet {
 			};
 			if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
 				// reset read phase start for task (and consequently the reward)
-				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+				ReadPhaseStart::<T>::insert(
+					task_id,
+					TaskCycleState::<T>::get(task_id),
+					frame_system::Pallet::<T>::block_number(),
+				);
 			}
 			ShardTasks::<T>::remove(old_shard_id, task_id);
 			ShardTasks::<T>::insert(new_shard_id, task_id, ());
@@ -979,7 +1001,7 @@ pub mod pallet {
 				return BalanceOf::<T>::zero();
 			};
 			Self::apply_depreciation(
-				ReadPhaseStart::<T>::get(task_id),
+				ReadPhaseStart::<T>::get(task_id, TaskCycleState::<T>::get()),
 				read_task_reward,
 				depreciation_rate,
 			)

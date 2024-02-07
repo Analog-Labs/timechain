@@ -11,11 +11,12 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use schnorr_evm::VerifyingKey;
-use sp_runtime::Saturating;
+use sp_runtime::{Percent, Saturating};
 use time_primitives::{
-	append_hash_with_task_data, AccountId, Function, Network, PublicKey, RewardConfig, ShardId,
-	ShardStatus, ShardsInterface, TaskCycle, TaskDescriptor, TaskDescriptorParams, TaskError,
-	TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
+	append_hash_with_task_data, AccountId, DepreciationRate, Function, Network, PublicKey,
+	RewardConfig, ShardId, ShardStatus, ShardsInterface, TaskCycle, TaskDescriptor,
+	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus,
+	TasksInterface,
 };
 
 #[test]
@@ -326,6 +327,18 @@ fn read_task_reward_depreciates_after_first_n_blocks() {
 		}
 		// TODO: roll until reward depreciates please
 		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
+		assert_eq!(
+			RewardConfig {
+				read_task_reward: <Test as crate::Config>::BaseReadReward::get(),
+				write_task_reward: <Test as crate::Config>::BaseWriteReward::get(),
+				send_message_reward: <Test as crate::Config>::BaseSendMessageReward::get(),
+				depreciation_rate: DepreciationRate {
+					blocks: 10,
+					percent: Percent::from_percent(5),
+				},
+			},
+			reward_config
+		);
 		roll_to(reward_config.depreciation_rate.blocks * 3);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),

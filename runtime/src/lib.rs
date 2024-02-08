@@ -59,7 +59,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus, MemberStorage,
-	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskCycle,
+	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
 	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
 	TssSignature,
 };
@@ -1134,8 +1134,7 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
-	type Currency = Balances;
-	type MinStake = ConstU128<5>;
+	type MinStake = ConstU128<{ 10 * DOLLARS }>;
 	type HeartbeatTimeout = ConstU32<50>;
 }
 
@@ -1169,12 +1168,11 @@ impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Shards = Shards;
-	type MinTaskBalance = ConstU128<{ 10 * DOLLARS }>;
+	type Members = Members;
 	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
 	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;
 	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
 	type RewardDeclineRate = RewardDeclineRate;
-	type MaxRetryCount = ConstU8<3>;
 	type WritePhaseTimeout = ConstU32<10>;
 	type ReadPhaseTimeout = ConstU32<10>;
 	type PalletId = TaskPalletId;
@@ -1542,14 +1540,11 @@ impl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
 		}
-		fn get_task_cycle(task_id: TaskId) -> TaskCycle{
-			Tasks::get_task_cycle(task_id)
-		}
 		fn get_task_phase(task_id: TaskId) -> TaskPhase {
 			Tasks::get_task_phase(task_id)
 		}
-		fn get_task_results(task_id: TaskId, cycle: Option<TaskCycle>) -> Vec<(TaskCycle, TaskResult)>{
-			Tasks::get_task_results(task_id, cycle)
+		fn get_task_result(task_id: TaskId) -> Option<TaskResult>{
+			Tasks::get_task_result(task_id)
 		}
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)

@@ -5,7 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
-use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
+use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
 mod member;
@@ -83,14 +83,18 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+/// Expose unbond and transfer functionality to pay for (Un)RegisterShard task fees
+pub trait TransferStake {
+	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
+}
+
 pub trait MemberEvents {
 	fn member_online(id: &AccountId, network: NetworkId);
 	fn member_offline(id: &AccountId, network: NetworkId);
 }
 
 pub trait MemberStorage {
-	type Balance: Ord;
-	fn member_stake(account: &AccountId) -> Self::Balance;
+	fn member_stake(account: &AccountId) -> Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;

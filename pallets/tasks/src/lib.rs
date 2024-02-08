@@ -26,7 +26,8 @@ pub mod pallet {
 	use time_primitives::{
 		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, NetworkId,
 		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskError,
-		TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface, TssSignature,
+		TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
+		TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -92,6 +93,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
+		type Members: TransferStake;
 		/// Base read task reward (for all networks)
 		#[pallet::constant]
 		type BaseReadReward: Get<BalanceOf<Self>>;
@@ -267,7 +269,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::create_task(schedule.function.get_input_length()))]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::start_task(schedule, Some(who))?;
+			Self::start_task(schedule, TaskFunder::Account(who))?;
 			Ok(())
 		}
 
@@ -470,7 +472,7 @@ pub mod pallet {
 		}
 
 		/// Start task
-		fn start_task(owner: AccountId, schedule: TaskDescriptorParams) -> DispatchResult {
+		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
 			let task_id = TaskIdCounter::<T>::get();
 			let (read_task_reward, write_task_reward, send_message_reward) = (
 				T::BaseReadReward::get() + NetworkReadReward::<T>::get(schedule.network),
@@ -479,22 +481,37 @@ pub mod pallet {
 					+ NetworkSendMessageReward::<T>::get(schedule.network),
 			);
 			let mut required_funds = read_task_reward
-				.saturating_mul(schedule.shard_size)
+				.saturating_mul(schedule.shard_size.into())
 				.saturating_add(write_task_reward);
 			let is_gmp = if schedule.function.is_gmp() {
 				required_funds = required_funds
-					.saturating_add((send_message_reward.saturating_mul(schedule.shard_size)));
+					.saturating_add(send_message_reward.saturating_mul(schedule.shard_size.into()));
 				true
 			} else {
 				false
 			};
+			// TODO: should we remove this error for usability, seems annoying
+			// propose in follow up
 			ensure!(schedule.funds >= required_funds, Error::<T>::InsufficientFundsToRewardTask);
-			pallet_balances::Pallet::<T>::transfer(
-				&owner,
-				&Self::task_account(task_id),
-				schedule.funds,
-				ExistenceRequirement::KeepAlive,
-			)?;
+			let owner = match who {
+				TaskFunder::Account(user) => {
+					pallet_balances::Pallet::<T>::transfer(
+						&user,
+						&Self::task_account(task_id),
+						schedule.funds,
+						ExistenceRequirement::KeepAlive,
+					)?;
+					Some(user)
+				},
+				TaskFunder::Shard(shard_id) => {
+					let task_account = Self::task_account(task_id);
+					let amount = required_funds.saturating_div(schedule.shard_size.into());
+					for member in T::Shards::shard_members(shard_id) {
+						T::Members::transfer_stake(&member, &task_account, amount)?;
+					}
+					None
+				},
+			};
 			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
 			}
@@ -511,7 +528,7 @@ pub mod pallet {
 			Tasks::<T>::insert(
 				task_id,
 				TaskDescriptor {
-					owner: Some(owner),
+					owner,
 					network: schedule.network,
 					function: schedule.function,
 					start: schedule.start,
@@ -783,12 +800,12 @@ pub mod pallet {
 		fn shard_online(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::insert(network, shard_id, ());
 			Self::start_task(
-				// who should be the task owner
 				TaskDescriptorParams::new(
 					network,
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as u32,
 				),
+				TaskFunder::Shard(shard_id),
 			)
 			.unwrap();
 		}
@@ -808,7 +825,7 @@ pub mod pallet {
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as u32,
 					),
-					None,
+					TaskFunder::Shard(shard_id),
 				)
 				.unwrap();
 			} else {

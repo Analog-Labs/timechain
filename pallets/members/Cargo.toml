@@ -19,6 +19,7 @@ frame-benchmarking = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", 
 frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 log = { version = "0.4.20", default-features = false }
+pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false, optional = true }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
@@ -28,12 +29,11 @@ time-primitives = { path = "../../primitives", default-features = false }
 [dev-dependencies]
 env_logger = "0.10.0"
 lazy_static = "1.4.0"
-pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", version = "4.0.0-dev" }
 sp-io = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 sp-keystore = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", branch = "timechain/full-tracing", default-features = false }
 
 [features]
 default = [ "std" ]
-std = [ "codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "scale-info/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "time-primitives/std" ]
+std = [ "codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "pallet-balances/std", "scale-info/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "time-primitives/std" ]
 runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
 try-runtime = [ "frame-support/try-runtime" ]

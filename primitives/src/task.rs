@@ -176,3 +176,9 @@ pub struct RewardConfig<Balance, BlockNumber> {
 	/// Depreciation rate for all rewards
 	pub depreciation_rate: DepreciationRate<BlockNumber>,
 }
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TaskFunder {
+	Account(AccountId),
+	Shard(ShardId),
+}

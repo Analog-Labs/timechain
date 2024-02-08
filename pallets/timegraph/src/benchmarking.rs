@@ -10,7 +10,6 @@ use frame_system::RawOrigin;
 mod benchmarks {
 	use super::*;
 	use frame_support::traits::Currency;
-	use scale_info::prelude::vec;
 
 	#[benchmark]
 	fn deposit() {

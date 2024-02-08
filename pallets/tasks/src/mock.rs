@@ -5,11 +5,12 @@ use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	app_crypto::sp_core,
 	traits::{parameter_types, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature, Percent,
+	BuildStorage, DispatchResult, MultiSignature, Percent,
 };
 use sp_std::vec::Vec;
 use time_primitives::{
-	DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
+	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
+	TransferStake,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -20,8 +21,7 @@ pub type Signature = MultiSignature;
 pub struct MockMembers;
 
 impl MemberStorage for MockMembers {
-	type Balance = u128;
-	fn member_stake(_: &AccountId) -> Self::Balance {
+	fn member_stake(_: &AccountId) -> Balance {
 		0u128
 	}
 	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
@@ -32,6 +32,11 @@ impl MemberStorage for MockMembers {
 	}
 	fn is_member_online(_: &AccountId) -> bool {
 		true
+	}
+}
+impl TransferStake for MockMembers {
+	fn transfer_stake(_: &AccountId, _: &AccountId, _: Balance) -> DispatchResult {
+		Ok(())
 	}
 }
 
@@ -112,6 +117,7 @@ impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Shards = Shards;
+	type Members = MockMembers;
 	type BaseReadReward = ConstU128<2>;
 	type BaseWriteReward = ConstU128<3>;
 	type BaseSendMessageReward = ConstU128<4>;

@@ -6,7 +6,7 @@ WORKDIR /build
 
 COPY . .
 
-RUN cargo build --locked --release
+RUN cargo build -p timechain-node --locked --release
 
 ### Release stage
 # Copies the binary from the builder stage into a fresh scratch image

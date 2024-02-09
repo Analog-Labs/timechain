@@ -1,12 +1,12 @@
 ### Build stage
 ### Uses custom substrate builder (Dockerfile in infra repo)
-FROM analoglabs/substrate-builder:latest as builder
+FROM analoglabs/substrate-builder:1.76.0 as builder
 
 WORKDIR /build
 
 COPY . .
 
-RUN cargo build --locked --release
+RUN cargo build -p timechain-node --locked --release
 
 ### Release stage
 # Copies the binary from the builder stage into a fresh scratch image

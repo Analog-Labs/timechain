@@ -34,7 +34,7 @@ struct Args {
 #[derive(Parser, Debug)]
 enum TestCommand {
 	Basic,
-	BatchTask { tasks: u64, max_cycle: u64 },
+	BatchTask { tasks: u64 },
 	KeyRecovery { nodes: u8 },
 	ShardRestart,
 	DeployGatewayContract { shard_id: u64 },
@@ -82,8 +82,8 @@ async fn main() {
 		TestCommand::Basic => {
 			basic_test_timechain(&api, network, &config).await;
 		},
-		TestCommand::BatchTask { tasks, max_cycle } => {
-			batch_test(&api, tasks, max_cycle, &config).await;
+		TestCommand::BatchTask { tasks } => {
+			batch_test(&api, tasks, &config).await;
 		},
 		TestCommand::KeyRecovery { nodes } => {
 			key_recovery_after_drop(&api, &config, nodes).await;
@@ -157,9 +157,7 @@ async fn process_gmp_task(
 		tasks::create_send_msg_call(eth_contract_address, "vote_yes()", [1; 32], 10000000);
 	let task_id = tasks::insert_task(
 		api,
-		1, //cycle
 		eth_start_block_gmp,
-		0,                   //period
 		ETH_TEST_NETWORK_ID, //ethereum localnet
 		send_msg,
 	)
@@ -174,47 +172,33 @@ async fn basic_test_timechain(api: &SubxtClient, network: NetworkId, config: &Wa
 	let (contract_address, start_block) = mock::setup_env(config, None).await;
 
 	let call = tasks::create_evm_view_call(contract_address.clone());
-	let task_id = tasks::insert_task(
-		api,
-		2, //cycle
-		start_block,
-		2, //period
-		ETH_TEST_NETWORK_ID,
-		call,
-	)
-	.await
-	.unwrap();
+	let task_id = tasks::insert_task(api, start_block, ETH_TEST_NETWORK_ID, call).await.unwrap();
 	while !tasks::watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 
 	let paid_call = tasks::create_evm_call(contract_address);
-	let task_id = tasks::insert_task(api, 1, start_block, 0, network, paid_call).await.unwrap();
+	let task_id = tasks::insert_task(api, start_block, network, paid_call).await.unwrap();
 	while !tasks::watch_task(api, task_id).await {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 	}
 }
 
-async fn batch_test(api: &SubxtClient, total_tasks: u64, max_cycle: u64, config: &WalletConfig) {
+async fn batch_test(api: &SubxtClient, total_tasks: u64, config: &WalletConfig) {
 	let (contract_address, start_block) = mock::setup_env(config, None).await;
 
 	let mut task_ids = vec![];
 	let call = tasks::create_evm_view_call(contract_address);
 	for _ in 0..total_tasks {
-		let task_id = tasks::insert_task(
-			api,
-			max_cycle,
-			start_block,
-			2, //period
-			ETH_TEST_NETWORK_ID,
-			call.clone(),
-		)
-		.await
-		.unwrap();
+		let task_id = tasks::insert_task(api, start_block, ETH_TEST_NETWORK_ID, call.clone())
+			.await
+			.unwrap();
 		task_ids.push(task_id);
 	}
-	while !tasks::watch_batch(api, task_ids[0], task_ids.len() as u64, max_cycle).await {
-		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+	for task_id in task_ids {
+		while !tasks::watch_task(api, task_id).await {
+			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+		}
 	}
 }
 
@@ -222,16 +206,7 @@ async fn task_update_after_shard_offline(api: &SubxtClient, config: &WalletConfi
 	let (contract_address, start_block) = mock::setup_env(config, None).await;
 
 	let call = tasks::create_evm_view_call(contract_address);
-	let task_id = tasks::insert_task(
-		api,
-		10, //cycle
-		start_block,
-		5, //period
-		ETH_TEST_NETWORK_ID,
-		call,
-	)
-	.await
-	.unwrap();
+	let task_id = tasks::insert_task(api, start_block, ETH_TEST_NETWORK_ID, call).await.unwrap();
 	// wait for some cycles to run, Note: tasks are running in background
 	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
@@ -262,16 +237,7 @@ async fn key_recovery_after_drop(api: &SubxtClient, config: &WalletConfig, nodes
 	let (contract_address, start_block) = mock::setup_env(config, None).await;
 
 	let call = tasks::create_evm_view_call(contract_address);
-	let task_id = tasks::insert_task(
-		api,
-		10, //cycle
-		start_block,
-		2, //period
-		ETH_TEST_NETWORK_ID,
-		call,
-	)
-	.await
-	.unwrap();
+	let task_id = tasks::insert_task(api, start_block, ETH_TEST_NETWORK_ID, call).await.unwrap();
 	// wait for some cycles to run, Note: tasks are running in background
 	for i in 1..nodes_to_restart + 1 {
 		println!("waiting for 1 min");

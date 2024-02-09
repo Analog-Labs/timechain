@@ -1,4 +1,4 @@
-name: Build Docker image
+name: Build Docker timechain node image
 
 on:
   push:

@@ -89,23 +89,15 @@ where
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
-		tracing::info!(target: TW_LOG, "got task ====== {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
-			let cycle = executable_task.cycle;
-			let retry_count = executable_task.retry_count;
 			if self.running_tasks.contains_key(executable_task) {
-				tracing::info!(target: TW_LOG, "skipping task {:?}", task_id);
+				tracing::info!(target: TW_LOG, "task already running {:?}", task_id);
 				continue;
 			}
 			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
-			let target_block_number = task_descr.trigger(cycle).ok_or(anyhow::anyhow!(
-				"Overflow while calculating target block: {}/{}",
-				task_id,
-				cycle
-			))?;
+			let target_block_number = task_descr.start;
 			let function = task_descr.function;
-			let hash = task_descr.timegraph;
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
@@ -135,7 +127,7 @@ where
 						} => msg_builder.build_gmp_message(address, payload, salt, gas_limit).hash(),
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, cycle, payload, block_number)
+					self.task_spawner.execute_sign(shard_id, task_id, payload, block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -217,7 +209,7 @@ where
 						},
 						_ => function,
 					};
-					self.task_spawner.execute_write(task_id, cycle, function)
+					self.task_spawner.execute_write(task_id, function)
 				} else {
 					let function = if let Some(tx) = executable_task.phase.tx_hash() {
 						Function::EvmTxReceipt { tx: tx.to_vec() }
@@ -227,9 +219,8 @@ where
 					self.task_spawner.execute_read(
 						target_block_number,
 						shard_id,
-						executable_task.clone(),
+						task_id,
 						function,
-						hash,
 						block_number,
 					)
 				};
@@ -238,19 +229,15 @@ where
 						Ok(()) => {
 							tracing::info!(
 								target: TW_LOG,
-								"Task {}/{}/{} completed",
+								"Task {} completed",
 								task_id,
-								cycle,
-								retry_count,
 							);
 						},
 						Err(error) => {
 							tracing::error!(
 								target: TW_LOG,
-								"Task {}/{}/{} failed {:?}",
+								"Task {} failed {:?}",
 								task_id,
-								cycle,
-								retry_count,
 								error,
 							);
 						},
@@ -272,10 +259,10 @@ where
 				true
 			} else {
 				if !handle.is_finished() {
-					tracing::info!(target: TW_LOG, "Task {}/{}/{} aborted", x.task_id, x.cycle, x.retry_count);
+					tracing::info!(target: TW_LOG, "Task {} aborted", x.task_id);
 					handle.abort();
 				}
-				completed_sessions.push(TssId(x.task_id, x.cycle));
+				completed_sessions.push(x.task_id);
 				false
 			}
 		});
@@ -336,16 +323,13 @@ mod tests {
 		let task = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
 			network,
-			cycle: 1,
 			function: Function::SendMessage {
 				address: Default::default(),
 				gas_limit: Default::default(),
 				salt: Default::default(),
 				payload: Default::default(),
 			},
-			period: 0,
 			start: 0,
-			timegraph: None,
 			shard_size: 2,
 		});
 		mock.assign_task(task, shard);

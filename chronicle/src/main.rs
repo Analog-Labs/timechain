@@ -28,12 +28,6 @@ pub struct ChronicleArgs {
 	/// keyfile having an account with funds for timechain.
 	#[clap(long)]
 	pub timechain_keyfile: PathBuf,
-	/// The timegraph url (or TIMEGTAPH_URL environment variable).
-	#[clap(long)]
-	pub timegraph_url: Option<String>,
-	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
-	#[clap(long)]
-	pub timegraph_ssk: Option<String>,
 }
 
 impl ChronicleArgs {
@@ -46,8 +40,6 @@ impl ChronicleArgs {
 			timechain_keyfile: self.timechain_keyfile,
 			target_url: self.target_url,
 			target_keyfile: self.target_keyfile,
-			timegraph_url: self.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
-			timegraph_ssk: self.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
 		}
 	}
 }

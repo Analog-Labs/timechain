@@ -31,8 +31,6 @@ pub struct ChronicleConfig {
 	pub timechain_keyfile: PathBuf,
 	pub target_url: String,
 	pub target_keyfile: PathBuf,
-	pub timegraph_url: Option<String>,
-	pub timegraph_ssk: Option<String>,
 }
 
 impl ChronicleConfig {
@@ -62,8 +60,6 @@ pub async fn run_chronicle(
 		network: subchain,
 		url: config.target_url,
 		keyfile: config.target_keyfile,
-		timegraph_url: config.timegraph_url,
-		timegraph_ssk: config.timegraph_ssk,
 		substrate: substrate.clone(),
 	};
 	let task_spawner = loop {
@@ -193,16 +189,13 @@ mod tests {
 		let task_id = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
 			network: network_id,
-			cycle: 1,
 			function: Function::SendMessage {
 				address: Default::default(),
 				gas_limit: Default::default(),
 				salt: Default::default(),
 				payload: Default::default(),
 			},
-			period: 0,
 			start: 0,
-			timegraph: None,
 			shard_size: 3,
 		});
 		tracing::info!("assigning task");

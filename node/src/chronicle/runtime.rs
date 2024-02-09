@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use futures::stream::{self, Stream, StreamExt};
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiExt, ApiRef, HeaderT, ProvideRuntimeApi};
+use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_core::H256;
-use sp_runtime::traits::Block;
+use sp_runtime::traits::{Block, Header};
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -15,8 +15,8 @@ use tc_subxt::{
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
 	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	ShardsApi, SubmitTransactionApi, TaskCycle, TaskDescriptor, TaskError, TaskExecution, TaskId,
-	TaskResult, TasksApi, TssSignature,
+	ShardsApi, SubmitTransactionApi, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
+	TasksApi, TssSignature,
 };
 
 pub struct Substrate<B: Block, C, R> {
@@ -173,32 +173,16 @@ where
 		Ok(self.runtime_api().get_gateway(self.best_block(), network)?)
 	}
 
-	async fn submit_task_hash(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		hash: Vec<u8>,
-	) -> Result<()> {
-		self.subxt_client.submit_task_hash(task_id, cycle, hash).await
+	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()> {
+		self.subxt_client.submit_task_hash(task_id, hash).await
 	}
 
-	async fn submit_task_result(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-
-		result: TaskResult,
-	) -> Result<()> {
-		self.subxt_client.submit_task_result(task_id, cycle, result).await
+	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
+		self.subxt_client.submit_task_result(task_id, result).await
 	}
 
-	async fn submit_task_error(
-		&self,
-		task_id: TaskId,
-		cycle: TaskCycle,
-		error: TaskError,
-	) -> Result<()> {
-		self.subxt_client.submit_task_error(task_id, cycle, error).await
+	async fn submit_task_error(&self, task_id: TaskId, error: TaskError) -> Result<()> {
+		self.subxt_client.submit_task_error(task_id, error).await
 	}
 
 	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {

@@ -48,12 +48,6 @@ pub struct ChronicleArgs {
 	#[arg(required = false)]
 	#[clap(long)]
 	pub timechain_keyfile: PathBuf,
-	/// The timegraph url (or TIMEGTAPH_URL environment variable).
-	#[clap(long)]
-	pub timegraph_url: Option<String>,
-	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
-	#[clap(long)]
-	pub timegraph_ssk: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]

@@ -14,8 +14,7 @@ pub type Signature = MultiSignature;
 pub struct MockMembers;
 
 impl MemberStorage for MockMembers {
-	type Balance = u128;
-	fn member_stake(_: &AccountId) -> Self::Balance {
+	fn member_stake(_: &AccountId) -> u128 {
 		0u128
 	}
 	fn member_peer_id(_: &AccountId) -> Option<PeerId> {

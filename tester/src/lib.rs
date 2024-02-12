@@ -11,9 +11,7 @@ use std::process::Command;
 use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
-use time_primitives::{
-	Function, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TssPublicKey,
-};
+use time_primitives::{Function, NetworkId, Runtime, TaskDescriptorParams, TaskId, TssPublicKey};
 
 pub struct TesterParams {
 	pub network_id: NetworkId,
@@ -33,22 +31,16 @@ pub struct Tester {
 
 impl Tester {
 	pub async fn new(args: TesterParams) -> Result<Self> {
-		let runtime = loop {
-			let tx_submitter = SubxtTxSubmitter::try_new(&args.timechain_url).await.unwrap();
-			let Ok(api) = SubxtClient::with_keyfile(
-				&args.timechain_url,
-				&args.timechain_keyfile,
-				tx_submitter,
-			)
-			.await
-			else {
-				println!("waiting for chain to start");
-				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-				continue;
-			};
-			println!("tester key is {:?}", api.account_id().to_ss58check());
-			break api;
-		};
+		while let Err(_) = SubxtClient::get_client(&args.timechain_url).await {
+			println!("waiting for chain to start");
+			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+		}
+
+		let tx_submitter = SubxtTxSubmitter::try_new(&args.timechain_url).await.unwrap();
+		let runtime =
+			SubxtClient::with_keyfile(&args.timechain_url, &args.timechain_keyfile, tx_submitter)
+				.await?;
+		println!("tester key is {:?}", runtime.account_id().to_ss58check());
 
 		let (blockchain, network) = runtime
 			.get_network(args.network_id)
@@ -178,7 +170,8 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self, shard_id: ShardId) -> Result<()> {
+	pub async fn setup_gmp(&self) -> Result<()> {
+		let shard_id = self.get_shard_id().await;
 		while !self.is_shard_online(shard_id).await {
 			println!("Waiting for eth shard to go online");
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;

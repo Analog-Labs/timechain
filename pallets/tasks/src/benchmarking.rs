@@ -19,10 +19,7 @@ benchmarks! {
 				address: Default::default(),
 				input,
 			},
-			cycle: 1,
 			start: 0,
-			period: 1,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		};
@@ -35,10 +32,7 @@ benchmarks! {
 				address: Default::default(),
 				input: Default::default(),
 			},
-			cycle: 1,
 			start: 0,
-			period: 1,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
@@ -52,10 +46,7 @@ benchmarks! {
 				address: Default::default(),
 				input: Default::default(),
 			},
-			cycle: 1,
 			start: 0,
-			period: 1,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
@@ -70,10 +61,7 @@ benchmarks! {
 				address: Default::default(),
 				input: Default::default(),
 			},
-			cycle: 1,
 			start: 0,
-			period: 1,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
@@ -91,10 +79,7 @@ benchmarks! {
 				address: Default::default(),
 				input: Default::default(),
 			},
-			cycle: 1,
 			start: 0,
-			period: 1,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
@@ -114,10 +99,7 @@ benchmarks! {
 				input: Default::default(),
 				amount: 0,
 			},
-			cycle: 1,
 			start: 0,
-			period: 0,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
@@ -133,10 +115,7 @@ benchmarks! {
 				salt: [0u8; 32],
 				gas_limit: 1000u64
 			},
-			cycle: 1,
 			start: 0,
-			period: 0,
-			timegraph: None,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});

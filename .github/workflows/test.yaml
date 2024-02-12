@@ -10,7 +10,6 @@
 name: Run Tests
 
 on:
-  push:
   pull_request:
 
 concurrency:
@@ -19,7 +18,7 @@ concurrency:
 
 jobs:
   run-test:
-    runs-on: [self-hosted, benchmark-agent-1]
+    runs-on: [self-hosted, benchmark]
     if: ${{
       github.event_name == 'push' ||
       contains(github.event.pull_request.labels.*.name,'!ci-test-basic')
@@ -32,10 +31,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Install protobuf
         run: sudo apt update && sudo apt install -y protobuf-compiler
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - name: Build binary
         run: |
           docker compose --profile ethereum down -v

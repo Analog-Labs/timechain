@@ -1,0 +1,16 @@
+FROM rust:1.75.0 as builder
+WORKDIR /build
+COPY . .
+
+RUN CARGO_HTTP_CHECK_REVOKE=false cargo build --release --locked -p chronicle
+
+FROM ubuntu:22.04
+
+LABEL description="Multistage Dockerfile for building Analog Chronicle" \
+	one.analog.image.type="builder" \
+	one.analog.image.authors="branimir@analog.one" \
+	one.analog.image.vendor="Analog One" \
+	one.analog.image.source="https://github.com/Analog-Labs/testnet"
+    
+COPY --from=builder /build/target/release/chronicle chronicle
+ENTRYPOINT ["/chronicle"]

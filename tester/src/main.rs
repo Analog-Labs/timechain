@@ -53,6 +53,7 @@ enum TestCommand {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	tracing_subscriber::fmt::init();
 	let (params, cmd, contract) = args();
 
 	let tester = Tester::new(params).await?;

@@ -250,19 +250,29 @@ fn task_auto_assigned_if_shard_joins_after() {
 #[test]
 fn shard_online_inserts_network_shards() {
 	new_test_ext().execute_with(|| {
-		assert!(NetworkShards::<Test>::get(ETHEREUM, 1).is_none());
-		Tasks::shard_online(1, ETHEREUM);
-		assert!(NetworkShards::<Test>::get(ETHEREUM, 1).is_some());
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		assert!(NetworkShards::<Test>::get(ETHEREUM, 0).is_none());
+		Tasks::shard_online(0, ETHEREUM);
+		assert!(NetworkShards::<Test>::get(ETHEREUM, 0).is_some());
 	});
 }
 
 #[test]
 fn shard_offline_removes_network_shards() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, ETHEREUM);
-		assert!(NetworkShards::<Test>::get(ETHEREUM, 1).is_some());
-		Tasks::shard_offline(1, ETHEREUM);
-		assert!(NetworkShards::<Test>::get(ETHEREUM, 1).is_none());
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		Tasks::shard_online(0, ETHEREUM);
+		assert!(NetworkShards::<Test>::get(ETHEREUM, 0).is_some());
+		Tasks::shard_offline(0, ETHEREUM);
+		assert!(NetworkShards::<Test>::get(ETHEREUM, 0).is_none());
 	});
 }
 
@@ -815,16 +825,21 @@ fn shard_offline_stops_pending_register_shard_task() {
 #[test]
 fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 	new_test_ext().execute_with(|| {
-		Tasks::shard_online(1, ETHEREUM);
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		Tasks::shard_online(0, ETHEREUM);
 		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
-		Tasks::shard_offline(1, ETHEREUM);
+		Tasks::shard_offline(0, ETHEREUM);
 		assert!(Tasks::tasks(1).is_none());
 		assert_eq!(Tasks::task_state(1), None);
 		// task to unregister shard does not exist
 		assert!(Tasks::tasks(1).is_none());
 		assert_eq!(Tasks::task_state(1), None);
 		assert_noop!(
-			Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 1, mock_result_ok(1, 1)),
+			Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 1, mock_result_ok(0, 1)),
 			Error::<Test>::UnknownTask
 		);
 	});
@@ -931,7 +946,6 @@ fn read_task_completion_clears_payout_storage() {
 			task_id,
 			mock_result_ok(shard_id, task_id)
 		));
-		let expected_per_member_payout: u128 = <Test as crate::Config>::BaseReadReward::get();
 		assert!(SignerPayout::<Test>::iter_prefix(task_id).collect::<Vec<_>>().is_empty());
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
@@ -1099,7 +1113,6 @@ fn send_message_payout_clears_storage() {
 			mock_result_ok(shard_id, task_id)
 		));
 		let write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
-		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), write_reward);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),

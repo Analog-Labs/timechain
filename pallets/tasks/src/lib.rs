@@ -259,8 +259,6 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
-		/// Task requires more funds at creation in order to payout rewards
-		InsufficientFundsToRewardTask,
 	}
 
 	#[pallet::call]
@@ -490,15 +488,17 @@ pub mod pallet {
 			} else {
 				false
 			};
-			// TODO: should we remove this error for usability, seems annoying
-			// propose in follow up
-			ensure!(schedule.funds >= required_funds, Error::<T>::InsufficientFundsToRewardTask);
 			let owner = match who {
 				TaskFunder::Account(user) => {
+					let funds = if schedule.funds >= required_funds {
+						schedule.funds
+					} else {
+						required_funds
+					};
 					pallet_balances::Pallet::<T>::transfer(
 						&user,
 						&Self::task_account(task_id),
-						schedule.funds,
+						funds,
 						ExistenceRequirement::KeepAlive,
 					)?;
 					Some(user)

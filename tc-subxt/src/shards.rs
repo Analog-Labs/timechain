@@ -18,13 +18,14 @@ impl SubxtClient {
 
 	pub async fn shard_id_counter(&self) -> Result<u64> {
 		let storage_query = timechain_runtime::storage().shards().shard_id_counter();
-		self.client
+		let shard_id = self
+			.client
 			.storage()
 			.at_latest()
 			.await?
-			.fetch(&storage_query)
-			.await?
-			.ok_or(anyhow!("Shard id counter not found"))
+			.fetch_or_default(&storage_query)
+			.await?;
+		Ok(shard_id)
 	}
 
 	pub async fn shard_network(&self, shard_id: u64) -> Result<NetworkId> {

@@ -11,7 +11,9 @@ use std::process::Command;
 use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
-use time_primitives::{Function, NetworkId, Runtime, TaskDescriptorParams, TaskId, TssPublicKey};
+use time_primitives::{
+	Function, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TssPublicKey,
+};
 
 pub struct TesterParams {
 	pub network_id: NetworkId,
@@ -103,22 +105,36 @@ impl Tester {
 		self.deploy(&self.gateway_contract, &constructor).await
 	}
 
-	pub async fn get_shard_id(&self) -> u64 {
-		let shard_ids = self.runtime.shard_id_counter().await.expect("No shard available yet");
-		let mut shard_id = 0;
-		for i in 0..shard_ids {
-			let shard_network = self.runtime.shard_network(i).await.unwrap();
+	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
+		let shard_id_counter = self.runtime.shard_id_counter().await?;
+		for shard_id in 0..shard_id_counter {
+			let shard_network = self.runtime.shard_network(shard_id).await?;
 			if shard_network == self.network_id {
-				shard_id = i;
-				break;
+				return Ok(Some(shard_id));
 			}
 		}
-		shard_id
+		Ok(None)
 	}
 
 	pub async fn is_shard_online(&self, shard_id: u64) -> bool {
 		use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::ShardStatus;
 		self.runtime.shard_state(shard_id).await.unwrap() == ShardStatus::Online
+	}
+
+	pub async fn wait_for_shard(&self) -> Result<ShardId> {
+		let shard_id = loop {
+			let Some(shard_id) = self.get_shard_id().await? else {
+				println!("Waiting for shard to be created");
+				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+				continue;
+			};
+			break shard_id;
+		};
+		while !self.is_shard_online(shard_id).await {
+			println!("Waiting for shard to go online");
+			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+		}
+		Ok(shard_id)
 	}
 
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
@@ -171,11 +187,7 @@ impl Tester {
 	}
 
 	pub async fn setup_gmp(&self) -> Result<()> {
-		let shard_id = self.get_shard_id().await;
-		while !self.is_shard_online(shard_id).await {
-			println!("Waiting for eth shard to go online");
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-		}
+		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, _) = self.deploy_gateway(shard_public_key).await?;
 		self.register_gateway_address(shard_id, &address).await

@@ -146,7 +146,7 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	println!("dropped 2 nodes");
 
 	// wait for some time
-	let shard_id = tester.get_shard_id().await;
+	let shard_id = tester.get_shard_id().await?.unwrap();
 	while tester.is_shard_online(shard_id).await {
 		println!("Waiting for shard offline");
 		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;

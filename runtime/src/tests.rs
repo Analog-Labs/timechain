@@ -226,7 +226,7 @@ fn register_unregister_preserves_task_migration() {
 			ETHEREUM,
 			pubkey_from_bytes(D),
 			D,
-			12,
+			12 * DOLLARS,
 		));
 		// new member
 		assert_ok!(Members::register_member(
@@ -234,7 +234,7 @@ fn register_unregister_preserves_task_migration() {
 			ETHEREUM,
 			pubkey_from_bytes(E),
 			E,
-			13,
+			13 * DOLLARS,
 		));
 		// verify shard 1 created for Network Ethereum
 		assert_eq!(Shards::shard_network(1), Some(ETHEREUM));

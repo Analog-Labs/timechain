@@ -16,11 +16,7 @@ use time_primitives::{
 	TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
 };
 
-fn shard_size_2() -> [AccountId; 2] {
-	[[1u8; 32].into(), [2u8; 32].into()]
-}
-
-fn shard_size_3() -> [AccountId; 3] {
+fn shard() -> [AccountId; 3] {
 	[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()]
 }
 
@@ -441,7 +437,6 @@ fn task_moved_on_shard_offline() {
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
 		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::default()),]);
-		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
 		Tasks::shard_offline(0, ETHEREUM);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
@@ -905,7 +900,7 @@ fn read_task_reward_goes_to_all_shard_members() {
 		Tasks::shard_online(shard_id, ETHEREUM);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		let mut balances = vec![];
-		for member in shard_size_3() {
+		for member in shard() {
 			balances.push(Balances::free_balance(&member));
 		}
 		assert_ok!(Tasks::submit_result(
@@ -914,7 +909,7 @@ fn read_task_reward_goes_to_all_shard_members() {
 			mock_result_ok(shard_id, task_id)
 		));
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
-		for (i, member) in shard_size_3().into_iter().enumerate() {
+		for (i, member) in shard().into_iter().enumerate() {
 			assert_eq!(
 				Balances::free_balance(&member) - balances[i],
 				<Test as crate::Config>::BaseReadReward::get()
@@ -958,97 +953,12 @@ fn read_task_completion_clears_payout_storage() {
 }
 
 #[test]
-fn write_task_reward_goes_to_submitter() {
+/// Integration test for reward payout of send message + read reward for all
+/// and an additional write reward for the signer.
+/// Also checks that SignerPayout storage is cleared upon payout.
+fn send_message_for_all_plus_write_reward_for_signer() {
 	let shard_id = 0;
 	let task_id = 0;
-	let a: AccountId = [0u8; 32].into();
-	new_test_ext().execute_with(|| {
-		Shards::create_shard(ETHEREUM, shard_size_3().to_vec(), 1);
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			mock_payable(ETHEREUM)
-		));
-		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
-		Tasks::shard_online(shard_id, ETHEREUM);
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		let mut balances = vec![];
-		for member in shard_size_3() {
-			balances.push(Balances::free_balance(&member));
-		}
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed(a.clone()).into(),
-			task_id,
-			mock_result_ok(shard_id, task_id)
-		));
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
-		let mut i = 1;
-		// unchanged balances for non-submitter shard members
-		for member in shard_size_2() {
-			assert_eq!(Balances::free_balance(&member), balances[i]);
-			i += 1;
-		}
-		// submitter shard member received BaseWriteReward for submitting the
-		// result for a write task
-		assert_eq!(
-			Balances::free_balance(a) - balances[0],
-			<Test as crate::Config>::BaseWriteReward::get()
-		);
-	});
-}
-
-#[test]
-fn write_task_payout_clears_storage() {
-	let shard_id = 0;
-	let task_id = 0;
-	new_test_ext().execute_with(|| {
-		Shards::create_shard(
-			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			TaskDescriptorParams {
-				network: ETHEREUM,
-				start: 0,
-				function: Function::EvmCall {
-					address: Default::default(),
-					input: Default::default(),
-					amount: 0,
-				},
-				funds: 100,
-				shard_size: 3,
-			}
-		));
-		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
-		Tasks::shard_online(shard_id, ETHEREUM);
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		let signer: AccountId = [0u8; 32].into();
-		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			task_id,
-			mock_result_ok(shard_id, task_id)
-		));
-		assert_eq!(
-			SignerPayout::<Test>::get(task_id, &signer),
-			<Test as crate::Config>::BaseWriteReward::get()
-		);
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			task_id,
-			mock_result_ok(shard_id, task_id)
-		));
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
-		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-	});
-}
-
-#[test]
-fn send_message_reward_goes_to_all_shard_members() {
-	let shard_id = 0;
-	let task_id = 0;
-	let a: AccountId = [0u8; 32].into();
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
 			ETHEREUM,
@@ -1065,24 +975,42 @@ fn send_message_reward_goes_to_all_shard_members() {
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
 		let mut balances = vec![];
-		for member in shard_size_3() {
+		for member in shard() {
 			balances.push(Balances::free_balance(&member));
 		}
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			"mock_hash".into()
+		),);
+		let signer: AccountId = [0; 32].into();
+		assert_eq!(
+			SignerPayout::<Test>::get(task_id, &signer),
+			<Test as crate::Config>::BaseWriteReward::get()
+		);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			mock_result_ok(shard_id, task_id)
 		));
+		// payout storage cleared
+		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
 		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
-		let mut i = 1;
+		let read_message_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
-		for member in shard_size_2() {
-			assert_eq!(Balances::free_balance(&member) - balances[i], send_message_reward);
-			i += 1;
+		for (i, member) in shard().into_iter().enumerate() {
+			let every_member_reward = read_message_reward.saturating_add(send_message_reward);
+			if i == 0 {
+				let send_message_and_write_reward: u128 = every_member_reward
+					.saturating_add(<Test as crate::Config>::BaseWriteReward::get());
+				assert_eq!(
+					Balances::free_balance(&member) - balances[0],
+					send_message_and_write_reward
+				);
+			} else {
+				assert_eq!(Balances::free_balance(&member) - balances[i], every_member_reward);
+			}
 		}
-		let send_message_and_write_reward: u128 =
-			send_message_reward.saturating_add(<Test as crate::Config>::BaseWriteReward::get());
-		assert_eq!(Balances::free_balance(a) - balances[0], send_message_and_write_reward);
 	});
 }
 
@@ -1105,13 +1033,12 @@ fn send_message_payout_clears_storage() {
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, [0u8; 64]),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			"mock_hash".into()
+		),);
 		let signer: AccountId = [0u8; 32].into();
-		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			task_id,
-			mock_result_ok(shard_id, task_id)
-		));
 		let write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), write_reward);
 		assert_ok!(Tasks::submit_result(

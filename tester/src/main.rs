@@ -118,6 +118,33 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 	Ok(())
 }
 
+async fn batch_gmp_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Result<()> {
+	tester.faucet().await;
+
+	let shard_id = tester.get_shard_id().await;
+	tester.setup_gmp(shard_id).await?;
+
+	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+
+	let mut task_ids = vec![];
+
+	for i in 0..total_tasks {
+		//staging eth contract
+		let contract_address = "0xb77791b3e38158475216dd4c0e2143b858188ba6";
+		let send_msg =
+			tester::create_send_msg_call(contract_address, "vote_yes()", [i; 32], 10000000);
+
+		let task_id = tester.create_task(call.clone(), start_block).await?;
+		task_ids.push(task_id);
+	}
+
+	for task_id in task_ids {
+		tester.wait_for_task(task_id).await;
+	}
+
+	Ok(())
+}
+
 async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
 

@@ -31,7 +31,7 @@ pub struct Tester {
 
 impl Tester {
 	pub async fn new(args: TesterParams) -> Result<Self> {
-		while let Err(_) = SubxtClient::get_client(&args.timechain_url).await {
+		while SubxtClient::get_client(&args.timechain_url).await.is_err() {
 			println!("waiting for chain to start");
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		}

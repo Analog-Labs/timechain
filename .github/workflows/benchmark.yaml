@@ -42,10 +42,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Install protobuf
         run: sudo apt update && sudo apt install -y protobuf-compiler
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - name: Run benchmark script
         run: ./scripts/benchmarking.sh
       - name: Commit weights

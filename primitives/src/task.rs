@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::Percent;
 use sp_std::vec::Vec;
 pub type TaskId = u64;
-pub type TaskCycle = u64;
-pub type TaskRetryCount = u8;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -65,27 +63,14 @@ pub struct TaskDescriptor {
 	pub owner: Option<AccountId>,
 	pub network: NetworkId,
 	pub function: Function,
-	pub cycle: TaskCycle,
 	pub start: u64,
-	pub period: u64,
-	pub timegraph: Option<[u8; 32]>,
 	pub shard_size: u32,
-}
-
-impl TaskDescriptor {
-	pub fn trigger(&self, cycle: TaskCycle) -> Option<u64> {
-		let cycle_period = cycle.checked_mul(self.period)?;
-		self.start.checked_add(cycle_period)
-	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptorParams {
 	pub network: NetworkId,
-	pub cycle: TaskCycle,
 	pub start: u64,
-	pub period: u64,
-	pub timegraph: Option<[u8; 32]>,
 	pub function: Function,
 	pub funds: Balance,
 	pub shard_size: u32,
@@ -95,10 +80,7 @@ impl TaskDescriptorParams {
 	pub fn new(network: NetworkId, function: Function, shard_size: u32) -> Self {
 		Self {
 			network,
-			cycle: 1,
 			start: 0,
-			period: 1,
-			timegraph: None,
 			function,
 			funds: 0,
 			shard_size,
@@ -110,7 +92,6 @@ impl TaskDescriptorParams {
 pub enum TaskStatus {
 	Created,
 	Failed { error: TaskError },
-	Stopped,
 	Completed,
 }
 
@@ -150,58 +131,29 @@ impl Default for TaskPhase {
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
-	pub cycle: TaskCycle,
-	pub retry_count: TaskRetryCount,
 	pub phase: TaskPhase,
 }
 
 impl TaskExecution {
-	pub fn new(
-		task_id: TaskId,
-		cycle: TaskCycle,
-		retry_count: TaskRetryCount,
-		phase: TaskPhase,
-	) -> Self {
-		Self {
-			task_id,
-			cycle,
-			retry_count,
-			phase,
-		}
+	pub fn new(task_id: TaskId, phase: TaskPhase) -> Self {
+		Self { task_id, phase }
 	}
 }
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for TaskExecution {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}/{}/{}", self.task_id, self.cycle, self.retry_count)
+		write!(f, "{}", self.task_id)
 	}
 }
 
-pub fn append_hash_with_task_data(
-	data: [u8; 32],
-	task_id: TaskId,
-	task_cycle: TaskCycle,
-	task_retry_count: TaskRetryCount,
-) -> Vec<u8> {
+pub fn append_hash_with_task_data(data: [u8; 32], task_id: TaskId) -> Vec<u8> {
 	let task_id_bytes = task_id.to_ne_bytes();
-	let task_cycle_bytes = task_cycle.to_ne_bytes();
-	let task_retry_bytes = task_retry_count.to_ne_bytes();
 	let filler = b";";
-	let mut extended_payload =
-		Vec::with_capacity(
-			data.len()
-				+ filler.len() + task_id_bytes.len()
-				+ filler.len() + task_cycle_bytes.len()
-				+ filler.len() + task_retry_bytes.len(),
-		);
+	let mut extended_payload = Vec::with_capacity(data.len() + filler.len() + task_id_bytes.len());
 	extended_payload.extend_from_slice(&data);
 	extended_payload.extend_from_slice(filler);
 	extended_payload.extend_from_slice(&task_id_bytes);
-	extended_payload.extend_from_slice(filler);
-	extended_payload.extend_from_slice(&task_cycle_bytes);
-	extended_payload.extend_from_slice(filler);
-	extended_payload.extend_from_slice(&task_retry_bytes);
 	extended_payload
 }
 
@@ -223,4 +175,10 @@ pub struct RewardConfig<Balance, BlockNumber> {
 	pub send_message_reward: Balance,
 	/// Depreciation rate for all rewards
 	pub depreciation_rate: DepreciationRate<BlockNumber>,
+}
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TaskFunder {
+	Account(AccountId),
+	Shard(ShardId),
 }

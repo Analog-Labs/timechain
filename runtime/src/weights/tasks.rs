@@ -53,35 +53,6 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	
-	/// Storage: `Tasks::Tasks` (r:1 w:0)
-	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::TaskState` (r:1 w:1)
-	/// Proof: `Tasks::TaskState` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn stop_task() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `262`
-		//  Estimated: `3727`
-		// Minimum execution time: 62_306_000 picoseconds.
-		Weight::from_parts(64_009_000, 0)
-			.saturating_add(Weight::from_parts(0, 3727))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `Tasks::Tasks` (r:1 w:0)
-	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::TaskState` (r:1 w:1)
-	/// Proof: `Tasks::TaskState` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn resume_task() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `262`
-		//  Estimated: `3727`
-		// Minimum execution time: 61_426_000 picoseconds.
-		Weight::from_parts(63_829_000, 0)
-			.saturating_add(Weight::from_parts(0, 3727))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 
 	fn submit_result() -> Weight {
 		Default::default()
@@ -100,10 +71,6 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	}
 
 	fn register_gateway() -> Weight {
-		Default::default()
-	}
-
-	fn fund_task() -> Weight {
 		Default::default()
 	}
 

@@ -105,7 +105,6 @@ impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = MockShards;
-	type Currency = Balances;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }

@@ -32,9 +32,4 @@ impl SubxtClient {
 		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
 		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 	}
-
-	pub async fn get_task_cycle(&self, task_id: u64) -> Result<Option<u64>> {
-		let storage_query = timechain_runtime::storage().tasks().task_cycle_state(task_id);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
-	}
 }

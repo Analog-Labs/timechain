@@ -1,11 +1,10 @@
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{anyhow, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallResult};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
-use serde_json::Value;
 use std::{
 	future::Future,
 	path::PathBuf,
@@ -14,10 +13,9 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskCycle, TaskError,
-	TaskExecution, TaskId, TaskResult, TssHash, TssId, TssSignature, TssSigningRequest,
+	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskError, TaskId,
+	TaskResult, TssHash, TssSignature, TssSigningRequest,
 };
-use timegraph_client::{Timegraph, TimegraphData};
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
@@ -26,8 +24,6 @@ pub struct TaskSpawnerParams<S> {
 	pub network: String,
 	pub url: String,
 	pub keyfile: PathBuf,
-	pub timegraph_url: Option<String>,
-	pub timegraph_ssk: Option<String>,
 	pub substrate: S,
 }
 
@@ -35,7 +31,6 @@ pub struct TaskSpawnerParams<S> {
 pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
-	timegraph: Option<Arc<Timegraph>>,
 	substrate: S,
 	chain_id: u64,
 }
@@ -55,22 +50,9 @@ where
 			.await?,
 		);
 		let chain_id = wallet.eth_chain_id().await?;
-		let timegraph = if let Some(url) = params.timegraph_url {
-			Some(Arc::new(Timegraph::new(
-				url,
-				params
-					.timegraph_ssk
-					.as_deref()
-					.ok_or(anyhow!("timegraph session key is not specified"))?
-					.to_string(),
-			)?))
-		} else {
-			None
-		};
 		Ok(Self {
 			tss: params.tss,
 			wallet,
-			timegraph,
 			substrate: params.substrate,
 			chain_id,
 		})
@@ -154,14 +136,13 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		task_id: TaskId,
-		cycle: TaskCycle,
 		payload: &[u8],
 	) -> Result<(TssHash, TssSignature)> {
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
 			.send(TssSigningRequest {
-				request_id: TssId(task_id, cycle),
+				request_id: task_id,
 				shard_id,
 				block_number,
 				data: payload.to_vec(),
@@ -172,55 +153,12 @@ where
 	}
 
 	#[allow(clippy::too_many_arguments)]
-	async fn submit_timegraph(
-		&self,
-		target_block: u64,
-		shard_id: ShardId,
-		task_id: TaskId,
-		task_cycle: TaskCycle,
-		function: &Function,
-		collection: Option<[u8; 32]>,
-		block_num: BlockNumber,
-		payload: &[u8],
-		signature: TssSignature,
-	) -> Result<()> {
-		if let (Some(timegraph), Some(collection)) = (self.timegraph.as_ref(), collection) {
-			if matches!(function, Function::EvmViewCall { .. }) {
-				let result_json = serde_json::from_slice(payload)?;
-				let formatted_result = match result_json {
-					Value::Array(val) => val
-						.iter()
-						.filter_map(|x| x.as_str())
-						.map(|x| x.to_string())
-						.collect::<Vec<String>>(),
-					v => vec![v.to_string()],
-				};
-				timegraph
-					.submit_data(TimegraphData {
-						collection: hex::encode(collection),
-						task_id,
-						task_cycle,
-						target_block_number: target_block,
-						timechain_block_number: block_num as _,
-						shard_id,
-						signature,
-						data: formatted_result,
-					})
-					.await
-					.context("Failed to submit data to timegraph")?;
-			}
-		}
-		Ok(())
-	}
-
-	#[allow(clippy::too_many_arguments)]
 	async fn read(
 		self,
 		target_block: u64,
 		shard_id: ShardId,
-		task_details: TaskExecution,
+		task_id: TaskId,
 		function: Function,
-		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Result<()> {
 		let result = self
@@ -232,53 +170,22 @@ where
 			Err(payload) => payload.as_bytes(),
 		};
 		let prehashed_payload = VerifyingKey::message_hash(payload);
-		let hash = append_hash_with_task_data(
-			prehashed_payload,
-			task_details.task_id,
-			task_details.cycle,
-			task_details.retry_count,
-		);
-		let (_, signature) = self
-			.tss_sign(block_num, shard_id, task_details.task_id, task_details.cycle, &hash)
-			.await?;
+		let hash = append_hash_with_task_data(prehashed_payload, task_id);
+		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, &hash).await?;
 		match result {
-			Ok(result) => {
-				if let Err(e) = self
-					.submit_timegraph(
-						target_block,
-						shard_id,
-						task_details.task_id,
-						task_details.cycle,
-						&function,
-						collection,
-						block_num,
-						&result,
-						signature,
-					)
-					.await
-				{
-					tracing::error!("Error submitting to timegraph {:?}", e);
-				}
+			Ok(_) => {
 				let result = TaskResult {
 					shard_id,
 					hash: prehashed_payload,
 					signature,
 				};
-				if let Err(e) = self
-					.substrate
-					.submit_task_result(task_details.task_id, task_details.cycle, result)
-					.await
-				{
+				if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
 					tracing::error!("Error submitting task result {:?}", e);
 				}
 			},
 			Err(msg) => {
 				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) = self
-					.substrate
-					.submit_task_error(task_details.task_id, task_details.cycle, error)
-					.await
-				{
+				if let Err(e) = self.substrate.submit_task_error(task_id, error).await {
 					tracing::error!("Error submitting task error {:?}", e);
 				}
 			},
@@ -290,20 +197,19 @@ where
 		self,
 		shard_id: ShardId,
 		task_id: TaskId,
-		task_cycle: TaskCycle,
 		payload: Vec<u8>,
 		block_number: u32,
 	) -> Result<()> {
-		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, task_cycle, &payload).await?;
+		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
 		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())
 	}
 
-	async fn write(self, task_id: TaskId, cycle: TaskCycle, function: Function) -> Result<()> {
+	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.substrate.submit_task_hash(task_id, cycle, tx_hash).await {
+		if let Err(e) = self.substrate.submit_task_hash(task_id, tx_hash).await {
 			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
@@ -326,34 +232,29 @@ where
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
-		task_details: TaskExecution,
+		task_id: TaskId,
 		function: Function,
-		collection: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone()
-			.read(target_block, shard_id, task_details, function, collection, block_num)
-			.boxed()
+		self.clone().read(target_block, shard_id, task_id, function, block_num).boxed()
 	}
 
 	fn execute_sign(
 		&self,
 		shard_id: ShardId,
 		task_id: TaskId,
-		cycle: TaskCycle,
 		payload: Vec<u8>,
 		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().sign(shard_id, task_id, cycle, payload, block_num).boxed()
+		self.clone().sign(shard_id, task_id, payload, block_num).boxed()
 	}
 
 	fn execute_write(
 		&self,
 		task_id: TaskId,
-		cycle: TaskCycle,
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().write(task_id, cycle, function).boxed()
+		self.clone().write(task_id, function).boxed()
 	}
 }
 

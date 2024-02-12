@@ -11,12 +11,13 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, ReservableCurrency};
+	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, HeartbeatInfo, MemberEvents, MemberStorage, NetworkId, PeerId, PublicKey,
+		AccountId, Balance, HeartbeatInfo, MemberEvents, MemberStorage, NetworkId, PeerId,
+		PublicKey, TransferStake,
 	};
 
 	pub trait WeightInfo {
@@ -41,16 +42,15 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	pub type BalanceOf<T> =
-		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: MemberEvents;
-		/// The currency type
-		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 		/// Minimum stake to register member
 		#[pallet::constant]
 		type MinStake: Get<BalanceOf<Self>>;
@@ -99,6 +99,7 @@ pub mod pallet {
 		AlreadyMember,
 		NotMember,
 		BondBelowMinStake,
+		StakedBelowTransferAmount,
 	}
 
 	#[pallet::hooks]
@@ -119,7 +120,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::register_member())]
+		#[pallet::weight(<T as Config>::WeightInfo::register_member())]
 		pub fn register_member(
 			origin: OriginFor<T>,
 			network: NetworkId,
@@ -134,7 +135,7 @@ pub mod pallet {
 				Self::unregister_member_from_network(&member, old_network);
 			}
 			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
-			T::Currency::reserve(&member, bond)?;
+			pallet_balances::Pallet::<T>::reserve(&member, bond)?;
 			MemberStake::<T>::insert(&member, bond);
 			MemberNetwork::<T>::insert(&member, network);
 			MemberPublicKey::<T>::insert(&member, public_key);
@@ -149,7 +150,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::send_heartbeat())]
+		#[pallet::weight(<T as Config>::WeightInfo::send_heartbeat())]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let heart = Heartbeat::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
@@ -165,7 +166,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::unregister_member())]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
 		pub fn unregister_member(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::take(&member).ok_or(Error::<T>::NotMember)?;
@@ -190,7 +191,7 @@ pub mod pallet {
 		}
 
 		fn unregister_member_from_network(member: &AccountId, network: NetworkId) {
-			T::Currency::unreserve(member, MemberStake::<T>::take(member));
+			pallet_balances::Pallet::<T>::unreserve(member, MemberStake::<T>::take(member));
 			MemberPublicKey::<T>::remove(member);
 			MemberPeerId::<T>::remove(member);
 			Heartbeat::<T>::remove(member);
@@ -207,8 +208,24 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> TransferStake for Pallet<T> {
+		fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult {
+			let total_stake = MemberStake::<T>::get(from);
+			let remaining_stake =
+				total_stake.checked_sub(amount).ok_or(Error::<T>::StakedBelowTransferAmount)?;
+			pallet_balances::Pallet::<T>::unreserve(from, amount);
+			pallet_balances::Pallet::<T>::transfer(
+				from,
+				to,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
+			MemberStake::<T>::insert(from, remaining_stake);
+			Ok(())
+		}
+	}
+
 	impl<T: Config> MemberStorage for Pallet<T> {
-		type Balance = BalanceOf<T>;
 		fn member_stake(account: &AccountId) -> BalanceOf<T> {
 			MemberStake::<T>::get(account)
 		}

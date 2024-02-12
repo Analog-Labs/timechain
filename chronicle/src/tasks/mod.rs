@@ -2,9 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Future, Stream};
 use std::pin::Pin;
-use time_primitives::{
-	BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskCycle, TaskExecution, TaskId, TssId,
-};
+use time_primitives::{BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskId, TssId};
 
 pub mod executor;
 pub mod spawner;
@@ -19,9 +17,8 @@ pub trait TaskSpawner: Clone + Send + Sync + 'static {
 		&self,
 		target_block: u64,
 		shard_id: ShardId,
-		task_details: TaskExecution,
+		task_id: TaskId,
 		function: Function,
-		hash: Option<[u8; 32]>,
 		block_num: BlockNumber,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
@@ -29,7 +26,6 @@ pub trait TaskSpawner: Clone + Send + Sync + 'static {
 		&self,
 		shard_id: ShardId,
 		task_id: TaskId,
-		cycle: TaskCycle,
 		payload: Vec<u8>,
 		block_num: u32,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
@@ -37,7 +33,6 @@ pub trait TaskSpawner: Clone + Send + Sync + 'static {
 	fn execute_write(
 		&self,
 		task_id: TaskId,
-		cycle: TaskCycle,
 		function: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }

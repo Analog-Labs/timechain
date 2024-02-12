@@ -144,9 +144,6 @@ impl Tester {
 			start: block,
 			shard_size: 1,
 			funds: 0,
-			cycle: 1,
-			period: 1,
-			timegraph: None,
 		};
 		let events = self.runtime.create_task(params).await?.wait_for_finalized_success().await?;
 		let transfer_event = events.find_first::<TaskCreated>().unwrap();

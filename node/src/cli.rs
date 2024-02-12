@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use time_primitives::NetworkId;
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct Cli {
 	#[clap(subcommand)]
 	pub subcommand: Option<Subcommand>,
@@ -12,6 +13,7 @@ pub struct Cli {
 }
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
@@ -48,12 +50,6 @@ pub struct ChronicleArgs {
 	#[arg(required = false)]
 	#[clap(long)]
 	pub timechain_keyfile: PathBuf,
-	/// The timegraph url (or TIMEGTAPH_URL environment variable).
-	#[clap(long)]
-	pub timegraph_url: Option<String>,
-	/// The timegraph session key (or TIMEGTAPH_SSK environment variable).
-	#[clap(long)]
-	pub timegraph_ssk: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]

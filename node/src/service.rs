@@ -357,8 +357,6 @@ pub fn new_full(
 					timechain_keyfile: args.timechain_keyfile,
 					target_url: args.target_url,
 					target_keyfile: args.target_keyfile,
-					timegraph_url: args.timegraph_url.or(std::env::var("TIMEGRAPH_URL").ok()),
-					timegraph_ssk: args.timegraph_ssk.or(std::env::var("TIMEGRAPH_SSK").ok()),
 				};
 				let network = if args.enable_iroh { None } else { Some((network, protocol_rx)) };
 				let params = crate::chronicle::ChronicleParams {

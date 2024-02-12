@@ -17,3 +17,4 @@ surf = { version = "2.3.2", default-features = false, features = [ "h1-client-ru
 tc-subxt = { path = "../tc-subxt"}
 tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread"]}
 time-primitives = { path = "../primitives" }
+tracing-subscriber = "0.3.18"

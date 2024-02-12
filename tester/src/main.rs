@@ -42,7 +42,7 @@ fn args() -> (TesterParams, TestCommand, PathBuf) {
 enum TestCommand {
 	FundWallet,
 	DeployContract,
-	SetupGmp { shard_id: u64 },
+	SetupGmp,
 	WatchTask { task_id: u64 },
 	Basic,
 	BatchTask { tasks: u64 },
@@ -53,6 +53,7 @@ enum TestCommand {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	tracing_subscriber::fmt::init();
 	let (params, cmd, contract) = args();
 
 	let tester = Tester::new(params).await?;
@@ -64,8 +65,8 @@ async fn main() -> Result<()> {
 		TestCommand::DeployContract => {
 			tester.deploy(&contract, &[]).await?;
 		},
-		TestCommand::SetupGmp { shard_id } => {
-			tester.setup_gmp(shard_id).await?;
+		TestCommand::SetupGmp => {
+			tester.setup_gmp().await?;
 		},
 		TestCommand::WatchTask { task_id } => {
 			tester.wait_for_task(task_id).await;
@@ -120,9 +121,7 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 
 async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
-
-	let shard_id = tester.get_shard_id().await;
-	tester.setup_gmp(shard_id).await?;
+	tester.setup_gmp().await?;
 
 	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
 
@@ -147,7 +146,7 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	println!("dropped 2 nodes");
 
 	// wait for some time
-	let shard_id = tester.get_shard_id().await;
+	let shard_id = tester.get_shard_id().await?.unwrap();
 	while tester.is_shard_online(shard_id).await {
 		println!("Waiting for shard offline");
 		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;

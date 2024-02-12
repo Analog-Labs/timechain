@@ -11,20 +11,14 @@ name: Run Tests
 
 on:
   pull_request:
-    paths-ignore:
-    - 'docker/**'
-    - 'docs/**'
-    - 'infra/**'
-    - 'js/**'
-    - '**/*.md'
-    
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   run-test:
-    runs-on: [self-hosted, benchmark-agent-1]
+    runs-on: [self-hosted, benchmark]
     if: ${{
       github.event_name == 'push' ||
       contains(github.event.pull_request.labels.*.name,'!ci-test-basic')
@@ -37,10 +31,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Install protobuf
         run: sudo apt update && sudo apt install -y protobuf-compiler
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - name: Build binary
         run: |
           docker compose --profile ethereum down -v
@@ -50,6 +40,5 @@ jobs:
           docker compose --profile astar up -d
       - name: Run test
         run: |  
-          docker compose run tester --network ethereum basic
-          docker compose run tester --network astar basic
-          
+          docker compose run tester --network-id 3 --target-url ws://ethereum:8545 gmp
+          docker compose run tester --network-id 6 --target-url ws://astar:9944 gmp

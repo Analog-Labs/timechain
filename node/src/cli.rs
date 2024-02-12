@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use time_primitives::NetworkId;
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct Cli {
 	#[clap(subcommand)]
 	pub subcommand: Option<Subcommand>,
@@ -12,6 +13,7 @@ pub struct Cli {
 }
 
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,

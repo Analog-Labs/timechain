@@ -40,5 +40,5 @@ jobs:
           docker compose --profile astar up -d
       - name: Run test
         run: |  
-          docker compose run tester --network-id 3 basic --target-url ws://ethereum:8545
-          docker compose run tester --network-id 6 basic --target-url ws://astar:9944
+          docker compose run tester --network-id 3 --target-url ws://ethereum:8545 gmp
+          docker compose run tester --network-id 6 --target-url ws://astar:9944 gmp

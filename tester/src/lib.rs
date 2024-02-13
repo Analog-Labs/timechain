@@ -143,7 +143,7 @@ impl Tester {
 			function,
 			start: block,
 			shard_size: 1,
-			funds: 0,
+			funds: 10000000000000000,
 		};
 		let events = self.runtime.create_task(params).await?.wait_for_finalized_success().await?;
 		let transfer_event = events.find_first::<TaskCreated>().unwrap();

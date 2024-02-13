@@ -73,6 +73,8 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
+    ports:
+    - 6881:6881/udp
 
   chronicle-astar1:
     image: 'analoglabs/chronicle'

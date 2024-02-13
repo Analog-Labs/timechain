@@ -1,7 +1,8 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tc_subxt::ext::futures::future::join_all;
 use tester::{Tester, TesterParams};
 use time_primitives::NetworkId;
 
@@ -49,6 +50,13 @@ enum TestCommand {
 	Gmp,
 	TaskMigration,
 	KeyRecovery { nodes: u8 },
+	LatencyCheck { env: Environment, tasks: u64 },
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+enum Environment {
+	Local,
+	Staging,
 }
 
 #[tokio::main]
@@ -84,7 +92,41 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester, &contract, nodes).await?;
 		},
+		TestCommand::LatencyCheck { env, tasks } => {
+			latency_finder(&tester, env, tasks, &contract).await?;
+		},
 	}
+
+	Ok(())
+}
+
+async fn latency_finder(
+	tester: &Tester,
+	env: Environment,
+	tasks: u64,
+	contract: &Path,
+) -> Result<()> {
+	let (contract_address, start_block) = match env {
+		Environment::Local => {
+			tester.faucet().await;
+			tester.setup_gmp().await?;
+			tester.deploy(contract, &[]).await?
+		},
+		Environment::Staging => ("0xb77791b3e38158475216dd4c0e2143b858188ba6".to_string(), 0),
+	};
+
+	let mut registerations = vec![];
+	for i in 0..tasks {
+		let mut salt = [0u8; 32];
+		let randomness = i.to_ne_bytes();
+		salt[..8].copy_from_slice(&randomness);
+		let send_msg =
+			tester::create_send_msg_call(contract_address.clone(), "vote_yes()", salt, 10000000);
+		registerations.push(tester.create_task(send_msg, start_block));
+	}
+
+	let results = join_all(registerations).await;
+	println!("{:?}", results);
 
 	Ok(())
 }

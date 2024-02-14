@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chronicle::ChronicleConfig;
 use clap::Parser;
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::NetworkId;
 
@@ -46,11 +46,18 @@ impl ChronicleArgs {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
+	tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
 	let config = ChronicleArgs::parse().config();
 	let (network, network_requests) =
 		chronicle::create_iroh_network(config.network_config()).await?;
-	let tx_submitter = SubxtTxSubmitter::try_new(&config.timechain_url).await?;
+	let tx_submitter = loop {
+		if let Ok(t) = SubxtTxSubmitter::try_new(&config.timechain_url).await {
+			break t;
+		} else {
+			tracing::error!("Error connecting to chain retrying");
+			tokio::time::sleep(Duration::from_secs(5)).await;
+		}
+	};
 	let subxt =
 		SubxtClient::with_keyfile(&config.timechain_url, &config.timechain_keyfile, tx_submitter)
 			.await?;

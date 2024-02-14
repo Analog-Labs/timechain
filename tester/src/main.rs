@@ -45,13 +45,30 @@ enum TestCommand {
 	FundWallet,
 	DeployContract,
 	SetupGmp,
-	WatchTask { task_id: u64 },
+	WatchTask {
+		task_id: u64,
+	},
 	Basic,
-	BatchTask { tasks: u64 },
+	BatchTask {
+		tasks: u64,
+	},
 	Gmp,
 	TaskMigration,
-	KeyRecovery { nodes: u8 },
-	LatencyCheck { env: Environment, tasks: u64, block_timeout: u64 },
+	KeyRecovery {
+		nodes: u8,
+	},
+	///
+	/// # Arguments:
+	/// * `env`: on which env to run local/staging.
+	/// * `tasks`: number of tasks to register at once.
+	/// * `cycle`: number of times to register task at once.
+	/// * `block_timeout`: total number of blocks after which stop watching
+	LatencyCheck {
+		env: Environment,
+		tasks: u64,
+		cycle: u64,
+		block_timeout: u64,
+	},
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -93,8 +110,13 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester, &contract, nodes).await?;
 		},
-		TestCommand::LatencyCheck { env, tasks, block_timeout } => {
-			latency_checker(&tester, env, tasks, &contract, block_timeout).await?;
+		TestCommand::LatencyCheck {
+			env,
+			tasks,
+			cycle,
+			block_timeout,
+		} => {
+			latency_checker(&tester, env, tasks, cycle, block_timeout, &contract).await?;
 		},
 	}
 	Ok(())
@@ -104,9 +126,48 @@ async fn latency_checker(
 	tester: &Tester,
 	env: Environment,
 	tasks: u64,
-	contract: &Path,
+	cycle: u64,
 	block_timeout: u64,
+	contract: &Path,
 ) -> Result<()> {
+	let mut latencies = Vec::new();
+	let mut overall_throughput = 0;
+
+	let mut cycle_futures = Vec::new();
+	for _ in 0..cycle {
+		let data = latency_cycle(tester, env.clone(), tasks, block_timeout, contract);
+		cycle_futures.push(data);
+		// wait approximate block time;
+		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+
+	let cycles_data = join_all(cycle_futures).await;
+
+	for data in cycles_data {
+		if let Ok((cycle_latency, cycle_throughput)) = data {
+			latencies.push(cycle_latency);
+			overall_throughput += cycle_throughput;
+		}
+	}
+
+	if !latencies.is_empty() {
+		let average_latency = latencies.iter().sum::<usize>() / latencies.len();
+		println!("Average latencies for overall cycles: {:?} are {:?}", cycle, average_latency);
+	} else {
+		println!("Average latencies are 0 no task was ran");
+	}
+
+	let average_throughput = overall_throughput / (cycle as usize);
+	println!("Average Throughput for cycle: {:?} are {:?}", cycle, average_throughput);
+	Ok(())
+}
+async fn latency_cycle(
+	tester: &Tester,
+	env: Environment,
+	tasks: u64,
+	block_timeout: u64,
+	contract: &Path,
+) -> Result<(usize, usize)> {
 	let (contract_address, start_block) = match env {
 		Environment::Local => {
 			tester.faucet().await;
@@ -166,10 +227,11 @@ async fn latency_checker(
 			(all_tasks_blocks_running.clone().sum::<usize>()) / all_tasks_blocks_running.len();
 		println!("Total tasks are: {:?}", tasks);
 		println!("Latency for tasks: {:?} is {:?}", all_tasks_blocks_running.len(), latency);
-	}
-	println!("tasks_timedout at block {:?} are :  {:?}", block_timeout, task_ids);
-
-	Ok(())
+		return Ok((all_tasks_blocks_running.len(), latency));
+	} else {
+		println!("Error computing latency all tasks failed");
+		return Ok((0, 0));
+	};
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {

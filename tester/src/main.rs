@@ -167,7 +167,7 @@ async fn latency_checker(
 		println!("Total tasks are: {:?}", tasks);
 		println!("Latency for tasks: {:?} is {:?}", all_tasks_blocks_running.len(), latency);
 	}
-	println!("tasks_timedout at {:?}:  {:?}", block_timeout, task_ids);
+	println!("tasks_timedout at block {:?} are :  {:?}", block_timeout, task_ids);
 
 	Ok(())
 }

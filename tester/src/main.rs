@@ -129,7 +129,7 @@ async fn latency_checker(
 	let mut task_ids: Vec<u64> = join_all(registerations)
 		.await
 		.into_iter()
-		.filter_map(|result| Some(result.unwrap()))
+		.map(|result| result.unwrap())
 		.collect();
 
 	let starting_block = tester.get_latest_block().await?;

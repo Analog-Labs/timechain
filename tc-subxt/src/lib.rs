@@ -245,6 +245,10 @@ impl SubxtClient {
 		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
 		Ok(rx.await?)
 	}
+
+	pub async fn get_latest_block(&self) -> Result<u64> {
+		Ok(self.client.blocks().at_latest().await?.number().into())
+	}
 }
 
 #[async_trait]

@@ -168,12 +168,12 @@ impl Tester {
 
 	pub async fn is_task_finished(&self, task_id: TaskId) -> bool {
 		let task_state = self.runtime.get_task_state(task_id).await.unwrap();
-		println!("task_state: {:?}", task_state);
 		matches!(task_state, Some(TaskStatus::Completed) | Some(TaskStatus::Failed { .. }))
 	}
 
 	pub async fn wait_for_task(&self, task_id: TaskId) {
 		while !self.is_task_finished(task_id).await {
+			println!("task id: {:?} still running", task_id);
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		}
 	}
@@ -188,6 +188,10 @@ impl Tester {
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, _) = self.deploy_gateway(shard_public_key).await?;
 		self.register_gateway_address(shard_id, &address).await
+	}
+
+	pub async fn get_latest_block(&self) -> Result<u64> {
+		self.runtime.get_latest_block().await
 	}
 }
 

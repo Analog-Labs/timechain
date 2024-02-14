@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tc_subxt::ext::futures::future::join_all;
@@ -50,7 +51,7 @@ enum TestCommand {
 	Gmp,
 	TaskMigration,
 	KeyRecovery { nodes: u8 },
-	LatencyCheck { env: Environment, tasks: u64 },
+	LatencyCheck { env: Environment, tasks: u64, block_timeout: u64 },
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -92,19 +93,19 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester, &contract, nodes).await?;
 		},
-		TestCommand::LatencyCheck { env, tasks } => {
-			latency_finder(&tester, env, tasks, &contract).await?;
+		TestCommand::LatencyCheck { env, tasks, block_timeout } => {
+			latency_checker(&tester, env, tasks, &contract, block_timeout).await?;
 		},
 	}
-
 	Ok(())
 }
 
-async fn latency_finder(
+async fn latency_checker(
 	tester: &Tester,
 	env: Environment,
 	tasks: u64,
 	contract: &Path,
+	block_timeout: u64,
 ) -> Result<()> {
 	let (contract_address, start_block) = match env {
 		Environment::Local => {
@@ -125,8 +126,48 @@ async fn latency_finder(
 		registerations.push(tester.create_task(send_msg, start_block));
 	}
 
-	let results = join_all(registerations).await;
-	println!("{:?}", results);
+	let mut task_ids: Vec<u64> = join_all(registerations)
+		.await
+		.into_iter()
+		.filter_map(|result| Some(result.unwrap()))
+		.collect();
+
+	let starting_block = tester.get_latest_block().await?;
+
+	let mut task_states: HashMap<u64, usize> = HashMap::new();
+	loop {
+		let current_block = tester.get_latest_block().await?;
+		let current_latency = current_block - starting_block;
+		let status: Vec<_> = task_ids
+			.iter()
+			.map(|&id| async move { (id, tester.is_task_finished(id).await) })
+			.collect();
+		let results: Vec<(u64, bool)> = join_all(status).await;
+
+		for (task_id, is_completed) in results {
+			if is_completed {
+				task_states.insert(task_id, current_latency as usize);
+				let index = task_ids.iter().position(|x| *x == task_id).unwrap();
+				task_ids.remove(index);
+			}
+		}
+
+		if (current_block - starting_block) > block_timeout || task_ids.is_empty() {
+			break;
+		}
+
+		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+
+	println!("Start block of execution: {:?}", starting_block);
+	if !task_ids.is_empty() {
+		let all_tasks_blocks_running = task_states.values();
+		let latency =
+			(all_tasks_blocks_running.clone().sum::<usize>()) / all_tasks_blocks_running.len();
+		println!("Total tasks are: {:?}", tasks);
+		println!("Latency for tasks: {:?} is {:?}", all_tasks_blocks_running.len(), latency);
+	}
+	println!("tasks_timedout at {:?}:  {:?}", block_timeout, task_ids);
 
 	Ok(())
 }

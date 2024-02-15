@@ -279,7 +279,6 @@ pub mod pallet {
 			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			// TODO: ensure it is in read state
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {

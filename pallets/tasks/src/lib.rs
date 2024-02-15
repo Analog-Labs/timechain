@@ -717,7 +717,10 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			rate: DepreciationRate<BlockNumberFor<T>>,
 		) -> BalanceOf<T> {
-			let time_since_start = frame_system::Pallet::<T>::block_number().saturating_sub(start);
+			let now = frame_system::Pallet::<T>::block_number();
+			println!("Current Block: {now}, Started: {start}");
+			let time_since_start = now.saturating_sub(start);
+			println!("Current Block - Started = {now} - {start} = {time_since_start}");
 			if time_since_start.is_zero() {
 				// no time elapsed since read phase started => full reward
 				return amount;
@@ -725,10 +728,12 @@ pub mod pallet {
 			let mut remaining = amount;
 			let periods = time_since_start / rate.blocks;
 			let mut i = BlockNumberFor::<T>::zero();
+			println!("i < number of periods == {i} < {periods}");
 			while i < periods {
 				remaining = remaining.saturating_sub(rate.percent * remaining);
 				i = i.saturating_plus_one();
 			}
+			println!("{remaining} < {amount}");
 			remaining
 		}
 

@@ -16,6 +16,7 @@ use time_primitives::{
 	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskError, TaskId,
 	TaskResult, TssHash, TssSignature, TssSigningRequest,
 };
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
@@ -31,6 +32,7 @@ pub struct TaskSpawnerParams<S> {
 pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
+	wallet_guard: Arc<Mutex<()>>,
 	substrate: S,
 	chain_id: u64,
 }
@@ -53,6 +55,7 @@ where
 		Ok(Self {
 			tss: params.tss,
 			wallet,
+			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
 			chain_id,
 		})
@@ -108,9 +111,11 @@ where
 				.into_bytes()
 			},
 			Function::EvmDeploy { bytecode } => {
+				let _guard = self.wallet_guard.lock().await;
 				self.wallet.eth_deploy_contract(bytecode.clone()).await?.to_vec()
 			},
 			Function::EvmCall { address, input, amount } => {
+				let _guard = self.wallet_guard.lock().await;
 				self.wallet.eth_send_call(*address, input.clone(), *amount).await?.to_vec()
 			},
 			Function::RegisterShard { .. } => {

@@ -152,13 +152,13 @@ async fn latency_checker(
 
 	if !latencies.is_empty() {
 		let average_latency = latencies.iter().sum::<usize>() / latencies.len();
-		println!("Average latencies for overall cycles: {:?} are {:?}", cycle, average_latency);
+		println!("Average latencies for overall cycles({:?}) are {:?}", cycle, average_latency);
 	} else {
 		println!("Average latencies are 0 no task was ran");
 	}
 
 	let average_throughput = overall_throughput / (cycle as usize);
-	println!("Average Throughput for cycle: {:?} are {:?}", cycle, average_throughput);
+	println!("Average Throughput for cycles({:?}) {:?} blocks", cycle, average_throughput);
 	Ok(())
 }
 async fn latency_cycle(

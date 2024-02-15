@@ -1068,3 +1068,39 @@ fn send_message_payout_clears_storage() {
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
 	});
 }
+
+#[test]
+/// Test read phase timeout to assign to new shard
+/// NOTE write phase timeout test coverage is in the runtime integration tests
+fn read_phase_timeout_works_as_expected() {
+	let task_id = 0;
+	let shards_count = 2;
+	new_test_ext().execute_with(|| {
+		for i in 0..shards_count {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
+			assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), i, [0u8; 20].to_vec(),),);
+		}
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_sign_task(ETHEREUM)
+		));
+		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 0);
+		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 1);
+		// read phase timeout
+		assert_eq!(System::block_number(), 1);
+		roll_to(
+			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get()
+				.saturating_plus_one()
+				.saturating_plus_one(),
+		);
+		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 1);
+		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 0);
+	});
+}

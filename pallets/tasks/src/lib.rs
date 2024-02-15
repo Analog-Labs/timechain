@@ -453,6 +453,7 @@ pub mod pallet {
 			});
 			ReadPhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
 				if n.saturating_sub(created_block) >= T::ReadPhaseTimeout::get() {
+					println!("reassigned");
 					Self::schedule_task_to_new_shard(task_id);
 					writes += 3
 				}

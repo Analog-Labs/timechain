@@ -1,4 +1,5 @@
 use crate::{self as task_schedule};
+use frame_support::traits::OnInitialize;
 use frame_support::PalletId;
 use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
@@ -102,7 +103,7 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
 	// reward declines by 5% every 10 blocks
-	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 10, percent: Percent::from_percent(5) };
+	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 2, percent: Percent::from_percent(50) };
 }
 
 impl pallet_shards::Config for Test {
@@ -197,5 +198,15 @@ impl MockTssSigner {
 
 	pub fn sign(&self, data: [u8; 32]) -> schnorr_evm::Signature {
 		self.signing_key.sign_prehashed(data)
+	}
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Shards::on_initialize(i);
+		Tasks::on_initialize(i);
 	}
 }

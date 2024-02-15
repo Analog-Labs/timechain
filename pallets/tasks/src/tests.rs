@@ -1068,3 +1068,68 @@ fn send_message_payout_clears_storage() {
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
 	});
 }
+
+#[test]
+fn write_reward_depreciates_correctly() {
+	let shard_id = 0;
+	let task_id = 0;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_sign_task(ETHEREUM)
+		));
+		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
+		Tasks::shard_online(shard_id, ETHEREUM);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
+		let mut balances = vec![];
+		for member in shard() {
+			balances.push(Balances::free_balance(&member));
+		}
+		// get RewardConfig
+		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
+		assert_eq!(System::block_number(), 1);
+		roll_to(reward_config.depreciation_rate.blocks * 2);
+		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 2);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			task_id,
+			"mock_hash".into()
+		),);
+		let signer: AccountId = [0; 32].into();
+		let reward_sans_depreciation: u128 = <Test as crate::Config>::BaseWriteReward::get();
+		let expected_write_reward = reward_sans_depreciation
+			.saturating_sub(reward_config.depreciation_rate.percent * reward_sans_depreciation);
+		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), expected_write_reward);
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			task_id,
+			mock_result_ok(shard_id, task_id)
+		));
+		// payout storage cleared
+		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
+		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
+		// let read_message_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
+		// let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
+		// for (i, member) in shard().into_iter().enumerate() {
+		// 	let every_member_reward = read_message_reward.saturating_add(send_message_reward);
+		// 	if i == 0 {
+		// 		let send_message_and_write_reward: u128 = every_member_reward
+		// 			.saturating_add(<Test as crate::Config>::BaseWriteReward::get());
+		// 		assert_eq!(
+		// 			Balances::free_balance(&member) - balances[0],
+		// 			send_message_and_write_reward
+		// 		);
+		// 	} else {
+		// 		assert_eq!(Balances::free_balance(&member) - balances[i], every_member_reward);
+		// 	}
+		// }
+	});
+}

@@ -279,6 +279,7 @@ pub mod pallet {
 			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			// TODO: ensure it is in read state
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
@@ -760,7 +761,7 @@ pub mod pallet {
 
 		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, is_gmp: bool) {
 			let task_account_id = Self::task_account(task_id);
-			let start = ReadPhaseStart::<T>::get(task_id);
+			let start = ReadPhaseStart::<T>::take(task_id);
 			let shard_member_reward = if let Some(RewardConfig {
 				read_task_reward,
 				send_message_reward,
@@ -768,15 +769,12 @@ pub mod pallet {
 				..
 			}) = TaskRewardConfig::<T>::take(task_id)
 			{
-				let mut reward =
+				let read_reward =
 					Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());
-				if is_gmp {
-					reward = reward.saturating_add(Self::apply_depreciation(
-						start,
-						send_message_reward,
-						depreciation_rate,
-					));
-				}
+				let send_msg_reward =
+					Self::apply_depreciation(start, send_message_reward, depreciation_rate);
+				let reward =
+					if is_gmp { read_reward.saturating_add(send_msg_reward) } else { read_reward };
 				reward
 			} else {
 				// reward config never stored, bug edge case

@@ -131,11 +131,11 @@ async fn latency_checker(
 	contract: &Path,
 ) -> Result<()> {
 	let mut latencies = Vec::new();
-	let mut overall_throughput = 0;
+	let mut overall_throughput = 0.0;
 
 	let mut cycle_futures = Vec::new();
-	for _ in 0..cycle {
-		let data = latency_cycle(tester, env.clone(), tasks, block_timeout, contract);
+	for c in 0..cycle {
+		let data = latency_cycle(tester, env.clone(), tasks, block_timeout, c, contract);
 		cycle_futures.push(data);
 		// wait approximate block time;
 		tokio::time::sleep(Duration::from_secs(6)).await;
@@ -151,23 +151,24 @@ async fn latency_checker(
 	}
 
 	if !latencies.is_empty() {
-		let average_latency = latencies.iter().sum::<usize>() / latencies.len();
+		let average_latency = latencies.iter().sum::<f32>() / latencies.len() as f32;
 		println!("Average latencies for overall cycles({:?}) are {:?}", cycle, average_latency);
 	} else {
 		println!("Average latencies are 0 no task was ran");
 	}
 
-	let average_throughput = overall_throughput / (cycle as usize);
+	let average_throughput = overall_throughput / (cycle as f32);
 	println!("Average Throughput for cycles({:?}) {:?} blocks", cycle, average_throughput);
 	Ok(())
 }
 async fn latency_cycle(
 	tester: &Tester,
 	env: Environment,
-	tasks: u64,
+	total_tasks: u64,
 	block_timeout: u64,
+	cycle_num: u64,
 	contract: &Path,
-) -> Result<(usize, usize)> {
+) -> Result<(f32, f32)> {
 	let (contract_address, start_block) = match env {
 		Environment::Local => {
 			tester.faucet().await;
@@ -178,7 +179,7 @@ async fn latency_cycle(
 	};
 
 	let mut registerations = vec![];
-	for i in 0..tasks {
+	for i in 0..total_tasks {
 		let mut salt = [0u8; 32];
 		let randomness = i.to_ne_bytes();
 		salt[..8].copy_from_slice(&randomness);
@@ -213,25 +214,32 @@ async fn latency_cycle(
 			}
 		}
 
-		if (current_block - starting_block) > block_timeout || task_ids.is_empty() {
+		let all_task_completed = task_states.len() == total_tasks as usize;
+		if (current_block - starting_block) > block_timeout || all_task_completed {
+			println!("task timeout? {:?}", !all_task_completed);
 			break;
 		}
 
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
 
-	println!("Start block of execution: {:?}", starting_block);
+	let finish_block = tester.get_latest_block().await?;
+
 	if !task_ids.is_empty() {
-		let all_tasks_blocks_running = task_states.values();
-		let latency =
-			(all_tasks_blocks_running.clone().sum::<usize>()) / all_tasks_blocks_running.len();
-		println!("Total tasks are: {:?}", tasks);
-		println!("Latency for tasks: {:?} is {:?}", all_tasks_blocks_running.len(), latency);
-		return Ok((all_tasks_blocks_running.len(), latency));
+		let all_tasks_ran = task_states.values();
+		let latency = (all_tasks_ran.clone().sum::<usize>()) as f32 / all_tasks_ran.len() as f32;
+		let total_block_time = (finish_block - starting_block) as f32;
+		println!(
+			"Total block time taken by cycle {:?} of {:?} tasks is {:?}",
+			cycle_num, total_tasks, total_block_time
+		);
+		let execution_blocks = all_tasks_ran.len() as f32 / total_block_time;
+		return Ok((latency, execution_blocks));
 	} else {
 		println!("Error computing latency all tasks failed");
-		return Ok((0, 0));
+		return Ok((0.0, 0.0));
 	};
+	// returns (latency, throughput)
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {

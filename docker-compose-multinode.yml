@@ -55,20 +55,14 @@ services:
     - astar
 
   chronicle-eth1:
-    image: 'analoglabs/timechain-node'
+    image: 'analoglabs/chronicle'
     command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://ethereum:8545'
     - '--network-id=3'
-    - '--timechain-keyfile=/etc/timechain_keyfile'    
-    - '--keyfile=/etc/keyfile'
+    - '--network-port=6881'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -81,22 +75,18 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
+    ports:
+    - 6881:6881/udp
 
   chronicle-eth2:
-    image: 'analoglabs/timechain-node'
+    image: 'analoglabs/chronicle'
     command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://ethereum:8545'
     - '--network-id=3'
-    - '--timechain-keyfile=/etc/timechain_keyfile'    
-    - '--keyfile=/etc/keyfile'
+    - '--network-port=6882'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -109,22 +99,18 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
+    ports:
+    - 6882:6882/udp
 
   chronicle-eth3:
-    image: 'analoglabs/timechain-node'
+    image: 'analoglabs/chronicle'
     command:
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--bootnodes=/dns4/validator/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp'
-    - '--url=ws://ethereum:8545'
     - '--network-id=3'
-    - '--timechain-keyfile=/etc/timechain_keyfile'    
-    - '--keyfile=/etc/keyfile'
+    - '--network-port=6883'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
     depends_on:
@@ -137,6 +123,8 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
+    ports:
+    - 6883:6883/udp
 
   chronicle-astar1:
     image: 'analoglabs/timechain-node'

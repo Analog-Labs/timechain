@@ -2,7 +2,7 @@ use crate::mock::*;
 use crate::{
 	Error, Event, Gateway, NetworkReadReward, NetworkSendMessageReward, NetworkShards,
 	NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskIdCounter, TaskOutput,
-	TaskPhaseState, TaskRewardConfig, TaskSignature, TaskState, UnassignedTasks,
+	TaskPhaseState, TaskRewardConfig, TaskShard, TaskSignature, TaskState, UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -1090,12 +1090,18 @@ fn read_phase_times_out_and_reassigns_for_read_only_task() {
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
+		// look into this function
 		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 0);
 		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 1);
+		// looks like a possibly different bug, I would expect the next line to pass
+		assert_eq!(TaskShard::<Test>::get(0), Some(1));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
 		assert_eq!(System::block_number(), 1);
 		roll_to(
 			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one(),
 		);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
 		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 1);
 		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 0);
 	});

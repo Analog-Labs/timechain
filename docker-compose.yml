@@ -55,6 +55,7 @@ services:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=3'
+    - '--network-port=6881'
     - '--target-url=ws://ethereum:8545'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'

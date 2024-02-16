@@ -453,7 +453,6 @@ pub mod pallet {
 			});
 			ReadPhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
 				if n.saturating_sub(created_block) >= T::ReadPhaseTimeout::get() {
-					println!("reassigned");
 					Self::schedule_task_to_new_shard(task_id);
 					writes += 3
 				}
@@ -517,6 +516,11 @@ pub mod pallet {
 			};
 			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
+			} else if !schedule.function.is_payable() {
+				// Task phase state is TaskPhase::Read(None) == TaskPhase::default()
+				// so TaskPhaseState stays default.
+				// Still need to start the read phase timeout:
+				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
 			}
 			// Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(

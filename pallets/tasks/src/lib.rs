@@ -768,9 +768,11 @@ pub mod pallet {
 					Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());
 				let send_msg_reward =
 					Self::apply_depreciation(start, send_message_reward, depreciation_rate);
-				let reward =
-					if is_gmp { read_reward.saturating_add(send_msg_reward) } else { read_reward };
-				reward
+				if is_gmp {
+					read_reward.saturating_add(send_msg_reward)
+				} else {
+					read_reward
+				}
 			} else {
 				// reward config never stored, bug edge case
 				BalanceOf::<T>::zero()

@@ -524,8 +524,8 @@ pub mod pallet {
 			};
 			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			}
-			// Snapshot the reward config in storage
+			} // else write phase is started if task.function.is_payable <=> Evm::Deploy || Evm::Call
+  // Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,
 				RewardConfig {

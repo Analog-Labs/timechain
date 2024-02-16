@@ -285,7 +285,7 @@ pub mod pallet {
 				return Ok(());
 			}
 			ensure!(
-				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_))),
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
 				Error::<T>::InvalidTaskPhase
 			);
 			let is_gmp = if task.function.is_gmp() {
@@ -321,7 +321,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(
-				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_))),
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
 				Error::<T>::InvalidTaskPhase
 			);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);

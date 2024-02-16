@@ -279,15 +279,15 @@ pub mod pallet {
 			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			ensure!(
-				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
-				Error::<T>::InvalidTaskPhase
-			);
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
 				return Ok(());
 			}
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			let is_gmp = if task.function.is_gmp() {
 				ensure!(
 					Gateway::<T>::get(task.network).is_some(),

@@ -392,9 +392,17 @@ fn shard_offline_drops_failed_tasks() {
 		Tasks::shard_online(0, ETHEREUM);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
-			mock_task(ETHEREUM)
+			mock_sign_task(ETHEREUM)
 		));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			0,
+			"mock_hash".into()
+		));
 		assert_ok!(Tasks::submit_error(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -415,13 +423,21 @@ fn submit_task_error_is_task_failure() {
 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 			1,
 		);
-		ShardState::<Test>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, ETHEREUM);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
-			mock_task(ETHEREUM)
+			mock_sign_task(ETHEREUM)
 		));
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20].to_vec(),),);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let (hash, sig) = mock_submit_sig(0);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			0,
+			"mock_hash".into()
+		));
 		let error = mock_error_result(0, 0);
 		assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, error.clone()));
 		System::assert_last_event(Event::<Test>::TaskFailed(0, error).into());
@@ -771,6 +787,11 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 			1,
 		);
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
 		// register gateway registers shard
@@ -791,12 +812,22 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 			}
 		);
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		ShardState::<Test>::insert(1, ShardStatus::Online);
+		Tasks::shard_online(1, ETHEREUM);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20].to_vec(),),);
+		ShardCommitment::<Test>::insert(1, vec![MockTssSigner::new().public_key()]);
+		let (hash, sig) = mock_submit_sig(1);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 1, sig, hash),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			1,
+			"mock_hash".into()
+		),);
 		// complete task to unregister shard
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
-			mock_result_ok(0, 1)
+			mock_result_ok(1, 1)
 		));
 		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
 	});

@@ -241,8 +241,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Invalid Signature
 		InvalidSignature,
-		/// Invalid Task State
-		InvalidTaskState,
+		/// Invalid Task Phase
+		InvalidTaskPhase,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Not sign phase
@@ -279,6 +279,10 @@ pub mod pallet {
 			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
@@ -316,6 +320,10 @@ pub mod pallet {
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			Self::validate_signature(
 				task_id,

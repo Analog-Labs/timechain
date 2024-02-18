@@ -1071,10 +1071,14 @@ fn send_message_payout_clears_storage() {
 
 #[test]
 /// Test read phase timeout to assign to new shard
-/// NOTE write phase timeout test coverage is in runtime integration tests
+/// NOTE write phase timeout test in runtime integration tests
 fn read_phase_times_out_and_reassigns_for_read_only_task() {
 	let shards_count = 2;
 	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_task(ETHEREUM)
+		));
 		for i in 0..shards_count {
 			Shards::create_shard(
 				ETHEREUM,
@@ -1086,24 +1090,20 @@ fn read_phase_times_out_and_reassigns_for_read_only_task() {
 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
 			assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), i, [0u8; 20].to_vec(),),);
 		}
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			mock_task(ETHEREUM)
-		));
-		// look into this function
-		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 0);
-		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 1);
-		// looks like a possibly different bug, I would expect the next line to pass
-		assert_eq!(TaskShard::<Test>::get(0), Some(1));
-		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
-		assert_eq!(System::block_number(), 1);
-		roll_to(
-			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one(),
-		);
 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
+		let mut next =
+			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one();
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(1));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), None);
 		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
-		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 1);
-		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 0);
+		next = next.saturating_add(<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get());
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
 	});
 }
 
@@ -1111,6 +1111,10 @@ fn read_phase_times_out_and_reassigns_for_read_only_task() {
 fn read_phase_times_out_for_sign_task_in_read_phase() {
 	let shards_count = 2;
 	new_test_ext().execute_with(|| {
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_sign_task(ETHEREUM)
+		));
 		for i in 0..shards_count {
 			Shards::create_shard(
 				ETHEREUM,
@@ -1122,10 +1126,6 @@ fn read_phase_times_out_for_sign_task_in_read_phase() {
 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
 			assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), i, [0u8; 20].to_vec(),),);
 		}
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			mock_task(ETHEREUM)
-		));
 		let (hash, sig) = mock_submit_sig(0);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig, hash),);
 		assert_ok!(Tasks::submit_hash(
@@ -1133,13 +1133,19 @@ fn read_phase_times_out_for_sign_task_in_read_phase() {
 			0,
 			"mock_hash".into()
 		),);
-		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 0);
-		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 1);
-		assert_eq!(System::block_number(), 1);
-		roll_to(
-			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one(),
-		);
-		assert_eq!(Tasks::get_shard_tasks(0).len() as u64, 1);
-		assert_eq!(Tasks::get_shard_tasks(1).len() as u64, 0);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
+		let mut next =
+			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one();
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(1));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), None);
+		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
+		next = next.saturating_add(<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get());
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
 	});
 }

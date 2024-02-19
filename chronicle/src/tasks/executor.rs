@@ -1,4 +1,4 @@
-use crate::gmp::MessageBuilder;
+use crate::gmp::{GmpParams, Message};
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
@@ -101,8 +101,7 @@ where
 			if target_block_height >= target_block_number {
 				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
 				let task = if matches!(executable_task.phase, TaskPhase::Sign) {
-					let Some(msg_builder) = self.gmp_builder_for(shard_id, block_hash).await?
-					else {
+					let Some(gmp_params) = self.gmp_params(shard_id, block_hash).await? else {
 						tracing::warn!(
 							"gmp not configured for {shard_id:?}, skipping task {task_id}"
 						);
@@ -112,30 +111,31 @@ where
 						Function::RegisterShard { shard_id } => {
 							let tss_public_key =
 								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
-							msg_builder.build_update_keys_message([], [tss_public_key]).hash()
+							Message::update_keys([], [tss_public_key]).to_eip712_bytes(&gmp_params)
 						},
 						Function::UnregisterShard { shard_id } => {
 							let tss_public_key =
 								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
-							msg_builder.build_update_keys_message([tss_public_key], []).hash()
+							Message::update_keys([tss_public_key], []).to_eip712_bytes(&gmp_params)
 						},
 						Function::SendMessage {
 							address,
 							payload,
 							salt,
 							gas_limit,
-						} => msg_builder.build_gmp_message(address, payload, salt, gas_limit).hash(),
+						} => Message::gmp(gmp_params.chain_id, address, payload, salt, gas_limit)
+							.to_eip712_bytes(&gmp_params),
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, payload, block_number)
+					self.task_spawner.execute_sign(shard_id, task_id, payload.into(), block_number)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
-					let msg_builder = self.gmp_builder_for(shard_id, block_hash).await?;
+					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
 
-					if msg_builder.is_none() && function.is_gmp() {
+					if gmp_params.is_none() && function.is_gmp() {
 						tracing::warn!(
 							"gmp not configured for {shard_id:?}, skipping task {task_id}"
 						);
@@ -144,7 +144,7 @@ where
 
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
-							if let Some(msg_builder) = msg_builder {
+							if let Some(gmp_params) = gmp_params {
 								let tss_public_key = self
 									.substrate
 									.get_shard_commitment(block_hash, shard_id)
@@ -154,9 +154,8 @@ where
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
-								msg_builder
-									.build_update_keys_message([], [tss_public_key])
-									.into_evm_call(tss_signature)
+								Message::update_keys([], [tss_public_key])
+									.into_evm_call(&gmp_params, tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check
 								anyhow::bail!(
@@ -165,7 +164,7 @@ where
 							}
 						},
 						Function::UnregisterShard { shard_id } => {
-							if let Some(msg_builder) = msg_builder {
+							if let Some(gmp_params) = gmp_params {
 								let tss_public_key = self
 									.substrate
 									.get_shard_commitment(block_hash, shard_id)
@@ -175,9 +174,8 @@ where
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
-								msg_builder
-									.build_update_keys_message([tss_public_key], [])
-									.into_evm_call(tss_signature)
+								Message::update_keys([tss_public_key], [])
+									.into_evm_call(&gmp_params, tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check
 								anyhow::bail!(
@@ -191,15 +189,14 @@ where
 							salt,
 							gas_limit,
 						} => {
-							if let Some(msg_builder) = msg_builder {
+							if let Some(gmp_params) = gmp_params {
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
 									anyhow::bail!("tss signature not found for task {task_id}");
 								};
-								msg_builder
-									.build_gmp_message(address, payload, salt, gas_limit)
-									.into_evm_call(tss_signature)
+								Message::gmp(gmp_params.chain_id, address, payload, salt, gas_limit)
+									.into_evm_call(&gmp_params, tss_signature)
 							} else {
 								// not gonna hit here since we already continue on is_gmp check
 								anyhow::bail!(
@@ -269,11 +266,11 @@ where
 		Ok(completed_sessions)
 	}
 
-	pub async fn gmp_builder_for(
+	pub async fn gmp_params(
 		&self,
 		shard_id: ShardId,
 		block_hash: BlockHash,
-	) -> Result<Option<MessageBuilder>> {
+	) -> Result<Option<GmpParams>> {
 		let gateway_contract = {
 			let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
 				return Ok(None);
@@ -296,12 +293,11 @@ where
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);
 		};
-		Ok(Some(MessageBuilder::new(
-			shard_id,
-			self.task_spawner.chain_id(),
+		Ok(Some(GmpParams {
+			chain_id: self.task_spawner.chain_id(),
 			tss_public_key,
-			gateway_contract,
-		)))
+			gateway_contract: gateway_contract.into(),
+		}))
 	}
 }
 

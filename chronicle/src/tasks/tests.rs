@@ -113,7 +113,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn get_task_shard(_: TaskId) -> Option<ShardId>{
 			None
 		}
-		fn get_gateway(_: Network) -> Option<Vec<u8>> {
+		fn get_gateway(_: Network) -> Option<[u8; 20]> {
 			Some([0; 20].into())
 		}
 	}

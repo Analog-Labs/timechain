@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tc_subxt::ext::futures::future::join_all;
@@ -196,9 +197,10 @@ async fn latency_cycle(
 
 	let starting_block = tester.get_latest_block().await?;
 
-	let mut finished_tasks = vec![];
+	let mut finished_tasks = HashMap::new();
 	loop {
 		let current_block = tester.get_latest_block().await?;
+		let time_since_execution = (current_block - starting_block) as u32;
 		let status: Vec<_> = task_ids
 			.iter()
 			.map(|&id| async move { (id, tester.is_task_finished(id).await) })
@@ -208,45 +210,44 @@ async fn latency_cycle(
 		for (task_id, is_completed) in results {
 			if is_completed {
 				println!("task_id {:?} completed", task_id);
-				finished_tasks.push(task_id);
+				finished_tasks.insert(task_id, time_since_execution);
 				let index = task_ids.iter().position(|x| *x == task_id).unwrap();
 				task_ids.remove(index);
 			}
 		}
 
-		if (current_block - starting_block) > block_timeout
-			|| finished_tasks.len() == total_tasks as usize
-		{
+		if finished_tasks.len() == total_tasks as usize {
 			break;
+		}
+
+		if time_since_execution > block_timeout as u32 {
+			println!("Block timeout");
+			return Ok((0.0, 0.0));
 		}
 
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
 	let ending_block = tester.get_latest_block().await?;
 
-	if task_ids.is_empty() {
-		let round_num = round_num + 1;
-		assert!(finished_tasks.len() == total_tasks as usize);
-		let total_block_time = ending_block - starting_block;
-		let latency = total_block_time as f32 / total_tasks as f32;
+	let round_num = round_num + 1;
+	assert!(finished_tasks.len() == total_tasks as usize);
+	let total_block_time = ending_block - starting_block;
+	let sum_individual_time = finished_tasks.values().sum::<u32>() as f32;
+	let average_time = total_block_time as f32 / total_block_time as f32;
+	let seperate_latency = sum_individual_time as f32 / total_tasks as f32;
 
-		println!(
-			"Total block time taken by round {:?} of {:?} tasks is {:?} blocks",
-			round_num, total_tasks, total_block_time
-		);
-		let throughput = total_tasks as f32 / total_block_time as f32;
-		println!("Latency for {:?} round is {:?} blocks per task", round_num, latency);
-		println!("Throughput for {:?} round is {:?} tasks per block", round_num, throughput);
-		return Ok((latency, throughput));
-	} else {
-		println!(
-			"Error computing latency, completed tasks are {:?}/{:?}",
-			finished_tasks.len(),
-			total_tasks
-		);
-		return Ok((0.0, 0.0));
-	};
-	// returns (latency, throughput)
+	println!(
+		"Total block time taken by round {:?} of {:?} tasks is {:?} blocks",
+		round_num, total_tasks, total_block_time
+	);
+	let throughput = total_tasks as f32 / total_block_time as f32;
+	println!(
+		"Average execution time for {:?} round is {:?} blocks for each task",
+		round_num, average_time
+	);
+	println!("Latency for {:?} round is {:?} blocks for each task", round_num, seperate_latency);
+	println!("Throughput for {:?} round is {:?} tasks per block", round_num, throughput);
+	return Ok((seperate_latency, throughput));
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {

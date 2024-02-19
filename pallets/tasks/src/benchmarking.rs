@@ -91,7 +91,7 @@ benchmarks! {
 			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64], [0u8; 32]) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

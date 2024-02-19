@@ -28,6 +28,7 @@ pub trait TaskSpawner: Clone + Send + Sync + 'static {
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_num: u32,
+		chain_id: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 
 	fn execute_write(

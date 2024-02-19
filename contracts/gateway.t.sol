@@ -15,7 +15,33 @@ contract GatewayTest is Test {
         gateway = new Gateway(keys);
     }
 
-    function test_something() public {
+    function test_parity() public {
         assertEq(parity, 0x0);
+    }
+
+    function test_xcoord() public {
+        assertEq(xCoord, 0x3a4e117530d6dd0f7ab5b8dfd2f13c91ccdca76dcd95d235651bdfff490c1e26);
+    }
+
+
+    function test_balance_before_after_call() public {
+        uint256 balanceBefore = address(msg.sender).balance;
+        gateway.execute(
+            Signature({
+                xCoord:xCoord,
+		        e:parity,
+		        s:parity
+            }),
+            GmpMessage({
+                source: 0x0,
+		        srcNetwork: 0,
+		        dest: address(msg.sender),
+		        destNetwork: 0,
+		        gasLimit: 100000,
+		        salt: 1,
+		        data: ""
+            })
+        );
+        assert(balanceBefore > address(msg.sender).balance);
     }
 }

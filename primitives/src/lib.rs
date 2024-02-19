@@ -173,7 +173,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>>;
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
 
 	async fn submit_register_member(
 		&self,

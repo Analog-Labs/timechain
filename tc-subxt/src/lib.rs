@@ -50,7 +50,7 @@ pub enum Tx {
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	InsertTask { task: TaskDescriptorParams },
-	InsertGateway { shard_id: ShardId, address: Vec<u8> },
+	InsertGateway { shard_id: ShardId, address: [u8; 20] },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, hash: Vec<u8> },
 	TaskResult { task_id: TaskId, result: TaskResult },
@@ -241,7 +241,7 @@ impl SubxtClient {
 		Ok(rx.await?)
 	}
 
-	pub async fn insert_gateway(&self, shard_id: ShardId, address: Vec<u8>) -> Result<TxProgress> {
+	pub async fn insert_gateway(&self, shard_id: ShardId, address: [u8; 20]) -> Result<TxProgress> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
 		Ok(rx.await?)
@@ -396,7 +396,7 @@ impl Runtime for SubxtClient {
 		Ok(data)
 	}
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>> {
 		let runtime_call = timechain_runtime::apis().tasks_api().get_gateway(network);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(data)

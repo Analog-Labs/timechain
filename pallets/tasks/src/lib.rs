@@ -24,10 +24,10 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, MessageBuilder,
-		NetworkId, RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
-		TaskError, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult, TaskStatus,
-		TasksInterface, TransferStake, TssSignature,
+		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, GmpParams,
+		Message, NetworkId, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		TaskDescriptorParams, TaskError, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TaskStatus, TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -402,7 +402,7 @@ pub mod pallet {
 				}
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
-			Gateway::<T>::insert(network, address.clone());
+			Gateway::<T>::insert(network, address);
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address));
 			Ok(())
@@ -826,11 +826,18 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidTaskFunction.into());
 			};
 			let network = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let gateway = Gateway::<T>::get(network).ok_or(Error::<T>::GatewayNotRegistered)?;
-			let shard_commitment =
+			let gateway_contract =
+				Gateway::<T>::get(network).ok_or(Error::<T>::GatewayNotRegistered)?;
+			let tss_public_key =
 				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let msg_builder = MessageBuilder::new(shard_id, chain_id, shard_commitment, gateway);
-			Ok(msg_builder.build_gmp_message(address, payload, salt, gas_limit).hash())
+			let gmp_params = GmpParams {
+				chain_id,
+				tss_public_key,
+				gateway_contract: gateway_contract.into(),
+			};
+			Ok(Message::gmp(chain_id, address, payload, salt, gas_limit)
+				.to_eip712_bytes(&gmp_params)
+				.into())
 		}
 	}
 

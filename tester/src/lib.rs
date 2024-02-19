@@ -157,7 +157,7 @@ impl Tester {
 		let address_bytes = get_eth_address_to_bytes(address);
 		let events = self
 			.runtime
-			.insert_gateway(shard_id, address_bytes.into())
+			.insert_gateway(shard_id, address_bytes)
 			.await?
 			.wait_for_finalized_success()
 			.await?;

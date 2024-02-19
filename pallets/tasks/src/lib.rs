@@ -241,8 +241,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Invalid Signature
 		InvalidSignature,
-		/// Invalid Task State
-		InvalidTaskState,
+		/// Invalid Task Phase
+		InvalidTaskPhase,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Not sign phase
@@ -284,6 +284,10 @@ pub mod pallet {
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
 				return Ok(());
 			}
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			let is_gmp = if task.function.is_gmp() {
 				ensure!(
 					Gateway::<T>::get(task.network).is_some(),
@@ -316,6 +320,10 @@ pub mod pallet {
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			Self::validate_signature(
 				task_id,
@@ -516,8 +524,8 @@ pub mod pallet {
 			};
 			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			}
-			// Snapshot the reward config in storage
+			} // else write phase is started if task.function.is_payable <=> Evm::Deploy || Evm::Call
+  // Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,
 				RewardConfig {

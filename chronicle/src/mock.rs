@@ -362,7 +362,7 @@ impl Runtime for Mock {
 		Ok(tasks.get(&task_id).unwrap().signature)
 	}
 
-	async fn get_gateway(&self, _network: NetworkId) -> Result<Option<Vec<u8>>> {
+	async fn get_gateway(&self, _network: NetworkId) -> Result<Option<[u8; 20]>> {
 		Ok(Some([0; 20].into()))
 	}
 

@@ -1,4 +1,3 @@
-use crate::gmp::{GmpParams, Message};
 use crate::tasks::TaskSpawner;
 use crate::TW_LOG;
 use anyhow::Result;
@@ -6,8 +5,8 @@ use async_trait::async_trait;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, MessageBuilder, NetworkId, Runtime, ShardId, TaskExecution,
-	TaskPhase, TssId,
+	BlockHash, BlockNumber, Function, GmpParams, Message, NetworkId, Runtime, ShardId,
+	TaskExecution, TaskPhase, TssId,
 };
 use tokio::task::JoinHandle;
 
@@ -128,7 +127,13 @@ where
 							.to_eip712_bytes(&gmp_params),
 						_ => anyhow::bail!("invalid task"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, payload.into(), block_number)
+					self.task_spawner.execute_sign(
+						shard_id,
+						task_id,
+						payload.into(),
+						block_number,
+						gmp_params.chain_id,
+					)
 				} else if let Some(public_key) = executable_task.phase.public_key() {
 					if public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
@@ -272,17 +277,8 @@ where
 		shard_id: ShardId,
 		block_hash: BlockHash,
 	) -> Result<Option<GmpParams>> {
-		let gateway_contract = {
-			let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
-				return Ok(None);
-			};
-			if gateway_contract.len() != 20 {
-				tracing::error!(target: "chronicle", "invalid gateway contract address for network {:?}, expect 20 bytes got {}", self.network, gateway_contract.len());
-				return Ok(None);
-			}
-			let mut output = [0u8; 20];
-			output.copy_from_slice(&gateway_contract);
-			output
+		let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
+			return Ok(None);
 		};
 		let Some(tss_public_key) = self
 			.substrate

@@ -172,6 +172,7 @@ impl Mock {
 		self,
 		task_id: TaskId,
 		signature: TssSignature,
+		_chain_id: u64,
 	) -> Result<()> {
 		let mut tasks = self.tasks.lock().unwrap();
 		let task = tasks.get_mut(&task_id).unwrap();
@@ -402,8 +403,16 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
-		self.clone().submit_task_signature_core(task_id, signature).await.unwrap();
+	async fn submit_task_signature(
+		&self,
+		task_id: TaskId,
+		signature: TssSignature,
+		chain_id: u64,
+	) -> Result<()> {
+		self.clone()
+			.submit_task_signature_core(task_id, signature, chain_id)
+			.await
+			.unwrap();
 		Ok(())
 	}
 
@@ -459,11 +468,12 @@ impl TaskSpawner for Mock {
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_num: u32,
+		chain_id: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		let spawner = self.clone();
 		Box::pin(async move {
 			let (_hash, sig) = spawner.tss_sign(block_num, shard_id, task_id, &payload).await?;
-			spawner.submit_task_signature_core(task_id, sig).await?;
+			spawner.submit_task_signature_core(task_id, sig, chain_id).await?;
 			Ok(())
 		})
 	}

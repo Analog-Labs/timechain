@@ -827,7 +827,8 @@ pub mod pallet {
 			};
 			let network = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let gateway = Gateway::<T>::get(network).ok_or(Error::<T>::GatewayNotRegistered)?;
-			let shard_commitment = T::Shards::tss_public_key(shard_id).unwrap();
+			let shard_commitment =
+				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let msg_builder = MessageBuilder::new(shard_id, chain_id, shard_commitment, gateway);
 			Ok(msg_builder.build_gmp_message(address, payload, salt, gas_limit).hash())
 		}

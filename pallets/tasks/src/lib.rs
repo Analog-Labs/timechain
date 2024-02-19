@@ -524,7 +524,12 @@ pub mod pallet {
 			};
 			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			} // else write phase is started if task.function.is_payable <=> Evm::Deploy || Evm::Call
+			} else if !schedule.function.is_payable() {
+				// Task phase state is TaskPhase::Read(None) == TaskPhase::default()
+				// so TaskPhaseState stays default.
+				// Still need to start the read phase timeout:
+				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			} // else write phase is started in schedule_tasks if task.function.is_payable() which means is Evm::Deploy || Evm::Call
   // Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,

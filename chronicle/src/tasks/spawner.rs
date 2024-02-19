@@ -204,12 +204,10 @@ where
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_number: u32,
+		chain_id: u64,
 	) -> Result<()> {
-		let prehashed_payload = VerifyingKey::message_hash(&payload);
-		let hash = append_hash_with_task_data(prehashed_payload, task_id);
-		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &hash).await?;
-		if let Err(e) = self.substrate.submit_task_signature(task_id, sig, prehashed_payload).await
-		{
+		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig, chain_id).await {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())
@@ -253,8 +251,9 @@ where
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_num: u32,
+		chain_id: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().sign(shard_id, task_id, payload, block_num).boxed()
+		self.clone().sign(shard_id, task_id, payload, block_num, chain_id).boxed()
 	}
 
 	fn execute_write(

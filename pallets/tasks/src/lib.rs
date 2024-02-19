@@ -241,8 +241,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Invalid Signature
 		InvalidSignature,
-		/// Invalid Task State
-		InvalidTaskState,
+		/// Invalid Task Phase
+		InvalidTaskPhase,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Not sign phase
@@ -284,6 +284,10 @@ pub mod pallet {
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
 				return Ok(());
 			}
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			let is_gmp = if task.function.is_gmp() {
 				ensure!(
 					Gateway::<T>::get(task.network).is_some(),
@@ -316,6 +320,10 @@ pub mod pallet {
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			Self::validate_signature(
 				task_id,
@@ -521,8 +529,8 @@ pub mod pallet {
 				// so TaskPhaseState stays default.
 				// Still need to start the read phase timeout:
 				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
-			}
-			// Snapshot the reward config in storage
+			} // else write phase is started in schedule_tasks if task.function.is_payable() which means is Evm::Deploy || Evm::Call
+  // Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,
 				RewardConfig {
@@ -722,7 +730,8 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			rate: DepreciationRate<BlockNumberFor<T>>,
 		) -> BalanceOf<T> {
-			let time_since_start = frame_system::Pallet::<T>::block_number().saturating_sub(start);
+			let now = frame_system::Pallet::<T>::block_number();
+			let time_since_start = now.saturating_sub(start);
 			if time_since_start.is_zero() {
 				// no time elapsed since read phase started => full reward
 				return amount;
@@ -760,7 +769,7 @@ pub mod pallet {
 
 		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, is_gmp: bool) {
 			let task_account_id = Self::task_account(task_id);
-			let start = ReadPhaseStart::<T>::get(task_id);
+			let start = ReadPhaseStart::<T>::take(task_id);
 			let shard_member_reward = if let Some(RewardConfig {
 				read_task_reward,
 				send_message_reward,
@@ -768,16 +777,15 @@ pub mod pallet {
 				..
 			}) = TaskRewardConfig::<T>::take(task_id)
 			{
-				let mut reward =
+				let read_reward =
 					Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());
+				let send_msg_reward =
+					Self::apply_depreciation(start, send_message_reward, depreciation_rate);
 				if is_gmp {
-					reward = reward.saturating_add(Self::apply_depreciation(
-						start,
-						send_message_reward,
-						depreciation_rate,
-					));
+					read_reward.saturating_add(send_msg_reward)
+				} else {
+					read_reward
 				}
-				reward
 			} else {
 				// reward config never stored, bug edge case
 				BalanceOf::<T>::zero()

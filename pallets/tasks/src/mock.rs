@@ -103,7 +103,7 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
 	// reward declines by 5% every 10 blocks
-	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 10, percent: Percent::from_percent(5) };
+	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 2, percent: Percent::from_percent(50) };
 }
 
 impl pallet_shards::Config for Test {

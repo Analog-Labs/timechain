@@ -2,6 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "frost-evm/sol/Schnorr.sol";
+
 /**
  * @dev Required interface of an GMP compliant contract
  */
@@ -242,7 +244,7 @@ contract SigUtils {
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
     function getGmpTypedHash(GmpMessage memory message)
-        internal
+        public
         view
         returns (bytes32)
     {
@@ -252,43 +254,6 @@ contract SigUtils {
                 DOMAIN_SEPARATOR(),
                 _getGmpHash(message)
             )
-        );
-    }
-
-    // secp256k1 group order
-    uint256 constant public Q = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
-
-    /**
-     * @param message The EIP-712 hash of the message
-     * @param parity The public key y-coord parity (27 or 28)
-     * @param px Public key x-coord
-     * @param e Schnorr signature challenge
-     * @param s Schnorr signature
-     * @return true if the signature is valid, false if invalid
-     */
-    function _verifyTssSignature(
-        bytes32 message,
-        uint8 parity,
-        uint256 px,
-        uint256 e,
-        uint256 s
-    ) internal pure returns (bool) {
-        // ecrecover = (m, v, r, s);
-        uint256 sp = Q - mulmod(s, px, Q);
-        uint256 ep = Q - mulmod(e, px, Q);
-
-        if (sp == 0) {
-            return false;
-        }
-        // the ecrecover precompile implementation checks that the `r` and `s`
-        // inputs are non-zero (in this case, `px` and `ep`), thus we don't need to
-        // check if they're zero.
-        address R = ecrecover(bytes32(sp), parity, bytes32(px), bytes32(ep));
-        if (R == address(0)) {
-            return false;
-        }
-        return bytes32(e) == keccak256(
-            abi.encodePacked(R, parity, px, message)
         );
     }
 }
@@ -311,6 +276,8 @@ contract Gateway is IGateway, SigUtils {
     // GMP message status
     mapping (bytes32 => GmpInfo) _messages;
 
+    Schnorr _verifier;
+
     constructor(uint256[2][] memory initialKeys) payable {
         TssKey[] memory keys;
         assembly {
@@ -322,6 +289,8 @@ contract Gateway is IGateway, SigUtils {
         // emit event
         TssKey[] memory revoked = new TssKey[](0);
         emit KeySetChanged(bytes32(0), revoked, keys);
+
+        _verifier = new Schnorr();
     }
 
     function gmpInfo(bytes32 id) external view returns (GmpInfo memory) {
@@ -351,11 +320,10 @@ contract Gateway is IGateway, SigUtils {
         }
 
         // Verify Signature
-        require(
-            _verifyTssSignature(
-                message,
+        require(_verifier.verify(
                 yParity,
                 signature.xCoord,
+                uint256(message),
                 signature.e,
                 signature.s
             ),

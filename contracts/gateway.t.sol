@@ -10,10 +10,8 @@ uint256 constant nonce = 0x69;
 contract GatewayTest is Test {
     Gateway gateway;
     Signer signer;
-    SigUtils utils;
     
     constructor() {
-        utils = new SigUtils();
         signer = new Signer(secret);
         uint256[2][] memory keys = new uint256[2][](1);
         keys[0] = [signer.yParity() == 28 ? 1 : 0, signer.xCoord()];
@@ -21,7 +19,7 @@ contract GatewayTest is Test {
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
-        uint256 hash = uint256(utils.getGmpTypedHash(gmp));
+        uint256 hash = uint256(gateway.getGmpTypedHash(gmp));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
         return Signature({
             xCoord: signer.xCoord(),
@@ -35,13 +33,14 @@ contract GatewayTest is Test {
                 source: 0x0,
                 srcNetwork: 0,
                 dest: address(msg.sender),
-                destNetwork: 0,
+                destNetwork: uint128(block.chainid),
                 gasLimit: 100000,
                 salt: 1,
                 data: ""
         });
         Signature memory sig = sign(gmp);
-        uint256 balanceBefore = address(msg.sender).balance;
+        
+        //uint256 balanceBefore = address(msg.sender).balance;
         (uint8 status, bytes32 result) = gateway.execute(sig, gmp);
         //assert(balanceBefore > address(msg.sender).balance);
     }

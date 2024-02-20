@@ -28,7 +28,7 @@ contract GatewayTest is Test {
         });
     }
 
-    function test_balance_before_after_call() public {
+    function test_execute_fails_without_deposit() public {
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
@@ -39,10 +39,39 @@ contract GatewayTest is Test {
                 data: ""
         });
         Signature memory sig = sign(gmp);
-        
+        vm.expectRevert(bytes("deposit below max refund"));
+        gateway.execute(sig, gmp);
+    }
+
+    function test_execute_refund() public {
+        GmpMessage memory gmp = GmpMessage({
+                source: 0x0,
+                srcNetwork: 0,
+                dest: address(msg.sender),
+                destNetwork: uint128(block.chainid),
+                gasLimit: 100000,
+                salt: 1,
+                data: ""
+        });
+        Signature memory sig = sign(gmp);
         uint256 balanceBefore = address(msg.sender).balance;
-        (uint8 status, bytes32 result) = gateway.execute(sig, gmp);
+        uint256 gasBefore = gasleft();
+        (uint8 status,) = gateway.execute(sig, gmp);
+        uint8 GMP_STATUS_SUCCESS = 1;
+        assertEq(status, GMP_STATUS_SUCCESS);
         uint256 balanceAfter = address(msg.sender).balance;
+        uint256 gasAfter = gasleft();
+        console.log(
+            "Balance before %s == Balance after %s",
+            balanceBefore,
+            balanceAfter
+        );
+        console.log(
+            "Gas before %s > Gas after %s",
+            gasBefore,
+            gasAfter
+        );
         assertEq(balanceBefore, balanceAfter);
+        assert(gasBefore > gasAfter);
     }
 }

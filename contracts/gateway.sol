@@ -276,6 +276,9 @@ contract Gateway is IGateway, SigUtils {
     // GMP message status
     mapping (bytes32 => GmpInfo) _messages;
 
+    // Source address => Source network => Deposit Amount
+    mapping (bytes32 => mapping(uint128 => uint256)) _deposits;
+
     Schnorr _verifier;
 
     constructor(uint256[2][] memory initialKeys) payable {
@@ -459,8 +462,18 @@ contract Gateway is IGateway, SigUtils {
         updateKeys(signature, payload);
     }
 
+    // Deposit funds into contract to refund callers of execute
+    // function deposit(uint256 amount, bytes32 source, uint128 network) public {
+        //TODO
+    // }
+
     // Execute GMP message
     function _execute(bytes32 payloadHash, GmpMessage memory message) private returns (uint8 status, bytes32 result) {
+        uint256 gasBefore = gasleft();
+        (bytes32 src, uint128 network) = (message.source, message.srcNetwork); 
+        uint256 depositBefore = _deposits[src][network];
+        // check that contract deposit balance has enough to refund
+        require(depositBefore > gasBefore * tx.gasprice, "deposit below max refund");
         // Verify if this GMP message was already executed
         GmpInfo storage gmp = _messages[payloadHash];
         require(gmp.status == GMP_STATUS_NOT_FOUND, "message already executed");
@@ -516,6 +529,12 @@ contract Gateway is IGateway, SigUtils {
 
         // Emit event
         emit GmpExecuted(payloadHash, message.source, message.dest, status, result);
+        uint256 gasAfter = gasleft();
+        uint256 gasUsed = gasBefore - gasAfter;
+        // 21000 is ~constant cost of tx, should also include subtraction above
+        uint256 refundAmount = (gasUsed + 21000) * tx.gasprice;
+        uint256 depositAfter = depositBefore - refundAmount;
+        _deposits[src][network] = depositAfter;
     }
 
     // Send GMP message using sudo account

@@ -143,11 +143,9 @@ async fn latency_checker(
 
 	let cycles_data = join_all(rounds_future).await;
 
-	for data in cycles_data {
-		if let Ok((cycle_latency, cycle_throughput)) = data {
-			overall_latencies += cycle_latency;
-			overall_throughput += cycle_throughput;
-		}
+	for data in cycles_data.into_iter().flatten() {
+		overall_latencies += data.0;
+		overall_throughput += data.1;
 	}
 
 	let average_latencies = overall_latencies / (rounds as f32);
@@ -232,9 +230,9 @@ async fn latency_cycle(
 	let round_num = round_num + 1;
 	assert!(finished_tasks.len() == total_tasks as usize);
 	let total_block_time = ending_block - starting_block;
-	let sum_individual_time = finished_tasks.values().sum::<u32>() as f32;
-	let average_time = total_block_time as f32 / total_block_time as f32;
-	let seperate_latency = sum_individual_time as f32 / total_tasks as f32;
+	let sum_individual_block_time = finished_tasks.values().sum::<u32>() as f32;
+	let average_time = total_block_time as f32 / total_tasks as f32;
+	let seperate_latency = sum_individual_block_time / total_tasks as f32;
 
 	println!(
 		"Total block time taken by round {:?} of {:?} tasks is {:?} blocks",
@@ -247,7 +245,7 @@ async fn latency_cycle(
 	);
 	println!("Latency for {:?} round is {:?} blocks for each task", round_num, seperate_latency);
 	println!("Throughput for {:?} round is {:?} tasks per block", round_num, throughput);
-	return Ok((seperate_latency, throughput));
+	Ok((seperate_latency, throughput))
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {

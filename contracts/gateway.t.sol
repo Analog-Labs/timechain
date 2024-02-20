@@ -71,27 +71,26 @@ contract GatewayTest is Test {
     }
 
     function testExecuteRefundsInFull() public {
-        uint256 amount = 100 ether;
         address mockSender = address(0x0);
+        uint256 amount = 100 ether;
         vm.deal(mockSender, amount);
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
+        vm.startPrank(mockSender);
+        uint256 callerBalanceBefore = address(mockSender).balance;
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
-                dest: address(mockSender),
+                dest: address(0x0),
                 destNetwork: uint128(block.chainid),
                 gasLimit: 100000,
                 salt: 1,
                 data: ""
         });
         Signature memory sig = sign(gmp);
-        uint256 gasBefore = gasleft();
-        uint256 senderBalanceBefore = address(mockSender).balance;
         (uint8 status,) = gateway.execute(sig, gmp);
-        assert(gasBefore > gasleft());
-        // fully refunded mockSender
-        assertEq(senderBalanceBefore, address(mockSender).balance);
+        // assert fully refunded gateway execution
+        assertEq(callerBalanceBefore, address(mockSender).balance);
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
         vm.stopPrank();

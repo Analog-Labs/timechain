@@ -45,6 +45,8 @@ interface IGateway {
         TssKey[] registered    // new shards registered
     );
 
+    function deposit(bytes32 source, uint128 network) external payable;
+
     /**
      * Execute GMP message
      */
@@ -462,17 +464,18 @@ contract Gateway is IGateway, SigUtils {
         updateKeys(signature, payload);
     }
 
-    // Deposit funds into contract to refund callers of execute
-    // function deposit(uint256 amount, bytes32 source, uint128 network) public {
-        //TODO
-    // }
+    // Deposit balance to refund callers of execute
+    function deposit(bytes32 source, uint128 network) public payable {
+        uint256 depositBefore = _deposits[source][network];
+        _deposits[source][network] = depositBefore + msg.value;
+    }
 
     // Execute GMP message
     function _execute(bytes32 payloadHash, GmpMessage memory message) private returns (uint8 status, bytes32 result) {
         uint256 gasBefore = gasleft();
-        (bytes32 src, uint128 network) = (message.source, message.srcNetwork); 
-        uint256 depositBefore = _deposits[src][network];
-        // check that contract deposit balance has enough to refund
+        (bytes32 source, uint128 network) = (message.source, message.srcNetwork); 
+        uint256 depositBefore = _deposits[source][network];
+        // Verify that the deposit has enough for the maximum possible refund
         require(depositBefore > gasBefore * tx.gasprice, "deposit below max refund");
         // Verify if this GMP message was already executed
         GmpInfo storage gmp = _messages[payloadHash];
@@ -533,8 +536,8 @@ contract Gateway is IGateway, SigUtils {
         uint256 gasUsed = gasBefore - gasAfter;
         // 21000 is ~constant cost of tx, should also include subtraction above
         uint256 refundAmount = (gasUsed + 21000) * tx.gasprice;
-        uint256 depositAfter = depositBefore - refundAmount;
-        _deposits[src][network] = depositAfter;
+        payable(msg.sender).transfer(refundAmount);
+        _deposits[source][network] = depositBefore - refundAmount;
     }
 
     // Send GMP message using sudo account

@@ -28,7 +28,7 @@ contract GatewayTest is Test {
         });
     }
 
-    function test_execute_fails_without_deposit() public {
+    function testExecuteWithoutDeposit() public {
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
@@ -43,35 +43,57 @@ contract GatewayTest is Test {
         gateway.execute(sig, gmp);
     }
 
-    function test_execute_refund() public {
+    function testDepositReducesSenderFunds() public {
+        uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, amount);
+        uint256 balanceBefore = address(mockSender).balance;
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        assertEq(balanceBefore - address(mockSender).balance, amount, "deposit failed to transfer amount from sender");
+        vm.stopPrank();
+    }
+
+    function testDepositIncreasesGatewayFunds() public {
+        uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        address gatewayAddress = address(gateway);
+        assert(gatewayAddress != mockSender);
+        uint256 gatewayBalanceBefore = gatewayAddress.balance;
+        vm.deal(mockSender, amount);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        assertEq(
+            gatewayAddress.balance - gatewayBalanceBefore, amount,
+            "deposit failed to transfer amount to gateway"
+        );
+        vm.stopPrank();
+    }
+
+    function testExecuteRefundsInFull() public {
+        uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, amount);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
-                dest: address(msg.sender),
+                dest: address(mockSender),
                 destNetwork: uint128(block.chainid),
                 gasLimit: 100000,
                 salt: 1,
                 data: ""
         });
         Signature memory sig = sign(gmp);
-        uint256 balanceBefore = address(msg.sender).balance;
         uint256 gasBefore = gasleft();
+        uint256 senderBalanceBefore = address(mockSender).balance;
         (uint8 status,) = gateway.execute(sig, gmp);
+        assert(gasBefore > gasleft());
+        // fully refunded mockSender
+        assertEq(senderBalanceBefore, address(mockSender).balance);
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
-        uint256 balanceAfter = address(msg.sender).balance;
-        uint256 gasAfter = gasleft();
-        console.log(
-            "Balance before %s == Balance after %s",
-            balanceBefore,
-            balanceAfter
-        );
-        console.log(
-            "Gas before %s > Gas after %s",
-            gasBefore,
-            gasAfter
-        );
-        assertEq(balanceBefore, balanceAfter);
-        assert(gasBefore > gasAfter);
+        vm.stopPrank();
     }
 }

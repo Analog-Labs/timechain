@@ -40,8 +40,9 @@ contract GatewayTest is Test {
         });
         Signature memory sig = sign(gmp);
         
-        //uint256 balanceBefore = address(msg.sender).balance;
+        uint256 balanceBefore = address(msg.sender).balance;
         (uint8 status, bytes32 result) = gateway.execute(sig, gmp);
-        //assert(balanceBefore > address(msg.sender).balance);
+        uint256 balanceAfter = address(msg.sender).balance;
+        assertEq(balanceBefore, balanceAfter);
     }
 }

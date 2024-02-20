@@ -4,7 +4,7 @@ use anyhow::Result;
 use subxt::backend::StreamOfResults;
 use subxt::tx::Payload;
 use timechain_runtime::runtime_types::time_primitives::task::{
-	TaskDescriptor, TaskDescriptorParams, TaskStatus,
+	TaskDescriptor, TaskDescriptorParams, TaskPhase, TaskStatus,
 };
 use timechain_runtime::tasks::calls::types::CreateTask;
 
@@ -30,6 +30,11 @@ impl SubxtClient {
 
 	pub async fn get_task_state(&self, task_id: u64) -> Result<Option<TaskStatus>> {
 		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
+		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+	}
+
+	pub async fn get_task_phase(&self, task_id: u64) -> Result<Option<TaskPhase>> {
+		let storage_query = timechain_runtime::storage().tasks().task_phase_state(task_id);
 		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 	}
 }

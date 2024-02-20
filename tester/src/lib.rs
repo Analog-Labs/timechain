@@ -6,13 +6,14 @@ use rosetta_client::Wallet;
 use sha3::{Digest, Keccak256};
 use sp_core::crypto::Ss58Codec;
 use std::collections::BTreeMap;
+use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
-	Function, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TssPublicKey,
+	Function, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
 };
 
 pub struct TesterParams {
@@ -171,6 +172,11 @@ impl Tester {
 		matches!(task_state, Some(TaskStatus::Completed) | Some(TaskStatus::Failed { .. }))
 	}
 
+	pub async fn get_task_phase(&self, task_id: TaskId) -> TaskPhase {
+		let val = self.runtime.get_task_phase(task_id).await.unwrap().expect("Phase not found");
+		unsafe { transmute(val) }
+	}
+
 	pub async fn wait_for_task(&self, task_id: TaskId) {
 		while !self.is_task_finished(task_id).await {
 			println!("task id: {:?} still running", task_id);
@@ -283,4 +289,56 @@ fn get_eth_address_to_bytes(address: &str) -> [u8; 20] {
 	let trimmed_address = address.trim_start_matches("0x");
 	hex::decode_to_slice(trimmed_address, &mut eth_bytes).unwrap();
 	eth_bytes
+}
+
+pub struct TaskPhaseInfo {
+	pub start_block: u64,
+	pub write_phase_start: Option<u64>,
+	pub read_phase_start: Option<u64>,
+	pub finish_block: Option<u64>,
+}
+
+impl TaskPhaseInfo {
+	pub fn new(start_block: u64) -> Self {
+		Self {
+			start_block,
+			write_phase_start: None,
+			read_phase_start: None,
+			finish_block: None,
+		}
+	}
+
+	pub fn enter_write_phase(&mut self, current_block: u64) {
+		self.write_phase_start = Some(current_block);
+	}
+
+	pub fn enter_read_phase(&mut self, current_block: u64) {
+		self.read_phase_start = Some(current_block);
+	}
+
+	pub fn task_finished(&mut self, current_block: u64) {
+		self.finish_block = Some(current_block);
+	}
+
+	pub fn start_to_write_duration(&self) -> Option<u64> {
+		self.write_phase_start.map(|write_start| write_start - self.start_block)
+	}
+
+	pub fn write_to_read_duration(&self) -> Option<u64> {
+		match (self.write_phase_start, self.read_phase_start) {
+			(Some(write_start), Some(read_start)) => Some(read_start - write_start),
+			_ => None,
+		}
+	}
+
+	pub fn read_to_finish_duration(&self) -> Option<u64> {
+		match (self.read_phase_start, self.finish_block) {
+			(Some(read_start), Some(finish_block)) => Some(finish_block - read_start),
+			_ => None,
+		}
+	}
+
+	pub fn total_execution_duration(&self) -> Option<u64> {
+		self.finish_block.map(|finish_block| finish_block - self.start_block)
+	}
 }

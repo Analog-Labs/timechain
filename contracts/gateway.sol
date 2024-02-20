@@ -85,6 +85,7 @@ struct GmpMessage {
     uint256 gasLimit;    // gas limit of the GMP call
     uint256 salt;        // Message salt, useful for sending two messages with same content
     bytes data;          // message data with no specified format
+    address reimburse;  // Reimbursement contract address
 }
 
 /**
@@ -231,7 +232,7 @@ contract SigUtils {
             keccak256(
                 abi.encode(
                     keccak256(
-                        "GmpMessage(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
+                        "GmpMessage(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data,address reimburse)"
                     ),
                     gmp.source,
                     gmp.srcNetwork,
@@ -239,7 +240,8 @@ contract SigUtils {
                     gmp.destNetwork,
                     gmp.gasLimit,
                     gmp.salt,
-                    keccak256(gmp.data)
+                    keccak256(gmp.data),
+                    gmp.reimburse
                 )
             );
     }
@@ -473,10 +475,10 @@ contract Gateway is IGateway, SigUtils {
     // Execute GMP message
     function _execute(bytes32 payloadHash, GmpMessage memory message) private returns (uint8 status, bytes32 result) {
         uint256 gasBefore = gasleft();
-        (bytes32 source, uint128 network) = (message.source, message.srcNetwork); 
-        uint256 depositBefore = _deposits[source][network];
-        // Verify that the deposit has enough for the maximum possible refund
-        require(depositBefore > gasBefore * tx.gasprice, "deposit below max refund");
+        uint256 depositBefore = _deposits[message.source][message.srcNetwork];
+        // Verify that the contract has enough for the max possible refund
+        require(depositBefore > message.gasLimit * tx.gasprice, "deposit below max refund");
+        require(address(this).balance > message.gasLimit * tx.gasprice, "balance below max refund ");
         // Verify if this GMP message was already executed
         GmpInfo storage gmp = _messages[payloadHash];
         require(gmp.status == GMP_STATUS_NOT_FOUND, "message already executed");
@@ -486,8 +488,6 @@ contract Gateway is IGateway, SigUtils {
         gmp.blockNumber = uint64(block.number);
 
         // The encoded onGmpReceived call
-        uint256 gasLimit = message.gasLimit;
-        address dest = message.dest;
         bytes memory data = abi.encodeWithSelector(
             IGmpReceiver.onGmpReceived.selector,
             payloadHash,
@@ -499,6 +499,8 @@ contract Gateway is IGateway, SigUtils {
         // Execute GMP call
         bytes32[1] memory output;
         bool success;
+        uint256 gasLimit = message.gasLimit;
+        address dest = message.dest;
         assembly {
             // Using low-level assembly because the GMP is considered executed
             // regardless if the call reverts or not.
@@ -532,12 +534,10 @@ contract Gateway is IGateway, SigUtils {
 
         // Emit event
         emit GmpExecuted(payloadHash, message.source, message.dest, status, result);
-        uint256 gasAfter = gasleft();
-        uint256 gasUsed = gasBefore - gasAfter;
-        // 21000 is ~constant cost of tx, should also include subtraction above
-        uint256 refundAmount = (gasUsed + 21000) * tx.gasprice;
-        payable(msg.sender).transfer(refundAmount);
-        _deposits[source][network] = depositBefore - refundAmount;
+
+        // Refund cost of execution to reimburse account
+        payable(message.reimburse).transfer((gasBefore - gasleft()) * tx.gasprice);
+        _deposits[message.source][message.srcNetwork] = depositBefore - ((gasBefore - gasleft()) * tx.gasprice);
     }
 
     // Send GMP message using sudo account
@@ -559,7 +559,8 @@ contract Gateway is IGateway, SigUtils {
         uint128 destNetwork, // 'destNetwork' from GmpPayload within GmpMessage
         uint256 gasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
         uint256 salt,        // 'salt' from GmpPayload within GmpMessage
-        bytes memory data    // 'data' from GmpPayload within GmpMessage
+        bytes memory data,   // 'data' from GmpPayload within GmpMessage
+        address reimburse    // 'reimburse' from GmpPayload within GmpMessage
     ) external returns (uint8 status, bytes32 result) {
         Signature memory signature;
         assembly {
@@ -575,7 +576,8 @@ contract Gateway is IGateway, SigUtils {
             destNetwork: destNetwork,
             gasLimit: gasLimit,
             salt: salt,
-            data: data
+            data: data,
+            reimburse: reimburse
         });
 
         // Execute GMP message

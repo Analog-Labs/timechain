@@ -28,15 +28,16 @@ contract GatewayTest is Test {
         });
     }
 
-    function testExecuteWithoutDeposit() public {
+    function testExecuteRevertsWithoutDeposit() public {
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
-                dest: address(msg.sender),
+                dest: address(0x0),
                 destNetwork: uint128(block.chainid),
                 gasLimit: 100000,
                 salt: 1,
-                data: ""
+                data: "",
+                reimburse: address(0x0)
         });
         Signature memory sig = sign(gmp);
         vm.expectRevert(bytes("deposit below max refund"));
@@ -70,29 +71,30 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    function testExecuteRefundsInFull() public {
+    function testExecuteReimbursesRefund() public {
         address mockSender = address(0x0);
+        address mockReimbursed = address(0x1);
         uint256 amount = 100 ether;
         vm.deal(mockSender, amount);
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
-        vm.startPrank(mockSender);
-        uint256 callerBalanceBefore = address(mockSender).balance;
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
                 dest: address(0x0),
                 destNetwork: uint128(block.chainid),
-                gasLimit: 100000,
+                gasLimit: 1,
                 salt: 1,
-                data: ""
+                data: "",
+                reimburse: address(mockReimbursed)
         });
         Signature memory sig = sign(gmp);
         (uint8 status,) = gateway.execute(sig, gmp);
-        // assert fully refunded gateway execution
-        assertEq(callerBalanceBefore, address(mockSender).balance);
+        //uint256 gasUsed = gasBefore - gasleft();
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
+        // assert gateway.execute() refunded gas costs to reimburse account
+        assert(address(mockReimbursed).balance > 0);
         vm.stopPrank();
     }
 }

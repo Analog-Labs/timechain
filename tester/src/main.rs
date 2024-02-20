@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tc_subxt::ext::futures::future::join_all;
-use tester::{Tester, TesterParams};
-use time_primitives::NetworkId;
+use tester::{TaskPhaseInfo, Tester, TesterParams};
+use time_primitives::{NetworkId, TaskPhase};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -143,21 +143,21 @@ async fn latency_checker(
 
 	let cycles_data = join_all(rounds_future).await;
 
-	for data in cycles_data.into_iter().flatten() {
-		overall_latencies += data.0;
-		overall_throughput += data.1;
-	}
+	// for data in cycles_data.into_iter().flatten() {
+	// 	overall_latencies += data.0;
+	// 	overall_throughput += data.1;
+	// }
 
-	let average_latencies = overall_latencies / (rounds as f32);
-	println!(
-		"Average latency for round(s) {:?} of total {:?} tasks each is {:?} blocks per task",
-		rounds, tasks, average_latencies
-	);
-	let average_throughput = overall_throughput / (rounds as f32);
-	println!(
-		"Average Throughput for round(s) {:?} of total of {:?} tasks is {:?} tasks per block",
-		rounds, tasks, average_throughput
-	);
+	// let average_latencies = overall_latencies / (rounds as f32);
+	// println!(
+	// 	"Average latency for round(s) {:?} of total {:?} tasks each is {:?} blocks per task",
+	// 	rounds, tasks, average_latencies
+	// );
+	// let average_throughput = overall_throughput / (rounds as f32);
+	// println!(
+	// 	"Average Throughput for round(s) {:?} of total of {:?} tasks is {:?} tasks per block",
+	// 	rounds, tasks, average_throughput
+	// );
 	Ok(())
 }
 async fn latency_cycle(
@@ -195,22 +195,49 @@ async fn latency_cycle(
 
 	let starting_block = tester.get_latest_block().await?;
 
+	let mut task_phases_data = HashMap::new();
+	for id in task_ids.clone().into_iter() {
+		task_phases_data.insert(id, TaskPhaseInfo::new(starting_block));
+	}
+
 	let mut finished_tasks = HashMap::new();
-	loop {
+	println!("starting block {:?}", starting_block);
+	while finished_tasks.len() < total_tasks as usize {
 		let current_block = tester.get_latest_block().await?;
-		let time_since_execution = (current_block - starting_block) as u32;
+		let time_since_execution = current_block - starting_block;
+		if time_since_execution > block_timeout {
+			return Err(anyhow::anyhow!("Block Timeout"))?;
+		}
+
 		let status: Vec<_> = task_ids
 			.iter()
-			.map(|&id| async move { (id, tester.is_task_finished(id).await) })
+			.map(|&id| async move {
+				(id, tester.get_task_phase(id).await, tester.is_task_finished(id).await)
+			})
 			.collect();
-		let results: Vec<(u64, bool)> = join_all(status).await;
+		let results: Vec<(u64, TaskPhase, bool)> = join_all(status).await;
 
-		for (task_id, is_completed) in results {
+		for (task_id, task_phase, is_completed) in results {
+			let task_info = task_phases_data.get_mut(&task_id).unwrap();
 			if is_completed {
-				println!("task_id {:?} completed", task_id);
+				task_info.task_finished(current_block);
 				finished_tasks.insert(task_id, time_since_execution);
 				let index = task_ids.iter().position(|x| *x == task_id).unwrap();
 				task_ids.remove(index);
+				continue;
+			}
+			match task_phase {
+				TaskPhase::Write(_) => {
+					if task_info.write_phase_start.is_none() {
+						task_info.enter_write_phase(current_block);
+					}
+				},
+				TaskPhase::Read(_) => {
+					if task_info.read_phase_start.is_none() {
+						task_info.enter_read_phase(current_block);
+					}
+				},
+				_ => {},
 			}
 		}
 
@@ -218,34 +245,79 @@ async fn latency_cycle(
 			break;
 		}
 
-		if time_since_execution > block_timeout as u32 {
-			println!("Block timeout");
-			return Ok((0.0, 0.0));
-		}
-
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
-	let ending_block = tester.get_latest_block().await?;
 
+	let ending_block = tester.get_latest_block().await?;
 	let round_num = round_num + 1;
-	assert!(finished_tasks.len() == total_tasks as usize);
 	let total_block_time = ending_block - starting_block;
-	let sum_individual_block_time = finished_tasks.values().sum::<u32>() as f32;
-	let average_time = total_block_time as f32 / total_tasks as f32;
-	let seperate_latency = sum_individual_block_time / total_tasks as f32;
+
+	let write_latencies: Vec<u64> = task_phases_data
+		.values()
+		.filter_map(|info| info.write_phase_start.map(|start| start - info.start_block))
+		.collect();
+
+	let read_latencies: Vec<u64> = task_phases_data
+		.values()
+		.filter_map(|info| {
+			if let Some(read_start) = info.read_phase_start {
+				info.write_phase_start.map(|write_start| read_start - write_start)
+			} else {
+				None
+			}
+		})
+		.collect();
+
+	let finish_latencies: Vec<u64> = task_phases_data
+		.values()
+		.filter_map(|info| {
+			if let Some(finish_block) = info.finish_block {
+				info.read_phase_start.map(|read_start| finish_block - read_start)
+			} else {
+				None
+			}
+		})
+		.collect();
+
+	let total_latencies: Vec<u64> = finished_tasks.values().cloned().collect();
+
+	let average_write_latency =
+		write_latencies.iter().sum::<u64>() as f32 / write_latencies.len() as f32;
+	let average_read_latency =
+		read_latencies.iter().sum::<u64>() as f32 / read_latencies.len() as f32;
+	let average_finish_latency =
+		finish_latencies.iter().sum::<u64>() as f32 / finish_latencies.len() as f32;
+	let average_total_latency =
+		total_latencies.iter().sum::<u64>() as f32 / total_latencies.len() as f32;
+
+	let throughput = total_tasks as f32 / total_block_time as f32;
 
 	println!(
-		"Total block time taken by round {:?} of {:?} tasks is {:?} blocks",
+		"Total block time taken by round {} of {} tasks is {} blocks",
 		round_num, total_tasks, total_block_time
 	);
-	let throughput = total_tasks as f32 / total_block_time as f32;
 	println!(
-		"Average execution time for {:?} round is {:?} blocks for each task",
-		round_num, average_time
+		"Average write phase latency for round {} is {} blocks per task",
+		round_num, average_write_latency
 	);
-	println!("Latency for {:?} round is {:?} blocks for each task", round_num, seperate_latency);
-	println!("Throughput for {:?} round is {:?} tasks per block", round_num, throughput);
-	Ok((seperate_latency, throughput))
+	println!(
+		"Average read phase latency for round {} is {} blocks per task",
+		round_num, average_read_latency
+	);
+	println!(
+		"Average finish phase latency for round {} is {} blocks per task",
+		round_num, average_finish_latency
+	);
+	println!(
+		"Average total latency for round {} is {} blocks per task",
+		round_num, average_total_latency
+	);
+	println!("Throughput for round {} is {} tasks per block", round_num, throughput);
+	Ok((average_total_latency, throughput))
+}
+
+fn divide_into_float(numerator: u64, denominator: u64) -> f32 {
+	numerator as f32 / denominator as f32
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {

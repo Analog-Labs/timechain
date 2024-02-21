@@ -36,12 +36,34 @@ contract GatewayTest is Test {
                 destNetwork: uint128(block.chainid),
                 gasLimit: 100000,
                 salt: 1,
-                data: "",
-                reimburse: address(0x0)
+                data: ""
         });
         Signature memory sig = sign(gmp);
         vm.expectRevert(bytes("deposit below max refund"));
         gateway.execute(sig, gmp);
+    }
+
+    function testExecuteRevertsBelowDeposit() public {
+        vm.txGasPrice(1);
+        uint256 gasLimit = 100000;
+        uint256 insufficientDeposit = (gasLimit * tx.gasprice) - 1; 
+        address mockSender = address(0x0);
+        vm.deal(mockSender, insufficientDeposit);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: insufficientDeposit}(0x0, 0);
+        GmpMessage memory gmp = GmpMessage({
+                source: 0x0,
+                srcNetwork: 0,
+                dest: address(0x0),
+                destNetwork: uint128(block.chainid),
+                gasLimit: gasLimit,
+                salt: 1,
+                data: ""
+        });
+        Signature memory sig = sign(gmp);
+        vm.expectRevert(bytes("deposit below max refund"));
+        gateway.execute(sig, gmp);
+        vm.stopPrank();
     }
 
     function testDepositReducesSenderFunds() public {
@@ -71,13 +93,16 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    function testExecuteReimbursesRefund() public {
-        address mockSender = address(0x0);
-        address mockReimbursed = address(0x1);
+    function testExecuteViaDelegateCall() public {
+        vm.txGasPrice(1);
         uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        address gatewayAddress = address(gateway);
+        assert(gatewayAddress != mockSender);
         vm.deal(mockSender, amount * 2);
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
+        vm.stopPrank();
         GmpMessage memory gmp = GmpMessage({
                 source: 0x0,
                 srcNetwork: 0,
@@ -85,16 +110,43 @@ contract GatewayTest is Test {
                 destNetwork: uint128(block.chainid),
                 gasLimit: 10000,
                 salt: 1,
-                data: "",
-                reimburse: address(mockReimbursed)
+                data: ""
         });
         Signature memory sig = sign(gmp);
+        // TODO: delegate_call from MockSender
+        // TODO: if fails, delegate_call for `deposit` above as well
         (uint8 status,) = gateway.execute(sig, gmp);
-        //uint256 gasUsed = gasBefore - gasleft();
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
-        // assert gateway.execute() refunded gas costs to reimburse account
-        assertEq(address(mockReimbursed).balance, 0);
-        vm.stopPrank();
+        assert(mockSender.balance > amount);
     }
+
+    // function testExecuteReimbursement() public {
+    //     vm.txGasPrice(1);
+    //     uint256 amount = 100 ether;
+    //     address mockSender = address(0x0);
+    //     address gatewayAddress = address(gateway);
+    //     assert(gatewayAddress != mockSender);
+    //     vm.deal(mockSender, amount * 2);
+    //     vm.startPrank(mockSender);
+    //     gateway.deposit{value: amount}(0x0, 0);
+    //     vm.stopPrank();
+    //     GmpMessage memory gmp = GmpMessage({
+    //             source: 0x0,
+    //             srcNetwork: 0,
+    //             dest: address(0x0),
+    //             destNetwork: uint128(block.chainid),
+    //             gasLimit: 10000,
+    //             salt: 1,
+    //             data: ""
+    //     });
+    //     Signature memory sig = sign(gmp);
+    //     // TODO: use delegate_call from MockSender
+    //     (uint8 status,) = gateway.execute(sig, gmp);
+    //     uint8 GMP_STATUS_SUCCESS = 1;
+    //     assertEq(status, GMP_STATUS_SUCCESS);
+    //     // TODO: mockSender.balance > amount
+    //     // TODO: mockSender.balance - amount == expectedRefund
+    //     assertEq(mockSender.balance, amount);
+    // }
 }

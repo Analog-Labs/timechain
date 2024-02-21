@@ -10,7 +10,6 @@ use time_primitives::TssSigningRequest;
 use time_primitives::{NetworkId, Runtime};
 use tracing::{event, span, Level};
 
-mod gmp;
 #[cfg(test)]
 mod mock;
 mod network;

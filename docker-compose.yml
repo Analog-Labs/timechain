@@ -55,6 +55,7 @@ services:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=3'
+    # - '--network-port=6881'
     - '--target-url=ws://ethereum:8545'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
@@ -73,6 +74,8 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
+    # ports:
+    # - 6881:6881/udp
 
   chronicle-astar1:
     image: 'analoglabs/chronicle'

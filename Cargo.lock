@@ -14186,6 +14186,8 @@ dependencies = [
 name = "time-primitives"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "anyhow",
  "async-trait",
  "frame-system",
@@ -14194,6 +14196,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "sha3",
  "sp-api",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",

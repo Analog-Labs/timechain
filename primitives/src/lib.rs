@@ -8,11 +8,13 @@ use futures::stream::BoxStream;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
+mod gmp;
 mod member;
 mod network;
 mod shard;
 mod task;
 
+pub use crate::gmp::*;
 pub use crate::member::*;
 pub use crate::network::*;
 pub use crate::shard::*;
@@ -70,7 +72,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_gateway(network: NetworkId) -> Option<Vec<u8>>;
+		fn get_gateway(network: NetworkId) -> Option<[u8; 20]>;
 	}
 
 	pub trait BlockTimeApi {
@@ -171,7 +173,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>>;
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
 
 	async fn submit_register_member(
 		&self,
@@ -197,7 +199,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		&self,
 		task_id: TaskId,
 		signature: TssSignature,
-		hash: [u8; 32],
+		chain_id: u64,
 	) -> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;

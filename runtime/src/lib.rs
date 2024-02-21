@@ -1549,7 +1549,7 @@ impl_runtime_apis! {
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
-		fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
+		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
 			Tasks::get_gateway(network)
 		}
 	}

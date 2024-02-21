@@ -1,9 +1,11 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tester::{Tester, TesterParams};
-use time_primitives::NetworkId;
+use tc_subxt::ext::futures::future::join_all;
+use tester::{TaskPhaseInfo, Tester, TesterParams};
+use time_primitives::{NetworkId, TaskPhase};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -43,12 +45,35 @@ enum TestCommand {
 	FundWallet,
 	DeployContract,
 	SetupGmp,
-	WatchTask { task_id: u64 },
+	WatchTask {
+		task_id: u64,
+	},
 	Basic,
-	BatchTask { tasks: u64 },
+	BatchTask {
+		tasks: u64,
+	},
 	Gmp,
 	TaskMigration,
-	KeyRecovery { nodes: u8 },
+	KeyRecovery {
+		nodes: u8,
+	},
+	/// # Arguments:
+	/// * `env`: on which env to run local/staging.
+	/// * `tasks`: number of tasks to register at once.
+	/// * `cycle`: number of times to register task at once.
+	/// * `block_timeout`: total number of blocks after which stop watching
+	LatencyCheck {
+		env: Environment,
+		tasks: u64,
+		cycle: u64,
+		block_timeout: u64,
+	},
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+enum Environment {
+	Local,
+	Staging,
 }
 
 #[tokio::main]
@@ -84,9 +109,210 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester, &contract, nodes).await?;
 		},
+		TestCommand::LatencyCheck {
+			env,
+			tasks,
+			cycle,
+			block_timeout,
+		} => {
+			latency_checker(&tester, env, tasks, cycle, block_timeout, &contract).await?;
+		},
+	}
+	Ok(())
+}
+
+async fn latency_checker(
+	tester: &Tester,
+	env: Environment,
+	tasks: u64,
+	rounds: u64,
+	block_timeout: u64,
+	contract: &Path,
+) -> Result<()> {
+	let mut overall_latencies = 0.0;
+	let mut overall_throughput = 0.0;
+
+	let mut rounds_future = Vec::new();
+	for c in 0..rounds {
+		let data = latency_cycle(tester, env.clone(), tasks, block_timeout, c, contract);
+		rounds_future.push(data);
+		// wait approximate block time;
+		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
 
+	let cycles_data = join_all(rounds_future).await;
+
+	for data in cycles_data.into_iter().flatten() {
+		overall_latencies += data.0;
+		overall_throughput += data.1;
+	}
+
+	let average_latencies = overall_latencies / (rounds as f32);
+	println!(
+		"Average latency for round(s) {:?} of total {:?} tasks each is {:?} blocks per task",
+		rounds, tasks, average_latencies
+	);
+	let average_throughput = overall_throughput / (rounds as f32);
+	println!(
+		"Average Throughput for round(s) {:?} of total of {:?} tasks is {:?} tasks per block",
+		rounds, tasks, average_throughput
+	);
 	Ok(())
+}
+async fn latency_cycle(
+	tester: &Tester,
+	env: Environment,
+	total_tasks: u64,
+	block_timeout: u64,
+	round_num: u64,
+	contract: &Path,
+) -> Result<(f32, f32)> {
+	let (contract_address, start_block) = match env {
+		Environment::Local => {
+			tester.faucet().await;
+			tester.setup_gmp().await?;
+			tester.deploy(contract, &[]).await?
+		},
+		Environment::Staging => ("0xb77791b3e38158475216dd4c0e2143b858188ba6".to_string(), 0),
+	};
+
+	let mut registerations = vec![];
+	for i in 0..total_tasks {
+		let mut salt = [0u8; 32];
+		let randomness = i.to_ne_bytes();
+		salt[..8].copy_from_slice(&randomness);
+		let send_msg =
+			tester::create_send_msg_call(contract_address.clone(), "vote_yes()", salt, 10000000);
+		registerations.push(tester.create_task(send_msg, start_block));
+	}
+
+	let mut task_ids: Vec<u64> = join_all(registerations)
+		.await
+		.into_iter()
+		.map(|result| result.unwrap())
+		.collect();
+
+	let starting_block = tester.get_latest_block().await?;
+
+	let mut task_phases_data = HashMap::new();
+	for id in task_ids.clone().into_iter() {
+		task_phases_data.insert(id, TaskPhaseInfo::new(starting_block));
+	}
+
+	let mut finished_tasks = HashMap::new();
+	println!("starting block {:?}", starting_block);
+	while finished_tasks.len() < total_tasks as usize {
+		let current_block = tester.get_latest_block().await?;
+		let time_since_execution = current_block - starting_block;
+		if time_since_execution > block_timeout {
+			return Err(anyhow::anyhow!("Block Timeout"))?;
+		}
+
+		let status: Vec<_> = task_ids
+			.iter()
+			.map(|&id| async move {
+				(id, tester.get_task_phase(id).await, tester.is_task_finished(id).await)
+			})
+			.collect();
+		let results: Vec<(u64, TaskPhase, bool)> = join_all(status).await;
+
+		for (task_id, task_phase, is_completed) in results {
+			let task_info = task_phases_data.get_mut(&task_id).unwrap();
+			if is_completed {
+				task_info.task_finished(current_block);
+				finished_tasks.insert(task_id, time_since_execution);
+				let index = task_ids.iter().position(|x| *x == task_id).unwrap();
+				task_ids.remove(index);
+				continue;
+			}
+			match task_phase {
+				TaskPhase::Write(_) => {
+					if task_info.write_phase_start.is_none() {
+						task_info.enter_write_phase(current_block);
+					}
+				},
+				TaskPhase::Read(_) => {
+					if task_info.read_phase_start.is_none() {
+						task_info.enter_read_phase(current_block);
+					}
+				},
+				_ => {},
+			}
+		}
+
+		if finished_tasks.len() == total_tasks as usize {
+			break;
+		}
+
+		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+
+	let ending_block = tester.get_latest_block().await?;
+	let round_num = round_num + 1;
+	let total_block_time = ending_block - starting_block;
+
+	let write_latencies: Vec<u64> = task_phases_data
+		.values()
+		.filter_map(|info| info.write_phase_start.map(|start| start - info.start_block))
+		.collect();
+
+	let read_latencies: Vec<u64> = task_phases_data
+		.values()
+		.filter_map(|info| {
+			if let Some(read_start) = info.read_phase_start {
+				info.write_phase_start.map(|write_start| read_start - write_start)
+			} else {
+				None
+			}
+		})
+		.collect();
+
+	let finish_latencies: Vec<u64> = task_phases_data
+		.values()
+		.filter_map(|info| {
+			if let Some(finish_block) = info.finish_block {
+				info.read_phase_start.map(|read_start| finish_block - read_start)
+			} else {
+				None
+			}
+		})
+		.collect();
+
+	let total_latencies: Vec<u64> = finished_tasks.values().cloned().collect();
+
+	let average_write_latency =
+		write_latencies.iter().sum::<u64>() as f32 / write_latencies.len() as f32;
+	let average_read_latency =
+		read_latencies.iter().sum::<u64>() as f32 / read_latencies.len() as f32;
+	let average_finish_latency =
+		finish_latencies.iter().sum::<u64>() as f32 / finish_latencies.len() as f32;
+	let average_total_latency =
+		total_latencies.iter().sum::<u64>() as f32 / total_latencies.len() as f32;
+
+	let throughput = total_tasks as f32 / total_block_time as f32;
+
+	println!(
+		"Total block time taken by round {} of {} tasks is {} blocks",
+		round_num, total_tasks, total_block_time
+	);
+	println!(
+		"Average write phase latency for round {} is {} blocks per task",
+		round_num, average_write_latency
+	);
+	println!(
+		"Average read phase latency for round {} is {} blocks per task",
+		round_num, average_read_latency
+	);
+	println!(
+		"Average finish phase latency for round {} is {} blocks per task",
+		round_num, average_finish_latency
+	);
+	println!(
+		"Average total latency for round {} is {} blocks per task",
+		round_num, average_total_latency
+	);
+	println!("Throughput for round {} is {} tasks per block", round_num, throughput);
+	Ok((average_total_latency, throughput))
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {

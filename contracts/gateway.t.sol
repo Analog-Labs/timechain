@@ -116,6 +116,12 @@ contract GatewayTest is Test {
         // TODO: delegate_call from MockSender
         // TODO: if fails, delegate_call for `deposit` above as well
         (uint8 status,) = gateway.execute(sig, gmp);
+        //     Signature memory signature, // coordinate x, nonce, e, s
+        //     GmpMessage memory message
+        //     bytes memory callData = abi.encodeWithSignature("execute(Signature,GmpMessage)", n);
+        // (bool ok,) = address(c).delegatecall(callData);
+        //if(!ok) revert("Delegate call failed");
+        // https://stackoverflow.com/questions/68327142/struct-on-delegatecall-as-an-argument
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
         assert(mockSender.balance > amount);

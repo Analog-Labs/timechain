@@ -1,4 +1,5 @@
 use crate::{Function, TssPublicKey, TssSignature};
+use alloy_primitives::private::Vec;
 use alloy_primitives::{b256, Address, U256};
 use alloy_sol_types::{sol, Eip712Domain, SolCall, SolStruct};
 

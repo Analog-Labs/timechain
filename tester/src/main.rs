@@ -57,7 +57,6 @@ enum TestCommand {
 	KeyRecovery {
 		nodes: u8,
 	},
-	///
 	/// # Arguments:
 	/// * `env`: on which env to run local/staging.
 	/// * `tasks`: number of tasks to register at once.

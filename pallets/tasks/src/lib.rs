@@ -816,28 +816,43 @@ pub mod pallet {
 			chain_id: u64,
 		) -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			let task_descriptor = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let Function::SendMessage {
-				address,
-				payload,
-				salt,
-				gas_limit,
-			} = task_descriptor.function
-			else {
-				return Err(Error::<T>::InvalidTaskFunction.into());
-			};
+			let tss_public_key =
+				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let network = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let gateway_contract =
 				Gateway::<T>::get(network).ok_or(Error::<T>::GatewayNotRegistered)?;
-			let tss_public_key =
-				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+
 			let gmp_params = GmpParams {
 				chain_id,
 				tss_public_key,
 				gateway_contract: gateway_contract.into(),
 			};
-			Ok(Message::gmp(chain_id, address, payload, salt, gas_limit)
-				.to_eip712_bytes(&gmp_params)
-				.into())
+
+			match task_descriptor.function {
+				Function::SendMessage {
+					address,
+					payload,
+					salt,
+					gas_limit,
+				} => Ok(Message::gmp(chain_id, address, payload, salt, gas_limit)
+					.to_eip712_bytes(&gmp_params)
+					.into()),
+				Function::RegisterShard { shard_id } => {
+					let tss_public_key =
+						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+					Ok(Message::update_keys([], [tss_public_key])
+						.to_eip712_bytes(&gmp_params)
+						.into())
+				},
+				Function::UnregisterShard { shard_id } => {
+					let tss_public_key =
+						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+					Ok(Message::update_keys([tss_public_key], [])
+						.to_eip712_bytes(&gmp_params)
+						.into())
+				},
+				_ => Err(Error::<T>::InvalidTaskFunction.into()),
+			}
 		}
 	}
 

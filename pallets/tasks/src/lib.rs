@@ -373,7 +373,7 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
-			let hash = Self::get_gmp_builder(task_id, shard_id, chain_id)?;
+			let hash = Self::get_gmp_hash(task_id, shard_id, chain_id)?;
 			let sig_hash = VerifyingKey::message_hash(&hash);
 			Self::validate_signature(shard_id, sig_hash, signature)?;
 			Self::start_write_phase(task_id, shard_id);
@@ -810,7 +810,7 @@ pub mod pallet {
 				);
 			});
 		}
-		fn get_gmp_builder(
+		fn get_gmp_hash(
 			task_id: TaskId,
 			shard_id: ShardId,
 			chain_id: u64,

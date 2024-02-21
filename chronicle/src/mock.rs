@@ -363,7 +363,7 @@ impl Runtime for Mock {
 	}
 
 	async fn get_gateway(&self, _network: NetworkId) -> Result<Option<[u8; 20]>> {
-		Ok(Some([0; 20].into()))
+		Ok(Some([0; 20]))
 	}
 
 	async fn submit_register_member(

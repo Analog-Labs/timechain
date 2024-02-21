@@ -241,8 +241,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Invalid Signature
 		InvalidSignature,
-		/// Invalid Task State
-		InvalidTaskState,
+		/// Invalid Task Phase
+		InvalidTaskPhase,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Invalid task function
@@ -286,6 +286,10 @@ pub mod pallet {
 			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
 				return Ok(());
 			}
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			let is_gmp = if task.function.is_gmp() {
 				ensure!(
 					Gateway::<T>::get(task.network).is_some(),
@@ -320,6 +324,10 @@ pub mod pallet {
 			error: TaskError,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(
+				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
+				Error::<T>::InvalidTaskPhase
+			);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
 			let error_hash = VerifyingKey::message_hash(error.msg.as_bytes());
 			let modified_data = append_hash_with_task_data(error_hash, task_id);
@@ -520,8 +528,13 @@ pub mod pallet {
 			};
 			if is_gmp {
 				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			}
-			// Snapshot the reward config in storage
+			} else if !schedule.function.is_payable() {
+				// Task phase state is TaskPhase::Read(None) == TaskPhase::default()
+				// so TaskPhaseState stays default.
+				// Still need to start the read phase timeout:
+				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
+			} // else write phase is started in schedule_tasks if task.function.is_payable() which means is Evm::Deploy || Evm::Call
+  // Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,
 				RewardConfig {

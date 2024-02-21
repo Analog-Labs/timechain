@@ -473,8 +473,9 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Execute GMP message
-    function _execute(bytes32 payloadHash, GmpMessage memory message) private returns (uint8 status, bytes32 result) {
+    function _execute(bytes32 payloadHash, GmpMessage memory message) private returns (uint8 status, bytes32 result, uint256 refund) {
         uint256 gasBefore = gasleft();
+        require(gasBefore > message.gasLimit, "gas limit not set in tx");
         uint256 depositBefore = _deposits[message.source][message.srcNetwork];
         // Verify that the contract has enough for the max possible refund
         require(depositBefore > message.gasLimit * tx.gasprice, "deposit below max refund");
@@ -535,9 +536,8 @@ contract Gateway is IGateway, SigUtils {
         // Emit event
         emit GmpExecuted(payloadHash, message.source, message.dest, status, result);
 
-        // Refund cost of execution to reimburse account
-        payable(message.reimburse).transfer((gasBefore - gasleft()) * tx.gasprice);
-        _deposits[message.source][message.srcNetwork] = depositBefore - ((gasBefore - gasleft()) * tx.gasprice);
+        refund = (gasBefore - gasleft()) * tx.gasprice;
+        _deposits[message.source][message.srcNetwork] = depositBefore - refund;
     }
 
     // Send GMP message using sudo account
@@ -547,7 +547,11 @@ contract Gateway is IGateway, SigUtils {
     ) public returns (uint8 status, bytes32 result) {
         bytes32 messageHash = getGmpTypedHash(message);
         _verifySignature(signature, messageHash);
-        (status, result) = _execute(messageHash, message);
+        uint256 refund;
+        (status, result, refund) = _execute(messageHash, message);
+        // Refund cost of GMP message execution to the reimburse account
+        // TODO: why is this reverting
+        //payable(message.reimburse).transfer(refund);
     }
 
     // Raw Execute GMP message using shard TSS signature

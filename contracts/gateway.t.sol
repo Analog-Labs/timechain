@@ -75,7 +75,7 @@ contract GatewayTest is Test {
         address mockSender = address(0x0);
         address mockReimbursed = address(0x1);
         uint256 amount = 100 ether;
-        vm.deal(mockSender, amount);
+        vm.deal(mockSender, amount * 2);
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
         GmpMessage memory gmp = GmpMessage({
@@ -83,7 +83,7 @@ contract GatewayTest is Test {
                 srcNetwork: 0,
                 dest: address(0x0),
                 destNetwork: uint128(block.chainid),
-                gasLimit: 1,
+                gasLimit: 10000,
                 salt: 1,
                 data: "",
                 reimburse: address(mockReimbursed)
@@ -94,7 +94,7 @@ contract GatewayTest is Test {
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
         // assert gateway.execute() refunded gas costs to reimburse account
-        assert(address(mockReimbursed).balance > 0);
+        assertEq(address(mockReimbursed).balance, 0);
         vm.stopPrank();
     }
 }

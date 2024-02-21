@@ -85,7 +85,6 @@ struct GmpMessage {
     uint256 gasLimit;    // gas limit of the GMP call
     uint256 salt;        // Message salt, useful for sending two messages with same content
     bytes data;          // message data with no specified format
-    address reimburse;  // Reimbursement contract address
 }
 
 /**
@@ -240,8 +239,7 @@ contract SigUtils {
                     gmp.destNetwork,
                     gmp.gasLimit,
                     gmp.salt,
-                    keccak256(gmp.data),
-                    gmp.reimburse
+                    keccak256(gmp.data)
                 )
             );
     }
@@ -550,8 +548,7 @@ contract Gateway is IGateway, SigUtils {
         uint256 refund;
         (status, result, refund) = _execute(messageHash, message);
         // Refund cost of GMP message execution to the reimburse account
-        // TODO: why is this reverting
-        //payable(message.reimburse).transfer(refund);
+        payable(tx.origin).transfer(refund);
     }
 
     // Raw Execute GMP message using shard TSS signature
@@ -563,8 +560,7 @@ contract Gateway is IGateway, SigUtils {
         uint128 destNetwork, // 'destNetwork' from GmpPayload within GmpMessage
         uint256 gasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
         uint256 salt,        // 'salt' from GmpPayload within GmpMessage
-        bytes memory data,   // 'data' from GmpPayload within GmpMessage
-        address reimburse    // 'reimburse' from GmpPayload within GmpMessage
+        bytes memory data   // 'data' from GmpPayload within GmpMessage
     ) external returns (uint8 status, bytes32 result) {
         Signature memory signature;
         assembly {
@@ -580,8 +576,7 @@ contract Gateway is IGateway, SigUtils {
             destNetwork: destNetwork,
             gasLimit: gasLimit,
             salt: salt,
-            data: data,
-            reimburse: reimburse
+            data: data
         });
 
         // Execute GMP message

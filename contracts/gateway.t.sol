@@ -24,6 +24,14 @@ contract GatewayTest is Test {
         return Signature({xCoord: signer.xCoord(), e: e, s: s});
     }
 
+    function nonRefundableExecution(Signature memory signature, GmpMessage memory message) internal view returns (uint256 gasUsed) {
+        vm.txGasPrice(1);
+        uint256 gasBefore = gasleft();
+        bytes32 messageHash = getGmpTypedHash(message);
+        _verifySignature(signature, messageHash);
+        gasUsed = (gasBefore - gasleft()) * tx.gasprice;
+    }
+
     function testExecuteRevertsWithoutDeposit() public {
         uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         GmpMessage memory gmp = GmpMessage({
@@ -158,13 +166,14 @@ contract GatewayTest is Test {
             data: ""
         });
         Signature memory sig = sign(gmp);
-        //uint256 gasBefore = gasleft();
+        uint256 gasBefore = gasleft();
         (uint8 status,) = gateway.execute(sig, gmp);
         uint8 GMP_STATUS_SUCCESS = 1;
-        //uint256 expectedRefund = (gasBefore - gasleft()) * tx.gasprice;
         assertEq(status, GMP_STATUS_SUCCESS);
         uint256 actualRefund = mockSender.balance - amount;
         assertEq(amount - gatewayAddress.balance, actualRefund);
+        uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - nonRefundableExecution(sig, gmp);
+        assertEq(actualRefund, expectedRefund);
         vm.stopPrank();
     }
 }

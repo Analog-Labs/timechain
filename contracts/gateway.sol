@@ -430,11 +430,7 @@ contract Gateway is IGateway, SigUtils {
         returns (uint8 status, bytes32 result, uint256 refund)
     {
         uint256 gasBefore = gasleft();
-        require(gasBefore > message.gasLimit, "gas limit not set in tx");
-        uint256 depositBefore = _deposits[message.source][message.srcNetwork];
-        // Verify that the contract has enough for the max possible refund
-        require(depositBefore > message.gasLimit * tx.gasprice, "deposit below max refund");
-        require(address(this).balance > message.gasLimit * tx.gasprice, "balance below max refund ");
+        require(_deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund");
         // Verify if this GMP message was already executed
         GmpInfo storage gmp = _messages[payloadHash];
         require(gmp.status == GMP_STATUS_NOT_FOUND, "message already executed");
@@ -489,7 +485,7 @@ contract Gateway is IGateway, SigUtils {
         emit GmpExecuted(payloadHash, message.source, message.dest, status, result);
 
         refund = (gasBefore - gasleft()) * tx.gasprice;
-        _deposits[message.source][message.srcNetwork] = depositBefore - refund;
+        _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
     }
 
     // Send GMP message using sudo account
@@ -501,7 +497,6 @@ contract Gateway is IGateway, SigUtils {
         _verifySignature(signature, messageHash);
         uint256 refund;
         (status, result, refund) = _execute(messageHash, message);
-        // Refund cost of GMP message execution to the reimburse account
         payable(tx.origin).transfer(refund);
     }
 

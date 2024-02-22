@@ -33,6 +33,56 @@ contract GatewayTest is Test {
         gasUsed = (gasBefore - gasleft() + verifySigGasEstimate) * tx.gasprice;
     }
 
+    function testDepositReducesSenderFunds() public {
+        uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, amount);
+        uint256 balanceBefore = address(mockSender).balance;
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        assertEq(balanceBefore - address(mockSender).balance, amount, "deposit failed to transfer amount from sender");
+        vm.stopPrank();
+    }
+
+    function testDepositIncreasesGatewayFunds() public {
+        uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        address gatewayAddress = address(gateway);
+        assert(gatewayAddress != mockSender);
+        uint256 gatewayBalanceBefore = gatewayAddress.balance;
+        vm.deal(mockSender, amount);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        assertEq(gatewayAddress.balance - gatewayBalanceBefore, amount, "deposit failed to transfer amount to gateway");
+        vm.stopPrank();
+    }
+
+    // TODO: test deposit for multiple contracts, networks
+    // TODO: use this test to verify correct updating of internal `_deposits`
+    // function testDeposits() {
+    //     vm.txGasPrice(1);
+    //     uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
+    //     uint256 amount = 100 ether;
+    //     uint256 insufficientDeposit = (gasLimit * tx.gasprice) - 1;
+    //     address mockSender = address(0x0);
+    //     vm.deal(mockSender, amount * 2);
+    //     vm.startPrank(mockSender);
+    //     gateway.deposit{value: amount}(0x0, 0);
+    //     gateway.deposit{value: amount}(0x1, 0);
+    //     GmpMessage memory gmp1 = GmpMessage({
+    //         source: 0x0,
+    //         srcNetwork: 0,
+    //         dest: address(0x0),
+    //         destNetwork: uint128(block.chainid),
+    //         gasLimit: FOUNDRY_GAS_LIMIT,
+    //         salt: 1,
+    //         data: ""
+    //     });
+    //     Signature memory sig = sign(gmp1);
+    //     gateway.execute(sig, gmp1);
+    //     vm.stopPrank();
+    // }
+
     function testExecuteRevertsWithoutDeposit() public {
         uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         GmpMessage memory gmp = GmpMessage({
@@ -75,7 +125,7 @@ contract GatewayTest is Test {
     function testExecuteRevertsBelowGasLimit() public {
         vm.txGasPrice(1);
         uint256 gasLimit = 100000;
-        uint256 insufficientDeposit = (gasLimit * tx.gasprice) - 1;
+        uint256 insufficientDeposit = gasLimit * tx.gasprice;
         address mockSender = address(0x0);
         vm.deal(mockSender, insufficientDeposit);
         vm.startPrank(mockSender);
@@ -118,30 +168,6 @@ contract GatewayTest is Test {
         assertEq(status, GMP_STATUS_SUCCESS);
         vm.expectRevert(bytes("message already executed"));
         gateway.execute(sig, gmp);
-        vm.stopPrank();
-    }
-
-    function testDepositReducesSenderFunds() public {
-        uint256 amount = 100 ether;
-        address mockSender = address(0x0);
-        vm.deal(mockSender, amount);
-        uint256 balanceBefore = address(mockSender).balance;
-        vm.startPrank(mockSender);
-        gateway.deposit{value: amount}(0x0, 0);
-        assertEq(balanceBefore - address(mockSender).balance, amount, "deposit failed to transfer amount from sender");
-        vm.stopPrank();
-    }
-
-    function testDepositIncreasesGatewayFunds() public {
-        uint256 amount = 100 ether;
-        address mockSender = address(0x0);
-        address gatewayAddress = address(gateway);
-        assert(gatewayAddress != mockSender);
-        uint256 gatewayBalanceBefore = gatewayAddress.balance;
-        vm.deal(mockSender, amount);
-        vm.startPrank(mockSender);
-        gateway.deposit{value: amount}(0x0, 0);
-        assertEq(gatewayAddress.balance - gatewayBalanceBefore, amount, "deposit failed to transfer amount to gateway");
         vm.stopPrank();
     }
 

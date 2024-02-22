@@ -41,14 +41,23 @@ env:
 
 jobs:
   test:
-    name: Build and test timechain
+    name: Build and test
     runs-on: [self-hosted, rust-check]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - run: sudo apt-get update -y
       - run: sudo add-apt-repository ppa:ethereum/ethereum
       - run: sudo apt-get install -y protobuf-compiler solc
+
+      - run: forge fmt --check
+      - run: forge test -vvv
 
       - run: cargo +stable fmt --all -- --check
       - run: cargo +stable test --workspace --locked
@@ -62,20 +71,6 @@ jobs:
           # `--no-deps` does not check dependencies out of workspace
           # `--all-features` doesn't work atm
           args: --all-targets --workspace --examples --tests -- --no-deps -D warnings
-
-  forge:
-    name: Build and test gateway
-    runs-on: [self-hosted, rust-check]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      
-      - run: forge fmt --check
-      - run: forge test -vvv
 
   audit:
     name: Cargo Audit

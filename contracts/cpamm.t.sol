@@ -6,16 +6,16 @@ import "./erc20.sol";
 import "forge-std/Test.sol";
 
 contract CPAMMTest is Test {
-    ERC20 token0;
-    ERC20 token1;
+    TestToken token0;
+    TestToken token1;
     CPAMM amm;
 
     address constant alice = address(0xa);
     address constant bob = address(0xb);
 
     function setUp() public {
-        token0 = new ERC20();
-        token1 = new ERC20();
+        token0 = new TestToken();
+        token1 = new TestToken();
         amm = new CPAMM(address(token0), address(token1));
     }
 

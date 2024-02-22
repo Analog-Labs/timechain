@@ -430,6 +430,7 @@ contract Gateway is IGateway, SigUtils {
         returns (uint8 status, bytes32 result, uint256 refund)
     {
         uint256 gasBefore = gasleft();
+        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
         require(
             _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
         );

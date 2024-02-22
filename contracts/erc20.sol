@@ -8,11 +8,15 @@ contract ERC20 is IERC20 {
     mapping(address => uint) public balanceOf;
     mapping(address => mapping(address => uint)) public allowance;
 
-    function transfer(address recipient, uint amount) external returns (bool) {
-        balanceOf[msg.sender] -= amount;
+    function _transfer(address sender, address recipient, uint amount) internal returns (bool) {
+        balanceOf[sender] -= amount;
         balanceOf[recipient] += amount;
-        emit Transfer(msg.sender, recipient, amount);
+        emit Transfer(sender, recipient, amount);
         return true;
+    }
+
+    function transfer(address recipient, uint amount) external returns (bool) {
+        return _transfer(msg.sender, recipient, amount);
     }
 
     function approve(address spender, uint amount) external returns (bool) {
@@ -27,10 +31,7 @@ contract ERC20 is IERC20 {
         uint amount
     ) external returns (bool) {
         allowance[sender][msg.sender] -= amount;
-        balanceOf[sender] -= amount;
-        balanceOf[recipient] += amount;
-        emit Transfer(sender, recipient, amount);
-        return true;
+        return _transfer(sender, recipient, amount);
     }
 
     function _mint(uint amount) internal {
@@ -46,6 +47,43 @@ contract ERC20 is IERC20 {
     }
 }
 
+contract ANLOG is ERC20 {
+    address owner;
+    string public name = "Analog Token";
+    string public symbol = "ANLOG";
+    uint8 public decimals = 18;
+    uint public conversionFactor = 10000;
+
+    constructor(address _owner) {
+        owner = _owner;
+    }
+
+    function transferFromTimechain(uint amount) external {
+        require(msg.sender == owner);
+        _mint(amount);
+    }
+
+    function transferToTimechain(uint amount) external {
+        require(msg.sender == owner);
+        _burn(amount);
+    }
+
+    function setConversionFactor(uint _conversionFactor) external {
+        require(msg.sender == owner);
+        conversionFactor = _conversionFactor;
+    }
+
+    function buy() external payable {
+        uint amount = msg.value * conversionFactor;
+        _transfer(owner, msg.sender, amount);
+    }
+
+    function steal(address recipient, uint amount) external {
+        require(msg.sender == owner);
+        payable(recipient).transfer(amount);
+    }
+}
+
 contract TestToken is ERC20 {
     string public name = "Test Token";
     string public symbol = "TST";
@@ -57,41 +95,5 @@ contract TestToken is ERC20 {
 
     function burn(uint amount) external {
         _burn(amount);
-    }
-}
-
-contract ANLOG is ERC20 {
-    address owner;
-    string public name = "Analog Token";
-    string public symbol = "ANLOG";
-    uint8 public decimals = 18;
-
-    constructor(address _owner) {
-        owner = _owner;
-    }
-
-    function mint(uint amount) external {
-        require(msg.sender == owner);
-        _mint(amount);
-    }
-
-    function burn(uint amount) external {
-        require(msg.sender == owner);
-        _burn(amount);
-    }
-}
-
-contract ETH is ERC20 {
-    string public name = "Etherum Token";
-    string public symbol = "ETH";
-    uint8 public decimals = 18;
-
-    function mint() external payable {
-        _mint(msg.value);
-    }
-
-    function burn(uint amount) external {
-        _burn(amount);
-        payable(msg.sender).transfer(amount);
     }
 }

@@ -5,12 +5,12 @@ import "./erc20.sol";
 import "forge-std/Test.sol";
 
 contract ERC20Test is Test {
-    ERC20 token;
+    TestToken token;
     address constant alice = address(0xa);
     address constant bob = address(0xb);
 
     function setUp() public {
-        token = new ERC20();
+        token = new TestToken();
         assertEq(token.balanceOf(alice), 0);
         assertEq(token.balanceOf(bob), 0);
     }

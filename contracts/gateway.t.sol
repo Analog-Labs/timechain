@@ -86,16 +86,17 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    function testExecuteViaDelegateCall() public {
+    function testExecuteReimbursement() public {
         vm.txGasPrice(1);
         uint256 amount = 100 ether;
         address mockSender = address(0x0);
         address gatewayAddress = address(gateway);
         assert(gatewayAddress != mockSender);
         vm.deal(mockSender, amount * 2);
-        vm.startPrank(mockSender);
+        vm.startPrank(mockSender, mockSender);
         gateway.deposit{value: amount}(0x0, 0);
-        vm.stopPrank();
+        assertEq(mockSender.balance, amount);
+        assertEq(gatewayAddress.balance, amount);
         GmpMessage memory gmp = GmpMessage({
             source: 0x0,
             srcNetwork: 0,
@@ -106,46 +107,12 @@ contract GatewayTest is Test {
             data: ""
         });
         Signature memory sig = sign(gmp);
-        // TODO: delegate_call from MockSender
-        // TODO: if fails, delegate_call for `deposit` above as well
         (uint8 status,) = gateway.execute(sig, gmp);
-        //     Signature memory signature, // coordinate x, nonce, e, s
-        //     GmpMessage memory message
-        //     bytes memory callData = abi.encodeWithSignature("execute(Signature,GmpMessage)", n);
-        // (bool ok,) = address(c).delegatecall(callData);
-        //if(!ok) revert("Delegate call failed");
-        // https://stackoverflow.com/questions/68327142/struct-on-delegatecall-as-an-argument
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
+        // TODO: test that difference from amount equals expected refund
+        assert(gatewayAddress.balance < amount);
         assert(mockSender.balance > amount);
+        vm.stopPrank();
     }
-
-    // function testExecuteReimbursement() public {
-    //     vm.txGasPrice(1);
-    //     uint256 amount = 100 ether;
-    //     address mockSender = address(0x0);
-    //     address gatewayAddress = address(gateway);
-    //     assert(gatewayAddress != mockSender);
-    //     vm.deal(mockSender, amount * 2);
-    //     vm.startPrank(mockSender);
-    //     gateway.deposit{value: amount}(0x0, 0);
-    //     vm.stopPrank();
-    //     GmpMessage memory gmp = GmpMessage({
-    //             source: 0x0,
-    //             srcNetwork: 0,
-    //             dest: address(0x0),
-    //             destNetwork: uint128(block.chainid),
-    //             gasLimit: 10000,
-    //             salt: 1,
-    //             data: ""
-    //     });
-    //     Signature memory sig = sign(gmp);
-    //     // TODO: use delegate_call from MockSender
-    //     (uint8 status,) = gateway.execute(sig, gmp);
-    //     uint8 GMP_STATUS_SUCCESS = 1;
-    //     assertEq(status, GMP_STATUS_SUCCESS);
-    //     // TODO: mockSender.balance > amount
-    //     // TODO: mockSender.balance - amount == expectedRefund
-    //     assertEq(mockSender.balance, amount);
-    // }
 }

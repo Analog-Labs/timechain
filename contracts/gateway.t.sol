@@ -63,6 +63,55 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
+    function testExecuteRevertsBelowGasLimit() public {
+        vm.txGasPrice(1);
+        uint256 gasLimit = 100000;
+        uint256 insufficientDeposit = (gasLimit * tx.gasprice) - 1;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, insufficientDeposit);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: insufficientDeposit}(0x0, 0);
+        GmpMessage memory gmp = GmpMessage({
+            source: 0x0,
+            srcNetwork: 0,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: gasLimit,
+            salt: 1,
+            data: ""
+        });
+        Signature memory sig = sign(gmp);
+        vm.expectRevert(bytes("gas left below message.gasLimit"));
+        gateway.execute(sig, gmp);
+        vm.stopPrank();
+    }
+
+    function testExecuteRevertsAlreadyExecuted() public {
+        vm.txGasPrice(1);
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
+        uint256 amount = 100 ether;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, amount * 2);
+        vm.startPrank(mockSender, mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        GmpMessage memory gmp = GmpMessage({
+            source: 0x0,
+            srcNetwork: 0,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: FOUNDRY_GAS_LIMIT,
+            salt: 1,
+            data: ""
+        });
+        Signature memory sig = sign(gmp);
+        (uint8 status,) = gateway.execute(sig, gmp);
+        uint8 GMP_STATUS_SUCCESS = 1;
+        assertEq(status, GMP_STATUS_SUCCESS);
+        vm.expectRevert(bytes("message already executed"));
+        gateway.execute(sig, gmp);
+        vm.stopPrank();
+    }
+
     function testDepositReducesSenderFunds() public {
         uint256 amount = 100 ether;
         address mockSender = address(0x0);

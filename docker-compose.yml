@@ -15,11 +15,10 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     labels:
       prometheus-scrape.enabled: 'true'
-    ports:
-      - 9944:9944
     profiles:
     - ethereum
     - astar
+    - humanode
 
   ethereum:
     image: 'ethereum/client-go:v1.12.2'
@@ -50,6 +49,22 @@ services:
     - '--no-mdns'
     profiles:
     - astar
+
+    
+  humanode:
+    image: 'humanode'
+    command: 
+    - 'humanode-peer'
+    - '--chain=dev'
+    - '--rpc-cors=all'
+    - '--ws-external'
+    - '--alice'
+    ports:
+     - "9944:9944"
+     - "9933:9933"
+    profiles:
+      - humanode
+
 
   chronicle-eth1:
     image: 'analoglabs/chronicle'
@@ -107,6 +122,29 @@ services:
     - './config/wallets/alice:/etc/alice:ro'
     - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
     - './contracts/gateway.sol:/etc/gateway.sol:ro'
+
+  chronicle-humanode1:
+    image: 'analoglabs/chronicle'
+    command:
+    - '--network-id=7'
+    - '--target-url=ws://humanode:9944'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    environment:
+      RUST_LOG: 'chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
+    restart: 'always'
+    depends_on:
+    - validator
+    - humanode
+    volumes:
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    profiles:
+    - humanode
 
   prometheus:
     image: prom/prometheus:v2.36.2

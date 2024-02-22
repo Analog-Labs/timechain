@@ -844,6 +844,7 @@ fn generate_analog_genesis(
 				("ethereum".into(), "goerli".into()),
 				("ethereum".into(), "sepolia".into()),
 				("astar".into(), "dev".into()),
+				("humanode".into(), "dev".into()),
 			],
 			..Default::default()
 		},

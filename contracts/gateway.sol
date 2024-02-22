@@ -430,7 +430,9 @@ contract Gateway is IGateway, SigUtils {
         returns (uint8 status, bytes32 result, uint256 refund)
     {
         uint256 gasBefore = gasleft();
-        require(_deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund");
+        require(
+            _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
+        );
         // Verify if this GMP message was already executed
         GmpInfo storage gmp = _messages[payloadHash];
         require(gmp.status == GMP_STATUS_NOT_FOUND, "message already executed");

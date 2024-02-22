@@ -57,31 +57,51 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    // TODO: test deposit for multiple contracts, networks
-    // TODO: use this test to verify correct updating of internal `_deposits`
-    // function testDeposits() {
-    //     vm.txGasPrice(1);
-    //     uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
-    //     uint256 amount = 100 ether;
-    //     uint256 insufficientDeposit = (gasLimit * tx.gasprice) - 1;
-    //     address mockSender = address(0x0);
-    //     vm.deal(mockSender, amount * 2);
-    //     vm.startPrank(mockSender);
-    //     gateway.deposit{value: amount}(0x0, 0);
-    //     gateway.deposit{value: amount}(0x1, 0);
-    //     GmpMessage memory gmp1 = GmpMessage({
-    //         source: 0x0,
-    //         srcNetwork: 0,
-    //         dest: address(0x0),
-    //         destNetwork: uint128(block.chainid),
-    //         gasLimit: FOUNDRY_GAS_LIMIT,
-    //         salt: 1,
-    //         data: ""
-    //     });
-    //     Signature memory sig = sign(gmp1);
-    //     gateway.execute(sig, gmp1);
-    //     vm.stopPrank();
-    // }
+    function testExecuteRevertsWrongNetwork() public {
+        vm.txGasPrice(1);
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
+        uint256 amount = 10 ether;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, amount * 2);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        GmpMessage memory wrongNetwork = GmpMessage({
+            source: 0x0,
+            srcNetwork: 1,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: FOUNDRY_GAS_LIMIT,
+            salt: 1,
+            data: ""
+        });
+        Signature memory wrongNetworkSig = sign(wrongNetwork);
+        vm.expectRevert(bytes("deposit below max refund"));
+        gateway.execute(wrongNetworkSig, wrongNetwork);
+        vm.stopPrank();
+    }
+
+    function testExecuteRevertsWrongSource() public {
+        vm.txGasPrice(1);
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
+        uint256 amount = 10 ether;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, amount * 2);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: amount}(0x0, 0);
+        GmpMessage memory wrongSource = GmpMessage({
+            source: bytes32(uint256(0x1)),
+            srcNetwork: 0,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: FOUNDRY_GAS_LIMIT,
+            salt: 1,
+            data: ""
+        });
+        Signature memory wrongSourceSig = sign(wrongSource);
+        vm.expectRevert(bytes("deposit below max refund"));
+        gateway.execute(wrongSourceSig, wrongSource);
+        vm.stopPrank();
+    }
 
     function testExecuteRevertsWithoutDeposit() public {
         uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;

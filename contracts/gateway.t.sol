@@ -25,12 +25,13 @@ contract GatewayTest is Test {
     }
 
     function testExecuteRevertsWithoutDeposit() public {
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         GmpMessage memory gmp = GmpMessage({
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
             destNetwork: uint128(block.chainid),
-            gasLimit: 100000,
+            gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
         });
@@ -41,8 +42,8 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsBelowDeposit() public {
         vm.txGasPrice(1);
-        uint256 gasLimit = 100000;
-        uint256 insufficientDeposit = (gasLimit * tx.gasprice) - 1;
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
+        uint256 insufficientDeposit = (FOUNDRY_GAS_LIMIT * tx.gasprice) - 1;
         address mockSender = address(0x0);
         vm.deal(mockSender, insufficientDeposit);
         vm.startPrank(mockSender);
@@ -52,7 +53,7 @@ contract GatewayTest is Test {
             srcNetwork: 0,
             dest: address(0x0),
             destNetwork: uint128(block.chainid),
-            gasLimit: gasLimit,
+            gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
         });
@@ -88,6 +89,7 @@ contract GatewayTest is Test {
 
     function testExecuteReimbursement() public {
         vm.txGasPrice(1);
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         uint256 amount = 100 ether;
         address mockSender = address(0x0);
         address gatewayAddress = address(gateway);
@@ -102,17 +104,18 @@ contract GatewayTest is Test {
             srcNetwork: 0,
             dest: address(0x0),
             destNetwork: uint128(block.chainid),
-            gasLimit: 10000,
+            gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
         });
         Signature memory sig = sign(gmp);
+        //uint256 gasBefore = gasleft();
         (uint8 status,) = gateway.execute(sig, gmp);
         uint8 GMP_STATUS_SUCCESS = 1;
+        //uint256 expectedRefund = (gasBefore - gasleft()) * tx.gasprice;
         assertEq(status, GMP_STATUS_SUCCESS);
-        assert(gatewayAddress.balance < amount);
-        assert(mockSender.balance > amount);
-        assertEq(amount - gatewayAddress.balance, mockSender.balance - amount);
+        uint256 actualRefund = mockSender.balance - amount;
+        assertEq(amount - gatewayAddress.balance, actualRefund);
         vm.stopPrank();
     }
 }

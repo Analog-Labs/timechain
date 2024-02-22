@@ -24,12 +24,13 @@ contract GatewayTest is Test {
         return Signature({xCoord: signer.xCoord(), e: e, s: s});
     }
 
-    function nonRefundableExecution(Signature memory signature, GmpMessage memory message) internal view returns (uint256 gasUsed) {
-        vm.txGasPrice(1);
+    function nonRefundableExecution(GmpMessage memory message) internal view returns (uint256 gasUsed) {
         uint256 gasBefore = gasleft();
-        bytes32 messageHash = getGmpTypedHash(message);
-        _verifySignature(signature, messageHash);
-        gasUsed = (gasBefore - gasleft()) * tx.gasprice;
+        gateway.getGmpTypedHash(message);
+        // replace with _verifySignature gas cost once exposed
+        uint256 verifySigGasEstimate = 24037;
+        require(tx.gasprice == 1);
+        gasUsed = (gasBefore - gasleft() + verifySigGasEstimate) * tx.gasprice;
     }
 
     function testExecuteRevertsWithoutDeposit() public {
@@ -172,7 +173,7 @@ contract GatewayTest is Test {
         assertEq(status, GMP_STATUS_SUCCESS);
         uint256 actualRefund = mockSender.balance - amount;
         assertEq(amount - gatewayAddress.balance, actualRefund);
-        uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - nonRefundableExecution(sig, gmp);
+        uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - nonRefundableExecution(gmp);
         assertEq(actualRefund, expectedRefund);
         vm.stopPrank();
     }

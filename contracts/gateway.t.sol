@@ -110,9 +110,9 @@ contract GatewayTest is Test {
         (uint8 status,) = gateway.execute(sig, gmp);
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
-        // TODO: test that difference from amount equals expected refund
         assert(gatewayAddress.balance < amount);
         assert(mockSender.balance > amount);
+        assertEq(amount - gatewayAddress.balance, mockSender.balance - amount);
         vm.stopPrank();
     }
 }

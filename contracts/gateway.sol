@@ -200,7 +200,7 @@ contract SigUtils {
         return keccak256(
             abi.encode(
                 keccak256(
-                    "GmpMessage(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data,address reimburse)"
+                    "GmpMessage(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
                 ),
                 gmp.source,
                 gmp.srcNetwork,

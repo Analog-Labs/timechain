@@ -33,6 +33,14 @@ contract GatewayTest is Test {
         gasUsed = (gasBefore - gasleft() + verifySigGasEstimate) * tx.gasprice;
     }
 
+    function testDepositRevertsOutOfFunds() public {
+        address mockSender = address(0x0);
+        vm.startPrank(mockSender);
+        vm.expectRevert();
+        gateway.deposit{value: 1}(0x0, 0);
+        vm.stopPrank();
+    }
+
     function testDepositReducesSenderFunds() public {
         uint256 amount = 100 ether;
         address mockSender = address(0x0);
@@ -54,6 +62,48 @@ contract GatewayTest is Test {
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
         assertEq(gatewayAddress.balance - gatewayBalanceBefore, amount, "deposit failed to transfer amount to gateway");
+        vm.stopPrank();
+    }
+
+    function testDepositMapping() public {
+        vm.txGasPrice(1);
+        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
+        // measured in testExecuteReimbursement
+        uint256 EXECUTE_CALL_COST = 28592;
+        address mockSender = address(0x0);
+        vm.deal(mockSender, FOUNDRY_GAS_LIMIT * 3);
+        vm.startPrank(mockSender);
+        gateway.deposit{value: FOUNDRY_GAS_LIMIT + EXECUTE_CALL_COST - 1}(0x0, 0);
+        GmpMessage memory gmp = GmpMessage({
+            source: 0x0,
+            srcNetwork: 0,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: FOUNDRY_GAS_LIMIT,
+            salt: 1,
+            data: ""
+        });
+        Signature memory sig = sign(gmp);
+        (uint8 status,) = gateway.execute(sig, gmp);
+        uint8 GMP_STATUS_SUCCESS = 1;
+        assertEq(status, GMP_STATUS_SUCCESS);
+        GmpMessage memory gmp2 = GmpMessage({
+            source: 0x0,
+            srcNetwork: 0,
+            dest: address(0x1),
+            destNetwork: uint128(block.chainid),
+            gasLimit: FOUNDRY_GAS_LIMIT,
+            salt: 1,
+            data: ""
+        });
+        Signature memory sig2 = sign(gmp2);
+        vm.expectRevert(bytes("deposit below max refund"));
+        gateway.execute(sig2, gmp2);
+        gateway.deposit{value: 1}(0x0, 0);
+        vm.expectRevert(bytes("deposit below max refund"));
+        gateway.execute(sig2, gmp2);
+        gateway.deposit{value: 1}(0x0, 0);
+        gateway.execute(sig2, gmp2);
         vm.stopPrank();
     }
 
@@ -191,6 +241,7 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
+    // measures gas used by execute = 28592
     function testExecuteReimbursement() public {
         vm.txGasPrice(1);
         uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
@@ -221,6 +272,9 @@ contract GatewayTest is Test {
         assertEq(amount - gatewayAddress.balance, actualRefund);
         uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - nonRefundableExecution(gmp);
         assertEq(actualRefund, expectedRefund);
+        // assert fails => measured gas cost is different NOTE: tx.gasprice = 1
+        uint256 EXECUTE_CALL_COST = 28592;
+        assertEq(actualRefund, EXECUTE_CALL_COST);
         vm.stopPrank();
     }
 }

@@ -28,7 +28,7 @@ contract ERC20Test is Test {
         token.mint(100);
         assertEq(token.balanceOf(alice), 100);
         assertEq(token.balanceOf(bob), 0);
-        
+
         token.transfer(bob, 100);
         assertEq(token.balanceOf(alice), 0);
         assertEq(token.balanceOf(bob), 100);
@@ -39,10 +39,10 @@ contract ERC20Test is Test {
         token.mint(100);
         assertEq(token.balanceOf(alice), 100);
         assertEq(token.balanceOf(bob), 0);
-        
+
         token.transfer(bob, 101);
     }
-    
+
     function test_allowance() public {
         vm.startPrank(alice);
         token.mint(100);

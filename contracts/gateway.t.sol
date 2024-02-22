@@ -10,7 +10,7 @@ uint256 constant nonce = 0x69;
 contract GatewayTest is Test {
     Gateway gateway;
     Signer signer;
-    
+
     constructor() {
         signer = new Signer(secret);
         uint256[2][] memory keys = new uint256[2][](1);
@@ -21,23 +21,19 @@ contract GatewayTest is Test {
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
         uint256 hash = uint256(gateway.getGmpTypedHash(gmp));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
-        return Signature({
-            xCoord: signer.xCoord(),
-            e: e,
-            s: s
-        });
+        return Signature({xCoord: signer.xCoord(), e: e, s: s});
     }
 
     function testExecuteRevertsWithoutDeposit() public {
         GmpMessage memory gmp = GmpMessage({
-                source: 0x0,
-                srcNetwork: 0,
-                dest: address(0x0),
-                destNetwork: uint128(block.chainid),
-                gasLimit: 100000,
-                salt: 1,
-                data: "",
-                reimburse: address(0x0)
+            source: 0x0,
+            srcNetwork: 0,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: 100000,
+            salt: 1,
+            data: "",
+            reimburse: address(0x0)
         });
         Signature memory sig = sign(gmp);
         vm.expectRevert(bytes("deposit below max refund"));
@@ -64,10 +60,7 @@ contract GatewayTest is Test {
         vm.deal(mockSender, amount);
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
-        assertEq(
-            gatewayAddress.balance - gatewayBalanceBefore, amount,
-            "deposit failed to transfer amount to gateway"
-        );
+        assertEq(gatewayAddress.balance - gatewayBalanceBefore, amount, "deposit failed to transfer amount to gateway");
         vm.stopPrank();
     }
 
@@ -79,14 +72,14 @@ contract GatewayTest is Test {
         vm.startPrank(mockSender);
         gateway.deposit{value: amount}(0x0, 0);
         GmpMessage memory gmp = GmpMessage({
-                source: 0x0,
-                srcNetwork: 0,
-                dest: address(0x0),
-                destNetwork: uint128(block.chainid),
-                gasLimit: 10000,
-                salt: 1,
-                data: "",
-                reimburse: address(mockReimbursed)
+            source: 0x0,
+            srcNetwork: 0,
+            dest: address(0x0),
+            destNetwork: uint128(block.chainid),
+            gasLimit: 10000,
+            salt: 1,
+            data: "",
+            reimburse: address(mockReimbursed)
         });
         Signature memory sig = sign(gmp);
         (uint8 status,) = gateway.execute(sig, gmp);

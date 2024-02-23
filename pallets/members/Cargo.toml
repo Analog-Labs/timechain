@@ -20,6 +20,7 @@ frame-support = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag =
 frame-system = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
 log = { version = "0.4.20", default-features = false }
 pallet-balances = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
+peernet = "0.1.2" 
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false, optional = true }
 sp-runtime = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }

@@ -96,6 +96,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		InvalidPublicKey,
+		InvalidPeerId,
 		AlreadyMember,
 		NotMember,
 		BondBelowMinStake,
@@ -130,6 +131,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			ensure!(member == public_key.clone().into_account(), Error::<T>::InvalidPublicKey);
+			ensure!(peernet::PeerId::from_bytes(&peer_id).is_ok(), Error::<T>::InvalidPeerId);
 			if let Some(old_network) = MemberNetwork::<T>::get(&member) {
 				// unregister before re-registering
 				Self::unregister_member_from_network(&member, old_network);

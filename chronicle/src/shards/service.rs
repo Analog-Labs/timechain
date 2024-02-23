@@ -126,7 +126,7 @@ where
 				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
 
 			self.tss_states
-				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None));
+				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None)?);
 			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		for shard_id in shards.iter().copied() {
@@ -190,7 +190,7 @@ where
 					);
 					continue;
 				};
-				if let Some(payload) = tss.on_message(peer_id, msg) {
+				if let Some(payload) = tss.on_message(peer_id, msg)? {
 					let msg = Message {
 						shard_id,
 						block_number: 0,

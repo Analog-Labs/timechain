@@ -1,4 +1,5 @@
 use crate::network::PeerId;
+use anyhow::Result;
 use std::collections::BTreeSet;
 pub use time_primitives::TssId;
 pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -17,12 +18,15 @@ impl Tss {
 		members: BTreeSet<PeerId>,
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
-	) -> Self {
-		let peer_id = peernet::PeerId::from_bytes(&peer_id).unwrap().to_string();
-		let members: BTreeSet<_> = members
-			.into_iter()
-			.map(|peer| peernet::PeerId::from_bytes(&peer).unwrap().to_string())
-			.collect();
+	) -> Result<Self> {
+		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
+		let members: Result<BTreeSet<String>> =
+			members.into_iter().try_fold(BTreeSet::new(), |mut acc, peer| {
+				let peer_id_str = peernet::PeerId::from_bytes(&peer)?.to_string();
+				acc.insert(peer_id_str);
+				Ok(acc)
+			});
+		let members = members?;
 		if members.len() == 1 {
 			let key = SigningKey::random();
 			let public = key.public().to_bytes().unwrap();
@@ -33,9 +37,13 @@ impl Tss {
 				&commitment,
 			)
 			.unwrap();
-			Tss::Disabled(key, Some(tss::TssAction::Commit(commitment, proof_of_knowledge)), false)
+			Ok(Tss::Disabled(
+				key,
+				Some(tss::TssAction::Commit(commitment, proof_of_knowledge)),
+				false,
+			))
 		} else {
-			Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment))
+			Ok(Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment)))
 		}
 	}
 
@@ -74,12 +82,12 @@ impl Tss {
 		}
 	}
 
-	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Option<TssMessage> {
-		let peer_id = peernet::PeerId::from_bytes(&peer_id).unwrap().to_string();
-		match self {
+	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<Option<TssMessage>> {
+		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
+		Ok(match self {
 			Self::Enabled(tss) => tss.on_message(peer_id, msg),
 			Self::Disabled(_, _, _) => None,
-		}
+		})
 	}
 
 	pub fn next_action(&mut self) -> Option<TssAction> {

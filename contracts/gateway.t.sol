@@ -10,27 +10,22 @@ uint256 constant nonce = 0x69;
 contract GatewayTest is Test {
     Gateway gateway;
     Signer signer;
+    uint256 FOUNDRY_GAS_LIMIT;
+    uint256 EXECUTE_CALL_COST;
 
     constructor() {
         signer = new Signer(secret);
         uint256[2][] memory keys = new uint256[2][](1);
         keys[0] = [signer.yParity() == 28 ? 1 : 0, signer.xCoord()];
         gateway = new Gateway(keys);
+        FOUNDRY_GAS_LIMIT = 9223372036854775807;
+        EXECUTE_CALL_COST = 41207; // verified in testExecuteReimbursement
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
         uint256 hash = uint256(gateway.getGmpTypedHash(gmp));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
         return Signature({xCoord: signer.xCoord(), e: e, s: s});
-    }
-
-    function nonRefundableExecution(GmpMessage memory message) internal view returns (uint256 gasUsed) {
-        uint256 gasBefore = gasleft();
-        gateway.getGmpTypedHash(message);
-        // replace with _verifySignature gas cost once exposed
-        uint256 verifySigGasEstimate = 24037;
-        require(tx.gasprice == 1);
-        gasUsed = (gasBefore - gasleft() + verifySigGasEstimate) * tx.gasprice;
     }
 
     function testDepositRevertsOutOfFunds() public {
@@ -67,9 +62,6 @@ contract GatewayTest is Test {
 
     function testDepositMapping() public {
         vm.txGasPrice(1);
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
-        // measured in testExecuteReimbursement
-        uint256 EXECUTE_CALL_COST = 28592;
         address mockSender = address(0x0);
         vm.deal(mockSender, FOUNDRY_GAS_LIMIT * 3);
         vm.startPrank(mockSender);
@@ -109,7 +101,6 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsWrongNetwork() public {
         vm.txGasPrice(1);
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         uint256 amount = 10 ether;
         address mockSender = address(0x0);
         vm.deal(mockSender, amount * 2);
@@ -132,7 +123,6 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsWrongSource() public {
         vm.txGasPrice(1);
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         uint256 amount = 10 ether;
         address mockSender = address(0x0);
         vm.deal(mockSender, amount * 2);
@@ -154,7 +144,6 @@ contract GatewayTest is Test {
     }
 
     function testExecuteRevertsWithoutDeposit() public {
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         GmpMessage memory gmp = GmpMessage({
             source: 0x0,
             srcNetwork: 0,
@@ -171,7 +160,6 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsBelowDeposit() public {
         vm.txGasPrice(1);
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         uint256 insufficientDeposit = (FOUNDRY_GAS_LIMIT * tx.gasprice) - 1;
         address mockSender = address(0x0);
         vm.deal(mockSender, insufficientDeposit);
@@ -217,7 +205,6 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsAlreadyExecuted() public {
         vm.txGasPrice(1);
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         uint256 amount = 100 ether;
         address mockSender = address(0x0);
         vm.deal(mockSender, amount * 2);
@@ -241,10 +228,9 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    // measures gas used by execute = 28592
+    // measures gas used by execute = 41207
     function testExecuteReimbursement() public {
         vm.txGasPrice(1);
-        uint256 FOUNDRY_GAS_LIMIT = 9223372036854775807;
         uint256 amount = 100 ether;
         address mockSender = address(0x0);
         address gatewayAddress = address(gateway);
@@ -270,10 +256,8 @@ contract GatewayTest is Test {
         assertEq(status, GMP_STATUS_SUCCESS);
         uint256 actualRefund = mockSender.balance - amount;
         assertEq(amount - gatewayAddress.balance, actualRefund);
-        uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - nonRefundableExecution(gmp);
+        uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - 11072;
         assertEq(actualRefund, expectedRefund);
-        // assert fails => measured gas cost is different NOTE: tx.gasprice = 1
-        uint256 EXECUTE_CALL_COST = 28592;
         assertEq(actualRefund, EXECUTE_CALL_COST);
         vm.stopPrank();
     }

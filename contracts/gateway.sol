@@ -425,15 +425,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Execute GMP message
-    function _execute(bytes32 payloadHash, GmpMessage memory message)
-        private
-        returns (uint8 status, bytes32 result, uint256 refund)
-    {
-        uint256 gasBefore = gasleft();
-        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
-        require(
-            _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
-        );
+    function _execute(bytes32 payloadHash, GmpMessage memory message) private returns (uint8 status, bytes32 result) {
         // Verify if this GMP message was already executed
         GmpInfo storage gmp = _messages[payloadHash];
         require(gmp.status == GMP_STATUS_NOT_FOUND, "message already executed");
@@ -486,9 +478,6 @@ contract Gateway is IGateway, SigUtils {
 
         // Emit event
         emit GmpExecuted(payloadHash, message.source, message.dest, status, result);
-
-        refund = (gasBefore - gasleft()) * tx.gasprice;
-        _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
     }
 
     // Send GMP message using sudo account
@@ -496,10 +485,16 @@ contract Gateway is IGateway, SigUtils {
         Signature memory signature, // coordinate x, nonce, e, s
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
+        uint256 gasBefore = gasleft();
+        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
+        require(
+            _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
+        );
         bytes32 messageHash = getGmpTypedHash(message);
         _verifySignature(signature, messageHash);
-        uint256 refund;
-        (status, result, refund) = _execute(messageHash, message);
+        (status, result) = _execute(messageHash, message);
+        uint256 refund = (gasBefore - gasleft()) * tx.gasprice;
+        _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
         payable(tx.origin).transfer(refund);
     }
 

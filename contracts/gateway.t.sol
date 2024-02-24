@@ -19,7 +19,7 @@ contract GatewayTest is Test {
         keys[0] = [signer.yParity() == 28 ? 1 : 0, signer.xCoord()];
         gateway = new Gateway(keys);
         FOUNDRY_GAS_LIMIT = 9223372036854775807;
-        EXECUTE_CALL_COST = 41207; // verified in testExecuteReimbursement
+        EXECUTE_CALL_COST = 51840;
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
@@ -252,11 +252,11 @@ contract GatewayTest is Test {
         Signature memory sig = sign(gmp);
         uint256 gasBefore = gasleft();
         (uint8 status,) = gateway.execute(sig, gmp);
+        uint256 expectedRefund = (gasBefore - gasleft()) * tx.gasprice;
         uint8 GMP_STATUS_SUCCESS = 1;
         assertEq(status, GMP_STATUS_SUCCESS);
         uint256 actualRefund = mockSender.balance - amount;
         assertEq(amount - gatewayAddress.balance, actualRefund);
-        uint256 expectedRefund = ((gasBefore - gasleft()) * tx.gasprice) - 11072;
         assertEq(actualRefund, expectedRefund);
         assertEq(actualRefund, EXECUTE_CALL_COST);
         vm.stopPrank();

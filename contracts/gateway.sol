@@ -228,6 +228,8 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
+    uint256 internal constant EXECUTE_GAS_DIFF = 10630; // Measured gas cost difference for `execute`
+
     // Owner of this contract, who can execute sudo operations
     address _owner;
 
@@ -493,7 +495,7 @@ contract Gateway is IGateway, SigUtils {
         bytes32 messageHash = getGmpTypedHash(message);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
-        uint256 refund = (gasBefore - gasleft()) * tx.gasprice;
+        uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;
         _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
         payable(tx.origin).transfer(refund);
     }

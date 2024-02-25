@@ -127,6 +127,8 @@ impl task_schedule::Config for Test {
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;
 	type PalletId = PalletIdentifier;
+	// TODO: set equal to 1 * Min Shard Size for full testing
+	type GatewayFee = ConstU128<1>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

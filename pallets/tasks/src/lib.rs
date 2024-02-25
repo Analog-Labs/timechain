@@ -12,7 +12,7 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{Currency, ExistenceRequirement},
+		traits::{Currency, ExistenceRequirement, WithdrawReasons},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
@@ -113,6 +113,9 @@ pub mod pallet {
 		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+		/// Gateway fee for all networks
+		#[pallet::constant]
+		type GatewayFee: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::storage]
@@ -261,6 +264,8 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
+		/// Gateway fee burn did not succeed
+		GatewayFeeNotBurned,
 	}
 
 	#[pallet::call]
@@ -496,6 +501,7 @@ pub mod pallet {
 				.saturating_mul(schedule.shard_size.into())
 				.saturating_add(write_task_reward);
 			let is_gmp = if schedule.function.is_gmp() {
+				Self::burn_gateway_fee(who.clone())?;
 				required_funds = required_funds
 					.saturating_add(send_message_reward.saturating_mul(schedule.shard_size.into()));
 				true
@@ -810,6 +816,37 @@ pub mod pallet {
 				);
 			});
 		}
+
+		fn burn_gateway_fee(caller: TaskFunder) -> DispatchResult {
+			match caller {
+				TaskFunder::Account(user) => {
+					let imbalance = pallet_balances::Pallet::<T>::burn(T::GatewayFee::get());
+					pallet_balances::Pallet::<T>::settle(
+						&user,
+						imbalance,
+						WithdrawReasons::FEE,
+						ExistenceRequirement::KeepAlive,
+					)
+					.map_err(|_| Error::<T>::GatewayFeeNotBurned)?;
+				},
+				TaskFunder::Shard(shard_id) => {
+					let shard_size = T::Shards::shard_members(shard_id).len() as u32;
+					let fee_per_member = (T::GatewayFee::get()).saturating_div(shard_size.into());
+					for member in T::Shards::shard_members(shard_id) {
+						let imbalance = pallet_balances::Pallet::<T>::burn(fee_per_member);
+						pallet_balances::Pallet::<T>::settle(
+							&member,
+							imbalance,
+							WithdrawReasons::FEE,
+							ExistenceRequirement::KeepAlive,
+						)
+						.map_err(|_| Error::<T>::GatewayFeeNotBurned)?;
+					}
+				},
+			}
+			Ok(())
+		}
+
 		fn get_gmp_hash(
 			task_id: TaskId,
 			shard_id: ShardId,

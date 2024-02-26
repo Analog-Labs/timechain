@@ -6,6 +6,7 @@ use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
 use pallet_tasks::TaskPhaseState;
 use sp_core::hexdisplay::HexDisplay;
+use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
 	AccountId, ElectionsInterface, Function, NetworkId, PublicKey, ShardStatus, ShardsInterface,
@@ -17,6 +18,12 @@ fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 }
 fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
+}
+fn get_peer_id(random_num: [u8; 32]) -> [u8; 32] {
+	sp_core::ed25519::Pair::from_string(&format!("//{:?}", random_num), None)
+		.unwrap()
+		.public()
+		.into()
 }
 
 const ETHEREUM: NetworkId = 0;
@@ -66,21 +73,21 @@ fn elections_chooses_top_members_by_stake() {
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(A),
-			A,
+			get_peer_id(A),
 			11 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
-			B,
+			get_peer_id(B),
 			11 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
-			C,
+			get_peer_id(C),
 			11 * DOLLARS,
 		));
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
@@ -90,7 +97,7 @@ fn elections_chooses_top_members_by_stake() {
 			RawOrigin::Signed(d.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(D),
-			D,
+			get_peer_id(D),
 			12 * DOLLARS,
 		));
 		Elections::shard_offline(ETHEREUM, vec![a.clone(), b.clone(), c.clone()]);
@@ -112,21 +119,21 @@ fn write_phase_timeout_reassigns_task() {
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(A),
-			A,
+			get_peer_id(A),
 			11 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
-			B,
+			get_peer_id(B),
 			11 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
-			C,
+			get_peer_id(C),
 			11 * DOLLARS,
 		));
 		assert_ok!(Tasks::create_task(
@@ -171,21 +178,21 @@ fn register_unregister_preserves_task_migration() {
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(A),
-			A,
+			get_peer_id(A),
 			11 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
-			B,
+			get_peer_id(B),
 			11 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
-			C,
+			get_peer_id(C),
 			11 * DOLLARS,
 		));
 		// verify shard 0 created for Network Ethereum
@@ -225,7 +232,7 @@ fn register_unregister_preserves_task_migration() {
 			RawOrigin::Signed(d.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(D),
-			D,
+			get_peer_id(D),
 			12 * DOLLARS,
 		));
 		// new member
@@ -233,7 +240,7 @@ fn register_unregister_preserves_task_migration() {
 			RawOrigin::Signed(e.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(E),
-			E,
+			get_peer_id(E),
 			13 * DOLLARS,
 		));
 		// verify shard 1 created for Network Ethereum

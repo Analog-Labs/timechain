@@ -20,13 +20,10 @@ impl Tss {
 		commitment: Option<VerifiableSecretSharingCommitment>,
 	) -> Result<Self> {
 		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
-		let members: Result<BTreeSet<String>> =
-			members.into_iter().try_fold(BTreeSet::new(), |mut acc, peer| {
-				let peer_id_str = peernet::PeerId::from_bytes(&peer)?.to_string();
-				acc.insert(peer_id_str);
-				Ok(acc)
-			});
-		let members = members?;
+		let members: BTreeSet<String> = members
+			.into_iter()
+			.map(|p| Ok(peernet::PeerId::from_bytes(&p)?.to_string()))
+			.collect::<Result<BTreeSet<_>>>()?;
 		if members.len() == 1 {
 			let key = SigningKey::random();
 			let public = key.public().to_bytes().unwrap();

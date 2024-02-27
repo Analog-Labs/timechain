@@ -4,4 +4,8 @@ RUN apt install -y software-properties-common
 RUN add-apt-repository ppa:ethereum/ethereum
 RUN apt update && apt install -y solc
 COPY tester tester
-ENTRYPOINT ["/tester"]
+COPY contracts /temp_contracts
+COPY lib /temp_lib
+COPY merge_contracts_dir.sh /merge_contracts_dir.sh
+RUN chmod +x /merge_contracts_dir.sh
+ENTRYPOINT ["/merge_contracts_dir.sh"]

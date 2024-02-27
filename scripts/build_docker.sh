@@ -40,6 +40,9 @@ fi
 cargo build -p timechain-node -p chronicle -p tester --target "$rustTarget" --release 
 rm -rf target/docker
 mkdir -p target/docker
+cp config/docker/merge_contracts_dir.sh target/docker
+cp -r contracts target/docker
+cp -r lib target/docker
 
 mv "target/$rustTarget/release/timechain-node" target/docker
 docker build target/docker -f config/docker/Dockerfile -t analoglabs/timechain-node
@@ -49,3 +52,4 @@ docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/c
 
 mv "target/$rustTarget/release/tester" target/docker
 docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/timechain-tester
+

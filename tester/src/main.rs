@@ -19,9 +19,9 @@ struct Args {
 	target_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://ethereum:8545")]
 	target_url: String,
-	#[arg(long, default_value = "/etc/gateway.sol")]
+	#[arg(long, default_value = "/etc/contracts/gateway.sol")]
 	gateway_contract: PathBuf,
-	#[arg(long, default_value = "/etc/test_contract.sol")]
+	#[arg(long, default_value = "/etc/contracts/test_contract.sol")]
 	contract: PathBuf,
 	#[clap(subcommand)]
 	cmd: TestCommand,

@@ -575,7 +575,7 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_tasks(schedule.network);
+			Self::schedule_task(task_id);
 			Ok(())
 		}
 
@@ -823,6 +823,7 @@ pub mod pallet {
 			if Gateway::<T>::get(network).is_some() {
 				Self::register_shard(shard_id, network);
 			}
+			Self::schedule_tasks(network);
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {

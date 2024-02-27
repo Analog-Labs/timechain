@@ -1,11 +1,8 @@
 use crate::{Call, Config, Pallet};
-use codec::alloc::string::ToString;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::vec;
-use time_primitives::{
-	Function, NetworkId, TaskDescriptorParams, TaskError, TaskResult, TasksInterface,
-};
+use time_primitives::{Function, NetworkId, TaskDescriptorParams, TaskResult, TasksInterface};
 
 const ETHEREUM: NetworkId = 1;
 
@@ -41,24 +38,7 @@ benchmarks! {
 		shard_id: 1,
 		hash: [0; 32],
 		signature: [0; 64],
-	}) verify {}
-
-	submit_error {
-		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
-			network: ETHEREUM,
-			function: Function::EvmViewCall {
-				address: Default::default(),
-				input: Default::default(),
-			},
-			start: 0,
-			funds: 100u32.into(),
-			shard_size: 3,
-		});
-		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, TaskError {
-		shard_id: 1,
-		msg: "test".to_string(),
-		signature: [0; 64],
+		error: None,
 	}) verify {}
 
 	submit_hash {
@@ -75,7 +55,7 @@ benchmarks! {
 			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 1, vec![0u8; b as usize]) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 1, [b as _; 32]) verify {}
 
 	submit_signature {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {

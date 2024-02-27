@@ -73,7 +73,7 @@ impl MockTask {
 	}
 
 	fn execution(&self, task_id: TaskId) -> TaskExecution {
-		TaskExecution::new(task_id, self.phase.clone())
+		TaskExecution::new(task_id, self.phase)
 	}
 }
 
@@ -497,6 +497,6 @@ impl TaskSpawner for Mock {
 		task_id: TaskId,
 		_: Function,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().submit_task_hash_core(task_id, [0; 32].into()).boxed()
+		self.clone().submit_task_hash_core(task_id, [0; 32]).boxed()
 	}
 }

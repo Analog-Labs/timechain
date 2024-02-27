@@ -580,7 +580,7 @@ fn payable_task_smoke() {
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
-			task_hash.into()
+			task_hash
 		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read);
 		assert_eq!(<TaskHash<Test>>::get(task_id), Some(task_hash));

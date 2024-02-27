@@ -12,8 +12,8 @@ use time_primitives::sp_runtime::traits::IdentifyAccount;
 use time_primitives::{
 	sp_core, AccountId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Function,
 	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TssHash,
-	TssSignature, TssSigningRequest,
+	TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash, TssSignature,
+	TssSigningRequest,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -53,22 +53,22 @@ impl MockShard {
 pub struct MockTask {
 	pub descriptor: TaskDescriptor,
 	pub phase: TaskPhase,
-	pub status: TaskStatus,
 	pub signature: Option<TssSignature>,
-	pub results: Vec<TaskResult>,
+	pub signer: Option<PublicKey>,
+	pub hash: Option<[u8; 32]>,
+	pub result: Option<TaskResult>,
 }
 
 impl MockTask {
 	pub fn new(descriptor: TaskDescriptor) -> Self {
-		//TODO fix deal payable here
-		let phase =
-			if descriptor.function.is_gmp() { TaskPhase::Sign } else { TaskPhase::Read(None) };
+		let phase = descriptor.function.initial_phase();
 		Self {
 			descriptor,
 			phase,
-			status: TaskStatus::Created,
 			signature: None,
-			results: vec![],
+			signer: None,
+			hash: None,
+			result: None,
 		}
 	}
 
@@ -177,21 +177,23 @@ impl Mock {
 		let mut tasks = self.tasks.lock().unwrap();
 		let task = tasks.get_mut(&task_id).unwrap();
 		task.signature = Some(signature);
-		task.phase = TaskPhase::Write(self.public_key().clone());
+		task.phase = TaskPhase::Write;
+		task.signer = Some(self.public_key().clone());
 		Ok(())
 	}
 
 	async fn submit_task_result_core(self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		let mut tasks = self.tasks.lock().unwrap();
 		let task = tasks.get_mut(&task_id).unwrap();
-		task.results.push(result);
-		task.status = TaskStatus::Completed;
+		task.result = Some(result);
 		Ok(())
 	}
 
-	async fn submit_task_hash_core(self, task_id: TaskId, hash: Vec<u8>) -> Result<()> {
+	async fn submit_task_hash_core(self, task_id: TaskId, hash: [u8; 32]) -> Result<()> {
 		let mut tasks = self.tasks.lock().unwrap();
-		tasks.get_mut(&task_id).unwrap().phase = TaskPhase::Read(Some(hash));
+		let task = tasks.get_mut(&task_id).unwrap();
+		task.phase = TaskPhase::Read;
+		task.hash = Some(hash);
 		Ok(())
 	}
 
@@ -362,6 +364,16 @@ impl Runtime for Mock {
 		Ok(tasks.get(&task_id).unwrap().signature)
 	}
 
+	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
+		let tasks = self.tasks.lock().unwrap();
+		Ok(tasks.get(&task_id).unwrap().signer.clone())
+	}
+
+	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>> {
+		let tasks = self.tasks.lock().unwrap();
+		Ok(tasks.get(&task_id).unwrap().hash)
+	}
+
 	async fn get_gateway(&self, _network: NetworkId) -> Result<Option<[u8; 20]>> {
 		Ok(Some([0; 20]))
 	}
@@ -398,7 +410,7 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()> {
+	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()> {
 		self.clone().submit_task_hash(task_id, hash).await.unwrap();
 		Ok(())
 	}
@@ -418,12 +430,6 @@ impl Runtime for Mock {
 
 	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		self.clone().submit_task_result_core(task_id, result).await.unwrap();
-		Ok(())
-	}
-
-	async fn submit_task_error(&self, task_id: TaskId, error: TaskError) -> Result<()> {
-		let mut tasks = self.tasks.lock().unwrap();
-		tasks.get_mut(&task_id).unwrap().status = TaskStatus::Failed { error };
 		Ok(())
 	}
 }
@@ -456,7 +462,15 @@ impl TaskSpawner for Mock {
 			let (hash, signature) =
 				spawner.tss_sign(block_num, shard_id, task_id, payload.as_bytes()).await?;
 			spawner
-				.submit_task_result_core(task_id, TaskResult { shard_id, hash, signature })
+				.submit_task_result_core(
+					task_id,
+					TaskResult {
+						shard_id,
+						hash,
+						signature,
+						error: None,
+					},
+				)
 				.await?;
 			Ok(())
 		})

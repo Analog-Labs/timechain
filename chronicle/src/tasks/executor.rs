@@ -303,7 +303,7 @@ mod tests {
 	use super::*;
 	use crate::mock::Mock;
 	use futures::StreamExt;
-	use time_primitives::{TaskDescriptor, TaskStatus};
+	use time_primitives::TaskDescriptor;
 
 	#[tokio::test]
 	async fn task_executor_smoke() -> Result<()> {
@@ -343,7 +343,7 @@ mod tests {
 				.unwrap();
 			tracing::info!("Watching for result");
 			let task = mock.task(task).unwrap();
-			if task.status != TaskStatus::Completed {
+			if task.result.is_none() {
 				tracing::info!("task phase {:?}", task.phase);
 				continue;
 			}

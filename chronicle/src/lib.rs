@@ -125,7 +125,7 @@ mod tests {
 	use crate::mock::Mock;
 	use std::time::Duration;
 	use time_primitives::sp_runtime::traits::IdentifyAccount;
-	use time_primitives::{AccountId, Function, ShardStatus, TaskDescriptor, TaskStatus};
+	use time_primitives::{AccountId, Function, ShardStatus, TaskDescriptor};
 
 	async fn chronicle(mut mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
@@ -202,8 +202,7 @@ mod tests {
 		loop {
 			tracing::info!("waiting for task");
 			let task = mock.task(task_id).unwrap();
-			tracing::info!("task {:?}", task.status);
-			if task.status != TaskStatus::Completed {
+			if task.result.is_none() {
 				tracing::info!("task phase {:?}", task.phase);
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;

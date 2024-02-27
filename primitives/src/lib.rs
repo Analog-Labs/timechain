@@ -69,6 +69,8 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
+		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
+		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]>;
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
@@ -173,6 +175,10 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
 
+	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
+
+	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>>;
+
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
 
 	async fn submit_register_member(
@@ -200,7 +206,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		chain_id: u64,
 	) -> Result<()>;
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()>;
+	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 }

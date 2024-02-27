@@ -134,14 +134,14 @@ where
 						block_number,
 						gmp_params.chain_id,
 					)
-				} else if let Some(public_key) = executable_task.phase.public_key() {
-					if public_key != self.substrate.public_key() {
+				} else if let Some(public_key) = self.substrate.get_task_signer(task_id).await? {
+					if &public_key != self.substrate.public_key() {
 						tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
 					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
 
-					if gmp_params.is_none() && function.is_gmp() {
+					if gmp_params.is_none() && function.initial_phase() == TaskPhase::Sign {
 						tracing::warn!(
 							"gmp not configured for {shard_id:?}, skipping task {task_id}"
 						);
@@ -214,7 +214,7 @@ where
 					};
 					self.task_spawner.execute_write(task_id, function)
 				} else {
-					let function = if let Some(tx) = executable_task.phase.tx_hash() {
+					let function = if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
 						Function::EvmTxReceipt { tx: tx.to_vec() }
 					} else {
 						function

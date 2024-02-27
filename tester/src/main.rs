@@ -226,12 +226,12 @@ async fn latency_cycle(
 				continue;
 			}
 			match task_phase {
-				TaskPhase::Write(_) => {
+				TaskPhase::Write => {
 					if task_info.write_phase_start.is_none() {
 						task_info.enter_write_phase(current_block);
 					}
 				},
-				TaskPhase::Read(_) => {
+				TaskPhase::Read => {
 					if task_info.read_phase_start.is_none() {
 						task_info.enter_read_phase(current_block);
 					}

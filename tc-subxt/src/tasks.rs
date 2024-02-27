@@ -4,7 +4,7 @@ use anyhow::Result;
 use subxt::backend::StreamOfResults;
 use subxt::tx::Payload;
 use timechain_runtime::runtime_types::time_primitives::task::{
-	TaskDescriptor, TaskDescriptorParams, TaskPhase, TaskStatus,
+	TaskDescriptor, TaskDescriptorParams, TaskPhase,
 };
 use timechain_runtime::tasks::calls::types::CreateTask;
 
@@ -28,9 +28,16 @@ impl SubxtClient {
 		Ok(self.client.storage().at_latest().await?.iter(storage_query).await?)
 	}
 
-	pub async fn get_task_state(&self, task_id: u64) -> Result<Option<TaskStatus>> {
-		let storage_query = timechain_runtime::storage().tasks().task_state(task_id);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+	pub async fn is_task_complete(&self, task_id: u64) -> Result<bool> {
+		let storage_query = timechain_runtime::storage().tasks().task_output(task_id);
+		let Some(output) = self.client.storage().at_latest().await?.fetch(&storage_query).await?
+		else {
+			return Ok(false);
+		};
+		if let Some(msg) = output.error {
+			anyhow::bail!("{msg}");
+		}
+		Ok(true)
 	}
 
 	pub async fn get_task_phase(&self, task_id: u64) -> Result<Option<TaskPhase>> {

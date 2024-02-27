@@ -1,4 +1,4 @@
-use crate::{AccountId, Balance, NetworkId, PublicKey, ShardId, TssSignature};
+use crate::{AccountId, Balance, NetworkId, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -20,16 +20,16 @@ pub enum Function {
 }
 
 impl Function {
-	pub fn is_payable(&self) -> bool {
-		matches!(self, Self::EvmDeploy { .. } | Self::EvmCall { .. })
+	pub fn initial_phase(&self) -> TaskPhase {
+		match self {
+			Self::RegisterShard { .. }
+			| Self::UnregisterShard { .. }
+			| Self::SendMessage { .. } => TaskPhase::Sign,
+			Self::EvmDeploy { .. } | Self::EvmCall { .. } => TaskPhase::Write,
+			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } => TaskPhase::Read,
+		}
 	}
 
-	pub fn is_gmp(&self) -> bool {
-		matches!(
-			self,
-			Self::RegisterShard { .. } | Self::UnregisterShard { .. } | Self::SendMessage { .. }
-		)
-	}
 	pub fn get_input_length(&self) -> u64 {
 		match self {
 			Function::EvmDeploy { bytecode } => bytecode.len() as u64,
@@ -48,13 +48,7 @@ pub struct TaskResult {
 	pub shard_id: ShardId,
 	pub hash: [u8; 32],
 	pub signature: TssSignature,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskError {
-	pub shard_id: ShardId,
-	pub msg: String,
-	pub signature: TssSignature,
+	pub error: Option<String>,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -88,42 +82,17 @@ impl TaskDescriptorParams {
 	}
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub enum TaskStatus {
-	Created,
-	Failed { error: TaskError },
-	Completed,
-}
-
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskPhase {
 	Sign,
-	Write(PublicKey),
-	Read(Option<Vec<u8>>),
-}
-
-impl TaskPhase {
-	pub fn public_key(&self) -> Option<&PublicKey> {
-		if let Self::Write(public_key) = self {
-			Some(public_key)
-		} else {
-			None
-		}
-	}
-
-	pub fn tx_hash(&self) -> Option<&[u8]> {
-		if let Self::Read(Some(tx_hash)) = self {
-			Some(tx_hash)
-		} else {
-			None
-		}
-	}
+	Write,
+	Read,
 }
 
 impl Default for TaskPhase {
 	fn default() -> Self {
-		TaskPhase::Read(None)
+		Self::Read
 	}
 }
 

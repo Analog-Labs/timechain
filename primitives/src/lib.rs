@@ -193,8 +193,6 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()>;
-
 	async fn submit_task_signature(
 		&self,
 		task_id: TaskId,
@@ -202,7 +200,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		chain_id: u64,
 	) -> Result<()>;
 
-	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
+	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()>;
 
-	async fn submit_task_error(&self, task_id: TaskId, error: TaskError) -> Result<()>;
+	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 }

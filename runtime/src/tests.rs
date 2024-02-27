@@ -4,13 +4,13 @@ use frame_support::traits::WhitelistedStorageKeys;
 use frame_support::{assert_ok, traits::OnInitialize};
 use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
-use pallet_tasks::TaskPhaseState;
+use pallet_tasks::TaskSigner;
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
 	AccountId, ElectionsInterface, Function, NetworkId, PublicKey, ShardStatus, ShardsInterface,
-	TaskDescriptorParams, TaskPhase, TasksInterface,
+	TaskDescriptorParams, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -153,15 +153,15 @@ fn write_phase_timeout_reassigns_task() {
 		Shards::create_shard(ETHEREUM, shard, 1);
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
 		roll_to(10);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
 		roll_to(11);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(A)));
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(A)));
 		roll_to(21);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(B)));
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(B)));
 		roll_to(31);
-		assert_eq!(<TaskPhaseState<Runtime>>::get(task_id), TaskPhase::Write(pubkey_from_bytes(C)));
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
 	});
 }
 

@@ -147,8 +147,7 @@ fn test_create_task() {
 		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		System::assert_last_event(Event::<Test>::TaskCreated(1).into());
-		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::default()),]);
+		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::Read)]);
 		let mut read_task_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		read_task_reward =
 			read_task_reward.saturating_add(NetworkReadReward::<Test>::get(ETHEREUM));
@@ -232,7 +231,7 @@ fn task_auto_assigned_if_shard_online() {
 			mock_task(ETHEREUM)
 		));
 		assert_eq!(
-			Tasks::tasks(1).unwrap(),
+			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
 				owner: Some([0; 32].into()),
 				network: ETHEREUM,
@@ -244,8 +243,8 @@ fn task_auto_assigned_if_shard_online() {
 				shard_size: 3,
 			}
 		);
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1]);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 	});
 }
 
@@ -276,7 +275,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 	});
 }
@@ -324,15 +323,18 @@ fn shard_offline_removes_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1]);
-		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert!(UnassignedTasks::<Test>::iter()
+			.map(|(_, t, _)| t)
+			.collect::<Vec<_>>()
+			.is_empty());
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]));
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
-			vec![1, 2]
+			vec![1, 0]
 		);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -783,25 +785,24 @@ fn shard_online_starts_register_shard_task() {
 }
 
 #[test]
-fn register_gateway_completes_register_shard_task() {
+fn register_gateway_starts_register_shard_task() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
 			ETHEREUM,
 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 			1,
 		);
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
+		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
+		Tasks::shard_online(1, ETHEREUM);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
 		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
-		// insert shard public key to match mock result signature
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-		// submit result still succeeds because task is completed
-		assert_ok!(Tasks::submit_result(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			mock_result_ok(1, 0)
-		));
 	});
 }
 

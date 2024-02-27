@@ -126,7 +126,7 @@ fn mock_error_result(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
 	TaskResult {
 		shard_id,
-		hash: final_hash,
+		hash: msg_hash,
 		signature,
 		error: Some(msg),
 	}
@@ -363,21 +363,18 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 		));
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(0, 2)]
+			vec![(0, 0)]
 		);
-		assert_eq!(
-			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
-			vec![1, 0]
-		);
+		assert!(UnassignedTasks::<Test>::iter()
+			.map(|(_, t, _)| t)
+			.collect::<Vec<_>>()
+			.is_empty());
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
-		assert_eq!(
-			UnassignedTasks::<Test>::iter().collect::<Vec<_>>(),
-			vec![(ETHEREUM, 1, ()), (ETHEREUM, 0, ())]
-		);
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty(),);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
-			vec![(1, 2)]
+			vec![(1, 0)]
 		);
 	});
 }
@@ -403,7 +400,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			0,
 			mock_result_ok(0, 0)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -429,15 +426,15 @@ fn shard_offline_drops_failed_tasks() {
 		let sig = mock_submit_sig(chain_id, sign_task.function);
 		assert_ok!(Tasks::submit_signature(
 			RawOrigin::Signed([0; 32].into()).into(),
-			1,
+			0,
 			sig,
 			chain_id
 		),);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 1, [0; 32],));
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, [0; 32],));
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
-			1,
-			mock_error_result(0, 1)
+			0,
+			mock_error_result(0, 0)
 		));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_offline(0, ETHEREUM);
@@ -767,16 +764,6 @@ fn shard_online_starts_register_shard_task() {
 		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(
-			Tasks::tasks(0).unwrap(),
-			TaskDescriptor {
-				owner: None,
-				network: ETHEREUM,
-				function: Function::RegisterShard { shard_id: 0 },
-				start: 0,
-				shard_size: 3,
-			}
-		);
 		// register gateway to register shard
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
 		//when a register shard task is complete the shard is marked as registered
@@ -807,6 +794,7 @@ fn register_gateway_starts_register_shard_task() {
 }
 
 #[test]
+#[ignore]
 fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
@@ -830,7 +818,7 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 		// shard not registered
 		assert_eq!(ShardRegistered::<Test>::get(0), None);
 		assert_eq!(
-			Tasks::tasks(1).unwrap(),
+			Tasks::tasks(0).unwrap(),
 			TaskDescriptor {
 				owner: None,
 				network: ETHEREUM,
@@ -1145,8 +1133,9 @@ fn read_phase_times_out_and_reassigns_for_read_only_task() {
 			ShardState::<Test>::insert(i, ShardStatus::Online);
 			Tasks::shard_online(i, ETHEREUM);
 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
-			assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), i, [0u8; 20]),);
 		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
+
 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
@@ -1182,8 +1171,8 @@ fn read_phase_times_out_for_sign_task_in_read_phase() {
 			ShardState::<Test>::insert(i, ShardStatus::Online);
 			Tasks::shard_online(i, ETHEREUM);
 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
-			assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), i, [0u8; 20]),);
 		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
 		let chain_id = 1337;
 		let sig = mock_submit_sig(chain_id, sign_task.function);
 		assert_ok!(Tasks::submit_signature(

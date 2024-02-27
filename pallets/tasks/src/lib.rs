@@ -430,15 +430,17 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			PhaseStart::<T>::iter().for_each(|(task_id, phase, created_block)| {
+			TaskShard::<T>::iter().for_each(|(task_id, _)| {
+				let phase = TaskPhaseState::<T>::get(task_id);
+				let start = PhaseStart::<T>::get(task_id, phase);
 				let timeout = match phase {
 					TaskPhase::Sign => T::SignPhaseTimeout::get(),
 					TaskPhase::Write => T::WritePhaseTimeout::get(),
 					TaskPhase::Read => T::ReadPhaseTimeout::get(),
 				};
-				if n.saturating_sub(created_block) >= timeout {
+				if current.saturating_sub(start) >= timeout {
 					if phase == TaskPhase::Write {
 						Self::start_phase(task_id, phase);
 					} else {
@@ -580,14 +582,15 @@ pub mod pallet {
 		}
 
 		fn start_phase(task_id: TaskId, phase: TaskPhase) {
+			let block = frame_system::Pallet::<T>::block_number();
 			TaskPhaseState::<T>::insert(task_id, phase);
+			PhaseStart::<T>::insert(task_id, phase, block);
 			if phase == TaskPhase::Write {
 				TaskSigner::<T>::insert(
 					task_id,
 					T::Shards::next_signer(TaskShard::<T>::get(task_id).unwrap()),
 				);
 			}
-			PhaseStart::<T>::insert(task_id, phase, frame_system::Pallet::<T>::block_number());
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {
@@ -625,8 +628,7 @@ pub mod pallet {
 				// this branch should never be hit, maybe turn this into expect
 				return;
 			};
-			let Some(shard_id) = Self::select_shard(task.network, task_id, None, task.shard_size)
-			else {
+			let Some(shard_id) = Self::select_shard(task.network, task_id, task.shard_size) else {
 				// on gmp task sometimes returns none and it stops every other schedule
 				return;
 			};
@@ -644,12 +646,8 @@ pub mod pallet {
 		/// assigned to it.
 		/// Excludes selecting the `old` shard_id optional input if it is passed
 		/// for task reassignment purposes.
-		fn select_shard(
-			network: NetworkId,
-			task_id: TaskId,
-			old: Option<ShardId>,
-			shard_size: u32,
-		) -> Option<ShardId> {
+		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u32) -> Option<ShardId> {
+			let old = TaskShard::<T>::get(task_id);
 			NetworkShards::<T>::iter_prefix(network)
 				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
 				.filter(|(shard_id, _)| {

@@ -25,16 +25,16 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, GmpParams,
-		Message, NetworkId, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
-		TaskDescriptorParams, TaskError, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
-		TaskStatus, TasksInterface, TransferStake, TssSignature,
+		Message, NetworkId, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
 		fn create_task(input_length: u64) -> Weight;
 		fn submit_result() -> Weight;
 		fn submit_error() -> Weight;
-		fn submit_hash(input_length: u64) -> Weight;
+		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
 		fn set_read_task_reward() -> Weight;
@@ -55,7 +55,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn submit_hash(_: u64) -> Weight {
+		fn submit_hash() -> Weight {
 			Weight::default()
 		}
 
@@ -107,6 +107,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type RewardDeclineRate: Get<DepreciationRate<BlockNumberFor<Self>>>;
 		#[pallet::constant]
+		type SignPhaseTimeout: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
 		type ReadPhaseTimeout: Get<BlockNumberFor<Self>>;
@@ -147,11 +149,6 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn task_state)]
-	pub type TaskState<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, TaskStatus, OptionQuery>;
-
-	#[pallet::storage]
 	pub type TaskPhaseState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
 
@@ -160,12 +157,22 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, TaskId, TssSignature, OptionQuery>;
 
 	#[pallet::storage]
-	pub type WritePhaseStart<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
+	pub type TaskSigner<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, PublicKey, OptionQuery>;
 
 	#[pallet::storage]
-	pub type ReadPhaseStart<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, BlockNumberFor<T>, ValueQuery>;
+	pub type TaskHash<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, [u8; 32], OptionQuery>;
+
+	#[pallet::storage]
+	pub type PhaseStart<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		Blake2_128Concat,
+		TaskPhase,
+		BlockNumberFor<T>,
+		ValueQuery,
+	>;
 
 	#[pallet::storage]
 	pub type TaskOutput<T: Config> =
@@ -221,8 +228,6 @@ pub mod pallet {
 		TaskCreated(TaskId),
 		/// Task succeeded with result
 		TaskResult(TaskId, TaskResult),
-		/// Task failed with error
-		TaskFailed(TaskId, TaskError),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, [u8; 20]),
 		/// Read task reward set for network
@@ -241,8 +246,6 @@ pub mod pallet {
 		UnknownShard,
 		/// Invalid Signature
 		InvalidSignature,
-		/// Invalid Task Phase
-		InvalidTaskPhase,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Invalid task function
@@ -251,6 +254,8 @@ pub mod pallet {
 		NotSignPhase,
 		/// Not write phase
 		NotWritePhase,
+		/// Not read phase
+		NotReadPhase,
 		/// Invalid signer
 		InvalidSigner,
 		/// Task not assigned
@@ -282,32 +287,22 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let status = TaskState::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if TaskOutput::<T>::get(task_id).is_some() || matches!(status, TaskStatus::Completed) {
+			if TaskOutput::<T>::get(task_id).is_some() {
 				return Ok(());
 			}
-			ensure!(
-				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
-				Error::<T>::InvalidTaskPhase
-			);
-			let is_gmp = if task.function.is_gmp() {
-				ensure!(
-					Gateway::<T>::get(task.network).is_some(),
-					Error::<T>::GatewayNotRegistered
-				);
-				true
-			} else {
-				false
-			};
+			ensure!(TaskPhaseState::<T>::get(task_id) == TaskPhase::Read, Error::<T>::NotReadPhase);
 			let modified_data = append_hash_with_task_data(result.hash, task_id);
 			let sig_hash = VerifyingKey::message_hash(&modified_data);
 			Self::validate_signature(result.shard_id, sig_hash, result.signature)?;
 			TaskOutput::<T>::insert(task_id, result.clone());
-			TaskState::<T>::insert(task_id, TaskStatus::Completed);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
 			}
-			Self::payout_task_rewards(task_id, result.shard_id, is_gmp);
+			Self::payout_task_rewards(
+				task_id,
+				result.shard_id,
+				task.function.initial_phase() == TaskPhase::Sign,
+			);
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
 			}
@@ -315,43 +310,28 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Submit Task Error
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_error())]
-		pub fn submit_error(
-			origin: OriginFor<T>,
-			task_id: TaskId,
-			error: TaskError,
-		) -> DispatchResult {
-			ensure_signed(origin)?;
-			ensure!(
-				matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)),
-				Error::<T>::InvalidTaskPhase
-			);
-			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			let error_hash = VerifyingKey::message_hash(error.msg.as_bytes());
-			let modified_data = append_hash_with_task_data(error_hash, task_id);
-			let sig_hash = VerifyingKey::message_hash(&modified_data);
-			Self::validate_signature(error.shard_id, sig_hash, error.signature)?;
-			// Task fails on first error submission (no retry counter post no recurring tasks)
-			TaskState::<T>::insert(task_id, TaskStatus::Failed { error: error.clone() });
-			Self::deposit_event(Event::TaskFailed(task_id, error));
-			Ok(())
-		}
-
 		/// Submit Task Hash
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_hash(hash.len() as u64))]
-		pub fn submit_hash(origin: OriginFor<T>, task_id: TaskId, hash: Vec<u8>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::submit_hash())] // TODO update bench, weights
+		pub fn submit_hash(
+			origin: OriginFor<T>,
+			task_id: TaskId,
+			hash: [u8; 32],
+		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			let TaskPhase::Write(public_key) = TaskPhaseState::<T>::get(task_id) else {
-				return Err(Error::<T>::NotWritePhase.into());
-			};
-			ensure!(signer == public_key.into_account(), Error::<T>::InvalidSigner);
+			ensure!(
+				TaskPhaseState::<T>::get(task_id) == TaskPhase::Write,
+				Error::<T>::NotWritePhase
+			);
+			let expected_signer = TaskSigner::<T>::get(task_id);
+			ensure!(
+				Some(signer.clone()) == expected_signer.map(|s| s.into_account()),
+				Error::<T>::InvalidSigner
+			);
 			Self::snapshot_write_reward(task_id, signer);
-			ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
-			TaskPhaseState::<T>::insert(task_id, TaskPhase::Read(Some(hash)));
+			TaskHash::<T>::insert(task_id, hash);
+			Self::start_phase(task_id, TaskPhase::Read);
 			Ok(())
 		}
 
@@ -367,16 +347,14 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
-			let TaskPhase::Sign = TaskPhaseState::<T>::get(task_id) else {
-				return Err(Error::<T>::NotSignPhase.into());
-			};
+			ensure!(TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign, Error::<T>::NotSignPhase);
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
 			let hash = Self::get_gmp_hash(task_id, shard_id, chain_id)?;
 			let sig_hash = VerifyingKey::message_hash(&hash);
 			Self::validate_signature(shard_id, sig_hash, signature)?;
-			Self::start_write_phase(task_id, shard_id);
+			Self::start_phase(task_id, TaskPhase::Write);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
 		}
@@ -392,16 +370,15 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
-			for (id, state) in Tasks::<T>::iter() {
-				if let Function::RegisterShard { shard_id } = state.function {
-					if bootstrap == shard_id
-						&& matches!(TaskState::<T>::get(id), Some(TaskStatus::Created))
-					{
-						TaskState::<T>::insert(id, TaskStatus::Completed);
-					}
-				}
+			for (shard, _) in ShardRegistered::<T>::iter() {
+				ShardRegistered::<T>::remove(shard);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
+			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
+				if shard_id != bootstrap {
+					Self::register_shard(shard_id, network);
+				}
+			}
 			Gateway::<T>::insert(network, address);
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address));
@@ -455,18 +432,19 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			WritePhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
-				if n.saturating_sub(created_block) >= T::WritePhaseTimeout::get() {
-					if let Some(shard_id) = TaskShard::<T>::get(task_id) {
-						Self::start_write_phase(task_id, shard_id);
-						writes += 2;
+			PhaseStart::<T>::iter().for_each(|(task_id, phase, created_block)| {
+				let timeout = match phase {
+					TaskPhase::Sign => T::SignPhaseTimeout::get(),
+					TaskPhase::Write => T::WritePhaseTimeout::get(),
+					TaskPhase::Read => T::ReadPhaseTimeout::get(),
+				};
+				if n.saturating_sub(created_block) >= timeout {
+					if phase == TaskPhase::Write {
+						Self::start_phase(task_id, phase);
+					} else {
+						Self::schedule_task(task_id);
 					}
-				}
-			});
-			ReadPhaseStart::<T>::iter().for_each(|(task_id, created_block)| {
-				if n.saturating_sub(created_block) >= T::ReadPhaseTimeout::get() {
-					Self::schedule_task_to_new_shard(task_id);
-					writes += 3
+					writes += 3;
 				}
 			});
 			T::DbWeight::get().writes(writes)
@@ -474,34 +452,82 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
+			TaskSignature::<T>::get(task)
+		}
+
+		pub fn get_task_signer(task: TaskId) -> Option<PublicKey> {
+			TaskSigner::<T>::get(task)
+		}
+
+		pub fn get_task_hash(task: TaskId) -> Option<[u8; 32]> {
+			TaskHash::<T>::get(task)
+		}
+
+		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
+			ShardTasks::<T>::iter_prefix(shard_id)
+				.filter(|(task_id, _)| Self::is_runnable(*task_id))
+				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
+				.collect()
+		}
+
+		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
+			Tasks::<T>::get(task_id)
+		}
+
+		pub fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
+			Gateway::<T>::get(network)
+		}
+
+		pub fn get_task_phase(task_id: TaskId) -> TaskPhase {
+			TaskPhaseState::<T>::get(task_id)
+		}
+
+		pub fn get_task_shard(task_id: TaskId) -> Option<ShardId> {
+			TaskShard::<T>::get(task_id)
+		}
+
+		pub fn get_task_result(task_id: TaskId) -> Option<TaskResult> {
+			TaskOutput::<T>::get(task_id)
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
 		/// The account ID containing the funds for a task.
-		pub fn task_account(task_id: TaskId) -> T::AccountId {
+		fn task_account(task_id: TaskId) -> T::AccountId {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
-		/// Balance for a task
-		pub fn task_balance(task_id: TaskId) -> BalanceOf<T> {
-			pallet_balances::Pallet::<T>::free_balance(&Self::task_account(task_id))
+
+		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
+			Self::start_task(
+				TaskDescriptorParams::new(
+					network_id,
+					Function::RegisterShard { shard_id },
+					T::Shards::shard_members(shard_id).len() as u32,
+				),
+				TaskFunder::Shard(shard_id),
+			)
+			.unwrap();
 		}
 
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
 			let task_id = TaskIdCounter::<T>::get();
+			let phase = schedule.function.initial_phase();
 			let (read_task_reward, write_task_reward, send_message_reward) = (
 				T::BaseReadReward::get() + NetworkReadReward::<T>::get(schedule.network),
 				T::BaseWriteReward::get() + NetworkWriteReward::<T>::get(schedule.network),
 				T::BaseSendMessageReward::get()
 					+ NetworkSendMessageReward::<T>::get(schedule.network),
 			);
-			let mut required_funds = read_task_reward
-				.saturating_mul(schedule.shard_size.into())
-				.saturating_add(write_task_reward);
-			let is_gmp = if schedule.function.is_gmp() {
+			let mut required_funds = read_task_reward.saturating_mul(schedule.shard_size.into());
+			if phase == TaskPhase::Write || phase == TaskPhase::Sign {
+				required_funds = required_funds.saturating_add(write_task_reward);
+			}
+			if phase == TaskPhase::Sign {
 				required_funds = required_funds
 					.saturating_add(send_message_reward.saturating_mul(schedule.shard_size.into()));
-				true
-			} else {
-				false
-			};
+			}
 			let owner = match who {
 				TaskFunder::Account(user) => {
 					let funds = if schedule.funds >= required_funds {
@@ -526,15 +552,6 @@ pub mod pallet {
 					None
 				},
 			};
-			if is_gmp {
-				TaskPhaseState::<T>::insert(task_id, TaskPhase::Sign);
-			} else if !schedule.function.is_payable() {
-				// Task phase state is TaskPhase::Read(None) == TaskPhase::default()
-				// so TaskPhaseState stays default.
-				// Still need to start the read phase timeout:
-				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
-			} // else write phase is started in schedule_tasks if task.function.is_payable() which means is Evm::Deploy || Evm::Call
-  // Snapshot the reward config in storage
 			TaskRewardConfig::<T>::insert(
 				task_id,
 				RewardConfig {
@@ -554,7 +571,7 @@ pub mod pallet {
 					shard_size: schedule.shard_size,
 				},
 			);
-			TaskState::<T>::insert(task_id, TaskStatus::Created);
+			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
@@ -562,42 +579,19 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn start_write_phase(task_id: TaskId, shard_id: ShardId) {
-			TaskPhaseState::<T>::insert(
-				task_id,
-				TaskPhase::Write(T::Shards::next_signer(shard_id)),
-			);
-			WritePhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
-		}
-
-		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
-			TaskSignature::<T>::get(task)
-		}
-
-		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
-			ShardTasks::<T>::iter_prefix(shard_id)
-				.filter(|(task_id, _)| Self::is_runnable(*task_id))
-				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
-				.collect()
-		}
-
-		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
-			Tasks::<T>::get(task_id)
-		}
-
-		pub fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
-			Gateway::<T>::get(network)
+		fn start_phase(task_id: TaskId, phase: TaskPhase) {
+			TaskPhaseState::<T>::insert(task_id, phase);
+			if phase == TaskPhase::Write {
+				TaskSigner::<T>::insert(
+					task_id,
+					T::Shards::next_signer(TaskShard::<T>::get(task_id).unwrap()),
+				);
+			}
+			PhaseStart::<T>::insert(task_id, phase, frame_system::Pallet::<T>::block_number());
 		}
 
 		fn is_runnable(task_id: TaskId) -> bool {
-			matches!(TaskState::<T>::get(task_id), Some(TaskStatus::Created))
-		}
-
-		fn is_payable(task_id: TaskId) -> bool {
-			let Some(task) = Self::get_task(task_id) else {
-				return false;
-			};
-			task.function.is_payable()
+			TaskOutput::<T>::get(task_id).is_none()
 		}
 
 		fn validate_signature(
@@ -622,25 +616,27 @@ pub mod pallet {
 
 		fn schedule_tasks(network: NetworkId) {
 			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
-				let Some(TaskDescriptor { shard_size, .. }) = Tasks::<T>::get(task_id) else {
-					// this branch should never be hit, maybe turn this into expect
-					continue;
-				};
-				let Some(shard_id) = Self::select_shard(network, task_id, None, shard_size) else {
-					// on gmp task sometimes returns none and it stops every other schedule
-					continue;
-				};
-
-				if Self::is_payable(task_id)
-					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(Some(_)))
-					&& !matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Sign)
-				{
-					Self::start_write_phase(task_id, shard_id);
-				}
-				ShardTasks::<T>::insert(shard_id, task_id, ());
-				TaskShard::<T>::insert(task_id, shard_id);
-				UnassignedTasks::<T>::remove(network, task_id);
+				Self::schedule_task(task_id);
 			}
+		}
+
+		fn schedule_task(task_id: TaskId) {
+			let Some(task) = Tasks::<T>::get(task_id) else {
+				// this branch should never be hit, maybe turn this into expect
+				return;
+			};
+			let Some(shard_id) = Self::select_shard(task.network, task_id, None, task.shard_size)
+			else {
+				// on gmp task sometimes returns none and it stops every other schedule
+				return;
+			};
+			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
+				ShardTasks::<T>::remove(old_shard_id, task_id);
+			}
+			UnassignedTasks::<T>::remove(task.network, task_id);
+			ShardTasks::<T>::insert(shard_id, task_id, ());
+			TaskShard::<T>::insert(task_id, shard_id);
+			Self::start_phase(task_id, TaskPhaseState::<T>::get(task_id));
 		}
 
 		/// Select shard for task assignment
@@ -689,42 +685,6 @@ pub mod pallet {
 				.map(|(s, _)| s)
 		}
 
-		fn schedule_task_to_new_shard(task_id: TaskId) {
-			let Some(old_shard_id) = TaskShard::<T>::get(task_id) else {
-				// task not assigned to any existing shard so nothing changes
-				return;
-			};
-			let Some(TaskDescriptor { network, shard_size, .. }) = Tasks::<T>::get(task_id) else {
-				// unexpected branch: network not found logic bug if this branch is hit
-				return;
-			};
-			let Some(new_shard_id) =
-				Self::select_shard(network, task_id, Some(old_shard_id), shard_size)
-			else {
-				// no new shard available for network for task reassignment
-				return;
-			};
-			if matches!(TaskPhaseState::<T>::get(task_id), TaskPhase::Read(_)) {
-				// reset read phase start for task (and consequently the reward)
-				ReadPhaseStart::<T>::insert(task_id, frame_system::Pallet::<T>::block_number());
-			}
-			ShardTasks::<T>::remove(old_shard_id, task_id);
-			ShardTasks::<T>::insert(new_shard_id, task_id, ());
-			TaskShard::<T>::insert(task_id, new_shard_id);
-		}
-
-		pub fn get_task_phase(task_id: TaskId) -> TaskPhase {
-			TaskPhaseState::<T>::get(task_id)
-		}
-
-		pub fn get_task_shard(task_id: TaskId) -> Option<ShardId> {
-			TaskShard::<T>::get(task_id)
-		}
-
-		pub fn get_task_result(task_id: TaskId) -> Option<TaskResult> {
-			TaskOutput::<T>::get(task_id)
-		}
-
 		/// Apply the depreciation rate
 		fn apply_depreciation(
 			start: BlockNumberFor<T>,
@@ -761,7 +721,7 @@ pub mod pallet {
 				task_id,
 				signer,
 				Self::apply_depreciation(
-					WritePhaseStart::<T>::take(task_id),
+					PhaseStart::<T>::take(task_id, TaskPhase::Write),
 					write_task_reward,
 					depreciation_rate,
 				),
@@ -770,7 +730,7 @@ pub mod pallet {
 
 		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, is_gmp: bool) {
 			let task_account_id = Self::task_account(task_id);
-			let start = ReadPhaseStart::<T>::take(task_id);
+			let start = PhaseStart::<T>::take(task_id, TaskPhase::Read);
 			let shard_member_reward = if let Some(RewardConfig {
 				read_task_reward,
 				send_message_reward,
@@ -810,6 +770,7 @@ pub mod pallet {
 				);
 			});
 		}
+
 		fn get_gmp_hash(
 			task_id: TaskId,
 			shard_id: ShardId,
@@ -859,15 +820,9 @@ pub mod pallet {
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::insert(network, shard_id, ());
-			Self::start_task(
-				TaskDescriptorParams::new(
-					network,
-					Function::RegisterShard { shard_id },
-					T::Shards::shard_members(shard_id).len() as u32,
-				),
-				TaskFunder::Shard(shard_id),
-			)
-			.unwrap();
+			if Gateway::<T>::get(network).is_some() {
+				Self::register_shard(shard_id, network);
+			}
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {

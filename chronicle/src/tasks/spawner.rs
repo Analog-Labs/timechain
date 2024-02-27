@@ -13,8 +13,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskError, TaskId,
-	TaskResult, TssHash, TssSignature, TssSigningRequest,
+	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskId, TaskResult,
+	TssHash, TssSignature, TssSigningRequest,
 };
 use tokio::sync::Mutex;
 
@@ -169,7 +169,7 @@ where
 		let result = self
 			.execute_function(&function, target_block)
 			.await
-			.map_err(|err| format!("{:?}", err));
+			.map_err(|err| format!("{err}"));
 		let payload = match &result {
 			Ok(payload) => payload.as_slice(),
 			Err(payload) => payload.as_bytes(),
@@ -177,23 +177,18 @@ where
 		let prehashed_payload = VerifyingKey::message_hash(payload);
 		let hash = append_hash_with_task_data(prehashed_payload, task_id);
 		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, &hash).await?;
-		match result {
-			Ok(_) => {
-				let result = TaskResult {
-					shard_id,
-					hash: prehashed_payload,
-					signature,
-				};
-				if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
-					tracing::error!("Error submitting task result {:?}", e);
-				}
-			},
-			Err(msg) => {
-				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) = self.substrate.submit_task_error(task_id, error).await {
-					tracing::error!("Error submitting task error {:?}", e);
-				}
-			},
+		let error = match result {
+			Ok(_) => None,
+			Err(msg) => Some(msg),
+		};
+		let result = TaskResult {
+			shard_id,
+			hash: prehashed_payload,
+			signature,
+			error,
+		};
+		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
+			tracing::error!("Error submitting task result {:?}", e);
 		}
 		Ok(())
 	}
@@ -215,7 +210,11 @@ where
 
 	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
 		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.substrate.submit_task_hash(task_id, tx_hash).await {
+		if let Err(e) = self
+			.substrate
+			.submit_task_hash(task_id, tx_hash.try_into().expect("valid tx hash"))
+			.await
+		{
 			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())

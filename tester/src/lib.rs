@@ -9,7 +9,6 @@ use std::collections::BTreeMap;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::TaskStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
@@ -168,8 +167,7 @@ impl Tester {
 	}
 
 	pub async fn is_task_finished(&self, task_id: TaskId) -> bool {
-		let task_state = self.runtime.get_task_state(task_id).await.unwrap();
-		matches!(task_state, Some(TaskStatus::Completed) | Some(TaskStatus::Failed { .. }))
+		self.runtime.is_task_complete(task_id).await.unwrap()
 	}
 
 	pub async fn get_task_phase(&self, task_id: TaskId) -> TaskPhase {

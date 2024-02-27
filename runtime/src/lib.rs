@@ -60,8 +60,7 @@ use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus, MemberStorage,
 	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
-	TssSignature,
+	TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1173,6 +1172,7 @@ impl pallet_tasks::Config for Runtime {
 	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;
 	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
 	type RewardDeclineRate = RewardDeclineRate;
+	type SignPhaseTimeout = ConstU32<10>;
 	type WritePhaseTimeout = ConstU32<10>;
 	type ReadPhaseTimeout = ConstU32<10>;
 	type PalletId = TaskPalletId;
@@ -1540,15 +1540,27 @@ impl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
 		}
+
+		fn get_task_signer(task_id: TaskId) -> Option<PublicKey> {
+			Tasks::get_task_signer(task_id)
+		}
+
+		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]> {
+			Tasks::get_task_hash(task_id)
+		}
+
 		fn get_task_phase(task_id: TaskId) -> TaskPhase {
 			Tasks::get_task_phase(task_id)
 		}
+
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>{
 			Tasks::get_task_result(task_id)
 		}
+
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
+
 		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
 			Tasks::get_gateway(network)
 		}

@@ -124,6 +124,7 @@ impl task_schedule::Config for Test {
 	type BaseWriteReward = ConstU128<3>;
 	type BaseSendMessageReward = ConstU128<4>;
 	type RewardDeclineRate = RewardDeclineRate;
+	type SignPhaseTimeout = ConstU64<10>;
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;
 	type PalletId = PalletIdentifier;

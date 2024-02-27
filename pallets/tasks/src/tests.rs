@@ -1,8 +1,9 @@
 use crate::mock::*;
 use crate::{
 	Error, Event, Gateway, NetworkReadReward, NetworkSendMessageReward, NetworkShards,
-	NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskIdCounter, TaskOutput,
-	TaskPhaseState, TaskRewardConfig, TaskShard, TaskSignature, TaskState, UnassignedTasks,
+	NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskHash, TaskIdCounter,
+	TaskOutput, TaskPhaseState, TaskRewardConfig, TaskShard, TaskSignature, TaskSigner,
+	UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -13,7 +14,7 @@ use sp_runtime::Saturating;
 use time_primitives::{
 	append_hash_with_task_data, AccountId, Function, GmpParams, Message, NetworkId, PublicKey,
 	RewardConfig, ShardId, ShardStatus, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
-	TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TaskStatus, TasksInterface,
+	TaskExecution, TaskId, TaskPhase, TaskResult, TasksInterface,
 };
 
 fn shard() -> [AccountId; 3] {
@@ -78,7 +79,12 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	let appended_hash = append_hash_with_task_data(hash, task_id);
 	let final_hash = VerifyingKey::message_hash(&appended_hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
-	TaskResult { shard_id, hash, signature }
+	TaskResult {
+		shard_id,
+		hash,
+		signature,
+		error: None,
+	}
 }
 
 fn mock_submit_sig(chain_id: u64, function: Function) -> [u8; 64] {
@@ -111,14 +117,19 @@ fn mock_submit_sig(chain_id: u64, function: Function) -> [u8; 64] {
 	MockTssSigner::new().sign(final_hash).to_bytes()
 }
 
-fn mock_error_result(shard_id: ShardId, task_id: TaskId) -> TaskError {
+fn mock_error_result(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	// these values are taken after running a valid instance of submitting error
 	let msg: String = "Invalid input length".into();
 	let msg_hash = VerifyingKey::message_hash(&msg.clone().into_bytes());
 	let hash = append_hash_with_task_data(msg_hash, task_id);
 	let final_hash = VerifyingKey::message_hash(&hash);
 	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
-	TaskError { shard_id, msg, signature }
+	TaskResult {
+		shard_id,
+		hash: final_hash,
+		signature,
+		error: Some(msg),
+	}
 }
 
 #[test]
@@ -202,7 +213,6 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 				shard_size: 3,
 			}
 		);
-		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![(ETHEREUM, 0, ())]);
 	});
 }
@@ -234,7 +244,6 @@ fn task_auto_assigned_if_shard_online() {
 				shard_size: 3,
 			}
 		);
-		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1]);
 	});
@@ -267,7 +276,6 @@ fn task_auto_assigned_if_shard_joins_after() {
 		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(TaskState::<Test>::get(0), Some(TaskStatus::Created));
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 	});
@@ -423,12 +431,8 @@ fn shard_offline_drops_failed_tasks() {
 			sig,
 			chain_id
 		),);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			1,
-			"mock_hash".into()
-		));
-		assert_ok!(Tasks::submit_error(
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 1, [0; 32],));
+		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
 			mock_error_result(0, 1)
@@ -462,14 +466,13 @@ fn submit_task_error_is_task_failure() {
 			sig,
 			chain_id
 		),);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0u8; 32].into()).into(),
-			0,
-			"mock_hash".into()
-		));
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, [0; 32],));
 		let error = mock_error_result(0, 0);
-		assert_ok!(Tasks::submit_error(RawOrigin::Signed([0; 32].into()).into(), 0, error.clone()));
-		System::assert_last_event(Event::<Test>::TaskFailed(0, error).into());
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			error.clone()
+		));
 	});
 }
 
@@ -561,7 +564,7 @@ fn submit_task_result_inserts_task_output() {
 fn payable_task_smoke() {
 	let shard_id = 0;
 	let task_id = 0;
-	let task_hash = "mock_hash";
+	let task_hash = [0; 32];
 	let a: AccountId = A.into();
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
@@ -572,23 +575,21 @@ fn payable_task_smoke() {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed(a.clone()).into(), mock_payable(ETHEREUM)));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(shard_id, ETHEREUM);
-		assert_eq!(
-			<TaskPhaseState<Test>>::get(task_id),
-			TaskPhase::Write(pubkey_from_bytes([0u8; 32]))
-		);
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write,);
+		assert_eq!(<TaskSigner<Test>>::get(task_id), Some(pubkey_from_bytes([0u8; 32])));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			task_hash.into()
 		));
-		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read(Some(task_hash.into())));
+		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read);
+		assert_eq!(<TaskHash<Test>>::get(task_id), Some(task_hash));
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			mock_result_ok(shard_id, task_id)
 		));
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 	});
 }
 
@@ -774,7 +775,6 @@ fn shard_online_starts_register_shard_task() {
 				shard_size: 3,
 			}
 		);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		// register gateway to register shard
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
 		//when a register shard task is complete the shard is marked as registered
@@ -792,10 +792,8 @@ fn register_gateway_completes_register_shard_task() {
 		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
 		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Completed));
 		// insert shard public key to match mock result signature
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		// submit result still succeeds because task is completed
@@ -840,7 +838,6 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 				shard_size: 3,
 			}
 		);
-		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Created));
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 1, [0u8; 20]),);
@@ -853,18 +850,13 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 			sig,
 			chain_id
 		),);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			1,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 1, [0; 32],),);
 		// complete task to unregister shard
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			1,
 			mock_result_ok(1, 1)
 		));
-		assert_eq!(Tasks::task_state(1), Some(TaskStatus::Completed));
 	});
 }
 
@@ -878,7 +870,6 @@ fn shard_offline_stops_pending_register_shard_task() {
 		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
 		// shard not registered
@@ -908,13 +899,10 @@ fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 			1,
 		);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_eq!(Tasks::task_state(0), Some(TaskStatus::Created));
 		Tasks::shard_offline(0, ETHEREUM);
 		assert!(Tasks::tasks(1).is_none());
-		assert_eq!(Tasks::task_state(1), None);
 		// task to unregister shard does not exist
 		assert!(Tasks::tasks(1).is_none());
-		assert_eq!(Tasks::task_state(1), None);
 		assert_noop!(
 			Tasks::submit_result(RawOrigin::Signed([0; 32].into()).into(), 1, mock_result_ok(0, 1)),
 			Error::<Test>::UnknownTask
@@ -990,7 +978,6 @@ fn read_task_reward_goes_to_all_shard_members() {
 			task_id,
 			mock_result_ok(shard_id, task_id)
 		));
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		for (i, member) in shard().into_iter().enumerate() {
 			assert_eq!(
 				Balances::free_balance(&member) - balances[i],
@@ -1029,7 +1016,6 @@ fn read_task_completion_clears_payout_storage() {
 			task_id,
 			mock_result_ok(shard_id, task_id)
 		));
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		assert!(SignerPayout::<Test>::iter_prefix(task_id).collect::<Vec<_>>().is_empty());
 	});
 }
@@ -1068,11 +1054,7 @@ fn send_message_for_all_plus_write_reward_for_signer() {
 		for member in shard() {
 			balances.push(Balances::free_balance(&member));
 		}
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
 		let signer: AccountId = [0; 32].into();
 		assert_eq!(
 			SignerPayout::<Test>::get(task_id, &signer),
@@ -1085,7 +1067,6 @@ fn send_message_for_all_plus_write_reward_for_signer() {
 		));
 		// payout storage cleared
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let read_message_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
 		for (i, member) in shard().into_iter().enumerate() {
@@ -1131,11 +1112,7 @@ fn send_message_payout_clears_storage() {
 			sig,
 			chain_id
 		),);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
 		let signer: AccountId = [0u8; 32].into();
 		let write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), write_reward);
@@ -1144,7 +1121,6 @@ fn send_message_payout_clears_storage() {
 			task_id,
 			mock_result_ok(shard_id, task_id)
 		));
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
 	});
 }
@@ -1215,11 +1191,7 @@ fn read_phase_times_out_for_sign_task_in_read_phase() {
 			sig,
 			chain_id
 		),);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
@@ -1262,7 +1234,7 @@ fn submit_result_fails_if_not_read_phase() {
 				task_id,
 				mock_result_ok(shard_id, task_id)
 			),
-			Error::<Test>::InvalidTaskPhase
+			Error::<Test>::NotReadPhase
 		);
 		let chain_id = 1337;
 		let sig = mock_submit_sig(chain_id, sign_task.function);
@@ -1278,13 +1250,9 @@ fn submit_result_fails_if_not_read_phase() {
 				task_id,
 				mock_result_ok(shard_id, task_id)
 			),
-			Error::<Test>::InvalidTaskPhase
+			Error::<Test>::NotReadPhase
 		);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
 	});
 }
 
@@ -1324,11 +1292,7 @@ fn write_reward_depreciates_correctly() {
 		assert_eq!(System::block_number(), 1);
 		roll_to(reward_config.depreciation_rate.blocks * 2);
 		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 2);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			task_id,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32]),);
 		let signer: AccountId = [0; 32].into();
 		let reward_sans_depreciation: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		let expected_write_reward = reward_sans_depreciation
@@ -1341,7 +1305,6 @@ fn write_reward_depreciates_correctly() {
 		));
 		// payout storage cleared
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let read_message_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
 		for (i, member) in shard().into_iter().enumerate() {
@@ -1380,12 +1343,12 @@ fn submit_err_fails_if_not_read_phase() {
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20]),);
 		assert_noop!(
-			Tasks::submit_error(
+			Tasks::submit_result(
 				RawOrigin::Signed([0u8; 32].into()).into(),
 				task_id,
 				mock_error_result(shard_id, task_id)
 			),
-			Error::<Test>::InvalidTaskPhase
+			Error::<Test>::NotReadPhase
 		);
 		let chain_id = 1337;
 		let sig = mock_submit_sig(chain_id, sign_task.function);
@@ -1396,19 +1359,15 @@ fn submit_err_fails_if_not_read_phase() {
 			chain_id
 		),);
 		assert_noop!(
-			Tasks::submit_error(
+			Tasks::submit_result(
 				RawOrigin::Signed([0u8; 32].into()).into(),
 				task_id,
 				mock_error_result(shard_id, task_id)
 			),
-			Error::<Test>::InvalidTaskPhase
+			Error::<Test>::NotReadPhase
 		);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			0,
-			"mock_hash".into()
-		),);
-		assert_ok!(Tasks::submit_error(
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
 			mock_error_result(shard_id, task_id)
@@ -1452,11 +1411,7 @@ fn write_reward_eventually_depreciates_to_lower_bound_1() {
 		assert_eq!(System::block_number(), 1);
 		roll_to(reward_config.depreciation_rate.blocks * 200);
 		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 200);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			task_id,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32]),);
 		let signer: AccountId = [0; 32].into();
 		// asymptotic lower bound for all depreciation is the lowest unit
 		let expected_write_reward = 1u128;
@@ -1468,7 +1423,6 @@ fn write_reward_eventually_depreciates_to_lower_bound_1() {
 		));
 		// payout storage cleared
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let read_message_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		let send_message_reward: u128 = <Test as crate::Config>::BaseSendMessageReward::get();
 		for (i, member) in shard().into_iter().enumerate() {
@@ -1521,11 +1475,7 @@ fn read_send_message_rewards_depreciate_correctly() {
 		// get RewardConfig
 		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
 		assert_eq!(System::block_number(), 1);
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			task_id,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32]),);
 		let signer: AccountId = [0; 32].into();
 		let expected_write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), expected_write_reward);
@@ -1539,7 +1489,6 @@ fn read_send_message_rewards_depreciate_correctly() {
 		));
 		// payout storage cleared
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let read_reward_sans_depreciation: u128 = <Test as crate::Config>::BaseReadReward::get();
 		let expected_read_reward: u128 = read_reward_sans_depreciation.saturating_sub(
 			reward_config.depreciation_rate.percent * read_reward_sans_depreciation,
@@ -1597,11 +1546,7 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		}
 		// get RewardConfig
 		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
-		assert_ok!(Tasks::submit_hash(
-			RawOrigin::Signed([0; 32].into()).into(),
-			task_id,
-			"mock_hash".into()
-		),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32],),);
 		let signer: AccountId = [0; 32].into();
 		// asymptotic lower bound for all depreciation is the lowest unit
 		let expected_write_reward = <Test as crate::Config>::BaseWriteReward::get();
@@ -1616,7 +1561,6 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		));
 		// payout storage cleared
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), 0);
-		assert_eq!(<TaskState<Test>>::get(task_id), Some(TaskStatus::Completed));
 		let read_message_reward: u128 = 1;
 		let send_message_reward: u128 = 1;
 		for (i, member) in shard().into_iter().enumerate() {

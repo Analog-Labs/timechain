@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tc_subxt::ext::futures::future::join_all;
-use tester::{create_evm_call_custom, TaskPhaseInfo, Tester, TesterParams};
+use tester::{TaskPhaseInfo, Tester, TesterParams};
 use time_primitives::{NetworkId, TaskPhase};
 
 #[derive(Parser, Debug)]
@@ -172,10 +172,9 @@ async fn latency_cycle(
 			tester.faucet().await;
 			let gateway = tester.setup_gmp().await?;
 			let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
-			// ethereum dev chain id
-			let payload = tester.build_deposit_payload(contract_address.clone(), 1337).await;
-			let deposit_call = create_evm_call_custom(gateway, payload);
-			tester.create_task_and_wait(deposit_call, 3).await;
+			tester
+				.deposit_funds(contract_address.clone(), 1337, gateway, 10000000000000000000000000)
+				.await?;
 			(contract_address, start_block)
 		},
 		// you need to deposit gateway with below address otherwise it might give error:
@@ -357,10 +356,9 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let gmp_contract = tester.setup_gmp().await?;
 
 	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
-	// ethereum chain id for dev is here
-	let payload = tester.build_deposit_payload(contract_address.clone(), 1337).await;
-	let deposit_call = create_evm_call_custom(gmp_contract, payload);
-	tester.create_task_and_wait(deposit_call, 0).await;
+	tester
+		.deposit_funds(contract_address.clone(), 1337, gmp_contract, 10000000000000000000000000)
+		.await?;
 
 	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], 0);
 	tester.create_task_and_wait(send_msg, start_block).await;

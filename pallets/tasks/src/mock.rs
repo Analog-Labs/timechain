@@ -197,8 +197,8 @@ impl MockTssSigner {
 		self.signing_key.public().to_bytes().unwrap()
 	}
 
-	pub fn sign(&self, data: [u8; 32]) -> schnorr_evm::Signature {
-		self.signing_key.sign_prehashed(data)
+	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
+		self.signing_key.sign(data)
 	}
 }
 

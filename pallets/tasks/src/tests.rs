@@ -9,12 +9,11 @@ use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use schnorr_evm::VerifyingKey;
 use sp_runtime::Saturating;
 use time_primitives::{
-	append_hash_with_task_data, AccountId, Function, GmpParams, Message, NetworkId, PublicKey,
-	RewardConfig, ShardId, ShardStatus, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
-	TaskExecution, TaskId, TaskPhase, TaskResult, TasksInterface,
+	AccountId, Function, GmpParams, Message, NetworkId, Payload, PublicKey, RewardConfig, ShardId,
+	ShardStatus, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskId,
+	TaskPhase, TaskResult, TasksInterface,
 };
 
 fn shard() -> [AccountId; 3] {
@@ -76,15 +75,9 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
 		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
 	];
-	let appended_hash = append_hash_with_task_data(hash, task_id);
-	let final_hash = VerifyingKey::message_hash(&appended_hash);
-	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
-	TaskResult {
-		shard_id,
-		hash,
-		signature,
-		error: None,
-	}
+	let payload = Payload::Hashed(hash);
+	let signature = MockTssSigner::new().sign(&payload.bytes(task_id)).to_bytes();
+	TaskResult { shard_id, payload, signature }
 }
 
 fn mock_submit_sig(chain_id: u64, function: Function) -> [u8; 64] {
@@ -113,23 +106,14 @@ fn mock_submit_sig(chain_id: u64, function: Function) -> [u8; 64] {
 			.into(),
 		_ => Default::default(),
 	};
-	let final_hash = VerifyingKey::message_hash(&payload);
-	MockTssSigner::new().sign(final_hash).to_bytes()
+	MockTssSigner::new().sign(&payload).to_bytes()
 }
 
 fn mock_error_result(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	// these values are taken after running a valid instance of submitting error
-	let msg: String = "Invalid input length".into();
-	let msg_hash = VerifyingKey::message_hash(&msg.clone().into_bytes());
-	let hash = append_hash_with_task_data(msg_hash, task_id);
-	let final_hash = VerifyingKey::message_hash(&hash);
-	let signature = MockTssSigner::new().sign(final_hash).to_bytes();
-	TaskResult {
-		shard_id,
-		hash: msg_hash,
-		signature,
-		error: Some(msg),
-	}
+	let payload = Payload::Error("Invalid input length".into());
+	let signature = MockTssSigner::new().sign(&payload.bytes(task_id)).to_bytes();
+	TaskResult { shard_id, payload, signature }
 }
 
 #[test]

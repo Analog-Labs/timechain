@@ -16,7 +16,6 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use schnorr_evm::VerifyingKey;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
@@ -24,10 +23,10 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, GmpParams,
-		Message, NetworkId, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
-		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
-		TasksInterface, TransferStake, TssSignature,
+		AccountId, Balance, DepreciationRate, Function, GmpParams, Message, NetworkId, PublicKey,
+		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
+		TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult, TasksInterface, TransferStake,
+		TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -291,9 +290,8 @@ pub mod pallet {
 				return Ok(());
 			}
 			ensure!(TaskPhaseState::<T>::get(task_id) == TaskPhase::Read, Error::<T>::NotReadPhase);
-			let modified_data = append_hash_with_task_data(result.hash, task_id);
-			let sig_hash = VerifyingKey::message_hash(&modified_data);
-			Self::validate_signature(result.shard_id, sig_hash, result.signature)?;
+			let bytes = result.payload.bytes(task_id);
+			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
 			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
@@ -347,9 +345,8 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
-			let hash = Self::get_gmp_hash(task_id, shard_id, chain_id)?;
-			let sig_hash = VerifyingKey::message_hash(&hash);
-			Self::validate_signature(shard_id, sig_hash, signature)?;
+			let bytes = Self::get_gmp_hash(task_id, shard_id, chain_id)?;
+			Self::validate_signature(shard_id, &bytes, signature)?;
 			Self::start_phase(task_id, TaskPhase::Write);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
@@ -595,7 +592,7 @@ pub mod pallet {
 
 		fn validate_signature(
 			shard_id: ShardId,
-			hash: [u8; 32],
+			data: &[u8],
 			signature: TssSignature,
 		) -> DispatchResult {
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
@@ -604,7 +601,7 @@ pub mod pallet {
 			let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)
 				.map_err(|_| Error::<T>::UnknownShard)?;
 			schnorr_public_key
-				.verify_prehashed(hash, &signature)
+				.verify(data, &signature)
 				.map_err(|_| Error::<T>::InvalidSignature)?;
 			Ok(())
 		}

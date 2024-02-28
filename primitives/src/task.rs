@@ -17,7 +17,7 @@ pub enum Function {
 	EvmTxReceipt { tx: Vec<u8> },
 	RegisterShard { shard_id: ShardId },
 	UnregisterShard { shard_id: ShardId },
-	SendMessage { address: [u8; 20], payload: Vec<u8>, salt: [u8; 32], gas_limit: u64 },
+	SendMessage { msg: Msg },
 }
 
 impl Function {
@@ -32,15 +32,7 @@ impl Function {
 	}
 
 	pub fn get_input_length(&self) -> u64 {
-		match self {
-			Function::EvmDeploy { bytecode } => bytecode.len() as u64,
-			Function::EvmCall { input, .. } => input.len() as u64,
-			Function::EvmViewCall { input, .. } => input.len() as u64,
-			Function::EvmTxReceipt { tx } => tx.len() as u64,
-			Function::RegisterShard { .. } => 0,
-			Function::UnregisterShard { .. } => 0,
-			Function::SendMessage { payload, .. } => payload.len() as u64,
-		}
+		self.encoded_size() as _
 	}
 }
 
@@ -51,6 +43,7 @@ pub struct TaskResult {
 	pub signature: TssSignature,
 }
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Payload {
 	Hashed([u8; 32]),
@@ -64,12 +57,15 @@ impl Payload {
 	}
 }
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Msg {
-	pub network: NetworkId,
-	pub source: [u8; 20],
+	pub source_network: NetworkId,
+	pub source: [u8; 32],
+	pub dest_network: NetworkId,
 	pub dest: [u8; 20],
 	pub gas_limit: u128,
+	pub salt: [u8; 32],
 	pub data: Vec<u8>,
 }
 

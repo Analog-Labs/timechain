@@ -126,14 +126,8 @@ where
 								Message::update_keys([tss_public_key], [])
 									.to_eip712_bytes(&gmp_params)
 							},
-							Function::SendMessage {
-								address,
-								payload,
-								salt,
-								gas_limit,
-							} => {
-								Message::gmp(gmp_params.chain_id, address, payload, salt, gas_limit)
-									.to_eip712_bytes(&gmp_params)
+							Function::SendMessage { msg } => {
+								Message::gmp(msg).to_eip712_bytes(&gmp_params)
 							},
 							_ => anyhow::bail!("invalid task"),
 						};
@@ -205,26 +199,14 @@ where
 								)
 								}
 							},
-							Function::SendMessage {
-								address,
-								payload,
-								salt,
-								gas_limit,
-							} => {
+							Function::SendMessage { msg } => {
 								if let Some(gmp_params) = gmp_params {
 									let Some(tss_signature) =
 										self.substrate.get_task_signature(task_id).await?
 									else {
 										anyhow::bail!("tss signature not found for task {task_id}");
 									};
-									Message::gmp(
-										gmp_params.chain_id,
-										address,
-										payload,
-										salt,
-										gas_limit,
-									)
-									.into_evm_call(&gmp_params, tss_signature)
+									Message::gmp(msg).into_evm_call(&gmp_params, tss_signature)
 								} else {
 									// not gonna hit here since we already continue on is_gmp check
 									anyhow::bail!(

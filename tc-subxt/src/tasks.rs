@@ -2,14 +2,13 @@ use crate::timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 use crate::{timechain_runtime, SubxtClient};
 use anyhow::Result;
 use subxt::backend::StreamOfResults;
-use subxt::tx::Payload;
 use timechain_runtime::runtime_types::time_primitives::task::{
-	TaskDescriptor, TaskDescriptorParams, TaskPhase,
+	Payload, TaskDescriptor, TaskDescriptorParams, TaskPhase,
 };
 use timechain_runtime::tasks::calls::types::CreateTask;
 
 impl SubxtClient {
-	pub fn create_task_payload(task: TaskDescriptorParams) -> Payload<CreateTask> {
+	pub fn create_task_payload(task: TaskDescriptorParams) -> subxt::tx::Payload<CreateTask> {
 		timechain_runtime::tx().tasks().create_task(task)
 	}
 
@@ -34,7 +33,7 @@ impl SubxtClient {
 		else {
 			return Ok(false);
 		};
-		if let Some(msg) = output.error {
+		if let Payload::Error(msg) = output.payload {
 			anyhow::bail!("{msg}");
 		}
 		Ok(true)

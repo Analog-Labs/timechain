@@ -1,6 +1,6 @@
-use crate::{Function, TssPublicKey, TssSignature};
+use crate::{Function, Msg, TssPublicKey, TssSignature};
 use alloy_primitives::private::Vec;
-use alloy_primitives::{b256, Address, U256};
+use alloy_primitives::{Address, U256};
 use alloy_sol_types::{sol, Eip712Domain, SolCall, SolStruct};
 
 const EIP712_NAME: &str = "Analog Gateway Contract";
@@ -105,23 +105,15 @@ impl Message {
 		})
 	}
 
-	pub fn gmp(
-		chain_id: u64,
-		address: [u8; 20],
-		payload: Vec<u8>,
-		salt: [u8; 32],
-		gas_limit: u64,
-	) -> Message {
+	pub fn gmp(msg: Msg) -> Message {
 		Self::Gmp(GmpMessage {
-			// TODO: receive the sender address and network as parameter
-			source: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
-			// TODO: fix this during cross chain communication
-			srcNetwork: u128::from(chain_id),
-			dest: Address(address.into()),
-			destNetwork: u128::from(chain_id),
-			gasLimit: U256::from(gas_limit),
-			salt: U256::from_be_bytes(salt),
-			data: payload,
+			source: msg.source.into(),
+			srcNetwork: u128::from(msg.source_network),
+			dest: Address(msg.dest.into()),
+			destNetwork: u128::from(msg.dest_network),
+			gasLimit: U256::from(msg.gas_limit),
+			salt: U256::from_be_bytes(msg.salt),
+			data: msg.data,
 		})
 	}
 

@@ -13,8 +13,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskId, TaskResult,
-	TssHash, TssSignature, TssSigningRequest,
+	BlockNumber, Function, Payload, Runtime, ShardId, TaskId, TaskResult, TssHash, TssSignature,
+	TssSigningRequest,
 };
 use tokio::sync::Mutex;
 
@@ -170,23 +170,13 @@ where
 			.execute_function(&function, target_block)
 			.await
 			.map_err(|err| format!("{err}"));
-		let payload = match &result {
-			Ok(payload) => payload.as_slice(),
-			Err(payload) => payload.as_bytes(),
+		let payload = match result {
+			Ok(payload) => Payload::Hashed(VerifyingKey::message_hash(payload.as_slice())),
+			Err(payload) => Payload::Error(payload),
 		};
-		let prehashed_payload = VerifyingKey::message_hash(payload);
-		let hash = append_hash_with_task_data(prehashed_payload, task_id);
-		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, &hash).await?;
-		let error = match result {
-			Ok(_) => None,
-			Err(msg) => Some(msg),
-		};
-		let result = TaskResult {
-			shard_id,
-			hash: prehashed_payload,
-			signature,
-			error,
-		};
+		let (_, signature) =
+			self.tss_sign(block_num, shard_id, task_id, &payload.bytes(task_id)).await?;
+		let result = TaskResult { shard_id, payload, signature };
 		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
 			tracing::error!("Error submitting task result {:?}", e);
 		}

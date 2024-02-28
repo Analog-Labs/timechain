@@ -12,7 +12,8 @@ use std::process::Command;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
-	Function, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
+	Function, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase,
+	TssPublicKey,
 };
 
 pub struct TesterParams {
@@ -268,10 +269,15 @@ pub fn create_send_msg_call(
 	gas_limit: u64,
 ) -> Function {
 	Function::SendMessage {
-		address: get_eth_address_to_bytes(&address),
-		payload: get_evm_function_hash(function),
-		salt,
-		gas_limit,
+		msg: Msg {
+			source_network: 0,
+			source: [0; 32],
+			dest_network: 0,
+			dest: get_eth_address_to_bytes(&address),
+			data: get_evm_function_hash(function),
+			salt,
+			gas_limit: gas_limit as _,
+		},
 	}
 }
 

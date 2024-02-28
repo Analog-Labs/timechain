@@ -23,10 +23,10 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Balance, DepreciationRate, Function, GmpParams, Message, NetworkId, PublicKey,
-		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
-		TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult, TasksInterface, TransferStake,
-		TssSignature,
+		AccountId, Balance, DepreciationRate, Function, GmpParams, Message, Msg, NetworkId,
+		Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -300,6 +300,11 @@ pub mod pallet {
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
 			}
+			if let Payload::Gmp(msgs) = &result.payload {
+				for msg in msgs {
+					Self::send_message(result.shard_id, msg.clone());
+				}
+			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
 		}
@@ -498,6 +503,18 @@ pub mod pallet {
 				TaskDescriptorParams::new(
 					network_id,
 					Function::RegisterShard { shard_id },
+					T::Shards::shard_members(shard_id).len() as u32,
+				),
+				TaskFunder::Shard(shard_id),
+			)
+			.unwrap();
+		}
+
+		fn send_message(shard_id: ShardId, msg: Msg) {
+			Self::start_task(
+				TaskDescriptorParams::new(
+					msg.dest_network,
+					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as u32,
 				),
 				TaskFunder::Shard(shard_id),
@@ -777,14 +794,9 @@ pub mod pallet {
 			};
 
 			match task_descriptor.function {
-				Function::SendMessage {
-					address,
-					payload,
-					salt,
-					gas_limit,
-				} => Ok(Message::gmp(chain_id, address, payload, salt, gas_limit)
-					.to_eip712_bytes(&gmp_params)
-					.into()),
+				Function::SendMessage { msg } => {
+					Ok(Message::gmp(msg).to_eip712_bytes(&gmp_params).into())
+				},
 				Function::RegisterShard { shard_id } => {
 					let tss_public_key =
 						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;

@@ -351,7 +351,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 
 	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
 
-	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], 0);
+	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], 100000);
 
 	tester.create_task_and_wait(send_msg, start_block).await;
 	Ok(())

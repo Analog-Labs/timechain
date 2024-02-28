@@ -136,7 +136,6 @@ where
 							task_id,
 							payload.into(),
 							block_number,
-							gmp_params.chain_id,
 						)
 					},
 					TaskPhase::Write => {
@@ -300,7 +299,7 @@ where
 			return Ok(None);
 		};
 		Ok(Some(GmpParams {
-			chain_id: self.task_spawner.chain_id(),
+			network_id: self.network,
 			tss_public_key,
 			gateway_contract: gateway_contract.into(),
 		}))

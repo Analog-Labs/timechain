@@ -241,7 +241,7 @@ contract Gateway is IGateway, SigUtils {
 
     Schnorr _verifier;
 
-    constructor(uint16 _networkId, TssKey[] memory keys) SigUtils(_networkId) payable {
+    constructor(uint16 _networkId, TssKey[] memory keys) payable SigUtils(_networkId) {
         _registerKeys(keys);
 
         // emit event

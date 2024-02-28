@@ -11,9 +11,9 @@ use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use sp_runtime::Saturating;
 use time_primitives::{
-	AccountId, Function, GmpParams, Message, NetworkId, Payload, PublicKey, RewardConfig, ShardId,
-	ShardStatus, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskId,
-	TaskPhase, TaskResult, TasksInterface,
+	AccountId, Function, GmpParams, Message, Msg, NetworkId, Payload, PublicKey, RewardConfig,
+	ShardId, ShardStatus, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskExecution,
+	TaskId, TaskPhase, TaskResult, TasksInterface,
 };
 
 fn shard() -> [AccountId; 3] {
@@ -44,12 +44,7 @@ fn mock_sign_task(network: NetworkId) -> TaskDescriptorParams {
 	TaskDescriptorParams {
 		network,
 		start: 0,
-		function: Function::SendMessage {
-			address: Default::default(),
-			gas_limit: Default::default(),
-			salt: Default::default(),
-			payload: Default::default(),
-		},
+		function: Function::SendMessage { msg: Msg::default() },
 		funds: 100,
 		shard_size: 3,
 	}
@@ -96,14 +91,7 @@ fn mock_submit_sig(chain_id: u64, function: Function) -> [u8; 64] {
 			let tss_pubkey = MockTssSigner::new().public_key();
 			Message::update_keys([tss_pubkey], []).to_eip712_bytes(&gmp_params).into()
 		},
-		Function::SendMessage {
-			address,
-			payload,
-			salt,
-			gas_limit,
-		} => Message::gmp(chain_id, address, payload, salt, gas_limit)
-			.to_eip712_bytes(&gmp_params)
-			.into(),
+		Function::SendMessage { msg } => Message::gmp(msg).to_eip712_bytes(&gmp_params).into(),
 		_ => Default::default(),
 	};
 	MockTssSigner::new().sign(&payload).to_bytes()

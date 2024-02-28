@@ -58,7 +58,7 @@ impl Payload {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Msg {
 	pub source_network: NetworkId,
 	pub source: [u8; 32],

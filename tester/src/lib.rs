@@ -104,7 +104,7 @@ impl Tester {
 		self.deploy(&self.gateway_contract, &constructor).await
 	}
 
-	pub async fn build_deposit_payload(&self, _source: String, network: u64) -> Vec<u8> {
+	async fn build_deposit_payload(&self, source: [u8; 32], network: u64) -> Vec<u8> {
 		use alloy_sol_types::SolCall;
 		sol! {
 			interface Deposit {
@@ -112,10 +112,24 @@ impl Tester {
 			}
 		}
 		Deposit::depositCall {
-			source: [0u8; 32].into(),
+			source: source.into(),
 			network: network.into(),
 		}
 		.abi_encode()
+	}
+
+	pub async fn deposit_funds(
+		&self,
+		_source: String,
+		chain_id: u64,
+		gmp_address: String,
+		amount: u128,
+	) -> Result<[u8; 32]> {
+		// TODO fix pass source here
+		let payload = self.build_deposit_payload([0u8; 32], chain_id).await;
+		self.wallet
+			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount)
+			.await
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
@@ -248,14 +262,6 @@ pub fn create_evm_call(address: String) -> Function {
 		address: get_eth_address_to_bytes(&address),
 		input: get_evm_function_hash("vote_yes()"),
 		amount: 0,
-	}
-}
-
-pub fn create_evm_call_custom(address: String, input: Vec<u8>) -> Function {
-	Function::EvmCall {
-		address: get_eth_address_to_bytes(&address),
-		input,
-		amount: 10000000000000000000000000,
 	}
 }
 

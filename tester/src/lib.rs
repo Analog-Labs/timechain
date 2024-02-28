@@ -68,7 +68,7 @@ impl Tester {
 	}
 
 	pub async fn faucet(&self) {
-		if let Err(err) = self.wallet.faucet(1000000000000000000000000000).await {
+		if let Err(err) = self.wallet.faucet(100000000000000000000000000000).await {
 			println!("Error occured while funding wallet {:?}", err);
 		}
 	}
@@ -102,6 +102,20 @@ impl Tester {
 		}];
 		let constructor = tss_keys.abi_encode_params();
 		self.deploy(&self.gateway_contract, &constructor).await
+	}
+
+	pub async fn build_deposit_payload(&self, _source: String, network: u64) -> Vec<u8> {
+		use alloy_sol_types::SolCall;
+		sol! {
+			interface Deposit {
+					function deposit(bytes32 source, uint128 network) public payable;
+			}
+		}
+		Deposit::depositCall {
+			source: [0u8; 32].into(),
+			network: network.into(),
+		}
+		.abi_encode()
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
@@ -186,11 +200,12 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self) -> Result<()> {
+	pub async fn setup_gmp(&self) -> Result<String> {
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, _) = self.deploy_gateway(shard_public_key).await?;
-		self.register_gateway_address(shard_id, &address).await
+		self.register_gateway_address(shard_id, &address).await?;
+		Ok(address)
 	}
 
 	pub async fn get_latest_block(&self) -> Result<u64> {
@@ -233,6 +248,14 @@ pub fn create_evm_call(address: String) -> Function {
 		address: get_eth_address_to_bytes(&address),
 		input: get_evm_function_hash("vote_yes()"),
 		amount: 0,
+	}
+}
+
+pub fn create_evm_call_custom(address: String, input: Vec<u8>) -> Function {
+	Function::EvmCall {
+		address: get_eth_address_to_bytes(&address),
+		input,
+		amount: 10000000000000000000000000,
 	}
 }
 

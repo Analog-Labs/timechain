@@ -46,6 +46,10 @@ interface IGateway {
         // new shards registered
     bytes32 indexed id, TssKey[] revoked, TssKey[] registered);
 
+    event AmountDeposit(
+      bytes32 source, uint128 network  
+    );
+
     function deposit(bytes32 source, uint128 network) external payable;
 
     /**
@@ -396,6 +400,7 @@ contract Gateway is IGateway, SigUtils {
     function deposit(bytes32 source, uint128 network) public payable {
         uint256 depositBefore = _deposits[source][network];
         _deposits[source][network] = depositBefore + msg.value;
+        emit AmountDeposit( source,network);
     }
 
     // Execute GMP message

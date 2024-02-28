@@ -38,6 +38,7 @@ fi
 
 # Build docker image
 cargo build -p timechain-node -p chronicle -p tester --target "$rustTarget" --release 
+forge build 
 rm -rf target/docker
 mkdir -p target/docker
 

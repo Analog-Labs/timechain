@@ -7609,7 +7609,6 @@ dependencies = [
  "log",
  "pallet-balances",
  "parity-scale-codec",
- "peernet",
  "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",

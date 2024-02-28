@@ -1,11 +1,9 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolValue};
-use anyhow::{Context, Result};
-use ethers_solc::{artifacts::Source, CompilerInput, Solc};
+use anyhow::Result;
 use rosetta_client::Wallet;
 use sha3::{Digest, Keccak256};
 use sp_core::crypto::Ss58Codec;
-use std::collections::BTreeMap;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -70,7 +68,7 @@ impl Tester {
 	}
 
 	pub async fn faucet(&self) {
-		if let Err(err) = self.wallet.faucet(1000000000000000000000).await {
+		if let Err(err) = self.wallet.faucet(1000000000000000000000000000).await {
 			println!("Error occured while funding wallet {:?}", err);
 		}
 	}
@@ -201,26 +199,9 @@ impl Tester {
 }
 
 fn compile_file(path: &Path) -> Result<Vec<u8>> {
-	let solc = Solc::default();
-	let mut sources = BTreeMap::new();
-	sources.insert(path.into(), Source::read(path).unwrap());
-	let input = &CompilerInput::with_sources(sources)[0];
-	let output = solc.compile_exact(input)?;
-	let file = output.contracts.get(path.to_str().unwrap()).unwrap();
-	let (key, _) = file.first_key_value().unwrap();
-	let contract = file.get(key).unwrap();
-	let bytecode = contract
-		.evm
-		.as_ref()
-		.context("evm not found")?
-		.bytecode
-		.as_ref()
-		.context("bytecode not found")?
-		.object
-		.as_bytes()
-		.context("could not convert to bytes")?
-		.to_vec();
-	Ok(bytecode)
+	let abi = std::fs::read_to_string(path)?;
+	let json_abi: serde_json::Value = serde_json::from_str(&abi)?;
+	Ok(hex::decode(json_abi["bytecode"]["object"].as_str().unwrap().replace("0x", ""))?)
 }
 
 pub fn drop_node(node_name: String) {

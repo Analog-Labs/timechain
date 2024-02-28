@@ -341,7 +341,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			signature: TssSignature,
-			chain_id: u64,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
@@ -350,7 +349,7 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
-			let bytes = Self::get_gmp_hash(task_id, shard_id, chain_id)?;
+			let bytes = Self::get_gmp_hash(task_id, shard_id)?;
 			Self::validate_signature(shard_id, &bytes, signature)?;
 			Self::start_phase(task_id, TaskPhase::Write);
 			TaskSignature::<T>::insert(task_id, signature);
@@ -778,17 +777,16 @@ pub mod pallet {
 		fn get_gmp_hash(
 			task_id: TaskId,
 			shard_id: ShardId,
-			chain_id: u64,
 		) -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			let task_descriptor = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let tss_public_key =
 				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let network_id = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let gateway_contract =
-				Gateway::<T>::get(network).ok_or(Error::<T>::GatewayNotRegistered)?;
+				Gateway::<T>::get(network_id).ok_or(Error::<T>::GatewayNotRegistered)?;
 
 			let gmp_params = GmpParams {
-				chain_id,
+				network_id,
 				tss_public_key,
 				gateway_contract: gateway_contract.into(),
 			};

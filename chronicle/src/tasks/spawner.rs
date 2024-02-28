@@ -34,7 +34,6 @@ pub struct TaskSpawner<S> {
 	wallet: Arc<Wallet>,
 	wallet_guard: Arc<Mutex<()>>,
 	substrate: S,
-	chain_id: u64,
 }
 
 impl<S> TaskSpawner<S>
@@ -51,13 +50,11 @@ where
 			)
 			.await?,
 		);
-		let chain_id = wallet.eth_chain_id().await?;
 		Ok(Self {
 			tss: params.tss,
 			wallet,
 			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
-			chain_id,
 		})
 	}
 
@@ -189,10 +186,9 @@ where
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_number: u32,
-		chain_id: u64,
 	) -> Result<()> {
 		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
-		if let Err(e) = self.substrate.submit_task_signature(task_id, sig, chain_id).await {
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())
@@ -219,10 +215,6 @@ where
 		Box::pin(BlockStream::new(&self.wallet))
 	}
 
-	fn chain_id(&self) -> u64 {
-		self.chain_id
-	}
-
 	fn execute_read(
 		&self,
 		target_block: u64,
@@ -240,9 +232,8 @@ where
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_num: u32,
-		chain_id: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().sign(shard_id, task_id, payload, block_num, chain_id).boxed()
+		self.clone().sign(shard_id, task_id, payload, block_num).boxed()
 	}
 
 	fn execute_write(

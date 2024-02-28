@@ -1,4 +1,4 @@
-use crate::{Function, Msg, TssPublicKey, TssSignature};
+use crate::{Function, Msg, NetworkId, TssPublicKey, TssSignature};
 use alloy_primitives::private::Vec;
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::{sol, Eip712Domain, SolCall, SolStruct};
@@ -9,11 +9,11 @@ const EIP712_VERSION: &str = "0.1.0";
 pub type Eip712Bytes = [u8; 66];
 pub type Eip712Hash = [u8; 32];
 
-fn eip712_domain_separator(chain_id: u64, gateway_contract: Address) -> Eip712Domain {
+fn eip712_domain_separator(network_id: NetworkId, gateway_contract: Address) -> Eip712Domain {
 	Eip712Domain {
 		name: Some(EIP712_NAME.into()),
 		version: Some(EIP712_VERSION.into()),
-		chain_id: Some(U256::from(chain_id)),
+		chain_id: Some(U256::from(network_id)),
 		verifying_contract: Some(gateway_contract),
 		salt: None,
 	}
@@ -134,7 +134,7 @@ impl Message {
 	}
 
 	pub fn to_eip712_bytes(&self, params: &GmpParams) -> Eip712Bytes {
-		let domain = eip712_domain_separator(params.chain_id, params.gateway_contract);
+		let domain = eip712_domain_separator(params.network_id, params.gateway_contract);
 		let hash = self.eip712_hash_struct();
 		to_eip712_bytes_with_domain(hash, &domain)
 	}
@@ -156,7 +156,7 @@ impl Message {
 }
 
 pub struct GmpParams {
-	pub chain_id: u64,
+	pub network_id: NetworkId,
 	pub gateway_contract: Address,
 	pub tss_public_key: TssPublicKey,
 }

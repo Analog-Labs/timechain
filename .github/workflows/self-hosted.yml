@@ -45,7 +45,7 @@ jobs:
     runs-on: [self-hosted, rust-check]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -88,7 +88,7 @@ jobs:
       EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - run: cargo install cargo-audit --locked 
 
@@ -116,7 +116,7 @@ jobs:
       EXCLUDE_TESTS: ${{needs.conditions.outputs.exclude-tests}}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - run: sudo apt-get install -y protobuf-compiler
 

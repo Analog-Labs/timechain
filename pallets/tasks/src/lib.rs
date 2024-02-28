@@ -298,11 +298,7 @@ pub mod pallet {
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
 			}
-			Self::payout_task_rewards(
-				task_id,
-				result.shard_id,
-				task.function.initial_phase() == TaskPhase::Sign,
-			);
+			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
 			}
@@ -726,29 +722,25 @@ pub mod pallet {
 			);
 		}
 
-		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, is_gmp: bool) {
+		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, phase: TaskPhase) {
 			let task_account_id = Self::task_account(task_id);
 			let start = PhaseStart::<T>::take(task_id, TaskPhase::Read);
-			let shard_member_reward = if let Some(RewardConfig {
+			let Some(RewardConfig {
 				read_task_reward,
 				send_message_reward,
 				depreciation_rate,
 				..
 			}) = TaskRewardConfig::<T>::take(task_id)
-			{
-				let read_reward =
-					Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());
+			else {
+				return;
+			};
+			let mut shard_member_reward =
+				Self::apply_depreciation(start, read_task_reward, depreciation_rate.clone());
+			if phase == TaskPhase::Sign {
 				let send_msg_reward =
 					Self::apply_depreciation(start, send_message_reward, depreciation_rate);
-				if is_gmp {
-					read_reward.saturating_add(send_msg_reward)
-				} else {
-					read_reward
-				}
-			} else {
-				// reward config never stored, bug edge case
-				BalanceOf::<T>::zero()
-			};
+				shard_member_reward = shard_member_reward.saturating_add(send_msg_reward);
+			}
 			// payout each member of the shard
 			T::Shards::shard_members(shard_id).into_iter().for_each(|account| {
 				let _ = pallet_balances::Pallet::<T>::transfer(

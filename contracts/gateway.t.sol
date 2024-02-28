@@ -19,7 +19,7 @@ contract GatewayTest is Test {
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(0, keys);
         FOUNDRY_GAS_LIMIT = 9223372036854775807;
-        EXECUTE_CALL_COST = 51840;
+        EXECUTE_CALL_COST = 52054;
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {

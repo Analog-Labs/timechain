@@ -11,9 +11,9 @@ use std::sync::{Arc, Mutex};
 use time_primitives::sp_runtime::traits::IdentifyAccount;
 use time_primitives::{
 	sp_core, AccountId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Function,
-	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash, TssSignature,
-	TssSigningRequest,
+	MemberStatus, NetworkId, Payload, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId,
+	ShardStatus, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash,
+	TssSignature, TssSigningRequest,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -466,9 +466,8 @@ impl TaskSpawner for Mock {
 					task_id,
 					TaskResult {
 						shard_id,
-						hash,
+						payload: Payload::Hashed(hash),
 						signature,
-						error: None,
 					},
 				)
 				.await?;

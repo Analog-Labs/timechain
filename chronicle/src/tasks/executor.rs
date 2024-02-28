@@ -312,7 +312,7 @@ mod tests {
 	use super::*;
 	use crate::mock::Mock;
 	use futures::StreamExt;
-	use time_primitives::TaskDescriptor;
+	use time_primitives::{Msg, TaskDescriptor};
 
 	#[tokio::test]
 	async fn task_executor_smoke() -> Result<()> {
@@ -325,12 +325,7 @@ mod tests {
 		let task = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
 			network,
-			function: Function::SendMessage {
-				address: Default::default(),
-				gas_limit: Default::default(),
-				salt: Default::default(),
-				payload: Default::default(),
-			},
+			function: Function::SendMessage { msg: Msg::default() },
 			start: 0,
 			shard_size: 1,
 		});

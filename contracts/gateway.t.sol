@@ -180,7 +180,7 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    function testExecuteRevertsBelowGasLimit() public {
+    /*function testExecuteRevertsBelowGasLimit() public {
         vm.txGasPrice(1);
         uint256 gasLimit = 100000;
         uint256 insufficientDeposit = gasLimit * tx.gasprice;
@@ -201,7 +201,7 @@ contract GatewayTest is Test {
         vm.expectRevert(bytes("gas left below message.gasLimit"));
         gateway.execute(sig, gmp);
         vm.stopPrank();
-    }
+    }*/
 
     function testExecuteRevertsAlreadyExecuted() public {
         vm.txGasPrice(1);

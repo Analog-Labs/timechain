@@ -15,9 +15,12 @@ contract GatewayTest is Test {
 
     constructor() {
         signer = new Signer(secret);
-        uint256[2][] memory keys = new uint256[2][](1);
-        keys[0] = [signer.yParity() == 28 ? 1 : 0, signer.xCoord()];
-        gateway = new Gateway(keys);
+        TssKey[] memory keys = new TssKey[](1);
+        keys[0] = TssKey({
+            yParity: signer.yParity() == 28 ? 1 : 0,
+            xCoord: signer.xCoord()
+        });
+        gateway = new Gateway(0, keys);
         FOUNDRY_GAS_LIMIT = 9223372036854775807;
         EXECUTE_CALL_COST = 51840;
     }

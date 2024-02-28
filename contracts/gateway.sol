@@ -131,11 +131,11 @@ struct GmpInfo {
 contract SigUtils {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
-    uint256 internal immutable INITIAL_CHAIN_ID;
+    uint16 internal immutable INITIAL_CHAIN_ID;
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
 
-    constructor() {
-        INITIAL_CHAIN_ID = block.chainid;
+    constructor(uint16 networkId) {
+        INITIAL_CHAIN_ID = networkId;
         INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
     }
 
@@ -230,9 +230,6 @@ contract Gateway is IGateway, SigUtils {
 
     uint256 internal constant EXECUTE_GAS_DIFF = 10630; // Measured gas cost difference for `execute`
 
-    // Owner of this contract, who can execute sudo operations
-    address _owner;
-
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
 
@@ -244,12 +241,7 @@ contract Gateway is IGateway, SigUtils {
 
     Schnorr _verifier;
 
-    constructor(uint256[2][] memory initialKeys) payable {
-        TssKey[] memory keys;
-        assembly {
-            // Transmute uint256[2][] to TssKey[], once they have the same layout in memory
-            keys := initialKeys
-        }
+    constructor(uint16 _networkId, TssKey[] memory keys) SigUtils(_networkId) payable {
         _registerKeys(keys);
 
         // emit event
@@ -400,26 +392,6 @@ contract Gateway is IGateway, SigUtils {
         _updateKeys(messageHash, message.revoke, message.register);
     }
 
-    // Register/Revoke TSS keys using shard TSS signature
-    function updateKeys(uint256[4] memory sig, uint256[2][] memory revoke, uint256[2][] memory register) external {
-        Signature memory signature;
-        assembly {
-            // Transmute uint256[4] to Signature, once they have the same layout in memory
-            signature := sig
-        }
-
-        TssKey[] memory keysToRevoke;
-        TssKey[] memory newKeys;
-        assembly {
-            // Transmute uint256[2][] to TssKey, once they have the same layout in memory
-            keysToRevoke := revoke
-            newKeys := register
-        }
-
-        UpdateKeysMessage memory payload = UpdateKeysMessage({revoke: keysToRevoke, register: newKeys});
-        updateKeys(signature, payload);
-    }
-
     // Deposit balance to refund callers of execute
     function deposit(bytes32 source, uint128 network) public payable {
         uint256 depositBefore = _deposits[source][network];
@@ -498,37 +470,5 @@ contract Gateway is IGateway, SigUtils {
         uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;
         _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
         payable(tx.origin).transfer(refund);
-    }
-
-    // Raw Execute GMP message using shard TSS signature
-    function execute(
-        uint256[3] memory sig,
-        bytes32 source, // 'source' from GmpPayload within GmpMessage
-        uint128 srcNetwork, // 'srcNetwork' from GmpPayload within GmpMessage
-        address dest, // 'dest' from GmpPayload within GmpMessage
-        uint128 destNetwork, // 'destNetwork' from GmpPayload within GmpMessage
-        uint256 gasLimit, // 'gasLimit' from GmpPayload within GmpMessage
-        uint256 salt, // 'salt' from GmpPayload within GmpMessage
-        bytes memory data // 'data' from GmpPayload within GmpMessage
-    ) external returns (uint8 status, bytes32 result) {
-        Signature memory signature;
-        assembly {
-            // Transmute uint256[4] to Signature, once they have the same layout in memory
-            signature := sig
-        }
-
-        // Recreate the GmpPayload struct from the provided arguments
-        GmpMessage memory message = GmpMessage({
-            source: source,
-            srcNetwork: srcNetwork,
-            dest: dest,
-            destNetwork: destNetwork,
-            gasLimit: gasLimit,
-            salt: salt,
-            data: data
-        });
-
-        // Execute GMP message
-        (status, result) = execute(signature, message);
     }
 }

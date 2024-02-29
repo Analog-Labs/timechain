@@ -39,7 +39,10 @@ contract GatewayTest is Test {
             data: ""
         });
         bytes memory payload = gateway.getGmpTypedHash(gmp);
-        assertEq(payload, hex"19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd");
+        assertEq(
+            payload,
+            hex"19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd"
+        );
     }
 
     function testDepositRevertsOutOfFunds() public {

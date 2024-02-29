@@ -131,17 +131,12 @@ struct GmpInfo {
 contract SigUtils {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
-    uint16 internal immutable INITIAL_CHAIN_ID;
-    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
+    uint16 internal immutable NETWORK_ID;
+    bytes32 internal immutable DOMAIN_SEPARATOR;
 
     constructor(uint16 networkId) {
-        INITIAL_CHAIN_ID = networkId;
-        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
-    }
-
-    // Reference: https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol
-    function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
-        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : computeDomainSeparator();
+        NETWORK_ID = networkId;
+        DOMAIN_SEPARATOR = computeDomainSeparator();
     }
 
     // Computes the EIP-712 domain separador
@@ -151,8 +146,9 @@ contract SigUtils {
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256("Analog Gateway Contract"),
                 keccak256("0.1.0"),
-                INITIAL_CHAIN_ID,
-                address(this)
+                uint256(NETWORK_ID),
+                //address(this)
+                address(0)
             )
         );
     }
@@ -191,8 +187,8 @@ contract SigUtils {
         );
     }
 
-    function getUpdateKeysTypedHash(UpdateKeysMessage memory message) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), _getUpdateKeysHash(message)));
+    function getUpdateKeysTypedHash(UpdateKeysMessage memory message) internal view returns (bytes memory) {
+        return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getUpdateKeysHash(message));
     }
 
     // computes the hash of an array of tss keys
@@ -200,7 +196,7 @@ contract SigUtils {
         return keccak256(
             abi.encode(
                 keccak256(
-                    "GmpMessage(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
+                    "GmpMessage(bytes32 source,uint16 srcNetwork,address dest,uint16 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
                 ),
                 gmp.source,
                 gmp.srcNetwork,
@@ -214,8 +210,8 @@ contract SigUtils {
     }
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function getGmpTypedHash(GmpMessage memory message) public view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), _getGmpHash(message)));
+    function getGmpTypedHash(GmpMessage memory message) public view returns (bytes memory) {
+        return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getGmpHash(message));
     }
 }
 

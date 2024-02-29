@@ -137,8 +137,8 @@ contract SigUtils {
 
     constructor(uint16 networkId, address gateway) {
         NETWORK_ID = networkId;
-        DOMAIN_SEPARATOR = computeDomainSeparator();
         GATEWAY_ADDRESS = gateway;
+        DOMAIN_SEPARATOR = computeDomainSeparator();
     }
 
     // Computes the EIP-712 domain separador
@@ -458,7 +458,7 @@ contract Gateway is IGateway, SigUtils {
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         uint256 gasBefore = gasleft();
-        //require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
+        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
         require(
             _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
         );

@@ -18,6 +18,7 @@ pub enum Function {
 	RegisterShard { shard_id: ShardId },
 	UnregisterShard { shard_id: ShardId },
 	SendMessage { msg: Msg },
+	ReadMessages,
 }
 
 impl Function {
@@ -27,7 +28,9 @@ impl Function {
 			| Self::UnregisterShard { .. }
 			| Self::SendMessage { .. } => TaskPhase::Sign,
 			Self::EvmDeploy { .. } | Self::EvmCall { .. } => TaskPhase::Write,
-			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } => TaskPhase::Read,
+			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages => {
+				TaskPhase::Read
+			},
 		}
 	}
 
@@ -76,7 +79,7 @@ pub struct TaskDescriptor {
 	pub network: NetworkId,
 	pub function: Function,
 	pub start: u64,
-	pub shard_size: u32,
+	pub shard_size: u16,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -85,11 +88,11 @@ pub struct TaskDescriptorParams {
 	pub start: u64,
 	pub function: Function,
 	pub funds: Balance,
-	pub shard_size: u32,
+	pub shard_size: u16,
 }
 
 impl TaskDescriptorParams {
-	pub fn new(network: NetworkId, function: Function, shard_size: u32) -> Self {
+	pub fn new(network: NetworkId, function: Function, shard_size: u16) -> Self {
 		Self {
 			network,
 			start: 0,

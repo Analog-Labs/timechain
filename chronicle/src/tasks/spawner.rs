@@ -130,6 +130,9 @@ where
 					"SendMessage must be transformed into EvmCall prior to execution"
 				));
 			},
+			Function::ReadMessages => {
+				todo!()
+			},
 		})
 	}
 

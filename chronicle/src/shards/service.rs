@@ -441,7 +441,7 @@ where
 						Level::DEBUG,
 						"submitting heartbeat",
 					);
-					if let Err(e) = self.substrate.submit_heartbeat().await {
+					if let Err(e) = self.substrate.submit_heartbeat(self.block_height).await {
 							event!(
 							target: TW_LOG,
 							parent: span,

@@ -19,7 +19,7 @@ benchmarks! {
 
 	send_heartbeat {
 		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(ALICE.into()))
+	}: _(RawOrigin::Signed(ALICE.into()), 0)
 	verify { }
 
 	unregister_member {

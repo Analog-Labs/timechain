@@ -356,8 +356,9 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let gmp_contract = tester.setup_gmp().await?;
 
 	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	println!("Depositing funds");
 	tester
-		.deposit_funds(contract_address.clone(), 1337, gmp_contract, 10000000000000000000000000)
+		.deposit_funds(contract_address.clone(), 0, gmp_contract, 100000000000000000000)
 		.await?;
 
 	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], 0);

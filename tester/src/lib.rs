@@ -100,20 +100,22 @@ impl Tester {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
 		}];
-		let constructor = tss_keys.abi_encode_params();
+		//TODO fix pass networkid which we run.
+		let network_id = 0u16;
+		let constructor = (network_id, tss_keys).abi_encode_params();
 		self.deploy(&self.gateway_contract, &constructor).await
 	}
 
-	async fn build_deposit_payload(&self, source: [u8; 32], network: u64) -> Vec<u8> {
+	async fn build_deposit_payload(&self, source: [u8; 32], chain_id: u64) -> Vec<u8> {
 		use alloy_sol_types::SolCall;
 		sol! {
 			interface Deposit {
-					function deposit(bytes32 source, uint128 network) public payable;
+				function deposit(bytes32 source, uint128 network) public payable;
 			}
 		}
 		Deposit::depositCall {
 			source: source.into(),
-			network: network.into(),
+			network: chain_id.into(),
 		}
 		.abi_encode()
 	}
@@ -127,9 +129,8 @@ impl Tester {
 	) -> Result<[u8; 32]> {
 		// TODO fix pass source here
 		let payload = self.build_deposit_payload([0u8; 32], chain_id).await;
-		self.wallet
-			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount)
-			.await
+		let gateway_contract = get_eth_address_to_bytes(&gmp_address);
+		self.wallet.eth_send_call(gateway_contract, payload, amount).await
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {

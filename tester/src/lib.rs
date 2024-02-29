@@ -108,12 +108,15 @@ impl Tester {
 		&self,
 		gmp_address: String,
 		source_network: NetworkId,
-		_source: String,
+		source: String,
 		amount: u128,
 	) -> Result<[u8; 32]> {
+		let src = get_eth_address_to_bytes(&source);
+		let mut source = [0; 32];
+		source[..20].copy_from_slice(&src[..]);
 		let payload = IGateway::depositCall {
 			network: source_network,
-			source: [0; 32].into(),
+			source: source.into(),
 		}
 		.abi_encode();
 		self.wallet
@@ -215,6 +218,33 @@ impl Tester {
 	pub async fn get_latest_block(&self) -> Result<u64> {
 		self.runtime.get_latest_block().await
 	}
+
+	pub async fn send_message(
+		&self,
+		source_network: NetworkId,
+		source: String,
+		dest: String,
+		function: &str,
+		gas_limit: u128,
+	) -> Result<TaskId> {
+		let src = get_eth_address_to_bytes(&source);
+		let mut source = [0; 32];
+		source[..20].copy_from_slice(&src[..]);
+		let mut salt = [0; 32];
+		getrandom::getrandom(&mut salt).unwrap();
+		let f = Function::SendMessage {
+			msg: Msg {
+				source_network,
+				source,
+				dest_network: self.network_id(),
+				dest: get_eth_address_to_bytes(&dest),
+				data: get_evm_function_hash(function),
+				salt,
+				gas_limit,
+			},
+		};
+		self.create_task(f, 0).await
+	}
 }
 
 fn compile_file(path: &Path) -> Result<Vec<u8>> {
@@ -259,25 +289,6 @@ pub fn create_evm_view_call(address: String) -> Function {
 	Function::EvmViewCall {
 		address: get_eth_address_to_bytes(&address),
 		input: get_evm_function_hash("get_votes_stats()"),
-	}
-}
-
-pub fn create_send_msg_call(
-	address: String,
-	function: &str,
-	salt: [u8; 32],
-	gas_limit: u128,
-) -> Function {
-	Function::SendMessage {
-		msg: Msg {
-			source_network: 0,
-			source: [0; 32],
-			dest_network: 0,
-			dest: get_eth_address_to_bytes(&address),
-			data: get_evm_function_hash(function),
-			salt,
-			gas_limit,
-		},
 	}
 }
 

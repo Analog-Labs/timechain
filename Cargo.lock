@@ -14025,6 +14025,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ethers-solc",
+ "getrandom 0.2.12",
  "hex 0.4.3",
  "rosetta-client",
  "serde_json",

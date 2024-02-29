@@ -13,11 +13,16 @@ impl SubxtClient {
 	}
 
 	//sudo call
-	pub fn create_register_gateway(shard_id: u64, address: [u8; 20]) -> RuntimeCall {
+	pub fn create_register_gateway(
+		shard_id: u64,
+		address: [u8; 20],
+		block_height: u64,
+	) -> RuntimeCall {
 		RuntimeCall::Tasks(
 			timechain_runtime::runtime_types::pallet_tasks::pallet::Call::register_gateway {
 				bootstrap: shard_id,
 				address,
+				block_height,
 			},
 		)
 	}

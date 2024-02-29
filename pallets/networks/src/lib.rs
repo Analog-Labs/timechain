@@ -15,7 +15,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
 	use scale_info::prelude::vec::Vec;
-	use time_primitives::{ChainName, ChainNetwork, NetworkId};
+	use time_primitives::{ChainName, ChainNetwork, NetworkEvents, NetworkId, NetworksInterface};
 
 	pub trait WeightInfo {
 		fn add_network(name: usize, network: usize) -> Weight;
@@ -35,6 +35,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type NetworkEvents: NetworkEvents;
 	}
 
 	#[pallet::event]
@@ -55,8 +56,11 @@ pub mod pallet {
 
 	// stores network_id against (blockchain, network)
 	#[pallet::storage]
-	pub(super) type Networks<T: Config> =
+	pub type Networks<T: Config> =
 		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
+
+	#[pallet::storage]
+	pub type BlockHeight<T: Config> = StorageMap<_, Twox64Concat, NetworkId, u64, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -124,6 +128,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
 			Networks::<T>::get(network_id)
+		}
+	}
+
+	impl<T: Config> NetworksInterface for Pallet<T> {
+		fn seen_block_height(network_id: NetworkId, block_height: u64) {
+			let current = BlockHeight::<T>::get(network_id);
+			if block_height > current {
+				BlockHeight::<T>::set(network_id, block_height);
+				T::NetworkEvents::block_height_changed(network_id, block_height);
+			}
 		}
 	}
 }

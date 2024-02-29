@@ -45,6 +45,9 @@ pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
 	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
+	fn default_shard_size() -> u16 {
+		3
+	}
 }
 
 // Configure a mock runtime to test the pallet.
@@ -118,6 +121,7 @@ impl pallet_shards::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type Elections = MockElections;
 	type Shards = Shards;
 	type Members = MockMembers;
 	type BaseReadReward = ConstU128<2>;

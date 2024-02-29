@@ -47,10 +47,10 @@ pub trait TxSubmitter: Clone + Send + Sync + 'static {
 
 pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
-	Heartbeat,
+	Heartbeat { block_height: u64 },
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	InsertTask { task: TaskDescriptorParams },
-	InsertGateway { shard_id: ShardId, address: [u8; 20] },
+	InsertGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, hash: [u8; 32] },
 	TaskResult { task_id: TaskId, result: TaskResult },
@@ -115,8 +115,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				);
 				self.create_signed_payload(&tx)
 			},
-			Tx::Heartbeat => {
-				let tx = timechain_runtime::tx().members().send_heartbeat();
+			Tx::Heartbeat { block_height } => {
+				let tx = timechain_runtime::tx().members().send_heartbeat(block_height);
 				self.create_signed_payload(&tx)
 			},
 			Tx::Commitment {
@@ -153,11 +153,16 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				let tx = timechain_runtime::tx().tasks().create_task(task_params);
 				self.create_signed_payload(&tx)
 			},
-			Tx::InsertGateway { shard_id, address } => {
+			Tx::InsertGateway {
+				shard_id,
+				address,
+				block_height,
+			} => {
 				let runtime_call = RuntimeCall::Tasks(
 					timechain_runtime::runtime_types::pallet_tasks::pallet::Call::register_gateway {
 						bootstrap: shard_id,
 						address,
+						block_height,
 					},
 				);
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
@@ -234,9 +239,21 @@ impl SubxtClient {
 		Ok(rx.await?)
 	}
 
-	pub async fn insert_gateway(&self, shard_id: ShardId, address: [u8; 20]) -> Result<TxProgress> {
+	pub async fn insert_gateway(
+		&self,
+		shard_id: ShardId,
+		address: [u8; 20],
+		block_height: u64,
+	) -> Result<TxProgress> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
+		self.tx.unbounded_send((
+			Tx::InsertGateway {
+				shard_id,
+				address,
+				block_height,
+			},
+			tx,
+		))?;
 		Ok(rx.await?)
 	}
 
@@ -420,9 +437,9 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_heartbeat(&self) -> Result<()> {
+	async fn submit_heartbeat(&self, block_height: u64) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
+		self.tx.unbounded_send((Tx::Heartbeat { block_height }, tx))?;
 		rx.await?;
 		Ok(())
 	}

@@ -172,11 +172,16 @@ impl Tester {
 		Ok(id)
 	}
 
-	pub async fn register_gateway_address(&self, shard_id: u64, address: &str) -> Result<()> {
+	pub async fn register_gateway_address(
+		&self,
+		shard_id: u64,
+		address: &str,
+		block_height: u64,
+	) -> Result<()> {
 		let address_bytes = get_eth_address_to_bytes(address);
 		let events = self
 			.runtime
-			.insert_gateway(shard_id, address_bytes)
+			.insert_gateway(shard_id, address_bytes, block_height)
 			.await?
 			.wait_for_finalized_success()
 			.await?;
@@ -210,8 +215,8 @@ impl Tester {
 	pub async fn setup_gmp(&self) -> Result<String> {
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		let (address, _) = self.deploy_gateway(shard_public_key).await?;
-		self.register_gateway_address(shard_id, &address).await?;
+		let (address, block_height) = self.deploy_gateway(shard_public_key).await?;
+		self.register_gateway_address(shard_id, &address, block_height).await?;
 		Ok(address)
 	}
 

@@ -7,6 +7,26 @@ import "forge-std/Test.sol";
 uint256 constant secret = 0x42;
 uint256 constant nonce = 0x69;
 
+contract SigUtilsTest is Test {
+    function testPayload() public {
+        SigUtils utils = new SigUtils(69, address(0));
+        GmpMessage memory gmp = GmpMessage({
+            source: 0x0,
+            srcNetwork: 42,
+            dest: address(0x0),
+            destNetwork: 69,
+            gasLimit: 0,
+            salt: 0,
+            data: ""
+        });
+        bytes memory payload = utils.getGmpTypedHash(gmp);
+        assertEq(
+            payload,
+            hex"19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd"
+        );
+    }
+}
+
 contract GatewayTest is Test {
     Gateway gateway;
     Signer signer;
@@ -19,30 +39,13 @@ contract GatewayTest is Test {
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(69, keys);
         FOUNDRY_GAS_LIMIT = 9223372036854775807;
-        EXECUTE_CALL_COST = 41153;
+        EXECUTE_CALL_COST = 51759;
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
         uint256 hash = uint256(keccak256(gateway.getGmpTypedHash(gmp)));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
         return Signature({xCoord: signer.xCoord(), e: e, s: s});
-    }
-
-    function testPayload() public {
-        GmpMessage memory gmp = GmpMessage({
-            source: 0x0,
-            srcNetwork: 42,
-            dest: address(0x0),
-            destNetwork: 69,
-            gasLimit: 0,
-            salt: 0,
-            data: ""
-        });
-        bytes memory payload = gateway.getGmpTypedHash(gmp);
-        assertEq(
-            payload,
-            hex"19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd"
-        );
     }
 
     function testDepositRevertsOutOfFunds() public {

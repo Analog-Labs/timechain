@@ -112,7 +112,7 @@ impl Tester {
 		amount: u128,
 	) -> Result<[u8; 32]> {
 		let payload = IGateway::depositCall {
-			network: source_network.into(),
+			network: source_network,
 			source: [0; 32].into(),
 		}
 		.abi_encode();

@@ -173,7 +173,7 @@ mod tests {
 			source_network: 42,
 			source: [0; 32],
 			dest_network: 69,
-			dest: [0; 20].into(),
+			dest: [0; 20],
 			gas_limit: 0,
 			salt: [0; 32],
 			data: vec![],

@@ -9,23 +9,31 @@ const EIP712_VERSION: &str = "0.1.0";
 pub type Eip712Bytes = [u8; 66];
 pub type Eip712Hash = [u8; 32];
 
-fn eip712_domain_separator(network_id: NetworkId, gateway_contract: Address) -> Eip712Domain {
-	Eip712Domain {
-		name: Some(EIP712_NAME.into()),
-		version: Some(EIP712_VERSION.into()),
-		chain_id: Some(U256::from(network_id)),
-		verifying_contract: Some(gateway_contract),
-		salt: None,
-	}
+pub struct GmpParams {
+	pub network_id: NetworkId,
+	pub gateway_contract: Address,
+	pub tss_public_key: TssPublicKey,
 }
 
-fn to_eip712_bytes_with_domain(hash: Eip712Hash, domain_separator: &Eip712Domain) -> Eip712Bytes {
-	let mut digest_input = [0u8; 2 + 32 + 32];
-	digest_input[0] = 0x19;
-	digest_input[1] = 0x01;
-	digest_input[2..34].copy_from_slice(&domain_separator.hash_struct()[..]);
-	digest_input[34..66].copy_from_slice(&hash[..]);
-	digest_input
+impl GmpParams {
+	fn eip712_domain_separator(&self) -> Eip712Domain {
+		Eip712Domain {
+			name: Some(EIP712_NAME.into()),
+			version: Some(EIP712_VERSION.into()),
+			chain_id: Some(U256::from(self.network_id)),
+			verifying_contract: Some(self.gateway_contract),
+			salt: None,
+		}
+	}
+
+	fn to_eip712_bytes(&self, hash: Eip712Hash) -> Eip712Bytes {
+		let mut digest_input = [0u8; 2 + 32 + 32];
+		digest_input[0] = 0x19;
+		digest_input[1] = 0x01;
+		digest_input[2..34].copy_from_slice(&self.eip712_domain_separator().hash_struct()[..]);
+		digest_input[34..66].copy_from_slice(&hash[..]);
+		digest_input
+	}
 }
 
 sol! {
@@ -135,9 +143,8 @@ impl Message {
 	}
 
 	pub fn to_eip712_bytes(&self, params: &GmpParams) -> Eip712Bytes {
-		let domain = eip712_domain_separator(params.network_id, params.gateway_contract);
 		let hash = self.eip712_hash_struct();
-		to_eip712_bytes_with_domain(hash, &domain)
+		params.to_eip712_bytes(hash)
 	}
 
 	/// Converts `Message` into `Function::EvmCall`
@@ -156,8 +163,28 @@ impl Message {
 	}
 }
 
-pub struct GmpParams {
-	pub network_id: NetworkId,
-	pub gateway_contract: Address,
-	pub tss_public_key: TssPublicKey,
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_payload() {
+		let msg = Msg {
+			source_network: 42,
+			source: [0; 32],
+			dest_network: 69,
+			dest: [0; 20].into(),
+			gas_limit: 0,
+			salt: [0; 32],
+			data: vec![],
+		};
+		let params = GmpParams {
+			network_id: msg.dest_network,
+			gateway_contract: [0; 20].into(),
+			tss_public_key: [0; 33],
+		};
+		let expected_bytes = "19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd";
+		let bytes = Message::gmp(msg).to_eip712_bytes(&params);
+		assert_eq!(hex::encode(bytes), expected_bytes);
+	}
 }

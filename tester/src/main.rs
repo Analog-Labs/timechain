@@ -192,8 +192,12 @@ async fn latency_cycle(
 		let mut salt = [0u8; 32];
 		let randomness = i.to_ne_bytes();
 		salt[..8].copy_from_slice(&randomness);
-		let send_msg =
-			tester::create_send_msg_call(contract_address.clone(), "vote_yes()", salt, 1000000000);
+		let send_msg = tester::create_send_msg_call(
+			contract_address.clone(),
+			"vote_yes()",
+			salt,
+			1000000000000000,
+		);
 		registerations.push(tester.create_task(send_msg, start_block));
 	}
 
@@ -361,16 +365,17 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let gmp_contract = tester.setup_gmp().await?;
 
 	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let gas_limit = 1000000;
 	tester
 		.deposit_funds(
 			gmp_contract,
 			tester.network_id(),
 			contract_address.clone(),
-			10000000000000000000000000,
+			gas_limit * 10_000,
 		)
 		.await?;
 
-	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], 0);
+	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], gas_limit);
 	tester.create_task_and_wait(send_msg, start_block).await;
 	Ok(())
 }

@@ -78,12 +78,12 @@ impl Tester {
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor);
 		let tx_hash = self.wallet.eth_deploy_contract(contract).await?;
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?;
-		let contract_address = format!("{:?}", tx_receipt.unwrap().contract_address.unwrap());
-		let status = self.wallet.status().await?;
+		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+		let contract_address = format!("{:?}", tx_receipt.contract_address.unwrap());
+		let block_number = tx_receipt.block_number.unwrap();
 
-		println!("Deploy contract address {:?} on {:?}", contract_address, status.index);
-		Ok((contract_address.to_string(), status.index))
+		println!("Deploy contract address {:?} on {:?}", contract_address, block_number);
+		Ok((contract_address.to_string(), block_number))
 	}
 
 	pub async fn deploy_gateway(&self, tss_public_key: TssPublicKey) -> Result<(String, u64)> {
@@ -193,7 +193,8 @@ impl Tester {
 
 	pub async fn wait_for_task(&self, task_id: TaskId) {
 		while !self.is_task_finished(task_id).await {
-			println!("task id: {:?} still running", task_id);
+			let phase = self.get_task_phase(task_id).await;
+			println!("task id: {} phase {:?} still running", task_id, phase);
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		}
 	}
@@ -265,7 +266,7 @@ pub fn create_send_msg_call(
 	address: String,
 	function: &str,
 	salt: [u8; 32],
-	gas_limit: u64,
+	gas_limit: u128,
 ) -> Function {
 	Function::SendMessage {
 		msg: Msg {
@@ -275,7 +276,7 @@ pub fn create_send_msg_call(
 			dest: get_eth_address_to_bytes(&address),
 			data: get_evm_function_hash(function),
 			salt,
-			gas_limit: gas_limit as _,
+			gas_limit,
 		},
 	}
 }

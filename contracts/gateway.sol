@@ -132,11 +132,13 @@ contract SigUtils {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
     uint16 internal immutable NETWORK_ID;
+    address internal immutable GATEWAY_ADDRESS;
     bytes32 internal immutable DOMAIN_SEPARATOR;
 
-    constructor(uint16 networkId) {
+    constructor(uint16 networkId, address gateway) {
         NETWORK_ID = networkId;
         DOMAIN_SEPARATOR = computeDomainSeparator();
+        GATEWAY_ADDRESS = gateway;
     }
 
     // Computes the EIP-712 domain separador
@@ -147,8 +149,7 @@ contract SigUtils {
                 keccak256("Analog Gateway Contract"),
                 keccak256("0.1.0"),
                 uint256(NETWORK_ID),
-                //address(this)
-                address(0)
+                GATEWAY_ADDRESS
             )
         );
     }
@@ -224,7 +225,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 1; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 10606; // Measured gas cost difference for `execute`
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
@@ -237,7 +238,7 @@ contract Gateway is IGateway, SigUtils {
 
     Schnorr _verifier;
 
-    constructor(uint16 _networkId, TssKey[] memory keys) payable SigUtils(_networkId) {
+    constructor(uint16 _networkId, TssKey[] memory keys) payable SigUtils(_networkId, address(this)) {
         _registerKeys(keys);
 
         // emit event

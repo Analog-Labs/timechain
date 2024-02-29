@@ -224,7 +224,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 10569; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 1; // Measured gas cost difference for `execute`
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
@@ -381,7 +381,8 @@ contract Gateway is IGateway, SigUtils {
 
     // Register/Revoke TSS keys using shard TSS signature
     function updateKeys(Signature memory signature, UpdateKeysMessage memory message) public {
-        bytes32 messageHash = getUpdateKeysTypedHash(message);
+        bytes memory payload = getUpdateKeysTypedHash(message);
+        bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
 
         // Register shards pubkeys
@@ -460,7 +461,8 @@ contract Gateway is IGateway, SigUtils {
         require(
             _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
         );
-        bytes32 messageHash = getGmpTypedHash(message);
+        bytes memory payload = getGmpTypedHash(message);
+        bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
         uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;

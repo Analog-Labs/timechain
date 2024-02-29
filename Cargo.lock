@@ -14193,6 +14193,7 @@ dependencies = [
  "async-trait",
  "frame-system",
  "futures",
+ "hex 0.4.3",
  "log",
  "parity-scale-codec",
  "scale-info",

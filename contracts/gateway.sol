@@ -46,7 +46,7 @@ interface IGateway {
         // new shards registered
     bytes32 indexed id, TssKey[] revoked, TssKey[] registered);
 
-    function deposit(bytes32 source, uint128 network) external payable;
+    function deposit(bytes32 source, uint16 network) external payable;
 
     /**
      * Execute GMP message
@@ -82,9 +82,9 @@ struct UpdateKeysMessage {
  */
 struct GmpMessage {
     bytes32 source; // Pubkey/Address of who send the GMP message
-    uint128 srcNetwork; // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
+    uint16 srcNetwork; // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
     address dest; // Destination/Recipient contract address
-    uint128 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
+    uint16 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
     uint256 gasLimit; // gas limit of the GMP call
     uint256 salt; // Message salt, useful for sending two messages with same content
     bytes data; // message data with no specified format
@@ -151,7 +151,7 @@ contract SigUtils {
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256("Analog Gateway Contract"),
                 keccak256("0.1.0"),
-                block.chainid,
+                INITIAL_CHAIN_ID,
                 address(this)
             )
         );
@@ -228,7 +228,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 10608; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 10569; // Measured gas cost difference for `execute`
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
@@ -237,7 +237,7 @@ contract Gateway is IGateway, SigUtils {
     mapping(bytes32 => GmpInfo) _messages;
 
     // Source address => Source network => Deposit Amount
-    mapping(bytes32 => mapping(uint128 => uint256)) _deposits;
+    mapping(bytes32 => mapping(uint16 => uint256)) _deposits;
 
     Schnorr _verifier;
 
@@ -393,7 +393,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Deposit balance to refund callers of execute
-    function deposit(bytes32 source, uint128 network) public payable {
+    function deposit(bytes32 source, uint16 network) public payable {
         uint256 depositBefore = _deposits[source][network];
         _deposits[source][network] = depositBefore + msg.value;
     }
@@ -460,7 +460,7 @@ contract Gateway is IGateway, SigUtils {
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         uint256 gasBefore = gasleft();
-        // require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
+        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
         require(
             _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
         );

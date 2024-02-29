@@ -19,7 +19,7 @@ contract GatewayTest is Test {
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(0, keys);
         FOUNDRY_GAS_LIMIT = 9223372036854775807;
-        EXECUTE_CALL_COST = 52032;
+        EXECUTE_CALL_COST = 51999;
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
@@ -70,7 +70,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -83,7 +83,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x1),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -110,7 +110,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 1,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -132,7 +132,7 @@ contract GatewayTest is Test {
             source: bytes32(uint256(0x1)),
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -148,7 +148,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -169,7 +169,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -180,7 +180,7 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    /*function testExecuteRevertsBelowGasLimit() public {
+    function testExecuteRevertsBelowGasLimit() public {
         vm.txGasPrice(1);
         uint256 gasLimit = 100000;
         uint256 insufficientDeposit = gasLimit * tx.gasprice;
@@ -192,7 +192,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: gasLimit,
             salt: 1,
             data: ""
@@ -201,7 +201,7 @@ contract GatewayTest is Test {
         vm.expectRevert(bytes("gas left below message.gasLimit"));
         gateway.execute(sig, gmp);
         vm.stopPrank();
-    }*/
+    }
 
     function testExecuteRevertsAlreadyExecuted() public {
         vm.txGasPrice(1);
@@ -214,7 +214,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -243,7 +243,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""

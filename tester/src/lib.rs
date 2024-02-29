@@ -1,5 +1,5 @@
 use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolValue};
+use alloy_sol_types::{sol, SolCall, SolValue};
 use anyhow::Result;
 use rosetta_client::Wallet;
 use sha3::{Digest, Keccak256};
@@ -10,7 +10,7 @@ use std::process::Command;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
-	Function, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase,
+	Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase,
 	TssPublicKey,
 };
 
@@ -100,33 +100,22 @@ impl Tester {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
 		}];
-		let constructor = tss_keys.abi_encode_params();
+		let constructor = (self.network_id, tss_keys).abi_encode_params();
 		self.deploy(&self.gateway_contract, &constructor).await
-	}
-
-	async fn build_deposit_payload(&self, source: [u8; 32], network: u64) -> Vec<u8> {
-		use alloy_sol_types::SolCall;
-		sol! {
-			interface Deposit {
-					function deposit(bytes32 source, uint128 network) public payable;
-			}
-		}
-		Deposit::depositCall {
-			source: source.into(),
-			network: network.into(),
-		}
-		.abi_encode()
 	}
 
 	pub async fn deposit_funds(
 		&self,
-		_source: String,
-		chain_id: u64,
 		gmp_address: String,
+		source_network: NetworkId,
+		_source: String,
 		amount: u128,
 	) -> Result<[u8; 32]> {
-		// TODO fix pass source here
-		let payload = self.build_deposit_payload([0u8; 32], chain_id).await;
+		let payload = IGateway::depositCall {
+			network: source_network.into(),
+			source: [0; 32].into(),
+		}
+		.abi_encode();
 		self.wallet
 			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount)
 			.await

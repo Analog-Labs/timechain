@@ -44,9 +44,9 @@ sol! {
 	#[derive(Debug, PartialEq, Eq)]
 	struct GmpMessage {
 		bytes32 source;
-		uint128 srcNetwork;
+		uint16 srcNetwork;
 		address dest;
-		uint128 destNetwork;
+		uint16 destNetwork;
 		uint256 gasLimit;
 		uint256 salt;
 		bytes data;
@@ -76,6 +76,7 @@ sol! {
 
 		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
 		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
+		function deposit(bytes32 source, uint16 network) public payable;
 	}
 }
 
@@ -108,9 +109,9 @@ impl Message {
 	pub fn gmp(msg: Msg) -> Message {
 		Self::Gmp(GmpMessage {
 			source: msg.source.into(),
-			srcNetwork: u128::from(msg.source_network),
+			srcNetwork: msg.source_network,
 			dest: Address(msg.dest.into()),
-			destNetwork: u128::from(msg.dest_network),
+			destNetwork: msg.dest_network,
 			gasLimit: U256::from(msg.gas_limit),
 			salt: U256::from_be_bytes(msg.salt),
 			data: msg.data,

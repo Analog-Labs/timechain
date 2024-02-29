@@ -257,7 +257,7 @@ where
 				self.running_tasks.insert(executable_task.clone(), handle);
 			} else {
 				tracing::info!(
-					"Task is scheduled for future {:?}/{:?}/{:?}",
+					"Task {} is scheduled for future {:?}/{:?}",
 					task_id,
 					target_block_height,
 					target_block_number

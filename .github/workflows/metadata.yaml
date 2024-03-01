@@ -72,12 +72,12 @@ jobs:
           echo "updated=true" >> $GITHUB_OUTPUT
         fi
     - name: Checkout PR
-      if: steps.diff.output.updated == 'true'
+      if: steps.diff.outputs.updated == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: gh pr checkout ${{ github.event.pull_request.number }}
     - name: Commit & Push changes
-      if: steps.diff.output.updated == 'true'
+      if: steps.diff.outputs.updated == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |

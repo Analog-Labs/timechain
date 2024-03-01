@@ -122,7 +122,7 @@ Build images:<br>
 Run with docker:<br>
 `docker compose --profile ethereum up`<br>
 Test:<br>
-`docker compose run tester --network ethereum basic`
+`docker compose run tester --network-id 3 gmp`
 
 
 ## Upcoming features

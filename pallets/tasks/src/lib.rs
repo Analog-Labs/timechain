@@ -16,7 +16,6 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use schnorr_evm::VerifyingKey;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
@@ -24,8 +23,8 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		append_hash_with_task_data, AccountId, Balance, DepreciationRate, Function, GmpParams,
-		Message, NetworkId, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		AccountId, Balance, DepreciationRate, Function, GmpParams, Message, Msg, NetworkId,
+		Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
 		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
 		TasksInterface, TransferStake, TssSignature,
 	};
@@ -291,9 +290,8 @@ pub mod pallet {
 				return Ok(());
 			}
 			ensure!(TaskPhaseState::<T>::get(task_id) == TaskPhase::Read, Error::<T>::NotReadPhase);
-			let modified_data = append_hash_with_task_data(result.hash, task_id);
-			let sig_hash = VerifyingKey::message_hash(&modified_data);
-			Self::validate_signature(result.shard_id, sig_hash, result.signature)?;
+			let bytes = result.payload.bytes(task_id);
+			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
 			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
@@ -301,6 +299,11 @@ pub mod pallet {
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
+			}
+			if let Payload::Gmp(msgs) = &result.payload {
+				for msg in msgs {
+					Self::send_message(result.shard_id, msg.clone());
+				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
@@ -338,7 +341,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			signature: TssSignature,
-			chain_id: u64,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
@@ -347,9 +349,8 @@ pub mod pallet {
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
 			};
-			let hash = Self::get_gmp_hash(task_id, shard_id, chain_id)?;
-			let sig_hash = VerifyingKey::message_hash(&hash);
-			Self::validate_signature(shard_id, sig_hash, signature)?;
+			let bytes = Self::get_gmp_hash(task_id, shard_id)?;
+			Self::validate_signature(shard_id, &bytes, signature)?;
 			Self::start_phase(task_id, TaskPhase::Write);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
@@ -508,6 +509,18 @@ pub mod pallet {
 			.unwrap();
 		}
 
+		fn send_message(shard_id: ShardId, msg: Msg) {
+			Self::start_task(
+				TaskDescriptorParams::new(
+					msg.dest_network,
+					Function::SendMessage { msg },
+					T::Shards::shard_members(shard_id).len() as u32,
+				),
+				TaskFunder::Shard(shard_id),
+			)
+			.unwrap();
+		}
+
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
 			let task_id = TaskIdCounter::<T>::get();
@@ -595,7 +608,7 @@ pub mod pallet {
 
 		fn validate_signature(
 			shard_id: ShardId,
-			hash: [u8; 32],
+			data: &[u8],
 			signature: TssSignature,
 		) -> DispatchResult {
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
@@ -604,7 +617,7 @@ pub mod pallet {
 			let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)
 				.map_err(|_| Error::<T>::UnknownShard)?;
 			schnorr_public_key
-				.verify_prehashed(hash, &signature)
+				.verify(data, &signature)
 				.map_err(|_| Error::<T>::InvalidSignature)?;
 			Ok(())
 		}
@@ -764,30 +777,24 @@ pub mod pallet {
 		fn get_gmp_hash(
 			task_id: TaskId,
 			shard_id: ShardId,
-			chain_id: u64,
 		) -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			let task_descriptor = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let tss_public_key =
 				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let network_id = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let gateway_contract =
-				Gateway::<T>::get(network).ok_or(Error::<T>::GatewayNotRegistered)?;
+				Gateway::<T>::get(network_id).ok_or(Error::<T>::GatewayNotRegistered)?;
 
 			let gmp_params = GmpParams {
-				chain_id,
+				network_id,
 				tss_public_key,
 				gateway_contract: gateway_contract.into(),
 			};
 
 			match task_descriptor.function {
-				Function::SendMessage {
-					address,
-					payload,
-					salt,
-					gas_limit,
-				} => Ok(Message::gmp(chain_id, address, payload, salt, gas_limit)
-					.to_eip712_bytes(&gmp_params)
-					.into()),
+				Function::SendMessage { msg } => {
+					Ok(Message::gmp(msg).to_eip712_bytes(&gmp_params).into())
+				},
 				Function::RegisterShard { shard_id } => {
 					let tss_public_key =
 						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;

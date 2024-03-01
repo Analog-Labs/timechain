@@ -7,6 +7,26 @@ import "forge-std/Test.sol";
 uint256 constant secret = 0x42;
 uint256 constant nonce = 0x69;
 
+contract SigUtilsTest is Test {
+    function testPayload() public {
+        SigUtils utils = new SigUtils(69, address(0));
+        GmpMessage memory gmp = GmpMessage({
+            source: 0x0,
+            srcNetwork: 42,
+            dest: address(0x0),
+            destNetwork: 69,
+            gasLimit: 0,
+            salt: 0,
+            data: ""
+        });
+        bytes memory payload = utils.getGmpTypedHash(gmp);
+        assertEq(
+            payload,
+            hex"19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd"
+        );
+    }
+}
+
 contract GatewayTest is Test {
     Gateway gateway;
     Signer signer;
@@ -15,15 +35,15 @@ contract GatewayTest is Test {
 
     constructor() {
         signer = new Signer(secret);
-        uint256[2][] memory keys = new uint256[2][](1);
-        keys[0] = [signer.yParity() == 28 ? 1 : 0, signer.xCoord()];
-        gateway = new Gateway(keys);
+        TssKey[] memory keys = new TssKey[](1);
+        keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
+        gateway = new Gateway(69, keys);
         FOUNDRY_GAS_LIMIT = 9223372036854775807;
-        EXECUTE_CALL_COST = 51840;
+        EXECUTE_CALL_COST = 51759;
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
-        uint256 hash = uint256(gateway.getGmpTypedHash(gmp));
+        uint256 hash = uint256(keccak256(gateway.getGmpTypedHash(gmp)));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
         return Signature({xCoord: signer.xCoord(), e: e, s: s});
     }
@@ -70,7 +90,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -83,7 +103,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x1),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -110,7 +130,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 1,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -132,7 +152,7 @@ contract GatewayTest is Test {
             source: bytes32(uint256(0x1)),
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -148,7 +168,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -169,7 +189,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -192,7 +212,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: gasLimit,
             salt: 1,
             data: ""
@@ -214,7 +234,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""
@@ -228,7 +248,6 @@ contract GatewayTest is Test {
         vm.stopPrank();
     }
 
-    // measures gas used by execute = 41207
     function testExecuteReimbursement() public {
         vm.txGasPrice(1);
         uint256 amount = 100 ether;
@@ -244,7 +263,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: uint128(block.chainid),
+            destNetwork: 0x0,
             gasLimit: FOUNDRY_GAS_LIMIT,
             salt: 1,
             data: ""

@@ -1,18 +1,17 @@
 use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolValue};
-use anyhow::{Context, Result};
-use ethers_solc::{artifacts::Source, CompilerInput, Solc};
+use alloy_sol_types::{sol, SolCall, SolValue};
+use anyhow::Result;
 use rosetta_client::Wallet;
 use sha3::{Digest, Keccak256};
 use sp_core::crypto::Ss58Codec;
-use std::collections::BTreeMap;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
-	Function, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
+	Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase,
+	TssPublicKey,
 };
 
 pub struct TesterParams {
@@ -69,7 +68,7 @@ impl Tester {
 	}
 
 	pub async fn faucet(&self) {
-		if let Err(err) = self.wallet.faucet(1000000000000000000000).await {
+		if let Err(err) = self.wallet.faucet(100000000000000000000000000000).await {
 			println!("Error occured while funding wallet {:?}", err);
 		}
 	}
@@ -79,12 +78,12 @@ impl Tester {
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor);
 		let tx_hash = self.wallet.eth_deploy_contract(contract).await?;
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?;
-		let contract_address = format!("{:?}", tx_receipt.unwrap().contract_address.unwrap());
-		let status = self.wallet.status().await?;
+		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+		let contract_address = format!("{:?}", tx_receipt.contract_address.unwrap());
+		let block_number = tx_receipt.block_number.unwrap();
 
-		println!("Deploy contract address {:?} on {:?}", contract_address, status.index);
-		Ok((contract_address.to_string(), status.index))
+		println!("Deploy contract address {:?} on {:?}", contract_address, block_number);
+		Ok((contract_address.to_string(), block_number))
 	}
 
 	pub async fn deploy_gateway(&self, tss_public_key: TssPublicKey) -> Result<(String, u64)> {
@@ -101,8 +100,28 @@ impl Tester {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
 		}];
-		let constructor = tss_keys.abi_encode_params();
+		let constructor = (self.network_id, tss_keys).abi_encode_params();
 		self.deploy(&self.gateway_contract, &constructor).await
+	}
+
+	pub async fn deposit_funds(
+		&self,
+		gmp_address: String,
+		source_network: NetworkId,
+		source: String,
+		amount: u128,
+	) -> Result<[u8; 32]> {
+		let src = get_eth_address_to_bytes(&source);
+		let mut source = [0; 32];
+		source[..20].copy_from_slice(&src[..]);
+		let payload = IGateway::depositCall {
+			network: source_network,
+			source: source.into(),
+		}
+		.abi_encode();
+		self.wallet
+			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount)
+			.await
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
@@ -177,7 +196,8 @@ impl Tester {
 
 	pub async fn wait_for_task(&self, task_id: TaskId) {
 		while !self.is_task_finished(task_id).await {
-			println!("task id: {:?} still running", task_id);
+			let phase = self.get_task_phase(task_id).await;
+			println!("task id: {} phase {:?} still running", task_id, phase);
 			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		}
 	}
@@ -187,39 +207,50 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self) -> Result<()> {
+	pub async fn setup_gmp(&self) -> Result<String> {
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, _) = self.deploy_gateway(shard_public_key).await?;
-		self.register_gateway_address(shard_id, &address).await
+		self.register_gateway_address(shard_id, &address).await?;
+		Ok(address)
 	}
 
 	pub async fn get_latest_block(&self) -> Result<u64> {
 		self.runtime.get_latest_block().await
 	}
+
+	pub async fn send_message(
+		&self,
+		source_network: NetworkId,
+		source: String,
+		dest: String,
+		function: &str,
+		gas_limit: u128,
+	) -> Result<TaskId> {
+		let src = get_eth_address_to_bytes(&source);
+		let mut source = [0; 32];
+		source[..20].copy_from_slice(&src[..]);
+		let mut salt = [0; 32];
+		getrandom::getrandom(&mut salt).unwrap();
+		let f = Function::SendMessage {
+			msg: Msg {
+				source_network,
+				source,
+				dest_network: self.network_id(),
+				dest: get_eth_address_to_bytes(&dest),
+				data: get_evm_function_hash(function),
+				salt,
+				gas_limit,
+			},
+		};
+		self.create_task(f, 0).await
+	}
 }
 
 fn compile_file(path: &Path) -> Result<Vec<u8>> {
-	let solc = Solc::default();
-	let mut sources = BTreeMap::new();
-	sources.insert(path.into(), Source::read(path).unwrap());
-	let input = &CompilerInput::with_sources(sources)[0];
-	let output = solc.compile_exact(input)?;
-	let file = output.contracts.get(path.to_str().unwrap()).unwrap();
-	let (key, _) = file.first_key_value().unwrap();
-	let contract = file.get(key).unwrap();
-	let bytecode = contract
-		.evm
-		.as_ref()
-		.context("evm not found")?
-		.bytecode
-		.as_ref()
-		.context("bytecode not found")?
-		.object
-		.as_bytes()
-		.context("could not convert to bytes")?
-		.to_vec();
-	Ok(bytecode)
+	let abi = std::fs::read_to_string(path)?;
+	let json_abi: serde_json::Value = serde_json::from_str(&abi)?;
+	Ok(hex::decode(json_abi["bytecode"]["object"].as_str().unwrap().replace("0x", ""))?)
 }
 
 pub fn drop_node(node_name: String) {
@@ -258,20 +289,6 @@ pub fn create_evm_view_call(address: String) -> Function {
 	Function::EvmViewCall {
 		address: get_eth_address_to_bytes(&address),
 		input: get_evm_function_hash("get_votes_stats()"),
-	}
-}
-
-pub fn create_send_msg_call(
-	address: String,
-	function: &str,
-	salt: [u8; 32],
-	gas_limit: u64,
-) -> Function {
-	Function::SendMessage {
-		address: get_eth_address_to_bytes(&address),
-		payload: get_evm_function_hash(function),
-		salt,
-		gas_limit,
 	}
 }
 

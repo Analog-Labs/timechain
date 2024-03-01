@@ -19,9 +19,9 @@ struct Args {
 	target_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://ethereum:8545")]
 	target_url: String,
-	#[arg(long, default_value = "/etc/gateway.sol")]
+	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
-	#[arg(long, default_value = "/etc/test_contract.sol")]
+	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingMachine.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
 	cmd: TestCommand,
@@ -167,23 +167,37 @@ async fn latency_cycle(
 	round_num: u64,
 	contract: &Path,
 ) -> Result<(f32, f32)> {
-	let (contract_address, start_block) = match env {
+	let gas_limit = 100_000;
+	let contract = match env {
 		Environment::Local => {
 			tester.faucet().await;
-			tester.setup_gmp().await?;
-			tester.deploy(contract, &[]).await?
+			let gateway = tester.setup_gmp().await?;
+			let (contract_address, _) = tester.deploy(contract, &[]).await?;
+			tester
+				.deposit_funds(
+					gateway,
+					tester.network_id(),
+					contract_address.clone(),
+					gas_limit * 10_000,
+				)
+				.await?;
+			contract_address
 		},
-		Environment::Staging => ("0xb77791b3e38158475216dd4c0e2143b858188ba6".to_string(), 0),
+		// you need to deposit gateway with below address otherwise it might give error:
+		// deposit below max refund
+		Environment::Staging => "0xb77791b3e38158475216dd4c0e2143b858188ba6".to_string(),
 	};
 
 	let mut registerations = vec![];
-	for i in 0..total_tasks {
-		let mut salt = [0u8; 32];
-		let randomness = i.to_ne_bytes();
-		salt[..8].copy_from_slice(&randomness);
-		let send_msg =
-			tester::create_send_msg_call(contract_address.clone(), "vote_yes()", salt, 10000000);
-		registerations.push(tester.create_task(send_msg, start_block));
+	for _ in 0..total_tasks {
+		let send_msg = tester.send_message(
+			tester.network_id(),
+			contract.clone(),
+			contract.clone(),
+			"vote_yes()",
+			gas_limit,
+		);
+		registerations.push(send_msg);
 	}
 
 	let mut task_ids: Vec<u64> = join_all(registerations)
@@ -347,13 +361,24 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 
 async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
-	tester.setup_gmp().await?;
+	let gmp_contract = tester.setup_gmp().await?;
 
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let (contract, _) = tester.deploy(contract, &[]).await?;
+	let gas_limit = 100_000;
+	tester
+		.deposit_funds(gmp_contract, tester.network_id(), contract.clone(), gas_limit * 10_000)
+		.await?;
 
-	let send_msg = tester::create_send_msg_call(contract_address, "vote_yes()", [1; 32], 10000000);
-
-	tester.create_task_and_wait(send_msg, start_block).await;
+	let task_id = tester
+		.send_message(
+			tester.network_id(),
+			contract.clone(),
+			contract.clone(),
+			"vote_yes()",
+			gas_limit,
+		)
+		.await?;
+	tester.wait_for_task(task_id).await;
 	Ok(())
 }
 

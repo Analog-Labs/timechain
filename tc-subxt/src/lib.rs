@@ -54,7 +54,7 @@ pub enum Tx {
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, hash: [u8; 32] },
 	TaskResult { task_id: TaskId, result: TaskResult },
-	TaskSignature { task_id: TaskId, signature: TssSignature, chain_id: u64 },
+	TaskSignature { task_id: TaskId, signature: TssSignature },
 }
 
 struct SubxtWorker<T: TxSubmitter> {
@@ -135,9 +135,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				let tx = timechain_runtime::tx().shards().ready(shard_id);
 				self.create_signed_payload(&tx)
 			},
-			Tx::TaskSignature { task_id, signature, chain_id } => {
-				let tx =
-					timechain_runtime::tx().tasks().submit_signature(task_id, signature, chain_id);
+			Tx::TaskSignature { task_id, signature } => {
+				let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature);
 				self.create_signed_payload(&tx)
 			},
 			Tx::TaskHash { task_id, hash } => {
@@ -454,15 +453,9 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-		chain_id: u64,
-	) -> Result<()> {
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::TaskSignature { task_id, signature, chain_id }, tx))?;
+		self.tx.unbounded_send((Tx::TaskSignature { task_id, signature }, tx))?;
 		rx.await?;
 		Ok(())
 	}

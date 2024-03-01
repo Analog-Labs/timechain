@@ -13,8 +13,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskId, TaskResult,
-	TssHash, TssSignature, TssSigningRequest,
+	BlockNumber, Function, Payload, Runtime, ShardId, TaskId, TaskResult, TssHash, TssSignature,
+	TssSigningRequest,
 };
 use tokio::sync::Mutex;
 
@@ -34,7 +34,6 @@ pub struct TaskSpawner<S> {
 	wallet: Arc<Wallet>,
 	wallet_guard: Arc<Mutex<()>>,
 	substrate: S,
-	chain_id: u64,
 }
 
 impl<S> TaskSpawner<S>
@@ -51,13 +50,11 @@ where
 			)
 			.await?,
 		);
-		let chain_id = wallet.eth_chain_id().await?;
 		Ok(Self {
 			tss: params.tss,
 			wallet,
 			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
-			chain_id,
 		})
 	}
 
@@ -170,23 +167,13 @@ where
 			.execute_function(&function, target_block)
 			.await
 			.map_err(|err| format!("{err}"));
-		let payload = match &result {
-			Ok(payload) => payload.as_slice(),
-			Err(payload) => payload.as_bytes(),
+		let payload = match result {
+			Ok(payload) => Payload::Hashed(VerifyingKey::message_hash(payload.as_slice())),
+			Err(payload) => Payload::Error(payload),
 		};
-		let prehashed_payload = VerifyingKey::message_hash(payload);
-		let hash = append_hash_with_task_data(prehashed_payload, task_id);
-		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, &hash).await?;
-		let error = match result {
-			Ok(_) => None,
-			Err(msg) => Some(msg),
-		};
-		let result = TaskResult {
-			shard_id,
-			hash: prehashed_payload,
-			signature,
-			error,
-		};
+		let (_, signature) =
+			self.tss_sign(block_num, shard_id, task_id, &payload.bytes(task_id)).await?;
+		let result = TaskResult { shard_id, payload, signature };
 		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
 			tracing::error!("Error submitting task result {:?}", e);
 		}
@@ -199,10 +186,9 @@ where
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_number: u32,
-		chain_id: u64,
 	) -> Result<()> {
 		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
-		if let Err(e) = self.substrate.submit_task_signature(task_id, sig, chain_id).await {
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}
 		Ok(())
@@ -229,10 +215,6 @@ where
 		Box::pin(BlockStream::new(&self.wallet))
 	}
 
-	fn chain_id(&self) -> u64 {
-		self.chain_id
-	}
-
 	fn execute_read(
 		&self,
 		target_block: u64,
@@ -250,9 +232,8 @@ where
 		task_id: TaskId,
 		payload: Vec<u8>,
 		block_num: u32,
-		chain_id: u64,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().sign(shard_id, task_id, payload, block_num, chain_id).boxed()
+		self.clone().sign(shard_id, task_id, payload, block_num).boxed()
 	}
 
 	fn execute_write(

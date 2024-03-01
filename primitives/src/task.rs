@@ -5,6 +5,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::{Deserialize, Serialize};
 use sp_runtime::Percent;
 use sp_std::vec::Vec;
+
 pub type TaskId = u64;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -16,7 +17,7 @@ pub enum Function {
 	EvmTxReceipt { tx: Vec<u8> },
 	RegisterShard { shard_id: ShardId },
 	UnregisterShard { shard_id: ShardId },
-	SendMessage { address: [u8; 20], payload: Vec<u8>, salt: [u8; 32], gas_limit: u64 },
+	SendMessage { msg: Msg },
 }
 
 impl Function {
@@ -31,24 +32,41 @@ impl Function {
 	}
 
 	pub fn get_input_length(&self) -> u64 {
-		match self {
-			Function::EvmDeploy { bytecode } => bytecode.len() as u64,
-			Function::EvmCall { input, .. } => input.len() as u64,
-			Function::EvmViewCall { input, .. } => input.len() as u64,
-			Function::EvmTxReceipt { tx } => tx.len() as u64,
-			Function::RegisterShard { .. } => 0,
-			Function::UnregisterShard { .. } => 0,
-			Function::SendMessage { payload, .. } => payload.len() as u64,
-		}
+		self.encoded_size() as _
 	}
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskResult {
 	pub shard_id: ShardId,
-	pub hash: [u8; 32],
+	pub payload: Payload,
 	pub signature: TssSignature,
-	pub error: Option<String>,
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub enum Payload {
+	Hashed([u8; 32]),
+	Error(String),
+	Gmp(Vec<Msg>),
+}
+
+impl Payload {
+	pub fn bytes(&self, task_id: TaskId) -> Vec<u8> {
+		(task_id, self).encode()
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, PartialEq)]
+pub struct Msg {
+	pub source_network: NetworkId,
+	pub source: [u8; 32],
+	pub dest_network: NetworkId,
+	pub dest: [u8; 20],
+	pub gas_limit: u128,
+	pub salt: [u8; 32],
+	pub data: Vec<u8>,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -114,16 +132,6 @@ impl std::fmt::Display for TaskExecution {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.task_id)
 	}
-}
-
-pub fn append_hash_with_task_data(data: [u8; 32], task_id: TaskId) -> Vec<u8> {
-	let task_id_bytes = task_id.to_ne_bytes();
-	let filler = b";";
-	let mut extended_payload = Vec::with_capacity(data.len() + filler.len() + task_id_bytes.len());
-	extended_payload.extend_from_slice(&data);
-	extended_payload.extend_from_slice(filler);
-	extended_payload.extend_from_slice(&task_id_bytes);
-	extended_payload
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]

@@ -199,12 +199,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-		chain_id: u64,
-	) -> Result<()>;
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
 
 	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()>;
 

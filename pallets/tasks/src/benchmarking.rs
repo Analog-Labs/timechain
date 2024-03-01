@@ -2,7 +2,9 @@ use crate::{Call, Config, Pallet};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::vec;
-use time_primitives::{Function, NetworkId, TaskDescriptorParams, TaskResult, TasksInterface};
+use time_primitives::{
+	Function, NetworkId, Payload, TaskDescriptorParams, TaskResult, TasksInterface,
+};
 
 const ETHEREUM: NetworkId = 1;
 
@@ -36,9 +38,8 @@ benchmarks! {
 		Pallet::<T>::shard_online(1, ETHEREUM);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, TaskResult {
 		shard_id: 1,
-		hash: [0; 32],
+		payload: Payload::Hashed([0; 32]),
 		signature: [0; 64],
-		error: None,
 	}) verify {}
 
 	submit_hash {
@@ -60,18 +61,13 @@ benchmarks! {
 	submit_signature {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: ETHEREUM,
-			function: Function::SendMessage {
-				address: [0u8; 20],
-				payload: Default::default(),
-				salt: [0u8; 32],
-				gas_limit: 1000u64
-			},
+			function: Function::SendMessage { msg: Default::default() },
 			start: 0,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64], 0) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

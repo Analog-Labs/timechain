@@ -220,7 +220,7 @@ where
 					TaskPhase::Read => {
 						let function =
 							if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
-								Function::EvmTxReceipt { tx: tx.to_vec() }
+								Function::EvmTxReceipt { tx }
 							} else {
 								function
 							};

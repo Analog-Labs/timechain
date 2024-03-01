@@ -1218,7 +1218,7 @@ construct_runtime!(
 		Members: pallet_members,
 		Shards: pallet_shards,
 		Elections: pallet_elections,
-		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Tasks: pallet_tasks,
 		Timegraph: pallet_timegraph,
 		Networks: pallet_networks,
 	}

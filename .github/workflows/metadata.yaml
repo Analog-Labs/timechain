@@ -81,5 +81,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        git config user.email "github@analog.one"
+        git config user.name "Github Bot"
         git commit -am "Update metadata"
         git push

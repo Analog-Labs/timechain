@@ -893,10 +893,12 @@ pub mod pallet {
 		fn block_height_changed(network_id: NetworkId, block_height: u64) {
 			if let Some(current) = RecvTasks::<T>::get(network_id) {
 				let next = block_height + 10;
-				for block_height in current..next {
-					Self::recv_messages(network_id, block_height);
+				if current < next {
+					for block_height in current..next {
+						Self::recv_messages(network_id, block_height);
+					}
+					RecvTasks::<T>::insert(network_id, next);
 				}
-				RecvTasks::<T>::insert(network_id, next);
 			}
 		}
 	}

@@ -11,13 +11,17 @@ pub type TaskId = u64;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
-	EvmDeploy { bytecode: Vec<u8> },
-	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128 },
-	EvmViewCall { address: [u8; 20], input: Vec<u8> },
-	EvmTxReceipt { tx: Vec<u8> },
+	// sign
 	RegisterShard { shard_id: ShardId },
 	UnregisterShard { shard_id: ShardId },
 	SendMessage { msg: Msg },
+	// write
+	EvmDeploy { bytecode: Vec<u8> },
+	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128 },
+	// read
+	EvmViewCall { address: [u8; 20], input: Vec<u8> },
+	EvmTxReceipt { tx: [u8; 32] },
+	ReadMessages,
 }
 
 impl Function {
@@ -27,7 +31,9 @@ impl Function {
 			| Self::UnregisterShard { .. }
 			| Self::SendMessage { .. } => TaskPhase::Sign,
 			Self::EvmDeploy { .. } | Self::EvmCall { .. } => TaskPhase::Write,
-			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } => TaskPhase::Read,
+			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages => {
+				TaskPhase::Read
+			},
 		}
 	}
 
@@ -76,7 +82,7 @@ pub struct TaskDescriptor {
 	pub network: NetworkId,
 	pub function: Function,
 	pub start: u64,
-	pub shard_size: u32,
+	pub shard_size: u16,
 }
 
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -85,11 +91,11 @@ pub struct TaskDescriptorParams {
 	pub start: u64,
 	pub function: Function,
 	pub funds: Balance,
-	pub shard_size: u32,
+	pub shard_size: u16,
 }
 
 impl TaskDescriptorParams {
-	pub fn new(network: NetworkId, function: Function, shard_size: u32) -> Self {
+	pub fn new(network: NetworkId, function: Function, shard_size: u16) -> Self {
 		Self {
 			network,
 			start: 0,

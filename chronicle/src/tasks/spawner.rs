@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::Wallet;
@@ -62,7 +62,7 @@ where
 		&self,
 		function: &Function,
 		target_block_number: u64,
-	) -> Result<Vec<u8>> {
+	) -> Result<Payload> {
 		let block = AtBlock::Number(target_block_number);
 		Ok(match function {
 			Function::EvmViewCall { address, input } => {
@@ -81,18 +81,13 @@ where
 						"error": null,
 					}),
 				};
-				json.to_string().into_bytes()
+				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
 			Function::EvmTxReceipt { tx } => {
-				if tx.len() != 32 {
-					anyhow::bail!("invalid transaction hash length, expected 32 got {}", tx.len());
-				}
-				let mut tx_hash = [0u8; 32];
-				tx_hash.copy_from_slice(tx.as_ref());
-				let Some(receipt) = self.wallet.eth_transaction_receipt(tx_hash).await? else {
-					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx_hash));
+				let Some(receipt) = self.wallet.eth_transaction_receipt(*tx).await? else {
+					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
 				};
-				serde_json::json!({
+				let json = serde_json::json!({
 					"transactionHash": format!("{:?}", receipt.transaction_hash),
 					"transactionIndex": receipt.transaction_index,
 					"blockHash": receipt.block_hash.map(|block_hash| format!("{block_hash:?}")),
@@ -104,32 +99,11 @@ where
 					"status": receipt.status_code,
 					"type": receipt.transaction_type,
 				})
-				.to_string()
-				.into_bytes()
+				.to_string();
+				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
-			Function::EvmDeploy { bytecode } => {
-				let _guard = self.wallet_guard.lock().await;
-				self.wallet.eth_deploy_contract(bytecode.clone()).await?.to_vec()
-			},
-			Function::EvmCall { address, input, amount } => {
-				let _guard = self.wallet_guard.lock().await;
-				self.wallet.eth_send_call(*address, input.clone(), *amount).await?.to_vec()
-			},
-			Function::RegisterShard { .. } => {
-				return Err(anyhow!(
-					"RegisterShard must be transformed into EvmCall prior to execution"
-				));
-			},
-			Function::UnregisterShard { .. } => {
-				return Err(anyhow!(
-					"UnregisterShard must be transformed into EvmCall prior to execution"
-				));
-			},
-			Function::SendMessage { .. } => {
-				return Err(anyhow!(
-					"SendMessage must be transformed into EvmCall prior to execution"
-				));
-			},
+			Function::ReadMessages => Payload::Gmp(vec![]),
+			_ => anyhow::bail!("not a read function {function:?}"),
 		})
 	}
 
@@ -168,7 +142,7 @@ where
 			.await
 			.map_err(|err| format!("{err}"));
 		let payload = match result {
-			Ok(payload) => Payload::Hashed(VerifyingKey::message_hash(payload.as_slice())),
+			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),
 		};
 		let (_, signature) =
@@ -176,6 +150,24 @@ where
 		let result = TaskResult { shard_id, payload, signature };
 		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
 			tracing::error!("Error submitting task result {:?}", e);
+		}
+		Ok(())
+	}
+
+	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
+		let tx_hash = match function {
+			Function::EvmDeploy { bytecode } => {
+				let _guard = self.wallet_guard.lock().await;
+				self.wallet.eth_deploy_contract(bytecode.clone()).await?
+			},
+			Function::EvmCall { address, input, amount } => {
+				let _guard = self.wallet_guard.lock().await;
+				self.wallet.eth_send_call(address, input.clone(), amount).await?
+			},
+			_ => anyhow::bail!("not a write function {function:?}"),
+		};
+		if let Err(e) = self.substrate.submit_task_hash(task_id, tx_hash).await {
+			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}
@@ -190,18 +182,6 @@ where
 		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
 		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
 			tracing::error!("Error submitting task signature{:?}", e);
-		}
-		Ok(())
-	}
-
-	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self
-			.substrate
-			.submit_task_hash(task_id, tx_hash.try_into().expect("valid tx hash"))
-			.await
-		{
-			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}

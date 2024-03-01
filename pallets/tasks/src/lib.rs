@@ -23,10 +23,10 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Balance, DepreciationRate, Function, GmpParams, Message, Msg, NetworkId,
-		Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
-		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
-		TasksInterface, TransferStake, TssSignature,
+		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
+		Msg, NetworkEvents, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface,
+		TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase,
+		TaskResult, TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -92,6 +92,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
+		type Elections: ElectionsInterface;
 		type Members: TransferStake;
 		/// Base read task reward (for all networks)
 		#[pallet::constant]
@@ -114,6 +115,28 @@ pub mod pallet {
 		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+	}
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T> {
+		pub _marker: PhantomData<T>,
+		pub recv_task_funder: Option<AccountId>,
+	}
+
+	impl<T> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self {
+				_marker: PhantomData,
+				recv_task_funder: None,
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			RecvTaskFunder::<T>::set(self.recv_task_funder.clone());
+		}
 	}
 
 	#[pallet::storage]
@@ -184,6 +207,12 @@ pub mod pallet {
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, [u8; 20], OptionQuery>;
 
 	#[pallet::storage]
+	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	#[pallet::storage]
+	pub type RecvTaskFunder<T: Config> = StorageValue<_, AccountId, OptionQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
@@ -228,7 +257,7 @@ pub mod pallet {
 		/// Task succeeded with result
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
-		GatewayRegistered(NetworkId, [u8; 20]),
+		GatewayRegistered(NetworkId, [u8; 20], u64),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -363,6 +392,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			bootstrap: ShardId,
 			address: [u8; 20],
+			block_height: u64,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
@@ -377,8 +407,9 @@ pub mod pallet {
 				}
 			}
 			Gateway::<T>::insert(network, address);
+			RecvTasks::<T>::insert(network, block_height);
 			Self::schedule_tasks(network);
-			Self::deposit_event(Event::GatewayRegistered(network, address));
+			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
 			Ok(())
 		}
 
@@ -497,12 +528,23 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
+		fn recv_messages(network_id: NetworkId, block_height: u64) {
+			let mut task = TaskDescriptorParams::new(
+				network_id,
+				Function::ReadMessages,
+				T::Elections::default_shard_size(),
+			);
+			task.start = block_height;
+			Self::start_task(task, TaskFunder::Account(RecvTaskFunder::<T>::get().unwrap()))
+				.unwrap();
+		}
+
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
 			Self::start_task(
 				TaskDescriptorParams::new(
 					network_id,
 					Function::RegisterShard { shard_id },
-					T::Shards::shard_members(shard_id).len() as u32,
+					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Shard(shard_id),
 			)
@@ -514,7 +556,7 @@ pub mod pallet {
 				TaskDescriptorParams::new(
 					msg.dest_network,
 					Function::SendMessage { msg },
-					T::Shards::shard_members(shard_id).len() as u32,
+					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Shard(shard_id),
 			)
@@ -655,12 +697,12 @@ pub mod pallet {
 		/// assigned to it.
 		/// Excludes selecting the `old` shard_id optional input if it is passed
 		/// for task reassignment purposes.
-		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u32) -> Option<ShardId> {
+		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
 			let old = TaskShard::<T>::get(task_id);
 			NetworkShards::<T>::iter_prefix(network)
 				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
 				.filter(|(shard_id, _)| {
-					let shards_len = T::Shards::shard_members(*shard_id).len() as u32;
+					let shards_len = T::Shards::shard_members(*shard_id).len() as u16;
 					shards_len == shard_size
 				})
 				.filter(|(shard_id, _)| {
@@ -836,13 +878,27 @@ pub mod pallet {
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
-						T::Shards::shard_members(shard_id).len() as u32,
+						T::Shards::shard_members(shard_id).len() as _,
 					),
 					TaskFunder::Shard(shard_id),
 				)
 				.unwrap();
 			} else {
 				Self::schedule_tasks(network);
+			}
+		}
+	}
+
+	impl<T: Config> NetworkEvents for Pallet<T> {
+		fn block_height_changed(network_id: NetworkId, block_height: u64) {
+			if let Some(current) = RecvTasks::<T>::get(network_id) {
+				let next = block_height + 10;
+				if current < next {
+					for block_height in current..next {
+						Self::recv_messages(network_id, block_height);
+					}
+					RecvTasks::<T>::insert(network_id, next);
+				}
 			}
 		}
 	}

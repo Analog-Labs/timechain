@@ -5,7 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{MemberEvents, NetworkId};
+use time_primitives::{MemberEvents, NetworkId, NetworksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -17,6 +17,12 @@ pub struct MockShards;
 impl MemberEvents for MockShards {
 	fn member_online(_: &AccountId, _: NetworkId) {}
 	fn member_offline(_: &AccountId, _: NetworkId) {}
+}
+
+pub struct MockNetworks;
+
+impl NetworksInterface for MockNetworks {
+	fn seen_block_height(_: NetworkId, _: u64) {}
 }
 
 frame_support::construct_runtime!(
@@ -105,6 +111,7 @@ impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = MockShards;
+	type Networks = MockNetworks;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }

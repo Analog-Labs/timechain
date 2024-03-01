@@ -1133,6 +1133,7 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
+	type Networks = Networks;
 	type MinStake = ConstU128<{ 10 * DOLLARS }>;
 	type HeartbeatTimeout = ConstU32<50>;
 }
@@ -1166,6 +1167,7 @@ parameter_types! {
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
+	type Elections = Elections;
 	type Shards = Shards;
 	type Members = Members;
 	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
@@ -1188,6 +1190,7 @@ impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// TODO fix weights
 	type WeightInfo = ();
+	type NetworkEvents = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1215,7 +1218,7 @@ construct_runtime!(
 		Members: pallet_members,
 		Shards: pallet_shards,
 		Elections: pallet_elections,
-		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
+		Tasks: pallet_tasks,
 		Timegraph: pallet_timegraph,
 		Networks: pallet_networks,
 	}

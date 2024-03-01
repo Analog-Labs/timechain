@@ -30,7 +30,7 @@ pub mod pallet {
 
 	/// Size of each new shard
 	#[pallet::storage]
-	pub type ShardSize<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type ShardSize<T: Config> = StorageValue<_, u16, ValueQuery>;
 
 	/// Threshold of each new shard
 	#[pallet::storage]
@@ -69,7 +69,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			ShardSize::<T>::put(self.shard_size as u32);
+			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
 		}
 	}
@@ -97,7 +97,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
-			ShardSize::<T>::put(shard_size as u32);
+			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
 			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
 			Ok(())

@@ -459,15 +459,15 @@ contract Gateway is IGateway, SigUtils {
     ) public returns (uint8 status, bytes32 result) {
         uint256 gasBefore = gasleft();
         require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
-        require(
-            _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
-        );
+        //require(
+        //    _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
+        //);
         bytes memory payload = getGmpTypedHash(message);
         bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
-        uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;
-        _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
-        payable(tx.origin).transfer(refund);
+        //uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;
+        //_deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
+        //payable(tx.origin).transfer(refund);
     }
 }

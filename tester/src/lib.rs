@@ -10,8 +10,8 @@ use std::process::Command;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
-	Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId, TaskPhase,
-	TssPublicKey,
+	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
+	TaskPhase, TssPublicKey,
 };
 
 pub struct TesterParams {
@@ -53,6 +53,7 @@ impl Tester {
 			&network,
 			&args.target_url,
 			Some(&args.target_keyfile),
+			None,
 		)
 		.await?;
 		Ok(Self {
@@ -120,7 +121,7 @@ impl Tester {
 		}
 		.abi_encode();
 		self.wallet
-			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount)
+			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount, None, None)
 			.await
 	}
 

@@ -91,6 +91,9 @@ where
 				let Some(receipt) = self.wallet.eth_transaction_receipt(*tx).await? else {
 					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
 				};
+				if receipt.status_code != Some(1) {
+					anyhow::bail!("transaction reverted");
+				}
 				let json = serde_json::json!({
 					"transactionHash": format!("{:?}", receipt.transaction_hash),
 					"transactionIndex": receipt.transaction_index,

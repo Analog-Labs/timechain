@@ -144,6 +144,7 @@ fn write_phase_timeout_reassigns_task() {
 					address: Default::default(),
 					input: Default::default(),
 					amount: 0,
+					gas_limit: None,
 				},
 				start: 0,
 				funds: 10_000, //TODO: why does this underflow or below min error
@@ -206,6 +207,7 @@ fn register_unregister_preserves_task_migration() {
 					address: Default::default(),
 					input: Default::default(),
 					amount: 0,
+					gas_limit: None,
 				},
 				start: 0,
 				funds: 10_000, //TODO: why does this underflow if set to correct

@@ -5232,9 +5232,7 @@ dependencies = [
  "jsonrpsee-client-transport 0.20.3",
  "jsonrpsee-core 0.20.3",
  "jsonrpsee-http-client 0.20.3",
- "jsonrpsee-server 0.20.3",
  "jsonrpsee-types 0.20.3",
- "tokio",
 ]
 
 [[package]]
@@ -5259,7 +5257,7 @@ dependencies = [
  "jsonrpsee-core 0.22.1",
  "jsonrpsee-http-client 0.22.1",
  "jsonrpsee-proc-macros",
- "jsonrpsee-server 0.22.1",
+ "jsonrpsee-server",
  "jsonrpsee-types 0.22.1",
  "jsonrpsee-ws-client",
  "tokio",
@@ -5343,12 +5341,9 @@ dependencies = [
  "futures-util",
  "hyper",
  "jsonrpsee-types 0.20.3",
- "parking_lot 0.12.1",
- "rand 0.8.5",
  "rustc-hash",
  "serde",
  "serde_json",
- "soketto",
  "thiserror",
  "tokio",
  "tracing",
@@ -5475,29 +5470,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "jsonrpsee-server"
-version = "0.20.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82c39a00449c9ef3f50b84fc00fc4acba20ef8f559f07902244abf4c15c5ab9c"
-dependencies = [
- "futures-util",
- "http 0.2.12",
- "hyper",
- "jsonrpsee-core 0.20.3",
- "jsonrpsee-types 0.20.3",
- "route-recognizer",
- "serde",
- "serde_json",
- "soketto",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tower",
- "tracing",
 ]
 
 [[package]]
@@ -14623,7 +14595,7 @@ dependencies = [
  "frame-system",
  "futures",
  "hex-literal",
- "jsonrpsee 0.20.3",
+ "jsonrpsee 0.22.1",
  "pallet-im-online",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",

@@ -50,7 +50,7 @@ sp-statement-store = { git = "https://github.com/paritytech/polkadot-sdk", tag =
 sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.8.0" }
 
 # node 's RPCs deps
-jsonrpsee = { version = "0.20.3", features = [ "server" ] }
+jsonrpsee = { version = "0.22.1", features = [ "server" ] }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.8.0" }
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.8.0" }
 sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.8.0" }

@@ -164,9 +164,16 @@ where
 				let _guard = self.wallet_guard.lock().await;
 				self.wallet.eth_deploy_contract(bytecode.clone()).await?
 			},
-			Function::EvmCall { address, input, amount } => {
+			Function::EvmCall {
+				address,
+				input,
+				amount,
+				gas_limit,
+			} => {
 				let _guard = self.wallet_guard.lock().await;
-				self.wallet.eth_send_call(address, input.clone(), amount, None, None).await?
+				self.wallet
+					.eth_send_call(address, input.clone(), amount, None, gas_limit)
+					.await?
 			},
 			_ => anyhow::bail!("not a write function {function:?}"),
 		};

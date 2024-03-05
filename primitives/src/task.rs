@@ -17,7 +17,7 @@ pub enum Function {
 	SendMessage { msg: Msg },
 	// write
 	EvmDeploy { bytecode: Vec<u8> },
-	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128 },
+	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128, gas_limit: Option<u64> },
 	// read
 	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 	EvmTxReceipt { tx: [u8; 32] },

@@ -50,6 +50,7 @@ benchmarks! {
 				address: Default::default(),
 				input: Default::default(),
 				amount: 0,
+				gas_limit: None,
 			},
 			start: 0,
 			funds: 100u32.into(),

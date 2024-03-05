@@ -288,6 +288,7 @@ pub fn create_evm_call(address: String) -> Function {
 		address: get_eth_address_to_bytes(&address),
 		input: get_evm_function_hash("vote_yes()"),
 		amount: 0,
+		gas_limit: None,
 	}
 }
 

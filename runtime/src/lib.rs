@@ -1194,9 +1194,9 @@ impl pallet_networks::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
+#[rustfmt::skip]
 construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		Timestamp: pallet_timestamp,

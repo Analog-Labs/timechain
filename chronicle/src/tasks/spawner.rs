@@ -1,8 +1,9 @@
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
+use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{AtBlock, CallResult};
+use rosetta_config_ethereum::CallResult;
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::{
@@ -47,6 +48,7 @@ where
 				&params.network,
 				&params.url,
 				Some(&params.keyfile),
+				None,
 			)
 			.await?,
 		);
@@ -63,10 +65,12 @@ where
 		function: &Function,
 		target_block_number: u64,
 	) -> Result<Payload> {
-		let block = AtBlock::Number(target_block_number);
 		Ok(match function {
 			Function::EvmViewCall { address, input } => {
-				let data = self.wallet.eth_view_call(*address, input.clone(), block).await?;
+				let data = self
+					.wallet
+					.eth_view_call(*address, input.clone(), target_block_number.into())
+					.await?;
 				let json = match data {
 					// Call executed successfully
 					CallResult::Success(data) => serde_json::json!({
@@ -160,9 +164,16 @@ where
 				let _guard = self.wallet_guard.lock().await;
 				self.wallet.eth_deploy_contract(bytecode.clone()).await?
 			},
-			Function::EvmCall { address, input, amount } => {
+			Function::EvmCall {
+				address,
+				input,
+				amount,
+				gas_limit,
+			} => {
 				let _guard = self.wallet_guard.lock().await;
-				self.wallet.eth_send_call(address, input.clone(), amount).await?
+				self.wallet
+					.eth_send_call(address, input.clone(), amount, None, gas_limit)
+					.await?
 			},
 			_ => anyhow::bail!("not a write function {function:?}"),
 		};
@@ -228,19 +239,9 @@ where
 #[allow(clippy::type_complexity)]
 struct BlockStream<'a> {
 	wallet: &'a Arc<Wallet>,
-	opening: Option<
-		Pin<
-			Box<
-				dyn Future<
-						Output = Result<
-							Option<Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>>,
-						>,
-					> + Send
-					+ 'a,
-			>,
-		>,
-	>,
-	listener: Option<Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>>,
+	opening:
+		Option<Pin<Box<dyn Future<Output = Result<Option<GenericClientStream<'a>>>> + Send + 'a>>>,
+	listener: Option<GenericClientStream<'a>>,
 }
 
 impl<'a> BlockStream<'a> {
@@ -268,6 +269,7 @@ impl<'a> Stream for BlockStream<'a> {
 							return Poll::Ready(Some(block.block_identifier.index));
 						},
 						ClientEvent::NewHead(_) => continue,
+						ClientEvent::Event(_) => continue,
 						ClientEvent::Close(reason) => {
 							tracing::info!("block stream closed {}", reason);
 							self.listener.take();

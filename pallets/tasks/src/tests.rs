@@ -58,6 +58,7 @@ fn mock_payable(network: NetworkId) -> TaskDescriptorParams {
 			address: Default::default(),
 			input: Default::default(),
 			amount: 0,
+			gas_limit: None,
 		},
 		funds: 100,
 		shard_size: 3,

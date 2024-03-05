@@ -154,11 +154,17 @@ impl Message {
 			e: U256::from_be_slice(&signature[0..32]),
 			s: U256::from_be_slice(&signature[32..64]),
 		};
+		let gas_limit = if let Self::Gmp(GmpMessage { gasLimit, .. }) = &self {
+			(*gasLimit).try_into().ok()
+		} else {
+			None
+		};
 		let payload = self.payload(signature);
 		Function::EvmCall {
 			address: params.gateway_contract.into(),
 			input: payload,
 			amount: 0u128,
+			gas_limit,
 		}
 	}
 }

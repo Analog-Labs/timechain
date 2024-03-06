@@ -97,7 +97,7 @@ where
 				let json = serde_json::json!({
 					"transactionHash": format!("{:?}", receipt.transaction_hash),
 					"transactionIndex": receipt.transaction_index,
-					"blockHash": receipt.block_hash.map(|block_hash| format!("{block_hash:?}")),
+					"blockHash": receipt.block_hash.0.map(|block_hash| format!("{block_hash:?}")),
 					"blockNumber": receipt.block_number,
 					"from": format!("{:?}", receipt.from),
 					"to": receipt.to.map(|to| format!("{to:?}")),
@@ -162,7 +162,7 @@ where
 	}
 
 	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		let tx_hash = match function {
+		let submission = match function {
 			Function::EvmDeploy { bytecode } => {
 				let _guard = self.wallet_guard.lock().await;
 				self.wallet.eth_deploy_contract(bytecode.clone()).await?
@@ -180,7 +180,7 @@ where
 			},
 			_ => anyhow::bail!("not a write function {function:?}"),
 		};
-		if let Err(e) = self.substrate.submit_task_hash(task_id, tx_hash).await {
+		if let Err(e) = self.substrate.submit_task_hash(task_id, submission.tx_hash().0).await {
 			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())

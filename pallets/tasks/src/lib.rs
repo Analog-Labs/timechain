@@ -48,7 +48,7 @@ pub mod pallet {
 		fn submit_result(_: u64) -> Weight {
 			Weight::default()
 		}
-		
+
 		fn submit_hash() -> Weight {
 			Weight::default()
 		}
@@ -110,28 +110,6 @@ pub mod pallet {
 		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
-	}
-
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T> {
-		pub _marker: PhantomData<T>,
-		pub recv_task_funder: Option<AccountId>,
-	}
-
-	impl<T> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self {
-				_marker: PhantomData,
-				recv_task_funder: None,
-			}
-		}
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			RecvTaskFunder::<T>::set(self.recv_task_funder.clone());
-		}
 	}
 
 	#[pallet::storage]
@@ -203,10 +181,6 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
-
-	#[pallet::storage]
-	pub type RecvTaskFunder<T: Config> = StorageValue<_, AccountId, OptionQuery>;
-
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
@@ -530,8 +504,7 @@ pub mod pallet {
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			//Self::start_task(task, TaskFunder::Account(RecvTaskFunder::<T>::get().unwrap()))
-			//	.unwrap();
+			Self::start_task(task, TaskFunder::Inflation).unwrap();
 		}
 
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
@@ -597,6 +570,13 @@ pub mod pallet {
 					for member in T::Shards::shard_members(shard_id) {
 						T::Members::transfer_stake(&member, &task_account, amount)?;
 					}
+					None
+				},
+				TaskFunder::Inflation => {
+					pallet_balances::Pallet::<T>::resolve_creating(
+						&Self::task_account(task_id),
+						pallet_balances::Pallet::<T>::issue(required_funds),
+					);
 					None
 				},
 			};

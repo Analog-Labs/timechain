@@ -847,10 +847,6 @@ fn generate_analog_genesis(
 			],
 			..Default::default()
 		},
-		tasks: timechain_runtime::TasksConfig {
-			recv_task_funder: Some(root_key.clone()),
-			..Default::default()
-		},
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),

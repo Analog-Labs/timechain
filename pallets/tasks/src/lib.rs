@@ -530,8 +530,8 @@ pub mod pallet {
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			Self::start_task(task, TaskFunder::Account(RecvTaskFunder::<T>::get().unwrap()))
-				.unwrap();
+			//Self::start_task(task, TaskFunder::Account(RecvTaskFunder::<T>::get().unwrap()))
+			//	.unwrap();
 		}
 
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {

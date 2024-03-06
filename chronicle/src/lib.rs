@@ -6,11 +6,9 @@ use futures::channel::mpsc;
 use futures::stream::BoxStream;
 use std::path::PathBuf;
 use std::sync::Arc;
-use time_primitives::TssSigningRequest;
-use time_primitives::{NetworkId, Runtime};
+use time_primitives::{NetworkId, Runtime, TssSigningRequest};
 use tracing::{event, span, Level};
 
-mod gmp;
 #[cfg(test)]
 mod mock;
 mod network;
@@ -126,7 +124,7 @@ mod tests {
 	use crate::mock::Mock;
 	use std::time::Duration;
 	use time_primitives::sp_runtime::traits::IdentifyAccount;
-	use time_primitives::{AccountId, Function, ShardStatus, TaskDescriptor, TaskStatus};
+	use time_primitives::{AccountId, Function, Msg, ShardStatus, TaskDescriptor};
 
 	async fn chronicle(mut mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
@@ -189,12 +187,7 @@ mod tests {
 		let task_id = mock.create_task(TaskDescriptor {
 			owner: Some(mock.account_id().clone()),
 			network: network_id,
-			function: Function::SendMessage {
-				address: Default::default(),
-				gas_limit: Default::default(),
-				salt: Default::default(),
-				payload: Default::default(),
-			},
+			function: Function::SendMessage { msg: Msg::default() },
 			start: 0,
 			shard_size: 3,
 		});
@@ -203,8 +196,7 @@ mod tests {
 		loop {
 			tracing::info!("waiting for task");
 			let task = mock.task(task_id).unwrap();
-			tracing::info!("task {:?}", task.status);
-			if task.status != TaskStatus::Completed {
+			if task.result.is_none() {
 				tracing::info!("task phase {:?}", task.phase);
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;

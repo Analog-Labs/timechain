@@ -60,8 +60,7 @@ use sp_version::RuntimeVersion;
 pub use time_primitives::{
 	AccountId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus, MemberStorage,
 	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	TaskDescriptor, TaskError, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey,
-	TssSignature,
+	TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1134,6 +1133,7 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
+	type Networks = Networks;
 	type MinStake = ConstU128<{ 10 * DOLLARS }>;
 	type HeartbeatTimeout = ConstU32<50>;
 }
@@ -1167,12 +1167,14 @@ parameter_types! {
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
+	type Elections = Elections;
 	type Shards = Shards;
 	type Members = Members;
 	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
 	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;
 	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
 	type RewardDeclineRate = RewardDeclineRate;
+	type SignPhaseTimeout = ConstU32<10>;
 	type WritePhaseTimeout = ConstU32<10>;
 	type ReadPhaseTimeout = ConstU32<10>;
 	type PalletId = TaskPalletId;
@@ -1188,12 +1190,13 @@ impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// TODO fix weights
 	type WeightInfo = ();
+	type NetworkEvents = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
+#[rustfmt::skip]
 construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		Timestamp: pallet_timestamp,
@@ -1215,7 +1218,7 @@ construct_runtime!(
 		Members: pallet_members,
 		Shards: pallet_shards,
 		Elections: pallet_elections,
-		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
+		Tasks: pallet_tasks,
 		Timegraph: pallet_timegraph,
 		Networks: pallet_networks,
 	}
@@ -1540,16 +1543,28 @@ impl_runtime_apis! {
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
 			Tasks::get_task_signature(task_id)
 		}
+
+		fn get_task_signer(task_id: TaskId) -> Option<PublicKey> {
+			Tasks::get_task_signer(task_id)
+		}
+
+		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]> {
+			Tasks::get_task_hash(task_id)
+		}
+
 		fn get_task_phase(task_id: TaskId) -> TaskPhase {
 			Tasks::get_task_phase(task_id)
 		}
+
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>{
 			Tasks::get_task_result(task_id)
 		}
+
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
-		fn get_gateway(network: NetworkId) -> Option<Vec<u8>> {
+
+		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
 			Tasks::get_gateway(network)
 		}
 	}

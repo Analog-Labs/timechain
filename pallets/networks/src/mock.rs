@@ -5,6 +5,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
+use time_primitives::{NetworkEvents, NetworkId};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u64;
@@ -58,9 +59,16 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 }
 
+pub struct MockNetworkEvents;
+
+impl NetworkEvents for MockNetworkEvents {
+	fn block_height_changed(_: NetworkId, _: u64) {}
+}
+
 impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type NetworkEvents = MockNetworkEvents;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -1,10 +1,9 @@
 use crate::{Call, Config, Pallet};
-use codec::alloc::string::ToString;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::vec;
 use time_primitives::{
-	Function, NetworkId, TaskDescriptorParams, TaskError, TaskResult, TasksInterface,
+	Function, NetworkId, Payload, TaskDescriptorParams, TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 1;
@@ -39,25 +38,7 @@ benchmarks! {
 		Pallet::<T>::shard_online(1, ETHEREUM);
 	}: _(RawOrigin::Signed(whitelisted_caller()), 0, TaskResult {
 		shard_id: 1,
-		hash: [0; 32],
-		signature: [0; 64],
-	}) verify {}
-
-	submit_error {
-		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
-			network: ETHEREUM,
-			function: Function::EvmViewCall {
-				address: Default::default(),
-				input: Default::default(),
-			},
-			start: 0,
-			funds: 100u32.into(),
-			shard_size: 3,
-		});
-		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, TaskError {
-		shard_id: 1,
-		msg: "test".to_string(),
+		payload: Payload::Hashed([0; 32]),
 		signature: [0; 64],
 	}) verify {}
 
@@ -69,29 +50,25 @@ benchmarks! {
 				address: Default::default(),
 				input: Default::default(),
 				amount: 0,
+				gas_limit: None,
 			},
 			start: 0,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 1, vec![0u8; b as usize]) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 1, [b as _; 32]) verify {}
 
 	submit_signature {
 		let _ = Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
 			network: ETHEREUM,
-			function: Function::SendMessage {
-				address: [0u8; 20],
-				payload: Default::default(),
-				salt: [0u8; 32],
-				gas_limit: 1000u64
-			},
+			function: Function::SendMessage { msg: Default::default() },
 			start: 0,
 			funds: 100u32.into(),
 			shard_size: 3,
 		});
 		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64], [0u8; 32]) verify {}
+	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

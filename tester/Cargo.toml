@@ -9,12 +9,13 @@ alloy-sol-types = { version = "0.5" }
 anyhow = "1.0.75"
 clap = { version = "4.4.2", features = [ "derive" ] }
 ethers-solc = "2.0.1"
+getrandom = "0.2.12"
 hex = "0.4.3"
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", rev = "f75bd6a0a56633e74945fa12e1d1830a63f70507" }
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+serde_json = "1.0.114"
 sha3 = "0.10.8"
-sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk.git", tag = "v1.7.0-tracing", default-features = false }
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 tc-subxt = { path = "../tc-subxt"}
-tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread"]}
 time-primitives = { path = "../primitives" }
+tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread"]}
 tracing-subscriber = "0.3.18"

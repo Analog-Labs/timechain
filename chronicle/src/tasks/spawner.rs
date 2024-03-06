@@ -1,8 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
+use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{AtBlock, CallResult};
+use rosetta_config_ethereum::CallResult;
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::{
@@ -13,9 +14,10 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	append_hash_with_task_data, BlockNumber, Function, Runtime, ShardId, TaskError, TaskId,
-	TaskResult, TssHash, TssSignature, TssSigningRequest,
+	BlockNumber, Function, Payload, Runtime, ShardId, TaskId, TaskResult, TssHash, TssSignature,
+	TssSigningRequest,
 };
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
@@ -31,8 +33,8 @@ pub struct TaskSpawnerParams<S> {
 pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
+	wallet_guard: Arc<Mutex<()>>,
 	substrate: S,
-	chain_id: u64,
 }
 
 impl<S> TaskSpawner<S>
@@ -46,15 +48,15 @@ where
 				&params.network,
 				&params.url,
 				Some(&params.keyfile),
+				None,
 			)
 			.await?,
 		);
-		let chain_id = wallet.eth_chain_id().await?;
 		Ok(Self {
 			tss: params.tss,
 			wallet,
+			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
-			chain_id,
 		})
 	}
 
@@ -62,11 +64,13 @@ where
 		&self,
 		function: &Function,
 		target_block_number: u64,
-	) -> Result<Vec<u8>> {
-		let block = AtBlock::Number(target_block_number);
+	) -> Result<Payload> {
 		Ok(match function {
 			Function::EvmViewCall { address, input } => {
-				let data = self.wallet.eth_view_call(*address, input.clone(), block).await?;
+				let data = self
+					.wallet
+					.eth_view_call(*address, input.clone(), target_block_number.into())
+					.await?;
 				let json = match data {
 					// Call executed successfully
 					CallResult::Success(data) => serde_json::json!({
@@ -81,18 +85,13 @@ where
 						"error": null,
 					}),
 				};
-				json.to_string().into_bytes()
+				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
 			Function::EvmTxReceipt { tx } => {
-				if tx.len() != 32 {
-					anyhow::bail!("invalid transaction hash length, expected 32 got {}", tx.len());
-				}
-				let mut tx_hash = [0u8; 32];
-				tx_hash.copy_from_slice(tx.as_ref());
-				let Some(receipt) = self.wallet.eth_transaction_receipt(tx_hash).await? else {
-					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx_hash));
+				let Some(receipt) = self.wallet.eth_transaction_receipt(*tx).await? else {
+					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
 				};
-				serde_json::json!({
+				let json = serde_json::json!({
 					"transactionHash": format!("{:?}", receipt.transaction_hash),
 					"transactionIndex": receipt.transaction_index,
 					"blockHash": receipt.block_hash.map(|block_hash| format!("{block_hash:?}")),
@@ -104,30 +103,11 @@ where
 					"status": receipt.status_code,
 					"type": receipt.transaction_type,
 				})
-				.to_string()
-				.into_bytes()
+				.to_string();
+				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
-			Function::EvmDeploy { bytecode } => {
-				self.wallet.eth_deploy_contract(bytecode.clone()).await?.to_vec()
-			},
-			Function::EvmCall { address, input, amount } => {
-				self.wallet.eth_send_call(*address, input.clone(), *amount).await?.to_vec()
-			},
-			Function::RegisterShard { .. } => {
-				return Err(anyhow!(
-					"RegisterShard must be transformed into EvmCall prior to execution"
-				));
-			},
-			Function::UnregisterShard { .. } => {
-				return Err(anyhow!(
-					"UnregisterShard must be transformed into EvmCall prior to execution"
-				));
-			},
-			Function::SendMessage { .. } => {
-				return Err(anyhow!(
-					"SendMessage must be transformed into EvmCall prior to execution"
-				));
-			},
+			Function::ReadMessages => Payload::Gmp(vec![]),
+			_ => anyhow::bail!("not a read function {function:?}"),
 		})
 	}
 
@@ -164,31 +144,41 @@ where
 		let result = self
 			.execute_function(&function, target_block)
 			.await
-			.map_err(|err| format!("{:?}", err));
-		let payload = match &result {
-			Ok(payload) => payload.as_slice(),
-			Err(payload) => payload.as_bytes(),
+			.map_err(|err| format!("{err}"));
+		let payload = match result {
+			Ok(payload) => payload,
+			Err(payload) => Payload::Error(payload),
 		};
-		let prehashed_payload = VerifyingKey::message_hash(payload);
-		let hash = append_hash_with_task_data(prehashed_payload, task_id);
-		let (_, signature) = self.tss_sign(block_num, shard_id, task_id, &hash).await?;
-		match result {
-			Ok(_) => {
-				let result = TaskResult {
-					shard_id,
-					hash: prehashed_payload,
-					signature,
-				};
-				if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
-					tracing::error!("Error submitting task result {:?}", e);
-				}
+		let (_, signature) =
+			self.tss_sign(block_num, shard_id, task_id, &payload.bytes(task_id)).await?;
+		let result = TaskResult { shard_id, payload, signature };
+		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
+			tracing::error!("Error submitting task result {:?}", e);
+		}
+		Ok(())
+	}
+
+	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
+		let tx_hash = match function {
+			Function::EvmDeploy { bytecode } => {
+				let _guard = self.wallet_guard.lock().await;
+				self.wallet.eth_deploy_contract(bytecode.clone()).await?
 			},
-			Err(msg) => {
-				let error = TaskError { shard_id, msg, signature };
-				if let Err(e) = self.substrate.submit_task_error(task_id, error).await {
-					tracing::error!("Error submitting task error {:?}", e);
-				}
+			Function::EvmCall {
+				address,
+				input,
+				amount,
+				gas_limit,
+			} => {
+				let _guard = self.wallet_guard.lock().await;
+				self.wallet
+					.eth_send_call(address, input.clone(), amount, None, gas_limit)
+					.await?
 			},
+			_ => anyhow::bail!("not a write function {function:?}"),
+		};
+		if let Err(e) = self.substrate.submit_task_hash(task_id, tx_hash).await {
+			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}
@@ -200,20 +190,9 @@ where
 		payload: Vec<u8>,
 		block_number: u32,
 	) -> Result<()> {
-		let prehashed_payload = VerifyingKey::message_hash(&payload);
-		let hash = append_hash_with_task_data(prehashed_payload, task_id);
-		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &hash).await?;
-		if let Err(e) = self.substrate.submit_task_signature(task_id, sig, prehashed_payload).await
-		{
+		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
+		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
 			tracing::error!("Error submitting task signature{:?}", e);
-		}
-		Ok(())
-	}
-
-	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		let tx_hash = self.execute_function(&function, 0).await?;
-		if let Err(e) = self.substrate.submit_task_hash(task_id, tx_hash).await {
-			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}
@@ -225,10 +204,6 @@ where
 {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(BlockStream::new(&self.wallet))
-	}
-
-	fn chain_id(&self) -> u64 {
-		self.chain_id
 	}
 
 	fn execute_read(
@@ -264,19 +239,9 @@ where
 #[allow(clippy::type_complexity)]
 struct BlockStream<'a> {
 	wallet: &'a Arc<Wallet>,
-	opening: Option<
-		Pin<
-			Box<
-				dyn Future<
-						Output = Result<
-							Option<Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>>,
-						>,
-					> + Send
-					+ 'a,
-			>,
-		>,
-	>,
-	listener: Option<Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>>,
+	opening:
+		Option<Pin<Box<dyn Future<Output = Result<Option<GenericClientStream<'a>>>> + Send + 'a>>>,
+	listener: Option<GenericClientStream<'a>>,
 }
 
 impl<'a> BlockStream<'a> {
@@ -304,6 +269,7 @@ impl<'a> Stream for BlockStream<'a> {
 							return Poll::Ready(Some(block.block_identifier.index));
 						},
 						ClientEvent::NewHead(_) => continue,
+						ClientEvent::Event(_) => continue,
 						ClientEvent::Close(reason) => {
 							tracing::info!("block stream closed {}", reason);
 							self.listener.take();

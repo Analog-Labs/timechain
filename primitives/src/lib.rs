@@ -8,11 +8,13 @@ use futures::stream::BoxStream;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
+mod gmp;
 mod member;
 mod network;
 mod shard;
 mod task;
 
+pub use crate::gmp::*;
 pub use crate::member::*;
 pub use crate::network::*;
 pub use crate::shard::*;
@@ -67,10 +69,12 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
 		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
+		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
+		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]>;
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_gateway(network: NetworkId) -> Option<Vec<u8>>;
+		fn get_gateway(network: NetworkId) -> Option<[u8; 20]>;
 	}
 
 	pub trait BlockTimeApi {
@@ -102,6 +106,7 @@ pub trait MemberStorage {
 
 pub trait ElectionsInterface {
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
+	fn default_shard_size() -> u16;
 }
 
 pub trait ShardsInterface {
@@ -117,6 +122,14 @@ pub trait ShardsInterface {
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
+}
+
+pub trait NetworksInterface {
+	fn seen_block_height(network: NetworkId, block_height: u64);
+}
+
+pub trait NetworkEvents {
+	fn block_height_changed(network_id: NetworkId, block_height: u64);
 }
 
 #[cfg(feature = "std")]
@@ -171,7 +184,11 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>>;
+	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
+
+	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>>;
+
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
 
 	async fn submit_register_member(
 		&self,
@@ -180,7 +197,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		stake_amount: u128,
 	) -> Result<()>;
 
-	async fn submit_heartbeat(&self) -> Result<()>;
+	async fn submit_heartbeat(&self, block_height: u64) -> Result<()>;
 
 	async fn submit_commitment(
 		&self,
@@ -191,16 +208,9 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()>;
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-		hash: [u8; 32],
-	) -> Result<()>;
+	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
-
-	async fn submit_task_error(&self, task_id: TaskId, error: TaskError) -> Result<()>;
 }

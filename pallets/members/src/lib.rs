@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, Balance, HeartbeatInfo, MemberEvents, MemberStorage, NetworkId, PeerId,
-		PublicKey, TransferStake,
+		AccountId, Balance, HeartbeatInfo, MemberEvents, MemberStorage, NetworkId,
+		NetworksInterface, PeerId, PublicKey, TransferStake,
 	};
 
 	pub trait WeightInfo {
@@ -51,6 +51,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: MemberEvents;
+		type Networks: NetworksInterface;
 		/// Minimum stake to register member
 		#[pallet::constant]
 		type MinStake: Get<BalanceOf<Self>>;
@@ -109,7 +110,9 @@ pub mod pallet {
 			Heartbeat::<T>::iter().for_each(|(member, heart)| {
 				if heart.is_online && n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
 					Heartbeat::<T>::insert(&member, heart.set_offline());
-					Self::member_offline(&member);
+					if let Some(network) = MemberNetwork::<T>::get(&member) {
+						Self::member_offline(&member, network);
+					}
 					writes += 1;
 				}
 			});
@@ -145,14 +148,15 @@ pub mod pallet {
 				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
 			);
 			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
-			Self::member_online(&member);
+			Self::member_online(&member, network);
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::send_heartbeat())]
-		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
+		pub fn send_heartbeat(origin: OriginFor<T>, block_height: u64) -> DispatchResult {
 			let member = ensure_signed(origin)?;
+			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			let heart = Heartbeat::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(
 				&member,
@@ -160,8 +164,9 @@ pub mod pallet {
 			);
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !heart.is_online {
-				Self::member_online(&member);
+				Self::member_online(&member, network);
 			}
+			T::Networks::seen_block_height(network, block_height);
 			Ok(())
 		}
 
@@ -176,18 +181,14 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn member_online(member: &AccountId) {
+		fn member_online(member: &AccountId, network: NetworkId) {
 			Self::deposit_event(Event::MemberOnline(member.clone()));
-			if let Some(network) = MemberNetwork::<T>::get(member) {
-				T::Elections::member_online(member, network);
-			}
+			T::Elections::member_online(member, network);
 		}
 
-		fn member_offline(member: &AccountId) {
+		fn member_offline(member: &AccountId, network: NetworkId) {
 			Self::deposit_event(Event::MemberOffline(member.clone()));
-			if let Some(network) = MemberNetwork::<T>::get(member) {
-				T::Elections::member_offline(member, network);
-			}
+			T::Elections::member_offline(member, network);
 		}
 
 		fn unregister_member_from_network(member: &AccountId, network: NetworkId) {
@@ -196,7 +197,7 @@ pub mod pallet {
 			MemberPeerId::<T>::remove(member);
 			Heartbeat::<T>::remove(member);
 			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
-			Self::member_offline(member);
+			Self::member_offline(member, network);
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

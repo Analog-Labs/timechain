@@ -42,6 +42,9 @@ pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
 	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
+	fn default_shard_size() -> u16 {
+		3
+	}
 }
 
 frame_support::construct_runtime!(

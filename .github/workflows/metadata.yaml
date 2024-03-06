@@ -1,0 +1,87 @@
+name: Generate metadata
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - '**/*.md' 
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    if: ${{
+        github.event_name == 'push' ||
+        contains(github.event.pull_request.labels.*.name,'!ci-metadata')
+      }}
+    steps:
+    - name: Install deps
+      run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy, rust-src
+
+    - name: Install cargo
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - name: Install subxt
+      uses: actions-rs/cargo@v1
+      with:
+        command: install 
+        args: --version 0.33.0 subxt-cli
+    - name: Rust cache
+      uses: Swatinem/rust-cache@v2
+    - name: Build timechain-node
+      uses: actions-rs/cargo@v1
+      with:
+        command: build 
+        args: --release -p timechain-node
+    - name: Generate metadata
+      run: |
+        ./target/release/timechain-node --dev &
+        NODE_PID=$!
+        sleep 15
+        subxt metadata --url ws://127.0.0.1:9944 -f bytes > config/subxt/metadata.scale-new
+        kill -9 $NODE_PID
+    - name: Get diff
+      id: diff
+      run: |
+        set +e
+        
+        diff config/subxt/metadata.scale-new config/subxt/metadata.scale
+        CODE=$?
+
+        set -e
+
+        if [ $CODE -eq 0 ]; then
+          echo NO DIFF
+          echo "updated=false" >> $GITHUB_OUTPUT
+        else
+          mv config/subxt/metadata.scale-new config/subxt/metadata.scale
+          echo "updated=true" >> $GITHUB_OUTPUT
+        fi
+    - name: Checkout PR
+      if: steps.diff.outputs.updated == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh pr checkout ${{ github.event.pull_request.number }}
+    - name: Commit & Push changes
+      if: steps.diff.outputs.updated == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config user.email "github@analog.one"
+        git config user.name "Github Bot"
+        git commit -am "Update metadata"
+        git push

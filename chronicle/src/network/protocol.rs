@@ -87,7 +87,7 @@ impl Network for TssEndpoint {
 	fn send(&self, peer: PeerId, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
 		let endpoint = self.endpoint.clone();
 		async move {
-			let peer = peernet::PeerId::from_bytes(&peer).unwrap();
+			let peer = peernet::PeerId::from_bytes(&peer)?;
 			endpoint.notify::<TssProtocol>(&peer, &msg).await
 		}
 		.boxed()

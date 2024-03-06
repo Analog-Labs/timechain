@@ -11,7 +11,7 @@ use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskDescriptor,
-	TaskDescriptorParams, TaskError, TaskExecution, TaskId, TaskResult, TssSignature,
+	TaskDescriptorParams, TaskExecution, TaskId, TaskResult, TssSignature,
 };
 use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
 use timechain_runtime::runtime_types::time_primitives::task;
@@ -47,15 +47,14 @@ pub trait TxSubmitter: Clone + Send + Sync + 'static {
 
 pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
-	Heartbeat,
+	Heartbeat { block_height: u64 },
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	InsertTask { task: TaskDescriptorParams },
-	InsertGateway { shard_id: ShardId, address: Vec<u8> },
+	InsertGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
 	Ready { shard_id: ShardId },
-	TaskHash { task_id: TaskId, hash: Vec<u8> },
+	TaskHash { task_id: TaskId, hash: [u8; 32] },
 	TaskResult { task_id: TaskId, result: TaskResult },
-	TaskError { task_id: TaskId, error: TaskError },
-	TaskSignature { task_id: TaskId, signature: TssSignature, hash: [u8; 32] },
+	TaskSignature { task_id: TaskId, signature: TssSignature },
 }
 
 struct SubxtWorker<T: TxSubmitter> {
@@ -116,8 +115,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				);
 				self.create_signed_payload(&tx)
 			},
-			Tx::Heartbeat => {
-				let tx = timechain_runtime::tx().members().send_heartbeat();
+			Tx::Heartbeat { block_height } => {
+				let tx = timechain_runtime::tx().members().send_heartbeat(block_height);
 				self.create_signed_payload(&tx)
 			},
 			Tx::Commitment {
@@ -136,8 +135,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				let tx = timechain_runtime::tx().shards().ready(shard_id);
 				self.create_signed_payload(&tx)
 			},
-			Tx::TaskSignature { task_id, signature, hash } => {
-				let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature, hash);
+			Tx::TaskSignature { task_id, signature } => {
+				let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature);
 				self.create_signed_payload(&tx)
 			},
 			Tx::TaskHash { task_id, hash } => {
@@ -149,21 +148,21 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				let tx = timechain_runtime::tx().tasks().submit_result(task_id, result);
 				self.create_signed_payload(&tx)
 			},
-			Tx::TaskError { task_id, error } => {
-				let error: task::TaskError = unsafe { std::mem::transmute(error) };
-				let tx = timechain_runtime::tx().tasks().submit_error(task_id, error);
-				self.create_signed_payload(&tx)
-			},
 			Tx::InsertTask { task } => {
 				let task_params: task::TaskDescriptorParams = unsafe { std::mem::transmute(task) };
 				let tx = timechain_runtime::tx().tasks().create_task(task_params);
 				self.create_signed_payload(&tx)
 			},
-			Tx::InsertGateway { shard_id, address } => {
+			Tx::InsertGateway {
+				shard_id,
+				address,
+				block_height,
+			} => {
 				let runtime_call = RuntimeCall::Tasks(
 					timechain_runtime::runtime_types::pallet_tasks::pallet::Call::register_gateway {
 						bootstrap: shard_id,
 						address,
+						block_height,
 					},
 				);
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
@@ -240,10 +239,26 @@ impl SubxtClient {
 		Ok(rx.await?)
 	}
 
-	pub async fn insert_gateway(&self, shard_id: ShardId, address: Vec<u8>) -> Result<TxProgress> {
+	pub async fn insert_gateway(
+		&self,
+		shard_id: ShardId,
+		address: [u8; 20],
+		block_height: u64,
+	) -> Result<TxProgress> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::InsertGateway { shard_id, address }, tx))?;
+		self.tx.unbounded_send((
+			Tx::InsertGateway {
+				shard_id,
+				address,
+				block_height,
+			},
+			tx,
+		))?;
 		Ok(rx.await?)
+	}
+
+	pub async fn get_latest_block(&self) -> Result<u64> {
+		Ok(self.client.blocks().at_latest().await?.number().into())
 	}
 }
 
@@ -391,7 +406,19 @@ impl Runtime for SubxtClient {
 		Ok(data)
 	}
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Vec<u8>>> {
+	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
+		let runtime_call = timechain_runtime::apis().tasks_api().get_task_signer(task_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		Ok(unsafe { std::mem::transmute(data) })
+	}
+
+	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>> {
+		let runtime_call = timechain_runtime::apis().tasks_api().get_task_hash(task_id);
+		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		Ok(data)
+	}
+
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>> {
 		let runtime_call = timechain_runtime::apis().tasks_api().get_gateway(network);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(data)
@@ -410,9 +437,9 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_heartbeat(&self) -> Result<()> {
+	async fn submit_heartbeat(&self, block_height: u64) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
+		self.tx.unbounded_send((Tx::Heartbeat { block_height }, tx))?;
 		rx.await?;
 		Ok(())
 	}
@@ -443,19 +470,14 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_task_signature(
-		&self,
-		task_id: TaskId,
-		signature: TssSignature,
-		hash: [u8; 32],
-	) -> Result<()> {
+	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::TaskSignature { task_id, signature, hash }, tx))?;
+		self.tx.unbounded_send((Tx::TaskSignature { task_id, signature }, tx))?;
 		rx.await?;
 		Ok(())
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Vec<u8>) -> Result<()> {
+	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskHash { task_id, hash }, tx))?;
 		rx.await?;
@@ -465,13 +487,6 @@ impl Runtime for SubxtClient {
 	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskResult { task_id, result }, tx))?;
-		rx.await?;
-		Ok(())
-	}
-
-	async fn submit_task_error(&self, task_id: TaskId, error: TaskError) -> Result<()> {
-		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::TaskError { task_id, error }, tx))?;
 		rx.await?;
 		Ok(())
 	}

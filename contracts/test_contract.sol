@@ -2,8 +2,8 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 contract VotingMachine {
-    uint yes_votes;
-    uint no_votes;
+    uint256 yes_votes;
+    uint256 no_votes;
 
     event YesEvent(address indexed from);
     event NoEvent(address indexed from);
@@ -14,27 +14,31 @@ contract VotingMachine {
         no_votes = 0;
     }
 
-    function vote_yes() public returns (uint) {
+    function vote_yes() public returns (uint256) {
         yes_votes += 1;
         emit YesEvent(msg.sender);
         return yes_votes;
     }
 
-    function vote_no() public returns (uint) {
+    function vote_no() public returns (uint256) {
         no_votes += 1;
         emit NoEvent(msg.sender);
         return no_votes;
     }
 
-    function get_votes_stats() public view returns (uint[] memory) {
-        uint[] memory votes = new uint[](2);
+    function get_votes_stats() public view returns (uint256[] memory) {
+        uint256[] memory votes = new uint256[](2);
         votes[0] = yes_votes;
         votes[1] = no_votes;
         return votes;
     }
 
     // Implementing the IGmpReceiver interface
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload) payable external returns (bytes32) {
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata payload)
+        external
+        payable
+        returns (bytes32)
+    {
         require(payload.length >= 4, "Invalid payload");
         bytes4 sig = bytes4(payload);
         emit GmpReceived(sig);

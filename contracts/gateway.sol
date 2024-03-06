@@ -2,6 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "frost-evm/sol/Schnorr.sol";
+
 /**
  * @dev Required interface of an GMP compliant contract
  */
@@ -16,7 +18,10 @@ interface IGmpReceiver {
      * @param payload The message payload with no specified format
      * @return 32 byte result which will be stored together with GMP message
      */
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 source, bytes calldata payload) payable external returns (bytes32);
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 source, bytes calldata payload)
+        external
+        payable
+        returns (bytes32);
 }
 
 /**
@@ -26,27 +31,29 @@ interface IGateway {
     /**
      * @dev Emitted when `GmpMessage` is executed.
      */
-    event GmpExecuted(
-        bytes32 indexed id,     // EIP-712 hash of the `GmpPayload`, which is it's unique identifier
-        bytes32 indexed source, // sender pubkey/address (the format depends on src chain)
-        address indexed dest,   // recipient address
-        uint256 status,         // GMP message execution status
-        bytes32 result          // GMP result
-    );
+    event GmpExecuted( // EIP-712 hash of the `GmpPayload`, which is it's unique identifier
+        // sender pubkey/address (the format depends on src chain)
+        // recipient address
+        // GMP message execution status
+        // GMP result
+    bytes32 indexed id, bytes32 indexed source, address indexed dest, uint256 status, bytes32 result);
 
     /**
      * @dev Emitted when `UpdateShardsMessage` is executed.
      */
-    event KeySetChanged(
-        bytes32 indexed id,    // EIP-712 hash of the UpdateShardsMessage, zero for sudo
-        TssKey[] revoked,      // shards with keys revoked
-        TssKey[] registered    // new shards registered
-    );
+    event KeySetChanged( // EIP-712 hash of the UpdateShardsMessage, zero for sudo
+        // shards with keys revoked
+        // new shards registered
+    bytes32 indexed id, TssKey[] revoked, TssKey[] registered);
+
+    function deposit(bytes32 source, uint16 network) external payable;
 
     /**
      * Execute GMP message
      */
-    function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
+    function execute(Signature memory signature, GmpMessage memory message)
+        external
+        returns (uint8 status, bytes32 result);
 
     /**
      * Update TSS key set
@@ -58,7 +65,7 @@ interface IGateway {
  * @dev Tss public key
  */
 struct TssKey {
-    uint8 yParity;  // public key y-coord parity, the contract converts it to 27/28
+    uint8 yParity; // public key y-coord parity, the contract converts it to 27/28
     uint256 xCoord; // affine x-coordinate
 }
 
@@ -66,21 +73,21 @@ struct TssKey {
  * @dev Message payload used to revoke or/and register new shards
  */
 struct UpdateKeysMessage {
-    TssKey[] revoke;    // Keys to revoke
-    TssKey[] register;  // Keys to add
+    TssKey[] revoke; // Keys to revoke
+    TssKey[] register; // Keys to add
 }
 
 /**
  * @dev GMP payload, this is what the timechain creates as task payload
  */
 struct GmpMessage {
-    bytes32 source;      // Pubkey/Address of who send the GMP message
-    uint128 srcNetwork;  // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
-    address dest;        // Destination/Recipient contract address
-    uint128 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
-    uint256 gasLimit;    // gas limit of the GMP call
-    uint256 salt;        // Message salt, useful for sending two messages with same content
-    bytes data;          // message data with no specified format
+    bytes32 source; // Pubkey/Address of who send the GMP message
+    uint16 srcNetwork; // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
+    address dest; // Destination/Recipient contract address
+    uint16 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
+    uint256 gasLimit; // gas limit of the GMP call
+    uint256 salt; // Message salt, useful for sending two messages with same content
+    bytes data; // message data with no specified format
 }
 
 /**
@@ -99,11 +106,12 @@ struct Signature {
  * OBS: the order of the attributes matters! ethereum storage is 256bit aligned, try to keep
  * the shard info below 256 bit, so it can be stored in one single storage slot.
  * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
- **/
+ *
+ */
 struct KeyInfo {
-    uint216 _gap;  // gap, so we can use later for store more information about a shard
-    uint8 status;  // status, 0 = unregisted, 1 = active, 3 = revoked
-    uint32 nonce;  // shard nonce
+    uint216 _gap; // gap, so we can use later for store more information about a shard
+    uint8 status; // status, 0 = unregisted, 1 = active, 3 = revoked
+    uint32 nonce; // shard nonce
 }
 
 /**
@@ -111,225 +119,141 @@ struct KeyInfo {
  * OBS: the order of the attributes matters! ethereum storage is 256bit aligned, try to keep
  * the attributes 256 bit aligned, ex: nonce, block and status can be read in one storage access.
  * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
- **/
+ *
+ */
 struct GmpInfo {
-    uint184 _gap;       // gap to keep status and blocknumber 256bit aligned
-    uint8 status;       // message status: NOT_FOUND | PENDING | SUCCESS | REVERT
+    uint184 _gap; // gap to keep status and blocknumber 256bit aligned
+    uint8 status; // message status: NOT_FOUND | PENDING | SUCCESS | REVERT
     uint64 blockNumber; // block in which the message was processed
-    bytes32 result;     // the result of the GMP message
+    bytes32 result; // the result of the GMP message
 }
 
 contract SigUtils {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
-    uint256 internal immutable INITIAL_CHAIN_ID;
-    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
+    uint16 internal immutable NETWORK_ID;
+    address internal immutable GATEWAY_ADDRESS;
+    bytes32 internal immutable DOMAIN_SEPARATOR;
 
-    constructor() {
-        INITIAL_CHAIN_ID = block.chainid;
-        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
-    }
-
-    // Reference: https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol
-    function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
-        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : computeDomainSeparator();
+    constructor(uint16 networkId, address gateway) {
+        NETWORK_ID = networkId;
+        GATEWAY_ADDRESS = gateway;
+        DOMAIN_SEPARATOR = computeDomainSeparator();
     }
 
     // Computes the EIP-712 domain separador
     function computeDomainSeparator() internal view virtual returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                    keccak256("Analog Gateway Contract"),
-                    keccak256("0.1.0"),
-                    block.chainid,
-                    address(this)
-                )
-            );
+        return keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("Analog Gateway Contract"),
+                keccak256("0.1.0"),
+                uint256(NETWORK_ID),
+                GATEWAY_ADDRESS
+            )
+        );
     }
 
     // computes the hash of an array of tss keys
-    function _getTssKeyHash(TssKey memory tssKey)
-        private
-        pure
-        returns (bytes32)
-    {
-        return
-            keccak256(
-                abi.encode(
-                    keccak256("TssKey(uint8 yParity,uint256 xCoord)"),
-                    tssKey.yParity,
-                    tssKey.xCoord
-                )
-            );
+    function _getTssKeyHash(TssKey memory tssKey) private pure returns (bytes32) {
+        return keccak256(abi.encode(keccak256("TssKey(uint8 yParity,uint256 xCoord)"), tssKey.yParity, tssKey.xCoord));
     }
 
     // computes the hash of an array of tss keys
-    function _getTssKeyArrayHash(TssKey[] memory tssKeys)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _getTssKeyArrayHash(TssKey[] memory tssKeys) private pure returns (bytes32) {
         bytes memory keysHashed = new bytes(tssKeys.length * 32);
         uint256 ptr;
         assembly {
             ptr := keysHashed
         }
-        for (uint256 i=0; i<tssKeys.length; i++) {
+        for (uint256 i = 0; i < tssKeys.length; i++) {
             bytes32 hash = _getTssKeyHash(tssKeys[i]);
             assembly {
                 ptr := add(ptr, 32)
                 mstore(ptr, hash)
             }
         }
-        
+
         return keccak256(keysHashed);
     }
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function _getUpdateKeysHash(UpdateKeysMessage memory message)
-        private
-        pure
-        returns (bytes32)
-    {
-        return
-            keccak256(
-                abi.encode(
-                    keccak256("UpdateKeysMessage(TssKey[] revoke,TssKey[] register)TssKey(uint8 yParity,uint256 xCoord)"),
-                    _getTssKeyArrayHash(message.revoke),
-                    _getTssKeyArrayHash(message.register)
-                )
-            );
-    }
-
-    function getUpdateKeysTypedHash(UpdateKeysMessage memory message)
-        internal
-        view
-        returns (bytes32)
-    {
+    function _getUpdateKeysHash(UpdateKeysMessage memory message) private pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                _getUpdateKeysHash(message)
+            abi.encode(
+                keccak256("UpdateKeysMessage(TssKey[] revoke,TssKey[] register)TssKey(uint8 yParity,uint256 xCoord)"),
+                _getTssKeyArrayHash(message.revoke),
+                _getTssKeyArrayHash(message.register)
             )
         );
+    }
+
+    function getUpdateKeysTypedHash(UpdateKeysMessage memory message) internal view returns (bytes memory) {
+        return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getUpdateKeysHash(message));
     }
 
     // computes the hash of an array of tss keys
-    function _getGmpHash(GmpMessage memory gmp)
-        private
-        pure
-        returns (bytes32)
-    {
-        return
-            keccak256(
-                abi.encode(
-                    keccak256(
-                        "GmpMessage(bytes32 source,uint128 srcNetwork,address dest,uint128 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
-                    ),
-                    gmp.source,
-                    gmp.srcNetwork,
-                    gmp.dest,
-                    gmp.destNetwork,
-                    gmp.gasLimit,
-                    gmp.salt,
-                    keccak256(gmp.data)
-                )
-            );
-    }
-
-    // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function getGmpTypedHash(GmpMessage memory message)
-        internal
-        view
-        returns (bytes32)
-    {
+    function _getGmpHash(GmpMessage memory gmp) private pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                _getGmpHash(message)
+            abi.encode(
+                keccak256(
+                    "GmpMessage(bytes32 source,uint16 srcNetwork,address dest,uint16 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
+                ),
+                gmp.source,
+                gmp.srcNetwork,
+                gmp.dest,
+                gmp.destNetwork,
+                gmp.gasLimit,
+                gmp.salt,
+                keccak256(gmp.data)
             )
         );
     }
 
-    // secp256k1 group order
-    uint256 constant public Q = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
-
-    /**
-     * @param message The EIP-712 hash of the message
-     * @param parity The public key y-coord parity (27 or 28)
-     * @param px Public key x-coord
-     * @param e Schnorr signature challenge
-     * @param s Schnorr signature
-     * @return true if the signature is valid, false if invalid
-     */
-    function _verifyTssSignature(
-        bytes32 message,
-        uint8 parity,
-        uint256 px,
-        uint256 e,
-        uint256 s
-    ) internal pure returns (bool) {
-        // ecrecover = (m, v, r, s);
-        uint256 sp = Q - mulmod(s, px, Q);
-        uint256 ep = Q - mulmod(e, px, Q);
-
-        if (sp == 0) {
-            return false;
-        }
-        // the ecrecover precompile implementation checks that the `r` and `s`
-        // inputs are non-zero (in this case, `px` and `ep`), thus we don't need to
-        // check if they're zero.
-        address R = ecrecover(bytes32(sp), parity, bytes32(px), bytes32(ep));
-        if (R == address(0)) {
-            return false;
-        }
-        return bytes32(e) == keccak256(
-            abi.encodePacked(R, parity, px, message)
-        );
+    // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
+    function getGmpTypedHash(GmpMessage memory message) public view returns (bytes memory) {
+        return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getGmpHash(message));
     }
 }
 
 contract Gateway is IGateway, SigUtils {
-    uint8 internal constant GMP_STATUS_NOT_FOUND  = 0;   // GMP message not processed
-    uint8 internal constant GMP_STATUS_SUCCESS    = 1;   // GMP message executed successfully
-    uint8 internal constant GMP_STATUS_REVERTED   = 2;   // GMP message executed, but reverted
-    uint8 internal constant GMP_STATUS_PENDING    = 128; // GMP message is pending (used in case of reetrancy)
+    uint8 internal constant GMP_STATUS_NOT_FOUND = 0; // GMP message not processed
+    uint8 internal constant GMP_STATUS_SUCCESS = 1; // GMP message executed successfully
+    uint8 internal constant GMP_STATUS_REVERTED = 2; // GMP message executed, but reverted
+    uint8 internal constant GMP_STATUS_PENDING = 128; // GMP message is pending (used in case of reetrancy)
 
-    uint8 internal constant SHARD_ACTIVE   = (1 << 0);  // Shard active bitflag
-    uint8 internal constant SHARD_Y_PARITY = (1 << 1);  // Pubkey y parity bitflag
+    uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
+    uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    // Owner of this contract, who can execute sudo operations
-    address _owner;
+    uint256 internal constant EXECUTE_GAS_DIFF = 10606; // Measured gas cost difference for `execute`
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
-    mapping (bytes32 => KeyInfo) _shards;
+    mapping(bytes32 => KeyInfo) _shards;
 
     // GMP message status
-    mapping (bytes32 => GmpInfo) _messages;
+    mapping(bytes32 => GmpInfo) _messages;
 
-    constructor(uint256[2][] memory initialKeys) payable {
-        TssKey[] memory keys;
-        assembly {
-            // Transmute uint256[2][] to TssKey[], once they have the same layout in memory
-            keys := initialKeys
-        }
+    // Source address => Source network => Deposit Amount
+    mapping(bytes32 => mapping(uint16 => uint256)) _deposits;
+
+    Schnorr _verifier;
+
+    constructor(uint16 _networkId, TssKey[] memory keys) payable SigUtils(_networkId, address(this)) {
         _registerKeys(keys);
 
         // emit event
         TssKey[] memory revoked = new TssKey[](0);
         emit KeySetChanged(bytes32(0), revoked, keys);
+
+        _verifier = new Schnorr();
     }
 
     function gmpInfo(bytes32 id) external view returns (GmpInfo memory) {
-      return _messages[id];
+        return _messages[id];
     }
 
     function keyInfo(bytes32 id) external view returns (KeyInfo memory) {
-      return _shards[id];
+        return _shards[id];
     }
 
     // Check if shard exists, verify TSS signature and increment shard nonce
@@ -352,13 +276,7 @@ contract Gateway is IGateway, SigUtils {
 
         // Verify Signature
         require(
-            _verifyTssSignature(
-                message,
-                yParity,
-                signature.xCoord,
-                signature.e,
-                signature.s
-            ),
+            _verifier.verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s),
             "invalid tss signature"
         );
     }
@@ -374,7 +292,7 @@ contract Gateway is IGateway, SigUtils {
         // We don't perform any arithmetic operation, except iterate a loop
         unchecked {
             // Register or activate tss key (revoked keys keep the previous nonce)
-            for (uint256 i=0; i < keys.length; i++) {
+            for (uint256 i = 0; i < keys.length; i++) {
                 // Validate y-parity bit
                 TssKey memory newKey = keys[i];
 
@@ -398,7 +316,10 @@ contract Gateway is IGateway, SigUtils {
                 } else {
                     // If the shard exists, the provided y-parity must match the original one
                     uint8 actualYParity = (status & SHARD_Y_PARITY) > 0 ? 1 : 0;
-                    require(actualYParity == yParity, "the provided y-parity doesn't match the existing y-parity, cannot register shard");
+                    require(
+                        actualYParity == yParity,
+                        "the provided y-parity doesn't match the existing y-parity, cannot register shard"
+                    );
                 }
 
                 // store the y-parity in the `KeyInfo`
@@ -423,7 +344,7 @@ contract Gateway is IGateway, SigUtils {
         // We don't perform any arithmetic operation, except iterate a loop
         unchecked {
             // Revoke tss keys
-            for (uint256 i=0; i < keys.length; i++) {
+            for (uint256 i = 0; i < keys.length; i++) {
                 TssKey memory revokedKey = keys[i];
 
                 // Read shard from storage
@@ -461,34 +382,18 @@ contract Gateway is IGateway, SigUtils {
 
     // Register/Revoke TSS keys using shard TSS signature
     function updateKeys(Signature memory signature, UpdateKeysMessage memory message) public {
-        bytes32 messageHash = getUpdateKeysTypedHash(message);
+        bytes memory payload = getUpdateKeysTypedHash(message);
+        bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
 
         // Register shards pubkeys
         _updateKeys(messageHash, message.revoke, message.register);
     }
 
-    // Register/Revoke TSS keys using shard TSS signature
-    function updateKeys(uint256[4] memory sig, uint256[2][] memory revoke, uint256[2][] memory register) external {
-        Signature memory signature;
-        assembly {
-            // Transmute uint256[4] to Signature, once they have the same layout in memory
-            signature := sig
-        }
-
-        TssKey[] memory keysToRevoke;
-        TssKey[] memory newKeys;
-        assembly {
-            // Transmute uint256[2][] to TssKey, once they have the same layout in memory
-            keysToRevoke := revoke
-            newKeys := register
-        }
-
-        UpdateKeysMessage memory payload = UpdateKeysMessage({
-            revoke: keysToRevoke,
-            register: newKeys
-        });
-        updateKeys(signature, payload);
+    // Deposit balance to refund callers of execute
+    function deposit(bytes32 source, uint16 network) public payable {
+        uint256 depositBefore = _deposits[source][network];
+        _deposits[source][network] = depositBefore + msg.value;
     }
 
     // Execute GMP message
@@ -502,34 +407,31 @@ contract Gateway is IGateway, SigUtils {
         gmp.blockNumber = uint64(block.number);
 
         // The encoded onGmpReceived call
-        uint256 gasLimit = message.gasLimit;
-        address dest = message.dest;
         bytes memory data = abi.encodeWithSelector(
-            IGmpReceiver.onGmpReceived.selector,
-            payloadHash,
-            message.srcNetwork,
-            message.source,
-            message.data
+            IGmpReceiver.onGmpReceived.selector, payloadHash, message.srcNetwork, message.source, message.data
         );
 
         // Execute GMP call
         bytes32[1] memory output;
         bool success;
+        uint256 gasLimit = message.gasLimit;
+        address dest = message.dest;
         assembly {
             // Using low-level assembly because the GMP is considered executed
             // regardless if the call reverts or not.
             let ptr := add(data, 32)
             let size := mload(data)
             // returns 1 if the call succeed, and 0 if it reverted
-            success := call(
-                gasLimit, // call gas limit (defined in the GMP message)
-                dest,     // dest address
-                0,        // value in wei to transfer (always zero for GMP)
-                ptr,      // input memory pointer
-                size,     // input size
-                output,   // output memory pointer
-                32        // output size (fixed 32 bytes)
-            )
+            success :=
+                call(
+                    gasLimit, // call gas limit (defined in the GMP message)
+                    dest, // dest address
+                    0, // value in wei to transfer (always zero for GMP)
+                    ptr, // input memory pointer
+                    size, // input size
+                    output, // output memory pointer
+                    32 // output size (fixed 32 bytes)
+                )
         }
 
         // Get Result
@@ -555,40 +457,17 @@ contract Gateway is IGateway, SigUtils {
         Signature memory signature, // coordinate x, nonce, e, s
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
-        bytes32 messageHash = getGmpTypedHash(message);
+        uint256 gasBefore = gasleft();
+        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
+        require(
+            _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
+        );
+        bytes memory payload = getGmpTypedHash(message);
+        bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
-    }
-
-    // Raw Execute GMP message using shard TSS signature
-    function execute(
-        uint256[3] memory sig,
-        bytes32 source,      // 'source' from GmpPayload within GmpMessage
-        uint128 srcNetwork,  // 'srcNetwork' from GmpPayload within GmpMessage
-        address dest,        // 'dest' from GmpPayload within GmpMessage
-        uint128 destNetwork, // 'destNetwork' from GmpPayload within GmpMessage
-        uint256 gasLimit,    // 'gasLimit' from GmpPayload within GmpMessage
-        uint256 salt,        // 'salt' from GmpPayload within GmpMessage
-        bytes memory data    // 'data' from GmpPayload within GmpMessage
-    ) external returns (uint8 status, bytes32 result) {
-        Signature memory signature;
-        assembly {
-            // Transmute uint256[4] to Signature, once they have the same layout in memory
-            signature := sig
-        }
-
-        // Recreate the GmpPayload struct from the provided arguments
-        GmpMessage memory message = GmpMessage({
-            source: source,
-            srcNetwork: srcNetwork,
-            dest: dest,
-            destNetwork: destNetwork,
-            gasLimit: gasLimit,
-            salt: salt,
-            data: data
-        });
-
-        // Execute GMP message
-        (status, result) = execute(signature, message);
+        uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;
+        _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
+        payable(tx.origin).transfer(refund);
     }
 }

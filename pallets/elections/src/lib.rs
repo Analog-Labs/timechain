@@ -123,6 +123,10 @@ pub mod pallet {
 			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
 			Self::try_elect_shard(network);
 		}
+
+		fn default_shard_size() -> u16 {
+			ShardSize::<T>::get()
+		}
 	}
 
 	impl<T: Config> Pallet<T> {

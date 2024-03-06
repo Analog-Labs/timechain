@@ -1,4 +1,5 @@
 use crate::{self as task_schedule};
+use frame_support::traits::OnInitialize;
 use frame_support::PalletId;
 use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
@@ -44,6 +45,9 @@ pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
 	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
+	fn default_shard_size() -> u16 {
+		3
+	}
 }
 
 // Configure a mock runtime to test the pallet.
@@ -102,7 +106,7 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
 	// reward declines by 5% every 10 blocks
-	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 10, percent: Percent::from_percent(5) };
+	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 2, percent: Percent::from_percent(50) };
 }
 
 impl pallet_shards::Config for Test {
@@ -117,12 +121,14 @@ impl pallet_shards::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type Elections = MockElections;
 	type Shards = Shards;
 	type Members = MockMembers;
 	type BaseReadReward = ConstU128<2>;
 	type BaseWriteReward = ConstU128<3>;
 	type BaseSendMessageReward = ConstU128<4>;
 	type RewardDeclineRate = RewardDeclineRate;
+	type SignPhaseTimeout = ConstU64<10>;
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;
 	type PalletId = PalletIdentifier;
@@ -195,7 +201,17 @@ impl MockTssSigner {
 		self.signing_key.public().to_bytes().unwrap()
 	}
 
-	pub fn sign(&self, data: [u8; 32]) -> schnorr_evm::Signature {
-		self.signing_key.sign_prehashed(data)
+	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
+		self.signing_key.sign(data)
+	}
+}
+
+/// To from `now` to block `n`.
+pub fn roll_to(n: u64) {
+	let now = System::block_number();
+	for i in now + 1..=n {
+		System::set_block_number(i);
+		Shards::on_initialize(i);
+		Tasks::on_initialize(i);
 	}
 }

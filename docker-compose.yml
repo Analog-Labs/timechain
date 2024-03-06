@@ -26,6 +26,12 @@ services:
     - '--dev'
     - '--ipcdisable'
     - '--dev.period=2'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
     - '--ws'
     - '--ws.addr=0.0.0.0'
     - '--ws.port=8545'
@@ -70,6 +76,7 @@ services:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=3'
+    # - '--network-port=6881'
     - '--target-url=ws://ethereum:8545'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
@@ -88,6 +95,8 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
+    # ports:
+    # - 6881:6881/udp
 
   chronicle-astar1:
     image: 'analoglabs/chronicle'
@@ -120,8 +129,7 @@ services:
     - '/var/run/docker.sock:/var/run/docker.sock'
     - './config/wallets/keyfile:/etc/keyfile:ro'
     - './config/wallets/alice:/etc/alice:ro'
-    - './contracts/test_contract.sol:/etc/test_contract.sol:ro'
-    - './contracts/gateway.sol:/etc/gateway.sol:ro'
+    - './out:/etc/contracts:ro'
 
   chronicle-humanode1:
     image: 'analoglabs/chronicle'

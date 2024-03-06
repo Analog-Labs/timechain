@@ -10,9 +10,6 @@ pub mod spawner;
 pub trait TaskSpawner: Clone + Send + Sync + 'static {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 
-	fn chain_id(&self) -> u64;
-
-	#[allow(clippy::too_many_arguments)]
 	fn execute_read(
 		&self,
 		target_block: u64,

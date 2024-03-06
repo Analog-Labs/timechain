@@ -61,6 +61,10 @@ impl Payload {
 	pub fn bytes(&self, task_id: TaskId) -> Vec<u8> {
 		(task_id, self).encode()
 	}
+
+	pub fn get_input_length(&self) -> u64 {
+		self.encoded_size() as _
+	}
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

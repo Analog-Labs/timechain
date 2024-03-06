@@ -112,6 +112,7 @@ impl Tester {
 		source: [u8; 20],
 		amount: u128,
 	) -> Result<()> {
+		println!("depositing funds on destination chain");
 		let mut src = [0; 32];
 		src[..20].copy_from_slice(&source[..]);
 		let payload = IGateway::depositCall {
@@ -156,6 +157,7 @@ impl Tester {
 	}
 
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
+		println!("creating task");
 		let params = TaskDescriptorParams {
 			network: self.network_id,
 			function,

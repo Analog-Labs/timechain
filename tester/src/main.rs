@@ -356,7 +356,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let gmp_contract = tester.setup_gmp().await?;
 
 	let (contract, _) = tester.deploy(contract, &[]).await?;
-	let gas_limit = 100_000_000;
+	let gas_limit = 100_000;
 	tester
 		.deposit_funds(gmp_contract, tester.network_id(), contract, gas_limit * 10_000)
 		.await?;

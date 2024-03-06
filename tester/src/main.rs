@@ -174,12 +174,7 @@ async fn latency_cycle(
 			let gateway = tester.setup_gmp().await?;
 			let (contract_address, _) = tester.deploy(contract, &[]).await?;
 			tester
-				.deposit_funds(
-					gateway,
-					tester.network_id(),
-					contract_address.clone(),
-					gas_limit * 10_000,
-				)
+				.deposit_funds(gateway, tester.network_id(), contract_address, gas_limit * 10_000)
 				.await?;
 			contract_address
 		},
@@ -192,13 +187,8 @@ async fn latency_cycle(
 
 	let mut registerations = vec![];
 	for _ in 0..total_tasks {
-		let send_msg = tester.send_message(
-			tester.network_id(),
-			contract.clone(),
-			contract.clone(),
-			"vote_yes()",
-			gas_limit,
-		);
+		let send_msg =
+			tester.send_message(tester.network_id(), contract, contract, "vote_yes()", gas_limit);
 		registerations.push(send_msg);
 	}
 

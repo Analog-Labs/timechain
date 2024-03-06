@@ -1,3 +1,4 @@
+use alloy_primitives::address;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use std::collections::HashMap;
@@ -180,9 +181,7 @@ async fn latency_cycle(
 		},
 		// you need to deposit gateway with below address otherwise it might give error:
 		// deposit below max refund
-		Environment::Staging => {
-			tester::parse_eth_address("0xb77791b3e38158475216dd4c0e2143b858188ba6")
-		},
+		Environment::Staging => address!("b77791b3e38158475216dd4c0e2143b858188ba6").into(),
 	};
 
 	let mut registerations = vec![];

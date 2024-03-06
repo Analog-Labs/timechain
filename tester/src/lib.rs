@@ -78,7 +78,7 @@ impl Tester {
 		println!("Deploying contract from {:?}", self.wallet.account().address);
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor);
-		let tx_hash = self.wallet.eth_deploy_contract(contract).await?;
+		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
 		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
 		let contract_address = format!("{:?}", tx_receipt.contract_address.unwrap());
 		let block_number = tx_receipt.block_number.unwrap();
@@ -111,7 +111,7 @@ impl Tester {
 		source_network: NetworkId,
 		source: String,
 		amount: u128,
-	) -> Result<[u8; 32]> {
+	) -> Result<()> {
 		let src = get_eth_address_to_bytes(&source);
 		let mut source = [0; 32];
 		source[..20].copy_from_slice(&src[..]);
@@ -122,7 +122,8 @@ impl Tester {
 		.abi_encode();
 		self.wallet
 			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount, None, None)
-			.await
+			.await?;
+		Ok(())
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {

@@ -284,13 +284,6 @@ pub fn restart_node(node_name: String) {
 	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
-pub fn parse_eth_address(address: &str) -> [u8; 20] {
-	let mut eth_bytes = [0u8; 20];
-	let trimmed_address = address.trim_start_matches("0x");
-	hex::decode_to_slice(trimmed_address, &mut eth_bytes).unwrap();
-	eth_bytes
-}
-
 pub fn create_evm_call(address: [u8; 20]) -> Function {
 	Function::EvmCall {
 		address,

@@ -48,7 +48,7 @@ pub mod pallet {
 		fn submit_result(_: u64) -> Weight {
 			Weight::default()
 		}
-		
+
 		fn submit_hash() -> Weight {
 			Weight::default()
 		}

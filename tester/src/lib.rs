@@ -74,20 +74,20 @@ impl Tester {
 		}
 	}
 
-	pub async fn deploy(&self, path: &Path, constructor: &[u8]) -> Result<(String, u64)> {
+	pub async fn deploy(&self, path: &Path, constructor: &[u8]) -> Result<([u8; 20], u64)> {
 		println!("Deploying contract from {:?}", self.wallet.account().address);
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor);
-		let tx_hash = self.wallet.eth_deploy_contract(contract).await?;
+		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
 		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-		let contract_address = format!("{:?}", tx_receipt.contract_address.unwrap());
+		let contract_address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
 
 		println!("Deploy contract address {:?} on {:?}", contract_address, block_number);
-		Ok((contract_address.to_string(), block_number))
+		Ok((contract_address.0, block_number))
 	}
 
-	pub async fn deploy_gateway(&self, tss_public_key: TssPublicKey) -> Result<(String, u64)> {
+	pub async fn deploy_gateway(&self, tss_public_key: TssPublicKey) -> Result<([u8; 20], u64)> {
 		let parity_bit = if tss_public_key[0] % 2 == 0 { 0 } else { 1 };
 		let x_coords = hex::encode(&tss_public_key[1..]);
 		sol! {
@@ -107,22 +107,21 @@ impl Tester {
 
 	pub async fn deposit_funds(
 		&self,
-		gmp_address: String,
+		gmp_address: [u8; 20],
 		source_network: NetworkId,
-		source: String,
+		source: [u8; 20],
 		amount: u128,
-	) -> Result<[u8; 32]> {
-		let src = get_eth_address_to_bytes(&source);
-		let mut source = [0; 32];
-		source[..20].copy_from_slice(&src[..]);
+	) -> Result<()> {
+		println!("depositing funds on destination chain");
+		let mut src = [0; 32];
+		src[..20].copy_from_slice(&source[..]);
 		let payload = IGateway::depositCall {
 			network: source_network,
-			source: source.into(),
+			source: src.into(),
 		}
 		.abi_encode();
-		self.wallet
-			.eth_send_call(get_eth_address_to_bytes(&gmp_address), payload, amount, None, None)
-			.await
+		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
+		Ok(())
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
@@ -158,6 +157,7 @@ impl Tester {
 	}
 
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
+		println!("creating task");
 		let params = TaskDescriptorParams {
 			network: self.network_id,
 			function,
@@ -176,13 +176,12 @@ impl Tester {
 	pub async fn register_gateway_address(
 		&self,
 		shard_id: u64,
-		address: &str,
+		address: [u8; 20],
 		block_height: u64,
 	) -> Result<()> {
-		let address_bytes = get_eth_address_to_bytes(address);
 		let events = self
 			.runtime
-			.insert_gateway(shard_id, address_bytes, block_height)
+			.insert_gateway(shard_id, address, block_height)
 			.await?
 			.wait_for_finalized_success()
 			.await?;
@@ -213,11 +212,14 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self) -> Result<String> {
+	pub async fn setup_gmp(&self) -> Result<[u8; 20]> {
+		if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
+			return Ok(gateway);
+		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, block_height) = self.deploy_gateway(shard_public_key).await?;
-		self.register_gateway_address(shard_id, &address, block_height).await?;
+		self.register_gateway_address(shard_id, address, block_height).await?;
 		Ok(address)
 	}
 
@@ -228,22 +230,21 @@ impl Tester {
 	pub async fn send_message(
 		&self,
 		source_network: NetworkId,
-		source: String,
-		dest: String,
+		source: [u8; 20],
+		dest: [u8; 20],
 		function: &str,
 		gas_limit: u128,
 	) -> Result<TaskId> {
-		let src = get_eth_address_to_bytes(&source);
-		let mut source = [0; 32];
-		source[..20].copy_from_slice(&src[..]);
+		let mut src = [0; 32];
+		src[..20].copy_from_slice(&source[..]);
 		let mut salt = [0; 32];
 		getrandom::getrandom(&mut salt).unwrap();
 		let f = Function::SendMessage {
 			msg: Msg {
 				source_network,
-				source,
+				source: src,
 				dest_network: self.network_id(),
-				dest: get_eth_address_to_bytes(&dest),
+				dest,
 				data: get_evm_function_hash(function),
 				salt,
 				gas_limit,
@@ -283,18 +284,18 @@ pub fn restart_node(node_name: String) {
 	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
-pub fn create_evm_call(address: String) -> Function {
+pub fn create_evm_call(address: [u8; 20]) -> Function {
 	Function::EvmCall {
-		address: get_eth_address_to_bytes(&address),
+		address,
 		input: get_evm_function_hash("vote_yes()"),
 		amount: 0,
 		gas_limit: None,
 	}
 }
 
-pub fn create_evm_view_call(address: String) -> Function {
+pub fn create_evm_view_call(address: [u8; 20]) -> Function {
 	Function::EvmViewCall {
-		address: get_eth_address_to_bytes(&address),
+		address,
 		input: get_evm_function_hash("get_votes_stats()"),
 	}
 }
@@ -304,13 +305,6 @@ fn get_evm_function_hash(arg: &str) -> Vec<u8> {
 	hasher.update(arg);
 	let hash = hasher.finalize();
 	hash[..4].into()
-}
-
-fn get_eth_address_to_bytes(address: &str) -> [u8; 20] {
-	let mut eth_bytes = [0u8; 20];
-	let trimmed_address = address.trim_start_matches("0x");
-	hex::decode_to_slice(trimmed_address, &mut eth_bytes).unwrap();
-	eth_bytes
 }
 
 pub struct TaskPhaseInfo {

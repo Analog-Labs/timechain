@@ -31,8 +31,7 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn create_task(input_length: u64) -> Weight;
-		fn submit_result() -> Weight;
-		fn submit_error() -> Weight;
+		fn submit_result(input_length: u64) -> Weight;
 		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
@@ -46,11 +45,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn submit_result() -> Weight {
-			Weight::default()
-		}
-
-		fn submit_error() -> Weight {
+		fn submit_result(_: u64) -> Weight {
 			Weight::default()
 		}
 
@@ -307,7 +302,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_result())]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_result(result.payload.get_input_length()))]
 		pub fn submit_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -535,8 +530,8 @@ pub mod pallet {
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			Self::start_task(task, TaskFunder::Account(RecvTaskFunder::<T>::get().unwrap()))
-				.unwrap();
+			//Self::start_task(task, TaskFunder::Account(RecvTaskFunder::<T>::get().unwrap()))
+			//	.unwrap();
 		}
 
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {

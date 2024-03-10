@@ -1,3 +1,4 @@
+use alloy_primitives::address;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use std::collections::HashMap;
@@ -174,29 +175,19 @@ async fn latency_cycle(
 			let gateway = tester.setup_gmp().await?;
 			let (contract_address, _) = tester.deploy(contract, &[]).await?;
 			tester
-				.deposit_funds(
-					gateway,
-					tester.network_id(),
-					contract_address.clone(),
-					gas_limit * 10_000,
-				)
+				.deposit_funds(gateway, tester.network_id(), contract_address, gas_limit * 10_000)
 				.await?;
 			contract_address
 		},
 		// you need to deposit gateway with below address otherwise it might give error:
 		// deposit below max refund
-		Environment::Staging => "0xb77791b3e38158475216dd4c0e2143b858188ba6".to_string(),
+		Environment::Staging => address!("b77791b3e38158475216dd4c0e2143b858188ba6").into(),
 	};
 
 	let mut registerations = vec![];
 	for _ in 0..total_tasks {
-		let send_msg = tester.send_message(
-			tester.network_id(),
-			contract.clone(),
-			contract.clone(),
-			"vote_yes()",
-			gas_limit,
-		);
+		let send_msg =
+			tester.send_message(tester.network_id(), contract, contract, "vote_yes()", gas_limit);
 		registerations.push(send_msg);
 	}
 
@@ -333,7 +324,7 @@ async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
 	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
 
-	let call = tester::create_evm_view_call(contract_address.clone());
+	let call = tester::create_evm_view_call(contract_address);
 	tester.create_task_and_wait(call, start_block).await;
 
 	let paid_call = tester::create_evm_call(contract_address);
@@ -366,17 +357,11 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let (contract, _) = tester.deploy(contract, &[]).await?;
 	let gas_limit = 100_000;
 	tester
-		.deposit_funds(gmp_contract, tester.network_id(), contract.clone(), gas_limit * 10_000)
+		.deposit_funds(gmp_contract, tester.network_id(), contract, gas_limit * 10_000)
 		.await?;
 
 	let task_id = tester
-		.send_message(
-			tester.network_id(),
-			contract.clone(),
-			contract.clone(),
-			"vote_yes()",
-			gas_limit,
-		)
+		.send_message(tester.network_id(), contract, contract, "vote_yes()", gas_limit)
 		.await?;
 	tester.wait_for_task(task_id).await;
 	Ok(())

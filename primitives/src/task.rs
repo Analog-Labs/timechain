@@ -168,4 +168,5 @@ pub struct RewardConfig<Balance, BlockNumber> {
 pub enum TaskFunder {
 	Account(AccountId),
 	Shard(ShardId),
+	Inflation,
 }

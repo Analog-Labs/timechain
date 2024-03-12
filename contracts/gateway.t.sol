@@ -142,11 +142,6 @@ contract GatewayTest is Test {
         out = result;
         execution = executionCost;
         baseCost = inputCost + 21_000;
-
-        // Revert on failure
-        if (!success) {
-            assembly ("memory-safe") {}
-        }
     }
 
     // Allows you to define the gas limit for the GMP call, also retrieve a more accurate gas usage

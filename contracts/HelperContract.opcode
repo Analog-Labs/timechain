@@ -8,8 +8,12 @@
 // Minimal GAS: 71
 // Deploy bytecode: 6031600d60003960316000f3fe60a4355a0360080180603b015b805a11600c57505a03604103565b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b00
 //
+
+// Read GMP.data field
 PUSH1 164
 CALLDATALOAD
+
+// Setup auxiliar variables
 GAS
 SUB
 PUSH1 8
@@ -18,7 +22,7 @@ DUP1
 PUSH1 59
 ADD
 
-// Waste gas
+// Loop that consumes 22 gas on each iteration
 JUMPDEST
 DUP1
 GAS
@@ -26,11 +30,11 @@ GT
 PUSH1 12
 JUMPI
 
-// From here the remaning gas is between 18~39
+// From here the remaining gas is between 18~39
 POP
 GAS
 SUB
-PUSH1 65 // 39 + 26
+PUSH1 65
 SUB
 JUMP
 JUMPDEST

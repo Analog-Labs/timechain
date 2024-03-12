@@ -319,18 +319,20 @@ contract GatewayTest is Test {
     }
 
     function testExecuteRevertsWithoutDeposit() public {
+        vm.txGasPrice(1);
         GmpMessage memory gmp = GmpMessage({
-            source: 0x0,
+            source: bytes32(0),
             srcNetwork: 0,
-            dest: address(0x0),
+            dest: address(receiver),
             destNetwork: 0x0,
-            gasLimit: 1000,
+            gasLimit: 1_000_000,
             salt: 1,
-            data: ""
+            data: abi.encode(uint256(1_000_000))
         });
         Signature memory sig = sign(gmp);
-        vm.expectRevert(bytes("deposit below max refund"));
-        executeGmp(sig, gmp, 100_000, address(0));
+        assertEq(gateway.depositOf(bytes32(0), 0), 0);
+        vm.expectRevert("deposit below max refund");
+        executeGmp(sig, gmp, 1_500_000, address(0));
     }
 
     function testExecuteRevertsBelowDeposit() public {

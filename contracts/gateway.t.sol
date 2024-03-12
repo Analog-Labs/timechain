@@ -28,14 +28,6 @@ contract SigUtilsTest is Test {
     }
 }
 
-interface Jose {
-    function execute(
-        Signature memory signature, // coordinate x, nonce, e, s
-        GmpMessage memory message,
-        uint256 gasLimit // call gas limit (defined in the GMP message)
-    ) external;
-}
-
 contract GatewayTest is Test {
     Gateway gateway;
     Signer signer;

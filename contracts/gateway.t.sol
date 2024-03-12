@@ -49,7 +49,9 @@ contract GatewayTest is Test {
         assertEq(block.gaslimit, 30_000_000);
         assertTrue(gasleft() >= 10_000_000);
 
-        // Deploy helper contracts
+        // Deploy helper contract
+        // Obs: This is a special contract that wastes an exact amount of gas you send to it, helpful for testing GMP refunds and gas limits.
+        // See the file `HelperContract.opcode` for more details.
         bytes memory bytecode = new bytes(96);
         assembly ("memory-safe") {
             let ptr := add(bytecode, 32)
@@ -93,6 +95,8 @@ contract GatewayTest is Test {
         }
     }
 
+    // Workaround for set the tx.gasLimit, currently is not possible to define the gaslimit in foundry
+    // Reference: https://github.com/foundry-rs/foundry/issues/2224
     function _executeCall(address dest, uint256 gasLimit, bytes memory data)
         private
         returns (uint256 gasUsed, bool success, bytes memory out)
@@ -127,9 +131,10 @@ contract GatewayTest is Test {
         }
     }
 
+    // Execute a contract call and calculate the acurrate execution gas cost
     function executeCall(address sender, address dest, uint256 gasLimit, bytes memory data)
         internal
-        returns (uint256 execution, uint256 base, bytes memory out)
+        returns (uint256 execution, uint256 baseCost, bytes memory out)
     {
         // Execute
         vm.startBroadcast(sender);
@@ -137,13 +142,14 @@ contract GatewayTest is Test {
         vm.stopBroadcast();
         executionCost -= 128;
 
+        // Compute the base tx cost (21k + 4 * zeros + 16 * nonZeros)
         uint256 zeros = countBytes(data, 0);
         uint256 nonZeros = data.length - zeros;
         uint256 inputCost = (nonZeros * 16) + (zeros * 4);
 
         out = result;
         execution = executionCost;
-        base = inputCost + 21_000;
+        baseCost = inputCost + 21_000;
 
         // Revert on failure
         if (!success) {

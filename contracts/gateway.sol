@@ -526,6 +526,8 @@ contract Gateway is IGateway, SigUtils {
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
         uint256 deposited = _deposits[message.source][message.srcNetwork];
+
+        // TODO: we must reimburse the tx base cost and input data cost, which is: 21k + 4 * zeros + 16 * nonZeros
         uint256 refund = ((initialGas - gasleft()) + 9081) * tx.gasprice;
         require(deposited >= refund, "deposit below max refund");
         _deposits[message.source][message.srcNetwork] = deposited - refund;

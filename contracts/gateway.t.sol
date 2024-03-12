@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 import "contracts/gateway.sol";
 import "frost-evm/sol/Signer.sol";
 import "forge-std/Test.sol";
-// import "forge-std/console.sol";
 
 uint256 constant secret = 0x42;
 uint256 constant nonce = 0x69;
@@ -34,7 +33,12 @@ contract GatewayTest is Test {
 
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
     IGmpReceiver receiver;
-    uint256 EXECUTE_CALL_COST;
+
+    uint256 private constant EXECUTE_CALL_COST = 47_307;
+    uint16 private constant SRC_NETWORK_ID = 0;
+    uint16 private constant DEST_NETWORK_ID = 3;
+    uint256 private constant GAS_LIMIT = 100_000_000; // 100_008_677
+    uint8 private constant GMP_STATUS_SUCCESS = 1;
 
     function setUp() public {
         // check block gas limit as gas left
@@ -61,12 +65,10 @@ contract GatewayTest is Test {
         TssKey[] memory keys = new TssKey[](1);
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(69, keys);
-        EXECUTE_CALL_COST = 47_304;
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
         uint256 hash = uint256(keccak256(gateway.getGmpTypedHash(gmp)));
-        // uint256 hash = uint256(bytes32(0xf99063356a8a2dd3bcac17a8fe7ef581ab43865e519f872185ea85216d53404b));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
         return Signature({xCoord: signer.xCoord(), e: e, s: s});
     }
@@ -130,7 +132,7 @@ contract GatewayTest is Test {
     {
         // Execute
         vm.startBroadcast(sender);
-        (uint256 executionCost, bool success, bytes memory result) = _executeCall(dest, gasLimit, data);
+        (uint256 executionCost,, bytes memory result) = _executeCall(dest, gasLimit, data);
         vm.stopBroadcast();
         executionCost -= 128;
 
@@ -195,11 +197,6 @@ contract GatewayTest is Test {
         assertEq(gatewayAddress.balance - gatewayBalanceBefore, amount, "deposit failed to transfer amount to gateway");
     }
 
-    uint16 private constant SRC_NETWORK_ID = 0;
-    uint16 private constant DEST_NETWORK_ID = 3;
-    uint256 private constant GAS_LIMIT = 100_000_000; // 100_008_677
-    uint8 private constant GMP_STATUS_SUCCESS = 1;
-
     function testReceiver() public {
         bytes memory testEncodedCall = abi.encodeCall(
             IGmpReceiver.onGmpReceived,
@@ -224,7 +221,7 @@ contract GatewayTest is Test {
 
         // GMP message gas used
         uint256 gmpGasUsed = 1_000;
-        uint256 expectGasUsed = 47_304 + gmpGasUsed;
+        uint256 expectGasUsed = EXECUTE_CALL_COST + gmpGasUsed;
 
         // Deposit funds
         assertEq(gateway.depositOf(bytes32(bytes20(mockSender)), SRC_NETWORK_ID), 0);

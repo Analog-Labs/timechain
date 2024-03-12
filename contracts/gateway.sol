@@ -280,7 +280,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 10606; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 9081; // Measured gas cost difference for `execute`
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
@@ -527,8 +527,10 @@ contract Gateway is IGateway, SigUtils {
         (status, result) = _execute(messageHash, message);
         uint256 deposited = _deposits[message.source][message.srcNetwork];
 
-        // TODO: we must reimburse the tx base cost and input data cost, which is: 21k + 4 * zeros + 16 * nonZeros
-        uint256 refund = ((initialGas - gasleft()) + 9081) * tx.gasprice;
+        // TODO: we must reimburse the tx base gas cost, we don't have access to it because it
+        // is deducted before the contract is executed, currently it is calculated as:
+        // base_gas = 21_000 + 4 * zeros + 16 * nonZeros
+        uint256 refund = ((initialGas - gasleft()) + EXECUTE_GAS_DIFF) * tx.gasprice;
         require(deposited >= refund, "deposit below max refund");
         _deposits[message.source][message.srcNetwork] = deposited - refund;
         payable(tx.origin).transfer(refund);

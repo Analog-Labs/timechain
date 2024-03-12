@@ -310,7 +310,10 @@ contract Gateway is IGateway, SigUtils {
         }
 
         // Verify Signature
-        require(Schnorr.verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s), "invalid tss signature");
+        require(
+            Schnorr.verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s),
+            "invalid tss signature"
+        );
     }
 
     // Converts a `TssKey` into an `KeyInfo` unique identifier

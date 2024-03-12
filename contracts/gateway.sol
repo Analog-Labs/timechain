@@ -2,8 +2,6 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "frost-evm/sol/Schnorr.sol";
-
 /**
  * @dev Required interface of an GMP compliant contract
  */
@@ -128,6 +126,41 @@ struct GmpInfo {
     bytes32 result; // the result of the GMP message
 }
 
+/**
+ * @dev Utilities for branchless operations, useful for keep a predictable and constant gas cost.
+ */
+library BranchlessOp {
+    /**
+     * @dev Returns the smallest of two numbers.
+     */
+    function min(uint256 x, uint256 y) internal pure returns (uint256 result) {
+        assembly ("memory-safe") {
+            // gas efficient branchless min function:
+            // min(x,y) = y ^ ((x ^ y) & -(x < y))
+            // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
+            result := xor(y, and(xor(x, y), sub(0, lt(x, y))))
+        }
+    }
+
+    function max(uint256 x, uint256 y) internal pure returns (uint256 result) {
+        assembly ("memory-safe") {
+            // gas efficient branchless max function:
+            // max(x,y) = x ^ ((x ^ y) & -(x < y))
+            // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
+            result := xor(x, and(xor(x, y), sub(0, lt(x, y))))
+        }
+    }
+
+    /**
+     * @dev If `cond` is true, use `x`, otherwise use `y`.
+     */
+    function choice(bool cond, uint8 x, uint8 y) internal pure returns (uint8 result) {
+        assembly ("memory-safe") {
+            result := add(and(sub(y, x), sub(0, iszero(cond))), x)
+        }
+    }
+}
+
 contract SigUtils {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
@@ -214,6 +247,28 @@ contract SigUtils {
     function getGmpTypedHash(GmpMessage memory message) public view returns (bytes memory) {
         return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getGmpHash(message));
     }
+
+    // secp256k1 group order
+    uint256 public constant Q = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+
+    // parity := public key y-coord parity (27 or 28)
+    // px := public key x-coord
+    // message := 32-byte message
+    // e := schnorr signature challenge
+    // s := schnorr signature
+    function verify(uint8 parity, uint256 px, uint256 message, uint256 e, uint256 s) public pure returns (bool) {
+        // ecrecover = (m, v, r, s);
+        uint256 sp = Q - mulmod(s, px, Q);
+        uint256 ep = Q - mulmod(e, px, Q);
+
+        require(sp != 0);
+        // the ecrecover precompile implementation checks that the `r` and `s`
+        // inputs are non-zero (in this case, `px` and `ep`), thus we don't need to
+        // check if they're zero.
+        address R = ecrecover(bytes32(sp), parity, bytes32(px), bytes32(ep));
+        require(R != address(0), "ecrecover failed");
+        return bytes32(e) == keccak256(abi.encodePacked(R, parity, px, message));
+    }
 }
 
 contract Gateway is IGateway, SigUtils {
@@ -236,20 +291,20 @@ contract Gateway is IGateway, SigUtils {
     // Source address => Source network => Deposit Amount
     mapping(bytes32 => mapping(uint16 => uint256)) _deposits;
 
-    Schnorr _verifier;
-
     constructor(uint16 _networkId, TssKey[] memory keys) payable SigUtils(_networkId, address(this)) {
         _registerKeys(keys);
 
         // emit event
         TssKey[] memory revoked = new TssKey[](0);
         emit KeySetChanged(bytes32(0), revoked, keys);
-
-        _verifier = new Schnorr();
     }
 
     function gmpInfo(bytes32 id) external view returns (GmpInfo memory) {
         return _messages[id];
+    }
+
+    function depositOf(bytes32 source, uint16 networkId) external view returns (uint256) {
+        return _deposits[source][networkId];
     }
 
     function keyInfo(bytes32 id) external view returns (KeyInfo memory) {
@@ -275,10 +330,7 @@ contract Gateway is IGateway, SigUtils {
         }
 
         // Verify Signature
-        require(
-            _verifier.verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s),
-            "invalid tss signature"
-        );
+        require(verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s), "invalid tss signature");
     }
 
     // Converts a `TssKey` into an `KeyInfo` unique identifier
@@ -407,20 +459,35 @@ contract Gateway is IGateway, SigUtils {
         gmp.blockNumber = uint64(block.number);
 
         // The encoded onGmpReceived call
-        bytes memory data = abi.encodeWithSelector(
-            IGmpReceiver.onGmpReceived.selector, payloadHash, message.srcNetwork, message.source, message.data
-        );
+        bytes memory data =
+            abi.encodeCall(IGmpReceiver.onGmpReceived, (payloadHash, message.srcNetwork, message.source, message.data));
 
         // Execute GMP call
-        bytes32[1] memory output;
+        bytes32[1] memory output = [bytes32(0)];
         bool success;
-        uint256 gasLimit = message.gasLimit;
         address dest = message.dest;
-        assembly {
+
+        // Cap the GMP gas limit to 80% of the block gas limit
+        // OBS: we assume the remaining 20% is enough for the Gateway execution, which is a safe assumption
+        // once most EVM blockchains have gas limits above 10M and don't need more than 60k gas for the Gateway execution.
+        uint256 maxGasLimit = (block.gaslimit / 5) * 4; // 80% of the block gas limit
+        uint256 gasLimit = BranchlessOp.min(message.gasLimit, maxGasLimit);
+
+        unchecked {
+            // Make sure the gas left is enough to execute the GMP message
+            uint256 gasAvailable = BranchlessOp.max(gasleft(), 5000);
+            // 2600 (CALL) + 2400 (other instructions with some margin)
+            gasAvailable -= 5000;
+            // “all but one 64th", reference: https://eips.ethereum.org/EIPS/eip-150
+            gasAvailable -= gasAvailable >> 6;
+            require(gasAvailable >= gasLimit, "gas left below message.gasLimit");
+        }
+        assembly ("memory-safe") {
             // Using low-level assembly because the GMP is considered executed
             // regardless if the call reverts or not.
             let ptr := add(data, 32)
             let size := mload(data)
+
             // returns 1 if the call succeed, and 0 if it reverted
             success :=
                 call(
@@ -438,11 +505,7 @@ contract Gateway is IGateway, SigUtils {
         result = output[0];
 
         // Update GMP status
-        if (success) {
-            status = GMP_STATUS_SUCCESS;
-        } else {
-            status = GMP_STATUS_REVERTED;
-        }
+        status = BranchlessOp.choice(success, GMP_STATUS_SUCCESS, GMP_STATUS_REVERTED);
 
         // Persist result and status on storage
         gmp.result = result;
@@ -457,17 +520,15 @@ contract Gateway is IGateway, SigUtils {
         Signature memory signature, // coordinate x, nonce, e, s
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
-        uint256 gasBefore = gasleft();
-        require(message.gasLimit >= gasBefore, "gas left below message.gasLimit");
-        require(
-            _deposits[message.source][message.srcNetwork] > message.gasLimit * tx.gasprice, "deposit below max refund"
-        );
+        uint256 initialGas = gasleft();
         bytes memory payload = getGmpTypedHash(message);
         bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
-        uint256 refund = (gasBefore - gasleft() + EXECUTE_GAS_DIFF) * tx.gasprice;
-        _deposits[message.source][message.srcNetwork] = _deposits[message.source][message.srcNetwork] - refund;
+        uint256 deposited = _deposits[message.source][message.srcNetwork];
+        uint256 refund = ((initialGas - gasleft()) + 9081) * tx.gasprice;
+        require(deposited >= refund, "deposit below max refund");
+        _deposits[message.source][message.srcNetwork] = deposited - refund;
         payable(tx.origin).transfer(refund);
     }
 }

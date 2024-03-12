@@ -2,6 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "frost-evm/sol/Schnorr.sol";
+
 /**
  * @dev Required interface of an GMP compliant contract
  */
@@ -247,28 +249,6 @@ contract SigUtils {
     function getGmpTypedHash(GmpMessage memory message) public view returns (bytes memory) {
         return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getGmpHash(message));
     }
-
-    // secp256k1 group order
-    uint256 public constant Q = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
-
-    // parity := public key y-coord parity (27 or 28)
-    // px := public key x-coord
-    // message := 32-byte message
-    // e := schnorr signature challenge
-    // s := schnorr signature
-    function verify(uint8 parity, uint256 px, uint256 message, uint256 e, uint256 s) public pure returns (bool) {
-        // ecrecover = (m, v, r, s);
-        uint256 sp = Q - mulmod(s, px, Q);
-        uint256 ep = Q - mulmod(e, px, Q);
-
-        require(sp != 0);
-        // the ecrecover precompile implementation checks that the `r` and `s`
-        // inputs are non-zero (in this case, `px` and `ep`), thus we don't need to
-        // check if they're zero.
-        address R = ecrecover(bytes32(sp), parity, bytes32(px), bytes32(ep));
-        require(R != address(0), "ecrecover failed");
-        return bytes32(e) == keccak256(abi.encodePacked(R, parity, px, message));
-    }
 }
 
 contract Gateway is IGateway, SigUtils {
@@ -280,7 +260,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 9081; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 9103; // Measured gas cost difference for `execute`
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
@@ -330,7 +310,7 @@ contract Gateway is IGateway, SigUtils {
         }
 
         // Verify Signature
-        require(verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s), "invalid tss signature");
+        require(Schnorr.verify(yParity, signature.xCoord, uint256(message), signature.e, signature.s), "invalid tss signature");
     }
 
     // Converts a `TssKey` into an `KeyInfo` unique identifier

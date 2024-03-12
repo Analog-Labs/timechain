@@ -123,9 +123,7 @@ contract GatewayTest is Test {
             returndatacopy(ptr, 0, size)
             mstore(0x40, add(ptr, size))
 
-            if iszero(success) {
-                revert(ptr, size)
-            }
+            if iszero(success) { revert(ptr, size) }
         }
     }
 
@@ -149,8 +147,7 @@ contract GatewayTest is Test {
 
         // Revert on failure
         if (!success) {
-            assembly ("memory-safe") {
-            }
+            assembly ("memory-safe") {}
         }
     }
 
@@ -163,15 +160,16 @@ contract GatewayTest is Test {
         address sender
     ) internal returns (uint8 status, bytes32 result, uint256 executionCost, uint256 baseCost) {
         bytes memory encodedCall = abi.encodeCall(Gateway.execute, (signature, message));
-        (uint256 execution, uint256 base, bytes memory output) = executeCall(sender, address(gateway), gasLimit, encodedCall);
+        (uint256 execution, uint256 base, bytes memory output) =
+            executeCall(sender, address(gateway), gasLimit, encodedCall);
         executionCost = execution;
         baseCost = base;
         if (output.length == 64) {
-          assembly {
-            let ptr := add(output, 32)
-            status := mload(ptr)
-            result := mload(add(ptr, 32))
-          }
+            assembly {
+                let ptr := add(output, 32)
+                status := mload(ptr)
+                result := mload(add(ptr, 32))
+            }
         }
     }
 

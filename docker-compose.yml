@@ -22,9 +22,10 @@ services:
     - astar
 
   ethereum:
-    image: 'ethereum/client-go:v1.12.2'
+    image: 'ethereum/client-go:v1.13.14'
     command:
     - '--dev'
+    - '--dev.gaslimit=30000000'
     - '--ipcdisable'
     - '--dev.period=2'
     - '--http'
@@ -44,7 +45,7 @@ services:
     - 8545:8545
 
   astar:
-    image: "staketechnologies/astar-collator:latest"
+    image: "staketechnologies/astar-collator:v5.28.0-rerun"
     command:
     - 'astar-collator'
     - '--base-path=/data'

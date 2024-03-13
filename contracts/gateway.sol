@@ -138,18 +138,21 @@ library BranchlessOp {
     function min(uint256 x, uint256 y) internal pure returns (uint256 result) {
         assembly ("memory-safe") {
             // gas efficient branchless min function:
-            // min(x,y) = y ^ ((x ^ y) & -(x < y))
+            // min(x,y) = y ^ ((x ^ y) * (x < y))
             // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
-            result := xor(y, and(xor(x, y), sub(0, lt(x, y))))
+            result := xor(y, mul(xor(x, y), lt(x, y)))
         }
     }
 
+    /**
+     * @dev Returns the largest of two numbers.
+     */
     function max(uint256 x, uint256 y) internal pure returns (uint256 result) {
         assembly ("memory-safe") {
             // gas efficient branchless max function:
-            // max(x,y) = x ^ ((x ^ y) & -(x < y))
+            // max(x,y) = x ^ ((x ^ y) * (x < y))
             // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
-            result := xor(x, and(xor(x, y), sub(0, lt(x, y))))
+            result := xor(x, mul(xor(x, y), lt(x, y)))
         }
     }
 
@@ -158,7 +161,9 @@ library BranchlessOp {
      */
     function choice(bool cond, uint8 x, uint8 y) internal pure returns (uint8 result) {
         assembly ("memory-safe") {
-            result := add(and(sub(y, x), sub(0, iszero(cond))), x)
+            // gas efficient branchless choice function:
+            // choice(c,x,y) = x ^ ((x ^ y) * (c == 0))
+            result := xor(x, mul(xor(x, y), iszero(cond)))
         }
     }
 }

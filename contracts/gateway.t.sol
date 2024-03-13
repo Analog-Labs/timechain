@@ -34,10 +34,10 @@ contract GatewayTest is Test {
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
     IGmpReceiver receiver;
 
-    uint256 private constant EXECUTE_CALL_COST = 47_329;
+    uint256 private constant EXECUTE_CALL_COST = 47_309;
     uint16 private constant SRC_NETWORK_ID = 0;
     uint16 private constant DEST_NETWORK_ID = 3;
-    uint256 private constant GAS_LIMIT = 100_000_000; // 100_008_677
+    uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
     uint8 private constant GMP_STATUS_SUCCESS = 1;
 
     function setUp() public {

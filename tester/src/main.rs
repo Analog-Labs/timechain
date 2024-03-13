@@ -168,7 +168,7 @@ async fn latency_cycle(
 	round_num: u64,
 	contract: &Path,
 ) -> Result<(f32, f32)> {
-	let gas_limit = 100_000;
+	let gas_limit = 500_000;
 	let contract = match env {
 		Environment::Local => {
 			tester.faucet().await;
@@ -357,7 +357,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let (contract, _) = tester.deploy(contract, &[]).await?;
 	let gas_limit = 100_000;
 	tester
-		.deposit_funds(gmp_contract, tester.network_id(), contract, gas_limit * 10_000)
+		.deposit_funds(gmp_contract, tester.network_id(), contract, gas_limit * 10_000_000_000)
 		.await?;
 
 	let task_id = tester

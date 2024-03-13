@@ -114,7 +114,7 @@ impl Tester {
 	) -> Result<()> {
 		println!("depositing funds on destination chain");
 		let mut src = [0; 32];
-		src[..20].copy_from_slice(&source[..]);
+		src[12..32].copy_from_slice(&source[..]);
 		let payload = IGateway::depositCall {
 			network: source_network,
 			source: src.into(),
@@ -236,7 +236,7 @@ impl Tester {
 		gas_limit: u128,
 	) -> Result<TaskId> {
 		let mut src = [0; 32];
-		src[..20].copy_from_slice(&source[..]);
+		src[12..32].copy_from_slice(&source[..]);
 		let mut salt = [0; 32];
 		getrandom::getrandom(&mut salt).unwrap();
 		let f = Function::SendMessage {

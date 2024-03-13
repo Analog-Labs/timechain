@@ -1,0 +1,62 @@
+// Helper Contract that implements IGatewayContract Interface, this contract consumes 100% of the
+// gas passed as parameter in the `gmp.data` field. Ex: if you pass 10k gas, this contract will consume exactly 10k gas.
+// This is written in EVM assembly because required a precise control of the gas cost of each opcode executed, which is not achievable in Solidity or Yul.
+//
+// You can test and compile this contract using this tool:
+// https://www.evm.codes/playground
+//
+// Minimal GAS: 71
+// Deploy bytecode: 6031600d60003960316000f3fe60a4355a0360080180603b015b805a11600c57505a03604103565b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b00
+//
+
+// Read GMP.data field
+PUSH1 164
+CALLDATALOAD
+
+// Setup auxiliar variables
+GAS
+SUB
+PUSH1 8
+ADD
+DUP1
+PUSH1 59
+ADD
+
+// Loop that consumes 22 gas on each iteration
+JUMPDEST
+DUP1
+GAS
+GT
+PUSH1 12
+JUMPI
+
+// From here the remaining gas is between 18~39
+POP
+GAS
+SUB
+PUSH1 65
+SUB
+JUMP
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+JUMPDEST
+STOP

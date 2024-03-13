@@ -155,7 +155,8 @@ impl Message {
 			s: U256::from_be_slice(&signature[32..64]),
 		};
 		let gas_limit = if let Self::Gmp(GmpMessage { gasLimit, .. }) = &self {
-			(*gasLimit).try_into().ok()
+			let gas_limit = u64::try_from(*gasLimit).unwrap_or(u64::MAX).saturating_add(100_000);
+			Some(gas_limit.min(29_900_000))
 		} else {
 			None
 		};

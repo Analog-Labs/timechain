@@ -263,7 +263,7 @@ contract Gateway is IGateway, SigUtils {
 
     constructor(uint16 networkId, TssKey[] memory keys) payable SigUtils(networkId, address(this)) {
         // Initialize the prevMessageHash with a non-zero value to avoid the first GMP to spent more gas,
-        // once initialize the storage cost 21k gas, while alter it cost just 100 gas.
+        // once initialize the storage cost 21k gas, while alter it cost just 2800 gas.
         prevMessageHash = FIRST_MESSAGE_PLACEHOLDER;
 
         _registerKeys(keys);

@@ -56,6 +56,7 @@ pub async fn run_chronicle(
 		tss: tss_tx,
 		blockchain: chain,
 		network: subchain,
+		network_id: config.network_id,
 		url: config.target_url,
 		keyfile: config.target_keyfile,
 		substrate: substrate.clone(),

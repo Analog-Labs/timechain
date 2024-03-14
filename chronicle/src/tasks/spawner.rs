@@ -1,9 +1,11 @@
+use alloy_primitives::B256;
+use alloy_sol_types::SolEvent;
 use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::CallResult;
+use rosetta_config_ethereum::{query::GetLogs, CallResult};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::{
@@ -14,9 +16,10 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	BlockNumber, Function, Payload, Runtime, ShardId, TaskId, TaskResult, TssHash, TssSignature,
-	TssSigningRequest,
+	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskId, TaskResult, TssHash,
+	TssSignature, TssSigningRequest,
 };
+use time_primitives::{IGateway, Msg};
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
@@ -24,6 +27,7 @@ pub struct TaskSpawnerParams<S> {
 	pub tss: mpsc::Sender<TssSigningRequest>,
 	pub blockchain: String,
 	pub network: String,
+	pub network_id: NetworkId,
 	pub url: String,
 	pub keyfile: PathBuf,
 	pub substrate: S,
@@ -35,6 +39,7 @@ pub struct TaskSpawner<S> {
 	wallet: Arc<Wallet>,
 	wallet_guard: Arc<Mutex<()>>,
 	substrate: S,
+	network_id: NetworkId,
 }
 
 impl<S> TaskSpawner<S>
@@ -57,7 +62,30 @@ where
 			wallet,
 			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
+			network_id: params.network_id,
 		})
+	}
+
+	async fn get_gmp_events_at(
+		&self,
+		gateway_contract: [u8; 20],
+		target_block_number: u64,
+	) -> Result<Vec<IGateway::GmpCreated>> {
+		let logs = self
+			.wallet
+			.query(GetLogs {
+				contracts: vec![gateway_contract.into()],
+				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
+				block: target_block_number.into(),
+			})
+			.await?
+			.into_iter()
+			.map(|log| {
+				let topics = log.topics.into_iter().map(|topic| B256::from(topic.0));
+				IGateway::GmpCreated::decode_log(topics, log.data.as_ref(), true)
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		Ok(logs)
 	}
 
 	async fn execute_function(
@@ -109,7 +137,19 @@ where
 				.to_string();
 				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
-			Function::ReadMessages => Payload::Gmp(vec![]),
+			Function::ReadMessages => {
+				let network_id = self.network_id;
+				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
+					return Ok(Payload::Gmp(Vec::new()));
+				};
+				let logs = self
+					.get_gmp_events_at(gateway_contract, target_block_number)
+					.await?
+					.into_iter()
+					.map(|event| Msg::from_event(event, network_id))
+					.collect();
+				Payload::Gmp(logs)
+			},
 			_ => anyhow::bail!("not a read function {function:?}"),
 		})
 	}

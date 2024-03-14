@@ -1,4 +1,4 @@
-use crate::{AccountId, Balance, NetworkId, ShardId, TssSignature};
+use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
 use codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
@@ -77,6 +77,21 @@ pub struct Msg {
 	pub gas_limit: u128,
 	pub salt: [u8; 32],
 	pub data: Vec<u8>,
+}
+
+impl Msg {
+	#[must_use]
+	pub fn from_event(event: IGateway::GmpCreated, source_network: u16) -> Self {
+		Self {
+			source_network,
+			source: event.sender.0,
+			dest_network: event.network,
+			dest: event.recipient.0 .0,
+			gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
+			salt: event.salt.to_be_bytes(),
+			data: event.data,
+		}
+	}
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

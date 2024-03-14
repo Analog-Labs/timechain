@@ -82,6 +82,16 @@ sol! {
 			TssKey[] registered
 		);
 
+		event GmpCreated(
+			bytes32 indexed id,
+			bytes32 indexed sender,
+			address indexed recipient,
+			uint16 network,
+			uint256 gasLimit,
+			uint256 salt,
+			bytes data
+		);
+
 		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
 		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
 		function deposit(bytes32 source, uint16 network) public payable;

@@ -9,8 +9,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, Function, NetworkId, PublicKey, ShardStatus, ShardsInterface,
-	TaskDescriptorParams, TasksInterface,
+	AccountId, ElectionsInterface, Function, MemberEvents, NetworkId, PublicKey, ShardStatus,
+	ShardsInterface, TaskDescriptorParams, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -99,7 +99,7 @@ fn test_t() {
 		for i in first_shard {
 			Shards::member_online(&i, ETHEREUM);
 		}
-		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
+		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0).unwrap(), ShardStatus::Online);
 	});
 }
 

@@ -1,4 +1,4 @@
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "contracts/gateway.sol";
 import "frost-evm/sol/Signer.sol";
@@ -34,9 +34,10 @@ contract GatewayTest is Test {
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
     IGmpReceiver receiver;
 
-    uint256 private constant EXECUTE_CALL_COST = 47_309;
+    uint256 private constant EXECUTE_CALL_COST = 47_310;
+    uint256 private constant SUBMIT_GAS_COST = 5565;
     uint16 private constant SRC_NETWORK_ID = 0;
-    uint16 private constant DEST_NETWORK_ID = 3;
+    uint16 private constant DEST_NETWORK_ID = 69;
     uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
     uint8 private constant GMP_STATUS_SUCCESS = 1;
 
@@ -64,7 +65,7 @@ contract GatewayTest is Test {
         signer = new Signer(secret);
         TssKey[] memory keys = new TssKey[](1);
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
-        gateway = new Gateway(69, keys);
+        gateway = new Gateway(DEST_NETWORK_ID, keys);
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
@@ -272,7 +273,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 1,
             dest: address(0x0),
-            destNetwork: 0x0,
+            destNetwork: DEST_NETWORK_ID,
             gasLimit: 1000,
             salt: 1,
             data: ""
@@ -292,7 +293,7 @@ contract GatewayTest is Test {
             source: bytes32(uint256(0x1)),
             srcNetwork: 0,
             dest: address(0x0),
-            destNetwork: 0x0,
+            destNetwork: DEST_NETWORK_ID,
             gasLimit: 1000,
             salt: 1,
             data: ""
@@ -308,7 +309,7 @@ contract GatewayTest is Test {
             source: bytes32(0),
             srcNetwork: 0,
             dest: address(receiver),
-            destNetwork: 0x0,
+            destNetwork: DEST_NETWORK_ID,
             gasLimit: 1_000_000,
             salt: 1,
             data: abi.encode(uint256(1_000_000))
@@ -329,7 +330,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(receiver),
-            destNetwork: 0x0,
+            destNetwork: DEST_NETWORK_ID,
             gasLimit: 10000,
             salt: 1,
             data: abi.encode(uint256(10_000))
@@ -350,7 +351,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(receiver),
-            destNetwork: 0x0,
+            destNetwork: DEST_NETWORK_ID,
             gasLimit: gasLimit,
             salt: 1,
             data: abi.encode(uint256(100_000))
@@ -370,7 +371,7 @@ contract GatewayTest is Test {
             source: 0x0,
             srcNetwork: 0,
             dest: address(receiver),
-            destNetwork: 0x0,
+            destNetwork: DEST_NETWORK_ID,
             gasLimit: 1000,
             salt: 1,
             data: abi.encode(uint256(1000))
@@ -380,5 +381,82 @@ contract GatewayTest is Test {
         assertEq(status, GMP_STATUS_SUCCESS);
         vm.expectRevert(bytes("message already executed"));
         executeGmp(sig, gmp, 100_000, mockSender);
+    }
+
+    function testSubmitGmpMessage() public {
+        vm.txGasPrice(1);
+        address gmpSender = address(0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287);
+        vm.deal(gmpSender, 1_000_000_000_000_000_000);
+        GmpMessage memory gmp = GmpMessage({
+            source: bytes32(bytes20(gmpSender)),
+            srcNetwork: DEST_NETWORK_ID,
+            dest: address(receiver),
+            destNetwork: SRC_NETWORK_ID,
+            gasLimit: 100011,
+            salt: 0,
+            // data: ""
+            data: abi.encodePacked(uint256(100_000))
+        });
+        bytes32 id = keccak256(gateway.getGmpTypedHash(gmp));
+
+        // Touch the gateway contract
+        vm.prank(gmpSender);
+        gateway.deposit{value: 1}(0x0, 0);
+        {
+            bytes memory encodedCall =
+                abi.encodeCall(Gateway.submitMessage, (gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data));
+            vm.expectRevert();
+            executeCall(gmpSender, address(gateway), 1000, encodedCall);
+        }
+        assertEq(gateway.prevMessageHash(), bytes32(uint256(2 ** 256 - 1)), "WROONNGG");
+
+        // Expect event
+        vm.expectEmit(true, true, true, true);
+        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.salt, gmp.data);
+
+        // Submit GMP message
+        bytes memory encodedCall =
+            abi.encodeCall(Gateway.submitMessage, (gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data));
+        (uint256 execution, uint256 base, bytes memory output) =
+            executeCall(gmpSender, address(gateway), 100_000, encodedCall);
+        assertEq(output.length, 0, "unexpected gateway.submitMessage output");
+
+        // Verify the gas cost
+        uint256 expectedCost = SUBMIT_GAS_COST + 2800 + 351;
+        assertEq(execution, expectedCost, "unexpected execution gas cost");
+
+        // Now the second GMP message should have the salt equals to previous gmp hash
+        gmp.salt = uint256(id);
+        id = keccak256(gateway.getGmpTypedHash(gmp));
+
+        // Expect event
+        vm.expectEmit(true, true, true, true);
+        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.salt, gmp.data);
+
+        // Submit GMP message
+        encodedCall = abi.encodeCall(Gateway.submitMessage, (gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data));
+        (execution, base, output) = executeCall(gmpSender, address(gateway), 100_000, encodedCall);
+        assertEq(output.length, 0, "unexpected gateway.submitMessage output");
+
+        // Verify the gas cost
+        expectedCost = SUBMIT_GAS_COST + 351;
+        assertEq(execution, expectedCost, "unexpected execution gas cost");
+
+        // Now the second GMP message should have the salt equals to previous gmp hash
+        gmp.salt = uint256(id);
+        id = keccak256(gateway.getGmpTypedHash(gmp));
+
+        // Expect event
+        vm.expectEmit(true, true, true, true);
+        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.salt, gmp.data);
+
+        // Submit GMP message
+        encodedCall = abi.encodeCall(Gateway.submitMessage, (gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data));
+        (execution, base, output) = executeCall(gmpSender, address(gateway), 100_000, encodedCall);
+        assertEq(output.length, 0, "unexpected gateway.submitMessage output");
+
+        // Verify the gas cost
+        expectedCost = SUBMIT_GAS_COST + 351;
+        assertEq(execution, expectedCost, "unexpected execution gas cost");
     }
 }

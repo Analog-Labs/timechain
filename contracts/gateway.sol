@@ -3,6 +3,7 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import "frost-evm/sol/Schnorr.sol";
+import "./BranchlessMath.sol";
 
 /**
  * @dev Required interface of an GMP compliant contract
@@ -30,21 +31,41 @@ interface IGmpReceiver {
 interface IGateway {
     /**
      * @dev Emitted when `GmpMessage` is executed.
+     * - `id` EIP-712 hash of the `GmpPayload`, which is it's unique identifier
+     * - `source` sender pubkey/address (the format depends on src chain)
+     * - `dest` recipient address
+     * - `status` GMP message execution status
+     * - `result` GMP result
      */
-    event GmpExecuted( // EIP-712 hash of the `GmpPayload`, which is it's unique identifier
-        // sender pubkey/address (the format depends on src chain)
-        // recipient address
-        // GMP message execution status
-        // GMP result
-    bytes32 indexed id, bytes32 indexed source, address indexed dest, uint256 status, bytes32 result);
+    event GmpExecuted(bytes32 indexed id, bytes32 indexed source, address indexed dest, uint256 status, bytes32 result);
 
     /**
      * @dev Emitted when `UpdateShardsMessage` is executed.
+     * - `id` EIP-712 hash of the UpdateShardsMessage, zero for sudo
+     * - `revoked` shards with keys revoked
+     * - `registered` new shards registered
      */
-    event KeySetChanged( // EIP-712 hash of the UpdateShardsMessage, zero for sudo
-        // shards with keys revoked
-        // new shards registered
-    bytes32 indexed id, TssKey[] revoked, TssKey[] registered);
+    event KeySetChanged(bytes32 indexed id, TssKey[] revoked, TssKey[] registered);
+
+    /**
+     * @dev New GMP submitted by calling the `submitMessage` method.
+     * - `id` EIP-712 hash of the `GmpPayload`, which is it's unique identifier
+     * - `sender` sender account, with an extra flag indicating if it is a contract or an EOA
+     * - `recipient` address or pubkey, the format depends on the destination network.
+     * - `network` recipient network identifier
+     * - `gasLimit` maximum gas limit for the GMP call
+     * - `salt` salt is equal to the previous message id (EIP-712 hash).
+     * - `data` message data with no specified format
+     */
+    event GmpCreated(
+        bytes32 indexed id,
+        bytes32 indexed sender,
+        address indexed recipient,
+        uint16 network,
+        uint256 gasLimit,
+        uint256 salt,
+        bytes data
+    );
 
     function deposit(bytes32 source, uint16 network) external payable;
 
@@ -128,68 +149,26 @@ struct GmpInfo {
     bytes32 result; // the result of the GMP message
 }
 
-/**
- * @dev Utilities for branchless operations, useful for keep a predictable and constant gas cost.
- */
-library BranchlessOp {
-    /**
-     * @dev Returns the smallest of two numbers.
-     */
-    function min(uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // gas efficient branchless min function:
-            // min(x,y) = y ^ ((x ^ y) * (x < y))
-            // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
-            result := xor(y, mul(xor(x, y), lt(x, y)))
-        }
-    }
-
-    /**
-     * @dev Returns the largest of two numbers.
-     */
-    function max(uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // gas efficient branchless max function:
-            // max(x,y) = x ^ ((x ^ y) * (x < y))
-            // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
-            result := xor(x, mul(xor(x, y), lt(x, y)))
-        }
-    }
-
-    /**
-     * @dev If `cond` is true, use `x`, otherwise use `y`.
-     */
-    function choice(bool cond, uint8 x, uint8 y) internal pure returns (uint8 result) {
-        assembly ("memory-safe") {
-            // gas efficient branchless choice function:
-            // choice(c,x,y) = x ^ ((x ^ y) * (c == 0))
-            result := xor(x, mul(xor(x, y), iszero(cond)))
-        }
-    }
-}
-
 contract SigUtils {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
     uint16 internal immutable NETWORK_ID;
-    address internal immutable GATEWAY_ADDRESS;
     bytes32 internal immutable DOMAIN_SEPARATOR;
 
     constructor(uint16 networkId, address gateway) {
         NETWORK_ID = networkId;
-        GATEWAY_ADDRESS = gateway;
-        DOMAIN_SEPARATOR = computeDomainSeparator();
+        DOMAIN_SEPARATOR = computeDomainSeparator(networkId, gateway);
     }
 
     // Computes the EIP-712 domain separador
-    function computeDomainSeparator() internal view virtual returns (bytes32) {
+    function computeDomainSeparator(uint256 networkId, address addr) private pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256("Analog Gateway Contract"),
                 keccak256("0.1.0"),
-                uint256(NETWORK_ID),
-                GATEWAY_ADDRESS
+                uint256(networkId),
+                address(addr)
             )
         );
     }
@@ -265,7 +244,10 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 9103; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 9081; // Measured gas cost difference for `execute`
+
+    // Non-zero value used to initialize the `prevMessageHash` storage
+    bytes32 internal constant FIRST_MESSAGE_PLACEHOLDER = bytes32(uint256(2 ** 256 - 1));
 
     // Shard data, maps the pubkey coordX (which is already collision resistant) to shard info.
     mapping(bytes32 => KeyInfo) _shards;
@@ -276,9 +258,15 @@ contract Gateway is IGateway, SigUtils {
     // Source address => Source network => Deposit Amount
     mapping(bytes32 => mapping(uint16 => uint256)) _deposits;
 
-    constructor(uint16 _networkId, TssKey[] memory keys) payable SigUtils(_networkId, address(this)) {
-        _registerKeys(keys);
+    // Hash of the previous GMP message submitted.
+    bytes32 public prevMessageHash;
 
+    constructor(uint16 networkId, TssKey[] memory keys) payable SigUtils(networkId, address(this)) {
+        // Initialize the prevMessageHash with a non-zero value to avoid the first GMP to spent more gas,
+        // once initialize the storage cost 21k gas, while alter it cost just 100 gas.
+        prevMessageHash = FIRST_MESSAGE_PLACEHOLDER;
+
+        _registerKeys(keys);
         // emit event
         TssKey[] memory revoked = new TssKey[](0);
         emit KeySetChanged(bytes32(0), revoked, keys);
@@ -333,7 +321,6 @@ contract Gateway is IGateway, SigUtils {
         unchecked {
             // Register or activate tss key (revoked keys keep the previous nonce)
             for (uint256 i = 0; i < keys.length; i++) {
-                // Validate y-parity bit
                 TssKey memory newKey = keys[i];
 
                 // Read shard from storage
@@ -459,16 +446,15 @@ contract Gateway is IGateway, SigUtils {
         // OBS: we assume the remaining 20% is enough for the Gateway execution, which is a safe assumption
         // once most EVM blockchains have gas limits above 10M and don't need more than 60k gas for the Gateway execution.
         uint256 maxGasLimit = (block.gaslimit / 5) * 4; // 80% of the block gas limit
-        uint256 gasLimit = BranchlessOp.min(message.gasLimit, maxGasLimit);
+        uint256 gasLimit = BranchlessMath.min(message.gasLimit, maxGasLimit);
 
+        // Make sure the gas left is enough to execute the GMP message
         unchecked {
-            // Make sure the gas left is enough to execute the GMP message
-            uint256 gasAvailable = BranchlessOp.max(gasleft(), 5000);
-            // 2600 (CALL) + 2400 (other instructions with some margin)
-            gasAvailable -= 5000;
+            // Subtract 5000 gas, 2600 (CALL) + 2400 (other instructions with some margin)
+            uint256 gasAvailable = BranchlessMath.saturatingSub(gasleft(), 5000);
             // “all but one 64th", reference: https://eips.ethereum.org/EIPS/eip-150
             gasAvailable -= gasAvailable >> 6;
-            require(gasAvailable >= gasLimit, "gas left below message.gasLimit");
+            require(gasAvailable > gasLimit, "gas left below message.gasLimit");
         }
         assembly ("memory-safe") {
             // Using low-level assembly because the GMP is considered executed
@@ -493,7 +479,7 @@ contract Gateway is IGateway, SigUtils {
         result = output[0];
 
         // Update GMP status
-        status = BranchlessOp.choice(success, GMP_STATUS_SUCCESS, GMP_STATUS_REVERTED);
+        status = uint8(BranchlessMath.choice(success, GMP_STATUS_SUCCESS, GMP_STATUS_REVERTED));
 
         // Persist result and status on storage
         gmp.result = result;
@@ -509,6 +495,10 @@ contract Gateway is IGateway, SigUtils {
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         uint256 initialGas = gasleft();
+
+        // Theoretically we could remove the destination network field
+        // and fill it up with the network id of the contract, then the signature will fail.
+        require(message.destNetwork == NETWORK_ID, "invalid gmp network");
         bytes memory payload = getGmpTypedHash(message);
         bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
@@ -522,5 +512,31 @@ contract Gateway is IGateway, SigUtils {
         require(deposited >= refund, "deposit below max refund");
         _deposits[message.source][message.srcNetwork] = deposited - refund;
         payable(tx.origin).transfer(refund);
+    }
+
+    // Submit a new GMP message
+    function submitMessage(address recipient, uint16 network, uint256 gasLimit, bytes memory data) public payable {
+        // TODO: charge the gas cost of the Gateway execution
+
+        // Check if the msg.sender is a contract or an EOA
+        uint256 isContract = BranchlessMath.choice(tx.origin != msg.sender, 1, 0);
+
+        // We use 20 bytes for the address and 1 bit for contract flag
+        bytes32 source = bytes32(isContract << 160) | bytes32(bytes20(msg.sender));
+
+        // Salt is equal to the previous message id (EIP-712 hash), this allows us to establish a sequence and eaily query the message history.
+        bytes32 prevHash = prevMessageHash;
+
+        // if the messageHash is the first message, we use a zero salt
+        uint256 salt = BranchlessMath.choice(prevHash == FIRST_MESSAGE_PLACEHOLDER, 0, uint256(prevHash));
+
+        // Create GMP message and update prevMessageHash
+        {
+            GmpMessage memory message = GmpMessage(source, NETWORK_ID, recipient, network, gasLimit, salt, data);
+            prevHash = keccak256(getGmpTypedHash(message));
+            prevMessageHash = prevHash;
+        }
+
+        emit GmpCreated(prevHash, source, recipient, network, gasLimit, salt, data);
     }
 }

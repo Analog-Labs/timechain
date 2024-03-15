@@ -50,6 +50,31 @@ pub enum SerializedMemberStatus {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+pub struct ShardInfo {
+	pub online: ShardPulse,
+	pub status: ShardStatus,
+}
+
+impl ShardInfo {
+	pub fn online_member(&self) -> Self {
+		Self {
+			online: self.online.online_member(),
+			status: self.status,
+		}
+	}
+	pub fn offline_member(&self, max: u16) -> Self {
+		let online = if !matches!(self.status, ShardStatus::Created) {
+			// if not committed then shard goes offline and stays offline
+			ShardPulse::Offline
+		} else {
+			self.online.offline_member(max)
+		};
+		Self { online, status: self.status }
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
 pub enum ShardPulse {
 	Online,
 	PartialOffline(u16),
@@ -70,47 +95,41 @@ pub enum ShardStatus {
 	Committed,
 }
 
-// TODO: remove
 impl Default for ShardStatus {
 	fn default() -> ShardStatus {
 		ShardStatus::Created
 	}
 }
 
-impl ShardStatus {
+impl ShardPulse {
 	pub fn online_member(&self) -> Self {
 		match self {
-			ShardStatus::PartialOffline(count) => {
+			ShardPulse::PartialOffline(count) => {
 				let new_count = count.saturating_less_one();
 				if new_count.is_zero() {
-					ShardStatus::Online
+					ShardPulse::Online
 				} else {
-					ShardStatus::PartialOffline(new_count)
+					ShardPulse::PartialOffline(new_count)
 				}
 			},
 			_ => *self,
 		}
 	}
-
 	pub fn offline_member(&self, max: u16) -> Self {
 		match self {
-			ShardStatus::PartialOffline(count) => {
+			ShardPulse::PartialOffline(count) => {
 				let new_count = count.saturating_plus_one();
 				if new_count > max {
-					ShardStatus::Offline
+					ShardPulse::Offline
 				} else {
-					ShardStatus::PartialOffline(new_count)
+					ShardPulse::PartialOffline(new_count)
 				}
 			},
-			// if a member goes offline before the group key is submitted,
-			// then the shard will never go online
-			// TODO: add check to ShardStatus
-			// ShardStatus::Created(_) => ShardStatus::Offline,
-			ShardStatus::Online => {
+			ShardPulse::Online => {
 				if max.is_zero() {
-					ShardStatus::Offline
+					ShardPulse::Offline
 				} else {
-					ShardStatus::PartialOffline(1)
+					ShardPulse::PartialOffline(1)
 				}
 			},
 			_ => *self,

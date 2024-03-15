@@ -65,7 +65,7 @@ pub mod pallet {
 	/// Status for shard
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus<BlockNumberFor<T>>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, ShardInfo, OptionQuery>;
 
 	/// Threshold for shard
 	#[pallet::storage]

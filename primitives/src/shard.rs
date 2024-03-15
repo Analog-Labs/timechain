@@ -63,7 +63,7 @@ impl ShardInfo {
 		}
 	}
 	pub fn offline_member(&self, max: u16) -> Self {
-		let online = if !matches!(self.status, ShardStatus::Created) {
+		let online = if !matches!(self.status, ShardStatus::Committed) {
 			// if not committed then shard goes offline and stays offline
 			ShardPulse::Offline
 		} else {

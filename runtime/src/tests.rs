@@ -60,8 +60,10 @@ fn roll_to(n: u32) {
 	}
 }
 
+// shard status committed to offline
+
 #[test]
-fn test_t() {
+fn shard_status_committed_to_online() {
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();
 	let c: AccountId = C.into();

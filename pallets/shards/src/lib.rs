@@ -72,6 +72,10 @@ pub mod pallet {
 	pub type ShardThreshold<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u16, OptionQuery>;
 
 	#[pallet::storage]
+	pub type DkgTimeout<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, BlockNumberFor<T>, OptionQuery>;
+
+	#[pallet::storage]
 	pub type ShardCommitment<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Commitment, OptionQuery>;
 

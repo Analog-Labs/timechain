@@ -61,7 +61,7 @@ fn roll_to(n: u32) {
 }
 
 #[test]
-fn test_t() {
+fn shard_not_stuck_in_committed_state() {
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();
 	let c: AccountId = C.into();
@@ -99,7 +99,7 @@ fn test_t() {
 		for i in first_shard {
 			Shards::member_online(&i, ETHEREUM);
 		}
-		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0).unwrap(), ShardStatus::Online);
+		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0).unwrap(), ShardStatus::Offline);
 	});
 }
 

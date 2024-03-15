@@ -39,7 +39,7 @@ impl SubxtClient {
 			.ok_or(anyhow!("Shard network not found"))
 	}
 
-	pub async fn shard_state(&self, shard_id: u64) -> Result<ShardStatus<u32>> {
+	pub async fn shard_state(&self, shard_id: u64) -> Result<ShardStatus> {
 		let storage_query = timechain_runtime::storage().shards().shard_state(shard_id);
 		self.client
 			.storage()

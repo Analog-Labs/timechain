@@ -121,11 +121,7 @@ where
 		Ok(self.runtime_api().get_shard_threshold(block, shard_id)?)
 	}
 
-	async fn get_shard_status(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<ShardStatus<BlockNumber>> {
+	async fn get_shard_status(&self, block: BlockHash, shard_id: ShardId) -> Result<ShardStatus> {
 		Ok(self.runtime_api().get_shard_status(block, shard_id)?)
 	}
 

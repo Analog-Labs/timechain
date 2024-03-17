@@ -372,7 +372,11 @@ impl Runtime for SubxtClient {
 		Ok(data)
 	}
 
-	async fn get_shard_status(&self, _: BlockHash, shard_id: ShardId) -> Result<ShardStatus> {
+	async fn get_shard_status(
+		&self,
+		_: BlockHash,
+		shard_id: ShardId,
+	) -> Result<ShardStatus<BlockNumber>> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_status(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(unsafe { std::mem::transmute(data) })

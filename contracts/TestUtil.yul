@@ -11,7 +11,6 @@ object "TestUtils" {
             // Free memory pointer
             mstore(0x40, 0x80)
 
-
             // Pause gas metering
             pauseGasMetering()
 
@@ -23,7 +22,7 @@ object "TestUtils" {
                 gasAvailable := sub(gasAvailable, shr(6, gasAvailable))
 
                 if lt(gasAvailable, gasLimit) {
-                    fail(2, 18, 0x626c61626c61206c6f68616e6e2061717569)
+                    fail(21, "insufficient gas left")
                 }
             }
 
@@ -31,12 +30,11 @@ object "TestUtils" {
             {
                 let codehash := extcodehash(calldataload(36))
                 if iszero(codehash) {
-                    // account doesn't exists
-                    fail(3, 22, 0x6163636f756e7420646f65736e277420657869737473)
+                    fail(22, "account doesn't exists")
                 }
                 if eq(codehash, 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470) {
                     // not a contract
-                    fail(4, 14, 0x6e6f74206120636f6e7472616374)
+                    fail(14, "not a contract")
                 }
             }
 
@@ -49,7 +47,7 @@ object "TestUtils" {
 
                     // Check if calldata is within bounds
                     if or(gt(saturatingAdd(offset, size), calldatasize()), lt(offset, 132)) {
-                        fail(5, 21, 0x74782064617461206f7574206f6620626f756e6473)
+                        fail(21, "tx data out of bounds")
                     }
 
                     ptr := alloc(alignValue(size))
@@ -75,7 +73,7 @@ object "TestUtils" {
                             weiCost,
                             senderBalance
                         )
-                        fail(2, 18, 0x696e73756666696369656e742066756e6473)
+                        fail(18, "insufficient funds")
                     }
                 }
 
@@ -88,7 +86,7 @@ object "TestUtils" {
 
                     // User mode should be NONE
                     if gt(callerMode, 0) {
-                        fail(6, 30, 0x706c732064697361626c65207072616e6b206f722062726f616463617374)
+                        fail(26, "disable prank or broadcast")
                     }
                     let sender := calldataload(4)
                     prank(sender, sender)
@@ -142,11 +140,10 @@ object "TestUtils" {
             }
 
             // Return an internal error
-            function fail(status, size, message) {
+            function fail(size, message) {
                 // Prefix message with "Internal Error: "
-                message := shl(shl(3, sub(32, size)), message)
-                let prefix := shl(128, 0x496e7465726e616c204572726f723a20)
-                prefix, message := concatStr(prefix, 16, message)
+                let prefix
+                prefix, message := concatStr("Internal Error: ", 16, message)
                 size := add(size, 16)
 
                 // Encode error data
@@ -223,7 +220,7 @@ object "TestUtils" {
                 // vm call reverted
                 if iszero(success) {
                     consoleLog(ptr, size)
-                    fail(500, 18, 0x666f72676520766d206572726f72)
+                    fail(18, "forge vm error")
                 }
                 r := size
             }
@@ -235,8 +232,7 @@ object "TestUtils" {
                 // 0xd1a5b36f == bytes4(keccak256("pauseGasMetering()"))
                 mstore(ptr, shl(224, 0xd1a5b36f))
                 if callForgeVM(ptr, 4) {
-                    // vm.pauseGasMetering() failed
-                    fail(0xd1a5b36f, 28, 0x766d2e70617573654761734d65746572696e672829206661696c6564)
+                    fail(28, "vm.pauseGasMetering() failed")
                 }
             }
 
@@ -247,8 +243,7 @@ object "TestUtils" {
                 // 0x2bcd50e0 == bytes4(keccak256("resumeGasMetering()"))
                 mstore(ptr, shl(224, 0x2bcd50e0))
                 if callForgeVM(ptr, 4) {
-                    // vm.resumeGasMetering() failed
-                    fail(0x2bcd50e0, 29, 0x766d2e726573756d654761734d65746572696e672829206661696c6564)
+                    fail(29, "vm.resumeGasMetering() failed")
                 }
             }
 
@@ -260,8 +255,7 @@ object "TestUtils" {
                 mstore(ptr, shl(224, 0x4ad0bac9))
                 let r := callForgeVM(ptr, 4)
                 if iszero(eq(r, 96)) {
-                    // vm.readCallers() failed
-                    fail(0x4ad0bac9, 23, 0x766d2e7265616443616c6c6572732829206661696c6564)
+                    fail(23, "vm.readCallers() failed")
                 }
                 callerMode := mload(ptr)
             }
@@ -275,8 +269,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), sender)
                 mstore(add(ptr, 36), txOrigin)
                 if callForgeVM(ptr, 68) {
-                    // vm.prank() failed
-                    fail(0x47e50cce, 17, 0x766d2e7072616e6b2829206661696c6564)
+                    fail(17, "vm.prank() failed")
                 }
             }
 
@@ -289,8 +282,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), sender)
                 mstore(add(ptr, 36), txOrigin)
                 if callForgeVM(ptr, 68) {
-                    // vm.startPrank() failed
-                    fail(0x45b56078, 22, 0x766d2e73746172745072616e6b2829206661696c6564)
+                    fail(22, "vm.startPrank() failed")
                 }
             }
 
@@ -301,8 +293,7 @@ object "TestUtils" {
                 // 0x90c5013b == bytes4(keccak256("stopPrank()"))
                 mstore(ptr, shl(224, 0x90c5013b))
                 if callForgeVM(ptr, 4) {
-                    // vm.stopPrank() failed
-                    fail(0x90c5013b, 21, 0x766d2e73746f705072616e6b2829206661696c6564)
+                    fail(21, "vm.stopPrank() failed")
                 }
             }
 
@@ -315,8 +306,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), who)
                 mstore(add(ptr, 36), newBalance)
                 if callForgeVM(ptr, 68) {
-                    // vm.deal(address,uint256) failed
-                    fail(0xc88a5e6d, 31, 0x766d2e6465616c28616464726573732c75696e7432353629206661696c6564)
+                    fail(31, "vm.deal(address,uint256) failed")
                 }
             }
 
@@ -329,8 +319,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), account)
                 mstore(add(ptr, 36), slot)
                 if eq(callForgeVM(ptr, 68), 32) {
-                    // vm.load(address,bytes32) failed
-                    fail(0x667f9d70, 31, 0x766d2e6c6f616428616464726573732c6279746573333229206661696c6564)
+                    fail(31, "vm.load(address,bytes32) failed")
                 }
                 leet := mload(ptr)
             }
@@ -346,7 +335,7 @@ object "TestUtils" {
                 mstore(add(ptr, 68), value)
                 if callForgeVM(ptr, 100) {
                     // vm.store(address,bytes32) failed
-                    fail(0x70ca10bb, 32, 0x766d2e73746f726528616464726573732c6279746573333229206661696c6564)
+                    fail(32, "vm.store(address,bytes32) failed")
                 }
             }
 
@@ -360,7 +349,7 @@ object "TestUtils" {
                 size := alignValue(size)
                 if callForgeVM(ptr, add(68, size)) {
                     // vm.expectRevert(string) failed
-                    fail(0xf28dceb3, 30, 0x766d2e65787065637452657665727428737472696e6729206661696c6564)
+                    fail(30, "vm.expectRevert(string) failed")
                 }
             }
 
@@ -371,7 +360,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), addr)
                 if callForgeVM(ptr, 36) {
                     // vm.allowCheatcodes(address) fail
-                    fail(0xea060291, 32, 0x766d2e616c6c6f774368656174636f646573286164647265737329206661696c)
+                    fail(31, "allowCheatcodes(address) failed")
                 }
             }
 

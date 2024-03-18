@@ -65,11 +65,7 @@ pub mod pallet {
 	/// Status for shard
 	#[pallet::storage]
 	pub type ShardState<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;
-
-	#[pallet::storage]
-	pub type DkgTimeout<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, BlockNumberFor<T>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus<BlockNumberFor<T>>, OptionQuery>;
 
 	/// Threshold for shard
 	#[pallet::storage]
@@ -198,18 +194,12 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			// use DkgTimeout instead
-			DkgTimeout::<T>::iter().for_each(|(shard_id, created_block)| {
-				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-					if let Some(status) = ShardState::<T>::get(shard_id) {
-						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
-							DkgTimeout::<T>::remove(shard_id);
-							writes += 1;
-						} else {
-							Self::remove_shard_offline(shard_id);
-							Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
-							writes += 5;
-						}
+			ShardState::<T>::iter().for_each(|(shard_id, status)| {
+				if let Some(created_block) = status.when_created() {
+					if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+						Self::remove_shard_offline(shard_id);
+						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+						writes += 5;
 					}
 				}
 			});
@@ -256,7 +246,7 @@ pub mod pallet {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shard_status(shard_id: ShardId) -> ShardStatus {
+		pub fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumberFor<T>> {
 			ShardState::<T>::get(shard_id).unwrap_or_default()
 		}
 
@@ -318,8 +308,10 @@ pub mod pallet {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
-			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
-			<DkgTimeout<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
+			<ShardState<T>>::insert(
+				shard_id,
+				ShardStatus::Created(frame_system::Pallet::<T>::block_number()),
+			);
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			for member in &members {
 				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);

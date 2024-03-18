@@ -302,7 +302,11 @@ impl Runtime for Mock {
 		Ok(threshold)
 	}
 
-	async fn get_shard_status(&self, _block: BlockHash, shard_id: ShardId) -> Result<ShardStatus> {
+	async fn get_shard_status(
+		&self,
+		_block: BlockHash,
+		shard_id: ShardId,
+	) -> Result<ShardStatus<BlockNumber>> {
 		let shards = self.shards.lock().unwrap();
 		let Some(shard) = shards.get(&shard_id) else {
 			return Ok(ShardStatus::Offline);

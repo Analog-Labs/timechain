@@ -1522,7 +1522,7 @@ impl_runtime_apis! {
 			Shards::get_shard_threshold(shard_id)
 		}
 
-		fn get_shard_status(shard_id: ShardId) -> ShardStatus {
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus<<<Block as BlockT>::Header as HeaderT>::Number> {
 			Shards::get_shard_status(shard_id)
 		}
 

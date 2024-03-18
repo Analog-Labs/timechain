@@ -445,19 +445,6 @@ contract GatewayTest is Test {
             data: abi.encodePacked(uint256(100_000))
         });
 
-        // {
-        //   uint256 temp;
-        //   assembly {
-        //     temp := IS_TEST.slot
-        //   }
-        //   bytes memory failedEncoded = abi.encodePacked(
-        //       bytes4(keccak256("store(address,bytes32,bytes32)")),
-        //       abi.encode(HEVM_ADDRESS, bytes32("failed"), bytes32(uint256(0x01)))
-        //   );
-        //   console.log("failed encoded:");
-        //   console.logBytes(failedEncoded);
-        //   assertEq(temp, 10);
-        // }
         bytes32 id = keccak256(gateway.getGmpTypedHash(gmp));
 
         // Touch the gateway contract

@@ -66,7 +66,13 @@ contract GatewayTest is Test {
             mstore(add(ptr, 32), 0x5b6000527f5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b0000000000000000000000)
             mstore(add(ptr, 64), 0x000000000060205260316000f300000000000000000000000000000000000000)
             let addr := create(0, ptr, 77)
-            if iszero(addr) { revert(0, 0) }
+            if iszero(addr) {
+              mstore(ptr, shl(224, 0x08c379a0))
+              mstore(add(ptr, 4), 0x20)
+              mstore(add(ptr, 36), 0x1f)
+              mstore(add(ptr, 68), 0x4661696c656420746f206465706c6f792048656c706572436f6e747261637400)
+              revert(ptr, 100)
+            }
             sstore(receiver.slot, addr)
         }
     }
@@ -84,7 +90,13 @@ contract GatewayTest is Test {
             let ptr := add(bytecode, 32)
             let size := mload(bytecode)
             let addr := create(0, ptr, size)
-            if iszero(addr) { revert(0, 0) }
+            if iszero(addr) {
+              mstore(ptr, shl(224, 0x08c379a0))
+              mstore(add(ptr, 4), 0x20)
+              mstore(add(ptr, 36), 0x1e)
+              mstore(add(ptr, 68), 0x4661696c656420746f206465706c6f7920546573745574696c732e79756c0000)
+              revert(ptr, 100)
+            }
             sstore(helperCtr.slot, addr)
         }
     }

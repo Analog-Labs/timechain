@@ -76,7 +76,7 @@ impl ShardStatus {
 					ShardStatus::PartialOffline(new_count)
 				}
 			},
-			ShardStatus::Committed => ShardStatus::Offline,
+			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
 			_ => *self,
 		}
 	}

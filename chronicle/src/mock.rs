@@ -313,7 +313,7 @@ impl Runtime for Mock {
 		if shard.commitments.len() == shard.members.len() {
 			return Ok(ShardStatus::Committed);
 		}
-		Ok(ShardStatus::Created(0))
+		Ok(ShardStatus::Created)
 	}
 
 	async fn get_shard_commitment(

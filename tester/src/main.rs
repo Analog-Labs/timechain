@@ -324,8 +324,9 @@ async fn latency_cycle(
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
 	let gmp_contract = tester.setup_gmp().await?;
-	let (contract_address, start_block) =
-		tester.deploy(contract, VotingContract::constructorCall(gmp_contract)).await?;
+	let (contract_address, start_block) = tester
+		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+		.await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	tester.create_task_and_wait(call, start_block).await;
@@ -338,7 +339,7 @@ async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 
 async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Result<()> {
 	tester.faucet().await;
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let (contract_address, start_block) = tester.deploy(contract, Vec::new()).await?;
 
 	let mut task_ids = vec![];
 	let call = tester::create_evm_view_call(contract_address);

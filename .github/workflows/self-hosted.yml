@@ -57,7 +57,7 @@ jobs:
       - run: sudo add-apt-repository ppa:ethereum/ethereum
       - run: sudo apt-get install -y protobuf-compiler solc
 
-      - run: forge fmt --check
+      - run: forge fmt contracts/*.sol --check
       - run: forge test -vvv --block-gas-limit=30000000 --optimize --optimizer-runs=200000  --use=0.8.24
 
       - run: cargo +stable fmt --all -- --check

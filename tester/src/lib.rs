@@ -1,8 +1,7 @@
 use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolCall, SolValue};
+use alloy_sol_types::{sol, SolCall, SolConstructor, SolValue};
 use anyhow::Result;
 use rosetta_client::Wallet;
-use sha3::{Digest, Keccak256};
 use sp_core::crypto::Ss58Codec;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
@@ -74,10 +73,14 @@ impl Tester {
 		}
 	}
 
-	pub async fn deploy(&self, path: &Path, constructor: &[u8]) -> Result<([u8; 20], u64)> {
+	pub async fn deploy(
+		&self,
+		path: &Path,
+		constructor: impl SolConstructor,
+	) -> Result<([u8; 20], u64)> {
 		println!("Deploying contract from {:?}", self.wallet.account().address);
 		let mut contract = compile_file(path)?;
-		contract.extend(constructor);
+		contract.extend(constructor.abi_encode());
 		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
 		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
 		let contract_address = tx_receipt.contract_address.unwrap();
@@ -101,8 +104,11 @@ impl Tester {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
 		}];
-		let constructor = (self.network_id, tss_keys).abi_encode_params();
-		self.deploy(&self.gateway_contract, &constructor).await
+		let call = IGateway::constructorCall {
+			network_id: self.network_id,
+			tss_keys,
+		};
+		self.deploy(&self.gateway_contract, &call).await
 	}
 
 	pub async fn deposit_funds(
@@ -232,7 +238,7 @@ impl Tester {
 		source_network: NetworkId,
 		source: [u8; 20],
 		dest: [u8; 20],
-		function: &str,
+		payload: Vec<u8>,
 		gas_limit: u128,
 	) -> Result<TaskId> {
 		let mut src = [0; 32];
@@ -245,7 +251,7 @@ impl Tester {
 				source: src,
 				dest_network: self.network_id(),
 				dest,
-				data: get_evm_function_hash(function),
+				data: payload,
 				salt,
 				gas_limit,
 			},
@@ -284,10 +290,26 @@ pub fn restart_node(node_name: String) {
 	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
+sol! {
+	#[derive(Debug, PartialEq, Eq)]
+	struct GmpVotingContract {
+		address dest;
+		uint16 network;
+	}
+
+	contract VotingContract {
+		constructor(address _gateway);
+		function registerGmpContracts(GmpVotingContract[] memory _registered) external;
+		function startVoting() external;
+		function vote(bool _vote) external;
+		function stats() public view returns (uint256[] memory);
+	}
+}
+
 pub fn create_evm_call(address: [u8; 20]) -> Function {
 	Function::EvmCall {
 		address,
-		input: get_evm_function_hash("vote_yes()"),
+		input: VotingContract::voteCall { _vote: true }.abi_encode(),
 		amount: 0,
 		gas_limit: None,
 	}
@@ -296,15 +318,8 @@ pub fn create_evm_call(address: [u8; 20]) -> Function {
 pub fn create_evm_view_call(address: [u8; 20]) -> Function {
 	Function::EvmViewCall {
 		address,
-		input: get_evm_function_hash("get_votes_stats()"),
+		input: VotingContract::statsCall {}.abi_encode(),
 	}
-}
-
-fn get_evm_function_hash(arg: &str) -> Vec<u8> {
-	let mut hasher = Keccak256::new();
-	hasher.update(arg);
-	let hash = hasher.finalize();
-	hash[..4].into()
 }
 
 pub struct TaskPhaseInfo {

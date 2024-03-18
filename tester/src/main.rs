@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tc_subxt::ext::futures::future::join_all;
-use tester::{TaskPhaseInfo, Tester, TesterParams};
+use tester::{TaskPhaseInfo, Tester, TesterParams, VotingContract};
 use time_primitives::{NetworkId, TaskPhase};
 
 #[derive(Parser, Debug)]
@@ -116,13 +116,14 @@ async fn main() -> Result<()> {
 			cycle,
 			block_timeout,
 		} => {
-			latency_checker(&tester, env, tasks, cycle, block_timeout, &contract).await?;
+			// latency_checker(&tester, env, tasks, cycle, block_timeout, &contract).await?;
+			todo!()
 		},
 	}
 	Ok(())
 }
 
-async fn latency_checker(
+/*async fn latency_checker(
 	tester: &Tester,
 	env: Environment,
 	tasks: u64,
@@ -318,11 +319,13 @@ async fn latency_cycle(
 	);
 	println!("Throughput for round {} is {} tasks per block", round_num, throughput);
 	Ok((average_total_latency, throughput))
-}
+}*/
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let gmp_contract = tester.setup_gmp().await?;
+	let (contract_address, start_block) =
+		tester.deploy(contract, VotingContract::constructorCall(gmp_contract)).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	tester.create_task_and_wait(call, start_block).await;

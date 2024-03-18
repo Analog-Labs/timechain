@@ -21,8 +21,8 @@ contract VotingContract {
     event GmpVote(bytes32 id, uint128 network, bytes32 indexed sender, bool vote);
     event ResultChanged(bool vote);
 
-    constructor(address _owner, address _gateway) {
-        owner = _owner;
+    constructor(address _gateway) {
+        owner = msg.sender;
         gateway = IGateway(_gateway);
         started = false;
         yes_votes = 0;

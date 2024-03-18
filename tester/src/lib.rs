@@ -1,5 +1,5 @@
 use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolCall, SolConstructor, SolValue};
+use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::Result;
 use rosetta_client::Wallet;
 use sp_core::crypto::Ss58Codec;
@@ -65,6 +65,10 @@ impl Tester {
 		})
 	}
 
+	pub fn wallet(&self) -> &Wallet {
+		&self.wallet
+	}
+
 	pub fn network_id(&self) -> NetworkId {
 		self.network_id
 	}
@@ -102,7 +106,6 @@ impl Tester {
 				uint256 xCoord;
 			}
 		}
-		use alloy_sol_types::SolType;
 		let tss_keys = vec![TssKeyR {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),

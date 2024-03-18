@@ -61,7 +61,7 @@ sp_api::decl_runtime_apis! {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
-		fn get_shard_status(shard_id: ShardId) -> ShardStatus<BlockNumber>;
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus;
 		fn get_shard_commitment(shard_id: ShardId) -> Commitment;
 	}
 
@@ -165,11 +165,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16>;
 
-	async fn get_shard_status(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<ShardStatus<BlockNumber>>;
+	async fn get_shard_status(&self, block: BlockHash, shard_id: ShardId) -> Result<ShardStatus>;
 
 	async fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId)
 		-> Result<Commitment>;

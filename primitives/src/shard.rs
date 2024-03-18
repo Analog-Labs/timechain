@@ -51,27 +51,21 @@ pub enum SerializedMemberStatus {
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
-pub enum ShardStatus<Blocknumber> {
-	Created(Blocknumber),
+pub enum ShardStatus {
+	Created,
 	Committed,
 	Online,
 	PartialOffline(u16),
 	Offline,
 }
 
-impl<B> Default for ShardStatus<B> {
+impl Default for ShardStatus {
 	fn default() -> Self {
 		Self::Offline
 	}
 }
 
-impl<B: Copy> ShardStatus<B> {
-	pub fn when_created(&self) -> Option<B> {
-		match self {
-			ShardStatus::Created(b) => Some(*b),
-			_ => None,
-		}
-	}
+impl ShardStatus {
 	pub fn online_member(&self) -> Self {
 		match self {
 			ShardStatus::PartialOffline(count) => {
@@ -82,6 +76,7 @@ impl<B: Copy> ShardStatus<B> {
 					ShardStatus::PartialOffline(new_count)
 				}
 			},
+			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
 			_ => *self,
 		}
 	}
@@ -98,7 +93,7 @@ impl<B: Copy> ShardStatus<B> {
 			},
 			// if a member goes offline before the group key is submitted,
 			// then the shard will never go online
-			ShardStatus::Created(_) => ShardStatus::Offline,
+			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
 			ShardStatus::Online => {
 				if max.is_zero() {
 					ShardStatus::Offline

@@ -9,8 +9,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, Function, NetworkId, PublicKey, ShardStatus, ShardsInterface,
-	TaskDescriptorParams, TasksInterface,
+	AccountId, ElectionsInterface, Function, MemberEvents, NetworkId, PublicKey, ShardStatus,
+	ShardsInterface, TaskDescriptorParams, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -58,6 +58,49 @@ fn roll_to(n: u32) {
 		System::set_block_number(i);
 		Tasks::on_initialize(i);
 	}
+}
+
+#[test]
+fn shard_not_stuck_in_committed_state() {
+	let a: AccountId = A.into();
+	let b: AccountId = B.into();
+	let c: AccountId = C.into();
+	//let d: AccountId = D.into();
+	let first_shard = [c.clone(), b.clone(), a.clone()].to_vec();
+	//let second_shard = [d.clone(), c.clone(), b.clone()].to_vec();
+	new_test_ext().execute_with(|| {
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(a.clone()).into(),
+			ETHEREUM,
+			pubkey_from_bytes(A),
+			get_peer_id(A),
+			11 * DOLLARS,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(b.clone()).into(),
+			ETHEREUM,
+			pubkey_from_bytes(B),
+			get_peer_id(B),
+			11 * DOLLARS,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(c.clone()).into(),
+			ETHEREUM,
+			pubkey_from_bytes(C),
+			get_peer_id(C),
+			11 * DOLLARS,
+		));
+		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
+			assert!(first_shard.contains(&m));
+		}
+		// put shard in a committed state
+		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Committed);
+		// then put all the members online
+		for i in first_shard {
+			Shards::member_online(&i, ETHEREUM);
+		}
+		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0).unwrap(), ShardStatus::Offline);
+	});
 }
 
 #[test]

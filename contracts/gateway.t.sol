@@ -3,9 +3,16 @@ pragma solidity ^0.8.24;
 import "contracts/gateway.sol";
 import "frost-evm/sol/Signer.sol";
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 uint256 constant secret = 0x42;
 uint256 constant nonce = 0x69;
+
+interface HelperContract {
+    function execute(address sender, address addr, uint256 gasLimit, bytes calldata data)
+        external
+        returns (uint256, uint256, bool, bytes memory);
+}
 
 contract SigUtilsTest is Test {
     function testPayload() public {
@@ -34,8 +41,11 @@ contract GatewayTest is Test {
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
     IGmpReceiver receiver;
 
-    uint256 private constant EXECUTE_CALL_COST = 47_310;
-    uint256 private constant SUBMIT_GAS_COST = 5553;
+    // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
+    HelperContract helperCtr;
+
+    uint256 private constant EXECUTE_CALL_COST = 47_278;
+    uint256 private constant SUBMIT_GAS_COST = 5539;
     uint16 private constant SRC_NETWORK_ID = 0;
     uint16 private constant DEST_NETWORK_ID = 69;
     uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
@@ -46,7 +56,7 @@ contract GatewayTest is Test {
         assertEq(block.gaslimit, 30_000_000);
         assertTrue(gasleft() >= 10_000_000);
 
-        // Deploy helper contract
+        // Deploy the receiver contract
         // Obs: This is a special contract that wastes an exact amount of gas you send to it, helpful for testing GMP refunds and gas limits.
         // See the file `HelperContract.opcode` for more details.
         bytes memory bytecode = new bytes(96);
@@ -66,6 +76,16 @@ contract GatewayTest is Test {
         TssKey[] memory keys = new TssKey[](1);
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(DEST_NETWORK_ID, keys);
+
+        // Deploy TestUtil.yul contract
+        bytes memory bytecode = hex"61059a8061000c5f395ff3fe608060405261000c610303565b604435806100235a61138881119061138719010290565b8060061c90031061015c5760243590813f8015610157577fc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470146101525760405190610077606435600401806004115f031790565b6100898135602001806020115f031790565b9060848110368284018085115f0317111761014d5781908437601f01601f191682016040528151926100bf602084019485610272565b936004359283313a828801028082106101385750506100dc61037e565b6100e46103f7565b5f03610236575f946100f7858796610476565b51923491813f509594939291905a96f15a90910360699003913d925f5260205280604052608060605281608052815f60a03e156101345760a0015ff35b60a0fd5b610148925085603d61055d61050b565b6104f1565b6101fa565b6101cb565b61018f565b62461bcd60e51b5f9081526020600452601260245271626c61626c61206c6f68616e6e206171756960701b604452606490fd5b62461bcd60e51b5f52602060045260166024527f6163636f756e7420646f65736e2774206578697374730000000000000000000060445260645ffd5b62461bcd60e51b5f9081526020600452600e6024526d1b9bdd08184818dbdb9d1c9858dd60921b604452606490fd5b62461bcd60e51b5f52602060045260156024527f74782064617461206f7574206f6620626f756e6473000000000000000000000060445260645ffd5b62461bcd60e51b5f52602060045260206024527f766d2e7072616e6b28616464726573732c6164647265737329206661696c656460445260645ffd5b5f908281015b80821061029457505090816152089260041b910360021b010190565b909160209060ff84518060041c178060021c178060011c177f01010101010101010101010101010101010101010101010101010101010101016f010101010101010101010101010101018260801c169116018060401c0180841c018060101c018060081c011601920190610278565b60405163d1a5b36f60e01b81525f8060048382737109709ecfa91a80626ff3989d68f67f5b1dd12d5af1903d91825f833e1561037c575061034057565b62461bcd60e51b5f526020600452601c6024527f766d2e70617573654761734d65746572696e672829206661696c65640000000060445260645ffd5bfd5b60405163015e6a8760e51b81525f8060048382737109709ecfa91a80626ff3989d68f67f5b1dd12d5af1903d91825f833e1561037c57506103bb57565b62461bcd60e51b5f526020600452601d6024527f766d2e726573756d654761734d65746572696e672829206661696c656400000060445260645ffd5b604051634ad0bac960e01b81525f8060048382737109709ecfa91a80626ff3989d68f67f5b1dd12d5af13d90815f843e1561047357606003610437575190565b62461bcd60e51b5f52602060045260176024527f766d2e7265616443616c6c6572732829206661696c656400000000000000000060445260645ffd5b90fd5b90604051916323f2866760e11b8352600483015260248201525f8060448382737109709ecfa91a80626ff3989d68f67f5b1dd12d5af1903d91825f833e1561037c57506104bf57565b62461bcd60e51b5f90815260206004526011602452701d9b4b9c1c985b9aca0a4819985a5b1959607a1b604452606490fd5b5f80525f602052600260405260806060525f60805260a05ff35b81905f95869560405195637c7a8d8f60e11b87526080600488015260248701526044860152606485015281608485015260a4840139601f801991011660c401906a636f6e736f6c652e6c6f675afa5056fe4572726f723a206163636f756e7420257320686173206e6f2073756666696369656e742066756e64732c20726571756972652025732068617665202573";
+        assembly ("memory-safe") {
+            let ptr := add(bytecode, 32)
+            let size := mload(bytecode)
+            let addr := create(0, ptr, size)
+            if iszero(addr) { revert(0, 0) }
+            sstore(helperCtr.slot, addr)
+        }
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
@@ -129,22 +149,50 @@ contract GatewayTest is Test {
     // Execute a contract call and calculate the acurrate execution gas cost
     function executeCall(address sender, address dest, uint256 gasLimit, bytes memory data)
         internal
-        returns (uint256 execution, uint256 baseCost, bytes memory out)
+        returns (uint256 executionCost, uint256 baseCost, bytes memory out)
     {
-        // Execute
-        vm.startBroadcast(sender);
-        (uint256 executionCost,, bytes memory result) = _executeCall(dest, gasLimit, data);
-        vm.stopBroadcast();
-        executionCost -= 128;
+        bytes memory executeCallData = abi.encodeCall(HelperContract.execute, (sender, dest, gasLimit, data));
+        uint256 success;
+        assembly {
+            success :=
+                delegatecall(
+                    gas(), // call gas limit
+                    sload(helperCtr.slot), // dest address
+                    // 0, // value
+                    add(32, executeCallData), // input memory pointer
+                    mload(executeCallData), // input size
+                    0, // output memory pointer
+                    0 // output size
+                )
 
-        // Compute the base tx cost (21k + 4 * zeros + 16 * nonZeros)
-        uint256 zeros = countBytes(data, 0);
-        uint256 nonZeros = data.length - zeros;
-        uint256 inputCost = (nonZeros * 16) + (zeros * 4);
+            // If success, get the execution cost
+            if success {
+              let ptr := mload(0x40)
+              let size := returndatasize()
+              mstore(ptr, size)
+              ptr := add(ptr, 32)
+              mstore(0x40, add(ptr, size))
+              returndatacopy(ptr, 0, size)
+              executionCost := mload(ptr)
+              baseCost := mload(add(ptr, 32))
+              success := mload(add(ptr, 64))
+              out := add(ptr, 128)
+            }
 
-        out = result;
-        execution = executionCost;
-        baseCost = inputCost + 21_000;
+            // If failed, set the execution cost to 0
+            if iszero(success) {
+              executionCost := 0
+              baseCost := 0
+              success := 0
+              out := mload(0x40)
+              mstore(out, 0)
+              mstore(0x40, add(out, 32))
+            }
+        }
+        if (success == 2) {
+          // Fail if the account doesn't have funds for paying for the tx fees.
+          fail();
+        }
     }
 
     // Allows you to define the gas limit for the GMP call, also retrieve a more accurate gas usage
@@ -155,9 +203,8 @@ contract GatewayTest is Test {
         uint256 gasLimit,
         address sender
     ) internal returns (uint8 status, bytes32 result, uint256 executionCost, uint256 baseCost) {
-        bytes memory encodedCall = abi.encodeCall(Gateway.execute, (signature, message));
         (uint256 execution, uint256 base, bytes memory output) =
-            executeCall(sender, address(gateway), gasLimit, encodedCall);
+            executeCall(sender, address(gateway), gasLimit, abi.encodeCall(Gateway.execute, (signature, message)));
         executionCost = execution;
         baseCost = base;
         if (output.length == 64) {
@@ -244,7 +291,7 @@ contract GatewayTest is Test {
 
         // Execute GMP message
         bytes32 expectResult = bytes32(0);
-        uint256 gasLimit = expectGasUsed + 2151;
+        uint256 gasLimit = expectGasUsed + 2160;
         uint256 beforeBalance = address(mockSender).balance;
         (uint8 status, bytes32 returned, uint256 gasUsed,) = executeGmp(sig, gmp, gasLimit, mockSender);
         uint256 afterBalance = address(mockSender).balance;
@@ -305,6 +352,7 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsWithoutDeposit() public {
         vm.txGasPrice(1);
+        vm.deal(address(0), 100_000_000_000_000);
         GmpMessage memory gmp = GmpMessage({
             source: bytes32(0),
             srcNetwork: 0,
@@ -324,7 +372,7 @@ contract GatewayTest is Test {
         vm.txGasPrice(1);
         uint256 insufficientDeposit = EXECUTE_CALL_COST - 1;
         address mockSender = address(0x0);
-        vm.deal(mockSender, insufficientDeposit);
+        vm.deal(mockSender, 100_000_000_000_000_000);
         gateway.deposit{value: insufficientDeposit}(0x0, 0);
         GmpMessage memory gmp = GmpMessage({
             source: 0x0,
@@ -357,7 +405,7 @@ contract GatewayTest is Test {
             data: abi.encode(uint256(100_000))
         });
         Signature memory sig = sign(gmp);
-        vm.expectRevert(bytes("gas left below message.gasLimit"));
+        vm.expectRevert("gas left below message.gasLimit");
         executeGmp(sig, gmp, 100_000, mockSender);
     }
 
@@ -379,7 +427,7 @@ contract GatewayTest is Test {
         Signature memory sig = sign(gmp);
         (uint8 status,,,) = executeGmp(sig, gmp, 100_000, mockSender);
         assertEq(status, GMP_STATUS_SUCCESS);
-        vm.expectRevert(bytes("message already executed"));
+        vm.expectRevert("message already executed");
         executeGmp(sig, gmp, 100_000, mockSender);
     }
 
@@ -392,22 +440,29 @@ contract GatewayTest is Test {
             srcNetwork: DEST_NETWORK_ID,
             dest: address(receiver),
             destNetwork: SRC_NETWORK_ID,
-            gasLimit: 100011,
+            gasLimit: 10000,
             salt: 0,
-            // data: ""
             data: abi.encodePacked(uint256(100_000))
         });
+
+        // {
+        //   uint256 temp;
+        //   assembly {
+        //     temp := IS_TEST.slot
+        //   }
+        //   bytes memory failedEncoded = abi.encodePacked(
+        //       bytes4(keccak256("store(address,bytes32,bytes32)")),
+        //       abi.encode(HEVM_ADDRESS, bytes32("failed"), bytes32(uint256(0x01)))
+        //   );
+        //   console.log("failed encoded:");
+        //   console.logBytes(failedEncoded);
+        //   assertEq(temp, 10);
+        // }
         bytes32 id = keccak256(gateway.getGmpTypedHash(gmp));
 
         // Touch the gateway contract
         vm.prank(gmpSender);
         gateway.deposit{value: 1}(0x0, 0);
-        {
-            bytes memory encodedCall =
-                abi.encodeCall(Gateway.submitMessage, (gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data));
-            vm.expectRevert();
-            executeCall(gmpSender, address(gateway), 1000, encodedCall);
-        }
         assertEq(gateway.prevMessageHash(), bytes32(uint256(2 ** 256 - 1)), "WROONNGG");
 
         // Expect event

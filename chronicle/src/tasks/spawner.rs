@@ -81,8 +81,17 @@ where
 			.await?
 			.into_iter()
 			.map(|log| {
-				let topics = log.topics.into_iter().map(|topic| B256::from(topic.0));
-				IGateway::GmpCreated::decode_log(topics, log.data.as_ref(), true)
+				let topics =
+					log.topics.into_iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
+				let log = alloy_primitives::Log::new(
+					gateway_contract.into(),
+					topics,
+					log.data.0.to_vec().into(),
+				)
+				.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
+				let log = IGateway::GmpCreated::decode_log(&log, true)
+					.map_err(|e| anyhow::Error::from(e))?;
+				Ok::<IGateway::GmpCreated, anyhow::Error>(log.data)
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(logs)

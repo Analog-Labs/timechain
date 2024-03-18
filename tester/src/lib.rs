@@ -10,7 +10,7 @@ use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated}
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
 	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
-	TaskPhase, TssPublicKey,
+	TaskPhase, TssKey, TssPublicKey,
 };
 
 pub struct TesterParams {
@@ -28,6 +28,8 @@ pub struct Tester {
 	runtime: SubxtClient,
 	wallet: Wallet,
 }
+
+type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
 
 impl Tester {
 	pub async fn new(args: TesterParams) -> Result<Self> {
@@ -100,15 +102,16 @@ impl Tester {
 				uint256 xCoord;
 			}
 		}
-		let tss_keys = vec![TssKey {
+		use alloy_sol_types::SolType;
+		let tss_keys = vec![TssKeyR {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
 		}];
 		let call = IGateway::constructorCall {
-			network_id: self.network_id,
-			tss_keys,
+			networkId: self.network_id,
+			keys: tss_keys,
 		};
-		self.deploy(&self.gateway_contract, &call).await
+		self.deploy(&self.gateway_contract, call).await
 	}
 
 	pub async fn deposit_funds(

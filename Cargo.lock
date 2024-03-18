@@ -167,9 +167,9 @@ checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 
 [[package]]
 name = "alloy-primitives"
-version = "0.5.4"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c234f92024707f224510ff82419b2be0e1d8e1fd911defcac5a085cd7f83898"
+checksum = "600d34d8de81e23b6d909c094e23b3d357e01ca36b78a8c5424c501eedbe86f0"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -178,6 +178,7 @@ dependencies = [
  "derive_more 0.99.17",
  "hex-literal",
  "itoa",
+ "k256",
  "keccak-asm",
  "proptest",
  "rand 0.8.5",
@@ -198,9 +199,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro"
-version = "0.5.4"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "970e5cf1ca089e964d4f7f7afc7c9ad642bfb1bdc695a20b0cba3b3c28954774"
+checksum = "e86ec0a47740b20bc5613b8712d0d321d031c4efc58e9645af96085d5cccfc27"
 dependencies = [
  "const-hex",
  "dunce",
@@ -216,9 +217,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-types"
-version = "0.5.4"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a059d4d2c78f8f21e470772c75f9abd9ac6d48c2aaf6b278d1ead06ed9ac664"
+checksum = "ad09ec5853fa700d12d778ad224dcdec636af424d29fad84fb9a2f16a5b0ef09"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-macro",
@@ -1246,15 +1247,15 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
-
-[[package]]
-name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
+
+[[package]]
+name = "base64"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
 
 [[package]]
 name = "base64ct"
@@ -12586,7 +12587,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -12670,7 +12671,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12715,7 +12716,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -13038,7 +13039,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -13097,7 +13098,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "Inflector",
  "expander",
@@ -13224,7 +13225,7 @@ source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.8.0#ec7
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 
 [[package]]
 name = "sp-storage"
@@ -13270,7 +13271,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -13333,7 +13334,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -13486,7 +13487,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1d60f9ca9ae82621380530a19162652c13106a4f"
+source = "git+https://github.com/paritytech/polkadot-sdk#0c6c837f689a287583508506e342ba07687e8d26"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -13845,11 +13846,11 @@ dependencies = [
 
 [[package]]
 name = "stun-rs"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26590a8130240c4a83c56c8db3808488fc8bf888353dd436746af06bfe81ba3"
+checksum = "0adebf9fb8fba5c39ee34092b0383f247e4d1255b98fcffec94b4b797b85b677"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.22.0",
  "bounded-integer",
  "byteorder",
  "crc",
@@ -14347,9 +14348,9 @@ dependencies = [
 
 [[package]]
 name = "syn-solidity"
-version = "0.5.4"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91ede2e5b2c6bfac4bc0ff4499957a11725dc12a7ddb86270e827ef575892553"
+checksum = "cb3d0961cd53c23ea94eeec56ba940f636f6394788976e9f16ca5ee0aca7464a"
 dependencies = [
  "paste",
  "proc-macro2",

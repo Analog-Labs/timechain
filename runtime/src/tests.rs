@@ -38,7 +38,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut balances = vec![];
 	for i in 1..=(SHARD_SIZE * 3) {
-		balances.push((acc_pub(i.try_into().unwrap()).into(), 20 * DOLLARS));
+		balances.push((acc_pub(i.try_into().unwrap()).into(), 30 * DOLLARS));
 	}
 	pallet_balances::GenesisConfig::<Runtime> { balances }
 		.assimilate_storage(&mut storage)
@@ -74,21 +74,21 @@ fn shard_not_stuck_in_committed_state() {
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
 			assert!(first_shard.contains(&m));
@@ -117,21 +117,21 @@ fn elections_chooses_top_members_by_stake() {
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
 			assert!(first_shard.contains(&m));
@@ -141,7 +141,7 @@ fn elections_chooses_top_members_by_stake() {
 			ETHEREUM,
 			pubkey_from_bytes(D),
 			get_peer_id(D),
-			12 * DOLLARS,
+			22 * DOLLARS,
 		));
 		Elections::shard_offline(ETHEREUM, vec![a.clone(), b.clone(), c.clone()]);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(1) {
@@ -163,21 +163,21 @@ fn write_phase_timeout_reassigns_task() {
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),
@@ -223,21 +223,21 @@ fn register_unregister_preserves_task_migration() {
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			11 * DOLLARS,
+			21 * DOLLARS,
 		));
 		// verify shard 0 created for Network Ethereum
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
@@ -278,7 +278,7 @@ fn register_unregister_preserves_task_migration() {
 			ETHEREUM,
 			pubkey_from_bytes(D),
 			get_peer_id(D),
-			12 * DOLLARS,
+			22 * DOLLARS,
 		));
 		// new member
 		assert_ok!(Members::register_member(
@@ -286,7 +286,7 @@ fn register_unregister_preserves_task_migration() {
 			ETHEREUM,
 			pubkey_from_bytes(E),
 			get_peer_id(E),
-			13 * DOLLARS,
+			23 * DOLLARS,
 		));
 		// verify shard 1 created for Network Ethereum
 		assert_eq!(Shards::shard_network(1), Some(ETHEREUM));
@@ -341,9 +341,14 @@ fn min_shard_stake_greater_than_register_unregister_task_rewards() {
 			.saturating_add(<Runtime as pallet_tasks::Config>::BaseWriteReward::get())
 			.saturating_add(total_send_message_task_rewards);
 		// fees are for 2 write tasks: RegisterShard and UnRegisterShard
-		let shard_registration_fees = total_rewards_per_write_task.saturating_mul(2);
+		let shard_registration_base_fees = total_rewards_per_write_task.saturating_mul(2);
+		// multiply shard registration fees by 2 to account for margin expected by Network rewards
+		let shard_registration_fees = shard_registration_base_fees.saturating_mul(2);
 		let stake_per_member: u128 = <Runtime as pallet_members::Config>::MinStake::get();
 		let min_shard_stake = stake_per_member.saturating_mul(shard_size.into());
-		assert!(min_shard_stake > shard_registration_fees);
+		assert!(
+			min_shard_stake > shard_registration_fees,
+			"{min_shard_stake} <= {shard_registration_fees}"
+		);
 	});
 }

@@ -44,8 +44,8 @@ use sp_runtime::{
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider, Header as HeaderT,
-		NumberFor, OpaqueKeys,
+		AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider, NumberFor,
+		OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Percent, SaturatedConversion,
@@ -1134,7 +1134,7 @@ impl pallet_members::Config for Runtime {
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Networks = Networks;
-	type MinStake = ConstU128<{ 10 * DOLLARS }>;
+	type MinStake = ConstU128<{ 20 * DOLLARS }>;
 	type HeartbeatTimeout = ConstU32<50>;
 }
 

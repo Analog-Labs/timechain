@@ -53,11 +53,11 @@ contract GatewayTest is Test {
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
     IGmpReceiver receiver;
 
-    // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
-    TransactionExecutor helperCtr;
+    // Transaction Executor helps on calculate an acurrate gas cost for a contract call
+    TransactionExecutor executor;
 
     uint256 private constant EXECUTE_CALL_COST = 47_278;
-    uint256 private constant SUBMIT_GAS_COST = 5539 + 27;
+    uint256 private constant SUBMIT_GAS_COST = 5566;
     uint16 private constant SRC_NETWORK_ID = 0;
     uint16 private constant DEST_NETWORK_ID = 69;
     uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
@@ -74,8 +74,8 @@ contract GatewayTest is Test {
             string memory root = vm.projectRoot();
             string memory path = string.concat(root, "/out/TransactionExecutor.yul/TransactionExecutor.json");
             bytes memory bytecode = vm.readFile(path).readBytes(".bytecode.object");
-            helperCtr = TransactionExecutor(TestUtils.deployContract(bytecode));
-            vm.allowCheatcodes(address(helperCtr));
+            executor = TransactionExecutor(TestUtils.deployContract(bytecode));
+            vm.allowCheatcodes(address(executor));
         }
 
         // Deploy the Receiver contract
@@ -133,7 +133,7 @@ contract GatewayTest is Test {
         require(sender.balance == senderBalance, "unexpected sender balance");
 
         bytes memory encodedCall = abi.encodeCall(TransactionExecutor.execute, (sender, dest, gasLimit, data));
-        (bool success, bytes memory result) = TestUtils.delegateCall(address(helperCtr), encodedCall);
+        (bool success, bytes memory result) = TestUtils.delegateCall(address(executor), encodedCall);
         if (success) {
             (executionCost, baseCost,, out) = abi.decode(result, (uint256, uint256, uint256, bytes));
         } else {
@@ -347,7 +347,6 @@ contract GatewayTest is Test {
 
     function testExecuteRevertsBelowGasLimit() public {
         vm.txGasPrice(1);
-        uint256 gasLimit = 1_000_000;
         address sender = TestUtils.createTestAccount(100 ether);
         gateway.deposit{value: 20 ether}(sender.source(), SRC_NETWORK_ID);
         GmpMessage memory gmp = GmpMessage({

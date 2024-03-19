@@ -57,26 +57,6 @@ object "TransactionExecutor" {
                 // Calculate base cost
                 let baseCost := calculateBaseCost(add(ptr, 32), mload(ptr))
 
-                // Check if the sender has funds for paying for the transaction fees
-                // {
-                //     let gasLimit := calldataload(68)
-                //     let sender := calldataload(4)
-                //     let senderBalance := balance(sender)
-                //     let weiCost := mul(add(baseCost, gasLimit), gasprice())
-
-                //     if lt(senderBalance, weiCost) {
-                //         // Log error
-                //         logStrAddrUintUint(
-                //             dataoffset("insufficient_funds"),
-                //             datasize("insufficient_funds"),
-                //             sender,
-                //             weiCost,
-                //             senderBalance
-                //         )
-                //         fail("insufficient funds")
-                //     }
-                // }
-
                 // resume gas metering
                 resumeGasMetering()
 

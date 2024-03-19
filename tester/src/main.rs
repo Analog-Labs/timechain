@@ -394,6 +394,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 		.deposit_funds(gmp_contract, network, contract1, gas_limit * 10_000_000_000)
 		.await?;
 
+	println!("submitting vote");
 	let res = tester
 		.wallet()
 		.eth_send_call(

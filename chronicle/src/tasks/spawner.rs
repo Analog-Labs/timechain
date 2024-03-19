@@ -1,6 +1,6 @@
 use alloy_primitives::B256;
 use alloy_sol_types::SolEvent;
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::client::GenericClientStream;
@@ -151,12 +151,16 @@ where
 				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
 					return Ok(Payload::Gmp(Vec::new()));
 				};
-				let logs = self
+				let logs: Vec<_> = self
 					.get_gmp_events_at(gateway_contract, target_block_number)
-					.await?
+					.await
+					.context("get_gmp_events_at")?
 					.into_iter()
 					.map(|event| Msg::from_event(event, network_id))
 					.collect();
+				if !logs.is_empty() {
+					tracing::info!("read {} messages", logs.len());
+				}
 				Payload::Gmp(logs)
 			},
 			_ => anyhow::bail!("not a read function {function:?}"),
@@ -193,10 +197,10 @@ where
 		function: Function,
 		block_num: BlockNumber,
 	) -> Result<()> {
-		let result = self
-			.execute_function(&function, target_block)
-			.await
-			.map_err(|err| format!("{err}"));
+		let result = self.execute_function(&function, target_block).await.map_err(|err| {
+			tracing::error!("{:#?}", err);
+			format!("{err}")
+		});
 		let payload = match result {
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),

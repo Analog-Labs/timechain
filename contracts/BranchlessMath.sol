@@ -67,7 +67,6 @@ library BranchlessMath {
 
     /**
      * @dev Convert a bool into uint256, solidity doesn't allow this conversion.
-     * equivalent to: x > y ? x - y : 0
      */
     function boolToUint(bool b) internal pure returns (uint256 value) {
         assembly ("memory-safe") {

@@ -284,6 +284,26 @@ contract Gateway is IGateway, SigUtils {
         return _shards[id];
     }
 
+    /**
+     * @dev Convert an address to GMP bytes32 identifier
+     */
+    function addressToBytes32(address account, bool isContract) public pure returns (bytes32) {
+        uint256 contractFlag = BranchlessMath.boolToUint(isContract) << 160;
+        return bytes32(contractFlag | uint256(uint160(account)));
+    }
+
+    /**
+     * @dev Convert an address to GMP bytes32 identifier
+     * Obs: Insecure, used only for testing purposes
+     */
+    function addressToBytes32(address account) public view returns (bytes32) {
+        // Obs: account.code.length > 0 can be bypassed: https://solidity-by-example.org/hacks/contract-size/
+        // The most secure way to check if the sender is a contract is check if msg.sender != tx.origin
+        // as tx.origin is always an EOA.
+        bool isContract = account == tx.origin ? false : account.code.length > 0;
+        return addressToBytes32(account, isContract);
+    }
+
     // Check if shard exists, verify TSS signature and increment shard nonce
     function _verifySignature(Signature memory signature, bytes32 message) private view {
         // Load shard from storage
@@ -418,9 +438,8 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Deposit balance to refund callers of execute
-    function deposit(bytes32 source, uint16 network) public payable {
-        uint256 depositBefore = _deposits[source][network];
-        _deposits[source][network] = depositBefore + msg.value;
+    function deposit(bytes32 source, uint16 network) external payable {
+        _deposits[source][network] += msg.value;
     }
 
     // Execute GMP message
@@ -519,10 +538,10 @@ contract Gateway is IGateway, SigUtils {
         // TODO: charge the gas cost of the Gateway execution
 
         // Check if the msg.sender is a contract or an EOA
-        uint256 isContract = BranchlessMath.choice(tx.origin != msg.sender, 1, 0);
+        bool isContract = tx.origin != msg.sender;
 
         // We use 20 bytes for the address and 1 bit for contract flag
-        bytes32 source = bytes32(isContract << 160) | bytes32(uint256(uint160(msg.sender)));
+        bytes32 source = addressToBytes32(msg.sender, isContract);
 
         // Salt is equal to the previous message id (EIP-712 hash), this allows us to establish a sequence and eaily query the message history.
         bytes32 prevHash = prevMessageHash;

@@ -1,4 +1,4 @@
-object "TestUtils" {
+object "TransactionExecutor" {
     // This is the constructor code of the contract.
     code {
         // Deploy the contract
@@ -22,7 +22,7 @@ object "TestUtils" {
                 gasAvailable := sub(gasAvailable, shr(6, gasAvailable))
 
                 if lt(gasAvailable, gasLimit) {
-                    fail(21, "insufficient gas left")
+                    fail("insufficient gas left")
                 }
             }
 
@@ -30,11 +30,11 @@ object "TestUtils" {
             {
                 let codehash := extcodehash(calldataload(36))
                 if iszero(codehash) {
-                    fail(22, "account doesn't exists")
+                    fail("target addr not found")
                 }
                 if eq(codehash, 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470) {
                     // not a contract
-                    fail(14, "not a contract")
+                    fail("not a contract")
                 }
             }
 
@@ -47,7 +47,7 @@ object "TestUtils" {
 
                     // Check if calldata is within bounds
                     if or(gt(saturatingAdd(offset, size), calldatasize()), lt(offset, 132)) {
-                        fail(21, "tx data out of bounds")
+                        fail("tx data out of bounds")
                     }
 
                     ptr := alloc(alignValue(size))
@@ -58,24 +58,24 @@ object "TestUtils" {
                 let baseCost := calculateBaseCost(add(ptr, 32), mload(ptr))
 
                 // Check if the sender has funds for paying for the transaction fees
-                {
-                    let gasLimit := calldataload(68)
-                    let sender := calldataload(4)
-                    let senderBalance := balance(sender)
-                    let weiCost := mul(add(baseCost, gasLimit), gasprice())
+                // {
+                //     let gasLimit := calldataload(68)
+                //     let sender := calldataload(4)
+                //     let senderBalance := balance(sender)
+                //     let weiCost := mul(add(baseCost, gasLimit), gasprice())
 
-                    if lt(senderBalance, weiCost) {
-                        // Log error
-                        logStrAddrUintUint(
-                            dataoffset("insufficient_funds"),
-                            datasize("insufficient_funds"),
-                            sender,
-                            weiCost,
-                            senderBalance
-                        )
-                        fail(18, "insufficient funds")
-                    }
-                }
+                //     if lt(senderBalance, weiCost) {
+                //         // Log error
+                //         logStrAddrUintUint(
+                //             dataoffset("insufficient_funds"),
+                //             datasize("insufficient_funds"),
+                //             sender,
+                //             weiCost,
+                //             senderBalance
+                //         )
+                //         fail("insufficient funds")
+                //     }
+                // }
 
                 // resume gas metering
                 resumeGasMetering()
@@ -86,7 +86,7 @@ object "TestUtils" {
 
                     // User mode should be NONE
                     if gt(callerMode, 0) {
-                        fail(26, "disable prank or broadcast")
+                        fail("disable prank or broadcast")
                     }
                     let sender := calldataload(4)
                     prank(sender, sender)
@@ -140,7 +140,9 @@ object "TestUtils" {
             }
 
             // Return an internal error
-            function fail(size, message) {
+            function fail(message) {
+                let size := getMessageSize(message)
+
                 // Prefix message with "Internal Error: "
                 let prefix
                 prefix, message := concatStr("Internal Error: ", 16, message)
@@ -165,6 +167,17 @@ object "TestUtils" {
                 let shift := shl(3, size)
                 r0 := or(prefix, shr(shift, str))
                 r1 := shl(sub(256, shift), str)
+            }
+
+            // Calculate message size in bytes
+            function getMessageSize(message) -> size {
+                size := 0
+                size := add(size, shl(4, iszero(iszero(and(0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, message)))))
+                size := add(size, shl(3, iszero(iszero(and(0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF, message)))))
+                size := add(size, shl(2, iszero(iszero(and(0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF, message)))))
+                size := add(size, shl(1, iszero(iszero(and(0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF, message)))))
+                size := add(size, iszero(iszero(and(0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF, message))))
+                size := add(size, iszero(iszero(and(0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00, message))))
             }
 
             // Count non-zero bytes in a 256bit word in parallel
@@ -220,7 +233,7 @@ object "TestUtils" {
                 // vm call reverted
                 if iszero(success) {
                     consoleLog(ptr, size)
-                    fail(18, "forge vm error")
+                    fail("forge vm error")
                 }
                 r := size
             }
@@ -232,7 +245,7 @@ object "TestUtils" {
                 // 0xd1a5b36f == bytes4(keccak256("pauseGasMetering()"))
                 mstore(ptr, shl(224, 0xd1a5b36f))
                 if callForgeVM(ptr, 4) {
-                    fail(28, "vm.pauseGasMetering() failed")
+                    fail("vm.pauseGasMetering() failed")
                 }
             }
 
@@ -243,7 +256,7 @@ object "TestUtils" {
                 // 0x2bcd50e0 == bytes4(keccak256("resumeGasMetering()"))
                 mstore(ptr, shl(224, 0x2bcd50e0))
                 if callForgeVM(ptr, 4) {
-                    fail(29, "vm.resumeGasMetering() failed")
+                    fail("vm.resumeGasMetering() failed")
                 }
             }
 
@@ -255,7 +268,7 @@ object "TestUtils" {
                 mstore(ptr, shl(224, 0x4ad0bac9))
                 let r := callForgeVM(ptr, 4)
                 if iszero(eq(r, 96)) {
-                    fail(23, "vm.readCallers() failed")
+                    fail("vm.readCallers() failed")
                 }
                 callerMode := mload(ptr)
             }
@@ -269,7 +282,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), sender)
                 mstore(add(ptr, 36), txOrigin)
                 if callForgeVM(ptr, 68) {
-                    fail(17, "vm.prank() failed")
+                    fail("vm.prank() failed")
                 }
             }
 
@@ -282,7 +295,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), sender)
                 mstore(add(ptr, 36), txOrigin)
                 if callForgeVM(ptr, 68) {
-                    fail(22, "vm.startPrank() failed")
+                    fail("vm.startPrank() failed")
                 }
             }
 
@@ -293,7 +306,7 @@ object "TestUtils" {
                 // 0x90c5013b == bytes4(keccak256("stopPrank()"))
                 mstore(ptr, shl(224, 0x90c5013b))
                 if callForgeVM(ptr, 4) {
-                    fail(21, "vm.stopPrank() failed")
+                    fail("vm.stopPrank() failed")
                 }
             }
 
@@ -306,7 +319,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), who)
                 mstore(add(ptr, 36), newBalance)
                 if callForgeVM(ptr, 68) {
-                    fail(31, "vm.deal(address,uint256) failed")
+                    fail("vm.deal(address,uint256) failed")
                 }
             }
 
@@ -319,7 +332,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), account)
                 mstore(add(ptr, 36), slot)
                 if eq(callForgeVM(ptr, 68), 32) {
-                    fail(31, "vm.load(address,bytes32) failed")
+                    fail("vm.load(address,bytes32) failed")
                 }
                 leet := mload(ptr)
             }
@@ -335,7 +348,7 @@ object "TestUtils" {
                 mstore(add(ptr, 68), value)
                 if callForgeVM(ptr, 100) {
                     // vm.store(address,bytes32) failed
-                    fail(32, "vm.store(address,bytes32) failed")
+                    fail("vm.store(address,bytes32) failed")
                 }
             }
 
@@ -349,7 +362,7 @@ object "TestUtils" {
                 size := alignValue(size)
                 if callForgeVM(ptr, add(68, size)) {
                     // vm.expectRevert(string) failed
-                    fail(30, "vm.expectRevert(string) failed")
+                    fail("vm.expectRevert(string) failed")
                 }
             }
 
@@ -360,7 +373,7 @@ object "TestUtils" {
                 mstore(add(ptr, 4), addr)
                 if callForgeVM(ptr, 36) {
                     // vm.allowCheatcodes(address) fail
-                    fail(31, "allowCheatcodes(address) failed")
+                    fail("allowCheatcodes(address) failed")
                 }
             }
 
@@ -412,6 +425,20 @@ object "TestUtils" {
                 mstore(add(ptr, 4), 0x20) // offset
                 mstore(add(ptr, 36), size) // size
                 codecopy(add(ptr, 68), offset, size) // string
+                size := alignValue(size)
+                consoleLog(ptr, add(100, size))
+            }
+
+            // log(string,address)
+            function logAddress(message, addr) {
+                let size := getMessageSize(message)
+                let ptr := alloc(0)
+                // 0x319af333 == bytes4(keccak256("log(string,address)"))
+                mstore(ptr, shl(224, 0x319af333))
+                mstore(add(ptr, 4), 0x40) // offset
+                mstore(add(ptr, 36), addr) // address
+                mstore(add(ptr, 68), size) // size
+                mstore(add(ptr, 100), message) // string
                 size := alignValue(size)
                 consoleLog(ptr, add(100, size))
             }

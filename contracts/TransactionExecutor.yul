@@ -1,3 +1,6 @@
+// To compile this contract, use:
+// solc --evm-version=cancun --strict-assembly --yul-dialect=evm --optimize-yul --optimize --optimize-runs=200000 --bin ./contracts/TransactionExecutor.yul
+
 object "TransactionExecutor" {
     // This is the constructor code of the contract.
     code {

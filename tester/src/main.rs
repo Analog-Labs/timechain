@@ -413,22 +413,22 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 		let stats =
 			tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
 		let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
-		let VotingContract::statsReturn { _0: stats } =
-			VotingContract::statsCall::abi_decode_returns(&stats, true)?;
+		let stats = VotingContract::statsCall::abi_decode_returns(&stats, true)?._0;
 		let yes_votes = stats[0].try_into().unwrap();
 		let no_votes = stats[1].try_into().unwrap();
 		Ok((yes_votes, no_votes))
 	}
 
 	let target = stats(tester, contract1, Some(block)).await?;
+	println!("1: yes: {} no: {}", target.0, target.1);
 	assert_eq!(target, (1, 0));
 	loop {
+		tokio::time::sleep(Duration::from_secs(60)).await;
 		let current = stats(tester, contract2, None).await?;
-		println!("yes: {} no: {}", current.0, current.1);
+		println!("2: yes: {} no: {}", current.0, current.1);
 		if current == target {
 			break;
 		}
-		tokio::time::sleep(Duration::from_secs(60)).await;
 	}
 	Ok(())
 }

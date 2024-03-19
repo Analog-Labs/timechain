@@ -372,7 +372,8 @@ pub mod pallet {
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
 				if shard_id != bootstrap {
-					Self::register_shard(shard_id, network);
+					// if shard cannot pay for registration, fail without panicking
+					let _ = Self::register_shard(shard_id, network);
 				}
 			}
 			Gateway::<T>::insert(network, address);
@@ -507,7 +508,7 @@ pub mod pallet {
 			Self::start_task(task, TaskFunder::Inflation).unwrap();
 		}
 
-		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
+		fn register_shard(shard_id: ShardId, network_id: NetworkId) -> DispatchResult {
 			Self::start_task(
 				TaskDescriptorParams::new(
 					network_id,
@@ -516,7 +517,6 @@ pub mod pallet {
 				),
 				TaskFunder::Shard(shard_id),
 			)
-			.unwrap();
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {
@@ -833,23 +833,26 @@ pub mod pallet {
 
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: NetworkId) {
-			NetworkShards::<T>::insert(network, shard_id, ());
 			if Gateway::<T>::get(network).is_some() {
-				Self::register_shard(shard_id, network);
-			}
-			Self::schedule_tasks(network);
+				if Self::register_shard(shard_id, network).is_ok() {
+					NetworkShards::<T>::insert(network, shard_id, ());
+					Self::schedule_tasks(network);
+				} // else silent failure
+			} // else silent failure
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {
-			NetworkShards::<T>::remove(network, shard_id);
-			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
-				TaskShard::<T>::remove(task_id);
-				if Self::is_runnable(task_id) {
-					UnassignedTasks::<T>::insert(network, task_id, ());
-				}
-			});
-			if ShardRegistered::<T>::take(shard_id).is_some() {
-				Self::start_task(
+			let rm_shard = |shard, net| {
+				NetworkShards::<T>::remove(net, shard);
+				ShardTasks::<T>::drain_prefix(shard).for_each(|(task_id, _)| {
+					TaskShard::<T>::remove(task_id);
+					if Self::is_runnable(task_id) {
+						UnassignedTasks::<T>::insert(net, task_id, ());
+					}
+				});
+			};
+			if ShardRegistered::<T>::get(shard_id).is_some() {
+				if Self::start_task(
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
@@ -857,10 +860,15 @@ pub mod pallet {
 					),
 					TaskFunder::Shard(shard_id),
 				)
-				.unwrap();
+				.is_ok()
+				{
+					ShardRegistered::<T>::remove(shard_id);
+					rm_shard(shard_id, network);
+				} // else silent failure
 			} else {
-				Self::schedule_tasks(network);
+				rm_shard(shard_id, network);
 			}
+			Self::schedule_tasks(network);
 		}
 	}
 

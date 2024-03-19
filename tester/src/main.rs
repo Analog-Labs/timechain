@@ -1,6 +1,7 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
+use rosetta_config_ethereum::CallResult;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tester::{GmpVotingContract, Tester, TesterParams, VotingContract};
@@ -20,7 +21,7 @@ struct Args {
 	target_url: String,
 	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
-	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingMachine.json")]
+	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
 	cmd: TestCommand,
@@ -393,7 +394,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 		.deposit_funds(gmp_contract, network, contract1, gas_limit * 10_000_000_000)
 		.await?;
 
-	tester
+	let res = tester
 		.wallet()
 		.eth_send_call(
 			contract1,
@@ -403,8 +404,32 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 			None,
 		)
 		.await?;
+	let block = res.receipt().unwrap().block_number.unwrap();
 
-	// TODO: check vote happened in both contracts
+	async fn stats(tester: &Tester, contract: [u8; 20], block: Option<u64>) -> Result<(u64, u64)> {
+		let block =
+			if let Some(block) = block { block } else { tester.wallet().status().await?.index };
+		let call = VotingContract::statsCall {};
+		let stats =
+			tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
+		let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
+		let VotingContract::statsReturn { _0: stats } =
+			VotingContract::statsCall::abi_decode_returns(&stats, true)?;
+		let yes_votes = stats[0].try_into().unwrap();
+		let no_votes = stats[1].try_into().unwrap();
+		Ok((yes_votes, no_votes))
+	}
+
+	let target = stats(tester, contract1, Some(block)).await?;
+	assert_eq!(target, (1, 0));
+	loop {
+		let current = stats(tester, contract2, None).await?;
+		println!("yes: {} no: {}", current.0, current.1);
+		if current == target {
+			break;
+		}
+		tokio::time::sleep(Duration::from_secs(60)).await;
+	}
 	Ok(())
 }
 

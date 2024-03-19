@@ -833,12 +833,17 @@ pub mod pallet {
 
 	impl<T: Config> TasksInterface for Pallet<T> {
 		fn shard_online(shard_id: ShardId, network: NetworkId) {
+			let add_shard = |shard, net| {
+				NetworkShards::<T>::insert(net, shard, ());
+				Self::schedule_tasks(net);
+			};
 			if Gateway::<T>::get(network).is_some() {
 				if Self::register_shard(shard_id, network).is_ok() {
-					NetworkShards::<T>::insert(network, shard_id, ());
-					Self::schedule_tasks(network);
+					add_shard(shard_id, network);
 				} // else silent failure
-			} // else silent failure
+			} else {
+				add_shard(shard_id, network);
+			}
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {

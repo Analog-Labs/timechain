@@ -14484,6 +14484,7 @@ dependencies = [
  "getrandom 0.2.12",
  "hex",
  "rosetta-client",
+ "rosetta-config-ethereum",
  "serde_json",
  "sha3",
  "surf",

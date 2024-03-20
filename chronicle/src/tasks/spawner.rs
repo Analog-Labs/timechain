@@ -327,7 +327,7 @@ impl<'a> Stream for BlockStream<'a> {
 						ClientEvent::NewHead(_) => continue,
 						ClientEvent::Event(_) => continue,
 						ClientEvent::Close(reason) => {
-							tracing::info!("block stream closed {}", reason);
+							tracing::debug!("block stream closed {}", reason);
 							self.listener.take();
 						},
 					},
@@ -345,11 +345,11 @@ impl<'a> Stream for BlockStream<'a> {
 					},
 					Poll::Ready(Ok(None)) => {
 						self.opening.take();
-						tracing::info!("error opening listener");
+						tracing::debug!("error opening listener");
 					},
 					Poll::Ready(Err(err)) => {
 						self.opening.take();
-						tracing::info!("error opening listener {}", err);
+						tracing::debug!("error opening listener {}", err);
 					},
 					Poll::Pending => return Poll::Pending,
 				}

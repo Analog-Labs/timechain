@@ -89,8 +89,7 @@ where
 					log.data.0.to_vec().into(),
 				)
 				.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
-				let log = IGateway::GmpCreated::decode_log(&log, true)
-					.map_err(|e| anyhow::Error::from(e))?;
+				let log = IGateway::GmpCreated::decode_log(&log, true)?;
 				Ok::<IGateway::GmpCreated, anyhow::Error>(log.data)
 			})
 			.collect::<Result<Vec<_>, _>>()?;

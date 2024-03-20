@@ -406,6 +406,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 		)
 		.await?;
 	let block = res.receipt().unwrap().block_number.unwrap();
+	println!("submitted vote in block {block}");
 
 	async fn stats(tester: &Tester, contract: [u8; 20], block: Option<u64>) -> Result<(u64, u64)> {
 		let block =

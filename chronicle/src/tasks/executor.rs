@@ -92,7 +92,6 @@ where
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
 			if self.running_tasks.contains_key(executable_task) {
-				tracing::info!(target: TW_LOG, "task already running {:?}", task_id);
 				continue;
 			}
 			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
@@ -100,7 +99,7 @@ where
 			let function = task_descr.function;
 			let phase = executable_task.phase;
 			if target_block_height >= target_block_number {
-				tracing::info!(target: TW_LOG, "Running Task {}, {:?}", executable_task, executable_task.phase);
+				tracing::debug!(target: TW_LOG, "Starting task {}, {:?}", executable_task, executable_task.phase);
 				let task = match phase {
 					TaskPhase::Sign => {
 						let Some(gmp_params) = self.gmp_params(shard_id, block_hash).await? else {
@@ -145,7 +144,7 @@ where
 							continue;
 						};
 						if &public_key != self.substrate.public_key() {
-							tracing::info!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+							tracing::debug!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 							continue;
 						}
 						let gmp_params = self.gmp_params(shard_id, block_hash).await?;
@@ -256,7 +255,7 @@ where
 				});
 				self.running_tasks.insert(executable_task.clone(), handle);
 			} else {
-				tracing::info!(
+				tracing::debug!(
 					"Task {} is scheduled for future {:?}/{:?}",
 					task_id,
 					target_block_height,
@@ -270,7 +269,7 @@ where
 				true
 			} else {
 				if !handle.is_finished() {
-					tracing::info!(target: TW_LOG, "Task {} aborted", x.task_id);
+					tracing::debug!(target: TW_LOG, "Task {} aborted", x.task_id);
 					handle.abort();
 				}
 				completed_sessions.push(x.task_id);

@@ -526,7 +526,8 @@ pub mod pallet {
 					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Shard(shard_id),
+				//TaskFunder::Shard(shard_id),
+				TaskFunder::Inflation,
 			)
 			.unwrap();
 		}

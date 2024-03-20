@@ -4,14 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-primitives = { version = "0.5" }
-alloy-sol-types = { version = "0.5" }
+alloy-primitives = { version = "0.6.4" }
+alloy-sol-types = { version = "0.6.4" }
 anyhow = "1.0.75"
 clap = { version = "4.4.2", features = [ "derive" ] }
 ethers-solc = "2.0.1"
 getrandom = "0.2.12"
 hex = "0.4.3"
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
 serde_json = "1.0.114"
 sha3 = "0.10.8"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }

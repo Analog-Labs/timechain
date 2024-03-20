@@ -1,36 +1,77 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-contract VotingMachine {
+import "contracts/gateway.sol";
+
+struct GmpVotingContract {
+    address dest;
+    uint16 network;
+}
+
+contract VotingContract {
+    address owner;
+    IGateway gateway;
+    address[] dests;
+    uint16[] networks;
+    bool started;
     uint256 yes_votes;
     uint256 no_votes;
 
-    event YesEvent(address indexed from);
-    event NoEvent(address indexed from);
-    event GmpReceived(bytes4 signature);
+    event LocalVote(address indexed from, bool vote);
+    event GmpVote(bytes32 id, uint128 network, bytes32 indexed sender, bool vote);
+    event ResultChanged(bool vote);
 
-    constructor() {
+    constructor(address _gateway) {
+        owner = msg.sender;
+        gateway = IGateway(_gateway);
+        started = false;
         yes_votes = 0;
         no_votes = 0;
     }
 
-    function vote_yes() public returns (uint256) {
-        yes_votes += 1;
-        emit YesEvent(msg.sender);
-        return yes_votes;
+    function registerGmpContracts(GmpVotingContract[] memory _registered) external {
+        require(msg.sender == owner && started == false);
+        dests = new address[](_registered.length);
+        networks = new uint16[](_registered.length);
+        for (uint256 i = 0; i < _registered.length; i++) {
+            dests[i] = _registered[i].dest;
+            networks[i] = _registered[i].network;
+        }
+        started = true;
     }
 
-    function vote_no() public returns (uint256) {
-        no_votes += 1;
-        emit NoEvent(msg.sender);
-        return no_votes;
+    function result() public view returns (bool) {
+        return yes_votes > no_votes;
     }
 
-    function get_votes_stats() public view returns (uint256[] memory) {
+    function stats() public view returns (uint256[] memory) {
         uint256[] memory votes = new uint256[](2);
         votes[0] = yes_votes;
         votes[1] = no_votes;
         return votes;
+    }
+
+    function _handle_vote(bool _vote) public {
+        require(started);
+        bool prev_result = result();
+        if (_vote) {
+            yes_votes += 1;
+        } else {
+            no_votes += 1;
+        }
+        bool new_result = result();
+        if (prev_result != new_result) {
+            emit ResultChanged(new_result);
+        }
+    }
+
+    function vote(bool _vote) external {
+        _handle_vote(_vote);
+        bytes memory payload = abi.encode(_vote);
+        for (uint256 i = 0; i < dests.length; i++) {
+            gateway.submitMessage(dests[i], networks[i], gasleft(), payload);
+        }
+        emit LocalVote(msg.sender, _vote);
     }
 
     // Implementing the IGmpReceiver interface
@@ -39,18 +80,10 @@ contract VotingMachine {
         payable
         returns (bytes32)
     {
-        require(payload.length >= 4, "Invalid payload");
-        bytes4 sig = bytes4(payload);
-        emit GmpReceived(sig);
-        if (sig == this.vote_yes.selector) {
-            vote_yes();
-        } else if (sig == this.vote_no.selector) {
-            vote_no();
-        } else {
-            revert("Invalid function signature");
-        }
-
-        // Return a result (for example, the current vote count)
-        return bytes32(yes_votes << 128 | no_votes);
+        require(payload.length == 1, "Invalid payload");
+        (bool _vote) = abi.decode(payload, (bool));
+        _handle_vote(_vote);
+        emit GmpVote(id, network, sender, _vote);
+        return bytes32(0);
     }
 }

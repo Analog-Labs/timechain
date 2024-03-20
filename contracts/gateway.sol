@@ -80,6 +80,8 @@ interface IGateway {
      * Update TSS key set
      */
     function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
+
+    function submitMessage(address recipient, uint16 network, uint256 gasLimit, bytes memory data) external payable;
 }
 
 /**
@@ -515,7 +517,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Submit a new GMP message
-    function submitMessage(address recipient, uint16 network, uint256 gasLimit, bytes memory data) public payable {
+    function submitMessage(address recipient, uint16 network, uint256 gasLimit, bytes memory data) external payable {
         // TODO: charge the gas cost of the Gateway execution
 
         // Check if the msg.sender is a contract or an EOA

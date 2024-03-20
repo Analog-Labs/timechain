@@ -35,7 +35,7 @@ contract GatewayTest is Test {
     IGmpReceiver receiver;
 
     uint256 private constant EXECUTE_CALL_COST = 47_310;
-    uint256 private constant SUBMIT_GAS_COST = 5565;
+    uint256 private constant SUBMIT_GAS_COST = 5553;
     uint16 private constant SRC_NETWORK_ID = 0;
     uint16 private constant DEST_NETWORK_ID = 69;
     uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
@@ -388,7 +388,7 @@ contract GatewayTest is Test {
         address gmpSender = address(0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287);
         vm.deal(gmpSender, 1_000_000_000_000_000_000);
         GmpMessage memory gmp = GmpMessage({
-            source: bytes32(bytes20(gmpSender)),
+            source: bytes32(uint256(uint160(gmpSender))),
             srcNetwork: DEST_NETWORK_ID,
             dest: address(receiver),
             destNetwork: SRC_NETWORK_ID,

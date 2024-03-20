@@ -9,6 +9,9 @@ struct GmpVotingContract {
 }
 
 contract VotingContract {
+    // Minium gas required for execute the `onGmpReceived` method
+    uint256 public constant GMP_GAS_LIMIT = 100_000;
+
     address owner;
     IGateway gateway;
     address[] dests;
@@ -51,7 +54,7 @@ contract VotingContract {
         return votes;
     }
 
-    function _handle_vote(bool _vote) public {
+    function _handle_vote(bool _vote) private {
         require(started);
         bool prev_result = result();
         if (_vote) {
@@ -69,7 +72,7 @@ contract VotingContract {
         _handle_vote(_vote);
         bytes memory payload = abi.encode(_vote);
         for (uint256 i = 0; i < dests.length; i++) {
-            gateway.submitMessage(dests[i], networks[i], gasleft(), payload);
+            gateway.submitMessage(dests[i], networks[i], GMP_GAS_LIMIT, payload);
         }
         emit LocalVote(msg.sender, _vote);
     }
@@ -80,10 +83,13 @@ contract VotingContract {
         payable
         returns (bytes32)
     {
-        require(payload.length == 1, "Invalid payload");
+        require(payload.length == 32, "Invalid payload");
         (bool _vote) = abi.decode(payload, (bool));
         _handle_vote(_vote);
         emit GmpVote(id, network, sender, _vote);
-        return bytes32(0);
+
+        // 128bit for yes votes, 128bit for no votes
+        uint256 votes = (yes_votes << 128) | uint256(uint128(no_votes));
+        return bytes32(votes);
     }
 }

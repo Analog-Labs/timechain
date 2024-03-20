@@ -1,10 +1,10 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::CallResult;
+use rosetta_config_ethereum::{AtBlock, CallContract, CallResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tester::{GmpVotingContract, Tester, TesterParams, VotingContract};
+use tester::{sleep_or_abort, GmpVotingContract, Tester, TesterParams, VotingContract};
 use time_primitives::NetworkId;
 
 #[derive(Parser, Debug)]
@@ -39,6 +39,9 @@ fn args() -> (TesterParams, TestCommand, PathBuf) {
 	};
 	(params, args.cmd, args.contract)
 }
+
+// A fixed gas cost of executing the gateway contract
+const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
 
 #[derive(Parser, Debug)]
 enum TestCommand {
@@ -382,7 +385,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 			None,
 		)
 		.await?;
-	tester
+	let receipt = tester
 		.wallet()
 		.eth_send_call(
 			contract2,
@@ -397,11 +400,40 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 			None,
 			None,
 		)
-		.await?;
+		.await?
+		.receipt()
+		.unwrap()
+		.clone();
 
-	let gas_limit = 100_000;
+	// Calculate the gas price based on the latest transaction
+	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+
+	// Get the GMP_GAS_LIMIT from the VotingContract
+	let gmp_gas_limit = {
+		let result = tester
+			.wallet()
+			.query(CallContract {
+				from: None,
+				to: contract1.into(),
+				value: 0.into(),
+				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
+				block: AtBlock::Latest,
+			})
+			.await?;
+		match result {
+			CallResult::Success(payload) => {
+				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
+			},
+			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
+		}
+	};
+
+	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
+	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
+	let deposit_amount = gas_price.saturating_mul(gmp_gas_limit).saturating_mul(12) / 10; // 20% more, in case of the gas price increase
+
 	tester
-		.deposit_funds(gmp_contract, network, contract1, gas_limit * 10_000_000_000)
+		.deposit_funds(gmp_contract, network, contract1, true, deposit_amount)
 		.await?;
 
 	println!("submitting vote");
@@ -412,11 +444,11 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 			VotingContract::voteCall { _vote: true }.abi_encode(),
 			0,
 			None,
-			Some(gas_limit as _),
+			None,
 		)
 		.await?;
 	let block = res.receipt().unwrap().block_number.unwrap();
-	println!("submitted vote in block {block}");
+	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());
 
 	async fn stats(tester: &Tester, contract: [u8; 20], block: Option<u64>) -> Result<(u64, u64)> {
 		let block =
@@ -435,7 +467,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	println!("1: yes: {} no: {}", target.0, target.1);
 	assert_eq!(target, (1, 0));
 	loop {
-		tokio::time::sleep(Duration::from_secs(60)).await;
+		sleep_or_abort(Duration::from_secs(60)).await?;
 		let current = stats(tester, contract2, None).await?;
 		println!("2: yes: {} no: {}", current.0, current.1);
 		if current == target {
@@ -451,7 +483,7 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let call = tester::create_evm_view_call(contract_address);
 	let task_id = tester.create_task(call, start_block).await.unwrap();
 	// wait for some cycles to run, Note: tasks are running in background
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+	sleep_or_abort(Duration::from_secs(60)).await?;
 
 	// drop 2 nodes
 	tester::drop_node("testnet-chronicle-eth1-1".to_string());
@@ -462,7 +494,7 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let shard_id = tester.get_shard_id().await?.unwrap();
 	while tester.is_shard_online(shard_id).await {
 		println!("Waiting for shard offline");
-		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;
+		sleep_or_abort(Duration::from_secs(10)).await?;
 	}
 	println!("Shard is offline, starting nodes");
 
@@ -489,13 +521,13 @@ async fn chronicle_restart_test(
 	// wait for some cycles to run, Note: tasks are running in background
 	for i in 1..nodes_to_restart + 1 {
 		println!("waiting for 1 min");
-		tokio::time::sleep(Duration::from_secs(60)).await;
+		sleep_or_abort(Duration::from_secs(60)).await?;
 		println!("restarting node {}", i);
 		tester::restart_node(format!("testnet-chronicle-eth{}-1", i));
 	}
 
 	println!("waiting for 20 secs to let node recover completely");
-	tokio::time::sleep(Duration::from_secs(20)).await;
+	sleep_or_abort(Duration::from_secs(20)).await?;
 
 	// watch task
 	tester.wait_for_task(task_id).await;

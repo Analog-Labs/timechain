@@ -37,10 +37,6 @@ contract VotingContract {
             dests[i] = _registered[i].dest;
             networks[i] = _registered[i].network;
         }
-    }
-
-    function startVoting() external {
-        require(msg.sender == owner);
         started = true;
     }
 

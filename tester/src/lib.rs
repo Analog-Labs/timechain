@@ -306,7 +306,6 @@ sol! {
 	contract VotingContract {
 		constructor(address _gateway);
 		function registerGmpContracts(GmpVotingContract[] memory _registered) external;
-		function startVoting() external;
 		function vote(bool _vote) external;
 		function stats() public view returns (uint256[] memory);
 	}

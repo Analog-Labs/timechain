@@ -316,7 +316,13 @@ async fn test_setup(tester: &Tester, contract: &Path) -> Result<([u8; 20], [u8; 
 		.await?;
 	tester
 		.wallet()
-		.eth_send_call(contract, VotingContract::startVotingCall {}.abi_encode(), 0, None, None)
+		.eth_send_call(
+			contract,
+			VotingContract::registerGmpContractsCall { _registered: vec![] }.abi_encode(),
+			0,
+			None,
+			None,
+		)
 		.await?;
 	Ok((gmp_contract, contract, start_block))
 }
@@ -360,34 +366,38 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 		.await?;
 
 	let network = tester.network_id();
-	let register_payload = VotingContract::registerGmpContractsCall {
-		_registered: vec![
-			GmpVotingContract {
-				dest: contract1.into(),
-				network,
-			},
-			GmpVotingContract {
-				dest: contract2.into(),
-				network,
-			},
-		],
-	}
-	.abi_encode();
 	tester
 		.wallet()
-		.eth_send_call(contract1, register_payload.clone(), 0, None, None)
+		.eth_send_call(
+			contract1,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: contract2.into(),
+					network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
 		.await?;
 	tester
 		.wallet()
-		.eth_send_call(contract2, register_payload, 0, None, None)
+		.eth_send_call(
+			contract2,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: contract1.into(),
+					network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
 		.await?;
-
-	let start_payload = VotingContract::startVotingCall {}.abi_encode();
-	tester
-		.wallet()
-		.eth_send_call(contract1, start_payload.clone(), 0, None, None)
-		.await?;
-	tester.wallet().eth_send_call(contract2, start_payload, 0, None, None).await?;
 
 	let gas_limit = 100_000;
 	tester

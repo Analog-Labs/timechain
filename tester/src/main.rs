@@ -412,7 +412,7 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 			VotingContract::voteCall { _vote: true }.abi_encode(),
 			0,
 			None,
-			None,
+			Some(gas_limit as _),
 		)
 		.await?;
 	let block = res.receipt().unwrap().block_number.unwrap();

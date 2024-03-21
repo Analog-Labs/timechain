@@ -46,7 +46,11 @@ const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
 #[derive(Parser, Debug)]
 enum TestCommand {
 	FundWallet,
-	SetupGmp,
+	SetupGmp {
+		/// Deploys and registers a new gateway contract even, replacing the existing one.
+		#[clap(long, short = 'r', default_value_t = false)]
+		redeploy: bool,
+	},
 	WatchTask {
 		task_id: u64,
 	},
@@ -89,8 +93,8 @@ async fn main() -> Result<()> {
 		TestCommand::FundWallet => {
 			tester.faucet().await;
 		},
-		TestCommand::SetupGmp => {
-			tester.setup_gmp().await?;
+		TestCommand::SetupGmp { redeploy } => {
+			tester.setup_gmp(redeploy).await?;
 		},
 		TestCommand::WatchTask { task_id } => {
 			tester.wait_for_task(task_id).await;
@@ -313,7 +317,7 @@ async fn latency_cycle(
 
 async fn test_setup(tester: &Tester, contract: &Path) -> Result<([u8; 20], [u8; 20], u64)> {
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp().await?;
+	let gmp_contract = tester.setup_gmp(false).await?;
 	let (contract, start_block) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;
@@ -360,7 +364,7 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 
 async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp().await?;
+	let gmp_contract = tester.setup_gmp(false).await?;
 	let (contract1, _) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;

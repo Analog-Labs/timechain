@@ -145,7 +145,7 @@ impl Tester {
 				Err(err) => {
 					println!("Skipping shard_id {shard_id}: {err}");
 					continue;
-				}
+				},
 			};
 		}
 		Ok(None)

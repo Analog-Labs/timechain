@@ -156,10 +156,14 @@ impl Tester {
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
 		let shard_id_counter = self.runtime.shard_id_counter().await?;
 		for shard_id in 0..shard_id_counter {
-			let shard_network = self.runtime.shard_network(shard_id).await?;
-			if shard_network == self.network_id {
-				return Ok(Some(shard_id));
-			}
+			match self.runtime.shard_network(shard_id).await {
+				Ok(shard_network) if shard_network == self.network_id => return Ok(Some(shard_id)),
+				Ok(_) => continue,
+				Err(err) => {
+					println!("Skipping shard_id {shard_id}: {err}");
+					continue;
+				},
+			};
 		}
 		Ok(None)
 	}

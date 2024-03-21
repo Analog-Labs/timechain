@@ -9,6 +9,7 @@ use std::process::Command;
 use std::time::Duration;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
+use time_primitives::sp_core::H160;
 use time_primitives::{
 	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
 	TaskPhase, TssKey, TssPublicKey,
@@ -247,9 +248,12 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self) -> Result<[u8; 20]> {
-		if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
-			return Ok(gateway);
+	pub async fn setup_gmp(&self, redeploy: bool) -> Result<[u8; 20]> {
+		if !redeploy {
+			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
+				println!("Gateway contract already deployed at {:?}. If you want to redeploy, please use the --redeploy flag.", H160::from_slice(&gateway[..]));
+				return Ok(gateway);
+			}
 		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();

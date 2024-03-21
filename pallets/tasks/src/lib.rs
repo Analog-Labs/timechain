@@ -288,6 +288,8 @@ pub mod pallet {
 				return Ok(());
 			}
 			ensure!(TaskPhaseState::<T>::get(task_id) == TaskPhase::Read, Error::<T>::NotReadPhase);
+			let shard_id = TaskShard::<T>::get(task_id).ok_or(Error::<T>::UnassignedTask)?;
+			ensure!(result.shard_id == shard_id, Error::<T>::InvalidOwner);
 			let bytes = result.payload.bytes(task_id);
 			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
 			TaskOutput::<T>::insert(task_id, result.clone());

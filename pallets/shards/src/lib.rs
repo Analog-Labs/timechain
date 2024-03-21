@@ -26,6 +26,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
+		fn force_shard_offline() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -34,6 +35,10 @@ pub mod pallet {
 		}
 
 		fn ready() -> Weight {
+			Weight::default()
+		}
+
+		fn force_shard_offline() -> Weight {
 			Weight::default()
 		}
 	}
@@ -192,6 +197,14 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::force_shard_offline())]
+		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::remove_shard_offline(shard_id);
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -232,6 +245,7 @@ pub mod pallet {
 				})
 				.collect::<Vec<_>>();
 			T::Elections::shard_offline(network, members);
+			Self::deposit_event(Event::ShardOffline(shard_id));
 		}
 
 		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
@@ -290,7 +304,6 @@ pub mod pallet {
 				&& !matches!(old_status, ShardStatus::Offline)
 			{
 				Self::remove_shard_offline(shard_id);
-				Self::deposit_event(Event::ShardOffline(shard_id));
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}

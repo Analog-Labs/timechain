@@ -7957,9 +7957,9 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "peernet"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa1219ee8bb83f463ac41f27b8527c7eaae5b4df451a489e6ed22e695f341699"
+checksum = "493c9814c093833790f7a876c860cb9ce621eb2a41bd981f0c52b4e5ec0d4ab1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9421,7 +9421,7 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9450,7 +9450,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-astar"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "rosetta-core",
@@ -9460,7 +9460,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-ethereum"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "const-hex",
@@ -9479,7 +9479,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-polkadot"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "rosetta-core",
@@ -9490,7 +9490,7 @@ dependencies = [
 [[package]]
 name = "rosetta-core"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9506,7 +9506,7 @@ dependencies = [
 [[package]]
 name = "rosetta-crypto"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "bech32",
@@ -9532,7 +9532,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-backend"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -9548,7 +9548,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-types"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "bytes",
  "const-hex",
@@ -9582,7 +9582,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9608,7 +9608,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-astar"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9632,7 +9632,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-ethereum"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9659,7 +9659,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-polkadot"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9680,7 +9680,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "rosetta-config-ethereum",
@@ -9691,7 +9691,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-polkadot"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "anyhow",
  "blake2-rfc",
@@ -9705,7 +9705,7 @@ dependencies = [
 [[package]]
 name = "rosetta-types"
 version = "0.5.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "serde",
  "serde_json",
@@ -9714,7 +9714,7 @@ dependencies = [
 [[package]]
 name = "rosetta-utils"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#2a40d612620370f06d399c0984f7c18d7a2e1c9f"
+source = "git+https://github.com/analog-labs/chain-connectors#4ed222dced3fff7d7d665d10b73f7ff7f292be30"
 dependencies = [
  "bytes",
  "futures-timer",
@@ -12587,7 +12587,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -12671,7 +12671,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12716,7 +12716,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -13039,7 +13039,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -13098,7 +13098,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "Inflector",
  "expander",
@@ -13225,7 +13225,7 @@ source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.8.0#ec7
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 
 [[package]]
 name = "sp-storage"
@@ -13271,7 +13271,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -13334,7 +13334,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -13487,7 +13487,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#1da8a6b88f530b467394a9ead8f3042ebdc50a36"
+source = "git+https://github.com/paritytech/polkadot-sdk#4842faf65d3628586d304fbcb6cb19b17b4a629c"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",

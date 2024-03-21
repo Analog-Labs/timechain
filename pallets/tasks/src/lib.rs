@@ -516,7 +516,7 @@ pub mod pallet {
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Shard(shard_id),
+				TaskFunder::Inflation,
 			)
 			.unwrap();
 		}
@@ -528,7 +528,7 @@ pub mod pallet {
 					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Shard(shard_id),
+				TaskFunder::Inflation,
 			)
 			.unwrap();
 		}
@@ -857,7 +857,7 @@ pub mod pallet {
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
-					TaskFunder::Shard(shard_id),
+					TaskFunder::Inflation,
 				)
 				.unwrap();
 			} else {

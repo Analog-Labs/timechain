@@ -1,12 +1,11 @@
-use alloy_primitives::address;
+use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use std::collections::HashMap;
+use rosetta_config_ethereum::{AtBlock, CallContract, CallResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tc_subxt::ext::futures::future::join_all;
-use tester::{TaskPhaseInfo, Tester, TesterParams};
-use time_primitives::{NetworkId, TaskPhase};
+use tester::{sleep_or_abort, GmpVotingContract, Tester, TesterParams, VotingContract};
+use time_primitives::NetworkId;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -22,7 +21,7 @@ struct Args {
 	target_url: String,
 	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
-	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingMachine.json")]
+	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
 	cmd: TestCommand,
@@ -41,11 +40,17 @@ fn args() -> (TesterParams, TestCommand, PathBuf) {
 	(params, args.cmd, args.contract)
 }
 
+// A fixed gas cost of executing the gateway contract
+const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
+
 #[derive(Parser, Debug)]
 enum TestCommand {
 	FundWallet,
-	DeployContract,
-	SetupGmp,
+	SetupGmp {
+		/// Deploys and registers a new gateway contract even, replacing the existing one.
+		#[clap(long, short = 'r', default_value_t = false)]
+		redeploy: bool,
+	},
 	WatchTask {
 		task_id: u64,
 	},
@@ -88,11 +93,8 @@ async fn main() -> Result<()> {
 		TestCommand::FundWallet => {
 			tester.faucet().await;
 		},
-		TestCommand::DeployContract => {
-			tester.deploy(&contract, &[]).await?;
-		},
-		TestCommand::SetupGmp => {
-			tester.setup_gmp().await?;
+		TestCommand::SetupGmp { redeploy } => {
+			tester.setup_gmp(redeploy).await?;
 		},
 		TestCommand::WatchTask { task_id } => {
 			tester.wait_for_task(task_id).await;
@@ -110,19 +112,12 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester, &contract, nodes).await?;
 		},
-		TestCommand::LatencyCheck {
-			env,
-			tasks,
-			cycle,
-			block_timeout,
-		} => {
-			latency_checker(&tester, env, tasks, cycle, block_timeout, &contract).await?;
-		},
+		TestCommand::LatencyCheck { .. } => todo!(),
 	}
 	Ok(())
 }
 
-async fn latency_checker(
+/*async fn latency_checker(
 	tester: &Tester,
 	env: Environment,
 	tasks: u64,
@@ -318,11 +313,29 @@ async fn latency_cycle(
 	);
 	println!("Throughput for round {} is {} tasks per block", round_num, throughput);
 	Ok((average_total_latency, throughput))
+}*/
+
+async fn test_setup(tester: &Tester, contract: &Path) -> Result<([u8; 20], [u8; 20], u64)> {
+	tester.faucet().await;
+	let gmp_contract = tester.setup_gmp(false).await?;
+	let (contract, start_block) = tester
+		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+		.await?;
+	tester
+		.wallet()
+		.eth_send_call(
+			contract,
+			VotingContract::registerGmpContractsCall { _registered: vec![] }.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+	Ok((gmp_contract, contract, start_block))
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
-	tester.faucet().await;
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	tester.create_task_and_wait(call, start_block).await;
@@ -334,8 +347,7 @@ async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 }
 
 async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Result<()> {
-	tester.faucet().await;
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
 
 	let mut task_ids = vec![];
 	let call = tester::create_evm_view_call(contract_address);
@@ -352,29 +364,130 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 
 async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp().await?;
+	let gmp_contract = tester.setup_gmp(false).await?;
+	let (contract1, _) = tester
+		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+		.await?;
+	let (contract2, _) = tester
+		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+		.await?;
 
-	let (contract, _) = tester.deploy(contract, &[]).await?;
-	let gas_limit = 100_000;
+	let network = tester.network_id();
 	tester
-		.deposit_funds(gmp_contract, tester.network_id(), contract, gas_limit * 10_000_000_000)
+		.wallet()
+		.eth_send_call(
+			contract1,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: contract2.into(),
+					network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+	let receipt = tester
+		.wallet()
+		.eth_send_call(
+			contract2,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: contract1.into(),
+					network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?
+		.receipt()
+		.unwrap()
+		.clone();
+
+	// Calculate the gas price based on the latest transaction
+	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+
+	// Get the GMP_GAS_LIMIT from the VotingContract
+	let gmp_gas_limit = {
+		let result = tester
+			.wallet()
+			.query(CallContract {
+				from: None,
+				to: contract1.into(),
+				value: 0.into(),
+				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
+				block: AtBlock::Latest,
+			})
+			.await?;
+		match result {
+			CallResult::Success(payload) => {
+				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
+			},
+			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
+		}
+	};
+
+	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
+	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
+	let deposit_amount = gas_price.saturating_mul(gmp_gas_limit).saturating_mul(12) / 10; // 20% more, in case of the gas price increase
+
+	tester
+		.deposit_funds(gmp_contract, network, contract1, true, deposit_amount)
 		.await?;
 
-	let task_id = tester
-		.send_message(tester.network_id(), contract, contract, "vote_yes()", gas_limit)
+	println!("submitting vote");
+	let res = tester
+		.wallet()
+		.eth_send_call(
+			contract1,
+			VotingContract::voteCall { _vote: true }.abi_encode(),
+			0,
+			None,
+			None,
+		)
 		.await?;
-	tester.wait_for_task(task_id).await;
+	let block = res.receipt().unwrap().block_number.unwrap();
+	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());
+
+	async fn stats(tester: &Tester, contract: [u8; 20], block: Option<u64>) -> Result<(u64, u64)> {
+		let block =
+			if let Some(block) = block { block } else { tester.wallet().status().await?.index };
+		let call = VotingContract::statsCall {};
+		let stats =
+			tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
+		let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
+		let stats = VotingContract::statsCall::abi_decode_returns(&stats, true)?._0;
+		let yes_votes = stats[0].try_into().unwrap();
+		let no_votes = stats[1].try_into().unwrap();
+		Ok((yes_votes, no_votes))
+	}
+
+	let target = stats(tester, contract1, Some(block)).await?;
+	println!("1: yes: {} no: {}", target.0, target.1);
+	assert_eq!(target, (1, 0));
+	loop {
+		sleep_or_abort(Duration::from_secs(60)).await?;
+		let current = stats(tester, contract2, None).await?;
+		println!("2: yes: {} no: {}", current.0, current.1);
+		if current == target {
+			break;
+		}
+	}
 	Ok(())
 }
 
 async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
-	tester.faucet().await;
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	let task_id = tester.create_task(call, start_block).await.unwrap();
 	// wait for some cycles to run, Note: tasks are running in background
-	tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+	sleep_or_abort(Duration::from_secs(60)).await?;
 
 	// drop 2 nodes
 	tester::drop_node("testnet-chronicle-eth1-1".to_string());
@@ -385,7 +498,7 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let shard_id = tester.get_shard_id().await?.unwrap();
 	while tester.is_shard_online(shard_id).await {
 		println!("Waiting for shard offline");
-		tokio::time::sleep(tokio::time::Duration::from_secs(50)).await;
+		sleep_or_abort(Duration::from_secs(10)).await?;
 	}
 	println!("Shard is offline, starting nodes");
 
@@ -404,8 +517,7 @@ async fn chronicle_restart_test(
 	contract: &Path,
 	nodes_to_restart: u8,
 ) -> Result<()> {
-	tester.faucet().await;
-	let (contract_address, start_block) = tester.deploy(contract, &[]).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	let task_id = tester.create_task(call, start_block).await?;
@@ -413,13 +525,13 @@ async fn chronicle_restart_test(
 	// wait for some cycles to run, Note: tasks are running in background
 	for i in 1..nodes_to_restart + 1 {
 		println!("waiting for 1 min");
-		tokio::time::sleep(Duration::from_secs(60)).await;
+		sleep_or_abort(Duration::from_secs(60)).await?;
 		println!("restarting node {}", i);
 		tester::restart_node(format!("testnet-chronicle-eth{}-1", i));
 	}
 
 	println!("waiting for 20 secs to let node recover completely");
-	tokio::time::sleep(Duration::from_secs(20)).await;
+	sleep_or_abort(Duration::from_secs(20)).await?;
 
 	// watch task
 	tester.wait_for_task(task_id).await;

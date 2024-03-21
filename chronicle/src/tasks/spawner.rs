@@ -1,6 +1,6 @@
 use alloy_primitives::B256;
 use alloy_sol_types::SolEvent;
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::client::GenericClientStream;
@@ -81,8 +81,16 @@ where
 			.await?
 			.into_iter()
 			.map(|log| {
-				let topics = log.topics.into_iter().map(|topic| B256::from(topic.0));
-				IGateway::GmpCreated::decode_log(topics, log.data.as_ref(), true)
+				let topics =
+					log.topics.into_iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
+				let log = alloy_primitives::Log::new(
+					gateway_contract.into(),
+					topics,
+					log.data.0.to_vec().into(),
+				)
+				.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
+				let log = IGateway::GmpCreated::decode_log(&log, true)?;
+				Ok::<IGateway::GmpCreated, anyhow::Error>(log.data)
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(logs)
@@ -142,12 +150,16 @@ where
 				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
 					return Ok(Payload::Gmp(Vec::new()));
 				};
-				let logs = self
+				let logs: Vec<_> = self
 					.get_gmp_events_at(gateway_contract, target_block_number)
-					.await?
+					.await
+					.context("get_gmp_events_at")?
 					.into_iter()
 					.map(|event| Msg::from_event(event, network_id))
 					.collect();
+				if !logs.is_empty() {
+					tracing::info!("read {} messages", logs.len());
+				}
 				Payload::Gmp(logs)
 			},
 			_ => anyhow::bail!("not a read function {function:?}"),
@@ -184,10 +196,10 @@ where
 		function: Function,
 		block_num: BlockNumber,
 	) -> Result<()> {
-		let result = self
-			.execute_function(&function, target_block)
-			.await
-			.map_err(|err| format!("{err}"));
+		let result = self.execute_function(&function, target_block).await.map_err(|err| {
+			tracing::error!("{:#?}", err);
+			format!("{err}")
+		});
 		let payload = match result {
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),
@@ -314,7 +326,7 @@ impl<'a> Stream for BlockStream<'a> {
 						ClientEvent::NewHead(_) => continue,
 						ClientEvent::Event(_) => continue,
 						ClientEvent::Close(reason) => {
-							tracing::info!("block stream closed {}", reason);
+							tracing::debug!("block stream closed {}", reason);
 							self.listener.take();
 						},
 					},
@@ -332,11 +344,11 @@ impl<'a> Stream for BlockStream<'a> {
 					},
 					Poll::Ready(Ok(None)) => {
 						self.opening.take();
-						tracing::info!("error opening listener");
+						tracing::debug!("error opening listener");
 					},
 					Poll::Ready(Err(err)) => {
 						self.opening.take();
-						tracing::info!("error opening listener {}", err);
+						tracing::debug!("error opening listener {}", err);
 					},
 					Poll::Pending => return Poll::Pending,
 				}

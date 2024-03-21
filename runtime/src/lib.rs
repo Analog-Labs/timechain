@@ -44,8 +44,8 @@ use sp_runtime::{
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider, Header as HeaderT,
-		NumberFor, OpaqueKeys,
+		AtLeast32BitUnsigned, BlakeTwo256, Block as BlockT, BlockNumberProvider, NumberFor,
+		OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Percent, SaturatedConversion,

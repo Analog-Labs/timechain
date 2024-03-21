@@ -4,18 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-primitives = { version = "0.5" }
-alloy-sol-types = { version = "0.5" }
+alloy-primitives = { version = "0.6.4" }
+alloy-sol-types = { version = "0.6.4" }
 anyhow = "1.0.75"
 clap = { version = "4.4.2", features = [ "derive" ] }
 ethers-solc = "2.0.1"
 getrandom = "0.2.12"
 hex = "0.4.3"
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
-serde_json = "1.0.114"
+rosetta-client.workspace = true
+rosetta-config-ethereum.workspace = true
+serde_json = "1.0"
 sha3 = "0.10.8"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 tc-subxt = { path = "../tc-subxt"}
 time-primitives = { path = "../primitives" }
-tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread"]}
+tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread", "signal"]}
 tracing-subscriber = "0.3.18"

@@ -1,18 +1,29 @@
 use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolCall, SolValue};
+use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::Result;
 use rosetta_client::Wallet;
-use sha3::{Digest, Keccak256};
 use sp_core::crypto::Ss58Codec;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
+use time_primitives::sp_core::H160;
 use time_primitives::{
 	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
-	TaskPhase, TssPublicKey,
+	TaskPhase, TssKey, TssPublicKey,
 };
+
+pub async fn sleep_or_abort(duration: Duration) -> Result<()> {
+	tokio::select! {
+		_ = tokio::signal::ctrl_c() => {
+			println!("aborting...");
+			anyhow::bail!("abort");
+		},
+		_ = tokio::time::sleep(duration) => Ok(()),
+	}
+}
 
 pub struct TesterParams {
 	pub network_id: NetworkId,
@@ -30,11 +41,13 @@ pub struct Tester {
 	wallet: Wallet,
 }
 
+type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
+
 impl Tester {
 	pub async fn new(args: TesterParams) -> Result<Self> {
 		while SubxtClient::get_client(&args.timechain_url).await.is_err() {
 			println!("waiting for chain to start");
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 
 		let tx_submitter = SubxtTxSubmitter::try_new(&args.timechain_url).await.unwrap();
@@ -64,6 +77,10 @@ impl Tester {
 		})
 	}
 
+	pub fn wallet(&self) -> &Wallet {
+		&self.wallet
+	}
+
 	pub fn network_id(&self) -> NetworkId {
 		self.network_id
 	}
@@ -74,10 +91,14 @@ impl Tester {
 		}
 	}
 
-	pub async fn deploy(&self, path: &Path, constructor: &[u8]) -> Result<([u8; 20], u64)> {
+	pub async fn deploy(
+		&self,
+		path: &Path,
+		constructor: impl SolConstructor,
+	) -> Result<([u8; 20], u64)> {
 		println!("Deploying contract from {:?}", self.wallet.account().address);
 		let mut contract = compile_file(path)?;
-		contract.extend(constructor);
+		contract.extend(constructor.abi_encode());
 		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
 		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
 		let contract_address = tx_receipt.contract_address.unwrap();
@@ -97,12 +118,15 @@ impl Tester {
 				uint256 xCoord;
 			}
 		}
-		let tss_keys = vec![TssKey {
+		let tss_keys = vec![TssKeyR {
 			yParity: parity_bit,
 			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
 		}];
-		let constructor = (self.network_id, tss_keys).abi_encode_params();
-		self.deploy(&self.gateway_contract, &constructor).await
+		let call = IGateway::constructorCall {
+			networkId: self.network_id,
+			keys: tss_keys,
+		};
+		self.deploy(&self.gateway_contract, call).await
 	}
 
 	pub async fn deposit_funds(
@@ -110,11 +134,17 @@ impl Tester {
 		gmp_address: [u8; 20],
 		source_network: NetworkId,
 		source: [u8; 20],
+		is_contract: bool,
 		amount: u128,
 	) -> Result<()> {
 		println!("depositing funds on destination chain");
 		let mut src = [0; 32];
 		src[12..32].copy_from_slice(&source[..]);
+
+		// Enable the contract flag
+		if is_contract {
+			src[11] = 1;
+		}
 		let payload = IGateway::depositCall {
 			network: source_network,
 			source: src.into(),
@@ -127,10 +157,14 @@ impl Tester {
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
 		let shard_id_counter = self.runtime.shard_id_counter().await?;
 		for shard_id in 0..shard_id_counter {
-			let shard_network = self.runtime.shard_network(shard_id).await?;
-			if shard_network == self.network_id {
-				return Ok(Some(shard_id));
-			}
+			match self.runtime.shard_network(shard_id).await {
+				Ok(shard_network) if shard_network == self.network_id => return Ok(Some(shard_id)),
+				Ok(_) => continue,
+				Err(err) => {
+					println!("Skipping shard_id {shard_id}: {err}");
+					continue;
+				},
+			};
 		}
 		Ok(None)
 	}
@@ -144,14 +178,14 @@ impl Tester {
 		let shard_id = loop {
 			let Some(shard_id) = self.get_shard_id().await? else {
 				println!("Waiting for shard to be created");
-				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+				sleep_or_abort(Duration::from_secs(10)).await?;
 				continue;
 			};
 			break shard_id;
 		};
 		while !self.is_shard_online(shard_id).await {
 			println!("Waiting for shard to go online");
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		Ok(shard_id)
 	}
@@ -203,7 +237,9 @@ impl Tester {
 		while !self.is_task_finished(task_id).await {
 			let phase = self.get_task_phase(task_id).await;
 			println!("task id: {} phase {:?} still running", task_id, phase);
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			if sleep_or_abort(Duration::from_secs(10)).await.is_err() {
+				break;
+			}
 		}
 	}
 
@@ -212,9 +248,12 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self) -> Result<[u8; 20]> {
-		if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
-			return Ok(gateway);
+	pub async fn setup_gmp(&self, redeploy: bool) -> Result<[u8; 20]> {
+		if !redeploy {
+			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
+				println!("Gateway contract already deployed at {:?}. If you want to redeploy, please use the --redeploy flag.", H160::from_slice(&gateway[..]));
+				return Ok(gateway);
+			}
 		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
@@ -232,7 +271,7 @@ impl Tester {
 		source_network: NetworkId,
 		source: [u8; 20],
 		dest: [u8; 20],
-		function: &str,
+		payload: Vec<u8>,
 		gas_limit: u128,
 	) -> Result<TaskId> {
 		let mut src = [0; 32];
@@ -245,7 +284,7 @@ impl Tester {
 				source: src,
 				dest_network: self.network_id(),
 				dest,
-				data: get_evm_function_hash(function),
+				data: payload,
 				salt,
 				gas_limit,
 			},
@@ -284,10 +323,28 @@ pub fn restart_node(node_name: String) {
 	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
+sol! {
+	#[derive(Debug, PartialEq, Eq)]
+	struct GmpVotingContract {
+		address dest;
+		uint16 network;
+	}
+
+	contract VotingContract {
+		// Minium gas required for execute the `onGmpReceived` method
+		function GMP_GAS_LIMIT() external pure returns(uint256);
+
+		constructor(address _gateway);
+		function registerGmpContracts(GmpVotingContract[] memory _registered) external;
+		function vote(bool _vote) external;
+		function stats() public view returns (uint256[] memory);
+	}
+}
+
 pub fn create_evm_call(address: [u8; 20]) -> Function {
 	Function::EvmCall {
 		address,
-		input: get_evm_function_hash("vote_yes()"),
+		input: VotingContract::voteCall { _vote: true }.abi_encode(),
 		amount: 0,
 		gas_limit: None,
 	}
@@ -296,15 +353,8 @@ pub fn create_evm_call(address: [u8; 20]) -> Function {
 pub fn create_evm_view_call(address: [u8; 20]) -> Function {
 	Function::EvmViewCall {
 		address,
-		input: get_evm_function_hash("get_votes_stats()"),
+		input: VotingContract::statsCall {}.abi_encode(),
 	}
-}
-
-fn get_evm_function_hash(arg: &str) -> Vec<u8> {
-	let mut hasher = Keccak256::new();
-	hasher.update(arg);
-	let hash = hasher.finalize();
-	hash[..4].into()
 }
 
 pub struct TaskPhaseInfo {

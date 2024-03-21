@@ -1135,7 +1135,7 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type Networks = Networks;
 	type MinStake = ConstU128<{ 10 * DOLLARS }>;
-	type HeartbeatTimeout = ConstU32<50>;
+	type HeartbeatTimeout = ConstU32<1_000>;
 }
 
 // Set in elections::GenesisConfig in node/chain_spec

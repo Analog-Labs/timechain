@@ -6,12 +6,23 @@ use sp_core::crypto::Ss58Codec;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
 	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
 	TaskPhase, TssKey, TssPublicKey,
 };
+
+pub async fn sleep_or_abort(duration: Duration) -> Result<()> {
+	tokio::select! {
+		_ = tokio::signal::ctrl_c() => {
+			println!("aborting...");
+			anyhow::bail!("abort");
+		},
+		_ = tokio::time::sleep(duration) => Ok(()),
+	}
+}
 
 pub struct TesterParams {
 	pub network_id: NetworkId,
@@ -35,7 +46,7 @@ impl Tester {
 	pub async fn new(args: TesterParams) -> Result<Self> {
 		while SubxtClient::get_client(&args.timechain_url).await.is_err() {
 			println!("waiting for chain to start");
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 
 		let tx_submitter = SubxtTxSubmitter::try_new(&args.timechain_url).await.unwrap();
@@ -122,11 +133,17 @@ impl Tester {
 		gmp_address: [u8; 20],
 		source_network: NetworkId,
 		source: [u8; 20],
+		is_contract: bool,
 		amount: u128,
 	) -> Result<()> {
 		println!("depositing funds on destination chain");
 		let mut src = [0; 32];
 		src[12..32].copy_from_slice(&source[..]);
+
+		// Enable the contract flag
+		if is_contract {
+			src[11] = 1;
+		}
 		let payload = IGateway::depositCall {
 			network: source_network,
 			source: src.into(),
@@ -156,14 +173,14 @@ impl Tester {
 		let shard_id = loop {
 			let Some(shard_id) = self.get_shard_id().await? else {
 				println!("Waiting for shard to be created");
-				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+				sleep_or_abort(Duration::from_secs(10)).await?;
 				continue;
 			};
 			break shard_id;
 		};
 		while !self.is_shard_online(shard_id).await {
 			println!("Waiting for shard to go online");
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		Ok(shard_id)
 	}
@@ -215,7 +232,9 @@ impl Tester {
 		while !self.is_task_finished(task_id).await {
 			let phase = self.get_task_phase(task_id).await;
 			println!("task id: {} phase {:?} still running", task_id, phase);
-			tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+			if sleep_or_abort(Duration::from_secs(10)).await.is_err() {
+				break;
+			}
 		}
 	}
 
@@ -304,6 +323,9 @@ sol! {
 	}
 
 	contract VotingContract {
+		// Minium gas required for execute the `onGmpReceived` method
+		function GMP_GAS_LIMIT() external pure returns(uint256);
+
 		constructor(address _gateway);
 		function registerGmpContracts(GmpVotingContract[] memory _registered) external;
 		function vote(bool _vote) external;

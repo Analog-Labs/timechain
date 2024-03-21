@@ -524,7 +524,7 @@ contract Gateway is IGateway, SigUtils {
         uint256 isContract = BranchlessMath.choice(tx.origin != msg.sender, 1, 0);
 
         // We use 20 bytes for the address and 1 bit for contract flag
-        bytes32 source = bytes32(isContract << 160) | bytes32(bytes20(msg.sender));
+        bytes32 source = bytes32(isContract << 160) | bytes32(uint256(uint160(msg.sender)));
 
         // Salt is equal to the previous message id (EIP-712 hash), this allows us to establish a sequence and eaily query the message history.
         bytes32 prevHash = prevMessageHash;

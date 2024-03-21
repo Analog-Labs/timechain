@@ -17,6 +17,15 @@ members = [
 ]
 resolver = "2"
 
+# Specifying a workspace dependency is similar to package dependencies except:
+# - Dependencies from this table cannot be declared as optional
+# - features declared in this table are additive with the features from [dependencies]
+[workspace.dependencies]
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-docker = { git = "https://github.com/analog-labs/chain-connectors" }
+
 [profile.release]
 debug = true
 

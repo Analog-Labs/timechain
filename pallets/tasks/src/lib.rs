@@ -263,6 +263,8 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
+		/// Shard for task must be online at task creation
+		MatchingShardNotOnline,
 	}
 
 	#[pallet::call]
@@ -533,6 +535,10 @@ pub mod pallet {
 
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
+			ensure!(
+				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
+				Error::<T>::MatchingShardNotOnline
+			);
 			let task_id = TaskIdCounter::<T>::get();
 			let phase = schedule.function.initial_phase();
 			let (read_task_reward, write_task_reward, send_message_reward) = (

@@ -112,6 +112,7 @@ pub trait ElectionsInterface {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
+	fn matching_shard_online(network: NetworkId, size: u16) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
 	fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16);

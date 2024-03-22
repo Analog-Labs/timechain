@@ -40,4 +40,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 	fn ready() -> Weight {
 		Weight::default()
 	}
+
+	fn force_shard_offline() -> Weight {
+		Weight::default()
+	}
 }

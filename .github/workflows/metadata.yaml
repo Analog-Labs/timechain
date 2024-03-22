@@ -1,3 +1,16 @@
+##########################################################
+#
+#  Workflow for generating the metadata. It's triggered
+#  on each pull request commit, ignoring paths that don't
+#  affect the metadata (mostly the Substrate specifics).
+#
+#  It generates the metadata by running the node and
+#  invoking subxt metadata command. If the generated file
+#  is different than the already present one
+#  (config/subxt/metadata.scale), the Github bot commits
+#  and pushes to the current PR branch.
+#
+##########################################################
 name: Generate metadata
 
 on:
@@ -7,15 +20,17 @@ on:
     - 'docs/**'
     - 'infra/**'
     - 'js/**'
-    - '**/*.md' 
+    - '**/*.md'
+    - 'tester/**'
+    - 'scripts/**'
+    - 'tc-subxt/**'
+    - 'chronicle/**'
+    - 'tss/**'
+    - 'lib/**'
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    if: ${{
-        github.event_name == 'push' ||
-        contains(github.event.pull_request.labels.*.name,'!ci-metadata')
-      }}
     steps:
     - name: Install deps
       run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
@@ -47,6 +62,9 @@ jobs:
       with:
         command: build 
         args: --release -p timechain-node
+
+    # Runs the node (saves the PID), generates the metadata
+    # and kills the process afterwards.
     - name: Generate metadata
       run: |
         ./target/release/timechain-node --dev &
@@ -54,6 +72,7 @@ jobs:
         sleep 15
         subxt metadata --url ws://127.0.0.1:9944 -f bytes > config/subxt/metadata.scale-new
         kill -9 $NODE_PID
+    # Calculates the diff and outputs the updated flag.
     - name: Get diff
       id: diff
       run: |
@@ -76,6 +95,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: gh pr checkout ${{ github.event.pull_request.number }}
+    # Github bot commits the change and pushes to the PR branch
+    # NOTE: only if the updated flag from step "Get diff" is true 
     - name: Commit & Push changes
       if: steps.diff.outputs.updated == 'true'
       env:

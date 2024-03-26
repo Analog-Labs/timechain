@@ -156,6 +156,13 @@ fn test_create_task() {
 fn create_task_increments_task_id_counter() {
 	new_test_ext().execute_with(|| {
 		for i in 0..11 {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(0, ShardStatus::Online);
+			Tasks::shard_online(0, ETHEREUM);
 			assert_ok!(Tasks::create_task(
 				RawOrigin::Signed([0; 32].into()).into(),
 				mock_task(ETHEREUM)
@@ -166,8 +173,25 @@ fn create_task_increments_task_id_counter() {
 }
 
 #[test]
-fn create_task_inserts_task_unassigned_sans_shards() {
+fn create_task_fails_sans_shards() {
 	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), mock_task(ETHEREUM)),
+			Error::<Test>::MatchingShardNotOnline
+		);
+	});
+}
+
+#[test]
+fn task_unassigned_if_all_shards_offline() {
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
@@ -185,6 +209,7 @@ fn create_task_inserts_task_unassigned_sans_shards() {
 				shard_size: 3,
 			}
 		);
+		Tasks::shard_offline(0, ETHEREUM);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>(), vec![(ETHEREUM, 0, ())]);
 	});
 }
@@ -842,6 +867,13 @@ fn shard_offline_does_not_schedule_unregister_if_shard_not_registered() {
 #[test]
 fn cannot_fund_task_beyond_caller_balance() {
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
 		assert_noop!(
 			Tasks::create_task(RawOrigin::Signed([2; 32].into()).into(), mock_task(ETHEREUM)),
 			sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable,),
@@ -1048,11 +1080,19 @@ fn send_message_payout_clears_storage() {
 fn read_phase_times_out_and_reassigns_for_read_only_task() {
 	let shards_count = 2;
 	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
-		for i in 0..shards_count {
+		for i in 1..shards_count {
 			Shards::create_shard(
 				ETHEREUM,
 				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
@@ -1063,7 +1103,6 @@ fn read_phase_times_out_and_reassigns_for_read_only_task() {
 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
 		}
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
-
 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);

@@ -1,6 +1,6 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rosetta_client::Wallet;
 use sp_core::crypto::Ss58Codec;
 use std::intrinsics::transmute;
@@ -25,13 +25,24 @@ pub async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	}
 }
 
-pub struct TesterParams {
-	pub network_id: NetworkId,
-	pub timechain_keyfile: PathBuf,
-	pub timechain_url: String,
-	pub target_keyfile: PathBuf,
-	pub target_url: String,
-	pub gateway_contract: PathBuf,
+#[derive(Clone, Debug)]
+pub struct Network {
+	pub id: NetworkId,
+	pub url: String,
+}
+
+impl std::str::FromStr for Network {
+	type Err = anyhow::Error;
+
+	fn from_str(network: &str) -> Result<Self> {
+		let (id, url) = network.split_once(';').context(
+			"invalid network, expected network id followed by a semicolon followed by the rpc url",
+		)?;
+		Ok(Self {
+			id: id.parse()?,
+			url: url.into(),
+		})
+	}
 }
 
 pub struct Tester {
@@ -43,35 +54,36 @@ pub struct Tester {
 
 type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
 
+pub async fn subxt_client(keyfile: &Path, url: &str) -> Result<SubxtClient> {
+	while SubxtClient::get_client(url).await.is_err() {
+		println!("waiting for chain to start");
+		sleep_or_abort(Duration::from_secs(10)).await?;
+	}
+
+	let tx_submitter = SubxtTxSubmitter::try_new(url).await.unwrap();
+	let runtime = SubxtClient::with_keyfile(url, keyfile, tx_submitter).await?;
+	println!("tester key is {:?}", runtime.account_id().to_ss58check());
+	Ok(runtime)
+}
+
 impl Tester {
-	pub async fn new(args: TesterParams) -> Result<Self> {
-		while SubxtClient::get_client(&args.timechain_url).await.is_err() {
-			println!("waiting for chain to start");
-			sleep_or_abort(Duration::from_secs(10)).await?;
-		}
-
-		let tx_submitter = SubxtTxSubmitter::try_new(&args.timechain_url).await.unwrap();
-		let runtime =
-			SubxtClient::with_keyfile(&args.timechain_url, &args.timechain_keyfile, tx_submitter)
-				.await?;
-		println!("tester key is {:?}", runtime.account_id().to_ss58check());
-
-		let (blockchain, network) = runtime
-			.get_network(args.network_id)
+	pub async fn new(
+		runtime: SubxtClient,
+		network: &Network,
+		keyfile: &Path,
+		gateway: &Path,
+	) -> Result<Self> {
+		let (conn_blockchain, conn_network) = runtime
+			.get_network(network.id)
 			.await?
 			.ok_or(anyhow::anyhow!("Unknown network id"))?;
 
-		let wallet = Wallet::new(
-			blockchain.parse()?,
-			&network,
-			&args.target_url,
-			Some(&args.target_keyfile),
-			None,
-		)
-		.await?;
+		let wallet =
+			Wallet::new(conn_blockchain.parse()?, &conn_network, &network.url, Some(keyfile), None)
+				.await?;
 		Ok(Self {
-			network_id: args.network_id,
-			gateway_contract: args.gateway_contract,
+			network_id: network.id,
+			gateway_contract: gateway.into(),
 			runtime,
 			wallet,
 		})

@@ -350,8 +350,8 @@ where
 		);
 
 		let min_block_time = self.substrate.get_block_time_in_ms().await.unwrap();
-		let raw_frequency = self.substrate.get_heartbeat_timeout().await.unwrap();
-		let heartbeat_time = (raw_frequency - (raw_frequency / 10)) * min_block_time;
+		let heartbeat_time =
+			(self.substrate.get_heartbeat_timeout().await.unwrap() / 2) * min_block_time;
 		let heartbeat_duration = Duration::from_millis(heartbeat_time);
 		let mut heartbeat_tick =
 			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);

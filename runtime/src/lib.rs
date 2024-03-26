@@ -1144,6 +1144,7 @@ pub const SHARD_THRESHOLD: u16 = 2;
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = (); //TODO: update after running benchmarks
 	type Members = Members;
 	type Shards = Shards;
 }
@@ -1266,6 +1267,7 @@ mod benches {
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
+		[pallet_elections, Elections]
 		[pallet_timestamp, Timestamp]
 		[pallet_members, Members]
 		[pallet_shards, Shards]

@@ -17,6 +17,16 @@ pub mod pallet {
 		AccountId, ElectionsInterface, MemberEvents, MemberStorage, NetworkId, ShardsInterface,
 	};
 
+	pub trait WeightInfo {
+		fn set_shard_config() -> Weight;
+	}
+
+	impl WeightInfo for () {
+		fn set_shard_config() -> Weight {
+			Weight::default()
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -24,6 +34,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface + MemberEvents;
 		type Members: MemberStorage;
 	}
@@ -89,7 +100,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::DbWeight::get().writes(2))]
+		#[pallet::weight(T::WeightInfo::set_shard_config())]
 		pub fn set_shard_config(
 			origin: OriginFor<T>,
 			shard_size: u16,

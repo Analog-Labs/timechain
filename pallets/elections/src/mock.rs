@@ -90,6 +90,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_elections::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = MockMembers;
 }

@@ -4,40 +4,24 @@ use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, CallContract, CallResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tester::{sleep_or_abort, GmpVotingContract, Tester, TesterParams, VotingContract};
-use time_primitives::NetworkId;
+use tester::{sleep_or_abort, GmpVotingContract, Network, Tester, VotingContract};
 
 #[derive(Parser, Debug)]
 struct Args {
-	#[arg(long, default_value = "3")]
-	network_id: NetworkId,
+	#[arg(long, default_values = ["3;ws://ethereum:8545", "6;ws://astar:9944"])]
+	network: Vec<Network>,
 	#[arg(long, default_value = "/etc/alice")]
 	timechain_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://validator:9944")]
 	timechain_url: String,
 	#[arg(long, default_value = "/etc/keyfile")]
 	target_keyfile: PathBuf,
-	#[arg(long, default_value = "ws://ethereum:8545")]
-	target_url: String,
 	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
 	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
 	cmd: TestCommand,
-}
-
-fn args() -> (TesterParams, TestCommand, PathBuf) {
-	let args = Args::parse();
-	let params = TesterParams {
-		network_id: args.network_id,
-		timechain_keyfile: args.timechain_keyfile,
-		timechain_url: args.timechain_url,
-		target_keyfile: args.target_keyfile,
-		target_url: args.target_url,
-		gateway_contract: args.gateway_contract,
-	};
-	(params, args.cmd, args.contract)
 }
 
 // A fixed gas cost of executing the gateway contract
@@ -85,32 +69,39 @@ enum Environment {
 #[tokio::main]
 async fn main() -> Result<()> {
 	tracing_subscriber::fmt::init();
-	let (params, cmd, contract) = args();
+	let args = Args::parse();
+	let runtime = tester::subxt_client(&args.timechain_keyfile, &args.timechain_url).await?;
+	let mut tester = Vec::with_capacity(args.network.len());
+	for network in &args.network {
+		tester.push(
+			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
+				.await?,
+		);
+	}
+	let contract = args.contract;
 
-	let tester = Tester::new(params).await?;
-
-	match cmd {
+	match args.cmd {
 		TestCommand::FundWallet => {
-			tester.faucet().await;
+			tester[0].faucet().await;
 		},
 		TestCommand::SetupGmp { redeploy } => {
-			tester.setup_gmp(redeploy).await?;
+			tester[0].setup_gmp(redeploy).await?;
 		},
 		TestCommand::WatchTask { task_id } => {
-			tester.wait_for_task(task_id).await;
+			tester[0].wait_for_task(task_id).await;
 		},
-		TestCommand::Basic => basic_test(&tester, &contract).await?,
+		TestCommand::Basic => basic_test(&tester[0], &contract).await?,
 		TestCommand::BatchTask { tasks } => {
-			batch_test(&tester, &contract, tasks).await?;
+			batch_test(&tester[0], &contract, tasks).await?;
 		},
 		TestCommand::Gmp => {
-			gmp_test(&tester, &contract).await?;
+			gmp_test(&tester[0], &tester[1], &contract).await?;
 		},
 		TestCommand::TaskMigration => {
-			task_migration_test(&tester, &contract).await?;
+			task_migration_test(&tester[0], &contract).await?;
 		},
 		TestCommand::KeyRecovery { nodes } => {
-			chronicle_restart_test(&tester, &contract, nodes).await?;
+			chronicle_restart_test(&tester[0], &contract, nodes).await?;
 		},
 		TestCommand::LatencyCheck { .. } => todo!(),
 	}
@@ -362,25 +353,37 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 	Ok(())
 }
 
-async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
-	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false).await?;
-	let (contract1, _) = tester
-		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
+	src.faucet().await;
+	dest.faucet().await;
+	let src_gmp_contract = src.setup_gmp(false).await?;
+	let dest_gmp_contract = dest.setup_gmp(false).await?;
+	let (src_contract, _) = src
+		.deploy(
+			contract,
+			VotingContract::constructorCall {
+				_gateway: src_gmp_contract.into(),
+			},
+		)
 		.await?;
-	let (contract2, _) = tester
-		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+	let (dest_contract, _) = dest
+		.deploy(
+			contract,
+			VotingContract::constructorCall {
+				_gateway: dest_gmp_contract.into(),
+			},
+		)
 		.await?;
 
-	let network = tester.network_id();
-	tester
-		.wallet()
+	let src_network = src.network_id();
+	let dest_network = dest.network_id();
+	src.wallet()
 		.eth_send_call(
-			contract1,
+			src_contract,
 			VotingContract::registerGmpContractsCall {
 				_registered: vec![GmpVotingContract {
-					dest: contract2.into(),
-					network,
+					dest: dest_contract.into(),
+					network: dest_network,
 				}],
 			}
 			.abi_encode(),
@@ -389,14 +392,14 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 			None,
 		)
 		.await?;
-	let receipt = tester
+	let receipt = dest
 		.wallet()
 		.eth_send_call(
-			contract2,
+			dest_contract,
 			VotingContract::registerGmpContractsCall {
 				_registered: vec![GmpVotingContract {
-					dest: contract1.into(),
-					network,
+					dest: src_contract.into(),
+					network: src_network,
 				}],
 			}
 			.abi_encode(),
@@ -414,11 +417,11 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 
 	// Get the GMP_GAS_LIMIT from the VotingContract
 	let gmp_gas_limit = {
-		let result = tester
+		let result = src
 			.wallet()
 			.query(CallContract {
 				from: None,
-				to: contract1.into(),
+				to: src_contract.into(),
 				value: 0.into(),
 				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
 				block: AtBlock::Latest,
@@ -436,15 +439,14 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
 	let deposit_amount = gas_price.saturating_mul(gmp_gas_limit).saturating_mul(12) / 10; // 20% more, in case of the gas price increase
 
-	tester
-		.deposit_funds(gmp_contract, network, contract1, true, deposit_amount)
+	dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
 		.await?;
 
 	println!("submitting vote");
-	let res = tester
+	let res = src
 		.wallet()
 		.eth_send_call(
-			contract1,
+			src_contract,
 			VotingContract::voteCall { _vote: true }.abi_encode(),
 			0,
 			None,
@@ -467,12 +469,12 @@ async fn gmp_test(tester: &Tester, contract: &Path) -> Result<()> {
 		Ok((yes_votes, no_votes))
 	}
 
-	let target = stats(tester, contract1, Some(block)).await?;
+	let target = stats(src, src_contract, Some(block)).await?;
 	println!("1: yes: {} no: {}", target.0, target.1);
 	assert_eq!(target, (1, 0));
 	loop {
 		sleep_or_abort(Duration::from_secs(60)).await?;
-		let current = stats(tester, contract2, None).await?;
+		let current = stats(dest, dest_contract, None).await?;
 		println!("2: yes: {} no: {}", current.0, current.1);
 		if current == target {
 			break;

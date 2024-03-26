@@ -319,6 +319,14 @@ pub mod pallet {
 			MemberShard::<T>::get(member).is_some()
 		}
 
+		fn matching_shard_online(network: NetworkId, size: u16) -> bool {
+			ShardNetwork::<T>::iter().any(|(s, n)| {
+				n == network
+					&& Self::is_shard_online(s)
+					&& ShardMembers::<T>::iter_prefix(s).collect::<Vec<_>>().len() as u16 == size
+			})
+		}
+
 		fn shard_network(shard_id: ShardId) -> Option<NetworkId> {
 			ShardNetwork::<T>::get(shard_id)
 		}

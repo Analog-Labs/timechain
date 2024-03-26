@@ -179,6 +179,9 @@ fn write_phase_timeout_reassigns_task() {
 			get_peer_id(C),
 			11 * DOLLARS,
 		));
+		Shards::create_shard(ETHEREUM, shard, 1);
+		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),
 			TaskDescriptorParams {
@@ -194,9 +197,6 @@ fn write_phase_timeout_reassigns_task() {
 				shard_size: 3,
 			}
 		));
-		Shards::create_shard(ETHEREUM, shard, 1);
-		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, ETHEREUM);
 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
 		roll_to(10);
 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
@@ -241,6 +241,8 @@ fn register_unregister_preserves_task_migration() {
 		));
 		// verify shard 0 created for Network Ethereum
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
+		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
 		// create task
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed(a.clone()).into(),
@@ -257,8 +259,6 @@ fn register_unregister_preserves_task_migration() {
 				shard_size: 3,
 			}
 		));
-		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, ETHEREUM);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters

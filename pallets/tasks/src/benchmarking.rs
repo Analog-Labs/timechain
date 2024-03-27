@@ -1,4 +1,4 @@
-use crate::{Call, Config, Pallet, TaskSigner};
+use crate::{Call, Config, Pallet};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
@@ -6,8 +6,8 @@ use pallet_shards::{ShardCommitment, ShardState};
 use scale_info::prelude::vec;
 use schnorr_evm::SigningKey;
 use time_primitives::{
-	AccountId, Function, NetworkId, Payload, ShardId, ShardStatus, ShardsInterface,
-	TaskDescriptorParams, TaskId, TaskResult, TasksInterface,
+	AccountId, Function, GmpParams, Message, Msg, NetworkId, Payload, ShardId, ShardStatus,
+	ShardsInterface, TaskDescriptorParams, TaskId, TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 1;
@@ -35,6 +35,28 @@ impl MockTssSigner {
 	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
 		self.signing_key.sign(data)
 	}
+}
+
+fn mock_submit_sig(function: Function) -> [u8; 64] {
+	let tss_public_key = MockTssSigner::new().public_key();
+	let gmp_params = GmpParams {
+		network_id: ETHEREUM,
+		tss_public_key,
+		gateway_contract: [0u8; 20].into(),
+	};
+	let payload: Vec<u8> = match function {
+		Function::RegisterShard { .. } => {
+			let tss_pubkey = MockTssSigner::new().public_key();
+			Message::update_keys([], [tss_pubkey]).to_eip712_bytes(&gmp_params).into()
+		},
+		Function::UnregisterShard { .. } => {
+			let tss_pubkey = MockTssSigner::new().public_key();
+			Message::update_keys([tss_pubkey], []).to_eip712_bytes(&gmp_params).into()
+		},
+		Function::SendMessage { msg } => Message::gmp(msg).to_eip712_bytes(&gmp_params).into(),
+		_ => Default::default(),
+	};
+	MockTssSigner::new().sign(&payload).to_bytes()
 }
 
 fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> ([u8; 33], TaskResult) {
@@ -135,15 +157,31 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), 0, [0u8; 32]) verify {}
 
 	submit_signature {
-		Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
+		let function = Function::SendMessage { msg: Msg::default() };
+		let descriptor = TaskDescriptorParams {
 			network: ETHEREUM,
-			function: Function::SendMessage { msg: Default::default() },
 			start: 0,
-			funds: 100u32.into(),
+			function: function.clone(),
+			funds: 100,
 			shard_size: 3,
-		})?;
-		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 0, [0u8; 64]) verify {}
+		};
+		<T as Config>::Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<T>::insert(0, ShardStatus::Online);
+		Pallet::<T>::shard_online(0, ETHEREUM);
+		let caller: AccountId= [0u8; 32].into();
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&caller,
+			pallet_balances::Pallet::<T>::issue(10_000),
+		);
+		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
+		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
+		ShardCommitment::<T>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let signature = mock_submit_sig(function);
+	}: _(RawOrigin::Signed(caller), 0, signature) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

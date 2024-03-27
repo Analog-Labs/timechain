@@ -60,9 +60,9 @@ benchmarks! {
 	}: _(RawOrigin::Signed(alice), 0)
 	verify { }
 
-	// force_shard_offline
 	force_shard_offline {
-		// todo!()
+		let shard: Vec<AccountId> = vec![[0u8; 32].into(), ALICE.into(), [2u8; 32].into()];
+		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
 	}: _(RawOrigin::Root, 0)
 	verify { }
 

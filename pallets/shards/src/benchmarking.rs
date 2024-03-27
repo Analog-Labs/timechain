@@ -4,6 +4,7 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use schnorr_evm::k256::ProjectivePoint;
 use schnorr_evm::VerifyingKey;
+use sp_std::vec;
 use sp_std::vec::Vec;
 use time_primitives::{AccountId, NetworkId, ShardsInterface};
 

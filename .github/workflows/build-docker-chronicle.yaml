@@ -2,10 +2,13 @@ name: Build Docker chronicle image
 
 on:
   push:
-    paths:
-      - 'chronicle/**'
-      - 'tss/**'
-      - 'tc-subxt/**'
+    paths-ignore:
+      - 'contracts/**'
+      - '**/*.md'
+      - 'scripts/**'
+      - 'utils/**'
+      - 'tester/**'
+      - 'node/**'
     branches:
       - 'development'
 

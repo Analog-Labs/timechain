@@ -1595,6 +1595,7 @@ impl_runtime_apis! {
 			use baseline::Pallet as BaselineBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
+			list_benchmark!(list, extra, pallet_elections, Elections);
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
 			list_benchmark!(list, extra, pallet_members, Members);

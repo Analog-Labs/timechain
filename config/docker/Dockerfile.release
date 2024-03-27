@@ -1,6 +1,6 @@
 ### Build stage
 ### Uses custom substrate builder (Dockerfile in infra repo)
-FROM analoglabs/substrate-builder:1.76.0 as builder
+FROM analoglabs/substrate-builder:1.77 as builder
 
 WORKDIR /build
 

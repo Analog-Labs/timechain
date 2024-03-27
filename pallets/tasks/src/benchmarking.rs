@@ -1,4 +1,4 @@
-use crate::{Call, Config, Pallet};
+use crate::{Call, Config, Pallet, TaskSigner};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
@@ -6,8 +6,8 @@ use pallet_shards::{ShardCommitment, ShardState};
 use scale_info::prelude::vec;
 use schnorr_evm::SigningKey;
 use time_primitives::{
-	Function, NetworkId, Payload, ShardId, ShardStatus, ShardsInterface, TaskDescriptorParams,
-	TaskId, TaskResult, TasksInterface,
+	AccountId, Function, NetworkId, Payload, ShardId, ShardStatus, ShardsInterface,
+	TaskDescriptorParams, TaskId, TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 1;
@@ -107,21 +107,32 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), 0, result) verify {}
 
 	submit_hash {
-		let b in 1..10000;
-		Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {
+		let descriptor = TaskDescriptorParams {
 			network: ETHEREUM,
+			start: 0,
 			function: Function::EvmCall {
 				address: Default::default(),
 				input: Default::default(),
 				amount: 0,
 				gas_limit: None,
 			},
-			start: 0,
-			funds: 100u32.into(),
+			funds: 100,
 			shard_size: 3,
-		})?;
-		Pallet::<T>::shard_online(1, ETHEREUM);
-	}: _(RawOrigin::Signed(whitelisted_caller()), 1, [b as _; 32]) verify {}
+		};
+		<T as Config>::Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<T>::insert(0, ShardStatus::Online);
+		Pallet::<T>::shard_online(0, ETHEREUM);
+		let caller: AccountId= [0u8; 32].into();
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&caller,
+			pallet_balances::Pallet::<T>::issue(10_000),
+		);
+		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
+	}: _(RawOrigin::Signed(caller), 0, [0u8; 32]) verify {}
 
 	submit_signature {
 		Pallet::<T>::create_task(RawOrigin::Signed(whitelisted_caller()).into(), TaskDescriptorParams {

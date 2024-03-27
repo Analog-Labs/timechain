@@ -20,7 +20,6 @@ pub mod pallet {
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
 	};
-	use sp_std::cell::RefCell;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -219,7 +218,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	#[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 	pub enum UnassignedReason {
 		NoShardOnline,
 		NoShardWithRequestedMembers,
@@ -694,51 +693,46 @@ pub mod pallet {
 		/// Excludes selecting the `old` shard_id optional input if it is passed
 		/// for task reassignment purposes.
 		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
-			let reason = RefCell::new(UnassignedReason::NoShardOnline);
+			let mut reason = UnassignedReason::NoShardOnline;
 			let old = TaskShard::<T>::get(task_id);
-			let shard = NetworkShards::<T>::iter_prefix(network)
-				.map(|(shard_id, _)| shard_id)
-				.filter(|shard_id| T::Shards::is_shard_online(*shard_id))
-				.filter(|shard_id| {
-					*reason.borrow_mut() = UnassignedReason::NoShardWithRequestedMembers;
-					let shards_len = T::Shards::shard_members(*shard_id).len() as u16;
-					shards_len == shard_size
-				})
-				.filter(|shard_id| {
-					*reason.borrow_mut() = UnassignedReason::NoRegisteredShard;
-					if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-						if Gateway::<T>::get(network).is_some() {
-							ShardRegistered::<T>::get(*shard_id).is_some()
-						} else {
-							false
-						}
-					} else {
-						true
+			let mut selected = None;
+			let mut selected_tasks = usize::MAX;
+			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
+				if !T::Shards::is_shard_online(shard_id) {
+					continue;
+				}
+				reason = std::cmp::max(reason, UnassignedReason::NoShardWithRequestedMembers);
+				if T::Shards::shard_members(shard_id).len() != shard_size as usize {
+					continue;
+				}
+				reason = std::cmp::max(reason, UnassignedReason::NoRegisteredShard);
+				if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+					if Gateway::<T>::get(network).is_none() {
+						continue;
 					}
-				})
-				.filter(|shard_id| {
-					*reason.borrow_mut() = UnassignedReason::PreviousShardTimedout;
-					if let Some(previous_shard) = old {
-						shard_id != &previous_shard
-					} else {
-						true
+					if ShardRegistered::<T>::get(shard_id).is_none() {
+						continue;
 					}
-				})
-				.map(|shard_id| (shard_id, Self::shard_task_count(shard_id)))
-				.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
-					if task_count < task_count2 {
-						(shard_id, task_count)
-					} else {
-						(shard_id2, task_count2)
+				}
+				reason = std::cmp::max(reason, UnassignedReason::PreviousShardTimedout);
+				if let Some(previous_shard) = old {
+					if shard_id == previous_shard {
+						continue;
 					}
-				})
-				.map(|(s, _)| s);
-			if let Some(shard_id) = shard {
+				}
+
+				let tasks = Self::shard_task_count(shard_id);
+				if tasks < selected_tasks {
+					selected = Some(shard_id);
+					selected_tasks = tasks;
+				}
+			}
+			if let Some(shard_id) = selected {
 				Self::deposit_event(Event::TaskAssigned(task_id, shard_id));
 			} else {
-				Self::deposit_event(Event::TaskUnassigned(task_id, *reason.borrow()));
+				Self::deposit_event(Event::TaskUnassigned(task_id, reason));
 			}
-			shard
+			selected
 		}
 
 		/// Apply the depreciation rate

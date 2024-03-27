@@ -2,14 +2,52 @@ use crate::{Call, Config, Pallet};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
-use pallet_shards::ShardState;
+use pallet_shards::{ShardCommitment, ShardState};
 use scale_info::prelude::vec;
+use schnorr_evm::SigningKey;
 use time_primitives::{
-	Function, NetworkId, Payload, ShardStatus, ShardsInterface, TaskDescriptorParams, TaskResult,
-	TasksInterface,
+	Function, NetworkId, Payload, ShardId, ShardStatus, ShardsInterface, TaskDescriptorParams,
+	TaskId, TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 1;
+
+pub struct MockTssSigner {
+	signing_key: SigningKey,
+}
+
+impl MockTssSigner {
+	pub fn new() -> Self {
+		Self {
+			//random key bytes
+			signing_key: SigningKey::from_bytes([
+				62, 78, 161, 128, 140, 236, 177, 67, 143, 75, 171, 207, 104, 60, 36, 95, 104, 71,
+				17, 91, 237, 184, 132, 165, 52, 240, 194, 4, 138, 196, 89, 176,
+			])
+			.unwrap(),
+		}
+	}
+
+	pub fn public_key(&self) -> [u8; 33] {
+		self.signing_key.public().to_bytes().unwrap()
+	}
+
+	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
+		self.signing_key.sign(data)
+	}
+}
+
+fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> ([u8; 33], TaskResult) {
+	// these values are taken after running a valid instance of submitting result
+	let hash = [
+		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
+		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+	];
+	let payload = Payload::Hashed(hash);
+	let signer = MockTssSigner::new();
+	let signature = signer.sign(&payload.bytes(task_id)).to_bytes();
+	(signer.public_key(), TaskResult { shard_id, payload, signature })
+}
 
 benchmarks! {
 	where_clause {  where T: pallet_shards::Config }
@@ -64,11 +102,8 @@ benchmarks! {
 			pallet_balances::Pallet::<T>::issue(10_000),
 		);
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
-		let result = TaskResult {
-			shard_id: 0,
-			payload: Payload::Hashed([0; 32]),
-			signature: [0; 64],
-		};
+		let (pub_key, result) = mock_result_ok(0, 0);
+		ShardCommitment::<T>::insert(0, vec![pub_key]);
 	}: _(RawOrigin::Signed(caller), 0, result) verify {}
 
 	submit_hash {

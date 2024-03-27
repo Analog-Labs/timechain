@@ -110,9 +110,9 @@ services:
     image: 'analoglabs/timechain-tester'
     profiles:
     - tester
-    environment:
-      RUST_LOG: 'tc-subxt=debug,tester=debug'
-      RUST_BACKTRACE: 1
+    # environment:
+      # RUST_LOG: 'tc-subxt=debug,tester=debug'
+      # RUST_BACKTRACE: 1
     volumes:
     - '/var/run/docker.sock:/var/run/docker.sock'
     - './config/wallets/keyfile:/etc/keyfile:ro'

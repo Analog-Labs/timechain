@@ -38,6 +38,8 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 	}
 }
 
+///
+/// implementation for TaskExecutor trait which helps in preprocessing of task
 #[async_trait]
 impl<S, T> super::TaskExecutor for TaskExecutor<S, T>
 where
@@ -85,6 +87,8 @@ where
 		}
 	}
 
+	///
+	/// preprocesses the task before sending it for execution in task_spawner.rs
 	pub async fn process_tasks(
 		&mut self,
 		block_hash: BlockHash,
@@ -92,12 +96,14 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
+		// get task metadata from runtime
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
 		for executable_task in tasks.iter().clone() {
 			let task_id = executable_task.task_id;
 			if self.running_tasks.contains_key(executable_task) {
 				continue;
 			}
+			// gets task details
 			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
 			let target_block_number = task_descr.start;
 			if target_block_height < target_block_number {
@@ -278,6 +284,7 @@ where
 			self.running_tasks.insert(executable_task.clone(), handle);
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
+		// remove from running task if task is completed or we dont receive anymore from pallet
 		self.running_tasks.retain(|x, handle| {
 			if tasks.contains(x) {
 				true
@@ -293,6 +300,8 @@ where
 		Ok(completed_sessions)
 	}
 
+	///
+	/// build gmp params that are needed to encode the call into evm standard
 	pub async fn gmp_params(
 		&self,
 		shard_id: ShardId,

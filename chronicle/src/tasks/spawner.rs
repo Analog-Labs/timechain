@@ -67,6 +67,8 @@ where
 		})
 	}
 
+	///
+	/// look for gmp events and filter GmpCreated events from them
 	async fn get_gmp_events_at(
 		&self,
 		gateway_contract: [u8; 20],
@@ -86,6 +88,7 @@ where
 			.await?
 			.into_iter()
 			.map(|log| {
+				// if any GmpCreated message is received collect them and returns
 				let topics =
 					log.topics.into_iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
 				let log = alloy_primitives::Log::new(
@@ -101,12 +104,19 @@ where
 		Ok(logs)
 	}
 
+	///
+	/// executes the task function
+	///
+	/// # Arguments
+	/// `function`: function of task
+	/// `target_block_number`: block number of target chain (usable for read tasks)
 	async fn execute_function(
 		&self,
 		function: &Function,
 		target_block_number: u64,
 	) -> Result<Payload> {
 		Ok(match function {
+			// execute the read function of task
 			Function::EvmViewCall { address, input } => {
 				let data = self
 					.wallet
@@ -128,6 +138,7 @@ where
 				};
 				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
+			// reads the receipt for a transaction on target chain
 			Function::EvmTxReceipt { tx } => {
 				let Some(receipt) = self.wallet.eth_transaction_receipt(*tx).await? else {
 					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
@@ -150,11 +161,13 @@ where
 				.to_string();
 				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
+			// executs the read message function. it looks for event emitted from gateway contracts
 			Function::ReadMessages { batch_size } => {
 				let network_id = self.network_id;
 				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
 					anyhow::bail!("no gateway registered: skipped reading messages");
 				};
+				// gets gmp created events form contract and then convert it to a `Msg`
 				let logs: Vec<_> = self
 					.get_gmp_events_at(
 						gateway_contract,

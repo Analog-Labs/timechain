@@ -85,6 +85,7 @@ async fn main() -> Result<()> {
 			tester[0].faucet().await;
 		},
 		TestCommand::SetupGmp { redeploy } => {
+			tester[0].faucet().await;
 			tester[0].setup_gmp(redeploy).await?;
 		},
 		TestCommand::WatchTask { task_id } => {
@@ -146,6 +147,7 @@ async fn main() -> Result<()> {
 	);
 	Ok(())
 }
+
 async fn latency_cycle(
 	tester: &Tester,
 	env: Environment,
@@ -358,6 +360,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 	dest.faucet().await;
 	let src_gmp_contract = src.setup_gmp(false).await?;
 	let dest_gmp_contract = dest.setup_gmp(false).await?;
+	// deploy testing contract for source chain
 	let (src_contract, _) = src
 		.deploy(
 			contract,
@@ -366,6 +369,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 			},
 		)
 		.await?;
+	// deploy testing contract for destination/target chain
 	let (dest_contract, _) = dest
 		.deploy(
 			contract,
@@ -377,6 +381,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 
 	let src_network = src.network_id();
 	let dest_network = dest.network_id();
+	// registers destination contract in source contract to inform gmp compatibility.
 	src.wallet()
 		.eth_send_call(
 			src_contract,
@@ -392,6 +397,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 			None,
 		)
 		.await?;
+	// registers source contract in destination contract to inform gmp compatibility.
 	let receipt = dest
 		.wallet()
 		.eth_send_call(
@@ -439,10 +445,12 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
 	let deposit_amount = gas_price.saturating_mul(gmp_gas_limit).saturating_mul(12) / 10; // 20% more, in case of the gas price increase
 
+	// deposit funds for source in gmp contract to be able to execute the call
 	dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
 		.await?;
 
 	println!("submitting vote");
+	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
 	let res = src
 		.wallet()
 		.eth_send_call(
@@ -456,6 +464,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 	let block = res.receipt().unwrap().block_number.unwrap();
 	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());
 
+	// fetches the testcontract state (contains yes and no votes and gets total of each)
 	async fn stats(tester: &Tester, contract: [u8; 20], block: Option<u64>) -> Result<(u64, u64)> {
 		let block =
 			if let Some(block) = block { block } else { tester.wallet().status().await?.index };

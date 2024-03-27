@@ -119,7 +119,7 @@ fn test_create_task() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
-		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
+		System::assert_last_event(Event::<Test>::TaskAssigned(0, 0).into());
 		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::Read)]);
 		let mut read_task_reward: u128 = <Test as crate::Config>::BaseReadReward::get();
 		read_task_reward =

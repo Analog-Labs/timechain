@@ -20,6 +20,7 @@ pub mod pallet {
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
 	};
+	use sp_std::cell::RefCell;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -218,6 +219,14 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	#[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+	pub enum UnassignedReason {
+		NoShardOnline,
+		NoShardWithRequestedMembers,
+		NoRegisteredShard,
+		PreviousShardTimedout,
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -233,6 +242,10 @@ pub mod pallet {
 		WriteTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Send message task reward set for network
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
+		/// Task was assigned.
+		TaskAssigned(TaskId, ShardId),
+		/// Task was not assigned.
+		TaskUnassigned(TaskId, UnassignedReason),
 	}
 
 	#[pallet::error]
@@ -681,14 +694,18 @@ pub mod pallet {
 		/// Excludes selecting the `old` shard_id optional input if it is passed
 		/// for task reassignment purposes.
 		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
+			let reason = RefCell::new(UnassignedReason::NoShardOnline);
 			let old = TaskShard::<T>::get(task_id);
-			NetworkShards::<T>::iter_prefix(network)
-				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-				.filter(|(shard_id, _)| {
+			let shard = NetworkShards::<T>::iter_prefix(network)
+				.map(|(shard_id, _)| shard_id)
+				.filter(|shard_id| T::Shards::is_shard_online(*shard_id))
+				.filter(|shard_id| {
+					*reason.borrow_mut() = UnassignedReason::NoShardWithRequestedMembers;
 					let shards_len = T::Shards::shard_members(*shard_id).len() as u16;
 					shards_len == shard_size
 				})
-				.filter(|(shard_id, _)| {
+				.filter(|shard_id| {
+					*reason.borrow_mut() = UnassignedReason::NoRegisteredShard;
 					if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
 						if Gateway::<T>::get(network).is_some() {
 							ShardRegistered::<T>::get(*shard_id).is_some()
@@ -699,14 +716,15 @@ pub mod pallet {
 						true
 					}
 				})
-				.filter(|(shard_id, _)| {
+				.filter(|shard_id| {
+					*reason.borrow_mut() = UnassignedReason::PreviousShardTimedout;
 					if let Some(previous_shard) = old {
 						shard_id != &previous_shard
 					} else {
 						true
 					}
 				})
-				.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
+				.map(|shard_id| (shard_id, Self::shard_task_count(shard_id)))
 				.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
 					if task_count < task_count2 {
 						(shard_id, task_count)
@@ -714,7 +732,13 @@ pub mod pallet {
 						(shard_id2, task_count2)
 					}
 				})
-				.map(|(s, _)| s)
+				.map(|(s, _)| s);
+			if let Some(shard_id) = shard {
+				Self::deposit_event(Event::TaskAssigned(task_id, shard_id));
+			} else {
+				Self::deposit_event(Event::TaskUnassigned(task_id, *reason.borrow()));
+			}
+			shard
 		}
 
 		/// Apply the depreciation rate

@@ -223,7 +223,7 @@ pub mod pallet {
 		NoShardOnline,
 		NoShardWithRequestedMembers,
 		NoRegisteredShard,
-		PreviousShardTimedout,
+		PreviousShardTimedOut,
 	}
 
 	#[pallet::event]
@@ -709,7 +709,7 @@ pub mod pallet {
 						continue;
 					}
 				}
-				reason = core::cmp::max(reason, UnassignedReason::PreviousShardTimedout);
+				reason = core::cmp::max(reason, UnassignedReason::PreviousShardTimedOut);
 				if let Some(previous_shard) = old {
 					if shard_id == previous_shard {
 						continue;

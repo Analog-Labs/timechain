@@ -935,13 +935,9 @@ impl pallet_members::Config for Runtime {
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Networks = Networks;
-	type MinStake = ConstU128<{ 10 * DOLLARS }>;
+	type MinStake = ConstU128<{ 90_000 * DOLLARS }>;
 	type HeartbeatTimeout = ConstU32<300>;
 }
-
-// Set in elections::GenesisConfig in node/chain_spec
-pub const SHARD_SIZE: u16 = 3;
-pub const SHARD_THRESHOLD: u16 = 2;
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

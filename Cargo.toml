@@ -14,6 +14,7 @@ members = [
 	"tc-subxt",
 	"tester",
 	"tss",
+	"utils/generate-bags",
 ]
 resolver = "2"
 

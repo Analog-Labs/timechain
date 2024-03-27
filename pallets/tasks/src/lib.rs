@@ -218,6 +218,14 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+	pub enum UnassignedReason {
+		NoShardOnline,
+		NoShardWithRequestedMembers,
+		NoRegisteredShard,
+		PreviousShardTimedOut,
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -233,6 +241,10 @@ pub mod pallet {
 		WriteTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Send message task reward set for network
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
+		/// Task was assigned.
+		TaskAssigned(TaskId, ShardId),
+		/// Task was not assigned.
+		TaskUnassigned(TaskId, UnassignedReason),
 	}
 
 	#[pallet::error]
@@ -370,8 +382,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
-			for (shard, _) in ShardRegistered::<T>::iter() {
-				ShardRegistered::<T>::remove(shard);
+			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
+				ShardRegistered::<T>::remove(shard_id);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -469,7 +481,6 @@ pub mod pallet {
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
-				.filter(|(task_id, _)| Self::is_runnable(*task_id))
 				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
 				.collect()
 		}
@@ -627,10 +638,6 @@ pub mod pallet {
 			}
 		}
 
-		fn is_runnable(task_id: TaskId) -> bool {
-			TaskOutput::<T>::get(task_id).is_none()
-		}
-
 		fn validate_signature(
 			shard_id: ShardId,
 			data: &[u8],
@@ -681,40 +688,46 @@ pub mod pallet {
 		/// Excludes selecting the `old` shard_id optional input if it is passed
 		/// for task reassignment purposes.
 		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
+			let mut reason = UnassignedReason::NoShardOnline;
 			let old = TaskShard::<T>::get(task_id);
-			NetworkShards::<T>::iter_prefix(network)
-				.filter(|(shard_id, _)| T::Shards::is_shard_online(*shard_id))
-				.filter(|(shard_id, _)| {
-					let shards_len = T::Shards::shard_members(*shard_id).len() as u16;
-					shards_len == shard_size
-				})
-				.filter(|(shard_id, _)| {
-					if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-						if Gateway::<T>::get(network).is_some() {
-							ShardRegistered::<T>::get(*shard_id).is_some()
-						} else {
-							false
-						}
-					} else {
-						true
+			let mut selected = None;
+			let mut selected_tasks = usize::MAX;
+			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
+				if !T::Shards::is_shard_online(shard_id) {
+					continue;
+				}
+				reason = core::cmp::max(reason, UnassignedReason::NoShardWithRequestedMembers);
+				if T::Shards::shard_members(shard_id).len() != shard_size as usize {
+					continue;
+				}
+				reason = core::cmp::max(reason, UnassignedReason::NoRegisteredShard);
+				if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+					if Gateway::<T>::get(network).is_none() {
+						continue;
 					}
-				})
-				.filter(|(shard_id, _)| {
-					if let Some(previous_shard) = old {
-						shard_id != &previous_shard
-					} else {
-						true
+					if ShardRegistered::<T>::get(shard_id).is_none() {
+						continue;
 					}
-				})
-				.map(|(shard_id, _)| (shard_id, Self::shard_task_count(shard_id)))
-				.reduce(|(shard_id, task_count), (shard_id2, task_count2)| {
-					if task_count < task_count2 {
-						(shard_id, task_count)
-					} else {
-						(shard_id2, task_count2)
+				}
+				reason = core::cmp::max(reason, UnassignedReason::PreviousShardTimedOut);
+				if let Some(previous_shard) = old {
+					if shard_id == previous_shard {
+						continue;
 					}
-				})
-				.map(|(s, _)| s)
+				}
+
+				let tasks = Self::shard_task_count(shard_id);
+				if tasks < selected_tasks {
+					selected = Some(shard_id);
+					selected_tasks = tasks;
+				}
+			}
+			if let Some(shard_id) = selected {
+				Self::deposit_event(Event::TaskAssigned(task_id, shard_id));
+			} else {
+				Self::deposit_event(Event::TaskUnassigned(task_id, reason));
+			}
+			selected
 		}
 
 		/// Apply the depreciation rate
@@ -852,9 +865,7 @@ pub mod pallet {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				if Self::is_runnable(task_id) {
-					UnassignedTasks::<T>::insert(network, task_id, ());
-				}
+				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
@@ -866,9 +877,8 @@ pub mod pallet {
 					TaskFunder::Inflation,
 				)
 				.unwrap();
-			} else {
-				Self::schedule_tasks(network);
 			}
+			Self::schedule_tasks(network);
 		}
 	}
 

@@ -12,7 +12,7 @@ use timechain_runtime::{Block, EXISTENTIAL_DEPOSIT};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Substrate Node".into()
+		"Timechain Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -37,8 +37,9 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"testnet" => Box::new(chain_spec::analog_testnet_config(false)?),
-			"testnet-notss" => Box::new(chain_spec::analog_testnet_config(true)?),
+			// Live networks
+			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
+			// Development networks
 			"staging" => Box::new(chain_spec::analog_staging_config(false)?),
 			"staging-notss" => Box::new(chain_spec::analog_staging_config(true)?),
 			"" | "dev" => Box::new(chain_spec::analog_dev_config(false)?),

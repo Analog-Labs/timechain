@@ -340,9 +340,8 @@ fn shard_offline_removes_tasks() {
 		Tasks::shard_offline(0, ETHEREUM);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
-			vec![1, 0, 2]
+			vec![1, 2]
 		);
-		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
 
@@ -360,9 +359,7 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 			1,
 		);
 		ShardState::<Test>::insert(0, ShardStatus::Online);
-		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		Tasks::shard_online(1, ETHEREUM);
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
@@ -375,6 +372,8 @@ fn shard_offline_assigns_tasks_if_other_shard_online() {
 			.map(|(_, t, _)| t)
 			.collect::<Vec<_>>()
 			.is_empty());
+		ShardState::<Test>::insert(1, ShardStatus::Online);
+		Tasks::shard_online(1, ETHEREUM);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty(),);

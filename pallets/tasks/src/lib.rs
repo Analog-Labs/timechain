@@ -481,7 +481,6 @@ pub mod pallet {
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
-				.filter(|(task_id, _)| Self::is_runnable(*task_id))
 				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
 				.collect()
 		}
@@ -637,10 +636,6 @@ pub mod pallet {
 					T::Shards::next_signer(TaskShard::<T>::get(task_id).unwrap()),
 				);
 			}
-		}
-
-		fn is_runnable(task_id: TaskId) -> bool {
-			TaskOutput::<T>::get(task_id).is_none()
 		}
 
 		fn validate_signature(
@@ -870,9 +865,7 @@ pub mod pallet {
 			NetworkShards::<T>::remove(network, shard_id);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				if Self::is_runnable(task_id) {
-					UnassignedTasks::<T>::insert(network, task_id, ());
-				}
+				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
@@ -884,9 +877,8 @@ pub mod pallet {
 					TaskFunder::Inflation,
 				)
 				.unwrap();
-			} else {
-				Self::schedule_tasks(network);
 			}
+			Self::schedule_tasks(network);
 		}
 	}
 

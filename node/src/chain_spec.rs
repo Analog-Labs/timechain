@@ -12,7 +12,7 @@ use sp_runtime::{
 use timechain_runtime::{
 	AccountId, Balance, BalancesConfig, CouncilConfig, ElectionsConfig, GrandpaConfig,
 	ImOnlineConfig, RuntimeGenesisConfig as GenesisConfig, Signature, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, ANLOG, SHARD_SIZE, SHARD_THRESHOLD, TOKEN_DECIMALS, WASM_BINARY,
+	SudoConfig, SystemConfig, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
 };
 const TOKEN_SYMBOL: &str = "TANLOG";
 const SS_58_FORMAT: u32 = 51;
@@ -655,8 +655,7 @@ fn generate_analog_genesis(
 			(x.clone(), x.clone(), locked, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
-	let (shard_size, shard_threshold) =
-		if disable_tss { (1, 1) } else { (SHARD_SIZE, SHARD_THRESHOLD) };
+	let (shard_size, shard_threshold) = if disable_tss { (1, 1) } else { (3, 2) };
 	GenesisConfig {
 		system: SystemConfig { ..Default::default() },
 		balances: BalancesConfig {

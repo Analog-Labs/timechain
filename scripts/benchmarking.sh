@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Build release runtime benchmarks
-cargo build --release --features=runtime-benchmarks
+cargo build --release --features=runtime-benchmarks -p timechain-node
 
 # Collect all pallets needed for benchmarking
 # Makes the assumption all pallets are present at: /pallets/$PALLET_NAME

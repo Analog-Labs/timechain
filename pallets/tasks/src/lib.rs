@@ -383,8 +383,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
-			for (shard, _) in ShardRegistered::<T>::iter() {
-				ShardRegistered::<T>::remove(shard);
+			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
+				ShardRegistered::<T>::remove(shard_id);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {

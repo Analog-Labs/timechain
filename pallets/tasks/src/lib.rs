@@ -696,11 +696,11 @@ pub mod pallet {
 				if !T::Shards::is_shard_online(shard_id) {
 					continue;
 				}
-				reason = std::cmp::max(reason, UnassignedReason::NoShardWithRequestedMembers);
+				reason = core::cmp::max(reason, UnassignedReason::NoShardWithRequestedMembers);
 				if T::Shards::shard_members(shard_id).len() != shard_size as usize {
 					continue;
 				}
-				reason = std::cmp::max(reason, UnassignedReason::NoRegisteredShard);
+				reason = core::cmp::max(reason, UnassignedReason::NoRegisteredShard);
 				if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
 					if Gateway::<T>::get(network).is_none() {
 						continue;
@@ -709,7 +709,7 @@ pub mod pallet {
 						continue;
 					}
 				}
-				reason = std::cmp::max(reason, UnassignedReason::PreviousShardTimedout);
+				reason = core::cmp::max(reason, UnassignedReason::PreviousShardTimedout);
 				if let Some(previous_shard) = old {
 					if shard_id == previous_shard {
 						continue;

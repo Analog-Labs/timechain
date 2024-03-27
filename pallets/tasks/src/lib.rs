@@ -312,7 +312,7 @@ pub mod pallet {
 		}
 
 		/// Submit Task Hash
-		#[pallet::call_index(3)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::submit_hash())] // TODO update bench, weights
 		pub fn submit_hash(
 			origin: OriginFor<T>,
@@ -337,8 +337,8 @@ pub mod pallet {
 		}
 
 		/// Submit Signature
-		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_signature())] // TODO update bench, weights
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_signature())]
 		pub fn submit_signature(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -359,8 +359,8 @@ pub mod pallet {
 		}
 
 		/// Register gateway
-		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config>::WeightInfo::register_gateway())] // TODO update bench, weights
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::register_gateway())]
 		pub fn register_gateway(
 			origin: OriginFor<T>,
 			bootstrap: ShardId,
@@ -387,7 +387,7 @@ pub mod pallet {
 		}
 
 		/// Set read task reward
-		#[pallet::call_index(6)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_read_task_reward())]
 		pub fn set_read_task_reward(
 			origin: OriginFor<T>,
@@ -401,7 +401,7 @@ pub mod pallet {
 		}
 
 		/// Set write task reward
-		#[pallet::call_index(7)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_write_task_reward())]
 		pub fn set_write_task_reward(
 			origin: OriginFor<T>,
@@ -415,7 +415,7 @@ pub mod pallet {
 		}
 
 		/// Set send message task reward
-		#[pallet::call_index(8)]
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_send_message_task_reward())]
 		pub fn set_send_message_task_reward(
 			origin: OriginFor<T>,

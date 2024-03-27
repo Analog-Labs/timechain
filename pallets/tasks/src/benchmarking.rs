@@ -183,5 +183,24 @@ benchmarks! {
 		let signature = mock_submit_sig(function);
 	}: _(RawOrigin::Signed(caller), 0, signature) verify {}
 
+	register_gateway {
+		<T as Config>::Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<T>::insert(0, ShardStatus::Online);
+		Pallet::<T>::shard_online(0, ETHEREUM);
+	}: _(RawOrigin::Root, 0, [0u8; 20], 20) verify {}
+
+	set_read_task_reward {
+	}: _(RawOrigin::Root, 0, 20) verify {}
+
+	set_write_task_reward {
+	}: _(RawOrigin::Root, 0, 20) verify {}
+
+	set_send_message_task_reward {
+	}: _(RawOrigin::Root, 0, 20) verify {}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

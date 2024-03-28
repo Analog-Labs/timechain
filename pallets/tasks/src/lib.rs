@@ -874,7 +874,10 @@ pub mod pallet {
 			if less_than_one_shard_online {
 				ShardRegistered::<T>::remove(shard_id);
 				Gateway::<T>::remove(network);
-				// TODO: KILL ALL  TASKS FOR THE NETWORK
+				Tasks::<T>::iter().filter(|(_, n)| n.network == network).for_each(|(t, _)| {
+					Tasks::<T>::remove(t);
+					TaskPhaseState::<T>::remove(t);
+				});
 				Self::deposit_event(Event::GatewayLocked(network));
 				return;
 			}

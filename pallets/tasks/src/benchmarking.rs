@@ -3,8 +3,8 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use scale_info::prelude::vec;
-use schnorr_evm::SigningKey;
+use sp_std::vec;
+use sp_std::vec::Vec;
 use time_primitives::{
 	AccountId, Function, GmpParams, Message, Msg, NetworkId, Payload, ShardId, ShardStatus,
 	ShardsInterface, TaskDescriptorParams, TaskId, TaskResult, TasksInterface,
@@ -12,63 +12,45 @@ use time_primitives::{
 
 const ETHEREUM: NetworkId = 1;
 
-pub struct MockTssSigner {
-	signing_key: SigningKey,
+// Generated via `tests::bench_helper`
+// Returns pub_key, Signature
+fn mock_submit_sig() -> ([u8; 33], [u8; 64]) {
+	(
+		[
+			2, 36, 79, 43, 160, 29, 26, 4, 168, 242, 35, 104, 66, 1, 179, 183, 189, 197, 92, 84, 2,
+			101, 52, 245, 230, 250, 199, 131, 188, 204, 228, 70, 248,
+		],
+		[
+			53, 34, 13, 89, 59, 173, 13, 123, 38, 76, 96, 96, 52, 253, 186, 31, 70, 11, 206, 77,
+			141, 72, 201, 47, 61, 174, 82, 129, 0, 51, 204, 82, 53, 34, 164, 139, 35, 114, 156, 2,
+			160, 21, 214, 224, 119, 215, 163, 6, 55, 44, 200, 118, 139, 182, 85, 207, 51, 50, 211,
+			36, 209, 50, 44, 232,
+		],
+	)
 }
 
-impl MockTssSigner {
-	pub fn new() -> Self {
-		Self {
-			//random key bytes
-			signing_key: SigningKey::from_bytes([
-				62, 78, 161, 128, 140, 236, 177, 67, 143, 75, 171, 207, 104, 60, 36, 95, 104, 71,
-				17, 91, 237, 184, 132, 165, 52, 240, 194, 4, 138, 196, 89, 176,
-			])
-			.unwrap(),
-		}
-	}
-
-	pub fn public_key(&self) -> [u8; 33] {
-		self.signing_key.public().to_bytes().unwrap()
-	}
-
-	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
-		self.signing_key.sign(data)
-	}
-}
-
-fn mock_submit_sig(function: Function) -> [u8; 64] {
-	let tss_public_key = MockTssSigner::new().public_key();
-	let gmp_params = GmpParams {
-		network_id: ETHEREUM,
-		tss_public_key,
-		gateway_contract: [0u8; 20].into(),
-	};
-	let payload: Vec<u8> = match function {
-		Function::RegisterShard { .. } => {
-			let tss_pubkey = MockTssSigner::new().public_key();
-			Message::update_keys([], [tss_pubkey]).to_eip712_bytes(&gmp_params).into()
+// Generated via `tests::bench_helper`
+// Returns pub_key, TaskResult
+fn mock_result_ok() -> ([u8; 33], TaskResult) {
+	(
+		[
+			2, 36, 79, 43, 160, 29, 26, 4, 168, 242, 35, 104, 66, 1, 179, 183, 189, 197, 92, 84, 2,
+			101, 52, 245, 230, 250, 199, 131, 188, 204, 228, 70, 248,
+		],
+		TaskResult {
+			shard_id: 0,
+			payload: time_primitives::Payload::Hashed([
+				11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127,
+				91, 0, 219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+			]),
+			signature: [
+				6, 7, 9, 187, 47, 68, 0, 246, 107, 215, 169, 76, 121, 8, 85, 213, 42, 253, 100, 32,
+				62, 87, 85, 101, 146, 126, 200, 74, 76, 101, 188, 229, 30, 17, 202, 255, 105, 25,
+				145, 174, 219, 202, 54, 185, 97, 39, 171, 219, 81, 123, 73, 35, 124, 32, 124, 148,
+				155, 133, 40, 73, 165, 196, 167, 130,
+			],
 		},
-		Function::UnregisterShard { .. } => {
-			let tss_pubkey = MockTssSigner::new().public_key();
-			Message::update_keys([tss_pubkey], []).to_eip712_bytes(&gmp_params).into()
-		},
-		Function::SendMessage { msg } => Message::gmp(msg).to_eip712_bytes(&gmp_params).into(),
-		_ => Default::default(),
-	};
-	MockTssSigner::new().sign(&payload).to_bytes()
-}
-
-fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> ([u8; 33], TaskResult) {
-	// these values are taken after running a valid instance of submitting result
-	let hash = [
-		11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91, 0,
-		219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
-	];
-	let payload = Payload::Hashed(hash);
-	let signer = MockTssSigner::new();
-	let signature = signer.sign(&payload.bytes(task_id)).to_bytes();
-	(signer.public_key(), TaskResult { shard_id, payload, signature })
+	)
 }
 
 benchmarks! {
@@ -124,7 +106,7 @@ benchmarks! {
 			pallet_balances::Pallet::<T>::issue(10_000),
 		);
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
-		let (pub_key, result) = mock_result_ok(0, 0);
+		let (pub_key, result) = mock_result_ok();
 		ShardCommitment::<T>::insert(0, vec![pub_key]);
 	}: _(RawOrigin::Signed(caller), 0, result) verify {}
 
@@ -179,8 +161,8 @@ benchmarks! {
 		);
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
 		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
-		ShardCommitment::<T>::insert(0, vec![MockTssSigner::new().public_key()]);
-		let signature = mock_submit_sig(function);
+		let (pub_key, signature) = mock_submit_sig();
+		ShardCommitment::<T>::insert(0, vec![pub_key]);
 	}: _(RawOrigin::Signed(caller), 0, signature) verify {}
 
 	register_gateway {

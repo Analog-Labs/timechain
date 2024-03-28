@@ -1529,3 +1529,40 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		}
 	});
 }
+
+#[test]
+#[ignore]
+fn bench_result_helper() {
+	fn bench_result(shard_id: ShardId, task_id: TaskId) -> ([u8; 33], TaskResult) {
+		// these values are taken after running a valid instance of submitting result
+		let hash = [
+			11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127, 91,
+			0, 219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
+		];
+		let payload = Payload::Hashed(hash);
+		let signer = MockTssSigner::new();
+		let signature = signer.sign(&payload.bytes(task_id)).to_bytes();
+		(signer.public_key(), TaskResult { shard_id, payload, signature })
+	}
+	println!("{:?}", bench_result(0, 0));
+	assert!(false);
+}
+
+#[test]
+//#[ignore]
+fn bench_sig_helper() {
+	fn bench_sig() -> ([u8; 33], [u8; 64]) {
+		//let function = Function::SendMessage { msg: Msg::default() };
+		let signer = MockTssSigner::new();
+		let tss_public_key = MockTssSigner::new().public_key();
+		let gmp_params = GmpParams {
+			network_id: ETHEREUM,
+			tss_public_key: tss_public_key.clone(),
+			gateway_contract: [0u8; 20].into(),
+		};
+		let payload: Vec<u8> = Message::gmp(Msg::default()).to_eip712_bytes(&gmp_params).into();
+		(tss_public_key, MockTssSigner::new().sign(&payload).to_bytes())
+	}
+	println!("{:?}", bench_sig());
+	assert!(false);
+}

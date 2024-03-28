@@ -255,6 +255,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Invalid Signature
 		InvalidSignature,
+		/// Signature Verification Failed
+		SignatureVerificationFailed,
 		/// Invalid Owner
 		InvalidOwner,
 		/// Invalid task function
@@ -650,7 +652,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::UnknownShard)?;
 			schnorr_public_key
 				.verify(data, &signature)
-				.map_err(|_| Error::<T>::InvalidSignature)?;
+				.map_err(|_| Error::<T>::SignatureVerificationFailed)?;
 			Ok(())
 		}
 

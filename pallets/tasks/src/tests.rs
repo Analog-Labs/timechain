@@ -426,7 +426,8 @@ fn shard_offline_drops_failed_tasks() {
 			Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), sign_task.clone(),)
 		);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
-		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let pub_key = MockTssSigner::new().public_key();
+		ShardCommitment::<Test>::insert(0, vec![pub_key]);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, [0; 32],));
@@ -1554,14 +1555,14 @@ fn bench_sig_helper() {
 	fn bench_sig() -> ([u8; 33], [u8; 64]) {
 		//let function = Function::SendMessage { msg: Msg::default() };
 		let signer = MockTssSigner::new();
-		let tss_public_key = MockTssSigner::new().public_key();
+		let tss_public_key = signer.public_key();
 		let gmp_params = GmpParams {
 			network_id: ETHEREUM,
 			tss_public_key: tss_public_key.clone(),
 			gateway_contract: [0u8; 20].into(),
 		};
 		let payload: Vec<u8> = Message::gmp(Msg::default()).to_eip712_bytes(&gmp_params).into();
-		(tss_public_key, MockTssSigner::new().sign(&payload).to_bytes())
+		(tss_public_key, signer.sign(&payload).to_bytes())
 	}
 	println!("{:?}", bench_sig());
 	assert!(false);

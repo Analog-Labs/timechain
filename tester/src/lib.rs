@@ -98,7 +98,7 @@ impl Tester {
 	}
 
 	pub async fn faucet(&self) {
-		if let Err(err) = self.wallet.faucet(100000000000000000000000000000).await {
+		if let Err(err) = self.wallet.faucet(u128::MAX).await {
 			println!("Error occured while funding wallet {:?}", err);
 		}
 	}

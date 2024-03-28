@@ -33,3 +33,6 @@ debug = true
 [profile.release-codecov]
 inherits = "release"
 strip = false
+
+[patch.crates-io]
+ss58-registry = { git = 'https://github.com/Analog-Labs/ss58-registry.git' }

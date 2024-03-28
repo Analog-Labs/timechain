@@ -13646,9 +13646,8 @@ dependencies = [
 
 [[package]]
 name = "ss58-registry"
-version = "1.47.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4743ce898933fbff7bbf414f497c459a782d496269644b3d650a398ae6a487ba"
+version = "1.48.0"
+source = "git+https://github.com/Analog-Labs/ss58-registry.git#db1f1a72cb15b3ead80b3679b13620da89b691b5"
 dependencies = [
  "Inflector",
  "num-format",

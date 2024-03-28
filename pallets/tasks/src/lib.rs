@@ -875,8 +875,15 @@ pub mod pallet {
 				ShardRegistered::<T>::remove(shard_id);
 				Gateway::<T>::remove(network);
 				Tasks::<T>::iter().filter(|(_, n)| n.network == network).for_each(|(t, _)| {
-					Tasks::<T>::remove(t);
-					TaskPhaseState::<T>::remove(t);
+					// Task failed because gateway locked
+					TaskOutput::<T>::insert(
+						t,
+						TaskResult {
+							shard_id,
+							payload: Payload::Error("Gateway locked".into()),
+							signature: [0u8; 64],
+						},
+					);
 				});
 				Self::deposit_event(Event::GatewayLocked(network));
 				return;

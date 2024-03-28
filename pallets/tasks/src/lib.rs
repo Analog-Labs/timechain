@@ -899,7 +899,7 @@ pub mod pallet {
 					),
 					TaskFunder::Inflation,
 				)
-				.unwrap()
+				.unwrap();
 			}
 			Self::schedule_tasks(network);
 		}

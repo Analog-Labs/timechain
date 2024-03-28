@@ -51,7 +51,7 @@ use sp_runtime::{
 		OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Percent, SaturatedConversion,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use sp_runtime::{traits::IdentityLookup, FixedPointNumber};
 
@@ -1079,7 +1079,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}

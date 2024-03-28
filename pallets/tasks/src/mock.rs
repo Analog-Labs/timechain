@@ -4,11 +4,9 @@ use frame_support::PalletId;
 use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
-	app_crypto::sp_core,
 	traits::{parameter_types, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, DispatchResult, MultiSignature, Percent,
 };
-use sp_std::vec::Vec;
 use time_primitives::{
 	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
 	TransferStake,
@@ -85,6 +83,11 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
 }
 
 impl pallet_balances::Config for Test {

@@ -87,7 +87,7 @@ services:
   chronicle-astar1:
     image: 'analoglabs/chronicle'
     command:
-    - '--network-id=1'
+    - '--network-id=6'
     - '--target-url=ws://astar:9944'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'

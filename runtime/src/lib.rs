@@ -941,7 +941,7 @@ impl pallet_members::Config for Runtime {
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = (); //TODO: update after running benchmarks
+	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
 }

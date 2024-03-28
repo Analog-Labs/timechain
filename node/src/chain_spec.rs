@@ -664,7 +664,7 @@ fn generate_analog_genesis(
 		},
 		babe: timechain_runtime::BabeConfig {
 			authorities: vec![],
-			epoch_config: Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: timechain_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		elections: ElectionsConfig {
@@ -756,7 +756,7 @@ fn analog_genesis_json(
 			"balances": endowed_accounts,
 		},
 		"babe": {
-			"epochConfig": Some(timechain_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			"epochConfig": timechain_runtime::BABE_GENESIS_EPOCH_CONFIG,
 		},
 		"elections": {
 			"shardSize": 12,

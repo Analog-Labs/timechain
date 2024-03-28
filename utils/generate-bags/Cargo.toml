@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 timechain-runtime = { path = "../../runtime" }
-generate-bags = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.8.0" }
+generate-bags = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0" }
 
 clap = { version = "4.4.18", features = [ "derive" ] }

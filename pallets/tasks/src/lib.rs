@@ -180,9 +180,6 @@ pub mod pallet {
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, [u8; 20], OptionQuery>;
 
 	#[pallet::storage]
-	pub type GatewayLock<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, (), OptionQuery>;
-
-	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
@@ -240,8 +237,6 @@ pub mod pallet {
 		GatewayRegistered(NetworkId, [u8; 20], u64),
 		/// Gateway contract locked for network
 		GatewayLocked(NetworkId),
-		/// Task creation failed due to gateway lock
-		GatewayLockBlockedStartTask(NetworkId),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -555,10 +550,6 @@ pub mod pallet {
 
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
-			if GatewayLock::<T>::get(schedule.network).is_some() {
-				Self::deposit_event(Event::GatewayLockBlockedStartTask(schedule.network));
-				return Ok(());
-			}
 			ensure!(
 				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
 				Error::<T>::MatchingShardNotOnline
@@ -878,10 +869,12 @@ pub mod pallet {
 				TaskShard::<T>::remove(task_id);
 				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
-			let less_than_one_shard_online = NetworkShards::<T>::iter_prefix(network).next().is_none();
+			let less_than_one_shard_online =
+				NetworkShards::<T>::iter_prefix(network).next().is_none();
 			if less_than_one_shard_online {
 				ShardRegistered::<T>::remove(shard_id);
-				GatewayLock::<T>::insert(network, ());
+				Gateway::<T>::remove(network);
+				// TODO: KILL ALL  TASKS FOR THE NETWORK
 				Self::deposit_event(Event::GatewayLocked(network));
 				return;
 			}

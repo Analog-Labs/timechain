@@ -211,9 +211,6 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-pub const MILLICENTS: Balance = 1_000_000_000;
-pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
-pub const DOLLARS: Balance = 100 * CENTS;
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -883,7 +880,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaxApprovals: u32 = 100;
 	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: Balance = DOLLARS;
+	pub const ProposalBondMinimum: Balance = ANLOG;
 	pub const SpendPeriod: BlockNumber = DAYS;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
@@ -935,7 +932,7 @@ impl pallet_members::Config for Runtime {
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Networks = Networks;
-	type MinStake = ConstU128<{ 90_000 * DOLLARS }>;
+	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
 }
 
@@ -967,9 +964,9 @@ impl pallet_tasks::Config for Runtime {
 	type Elections = Elections;
 	type Shards = Shards;
 	type Members = Members;
-	type BaseReadReward = ConstU128<{ 2 * DOLLARS }>;
-	type BaseWriteReward = ConstU128<{ 2 * DOLLARS }>;
-	type BaseSendMessageReward = ConstU128<{ 2 * DOLLARS }>;
+	type BaseReadReward = ConstU128<{ 2 * ANLOG }>;
+	type BaseWriteReward = ConstU128<{ 2 * ANLOG }>;
+	type BaseSendMessageReward = ConstU128<{ 2 * ANLOG }>;
 	type RewardDeclineRate = RewardDeclineRate;
 	type SignPhaseTimeout = ConstU32<10>;
 	type WritePhaseTimeout = ConstU32<10>;

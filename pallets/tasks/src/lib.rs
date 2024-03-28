@@ -235,6 +235,8 @@ pub mod pallet {
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, [u8; 20], u64),
+		/// Gateway contract locked with error until issue is resolved
+		GatewayLocked(DispatchError),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -868,15 +870,17 @@ pub mod pallet {
 				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
 			if ShardRegistered::<T>::take(shard_id).is_some() {
-				Self::start_task(
+				if let Err(e) = Self::start_task(
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
 					TaskFunder::Inflation,
-				)
-				.unwrap();
+				) {
+					// TODO: lock gateway
+					Self::deposit_event(Event::GatewayLocked(e));
+				}
 			}
 			Self::schedule_tasks(network);
 		}

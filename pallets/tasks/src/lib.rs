@@ -180,6 +180,9 @@ pub mod pallet {
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, [u8; 20], OptionQuery>;
 
 	#[pallet::storage]
+	pub type GatewayLock<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, (), OptionQuery>;
+
+	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
@@ -235,8 +238,10 @@ pub mod pallet {
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, [u8; 20], u64),
-		/// Gateway contract locked with error until issue is resolved
-		GatewayLocked(DispatchError),
+		/// Gateway contract locked for network
+		GatewayLocked(NetworkId),
+		/// Task creation failed due to gateway lock
+		GatewayLockBlockedStartTask(NetworkId),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -550,6 +555,10 @@ pub mod pallet {
 
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
+			if GatewayLock::<T>::get(schedule.network).is_some() {
+				Self::deposit_event(Event::GatewayLockBlockedStartTask(schedule.network));
+				return Ok(());
+			}
 			ensure!(
 				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
 				Error::<T>::MatchingShardNotOnline
@@ -869,18 +878,23 @@ pub mod pallet {
 				TaskShard::<T>::remove(task_id);
 				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
+			let less_than_one_shard_online = NetworkShards::<T>::iter_prefix(network).next().is_none();
+			if less_than_one_shard_online {
+				ShardRegistered::<T>::remove(shard_id);
+				GatewayLock::<T>::insert(network, ());
+				Self::deposit_event(Event::GatewayLocked(network));
+				return;
+			}
 			if ShardRegistered::<T>::take(shard_id).is_some() {
-				if let Err(e) = Self::start_task(
+				Self::start_task(
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
 					TaskFunder::Inflation,
-				) {
-					// TODO: lock gateway
-					Self::deposit_event(Event::GatewayLocked(e));
-				}
+				)
+				.unwrap()
 			}
 			Self::schedule_tasks(network);
 		}

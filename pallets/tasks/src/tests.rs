@@ -1529,3 +1529,38 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		}
 	});
 }
+
+#[test]
+fn lock_gateway_if_less_than_one_shard_online() {
+	let shard_id = 0;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
+		Tasks::shard_online(shard_id, ETHEREUM);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_task(ETHEREUM)
+		));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0));
+		Tasks::shard_offline(shard_id, ETHEREUM);
+		// Remove gateway address
+		assert!(Gateway::<Test>::get(ETHEREUM).is_none());
+		// Emit `Event::GatewayLocked(Network)`
+		System::assert_last_event(Event::<Test>::GatewayLocked(ETHEREUM).into());
+		// Kill all tasks for network and set their output to failed
+		assert!(Tasks::tasks(0).is_none());
+		assert_eq!(TaskPhaseState::<Test>::get(0), TaskPhase::Read);
+		assert_eq!(
+			TaskOutput::<Test>::get(0).unwrap(),
+			TaskResult {
+				shard_id: 0,
+				payload: Payload::Error("Gateway locked".into()),
+				signature: [0u8; 64],
+			}
+		);
+	});
+}

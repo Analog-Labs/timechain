@@ -7705,14 +7705,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-reward-curve"
-version = "11.0.0"
+name = "pallet-staking-reward-fn"
+version = "19.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.9.0#3c3d6fceb82372a3019b37117aa453d564b212de"
 dependencies = [
- "proc-macro-crate 3.1.0",
- "proc-macro2",
- "quote",
- "syn 2.0.53",
+ "log",
+ "sp-arithmetic 23.0.0 (git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.9.0)",
 ]
 
 [[package]]
@@ -14920,7 +14918,7 @@ dependencies = [
  "pallet-session",
  "pallet-shards",
  "pallet-staking",
- "pallet-staking-reward-curve",
+ "pallet-staking-reward-fn",
  "pallet-sudo",
  "pallet-tasks",
  "pallet-timegraph",

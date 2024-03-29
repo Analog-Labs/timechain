@@ -10,9 +10,9 @@ use time_primitives::{
 	ShardsInterface, TaskDescriptorParams, TaskId, TaskResult, TasksInterface,
 };
 
-const ETHEREUM: NetworkId = 1;
+const ETHEREUM: NetworkId = 0;
 
-// Generated via `tests::bench_helper`
+// Generated via `tests::bench_sig_helper`
 // Returns pub_key, Signature
 fn mock_submit_sig() -> ([u8; 33], [u8; 64]) {
 	(
@@ -21,15 +21,15 @@ fn mock_submit_sig() -> ([u8; 33], [u8; 64]) {
 			101, 52, 245, 230, 250, 199, 131, 188, 204, 228, 70, 248,
 		],
 		[
-			89, 17, 248, 151, 92, 101, 200, 246, 7, 221, 82, 46, 215, 189, 162, 89, 112, 115, 72,
-			31, 97, 66, 78, 65, 53, 217, 206, 194, 73, 92, 240, 95, 60, 145, 157, 251, 106, 170,
-			173, 119, 151, 182, 65, 219, 10, 238, 172, 68, 210, 233, 134, 10, 188, 83, 202, 126,
-			28, 28, 149, 239, 117, 137, 126, 250,
+			173, 155, 111, 15, 236, 255, 38, 211, 249, 26, 133, 73, 206, 114, 9, 79, 124, 68, 253,
+			165, 148, 129, 18, 88, 192, 162, 222, 56, 119, 56, 244, 184, 40, 168, 133, 185, 161,
+			13, 69, 29, 16, 233, 116, 44, 67, 56, 152, 73, 90, 169, 128, 178, 106, 195, 156, 92,
+			13, 62, 34, 215, 115, 94, 51, 80,
 		],
 	)
 }
 
-// Generated via `tests::bench_helper`
+// Generated via `tests::bench_result_helper`
 // Returns pub_key, TaskResult
 fn mock_result_ok() -> ([u8; 33], TaskResult) {
 	(

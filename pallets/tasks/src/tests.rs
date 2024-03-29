@@ -1550,7 +1550,7 @@ fn bench_result_helper() {
 }
 
 #[test]
-//#[ignore]
+#[ignore]
 fn bench_sig_helper() {
 	fn bench_sig() -> ([u8; 33], [u8; 64]) {
 		//let function = Function::SendMessage { msg: Msg::default() };

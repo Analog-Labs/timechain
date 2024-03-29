@@ -439,7 +439,7 @@ fn shard_offline_drops_failed_tasks() {
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 	});
 }
 
@@ -489,10 +489,10 @@ fn task_moved_on_shard_offline() {
 			mock_task(ETHEREUM)
 		));
 		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::default()),]);
-		Tasks::shard_offline(0, ETHEREUM);
-		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
+		Tasks::shard_offline(0, ETHEREUM);
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
 		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, TaskPhase::default()),]);
 	});
@@ -1566,4 +1566,39 @@ fn bench_sig_helper() {
 	}
 	println!("{:?}", bench_sig());
 	assert!(false);
+}
+
+#[test]
+fn lock_gateway_if_less_than_one_shard_online() {
+	let shard_id = 0;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
+		Tasks::shard_online(shard_id, ETHEREUM);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_task(ETHEREUM)
+		));
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0));
+		Tasks::shard_offline(shard_id, ETHEREUM);
+		// Remove gateway address
+		assert!(Gateway::<Test>::get(ETHEREUM).is_none());
+		// Emit `Event::GatewayLocked(Network)`
+		System::assert_last_event(Event::<Test>::GatewayLocked(ETHEREUM).into());
+		// Kill all tasks for network and set their output to failed
+		assert!(Tasks::tasks(0).is_none());
+		assert_eq!(TaskPhaseState::<Test>::get(0), TaskPhase::Read);
+		assert_eq!(
+			TaskOutput::<Test>::get(0).unwrap(),
+			TaskResult {
+				shard_id: 0,
+				payload: Payload::Error("Gateway locked".into()),
+				signature: [0u8; 64],
+			}
+		);
+	});
 }

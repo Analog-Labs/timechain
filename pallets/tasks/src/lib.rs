@@ -235,6 +235,8 @@ pub mod pallet {
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, [u8; 20], u64),
+		/// Gateway contract locked for network
+		GatewayLocked(NetworkId),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -869,6 +871,27 @@ pub mod pallet {
 				TaskShard::<T>::remove(task_id);
 				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
+			let less_than_one_shard_online =
+				NetworkShards::<T>::iter_prefix(network).next().is_none();
+			if less_than_one_shard_online {
+				ShardRegistered::<T>::remove(shard_id);
+				Gateway::<T>::remove(network);
+				Tasks::<T>::iter().filter(|(_, n)| n.network == network).for_each(|(t, _)| {
+					// Task failed because gateway locked
+					Tasks::<T>::remove(t);
+					TaskPhaseState::<T>::remove(t);
+					TaskOutput::<T>::insert(
+						t,
+						TaskResult {
+							shard_id,
+							payload: Payload::Error("Gateway locked".into()),
+							signature: [0u8; 64],
+						},
+					);
+				});
+				Self::deposit_event(Event::GatewayLocked(network));
+				return;
+			}
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
 					TaskDescriptorParams::new(

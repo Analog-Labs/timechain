@@ -51,7 +51,7 @@ use sp_runtime::{
 		OpaqueKeys,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Percent, SaturatedConversion,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use sp_runtime::{traits::IdentityLookup, FixedPointNumber};
 
@@ -933,7 +933,7 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type Networks = Networks;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
-	type HeartbeatTimeout = ConstU32<300>;
+	type HeartbeatTimeout = ConstU32<50>;
 }
 
 impl pallet_elections::Config for Runtime {
@@ -1081,7 +1081,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}

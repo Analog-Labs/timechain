@@ -213,7 +213,7 @@ fn write_phase_timeout_reassigns_task() {
 }
 
 #[test]
-fn register_unregister_preserves_task_migration() {
+fn register_unregister_kills_task() {
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();
 	let c: AccountId = C.into();
@@ -275,6 +275,8 @@ fn register_unregister_preserves_task_migration() {
 		Tasks::shard_offline(0, ETHEREUM);
 		// task no longer assigned
 		assert!(Tasks::task_shard(0).is_none());
+		// task killed
+		assert!(Tasks::tasks(0).is_none());
 		// new member
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(d.clone()).into(),
@@ -293,10 +295,6 @@ fn register_unregister_preserves_task_migration() {
 		));
 		// verify shard 1 created for Network Ethereum
 		assert_eq!(Shards::shard_network(1), Some(ETHEREUM));
-		<pallet_shards::ShardState<Runtime>>::insert(1, ShardStatus::Online);
-		Tasks::shard_online(1, ETHEREUM);
-		// verify task assigned to shard 1
-		assert_eq!(Tasks::task_shard(0).unwrap(), 1);
 	});
 }
 

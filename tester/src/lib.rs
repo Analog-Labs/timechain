@@ -98,7 +98,14 @@ impl Tester {
 	}
 
 	pub async fn faucet(&self) {
-		if let Err(err) = self.wallet.faucet(u128::MAX).await {
+		// TODO: Calculate the gas_limit necessary to execute the test, then replace this
+		// by: gas_limit * gas_price, where gas_price changes depending on the network
+		let balance = match self.network_id {
+			6 => 10u128.pow(25), // astar
+			3 => 10u128.pow(29), // ethereum
+			network_id => panic!("unknown network id: {network_id}"),
+		};
+		if let Err(err) = self.wallet.faucet(balance).await {
 			println!("Error occured while funding wallet {:?}", err);
 		}
 	}
@@ -116,7 +123,7 @@ impl Tester {
 		let contract_address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
 
-		println!("Deploy contract address {:?} on {:?}", contract_address, block_number);
+		println!("Deploy contract address {contract_address:?} on {block_number:?}");
 		Ok((contract_address.0, block_number))
 	}
 

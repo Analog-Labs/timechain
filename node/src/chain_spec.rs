@@ -29,22 +29,22 @@ const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
 const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
 
 /// Stash and float for validators
-const PER_VALIDATOR_STASH: Balance = ANLOG * 500000;
-const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 20000;
+const PER_VALIDATOR_STASH: Balance = ANLOG * 500_000;
+const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 20_000;
 
 /// Stash for community nominations
-const PER_NOMINATION: Balance = ANLOG * 180000;
+const PER_NOMINATION: Balance = ANLOG * 180_000;
 const PER_NOMINATOR_STASH: Balance = 8 * PER_NOMINATION;
 
 /// Stash and float for chronicles
-const PER_CHRONICLE_STASH: Balance = ANLOG * 100000;
+const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
-const SUDO_SUPPLY: Balance = ANLOG * 50000;
-const CONTROLLER_SUPPLY: Balance = ANLOG * 50000;
+const SUDO_SUPPLY: Balance = ANLOG * 50_000;
+const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 
 /// Token supply for prefunded dev team test user account
-const TESTUSER_SUPPLY: Balance = ANLOG * 100000;
+const TESTUSER_SUPPLY: Balance = ANLOG * 100_000;
 
 /// Deprecated supply constants for dev envs
 const VALIDATOR_SUPPLY: Balance = 10 * PER_VALIDATOR_STASH;

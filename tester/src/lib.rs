@@ -2,6 +2,7 @@ use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use rosetta_client::Wallet;
+use rosetta_config_ethereum::{AtBlock, CallContract, CallResult};
 use sp_core::crypto::Ss58Codec;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,11 @@ use time_primitives::{
 	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
 	TaskPhase, TssKey, TssPublicKey,
 };
+// type for eth contract address
+pub type EthContractAddress = [u8; 20];
+
+// A fixed gas cost of executing the gateway contract
+pub const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
 
 pub async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -430,4 +436,159 @@ impl TaskPhaseInfo {
 	pub fn total_execution_duration(&self) -> Option<u64> {
 		self.finish_block.map(|finish_block| finish_block - self.start_block)
 	}
+}
+
+pub async fn test_setup(
+	tester: &Tester,
+	contract: &Path,
+) -> Result<(EthContractAddress, EthContractAddress, u64)> {
+	tester.faucet().await;
+	let gmp_contract = tester.setup_gmp(false).await?;
+	let (contract, start_block) = tester
+		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+		.await?;
+	tester
+		.wallet()
+		.eth_send_call(
+			contract,
+			VotingContract::registerGmpContractsCall { _registered: vec![] }.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+	Ok((gmp_contract, contract, start_block))
+}
+
+// fetches the testcontract state (contains yes and no votes and gets total of each)
+pub async fn stats(
+	tester: &Tester,
+	contract: EthContractAddress,
+	block: Option<u64>,
+) -> Result<(u64, u64)> {
+	let block = if let Some(block) = block { block } else { tester.wallet().status().await?.index };
+	let call = VotingContract::statsCall {};
+	let stats = tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
+	let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
+	let stats = VotingContract::statsCall::abi_decode_returns(&stats, true)?._0;
+	let yes_votes = stats[0].try_into().unwrap();
+	let no_votes = stats[1].try_into().unwrap();
+	Ok((yes_votes, no_votes))
+}
+
+///
+/// Sets up contract on destination and source chain
+///
+/// # Arguments
+/// `src`: Tester connected to first network
+/// `dest`: Tester connected to second network
+/// `contract`: Contract path of test contract
+/// `gas_for_calls`: gas funding for total number of calls
+pub async fn setup_gmp_with_contracts(
+	src: &Tester,
+	dest: &Tester,
+	contract: &Path,
+	gas_for_calls: u128,
+) -> Result<(EthContractAddress, EthContractAddress)> {
+	src.faucet().await;
+	dest.faucet().await;
+	let src_gmp_contract = src.setup_gmp(false).await?;
+	let dest_gmp_contract = dest.setup_gmp(false).await?;
+
+	// deploy testing contract for source chain
+	let (src_contract, _) = src
+		.deploy(
+			contract,
+			VotingContract::constructorCall {
+				_gateway: src_gmp_contract.into(),
+			},
+		)
+		.await?;
+
+	// deploy testing contract for destination/target chain
+	let (dest_contract, _) = dest
+		.deploy(
+			contract,
+			VotingContract::constructorCall {
+				_gateway: dest_gmp_contract.into(),
+			},
+		)
+		.await?;
+
+	let src_network = src.network_id();
+	let dest_network = dest.network_id();
+
+	// registers destination contract in source contract to inform gmp compatibility.
+	src.wallet()
+		.eth_send_call(
+			src_contract,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: dest_contract.into(),
+					network: dest_network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+	// registers source contract in destination contract to inform gmp compatibility.
+	let receipt = dest
+		.wallet()
+		.eth_send_call(
+			dest_contract,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: src_contract.into(),
+					network: src_network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?
+		.receipt()
+		.unwrap()
+		.clone();
+
+	// Calculate the gas price based on the latest transaction
+	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+
+	// Get the GMP_GAS_LIMIT from the VotingContract
+	let gmp_gas_limit = {
+		let result = src
+			.wallet()
+			.query(CallContract {
+				from: None,
+				to: src_contract.into(),
+				value: 0.into(),
+				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
+				block: AtBlock::Latest,
+			})
+			.await?;
+		match result {
+			CallResult::Success(payload) => {
+				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
+			},
+			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
+		}
+	};
+
+	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
+	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
+	let deposit_amount = gas_price
+		.saturating_mul(gmp_gas_limit)
+		.saturating_mul(12)
+		.saturating_mul(gas_for_calls)
+		/ 10; // 20% more, in case of the gas price increase
+
+	// deposit funds for source in gmp contract to be able to execute the call
+	dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
+		.await?;
+
+	Ok((src_contract, dest_contract))
 }

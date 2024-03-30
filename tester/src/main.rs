@@ -1,15 +1,15 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::{Address, AtBlock, GetProof, SubmitResult};
+use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::ext::futures::future::join_all;
 use tester::{
-	setup_gmp_with_contracts, sleep_or_abort, stats, test_setup, Network, Tester, VotingContract,
+	format_duration, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup, Network, Tester,
+	VotingContract,
 };
-use tokio::sync::Mutex;
+use tokio::time::Instant;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -115,30 +115,28 @@ async fn gmp_benchmark(
 		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128)
 			.await?;
 
-	let guard = Arc::new(Mutex::new(()));
 	let mut calls = Vec::new();
-	let bytes =
-		hex::decode(&src_tester.wallet().account().address.strip_prefix("0x").unwrap()).unwrap();
+	let bytes = hex::decode(&src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
 	let mut address_bytes = [0u8; 20];
 	address_bytes.copy_from_slice(&bytes[..20]);
-	// let nonce = get_transaction_count(address_bytes).await;
+	let nonce = src_tester
+		.wallet()
+		.query(GetTransactionCount {
+			address: address_bytes.into(),
+			block: AtBlock::Latest,
+		})
+		.await?;
 
-	todo!();
-	for i in 1..number_of_calls + 1 {
+	for i in 0..number_of_calls {
+		let nonce = nonce + i;
 		calls.push({
-			// let nonce = proof_nonce + i;
-			let guard = guard.clone();
-			async move {
-				let _guard = guard.lock().await;
-				src_tester.wallet().eth_send_call(
-					src_contract,
-					VotingContract::voteCall { _vote: true }.abi_encode(),
-					0,
-					None,
-					None,
-				)
-			}
-			.await
+			src_tester.wallet().eth_send_call(
+				src_contract,
+				VotingContract::voteCall { _vote: true }.abi_encode(),
+				0,
+				Some(nonce),
+				None,
+			)
 		});
 	}
 
@@ -148,10 +146,22 @@ async fn gmp_benchmark(
 		.map(|result| result.unwrap())
 		.collect::<Vec<_>>();
 
-	let target = stats(src_tester, src_contract, None).await?;
-	println!("target {:?}", target);
-	assert_eq!(target, (number_of_calls, 0));
+	let last_result = results.last().unwrap().receipt().unwrap().block_number;
 
+	let target = stats(src_tester, src_contract, last_result).await?;
+	println!("1: yes: {} no: {}", target.0, target.1);
+	assert_eq!(target, (number_of_calls, 0));
+	let start = Instant::now();
+	loop {
+		sleep_or_abort(Duration::from_secs(60)).await?;
+		let current = stats(dest_tester, dest_contract, None).await?;
+		println!("2: yes: {} no: {}", current.0, current.1);
+		if current == target {
+			break;
+		}
+	}
+	let duration = start.elapsed();
+	println!("Time taken for {:?} gmp tasks is {:?}", number_of_calls, format_duration(duration));
 	Ok(())
 }
 

@@ -592,3 +592,14 @@ pub async fn setup_gmp_with_contracts(
 
 	Ok((src_contract, dest_contract))
 }
+
+///
+/// Format duration into proper time format
+pub fn format_duration(duration: Duration) -> String {
+	let seconds = duration.as_secs();
+	let hours = seconds / 3600;
+	let minutes = (seconds % 3600) / 60;
+	let secs = seconds % 60;
+
+	format!("{:02} hrs {:02} mins {:02} secs", hours, minutes, secs)
+}

@@ -81,7 +81,8 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (name, network) in &self.networks {
-				Pallet::<T>::insert_network(name.clone(), network.clone()).unwrap();
+				Pallet::<T>::insert_network(name.clone(), network.clone())
+					.expect("No networks exist before genesis; NetworkId not overflow from 0 at genesis; QED");
 			}
 		}
 	}

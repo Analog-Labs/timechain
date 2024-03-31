@@ -246,7 +246,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 9081; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 8938; // 9081; // Measured gas cost difference for `execute`
 
     // Non-zero value used to initialize the `prevMessageHash` storage
     bytes32 internal constant FIRST_MESSAGE_PLACEHOLDER = bytes32(uint256(2 ** 256 - 1));
@@ -287,7 +287,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Check if shard exists, verify TSS signature and increment shard nonce
-    function _verifySignature(Signature memory signature, bytes32 message) private view {
+    function _verifySignature(Signature calldata signature, bytes32 message) private view {
         // Load shard from storage
         KeyInfo storage signer = _shards[bytes32(signature.xCoord)];
 
@@ -410,7 +410,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Register/Revoke TSS keys using shard TSS signature
-    function updateKeys(Signature memory signature, UpdateKeysMessage memory message) public {
+    function updateKeys(Signature calldata signature, UpdateKeysMessage memory message) public {
         bytes memory payload = getUpdateKeysTypedHash(message);
         bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
@@ -493,7 +493,7 @@ contract Gateway is IGateway, SigUtils {
 
     // Send GMP message using sudo account
     function execute(
-        Signature memory signature, // coordinate x, nonce, e, s
+        Signature calldata signature, // coordinate x, nonce, e, s
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         uint256 initialGas = gasleft();

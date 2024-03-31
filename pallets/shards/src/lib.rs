@@ -107,7 +107,9 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, NetworkId),
-		/// Shard commited
+		/// Shard member committed.
+		MemberCommitted(AccountId, ShardId, Commitment),
+		/// Shard committed
 		ShardCommitted(ShardId, Commitment),
 		/// Shard DKG timed out
 		ShardKeyGenTimedOut(ShardId),
@@ -149,32 +151,40 @@ pub mod pallet {
 				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
 			}
 			// TODO: verify proof of knowledge
-			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
-			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
-				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
-					.filter_map(|(_, status)| status.commitment().cloned())
-					.reduce(|mut group_commitment, commitment| {
-						for (group_commitment, commitment) in
-							group_commitment.iter_mut().zip(commitment.iter())
-						{
-							*group_commitment = VerifyingKey::new(
-								// TODO: return errors but ensure no storage changes before failing tx
-								VerifyingKey::from_bytes(*group_commitment)
-									.expect("GroupCommitment output is invalid")
-									.to_element() + VerifyingKey::from_bytes(*commitment)
-									.expect("Commitment is invalid")
-									.to_element(),
-							)
-							.to_bytes()
-							.expect("Group commitment construction failed");
-						}
-						group_commitment
-					})
-					.ok_or(Error::<T>::InvalidCommitment)?;
-				ShardCommitment::<T>::insert(shard_id, commitment.clone());
-				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
-				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
+			// TODO: move error branches above this storage change to ensure state consistency
+			ShardMembers::<T>::insert(
+				shard_id,
+				member.clone(),
+				MemberStatus::Committed(commitment.clone()),
+			);
+			Self::deposit_event(Event::MemberCommitted(member, shard_id, commitment));
+			let all_members_committed =
+				ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed());
+			if !all_members_committed {
+				return Ok(());
 			}
+			let mut shard_commitment = Vec::new();
+			for (_, c) in ShardMembers::<T>::iter_prefix(shard_id) {
+				let Some(member_commitment) = c.commitment() else {
+					continue;
+				};
+				for (group_commitment, commitment) in
+					shard_commitment.iter_mut().zip(member_commitment.iter())
+				{
+					*group_commitment = VerifyingKey::new(
+						VerifyingKey::from_bytes(*group_commitment)
+							.map_err(|_| Error::<T>::InvalidCommitment)?
+							.to_element() + VerifyingKey::from_bytes(*commitment)
+							.map_err(|_| Error::<T>::InvalidCommitment)?
+							.to_element(),
+					)
+					.to_bytes()
+					.map_err(|_| Error::<T>::InvalidCommitment)?;
+				}
+			}
+			ShardCommitment::<T>::insert(shard_id, shard_commitment.clone());
+			ShardState::<T>::insert(shard_id, ShardStatus::Committed);
+			Self::deposit_event(Event::ShardCommitted(shard_id, shard_commitment));
 			Ok(())
 		}
 

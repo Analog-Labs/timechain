@@ -251,6 +251,10 @@ where
 		}
 		Ok(())
 	}
+
+	pub fn target_address(&self) -> &str {
+		&self.wallet.account().address
+	}
 }
 
 impl<S> super::TaskSpawner for TaskSpawner<S>

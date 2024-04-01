@@ -158,15 +158,19 @@ pub mod pallet {
 							group_commitment.iter_mut().zip(commitment.iter())
 						{
 							*group_commitment = VerifyingKey::new(
-								VerifyingKey::from_bytes(*group_commitment).unwrap().to_element()
-									+ VerifyingKey::from_bytes(*commitment).unwrap().to_element(),
+								// TODO: return errors but ensure no storage changes before failing tx
+								VerifyingKey::from_bytes(*group_commitment)
+									.expect("GroupCommitment output is invalid")
+									.to_element() + VerifyingKey::from_bytes(*commitment)
+									.expect("Commitment is invalid")
+									.to_element(),
 							)
 							.to_bytes()
-							.unwrap();
+							.expect("Group commitment construction failed");
 						}
 						group_commitment
 					})
-					.unwrap();
+					.ok_or(Error::<T>::InvalidCommitment)?;
 				ShardCommitment::<T>::insert(shard_id, commitment.clone());
 				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
 				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))

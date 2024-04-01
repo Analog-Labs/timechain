@@ -223,7 +223,6 @@ pub mod pallet {
 		NoShardOnline,
 		NoShardWithRequestedMembers,
 		NoRegisteredShard,
-		PreviousShardTimedOut,
 	}
 
 	#[pallet::event]
@@ -691,6 +690,8 @@ pub mod pallet {
 			let mut reason = UnassignedReason::NoShardOnline;
 			let mut selected = None;
 			let mut selected_tasks = usize::MAX;
+			let mut plan_b = None;
+			let mut plan_b_tasks = usize::MAX;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
 				if !T::Shards::is_shard_online(shard_id) {
 					continue;
@@ -713,10 +714,20 @@ pub mod pallet {
 				if tasks < selected_tasks {
 					selected = Some(shard_id);
 					selected_tasks = tasks;
+				} else if tasks < plan_b_tasks {
+					plan_b = Some(shard_id);
+					plan_b_tasks = tasks;
 				}
 			}
-			if let Some(shard_id) = selected {
-				Self::deposit_event(Event::TaskAssigned(task_id, shard_id));
+
+			if let Some(shard_id) = &mut selected {
+				let old = TaskShard::<T>::get(task_id);
+				if let (Some(previous_shard), Some(plan_b)) = (old, plan_b) {
+					if previous_shard == *shard_id {
+						*shard_id = plan_b;
+					}
+				}
+				Self::deposit_event(Event::TaskAssigned(task_id, *shard_id));
 			} else {
 				Self::deposit_event(Event::TaskUnassigned(task_id, reason));
 			}

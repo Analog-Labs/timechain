@@ -291,6 +291,10 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::create_task(schedule.function.get_input_length()))]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
+				Error::<T>::MatchingShardNotOnline
+			);
 			Self::start_task(schedule, TaskFunder::Account(who))?;
 			Ok(())
 		}
@@ -525,43 +529,35 @@ pub mod pallet {
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			if let Err(e) = Self::start_task(task, TaskFunder::Inflation) {
-				Self::deposit_event(Event::StartTaskFailed(e));
-			}
+			Self::start_task(task, TaskFunder::Inflation).expect("task funded through inflation");
 		}
 
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
-			if let Err(e) = Self::start_task(
+			Self::start_task(
 				TaskDescriptorParams::new(
 					network_id,
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Inflation,
-			) {
-				Self::deposit_event(Event::StartTaskFailed(e));
-			}
+			)
+			.expect("task funded through inflation");
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {
-			if let Err(e) = Self::start_task(
+			Self::start_task(
 				TaskDescriptorParams::new(
 					msg.dest_network,
 					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Inflation,
-			) {
-				Self::deposit_event(Event::StartTaskFailed(e));
-			}
+			)
+			.expect("task funded through inflation");
 		}
 
 		/// Start task
 		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
-			ensure!(
-				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
-				Error::<T>::MatchingShardNotOnline
-			);
 			let task_id = TaskIdCounter::<T>::get();
 			let phase = schedule.function.initial_phase();
 			let (read_task_reward, write_task_reward, send_message_reward) = (
@@ -702,7 +698,6 @@ pub mod pallet {
 		/// for task reassignment purposes.
 		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
 			let mut reason = UnassignedReason::NoShardOnline;
-			let old = TaskShard::<T>::get(task_id);
 			let mut selected = None;
 			let mut selected_tasks = usize::MAX;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -719,12 +714,6 @@ pub mod pallet {
 						continue;
 					}
 					if ShardRegistered::<T>::get(shard_id).is_none() {
-						continue;
-					}
-				}
-				reason = core::cmp::max(reason, UnassignedReason::PreviousShardTimedOut);
-				if let Some(previous_shard) = old {
-					if shard_id == previous_shard {
 						continue;
 					}
 				}
@@ -902,16 +891,15 @@ pub mod pallet {
 				return;
 			}
 			if ShardRegistered::<T>::take(shard_id).is_some() {
-				if let Err(e) = Self::start_task(
+				Self::start_task(
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
 					TaskFunder::Inflation,
-				) {
-					Self::deposit_event(Event::StartTaskFailed(e));
-				}
+				)
+				.expect("task funded through inflation");
 			}
 			Self::schedule_tasks(network);
 		}

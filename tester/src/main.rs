@@ -155,7 +155,12 @@ async fn gmp_benchmark(
 	loop {
 		sleep_or_abort(Duration::from_secs(60)).await?;
 		let current = stats(dest_tester, dest_contract, None).await?;
-		println!("2: yes: {} no: {}", current.0, current.1);
+		println!(
+			"2: yes: {} no: {}, time_since_start: {}",
+			current.0,
+			current.1,
+			format_duration(start.elapsed())
+		);
 		if current == target {
 			break;
 		}

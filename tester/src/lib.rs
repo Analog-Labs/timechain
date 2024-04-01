@@ -470,6 +470,10 @@ pub async fn stats(
 	let call = VotingContract::statsCall {};
 	let stats = tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
 	let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
+	if stats.is_empty() {
+		println!("Stats are empty returning default on block {:?}", block);
+		return Ok((0, 0));
+	}
 	let stats = VotingContract::statsCall::abi_decode_returns(&stats, true)?._0;
 	let yes_votes = stats[0].try_into().unwrap();
 	let no_votes = stats[1].try_into().unwrap();

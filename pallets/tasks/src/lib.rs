@@ -247,6 +247,10 @@ pub mod pallet {
 		TaskAssigned(TaskId, ShardId),
 		/// Task was not assigned.
 		TaskUnassigned(TaskId, UnassignedReason),
+		/// Start task failed.
+		StartTaskFailed(DispatchError),
+		/// No signer to write because no shard is assigned.
+		NoSignerToStartWriteNoShardAssigned(TaskId),
 	}
 
 	#[pallet::error]
@@ -523,31 +527,35 @@ pub mod pallet {
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			Self::start_task(task, TaskFunder::Inflation).unwrap();
+			if let Err(e) = Self::start_task(task, TaskFunder::Inflation) {
+				Self::deposit_event(Event::StartTaskFailed(e));
+			}
 		}
 
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
-			Self::start_task(
+			if let Err(e) = Self::start_task(
 				TaskDescriptorParams::new(
 					network_id,
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Inflation,
-			)
-			.unwrap();
+			) {
+				Self::deposit_event(Event::StartTaskFailed(e));
+			}
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {
-			Self::start_task(
+			if let Err(e) = Self::start_task(
 				TaskDescriptorParams::new(
 					msg.dest_network,
 					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Inflation,
-			)
-			.unwrap();
+			) {
+				Self::deposit_event(Event::StartTaskFailed(e));
+			}
 		}
 
 		/// Start task
@@ -634,11 +642,14 @@ pub mod pallet {
 			let block = frame_system::Pallet::<T>::block_number();
 			TaskPhaseState::<T>::insert(task_id, phase);
 			PhaseStart::<T>::insert(task_id, phase, block);
+			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
+				if phase == TaskPhase::Write {
+					Self::deposit_event(Event::NoSignerToStartWriteNoShardAssigned(task_id));
+				}
+				return;
+			};
 			if phase == TaskPhase::Write {
-				TaskSigner::<T>::insert(
-					task_id,
-					T::Shards::next_signer(TaskShard::<T>::get(task_id).unwrap()),
-				);
+				TaskSigner::<T>::insert(task_id, T::Shards::next_signer(shard_id));
 			}
 		}
 
@@ -893,15 +904,16 @@ pub mod pallet {
 				return;
 			}
 			if ShardRegistered::<T>::take(shard_id).is_some() {
-				Self::start_task(
+				if let Err(e) = Self::start_task(
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
 					TaskFunder::Inflation,
-				)
-				.unwrap();
+				) {
+					Self::deposit_event(Event::StartTaskFailed(e));
+				}
 			}
 			Self::schedule_tasks(network);
 		}

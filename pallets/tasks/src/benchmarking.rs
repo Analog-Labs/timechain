@@ -1,15 +1,19 @@
 use crate::{Call, Config, Pallet};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
-use frame_support::traits::Currency;
+use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, Function, Msg, NetworkId, ShardStatus, ShardsInterface, TaskDescriptorParams,
+	AccountId, Function, Msg, NetworkId, PublicKey, ShardStatus, ShardsInterface, TaskDescriptorParams,
 	TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
+
+fn public_key(acc: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
+}
 
 // Generated via `tests::bench_sig_helper`
 // Returns pub_key, Signature
@@ -53,7 +57,7 @@ fn mock_result_ok() -> ([u8; 33], TaskResult) {
 }
 
 benchmarks! {
-	where_clause {  where T: pallet_shards::Config }
+	where_clause {  where T: pallet_shards::Config + pallet_members::Config }
 	create_task {
 		let b in 1..10000;
 		let input = vec![0u8; b as usize];
@@ -77,7 +81,7 @@ benchmarks! {
 		let caller = whitelisted_caller();
 		pallet_balances::Pallet::<T>::resolve_creating(
 			&caller,
-			pallet_balances::Pallet::<T>::issue(10_000),
+			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
 	}: _(RawOrigin::Signed(whitelisted_caller()), descriptor) verify {}
 
@@ -102,7 +106,7 @@ benchmarks! {
 		let caller = whitelisted_caller();
 		pallet_balances::Pallet::<T>::resolve_creating(
 			&caller,
-			pallet_balances::Pallet::<T>::issue(10_000),
+			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
 		let (pub_key, result) = mock_result_ok();
@@ -132,7 +136,7 @@ benchmarks! {
 		let caller: AccountId= [0u8; 32].into();
 		pallet_balances::Pallet::<T>::resolve_creating(
 			&caller,
-			pallet_balances::Pallet::<T>::issue(10_000),
+			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
 	}: _(RawOrigin::Signed(caller), 0, [0u8; 32]) verify {}
@@ -146,18 +150,31 @@ benchmarks! {
 			funds: 100,
 			shard_size: 3,
 		};
-		<T as Config>::Shards::create_shard(
-			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
-		ShardState::<T>::insert(0, ShardStatus::Online);
-		Pallet::<T>::shard_online(0, ETHEREUM);
-		let caller: AccountId= [0u8; 32].into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(10_000),
-		);
+		// Fund and register all shard members
+		let mut i = 0u8;
+		while !<T as Config>::Shards::is_shard_online(0) {
+			let member_account: AccountId = [i; 32].clone().into();
+			pallet_balances::Pallet::<T>::resolve_creating(
+				&member_account,
+				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
+			);
+			pallet_members::Pallet::<T>::register_member(
+				RawOrigin::Signed(member_account).into(),
+				ETHEREUM,
+				public_key(member.clone()),
+				member,
+				<T as pallet_members::Config>::MinStake::get(),
+			)?;
+		}
+		// <T as Config>::Shards::create_shard(
+		// 	ETHEREUM,
+		// 	[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+		// 	1,
+		// );
+		// ShardState::<T>::insert(0, ShardStatus::Online);
+		// Pallet::<T>::shard_online(0, ETHEREUM);
+		let raw_caller = [0u8; 32];
+		let caller: AccountId = raw_caller.clone().into();
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
 		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
 		let (pub_key, signature) = mock_submit_sig();

@@ -247,10 +247,6 @@ pub mod pallet {
 		TaskAssigned(TaskId, ShardId),
 		/// Task was not assigned.
 		TaskUnassigned(TaskId, UnassignedReason),
-		/// Start task failed.
-		StartTaskFailed(DispatchError),
-		/// No signer to write because no shard is assigned.
-		NoSignerToStartWriteNoShardAssigned(TaskId),
 	}
 
 	#[pallet::error]
@@ -352,9 +348,10 @@ pub mod pallet {
 				Some(signer.clone()) == expected_signer.map(|s| s.into_account()),
 				Error::<T>::InvalidSigner
 			);
+			let shard_id = TaskShard::<T>::get(task_id).ok_or(Error::<T>::UnassignedTask)?;
 			Self::snapshot_write_reward(task_id, signer);
 			TaskHash::<T>::insert(task_id, hash);
-			Self::start_phase(task_id, TaskPhase::Read);
+			Self::start_phase(shard_id, task_id, TaskPhase::Read);
 			Ok(())
 		}
 
@@ -375,7 +372,7 @@ pub mod pallet {
 			};
 			let bytes = Self::get_gmp_hash(task_id, shard_id)?;
 			Self::validate_signature(shard_id, &bytes, signature)?;
-			Self::start_phase(task_id, TaskPhase::Write);
+			Self::start_phase(shard_id, task_id, TaskPhase::Write);
 			TaskSignature::<T>::insert(task_id, signature);
 			Ok(())
 		}
@@ -455,7 +452,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			TaskShard::<T>::iter().for_each(|(task_id, _)| {
+			TaskShard::<T>::iter().for_each(|(task_id, shard_id)| {
 				let phase = TaskPhaseState::<T>::get(task_id);
 				let start = PhaseStart::<T>::get(task_id, phase);
 				let timeout = match phase {
@@ -465,7 +462,7 @@ pub mod pallet {
 				};
 				if current.saturating_sub(start) >= timeout {
 					if phase == TaskPhase::Write {
-						Self::start_phase(task_id, phase);
+						Self::start_phase(shard_id, task_id, phase);
 					} else {
 						Self::schedule_task(task_id);
 					}
@@ -632,16 +629,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn start_phase(task_id: TaskId, phase: TaskPhase) {
+		fn start_phase(shard_id: ShardId, task_id: TaskId, phase: TaskPhase) {
 			let block = frame_system::Pallet::<T>::block_number();
 			TaskPhaseState::<T>::insert(task_id, phase);
 			PhaseStart::<T>::insert(task_id, phase, block);
-			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
-				if phase == TaskPhase::Write {
-					Self::deposit_event(Event::NoSignerToStartWriteNoShardAssigned(task_id));
-				}
-				return;
-			};
 			if phase == TaskPhase::Write {
 				TaskSigner::<T>::insert(task_id, T::Shards::next_signer(shard_id));
 			}
@@ -688,7 +679,7 @@ pub mod pallet {
 			UnassignedTasks::<T>::remove(task.network, task_id);
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
-			Self::start_phase(task_id, TaskPhaseState::<T>::get(task_id));
+			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
 		}
 
 		/// Select shard for task assignment

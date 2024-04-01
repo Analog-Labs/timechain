@@ -1546,7 +1546,7 @@ fn bench_result_helper() {
 		(signer.public_key(), TaskResult { shard_id, payload, signature })
 	}
 	println!("{:?}", bench_result(0, 0));
-	assert!(false);
+	//assert!(false);
 }
 
 #[test]
@@ -1558,14 +1558,14 @@ fn bench_sig_helper() {
 		let tss_public_key = signer.public_key();
 		let gmp_params = GmpParams {
 			network_id: ETHEREUM,
-			tss_public_key: tss_public_key.clone(),
+			tss_public_key,
 			gateway_contract: [0u8; 20].into(),
 		};
 		let payload: Vec<u8> = Message::gmp(Msg::default()).to_eip712_bytes(&gmp_params).into();
 		(tss_public_key, signer.sign(&payload).to_bytes())
 	}
 	println!("{:?}", bench_sig());
-	assert!(false);
+	//assert!(false);
 }
 
 #[test]

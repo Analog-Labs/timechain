@@ -4,10 +4,9 @@ use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use sp_std::vec;
-use sp_std::vec::Vec;
 use time_primitives::{
-	AccountId, Function, GmpParams, Message, Msg, NetworkId, Payload, ShardId, ShardStatus,
-	ShardsInterface, TaskDescriptorParams, TaskId, TaskResult, TasksInterface,
+	AccountId, Function, Msg, NetworkId, ShardStatus, ShardsInterface, TaskDescriptorParams,
+	TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 0;

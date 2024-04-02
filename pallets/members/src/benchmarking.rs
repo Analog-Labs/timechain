@@ -1,9 +1,9 @@
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::Get;
+use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-use time_primitives::{NetworkId, PublicKey};
+use time_primitives::{AccountId, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
@@ -14,17 +14,32 @@ fn public_key() -> PublicKey {
 
 benchmarks! {
 	register_member {
-	}: _(RawOrigin::Signed(ALICE.into()), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get())
+		let caller: AccountId = ALICE.into();
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&caller,
+			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
+		);
+	}: _(RawOrigin::Signed(caller), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get())
 	verify { }
 
 	send_heartbeat {
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(ALICE.into()), 0)
+		let caller: AccountId = ALICE.into();
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&caller,
+			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
+		);
+		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
+	}: _(RawOrigin::Signed(caller), 0)
 	verify { }
 
 	unregister_member {
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(ALICE.into()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(ALICE.into()))
+		let caller: AccountId = ALICE.into();
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&caller,
+			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
+		);
+		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
+	}: _(RawOrigin::Signed(caller))
 	verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

@@ -127,6 +127,24 @@ benchmarks! {
 			funds: 100,
 			shard_size: 3,
 		};
+		// Fund and register all shard members
+		let mut i = 0u8;
+		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
+			let member = [i; 32];
+			let member_account: AccountId = member.clone().into();
+			pallet_balances::Pallet::<T>::resolve_creating(
+				&member_account,
+				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
+			);
+			pallet_members::Pallet::<T>::register_member(
+				RawOrigin::Signed(member_account).into(),
+				ETHEREUM,
+				public_key(member.clone()),
+				member,
+				<T as pallet_members::Config>::MinStake::get(),
+			)?;
+			i += 1;
+		}
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,
 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),

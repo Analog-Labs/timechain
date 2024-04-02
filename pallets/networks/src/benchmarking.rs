@@ -2,6 +2,7 @@ use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use scale_info::prelude::string::String;
 
 //TODO: choose & enforce MAX in code
 const MAX_LENGTH: u32 = 1000;

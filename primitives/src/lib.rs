@@ -102,6 +102,7 @@ pub trait MemberStorage {
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;
+	fn total_stake() -> u128;
 }
 
 pub trait ElectionsInterface {

@@ -15,18 +15,4 @@ for pallet_name in $pallets; do
         --steps 50 \
         --repeat 20 \
         --output ./runtime/src/weights/$pallet_name.rs
-
-# Benchmark babe + grandpa   
-./target/release/timechain-node benchmark pallet \
-    --pallet pallet_babe \
-    --extrinsic "*" \
-    --steps 50 \
-    --repeat 20 \
-    --output ./runtime/src/weights/babe.rs
-./target/release/timechain-node benchmark pallet \
-    --pallet pallet_grandpa \
-    --extrinsic "*" \
-    --steps 50 \
-    --repeat 20 \
-    --output ./runtime/src/weights/grandpa.rs
 done

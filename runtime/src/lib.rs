@@ -249,8 +249,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
-	// type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -344,7 +343,7 @@ impl pallet_babe::Config for Runtime {
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_babe::weights::SubstrateWeight<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 }
@@ -356,7 +355,7 @@ parameter_types! {
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-	type WeightInfo = ();
+	type WeightInfo = pallet_grandpa::weights::SubstrateWeight<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
@@ -382,11 +381,8 @@ impl pallet_im_online::Config for Runtime {
 	type ValidatorSet = Historical;
 	type NextSessionRotation = Babe;
 	type ReportUnresponsiveness = Offences;
-	type ReportUnresponsiveness = ();
 	type UnsignedPriority = ImOnlineUnsignedPriority;
-	// TODO
-	// type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
 	type MaxKeys = MaxKeys;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 }

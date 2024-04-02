@@ -964,7 +964,7 @@ impl pallet_timegraph::Config for Runtime {
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::networks::WeightInfo<Runtime>;
+	type WeightInfo = ();//weights::networks::WeightInfo<Runtime>;
 	type NetworkEvents = Tasks;
 }
 

@@ -75,6 +75,9 @@ pub async fn run_chronicle(
 			},
 		}
 	};
+
+	tracing::info!("Target wallet address: {:?}", task_spawner.target_address());
+
 	run_chronicle_with_spawner(
 		config.network_id,
 		network,

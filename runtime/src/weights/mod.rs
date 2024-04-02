@@ -5,6 +5,7 @@ pub mod balances;
 // pub mod grandpa;
 pub mod elections;
 pub mod members;
+pub mod networks;
 pub mod shards;
 pub mod system;
 pub mod tasks;

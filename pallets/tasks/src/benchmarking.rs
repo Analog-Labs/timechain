@@ -1,8 +1,9 @@
-use crate::{Call, Config, Pallet};
+use crate::{Call, Config, Pallet, TaskSigner};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
+use sp_runtime::traits::IdentifyAccount;
 use sp_std::vec;
 use time_primitives::{
 	AccountId, ElectionsInterface, Function, Msg, NetworkId, PublicKey, ShardStatus,
@@ -133,13 +134,18 @@ benchmarks! {
 		);
 		ShardState::<T>::insert(0, ShardStatus::Online);
 		Pallet::<T>::shard_online(0, ETHEREUM);
-		let caller: AccountId= [0u8; 32].into();
+		let create_task_caller: AccountId = [0u8; 32].into();
 		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
+			&create_task_caller,
 			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
-		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
-	}: _(RawOrigin::Signed(caller), 0, [0u8; 32]) verify {}
+		Pallet::<T>::create_task(RawOrigin::Signed(create_task_caller).into(), descriptor)?;
+		let assigned_signer = TaskSigner::<T>::get(0).unwrap().into_account();
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&assigned_signer,
+			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
+		);
+	}: _(RawOrigin::Signed(assigned_signer), 0, [0u8; 32]) verify {}
 
 	submit_signature {
 		let function = Function::SendMessage { msg: Msg::default() };

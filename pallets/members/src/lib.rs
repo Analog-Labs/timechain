@@ -244,5 +244,13 @@ pub mod pallet {
 			frame_system::Pallet::<T>::block_number().saturating_sub(heart.block)
 				< T::HeartbeatTimeout::get()
 		}
+
+		fn total_stake() -> u128 {
+			let mut total: u128 = 0;
+			for stake in MemberStake::<T>::iter() {
+				total = total.saturating_add(stake.1);
+			}
+			total
+		}
 	}
 }

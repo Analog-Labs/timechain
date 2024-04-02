@@ -27,6 +27,9 @@ impl MemberStorage for MockMembers {
 	fn is_member_online(_: &AccountId) -> bool {
 		true
 	}
+	fn total_stake() -> u128 {
+		0u128
+	}
 }
 
 pub struct MockTaskScheduler;

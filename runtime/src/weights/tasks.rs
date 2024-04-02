@@ -99,7 +99,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::SignerPayout` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::ShardTasks` (r:1 w:1)
 	/// Proof: `Tasks::ShardTasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn submit_result() -> Weight {
+	fn submit_result(_b: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1226`
 		//  Estimated: `12116`

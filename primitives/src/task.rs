@@ -37,7 +37,7 @@ impl Function {
 		}
 	}
 
-	pub fn get_input_length(&self) -> u64 {
+	pub fn get_input_length(&self) -> u32 {
 		self.encoded_size() as _
 	}
 }
@@ -62,7 +62,7 @@ impl Payload {
 		(task_id, self).encode()
 	}
 
-	pub fn get_input_length(&self) -> u64 {
+	pub fn get_input_length(&self) -> u32 {
 		self.encoded_size() as _
 	}
 }

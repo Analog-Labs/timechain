@@ -18,11 +18,11 @@ pub mod pallet {
 	use time_primitives::{ChainName, ChainNetwork, NetworkEvents, NetworkId, NetworksInterface};
 
 	pub trait WeightInfo {
-		fn add_network(name: usize, network: usize) -> Weight;
+		fn add_network(name: u32, network: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn add_network(_name: usize, _network: usize) -> Weight {
+		fn add_network(_name: u32, _network: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -113,7 +113,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::add_network(chain_name.len(), chain_network.len()))]
+		#[pallet::weight(T::WeightInfo::add_network(chain_name.len() as u32, chain_network.len() as u32))]
 		pub fn add_network(
 			origin: OriginFor<T>,
 			chain_name: ChainName,

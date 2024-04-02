@@ -30,8 +30,8 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn create_task(input_length: u64) -> Weight;
-		fn submit_result(input_length: u64) -> Weight;
+		fn create_task(input_length: u32) -> Weight;
+		fn submit_result(input_length: u32) -> Weight;
 		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
@@ -41,11 +41,11 @@ pub mod pallet {
 	}
 
 	impl WeightInfo for () {
-		fn create_task(_: u64) -> Weight {
+		fn create_task(_: u32) -> Weight {
 			Weight::default()
 		}
 
-		fn submit_result(_: u64) -> Weight {
+		fn submit_result(_: u32) -> Weight {
 			Weight::default()
 		}
 

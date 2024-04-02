@@ -145,6 +145,14 @@ benchmarks! {
 			&assigned_signer,
 			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
+		let raw_signer: [u8; 32] = assigned_signer.clone().into();
+		pallet_members::Pallet::<T>::register_member(
+			RawOrigin::Signed(assigned_signer.clone()).into(),
+			ETHEREUM,
+			public_key(raw_signer.clone()),
+			raw_signer,
+			<T as pallet_members::Config>::MinStake::get(),
+		)?;
 	}: _(RawOrigin::Signed(assigned_signer), 0, [0u8; 32]) verify {}
 
 	submit_signature {

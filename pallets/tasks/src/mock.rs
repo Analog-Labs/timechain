@@ -63,6 +63,7 @@ frame_support::construct_runtime!(
 		Tasks: task_schedule::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Members: pallet_members,
+		Elections: pallet_elections,
 	}
 );
 
@@ -98,6 +99,13 @@ impl pallet_members::Config for Test {
 	type HeartbeatTimeout = ConstU64<10>;
 }
 
+impl pallet_elections::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Shards = Shards;
+	type Members = Members;
+}
+
 parameter_types! {
 	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
 	// reward declines by 5% every 10 blocks
@@ -109,7 +117,7 @@ impl pallet_shards::Config for Test {
 	type WeightInfo = ();
 	type TaskScheduler = Tasks;
 	type Members = MockMembers;
-	type Elections = MockElections;
+	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
 }
 

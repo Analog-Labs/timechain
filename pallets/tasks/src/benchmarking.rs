@@ -5,8 +5,8 @@ use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, Function, Msg, NetworkId, PublicKey, ShardStatus, ShardsInterface, TaskDescriptorParams,
-	TaskResult, TasksInterface,
+	AccountId, ElectionsInterface, Function, Msg, NetworkId, PublicKey, ShardStatus,
+	ShardsInterface, TaskDescriptorParams, TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -148,12 +148,13 @@ benchmarks! {
 			start: 0,
 			function: function.clone(),
 			funds: 100,
-			shard_size: 3,
+			shard_size: <T as Config>::Elections::default_shard_size(),
 		};
 		// Fund and register all shard members
 		let mut i = 0u8;
-		while !<T as Config>::Shards::is_shard_online(0) {
-			let member_account: AccountId = [i; 32].clone().into();
+		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
+			let member = [i; 32];
+			let member_account: AccountId = member.clone().into();
 			pallet_balances::Pallet::<T>::resolve_creating(
 				&member_account,
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
@@ -165,14 +166,15 @@ benchmarks! {
 				member,
 				<T as pallet_members::Config>::MinStake::get(),
 			)?;
+			i += 1;
 		}
-		// <T as Config>::Shards::create_shard(
-		// 	ETHEREUM,
-		// 	[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-		// 	1,
-		// );
-		// ShardState::<T>::insert(0, ShardStatus::Online);
-		// Pallet::<T>::shard_online(0, ETHEREUM);
+		<T as Config>::Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<T>::insert(0, ShardStatus::Online);
+		Pallet::<T>::shard_online(0, ETHEREUM);
 		let raw_caller = [0u8; 32];
 		let caller: AccountId = raw_caller.clone().into();
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;

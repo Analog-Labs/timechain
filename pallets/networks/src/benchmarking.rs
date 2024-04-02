@@ -5,7 +5,7 @@ use frame_system::RawOrigin;
 
 benchmarks! {
 	add_network {
-	}: _(RawOrigin::Root, "ethereum".into(), "dev".into())
+	}: _(RawOrigin::Root, "test_network".into(), "test".into())
 	verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

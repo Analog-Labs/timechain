@@ -332,7 +332,7 @@ pub mod pallet {
 
 		/// Submit Task Hash
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_hash())] // TODO update bench, weights
+		#[pallet::weight(<T as Config>::WeightInfo::submit_hash())]
 		pub fn submit_hash(
 			origin: OriginFor<T>,
 			task_id: TaskId,

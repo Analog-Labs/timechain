@@ -243,9 +243,7 @@ parameter_types! {
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	// TODO
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
-
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -382,10 +380,8 @@ impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorSet = Historical;
-
 	type NextSessionRotation = Babe;
-	// TODO
-	// type ReportUnresponsiveness = Offences;
+	type ReportUnresponsiveness = Offences;
 	type ReportUnresponsiveness = ();
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	// TODO
@@ -983,8 +979,7 @@ impl pallet_timegraph::Config for Runtime {
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// TODO fix weights
-	type WeightInfo = ();
+	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 	type NetworkEvents = Tasks;
 }
 

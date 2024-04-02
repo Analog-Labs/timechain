@@ -37,7 +37,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::Networks` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Networks::NetworkIdCounter` (r:1 w:1)
 	/// Proof: `Networks::NetworkIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn add_network() -> Weight {
+	fn add_network(_a: usize, _b: usize) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `415`
 		//  Estimated: `21205`

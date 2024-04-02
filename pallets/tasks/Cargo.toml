@@ -15,15 +15,18 @@ frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", tag =
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
+pallet-elections = { path = "../elections", default-features = false }
+pallet-members = { path = "../members", default-features = false }
+pallet-shards = { path = "../shards", default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 schnorr-evm = { version = "0.1.0", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
-pallet-shards = { path = "../shards" }
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
 sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
 
@@ -35,8 +38,12 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-elections/std",
+	"pallet-members/std",
+	"pallet-shards/std",
 	"scale-info/std",
 	"schnorr-evm/std",
+	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"time-primitives/std",

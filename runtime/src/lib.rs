@@ -243,16 +243,13 @@ parameter_types! {
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	// TODO
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
-
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
-	// type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -346,7 +343,7 @@ impl pallet_babe::Config for Runtime {
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
-	type WeightInfo = ();
+	type WeightInfo = (); //weights::babe::WeightInfo<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 }
@@ -358,7 +355,7 @@ parameter_types! {
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-	type WeightInfo = ();
+	type WeightInfo = (); //weights::grandpa::WeightInfo<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
@@ -382,15 +379,10 @@ impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorSet = Historical;
-
 	type NextSessionRotation = Babe;
-	// TODO
-	// type ReportUnresponsiveness = Offences;
-	type ReportUnresponsiveness = ();
+	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
-	// TODO
-	// type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
 	type MaxKeys = MaxKeys;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 }
@@ -927,6 +919,7 @@ impl pallet_members::Config for Runtime {
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
 }
@@ -971,8 +964,7 @@ impl pallet_timegraph::Config for Runtime {
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// TODO fix weights
-	type WeightInfo = ();
+	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 	type NetworkEvents = Tasks;
 }
 
@@ -1049,6 +1041,7 @@ mod benches {
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
+		[pallet_elections, Elections]
 		[pallet_timestamp, Timestamp]
 		[pallet_members, Members]
 		[pallet_shards, Shards]
@@ -1376,6 +1369,7 @@ impl_runtime_apis! {
 			use baseline::Pallet as BaselineBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
+			list_benchmark!(list, extra, pallet_elections, Elections);
 			list_benchmark!(list, extra, pallet_shards, Shards);
 			list_benchmark!(list, extra, pallet_tasks, Tasks);
 			list_benchmark!(list, extra, pallet_members, Members);
@@ -1404,6 +1398,7 @@ impl_runtime_apis! {
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
+			add_benchmark!(params, batches, pallet_elections, Elections);
 			add_benchmark!(params, batches, pallet_shards, Shards);
 			add_benchmark!(params, batches, pallet_tasks, Tasks);
 			add_benchmark!(params, batches, pallet_members, Members);

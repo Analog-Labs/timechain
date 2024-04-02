@@ -7738,6 +7738,8 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-elections",
+ "pallet-members",
  "pallet-shards",
  "parity-scale-codec",
  "scale-info",

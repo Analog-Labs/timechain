@@ -41,10 +41,10 @@ contract VotingContract {
                 networks.push(_registered[i].network);
                 isRegistered[_registered[i].dest] = true;
             }
-            // Not returning error here 
+            // Not returning error here
         }
-        started = true; 
-     }
+        started = true;
+    }
 
     function result() public view returns (bool) {
         return yes_votes > no_votes;

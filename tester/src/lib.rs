@@ -468,7 +468,8 @@ pub async fn test_setup(
 	Ok((gmp_contract, contract, start_block))
 }
 
-// fetches the testcontract state (contains yes and no votes and gets total of each)
+///
+/// fetches the testcontract state (contains yes and no votes and gets total of each)
 pub async fn stats(
 	tester: &Tester,
 	contract: EthContractAddress,
@@ -476,7 +477,7 @@ pub async fn stats(
 ) -> Result<(u64, u64)> {
 	let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
 	let call = VotingContract::statsCall {};
-	let stats = tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
+	let stats = tester.wallet().eth_view_call(contract, call.abi_encode(), block).await?;
 	let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
 	if stats.is_empty() {
 		println!("Stats are empty returning default on block {:?}", block);
@@ -495,7 +496,7 @@ pub async fn stats(
 /// `src`: Tester connected to first network
 /// `dest`: Tester connected to second network
 /// `contract`: Contract path of test contract
-/// `gas_for_calls`: gas funding for total number of calls
+/// `total_calls`: gas funding for total number of calls
 pub async fn setup_gmp_with_contracts(
 	src: &Tester,
 	dest: &Tester,
@@ -548,8 +549,7 @@ pub async fn setup_gmp_with_contracts(
 		.await?;
 
 	// registers source contract in destination contract to inform gmp compatibility.
-	let receipt = dest
-		.wallet()
+	dest.wallet()
 		.eth_send_call(
 			dest_contract,
 			VotingContract::registerGmpContractsCall {
@@ -563,55 +563,21 @@ pub async fn setup_gmp_with_contracts(
 			None,
 			None,
 		)
-		.await?
-		.receipt()
-		.unwrap()
-		.clone();
-
-	// Calculate the gas price based on the latest transaction
-	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-
-	// Get the GMP_GAS_LIMIT from the VotingContract
-	let gmp_gas_limit = {
-		let result = src
-			.wallet()
-			.query(CallContract {
-				from: None,
-				to: src_contract.into(),
-				value: 0.into(),
-				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
-				block: AtBlock::Latest,
-			})
-			.await?;
-		match result {
-			CallResult::Success(payload) => {
-				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
-			},
-			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
-		}
-	};
-
-	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
-	//how much the user provides the gmp
-	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
-	let deposit_amount = gas_price
-		.saturating_mul(gmp_gas_limit)
-		.saturating_mul(12)
-		.saturating_mul(total_calls)
-		/ 10; // 20% more, in case of the gas price increase
-
-	println!("Balance in wallet: {:?}", dest.wallet().balance().await.unwrap());
-	println!("Funds required: {:?}", deposit_amount);
-
-	// deposit funds for source in gmp contract to be able to execute the call
-	dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
 		.await?;
+
+	deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
 
 	Ok((src_contract, dest_contract))
 }
 
 ///
 /// gmp setup if the test and gateway contract is already deployed
+///
+/// # Argument
+/// `contracts`: (src_contract, destination_contract) in respective chains
+/// `src`: tester connected to source chain
+/// `dest`: tester connected to destination chain
+/// `total_calls`: total number of calls
 pub async fn setup_funds_if_needed(
 	contracts: (String, String),
 	src: &Tester,
@@ -628,6 +594,27 @@ pub async fn setup_funds_if_needed(
 		&hex::decode(contracts.1.strip_prefix("0x").unwrap_or(&contracts.1)).unwrap()[..20],
 	);
 
+	deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
+
+	Ok((src_contract, dest_contract))
+}
+
+///
+/// Wait for src contract gmp calls in chunks
+///
+/// # Argument
+/// `src`: tester connected to source chain
+/// `src_contract`: contract in source chain that implements IGMPReceiver
+/// `dest`: tester connected to destination chain
+/// `dest_contract`: contract in destination chain that implements IGMPReceiver interface
+/// `total_calls`: total number of calls to deposit funds for
+pub async fn deposit_gmp_funds(
+	src: &Tester,
+	src_contract: EthContractAddress,
+	dest: &Tester,
+	dest_contract: EthContractAddress,
+	total_calls: u128,
+) -> Result<()> {
 	let dest_gmp_contract = dest.runtime.get_gateway(dest.network_id).await.unwrap().unwrap();
 	let src_network = src.network_id();
 
@@ -705,7 +692,7 @@ pub async fn setup_funds_if_needed(
 		.saturating_mul(total_calls)
 		/ 10; // 20% more, in case of the gas price increase
 
-	let remaining_submitable_gas = deposit_amount.checked_sub(funds_in_contract).unwrap_or(0);
+	let remaining_submitable_gas = deposit_amount.saturating_sub(funds_in_contract);
 	println!("funds required for call:     {:?}", deposit_amount);
 	println!("funds available in contract: {:?}", funds_in_contract);
 	println!("depositing in contract:      {:?}", remaining_submitable_gas);
@@ -720,9 +707,16 @@ pub async fn setup_funds_if_needed(
 			.await?;
 	}
 
-	Ok((src_contract, dest_contract))
+	Ok(())
 }
 
+///
+/// Wait for src contract gmp calls in chunks
+///
+/// # Argument
+/// `calls`: futures contianing gmp calls to src_contract
+/// `number_of_calls`: total number of calls for for gmp benchmarks
+/// `chunks`: chunks to wait for in a single turn
 pub async fn wait_for_gmp_calls<I, F>(
 	calls: I,
 	number_of_calls: u64,

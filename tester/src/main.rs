@@ -129,7 +129,7 @@ async fn gmp_benchmark(
 	println!("stats in start: {:?}", start_stats);
 
 	let mut calls = Vec::new();
-	let bytes = hex::decode(&src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
+	let bytes = hex::decode(src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
 	let mut address_bytes = [0u8; 20];
 	address_bytes.copy_from_slice(&bytes[..20]);
 	let nonce = src_tester
@@ -158,7 +158,7 @@ async fn gmp_benchmark(
 
 	let target = stats(src_tester, src_contract, last_result).await?;
 	println!("1: yes: {} no: {}", target.0, target.1);
-	assert_eq!(target, (number_of_calls + start_stats.0, 0 + start_stats.1));
+	assert_eq!(target, (number_of_calls + start_stats.0, start_stats.1));
 	let start = Instant::now();
 	loop {
 		sleep_or_abort(Duration::from_secs(60)).await?;

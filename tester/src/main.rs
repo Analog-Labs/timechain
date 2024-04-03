@@ -4,10 +4,9 @@ use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tc_subxt::ext::futures::future::join_all;
 use tester::{
-	format_duration, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup, Network, Tester,
-	VotingContract,
+	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
+	test_setup, wait_for_gmp_calls, Network, Tester, VotingContract,
 };
 use tokio::time::Instant;
 
@@ -47,6 +46,7 @@ enum TestCommand {
 	Gmp,
 	GmpBenchmark {
 		tasks: u64,
+		test_contract_addresses: Vec<String>,
 	},
 	TaskMigration,
 	KeyRecovery {
@@ -98,8 +98,13 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester[0], &contract, nodes).await?;
 		},
-		TestCommand::GmpBenchmark { tasks } => {
-			gmp_benchmark(&tester[0], &tester[1], &contract, tasks).await?;
+		TestCommand::GmpBenchmark { tasks, test_contract_addresses } => {
+			let contracts = if test_contract_addresses.len() >= 2 {
+				Some((test_contract_addresses[0].clone(), test_contract_addresses[1].clone()))
+			} else {
+				None
+			};
+			gmp_benchmark(&tester[0], &tester[1], &contract, tasks, contracts).await?;
 		},
 	}
 	Ok(())
@@ -110,10 +115,18 @@ async fn gmp_benchmark(
 	dest_tester: &Tester,
 	contract: &Path,
 	number_of_calls: u64,
+	test_contracts: Option<(String, String)>,
 ) -> Result<()> {
-	let (src_contract, dest_contract) =
-		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128)
-			.await?;
+	let (src_contract, dest_contract) = if let Some(test_contracts) = test_contracts {
+		setup_funds_if_needed(test_contracts, src_tester, dest_tester, number_of_calls as u128)
+			.await?
+	} else {
+		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128).await?
+	};
+
+	let start_stats = stats(src_tester, src_contract, None).await?;
+	let dest_stats = stats(src_tester, src_contract, None).await?;
+	println!("stats in start: {:?}", start_stats);
 
 	let mut calls = Vec::new();
 	let bytes = hex::decode(&src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
@@ -140,17 +153,12 @@ async fn gmp_benchmark(
 		});
 	}
 
-	let results: Vec<SubmitResult> = join_all(calls)
-		.await
-		.into_iter()
-		.map(|result| result.unwrap())
-		.collect::<Vec<_>>();
-
+	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
 	let last_result = results.last().unwrap().receipt().unwrap().block_number;
 
 	let target = stats(src_tester, src_contract, last_result).await?;
 	println!("1: yes: {} no: {}", target.0, target.1);
-	assert_eq!(target, (number_of_calls, 0));
+	assert_eq!(target, (number_of_calls + start_stats.0, 0 + start_stats.1));
 	let start = Instant::now();
 	loop {
 		sleep_or_abort(Duration::from_secs(60)).await?;
@@ -161,7 +169,7 @@ async fn gmp_benchmark(
 			current.1,
 			format_duration(start.elapsed())
 		);
-		if current == target {
+		if current == (dest_stats.0 + number_of_calls, dest_stats.1) {
 			break;
 		}
 	}

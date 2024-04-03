@@ -14641,6 +14641,7 @@ dependencies = [
  "ethers-solc",
  "getrandom 0.2.12",
  "hex",
+ "indicatif",
  "rosetta-client",
  "rosetta-config-ethereum",
  "serde_json",

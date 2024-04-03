@@ -1,13 +1,17 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
+use indicatif::ProgressBar;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{AtBlock, CallContract, CallResult};
+use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
 use sp_core::crypto::Ss58Codec;
+use std::future::Future;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
+use tc_subxt::ext::futures::future::join_all;
+use tc_subxt::ext::futures::{stream, StreamExt};
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
@@ -15,6 +19,7 @@ use time_primitives::{
 	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
 	TaskPhase, TssKey, TssPublicKey,
 };
+
 // type for eth contract address
 pub type EthContractAddress = [u8; 20];
 
@@ -109,7 +114,10 @@ impl Tester {
 		let balance = match self.network_id {
 			6 => 10u128.pow(25), // astar
 			3 => 10u128.pow(29), // ethereum
-			network_id => panic!("unknown network id: {network_id}"),
+			network_id => {
+				println!("network id: {network_id} not compatible for faucet");
+				return;
+			},
 		};
 		if let Err(err) = self.wallet.faucet(balance).await {
 			println!("Error occured while funding wallet {:?}", err);
@@ -466,7 +474,7 @@ pub async fn stats(
 	contract: EthContractAddress,
 	block: Option<u64>,
 ) -> Result<(u64, u64)> {
-	let block = if let Some(block) = block { block } else { tester.wallet().status().await?.index };
+	let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
 	let call = VotingContract::statsCall {};
 	let stats = tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
 	let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
@@ -492,7 +500,7 @@ pub async fn setup_gmp_with_contracts(
 	src: &Tester,
 	dest: &Tester,
 	contract: &Path,
-	gas_for_calls: u128,
+	total_calls: u128,
 ) -> Result<(EthContractAddress, EthContractAddress)> {
 	src.faucet().await;
 	dest.faucet().await;
@@ -538,6 +546,7 @@ pub async fn setup_gmp_with_contracts(
 			None,
 		)
 		.await?;
+
 	// registers source contract in destination contract to inform gmp compatibility.
 	let receipt = dest
 		.wallet()
@@ -583,12 +592,16 @@ pub async fn setup_gmp_with_contracts(
 	};
 
 	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
+	//how much the user provides the gmp
 	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
 	let deposit_amount = gas_price
 		.saturating_mul(gmp_gas_limit)
 		.saturating_mul(12)
-		.saturating_mul(gas_for_calls)
+		.saturating_mul(total_calls)
 		/ 10; // 20% more, in case of the gas price increase
+
+	println!("Balance in wallet: {:?}", dest.wallet().balance().await.unwrap());
+	println!("Funds required: {:?}", deposit_amount);
 
 	// deposit funds for source in gmp contract to be able to execute the call
 	dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
@@ -597,6 +610,145 @@ pub async fn setup_gmp_with_contracts(
 	Ok((src_contract, dest_contract))
 }
 
+///
+/// gmp setup if the test and gateway contract is already deployed
+pub async fn setup_funds_if_needed(
+	contracts: (String, String),
+	src: &Tester,
+	dest: &Tester,
+	total_calls: u128,
+) -> Result<(EthContractAddress, EthContractAddress)> {
+	// if contracts already provided then get
+	let mut src_contract: EthContractAddress = [0; 20];
+	let mut dest_contract: EthContractAddress = [0; 20];
+	src_contract.copy_from_slice(
+		&hex::decode(contracts.0.strip_prefix("0x").unwrap_or(&contracts.0)).unwrap()[..20],
+	);
+	dest_contract.copy_from_slice(
+		&hex::decode(contracts.1.strip_prefix("0x").unwrap_or(&contracts.1)).unwrap()[..20],
+	);
+
+	let dest_gmp_contract = dest.runtime.get_gateway(dest.network_id).await.unwrap().unwrap();
+	let src_network = src.network_id();
+
+	// calculate how many funds do we have in contract
+	let funds_in_contract = {
+		let mut deposit_src = [0; 32];
+		deposit_src[11] = 1;
+		deposit_src[12..32].copy_from_slice(&src_contract[..]);
+
+		let call = IGateway::depositOfCall {
+			source: deposit_src.into(),
+			networkId: src_network,
+		}
+		.abi_encode();
+
+		let result = dest.wallet().eth_view_call(dest_gmp_contract, call, AtBlock::Latest).await?;
+		match result {
+			CallResult::Success(payload) => {
+				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
+			},
+			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
+		}
+	};
+
+	// this is reregisteration source contract in destination contract to inform gmp compatibility.
+	let receipt = dest
+		.wallet()
+		.eth_send_call(
+			dest_contract,
+			VotingContract::registerGmpContractsCall {
+				_registered: vec![GmpVotingContract {
+					dest: src_contract.into(),
+					network: src_network,
+				}],
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?
+		.receipt()
+		.unwrap()
+		.clone();
+
+	// Calculate the gas price based on the latest transaction
+	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+
+	// Get the GMP_GAS_LIMIT from the VotingContract
+	let gmp_gas_limit = {
+		let result = dest
+			.wallet()
+			.query(CallContract {
+				from: None,
+				to: src_contract.into(),
+				value: 0.into(),
+				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
+				block: AtBlock::Latest,
+			})
+			.await?;
+		match result {
+			CallResult::Success(payload) => {
+				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
+			},
+			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
+		}
+	};
+
+	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
+	//how much the user provides the gmp
+	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
+	let deposit_amount = gas_price
+		.saturating_mul(gmp_gas_limit)
+		.saturating_mul(12)
+		.saturating_mul(total_calls)
+		/ 10; // 20% more, in case of the gas price increase
+
+	let remaining_submitable_gas = deposit_amount.checked_sub(funds_in_contract).unwrap_or(0);
+	println!("funds required for call:     {:?}", deposit_amount);
+	println!("funds available in contract: {:?}", funds_in_contract);
+	println!("depositing in contract:      {:?}", remaining_submitable_gas);
+	println!("balance in wallet            {:?}", dest.wallet.balance().await?);
+
+	//check if wallet have enough funds to deposit funds
+	assert!(dest.wallet.balance().await? > remaining_submitable_gas);
+
+	if remaining_submitable_gas > 0 {
+		// deposit funds for source in gmp contract to be able to execute the call
+		dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
+			.await?;
+	}
+
+	Ok((src_contract, dest_contract))
+}
+
+pub async fn wait_for_gmp_calls<I, F>(
+	calls: I,
+	number_of_calls: u64,
+	chunk_size: usize,
+) -> Result<Vec<SubmitResult>>
+where
+	I: IntoIterator<Item = F>,
+	F: Future<Output = Result<SubmitResult, anyhow::Error>>,
+{
+	let mut results = Vec::new();
+
+	let pb = ProgressBar::new(number_of_calls);
+	let calls_stream = stream::iter(calls.into_iter());
+	let mut chunks = calls_stream.chunks(chunk_size);
+
+	while let Some(chunk) = chunks.next().await {
+		println!("Waiting for gmp init calls");
+		let futures = chunk.into_iter().collect::<Vec<_>>();
+		let chunk_results: Result<Vec<_>, _> = join_all(futures).await.into_iter().collect();
+		results.extend(chunk_results?);
+		pb.inc(chunk_size as u64);
+	}
+	pb.finish_with_message("all src tx successful..");
+
+	Ok(results)
+}
 ///
 /// Format duration into proper time format
 pub fn format_duration(duration: Duration) -> String {

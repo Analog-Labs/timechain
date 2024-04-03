@@ -19,6 +19,7 @@ contract VotingContract {
     bool started;
     uint256 yes_votes;
     uint256 no_votes;
+    mapping(address => bool) isRegistered;
 
     event LocalVote(address indexed from, bool vote);
     event GmpVote(bytes32 id, uint128 network, bytes32 indexed sender, bool vote);
@@ -33,15 +34,17 @@ contract VotingContract {
     }
 
     function registerGmpContracts(GmpVotingContract[] memory _registered) external {
-        require(msg.sender == owner && started == false);
-        dests = new address[](_registered.length);
-        networks = new uint16[](_registered.length);
+        require(msg.sender == owner, "Only the owner can call this function.");
         for (uint256 i = 0; i < _registered.length; i++) {
-            dests[i] = _registered[i].dest;
-            networks[i] = _registered[i].network;
+            if (!isRegistered[_registered[i].dest]) {
+                dests.push(_registered[i].dest);
+                networks.push(_registered[i].network);
+                isRegistered[_registered[i].dest] = true;
+            }
+            // Not returning error here 
         }
-        started = true;
-    }
+        started = true; 
+     }
 
     function result() public view returns (bool) {
         return yes_votes > no_votes;

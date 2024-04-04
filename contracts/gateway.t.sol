@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 import "contracts/gateway.sol";
 import "frost-evm/sol/Signer.sol";
 import "forge-std/Test.sol";
+import "forge-std/Vm.sol";
+import "contracts/TestUtils.sol";
 
 uint256 constant secret = 0x42;
 uint256 constant nonce = 0x69;
@@ -27,45 +29,41 @@ contract SigUtilsTest is Test {
     }
 }
 
-contract GatewayTest is Test {
-    Gateway gateway;
-    Signer signer;
+contract GatewayBase is Test {
+    using TestUtils for address;
+
+    Gateway internal gateway;
+    Signer internal signer;
 
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
-    IGmpReceiver receiver;
+    IGmpReceiver internal receiver;
 
-    uint256 private constant EXECUTE_CALL_COST = 47_155;
-    uint256 private constant SUBMIT_GAS_COST = 5553;
+    uint256 private constant EXECUTE_CALL_COST = 47_324;
+    uint256 private constant SUBMIT_GAS_COST = 5539;
     uint16 private constant SRC_NETWORK_ID = 0;
-    uint16 private constant DEST_NETWORK_ID = 69;
-    uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
+    uint16 internal constant DEST_NETWORK_ID = 69;
+    // uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
     uint8 private constant GMP_STATUS_SUCCESS = 1;
-
-    function setUp() public {
-        // check block gas limit as gas left
-        assertEq(block.gaslimit, 30_000_000);
-        assertTrue(gasleft() >= 10_000_000);
-
-        // Deploy helper contract
-        // Obs: This is a special contract that wastes an exact amount of gas you send to it, helpful for testing GMP refunds and gas limits.
-        // See the file `HelperContract.opcode` for more details.
-        bytes memory bytecode = new bytes(96);
-        assembly ("memory-safe") {
-            let ptr := add(bytecode, 32)
-            mstore(ptr, 0x7f60a4355a0360080180603b015b805a11600c57505a03604103565b5b5b5b5b)
-            mstore(add(ptr, 32), 0x5b6000527f5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b0000000000000000000000)
-            mstore(add(ptr, 64), 0x000000000060205260316000f300000000000000000000000000000000000000)
-            let addr := create(0, ptr, 77)
-            if iszero(addr) { revert(0, 0) }
-            sstore(receiver.slot, addr)
-        }
-    }
 
     constructor() {
         signer = new Signer(secret);
         TssKey[] memory keys = new TssKey[](1);
         keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(DEST_NETWORK_ID, keys);
+    }
+
+    function setUp() public {
+        // check block gas limit as gas left
+        assertEq(block.gaslimit, 30_000_000);
+        assertTrue(gasleft() >= 10_000_000);
+
+        // Obs: This is a special contract that wastes an exact amount of gas you send to it, helpful for testing GMP refunds and gas limits.
+        // See the file `HelperContract.opcode` for more details.
+        {
+            bytes memory bytecode =
+                hex"6031600d60003960316000f3fe60a4355a0360080180603b015b805a11600c57505a03604103565b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b00";
+            receiver = IGmpReceiver(TestUtils.deployContract(bytecode));
+        }
     }
 
     function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
@@ -92,59 +90,61 @@ contract GatewayTest is Test {
 
     // Workaround for set the tx.gasLimit, currently is not possible to define the gaslimit in foundry
     // Reference: https://github.com/foundry-rs/foundry/issues/2224
-    function _executeCall(address dest, uint256 gasLimit, bytes memory data)
+    function _call(address addr, uint256 gasLimit, bytes memory data)
         private
         returns (uint256 gasUsed, bool success, bytes memory out)
     {
+        assertTrue(gasleft() > (gasLimit + 5000), "insufficient gas");
+        assertTrue(addr.code.length > 0, "Not a contract address");
+        uint256 gasAfter;
         assembly ("memory-safe") {
-            {
-                let zero := 0 // This is a dummy variable to guarantee a predictable stack layout
-                let ptr := add(data, 32)
-                let size := mload(data)
-                let startGas := gas()
-                success :=
-                    call(
-                        gasLimit, // call gas limit
-                        dest, // dest address
-                        zero, // value in wei to transfer
-                        ptr, // input memory pointer
-                        size, // input size
-                        zero, // output memory pointer
-                        zero // output size
-                    )
-                let endGas := gas()
-                gasUsed := sub(startGas, endGas)
-            }
+            let gasBefore := gas()
+            success :=
+                call(
+                    0x7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E, // gas limit
+                    addr, // addr
+                    gasLimit, // value
+                    add(data, 32),
+                    mload(data),
+                    0,
+                    0
+                )
+            gasAfter := gas()
+            gasAfter := sub(gasBefore, gasAfter)
+            gasUsed := mload(mload(0x40))
+
             out := mload(0x40)
             let size := returndatasize()
             mstore(out, size)
             let ptr := add(out, 32)
             returndatacopy(ptr, 0, size)
             mstore(0x40, add(ptr, size))
-
-            if iszero(success) { revert(ptr, size) }
         }
     }
 
     // Execute a contract call and calculate the acurrate execution gas cost
     function executeCall(address sender, address dest, uint256 gasLimit, bytes memory data)
         internal
-        returns (uint256 execution, uint256 baseCost, bytes memory out)
+        returns (uint256 executionCost, uint256 baseCost, bytes memory out)
     {
-        // Execute
-        vm.startBroadcast(sender);
-        (uint256 executionCost,, bytes memory result) = _executeCall(dest, gasLimit, data);
-        vm.stopBroadcast();
-        executionCost -= 128;
-
         // Compute the base tx cost (21k + 4 * zeros + 16 * nonZeros)
-        uint256 zeros = countBytes(data, 0);
-        uint256 nonZeros = data.length - zeros;
-        uint256 inputCost = (nonZeros * 16) + (zeros * 4);
+        {
+            uint256 zeros = countBytes(data, 0);
+            uint256 nonZeros = data.length - zeros;
+            uint256 inputCost = (nonZeros * 16) + (zeros * 4);
+            baseCost = inputCost + 21_000;
+        }
 
-        out = result;
-        execution = executionCost;
-        baseCost = inputCost + 21_000;
+        // Execute
+        (VmSafe.CallerMode callerMode,,) = vm.readCallers();
+        if (callerMode == VmSafe.CallerMode.None) {
+            vm.prank(sender, sender);
+        }
+        bool success;
+        (executionCost, success, out) = _call(dest, gasLimit, data);
+        assembly {
+            if iszero(success) { revert(add(out, 32), mload(out)) }
+        }
     }
 
     // Allows you to define the gas limit for the GMP call, also retrieve a more accurate gas usage
@@ -170,32 +170,34 @@ contract GatewayTest is Test {
     }
 
     function testDepositRevertsOutOfFunds() public {
-        address mockSender = address(0x0);
-        vm.prank(mockSender);
+        address sender = TestUtils.createTestAccount(0);
+        vm.prank(sender, sender);
         vm.expectRevert();
-        gateway.deposit{value: 1}(0x0, 0);
+        gateway.deposit{value: 1}(sender.source(), 0);
     }
 
     function testDepositReducesSenderFunds() public {
         uint256 amount = 100 ether;
-        address mockSender = address(0x0);
-        vm.deal(mockSender, amount);
-        uint256 balanceBefore = address(mockSender).balance;
-        vm.prank(mockSender);
-        gateway.deposit{value: amount}(0x0, 0);
-        assertEq(balanceBefore - address(mockSender).balance, amount, "deposit failed to transfer amount from sender");
+        address sender = TestUtils.createTestAccount(amount);
+        uint256 balanceBefore = address(sender).balance;
+        vm.prank(sender, sender);
+        gateway.deposit{value: amount}(sender.source(), 0);
+        uint256 balanceAfter = address(sender).balance;
+        uint256 expectedBalance = balanceBefore - amount;
+        assertEq(balanceAfter, expectedBalance, "deposit failed to transfer amount from sender");
     }
 
     function testDepositIncreasesGatewayFunds() public {
         uint256 amount = 100 ether;
-        address mockSender = address(0x0);
+        address sender = TestUtils.createTestAccount(amount);
         address gatewayAddress = address(gateway);
-        assert(gatewayAddress != mockSender);
-        uint256 gatewayBalanceBefore = gatewayAddress.balance;
-        vm.deal(mockSender, amount);
-        vm.prank(mockSender);
-        gateway.deposit{value: amount}(0x0, 0);
-        assertEq(gatewayAddress.balance - gatewayBalanceBefore, amount, "deposit failed to transfer amount to gateway");
+        assert(gatewayAddress != sender);
+        uint256 balanceBefore = gatewayAddress.balance;
+        vm.prank(sender, sender);
+        gateway.deposit{value: amount}(sender.source(), 0);
+        uint256 balanceAfter = gatewayAddress.balance;
+        uint256 expectedBalance = balanceBefore + amount;
+        assertEq(balanceAfter, expectedBalance, "deposit failed to transfer amount to gateway");
     }
 
     function testReceiver() public {
@@ -209,30 +211,30 @@ contract GatewayTest is Test {
             )
         );
         // Calling the receiver contract directly to make the address warm
-        executeCall(address(0), address(receiver), 100_000, testEncodedCall);
-        (uint256 gasUsed,, bytes memory output) = executeCall(address(0), address(receiver), 100_000, testEncodedCall);
+        address sender = TestUtils.createTestAccount(10 ether);
+        executeCall(sender, address(receiver), 100_000, testEncodedCall);
+        (uint256 gasUsed,, bytes memory output) = executeCall(sender, address(receiver), 100_000, testEncodedCall);
         assertEq(gasUsed, 1234);
         assertEq(output.length, 0);
     }
 
     function testDepositMapping() public {
         vm.txGasPrice(1);
-        address mockSender = address(0x0);
-        vm.deal(mockSender, GAS_LIMIT * 3);
+        address sender = TestUtils.createTestAccount(100 ether);
 
         // GMP message gas used
         uint256 gmpGasUsed = 1_000;
         uint256 expectGasUsed = EXECUTE_CALL_COST + gmpGasUsed;
 
         // Deposit funds
-        assertEq(gateway.depositOf(bytes32(bytes20(mockSender)), SRC_NETWORK_ID), 0);
-        vm.prank(mockSender);
-        gateway.deposit{value: expectGasUsed}(bytes32(bytes20(mockSender)), SRC_NETWORK_ID);
-        assertEq(gateway.depositOf(bytes32(bytes20(mockSender)), SRC_NETWORK_ID), expectGasUsed);
+        assertEq(gateway.depositOf(sender.source(), SRC_NETWORK_ID), 0);
+        vm.prank(sender, sender);
+        gateway.deposit{value: expectGasUsed}(sender.source(), SRC_NETWORK_ID);
+        assertEq(gateway.depositOf(sender.source(), SRC_NETWORK_ID), expectGasUsed);
 
         // Build and sign GMP message
         GmpMessage memory gmp = GmpMessage({
-            source: bytes32(bytes20(mockSender)),
+            source: sender.source(),
             srcNetwork: SRC_NETWORK_ID,
             dest: address(receiver),
             destNetwork: DEST_NETWORK_ID,
@@ -244,16 +246,16 @@ contract GatewayTest is Test {
 
         // Execute GMP message
         bytes32 expectResult = bytes32(0);
-        uint256 gasLimit = expectGasUsed + 2151;
-        uint256 beforeBalance = address(mockSender).balance;
-        (uint8 status, bytes32 returned, uint256 gasUsed,) = executeGmp(sig, gmp, gasLimit, mockSender);
-        uint256 afterBalance = address(mockSender).balance;
+        uint256 gasLimit = expectGasUsed + 2160;
+        uint256 beforeBalance = sender.balance;
+        (uint8 status, bytes32 returned, uint256 gasUsed,) = executeGmp(sig, gmp, gasLimit, sender);
+        uint256 afterBalance = sender.balance;
         assertEq(gasUsed, expectGasUsed, "unexpected gas used");
         assertEq(returned, expectResult, "unexpected GMP result");
 
         // Verify the gas refund
         assertEq((afterBalance - beforeBalance), gasUsed, "wrong refund amount");
-        assertEq(gateway.depositOf(bytes32(bytes20(mockSender)), SRC_NETWORK_ID), 0);
+        assertEq(gateway.depositOf(sender.source(), SRC_NETWORK_ID), 0);
 
         // Verify the GMP message status
         assertEq(status, GMP_STATUS_SUCCESS, "Unexpected GMP status");
@@ -265,22 +267,21 @@ contract GatewayTest is Test {
     function testExecuteRevertsWrongNetwork() public {
         vm.txGasPrice(1);
         uint256 amount = 10 ether;
-        address mockSender = address(0x0);
-        vm.deal(mockSender, amount * 2);
+        address sender = TestUtils.createTestAccount(amount * 2);
 
-        gateway.deposit{value: amount}(0x0, 0);
+        gateway.deposit{value: amount}(sender.source(), 1234);
         GmpMessage memory wrongNetwork = GmpMessage({
-            source: 0x0,
+            source: sender.source(),
             srcNetwork: 1,
             dest: address(0x0),
-            destNetwork: DEST_NETWORK_ID,
+            destNetwork: 1234,
             gasLimit: 1000,
             salt: 1,
             data: ""
         });
         Signature memory wrongNetworkSig = sign(wrongNetwork);
-        vm.expectRevert(bytes("deposit below max refund"));
-        executeGmp(wrongNetworkSig, wrongNetwork, 100_000, mockSender);
+        vm.expectRevert("invalid gmp network");
+        executeGmp(wrongNetworkSig, wrongNetwork, 10_000, sender);
     }
 
     function testExecuteRevertsWrongSource() public {
@@ -392,7 +393,7 @@ contract GatewayTest is Test {
             srcNetwork: DEST_NETWORK_ID,
             dest: address(receiver),
             destNetwork: SRC_NETWORK_ID,
-            gasLimit: 100011,
+            gasLimit: 100000,
             salt: 0,
             // data: ""
             data: abi.encodePacked(uint256(100_000))
@@ -400,7 +401,7 @@ contract GatewayTest is Test {
         bytes32 id = keccak256(gateway.getGmpTypedHash(gmp));
 
         // Touch the gateway contract
-        vm.prank(gmpSender);
+        vm.prank(gmpSender, gmpSender);
         gateway.deposit{value: 1}(0x0, 0);
         {
             bytes memory encodedCall =
@@ -458,5 +459,67 @@ contract GatewayTest is Test {
         // Verify the gas cost
         expectedCost = SUBMIT_GAS_COST + 351;
         assertEq(execution, expectedCost, "unexpected execution gas cost");
+    }
+}
+
+/**
+ * Hack to inject arbitrary code into the contract
+ */
+contract GatewayTest is GatewayBase {
+    // Bytecode to inject.
+    // This do an accurate gas
+    bytes32 private constant INLINE_BYTECODE = 0x6a0000000000000000000000919594939291905a96f15a606901909103604051;
+
+    constructor() payable {
+        bytes memory runtimeCode = type(GatewayBase).runtimeCode;
+        assembly ("memory-safe") {
+            let size := mload(runtimeCode)
+            let i := add(runtimeCode, 32)
+
+            // Efficient Algorithm to find 32 repeated bytes (ex: 0x7E7E7E..) in a byte sequence
+            for {
+              let chunk := 1
+              let end := add(i, size)
+            } gt(chunk, 0) { i := add(i, chunk) } {
+                // Transform all `0x7E` bytes into `0xFF`
+                // 0x81 ^ 0x7E == 0xFF
+                // Also transform all other bytes in something different than `0xFF`
+                chunk := xor(mload(i), 0x8181818181818181818181818181818181818181818181818181818181818181)
+
+                // Find the right most byte different than `0xFF` (that's why we had to convert `0x7E` into `0xFF)
+                // (0x12345678FFFFFF + 1) & (~0x12345678FFFFFF) == 0x00000001000000
+                chunk := and(add(chunk, 1), not(chunk))
+
+                // Round down to the closest multiple of 256
+                // Ex: 2 ** 18 become 2 ** 16
+                chunk := div(chunk, mod(chunk, 0xff))
+
+                // Find the number of leading bytes different than `0x7E`.
+                // Rationale:
+                // Multiplying a number by a power of 2 is the same as shifting the bits to the left
+                // 1337 * (2 ** 16) == 1337 << 16
+                // Once the chunk is a multiple of 256 it always shift entire bytes, we use this to
+                // select a specific byte in a byte sequence.
+                chunk :=
+                    shr(248, mul(0x201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201, chunk))
+
+                // Stop the loop if we go out of bounds
+                chunk := mul(chunk, lt(i, end))
+            }
+
+            // Check if we found the 32 byte constant `7E7E7E...`
+            if not(xor(mload(i), 0x8181818181818181818181818181818181818181818181818181818181818181)) {
+                let ptr := mload(0x40)
+                mstore(ptr, shl(224, 0x08c379a0))
+                mstore(add(ptr, 4), 32)  // message offset
+                mstore(add(ptr, 36), 29) // message size
+                mstore(add(ptr, 68), "Failed to inject the bytecode")
+                revert(ptr, 100)
+            }
+
+            mstore(add(i, 1), 0x52)
+            mstore(i, INLINE_BYTECODE)
+            return(add(runtimeCode, 32), mload(runtimeCode))
+        }
     }
 }

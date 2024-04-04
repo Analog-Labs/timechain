@@ -6,7 +6,7 @@ use futures::StreamExt;
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
-use subxt::tx::{SubmittableExtrinsic, TxPayload};
+use subxt::tx::{SubmittableExtrinsic, TxPayload, TxStatus};
 use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
@@ -176,8 +176,29 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				self.create_signed_payload(&sudo_call)
 			},
 		};
-		let result: Result<TxInBlock> =
-			async { Ok(self.tx_submitter.submit(tx).await?.wait_for_finalized().await?) }.await;
+		let result: Result<TxInBlock> = async {
+			let mut tx_progress = self.tx_submitter.submit(tx).await?;
+			while let Some(status) = tx_progress.next().await {
+				match status? {
+					// In block, return.
+					TxStatus::InBestBlock(s) | TxStatus::InFinalizedBlock(s) => return Ok(s),
+					// Error scenarios; return the error.
+					TxStatus::Error { message } => {
+						anyhow::bail!("tx error: {message}");
+					},
+					TxStatus::Invalid { message } => {
+						anyhow::bail!("tx invalid: {message}");
+					},
+					TxStatus::Dropped { message } => {
+						anyhow::bail!("tx dropped: {message}");
+					},
+					// Ignore and wait for next status event:
+					_ => continue,
+				}
+			}
+			anyhow::bail!("tx subscription dropped");
+		}
+		.await;
 
 		match result {
 			Ok(tx_in_block) => {

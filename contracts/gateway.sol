@@ -246,7 +246,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 8938; // 9081; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 9072; // 9081; // Measured gas cost difference for `execute`
 
     // Non-zero value used to initialize the `prevMessageHash` storage
     bytes32 internal constant FIRST_MESSAGE_PLACEHOLDER = bytes32(uint256(2 ** 256 - 1));
@@ -287,7 +287,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Check if shard exists, verify TSS signature and increment shard nonce
-    function _verifySignature(Signature calldata signature, bytes32 message) private view {
+    function _verifySignature(Signature memory signature, bytes32 message) private view {
         // Load shard from storage
         KeyInfo storage signer = _shards[bytes32(signature.xCoord)];
 
@@ -410,7 +410,7 @@ contract Gateway is IGateway, SigUtils {
     }
 
     // Register/Revoke TSS keys using shard TSS signature
-    function updateKeys(Signature calldata signature, UpdateKeysMessage memory message) public {
+    function updateKeys(Signature memory signature, UpdateKeysMessage memory message) public {
         bytes memory payload = getUpdateKeysTypedHash(message);
         bytes32 messageHash = keccak256(payload);
         _verifySignature(signature, messageHash);
@@ -421,8 +421,7 @@ contract Gateway is IGateway, SigUtils {
 
     // Deposit balance to refund callers of execute
     function deposit(bytes32 source, uint16 network) public payable {
-        uint256 depositBefore = _deposits[source][network];
-        _deposits[source][network] = depositBefore + msg.value;
+        _deposits[source][network] += msg.value;
     }
 
     // Execute GMP message
@@ -481,7 +480,7 @@ contract Gateway is IGateway, SigUtils {
         result = output[0];
 
         // Update GMP status
-        status = uint8(BranchlessMath.choice(success, GMP_STATUS_SUCCESS, GMP_STATUS_REVERTED));
+        status = uint8(BranchlessMath.select(success, GMP_STATUS_SUCCESS, GMP_STATUS_REVERTED));
 
         // Persist result and status on storage
         gmp.result = result;
@@ -493,7 +492,7 @@ contract Gateway is IGateway, SigUtils {
 
     // Send GMP message using sudo account
     function execute(
-        Signature calldata signature, // coordinate x, nonce, e, s
+        Signature memory signature, // coordinate x, nonce, e, s
         GmpMessage memory message
     ) public returns (uint8 status, bytes32 result) {
         uint256 initialGas = gasleft();
@@ -521,16 +520,16 @@ contract Gateway is IGateway, SigUtils {
         // TODO: charge the gas cost of the Gateway execution
 
         // Check if the msg.sender is a contract or an EOA
-        uint256 isContract = BranchlessMath.choice(tx.origin != msg.sender, 1, 0);
+        uint256 isContract = BranchlessMath.toUint(tx.origin != msg.sender);
 
         // We use 20 bytes for the address and 1 bit for contract flag
-        bytes32 source = bytes32(isContract << 160) | bytes32(uint256(uint160(msg.sender)));
+        bytes32 source = bytes32((isContract << 160) | uint256(uint160(msg.sender)));
 
         // Salt is equal to the previous message id (EIP-712 hash), this allows us to establish a sequence and eaily query the message history.
         bytes32 prevHash = prevMessageHash;
 
         // if the messageHash is the first message, we use a zero salt
-        uint256 salt = BranchlessMath.choice(prevHash == FIRST_MESSAGE_PLACEHOLDER, 0, uint256(prevHash));
+        uint256 salt = BranchlessMath.select(prevHash == FIRST_MESSAGE_PLACEHOLDER, 0, uint256(prevHash));
 
         // Create GMP message and update prevMessageHash
         {

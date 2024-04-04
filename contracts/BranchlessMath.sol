@@ -7,35 +7,40 @@ library BranchlessMath {
     /**
      * @dev Returns the smallest of two numbers.
      */
-    function min(uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // gas efficient branchless min function:
-            // min(x,y) = y ^ ((x ^ y) * (x < y))
-            // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
-            result := xor(y, mul(xor(x, y), lt(x, y)))
-        }
+    function min(uint256 x, uint256 y) internal pure returns (uint256) {
+        return select(x < y, x, y);
     }
 
     /**
      * @dev Returns the largest of two numbers.
      */
-    function max(uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // gas efficient branchless max function:
-            // max(x,y) = x ^ ((x ^ y) * (x < y))
-            // Reference: https://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
-            result := xor(x, mul(xor(x, y), lt(x, y)))
+    function max(uint256 x, uint256 y) internal pure returns (uint256) {
+        return select(x > y, x, y);
+    }
+
+    /**
+     * @dev If `condition` is true returns `a`, otherwise returns `b`.
+     */
+    function select(bool condition, uint256 a, uint256 b) internal pure returns (uint256) {
+        unchecked {
+            // branchless select, works because:
+            // b ^ (a ^ b) == a
+            // b ^ 0 == b
+            //
+            // This is better than doing `condition ? a : b` because:
+            // - Consumes less gas
+            // - Constant gas cost regardless the inputs
+            // - Reduces the final bytecode size
+            return b ^ ((a ^ b) * toUint(condition));
         }
     }
 
     /**
-     * @dev If `cond` is true, use `x`, otherwise use `y`.
+     * @dev If `condition` is true return `value`, otherwise return zero.
      */
-    function choice(bool cond, uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // gas efficient branchless choice function:
-            // choice(c,x,y) = x ^ ((x ^ y) * (c == 0))
-            result := xor(x, mul(xor(x, y), iszero(cond)))
+    function selectIf(bool condition, uint256 value) internal pure returns (uint256) {
+        unchecked {
+            return value * toUint(condition);
         }
     }
 
@@ -45,12 +50,11 @@ library BranchlessMath {
      * uint256 r = x + y;
      * return r >= x ? r : UINT256_MAX;
      */
-    function saturatingAdd(uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // add(x,y) = (x + y) | -(y > (x + y))
-            x := add(x, y)
-            y := sub(0, gt(y, x))
-            result := or(x, y)
+    function saturatingAdd(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            x = x + y;
+            y = 0 - toUint(x < y);
+            return x | y;
         }
     }
 
@@ -58,10 +62,53 @@ library BranchlessMath {
      * @dev Unsigned saturating subtraction, bounds to zero instead of overflowing.
      * equivalent to: x > y ? x - y : 0
      */
-    function saturatingSub(uint256 x, uint256 y) internal pure returns (uint256 result) {
-        assembly ("memory-safe") {
-            // sub(x,y) = (x - y) * (x > y)
-            result := mul(sub(x, y), gt(x, y))
+    function saturatingSub(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            return (x - y) * toUint(x > y);
         }
+    }
+
+    /**
+     * @dev Unsigned saturating multiplication, bounds to UINT256 MAX instead of overflowing.
+     */
+    function saturatingMul(uint256 x, uint256 y) internal pure returns (uint256) {
+        unchecked {
+            x = x * y;
+            y = 0 - toUint((x / y) != y);
+            return x | y;
+        }
+    }
+
+    /**
+     * @dev Returns the ceiling of the division of two numbers.
+     *
+     * This differs from standard division with `/` in that it rounds towards infinity instead
+     * of rounding towards zero.
+     */
+    function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256) {
+        unchecked {
+            // The following calculation ensures accurate ceiling division without overflow.
+            // Since a is non-zero, (a - 1) / b will not overflow.
+            // The largest possible result occurs when (a - 1) / b is type(uint256).max,
+            // but the largest value we can obtain is type(uint256).max - 1, which happens
+            // when a = type(uint256).max and b = 1.
+            return selectIf(a > 0, ((a - 1) / b + 1));
+        }
+    }
+
+    /**
+     * @dev Cast a boolean (false or true) to a uint256 (0 or 1) with no jump.
+     */
+    function toUint(bool b) internal pure returns (uint256 u) {
+        assembly ("memory-safe") {
+            u := iszero(iszero(b))
+        }
+    }
+
+    /**
+     * @dev Cast an address to uint256
+     */
+    function toUint(address addr) internal pure returns (uint256) {
+        return uint256(uint160(addr));
     }
 }

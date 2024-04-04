@@ -38,6 +38,7 @@ pub use subxt::{ext, tx, utils};
 pub use subxt::{OnlineClient, PolkadotConfig};
 pub use subxt_signer::sr25519::Keypair;
 
+pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient<PolkadotConfig>>;
 pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>;
 
 #[async_trait]
@@ -70,14 +71,14 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 		keypair: Keypair,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
-		let nonce = client.tx().account_nonce(&account_id).await?;
-		Ok(Self {
+		let mut me = Self {
 			client,
 			keypair,
-			nonce,
+			nonce: 0,
 			tx_submitter,
-		})
+		};
+		me.resync_nonce().await?;
+		Ok(me)
 	}
 
 	fn public_key(&self) -> PublicKey {
@@ -101,7 +102,13 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 			.into_encoded()
 	}
 
-	pub async fn submit(&mut self, tx: (Tx, Sender<TxProgress>)) -> Result<()> {
+	async fn resync_nonce(&mut self) -> Result<()> {
+		let account_id: subxt::utils::AccountId32 = self.keypair.public_key().into();
+		self.nonce = self.client.tx().account_nonce(&account_id).await?;
+		Ok(())
+	}
+
+	pub async fn submit(&mut self, tx: (Tx, Sender<TxInBlock>)) {
 		let (transaction, sender) = tx;
 		let tx = match transaction {
 			Tx::RegisterMember { network, peer_id, stake_amount } => {
@@ -169,21 +176,28 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				self.create_signed_payload(&sudo_call)
 			},
 		};
-		let tx_progress = self.tx_submitter.submit(tx).await?;
-		sender
-			.send(tx_progress)
-			.map_err(|_| anyhow::anyhow!("failed to send tx progress"))?;
-		self.nonce += 1;
-		Ok(())
+		let result: Result<TxInBlock> =
+			async { Ok(self.tx_submitter.submit(tx).await?.wait_for_finalized().await?) }.await;
+
+		match result {
+			Ok(tx_in_block) => {
+				sender.send(tx_in_block).ok();
+				self.nonce += 1;
+			},
+			Err(err) => {
+				tracing::error!("Error occured while submitting transaction: {err}");
+				if let Err(err) = self.resync_nonce().await {
+					tracing::error!("failed to resync nonce: {err}");
+				}
+			},
+		}
 	}
 
-	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxProgress>)> {
+	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			while let Some(tx) = rx.next().await {
-				if let Err(err) = self.submit(tx).await {
-					tracing::error!("Error occured while submitting transaction: {err}");
-				}
+				self.submit(tx).await;
 			}
 		});
 		tx
@@ -193,7 +207,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient<PolkadotConfig>,
-	tx: mpsc::UnboundedSender<(Tx, Sender<TxProgress>)>,
+	tx: mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
@@ -233,7 +247,7 @@ impl SubxtClient {
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))
 	}
 
-	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxProgress> {
+	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::InsertTask { task }, tx))?;
 		Ok(rx.await?)
@@ -244,7 +258,7 @@ impl SubxtClient {
 		shard_id: ShardId,
 		address: [u8; 20],
 		block_height: u64,
-	) -> Result<TxProgress> {
+	) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
 			Tx::InsertGateway {

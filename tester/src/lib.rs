@@ -218,7 +218,7 @@ impl Tester {
 			shard_size: 1,
 			funds: 10000000000000000,
 		};
-		let events = self.runtime.create_task(params).await?.wait_for_finalized_success().await?;
+		let events = self.runtime.create_task(params).await?.wait_for_success().await?;
 		let transfer_event = events.find_first::<TaskCreated>().unwrap();
 		let TaskCreated(id) =
 			transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
@@ -236,7 +236,7 @@ impl Tester {
 			.runtime
 			.insert_gateway(shard_id, address, block_height)
 			.await?
-			.wait_for_finalized_success()
+			.wait_for_success()
 			.await?;
 		let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
 		println!("Gateway registered with event {:?}", gateway_event);

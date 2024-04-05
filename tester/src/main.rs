@@ -4,11 +4,12 @@ use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tc_subxt::timechain_runtime::tasks::events;
+use tc_subxt::SubxtClient;
 use tester::{
-	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
-	test_setup, wait_for_gmp_calls, Network, Tester, VotingContract,
+	setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup,
+	wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
 };
-use tokio::time::Instant;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -104,31 +105,48 @@ async fn main() -> Result<()> {
 			} else {
 				None
 			};
-			gmp_benchmark(&tester[0], &tester[1], &contract, tasks, contracts).await?;
+			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
+				.await?;
 		},
 	}
 	Ok(())
 }
 
 async fn gmp_benchmark(
+	timechain_url: &str,
 	src_tester: &Tester,
 	dest_tester: &Tester,
 	contract: &Path,
 	number_of_calls: u64,
 	test_contracts: Option<(String, String)>,
 ) -> Result<()> {
+	println!("Running gmp benchmark for {:?} GMP calls", number_of_calls);
+
+	// Initialized it to get events from timechain
+	// SubxtClient client doesnt support exporting client to outer space
+	// doesnt want to modify it without asking David.
+	let subxt_client = SubxtClient::get_client(timechain_url).await?;
+
+	// gmp_bench_state to do analysis on data in the end
+	let mut bench_state = GmpBenchState::new(number_of_calls);
+
+	// check if deployed test contracts are already provided
 	let (src_contract, dest_contract) = if let Some(test_contracts) = test_contracts {
+		// if contracts are already deployed check the funds and add more funds in gateway contract if needed
 		setup_funds_if_needed(test_contracts, src_tester, dest_tester, number_of_calls as u128)
 			.await?
 	} else {
+		// if contracts are not provided deploy contracts and fund gmp contract
 		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128).await?
 	};
 
+	// get contract stats of src contract
 	let start_stats = stats(src_tester, src_contract, None).await?;
+	// get contract stats of destination contract
 	let dest_stats = stats(src_tester, src_contract, None).await?;
 	println!("stats in start: {:?}", start_stats);
 
-	let mut calls = Vec::new();
+	//get nonce of the caller to manage explicitly
 	let bytes = hex::decode(src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
 	let mut address_bytes = [0u8; 20];
 	address_bytes.copy_from_slice(&bytes[..20]);
@@ -140,6 +158,8 @@ async fn gmp_benchmark(
 		})
 		.await?;
 
+	// make list of contract calls to initiate gmp tasks
+	let mut calls = Vec::new();
 	for i in 0..number_of_calls {
 		let nonce = nonce + i;
 		calls.push({
@@ -153,28 +173,65 @@ async fn gmp_benchmark(
 		});
 	}
 
+	// wait for calls in chunks
 	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
+
+	// start the timer for gmp execution
+	bench_state.start();
+
+	// calculate total gas used
+	// TODO
+	// Complete implementation
+	let _total_gas_used = results
+		.iter()
+		.map(|result| result.receipt().unwrap().gas_used.unwrap_or_default())
+		.collect::<Vec<_>>();
+
+	// Get last block result of contract stats
 	let last_result = results.last().unwrap().receipt().unwrap().block_number;
 
-	let target = stats(src_tester, src_contract, last_result).await?;
-	println!("1: yes: {} no: {}", target.0, target.1);
-	assert_eq!(target, (number_of_calls + start_stats.0, start_stats.1));
-	let start = Instant::now();
+	// get src contract result
+	let src_stats = stats(src_tester, src_contract, last_result).await?;
+	println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
+	assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
+
+	// loop to listen for stats events from destination chain
 	loop {
-		sleep_or_abort(Duration::from_secs(60)).await?;
+		if bench_state.tasks.len() != number_of_calls as usize {
+			let events = subxt_client.events().at_latest().await?;
+
+			// look for created tasks
+			let task_inserted_events = events.find::<events::TaskCreated>();
+
+			// check thoses tasks which have our source contract address and keep track of it
+			for task in task_inserted_events {
+				if let Ok(task_created) = task {
+					let task_id = task_created.0;
+					let task_details = src_tester.get_task(task_id).await;
+					match task_details.function {
+						time_primitives::Function::SendMessage { msg } => {
+							if msg.dest == dest_contract {
+								// GMP task found matching destination contract
+								bench_state.add_task(task_id)
+							}
+						},
+						// we dont care about other tasks
+						_ => {},
+					}
+				}
+			}
+		}
+
 		let current = stats(dest_tester, dest_contract, None).await?;
-		println!(
-			"2: yes: {} no: {}, time_since_start: {}",
-			current.0,
-			current.1,
-			format_duration(start.elapsed())
-		);
+		println!("2: yes: {} no: {}, time_since_start", current.0, current.1,);
+
 		if current == (dest_stats.0 + number_of_calls, dest_stats.1) {
 			break;
 		}
 	}
-	let duration = start.elapsed();
-	println!("Time taken for {:?} gmp tasks is {:?}", number_of_calls, format_duration(duration));
+
+	bench_state.print_analysis();
+	println!("{:?}", bench_state);
 	Ok(())
 }
 

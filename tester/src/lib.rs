@@ -5,6 +5,7 @@ use indicatif::ProgressBar;
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
 use sp_core::crypto::Ss58Codec;
+use std::collections::HashMap;
 use std::future::Future;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
@@ -16,9 +17,10 @@ use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated}
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
 use time_primitives::{
-	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptorParams, TaskId,
-	TaskPhase, TssKey, TssPublicKey,
+	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptor,
+	TaskDescriptorParams, TaskId, TaskPhase, TssKey, TssPublicKey,
 };
+use tokio::time::Instant;
 
 // type for eth contract address
 pub type EthContractAddress = [u8; 20];
@@ -261,6 +263,15 @@ impl Tester {
 		self.runtime.is_task_complete(task_id).await.unwrap()
 	}
 
+	pub async fn get_task(&self, task_id: TaskId) -> TaskDescriptor {
+		// block hash is not used so any hash doesnt matter
+		self.runtime
+			.get_task(Default::default(), task_id)
+			.await
+			.unwrap()
+			.expect(&format!("Task not found for task_id {:?}", task_id))
+	}
+
 	pub async fn get_task_phase(&self, task_id: TaskId) -> TaskPhase {
 		let val = self.runtime.get_task_phase(task_id).await.unwrap().expect("Phase not found");
 		unsafe { transmute(val) }
@@ -394,55 +405,136 @@ pub fn create_evm_view_call(address: [u8; 20]) -> Function {
 	}
 }
 
-pub struct TaskPhaseInfo {
-	pub start_block: u64,
-	pub write_phase_start: Option<u64>,
-	pub read_phase_start: Option<u64>,
-	pub finish_block: Option<u64>,
+#[derive(Debug)]
+pub struct GmpBenchState {
+	total_calls: u64,
+	total_deposit: u128,
+	gmp_start_time: Instant,
+	pub tasks: HashMap<TaskId, TaskPhaseInfo>,
+	total_src_gas: Vec<u128>,
 }
 
-impl TaskPhaseInfo {
-	pub fn new(start_block: u64) -> Self {
+impl GmpBenchState {
+	pub fn new(total_calls: u64) -> Self {
 		Self {
-			start_block,
-			write_phase_start: None,
-			read_phase_start: None,
-			finish_block: None,
+			total_calls,
+			gmp_start_time: Instant::now(),
+			total_deposit: Default::default(),
+			tasks: HashMap::with_capacity(total_calls as usize),
+			total_src_gas: Vec::with_capacity(total_calls as usize),
 		}
 	}
 
-	pub fn enter_write_phase(&mut self, current_block: u64) {
-		self.write_phase_start = Some(current_block);
+	pub fn start(&mut self) {
+		self.gmp_start_time = Instant::now();
 	}
 
-	pub fn enter_read_phase(&mut self, current_block: u64) {
-		self.read_phase_start = Some(current_block);
+	pub fn get_start_time(&self) -> Instant {
+		self.gmp_start_time
 	}
 
-	pub fn task_finished(&mut self, current_block: u64) {
-		self.finish_block = Some(current_block);
+	pub fn insert_src_gas(&mut self, src_gas: Vec<u128>) {
+		self.total_src_gas.extend(src_gas);
 	}
 
-	pub fn start_to_write_duration(&self) -> Option<u64> {
-		self.write_phase_start.map(|write_start| write_start - self.start_block)
+	pub fn dest_src_gas(&mut self, dest_gas: u128) {
+		self.total_deposit = dest_gas;
 	}
 
-	pub fn write_to_read_duration(&self) -> Option<u64> {
+	pub fn add_task(&mut self, task_id: u64) {
+		self.tasks.insert(task_id, TaskPhaseInfo::new());
+	}
+
+	pub fn tasks_ids(&self) -> Vec<TaskId> {
+		self.tasks.keys().cloned().collect()
+	}
+
+	pub async fn sync_phase(&mut self, src_tester: &Tester) {
+		for (task_id, phase) in self.tasks.iter_mut() {
+			let task_state = src_tester.get_task_phase(*task_id).await;
+			phase.shift_phase(task_state)
+		}
+	}
+
+	pub fn print_analysis(&self) {
+		let total_spent_time = Instant::now().duration_since(self.gmp_start_time);
+		println!(
+			"Time taken for {:?} gmp tasks is {:?}",
+			self.total_calls,
+			format_duration(total_spent_time)
+		);
+	}
+}
+
+#[derive(Debug)]
+pub struct TaskPhaseInfo {
+	pub start_time: Instant,
+	pub write_phase_start: Option<Instant>,
+	pub read_phase_start: Option<Instant>,
+	pub finish_time: Option<Instant>,
+}
+
+impl TaskPhaseInfo {
+	pub fn new() -> Self {
+		Self {
+			start_time: Instant::now(),
+			write_phase_start: None,
+			read_phase_start: None,
+			finish_time: None,
+		}
+	}
+
+	pub fn shift_phase(&mut self, phase: TaskPhase) {
+		if let None = self.finish_time {
+			match phase {
+				// task start time is task sign phase
+				TaskPhase::Sign => {},
+				TaskPhase::Write => self.enter_write_phase(),
+				TaskPhase::Read => self.enter_read_phase(),
+			}
+		}
+	}
+
+	pub fn enter_write_phase(&mut self) {
+		if let None = self.write_phase_start {
+			self.write_phase_start = Some(Instant::now());
+		}
+	}
+
+	pub fn enter_read_phase(&mut self) {
+		if let None = self.read_phase_start {
+			self.read_phase_start = Some(Instant::now());
+		}
+	}
+
+	pub fn task_finished(&mut self) {
+		if let None = self.finish_time {
+			self.finish_time = Some(Instant::now());
+		}
+	}
+
+	pub fn start_to_write_duration(&self) -> Option<Duration> {
+		self.write_phase_start
+			.map(|write_start| write_start.duration_since(self.start_time))
+	}
+
+	pub fn write_to_read_duration(&self) -> Option<Duration> {
 		match (self.write_phase_start, self.read_phase_start) {
-			(Some(write_start), Some(read_start)) => Some(read_start - write_start),
+			(Some(write_start), Some(read_start)) => Some(read_start.duration_since(write_start)),
 			_ => None,
 		}
 	}
 
-	pub fn read_to_finish_duration(&self) -> Option<u64> {
-		match (self.read_phase_start, self.finish_block) {
+	pub fn read_to_finish_duration(&self) -> Option<Duration> {
+		match (self.read_phase_start, self.finish_time) {
 			(Some(read_start), Some(finish_block)) => Some(finish_block - read_start),
 			_ => None,
 		}
 	}
 
-	pub fn total_execution_duration(&self) -> Option<u64> {
-		self.finish_block.map(|finish_block| finish_block - self.start_block)
+	pub fn total_execution_duration(&self) -> Option<Duration> {
+		self.finish_time
+			.map(|finish_block| finish_block.duration_since(self.start_time))
 	}
 }
 
@@ -743,6 +835,7 @@ where
 
 	Ok(results)
 }
+
 ///
 /// Format duration into proper time format
 pub fn format_duration(duration: Duration) -> String {

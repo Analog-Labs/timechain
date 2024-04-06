@@ -7,8 +7,8 @@ use std::time::Duration;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
-	setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup,
-	wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
+	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
+	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
 };
 
 #[derive(Parser, Debug)]
@@ -131,7 +131,8 @@ async fn gmp_benchmark(
 	let mut bench_state = GmpBenchState::new(number_of_calls);
 
 	// check if deployed test contracts are already provided
-	let (src_contract, dest_contract) = if let Some(test_contracts) = test_contracts {
+	let (src_contract, dest_contract, deposit_amount) = if let Some(test_contracts) = test_contracts
+	{
 		// if contracts are already deployed check the funds and add more funds in gateway contract if needed
 		setup_funds_if_needed(test_contracts, src_tester, dest_tester, number_of_calls as u128)
 			.await?
@@ -139,6 +140,8 @@ async fn gmp_benchmark(
 		// if contracts are not provided deploy contracts and fund gmp contract
 		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128).await?
 	};
+
+	bench_state.set_deposit(deposit_amount);
 
 	// get contract stats of src contract
 	let start_stats = stats(src_tester, src_contract, None).await?;
@@ -175,6 +178,19 @@ async fn gmp_benchmark(
 
 	// wait for calls in chunks
 	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
+	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
+	let gas_amount_used = results
+		.iter()
+		.map(|result| {
+			let receipt = result.receipt().unwrap();
+			let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+			let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
+			gas_price.saturating_mul(gas_used)
+		})
+		.collect::<Vec<_>>();
+
+	// total gas fee for src_contract call
+	bench_state.insert_src_gas(gas_amount_used);
 
 	// start the timer for gmp execution
 	bench_state.start();
@@ -204,30 +220,30 @@ async fn gmp_benchmark(
 			let task_inserted_events = events.find::<events::TaskCreated>();
 
 			// check thoses tasks which have our source contract address and keep track of it
-			for task in task_inserted_events {
-				if let Ok(task_created) = task {
-					let task_id = task_created.0;
-					let task_details = src_tester.get_task(task_id).await;
-					match task_details.function {
-						time_primitives::Function::SendMessage { msg } => {
-							if msg.dest == dest_contract {
-								// GMP task found matching destination contract
-								bench_state.add_task(task_id)
-							}
-						},
-						// we dont care about other tasks
-						_ => {},
+			for task in task_inserted_events.flatten() {
+				let task_id = task.0;
+				let task_details = src_tester.get_task(task_id).await;
+				if let time_primitives::Function::SendMessage { msg } = task_details.function {
+					if msg.dest == dest_contract {
+						// GMP task found matching destination contract
+						bench_state.add_task(task_id)
 					}
-				}
+				};
 			}
 		}
 
 		let current = stats(dest_tester, dest_contract, None).await?;
-		println!("2: yes: {} no: {}, time_since_start", current.0, current.1,);
+		println!(
+			"2: yes: {} no: {}, time_since_start: {}",
+			current.0,
+			current.1,
+			format_duration(bench_state.current_duration())
+		);
 
 		if current == (dest_stats.0 + number_of_calls, dest_stats.1) {
 			break;
 		}
+		sleep_or_abort(Duration::from_secs(60)).await?;
 	}
 
 	bench_state.print_analysis();
@@ -264,7 +280,7 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 }
 
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
-	let (src_contract, dest_contract) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
+	let (src_contract, dest_contract, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
 
 	println!("submitting vote");
 	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract

@@ -269,7 +269,7 @@ impl Tester {
 			.get_task(Default::default(), task_id)
 			.await
 			.unwrap()
-			.expect(&format!("Task not found for task_id {:?}", task_id))
+			.unwrap_or_else(|| panic!("Task not found for task_id {:?}", task_id))
 	}
 
 	pub async fn get_task_phase(&self, task_id: TaskId) -> TaskPhase {
@@ -425,12 +425,20 @@ impl GmpBenchState {
 		}
 	}
 
+	pub fn set_deposit(&mut self, deposit: u128) {
+		self.total_deposit = deposit;
+	}
+
 	pub fn start(&mut self) {
 		self.gmp_start_time = Instant::now();
 	}
 
 	pub fn get_start_time(&self) -> Instant {
 		self.gmp_start_time
+	}
+
+	pub fn current_duration(&self) -> Duration {
+		Instant::now().duration_since(self.gmp_start_time)
 	}
 
 	pub fn insert_src_gas(&mut self, src_gas: Vec<u128>) {
@@ -474,6 +482,12 @@ pub struct TaskPhaseInfo {
 	pub finish_time: Option<Instant>,
 }
 
+impl Default for TaskPhaseInfo {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl TaskPhaseInfo {
 	pub fn new() -> Self {
 		Self {
@@ -485,7 +499,7 @@ impl TaskPhaseInfo {
 	}
 
 	pub fn shift_phase(&mut self, phase: TaskPhase) {
-		if let None = self.finish_time {
+		if self.finish_time.is_none() {
 			match phase {
 				// task start time is task sign phase
 				TaskPhase::Sign => {},
@@ -496,19 +510,19 @@ impl TaskPhaseInfo {
 	}
 
 	pub fn enter_write_phase(&mut self) {
-		if let None = self.write_phase_start {
+		if self.write_phase_start.is_none() {
 			self.write_phase_start = Some(Instant::now());
 		}
 	}
 
 	pub fn enter_read_phase(&mut self) {
-		if let None = self.read_phase_start {
+		if self.read_phase_start.is_none() {
 			self.read_phase_start = Some(Instant::now());
 		}
 	}
 
 	pub fn task_finished(&mut self) {
-		if let None = self.finish_time {
+		if self.finish_time.is_none() {
 			self.finish_time = Some(Instant::now());
 		}
 	}
@@ -594,7 +608,7 @@ pub async fn setup_gmp_with_contracts(
 	dest: &Tester,
 	contract: &Path,
 	total_calls: u128,
-) -> Result<(EthContractAddress, EthContractAddress)> {
+) -> Result<(EthContractAddress, EthContractAddress, u128)> {
 	src.faucet().await;
 	dest.faucet().await;
 	let src_gmp_contract = src.setup_gmp(false).await?;
@@ -657,9 +671,10 @@ pub async fn setup_gmp_with_contracts(
 		)
 		.await?;
 
-	deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
+	let deposit_amount =
+		deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
 
-	Ok((src_contract, dest_contract))
+	Ok((src_contract, dest_contract, deposit_amount))
 }
 
 ///
@@ -675,7 +690,7 @@ pub async fn setup_funds_if_needed(
 	src: &Tester,
 	dest: &Tester,
 	total_calls: u128,
-) -> Result<(EthContractAddress, EthContractAddress)> {
+) -> Result<(EthContractAddress, EthContractAddress, u128)> {
 	// if contracts already provided then get
 	let mut src_contract: EthContractAddress = [0; 20];
 	let mut dest_contract: EthContractAddress = [0; 20];
@@ -686,9 +701,10 @@ pub async fn setup_funds_if_needed(
 		&hex::decode(contracts.1.strip_prefix("0x").unwrap_or(&contracts.1)).unwrap()[..20],
 	);
 
-	deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
+	let deposit_amount =
+		deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
 
-	Ok((src_contract, dest_contract))
+	Ok((src_contract, dest_contract, deposit_amount))
 }
 
 ///
@@ -706,7 +722,7 @@ pub async fn deposit_gmp_funds(
 	dest: &Tester,
 	dest_contract: EthContractAddress,
 	total_calls: u128,
-) -> Result<()> {
+) -> Result<u128> {
 	let dest_gmp_contract = dest.runtime.get_gateway(dest.network_id).await.unwrap().unwrap();
 	let src_network = src.network_id();
 
@@ -799,7 +815,7 @@ pub async fn deposit_gmp_funds(
 			.await?;
 	}
 
-	Ok(())
+	Ok(deposit_amount)
 }
 
 ///

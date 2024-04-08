@@ -15,6 +15,9 @@ on:
       - 'primitives/**'
       - 'tc-subxt/**'
       - 'contracts/**'
+      - 'config/**'
+      - 'runtime/**'
+      - 'pallets/**'
     branches:
       - 'development'
 

@@ -68,7 +68,7 @@ jobs:
       - name: Build tester
         run: cargo build --release -p tester
       - name: Copy contracts
-        run: cp -r out target/release 
+        run: cp -r target/release/tester tester-bin
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -77,4 +77,4 @@ jobs:
           tags: |
             ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
             ${{ env.DOCKER_REPO }}:latest
-          file: config/docker/Dockerfile.tester
+          file: config/docker/Dockerfile.tester-release

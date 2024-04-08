@@ -87,12 +87,13 @@ fn test_withdraw() {
 			amount,
 			init_sequence + 1
 		));
+		assert_eq!(Timegraph::next_withdrawal_sequence(sender), init_sequence + 1);
 
 		System::assert_last_event(
 			Event::<Test>::Withdrawal(sender, receiver, amount, init_sequence + 1).into(),
 		);
 
-		pallet_timegraph::NextWithdrawalSequence::<Test>::insert(receiver, u64::MAX);
+		pallet_timegraph::NextWithdrawalSequence::<Test>::insert(sender, u64::MAX);
 		assert_noop!(
 			Timegraph::withdraw(RawOrigin::Signed(sender).into(), receiver, amount, init_sequence),
 			Error::<Test>::SequenceNumberOverflow

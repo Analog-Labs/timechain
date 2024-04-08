@@ -179,6 +179,7 @@ where
 					.into_iter()
 					.map(|event| Msg::from_event(event, network_id))
 					.collect();
+				tracing::info!("read target block: {:?}", target_block_number);
 				if !logs.is_empty() {
 					tracing::info!("read {} messages", logs.len());
 				}

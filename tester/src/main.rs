@@ -179,6 +179,7 @@ async fn gmp_benchmark(
 	// wait for calls in chunks
 	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
 	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
+	println!("tx hash for block {:?}", results.first().unwrap().receipt().unwrap().block_number);
 	let gas_amount_used = results
 		.iter()
 		.map(|result| {

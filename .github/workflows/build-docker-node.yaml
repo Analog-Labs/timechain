@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - "ci/binary/**"
+      
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DOCKER_REPO: analoglabs/timechain

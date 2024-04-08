@@ -1,16 +1,32 @@
-name: Build Docker timechain node image
+##########################################################
+#
+#  Workflow for building the tester image. It's a CLI tool
+#  used in deployment scripts and apps. The tester CLI 
+#  image includes the tester binary and the compiled 
+#  contracts.
+#
+##########################################################
+name: Build Docker tester image
 
 on:
   push:
+    paths:
+      - 'tester/**'
+      - 'primitives/**'
+      - 'tc-subxt/**'
+      - 'contracts/**'
+      - 'config/**'
+      - 'runtime/**'
+      - 'pallets/**'
     branches:
-      - "ci/binary/**"
-      
+      - 'development'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  DOCKER_REPO: analoglabs/timechain
+  DOCKER_REPO: analoglabs/tester
 
 jobs:
   set-tags:
@@ -46,10 +62,26 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup Cargo
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Build contracts
+        run: forge build
+      - name: Build tester
+        run: cargo build --release -p tester
+      - name: Copy contracts
+        run: cp -r target/release/tester tester-bin
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          context: .
+          context: ./target/release
           push: true
-          tags: ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
-          file: config/docker/Dockerfile.release
+          tags: |
+            ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
+            ${{ env.DOCKER_REPO }}:latest
+          file: config/docker/Dockerfile.tester-release

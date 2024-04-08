@@ -465,6 +465,7 @@ impl GmpBenchState {
 	}
 
 	pub fn print_analysis(&self) {
+		// TODO calculate the total src gas fee done during this
 		let total_spent_time = Instant::now().duration_since(self.gmp_start_time);
 		println!(
 			"Time taken for {:?} gmp tasks is {:?}",

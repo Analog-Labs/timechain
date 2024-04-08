@@ -196,12 +196,6 @@ async fn gmp_benchmark(
 	bench_state.start();
 
 	// calculate total gas used
-	// TODO
-	// Complete implementation
-	let _total_gas_used = results
-		.iter()
-		.map(|result| result.receipt().unwrap().gas_used.unwrap_or_default())
-		.collect::<Vec<_>>();
 
 	// Get last block result of contract stats
 	let last_result = results.last().unwrap().receipt().unwrap().block_number;

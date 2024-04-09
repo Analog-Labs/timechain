@@ -524,11 +524,9 @@ impl GmpBenchState {
 			]);
 		}
 
+		// print task phase
 		let table = builder.build().with(Style::ascii_rounded()).to_string();
 		println!("task phase details \n{}", table);
-
-		// print task phase
-		println!("task phase details: {:?}", all_task_phase_duration);
 
 		// print task latencies
 		self.print_latencies();

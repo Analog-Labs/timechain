@@ -11,14 +11,16 @@ use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
+use tabled::{builder::Builder, settings::Style};
 use tc_subxt::ext::futures::future::join_all;
+use tc_subxt::ext::futures::stream::BoxStream;
 use tc_subxt::ext::futures::{stream, StreamExt};
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
 use time_primitives::{
-	sp_core, Function, IGateway, Msg, NetworkId, Runtime, ShardId, TaskDescriptor,
-	TaskDescriptorParams, TaskId, TaskPhase, TssKey, TssPublicKey,
+	sp_core, BlockHash, BlockNumber, Function, IGateway, Msg, NetworkId, Runtime, ShardId,
+	TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey, TssPublicKey,
 };
 use tokio::time::Instant;
 
@@ -314,6 +316,10 @@ impl Tester {
 		self.runtime.get_latest_block().await
 	}
 
+	pub async fn finality_block_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
+		self.runtime.finality_notification_stream()
+	}
+
 	pub async fn send_message(
 		&self,
 		source_network: NetworkId,
@@ -410,6 +416,7 @@ pub struct GmpBenchState {
 	total_calls: u64,
 	total_deposit: u128,
 	gmp_start_time: Instant,
+	gmp_execution_duration: Duration,
 	pub tasks: HashMap<TaskId, TaskPhaseInfo>,
 	total_src_gas: Vec<u128>,
 }
@@ -419,6 +426,7 @@ impl GmpBenchState {
 		Self {
 			total_calls,
 			gmp_start_time: Instant::now(),
+			gmp_execution_duration: Duration::from_secs(0),
 			total_deposit: Default::default(),
 			tasks: HashMap::with_capacity(total_calls as usize),
 			total_src_gas: Vec::with_capacity(total_calls as usize),
@@ -431,6 +439,10 @@ impl GmpBenchState {
 
 	pub fn start(&mut self) {
 		self.gmp_start_time = Instant::now();
+	}
+
+	pub fn finish(&mut self) {
+		self.gmp_execution_duration = Instant::now().duration_since(self.gmp_start_time);
 	}
 
 	pub fn get_start_time(&self) -> Instant {
@@ -453,8 +465,15 @@ impl GmpBenchState {
 		self.tasks.insert(task_id, TaskPhaseInfo::new());
 	}
 
-	pub fn tasks_ids(&self) -> Vec<TaskId> {
+	pub fn task_ids(&self) -> Vec<TaskId> {
 		self.tasks.keys().cloned().collect()
+	}
+
+	pub fn finish_task(&mut self, task_id: TaskId) {
+		let phase = self.tasks.get_mut(&task_id);
+		if let Some(phase) = phase {
+			phase.task_finished();
+		}
 	}
 
 	pub async fn sync_phase(&mut self, src_tester: &Tester) {
@@ -465,13 +484,120 @@ impl GmpBenchState {
 	}
 
 	pub fn print_analysis(&self) {
-		// TODO calculate the total src gas fee done during this
-		let total_spent_time = Instant::now().duration_since(self.gmp_start_time);
+		let mut builder = Builder::new();
+		builder.push_record([
+			"task_id",
+			"sign_phase_duration",
+			"write_phase_duration",
+			"read_phase_duration",
+		]);
+
+		// Using fold to safely handle potential overflow
+		let total_src_gas_used = self.total_src_gas.iter().fold(0u128, |acc, &x| {
+			acc.checked_add(x)
+				.unwrap_or_else(|| panic!("Cannot sum total src fee number overflowed!"))
+		});
+
+		// total time since the execution start
+		let total_spent_time = self.gmp_execution_duration;
+
+		// calculate task duration for each task
+		let all_task_phase_duration: Vec<_> = self
+			.tasks
+			.iter()
+			.map(|(k, v)| {
+				(
+					k,
+					v.start_to_write_duration().unwrap().as_secs_f32(),
+					v.write_to_read_duration().unwrap().as_secs_f32(),
+					v.read_to_finish_duration().unwrap().as_secs_f32(),
+				)
+			})
+			.collect();
+
+		for item in all_task_phase_duration.clone() {
+			builder.push_record([
+				format!("{}", item.0),
+				format!("{}", item.1),
+				format!("{}", item.2),
+				format!("{}", item.3),
+			]);
+		}
+
+		let table = builder.build().with(Style::ascii_rounded()).to_string();
+		println!("task phase details \n{}", table);
+
+		// print task phase
+		println!("task phase details: {:?}", all_task_phase_duration);
+
+		// print task latencies
+		self.print_latencies();
+
+		// print src contract total gas
+		println!(
+			"Total gas given for src contract calls for {:?} tasks is {:?}",
+			self.total_calls, total_src_gas_used
+		);
+
+		// print time taken for gmp tasks
 		println!(
 			"Time taken for {:?} gmp tasks is {:?}",
 			self.total_calls,
 			format_duration(total_spent_time)
 		);
+	}
+
+	fn print_latencies(&self) {
+		let write_latencies: Vec<Duration> = self
+			.tasks
+			.values()
+			.map(|info| info.start_to_write_duration().unwrap())
+			.collect();
+
+		let read_latencies: Vec<Duration> =
+			self.tasks.values().map(|info| info.write_to_read_duration().unwrap()).collect();
+
+		let finish_latencies: Vec<Duration> = self
+			.tasks
+			.values()
+			.map(|info| info.read_to_finish_duration().unwrap())
+			.collect();
+
+		let total_latencies: Vec<Duration> = self
+			.tasks
+			.values()
+			.map(|info| info.total_execution_duration().unwrap())
+			.collect();
+
+		let sum_duration = |duration: Vec<Duration>| {
+			duration.iter().fold(Duration::new(0, 0), |acc, &dur| acc + dur)
+		};
+
+		let average_write_latency =
+			sum_duration(write_latencies.clone()) / write_latencies.len() as u32;
+		let average_read_latency =
+			sum_duration(read_latencies.clone()) / read_latencies.len() as u32;
+		let average_finish_latency =
+			sum_duration(finish_latencies.clone()) / finish_latencies.len() as u32;
+		let average_total_latency =
+			sum_duration(total_latencies.clone()) / total_latencies.len() as u32;
+
+		// let throughput = self.total_calls as f32 / self.gmp_execution_duration.as_secs_f32();
+
+		println!(
+			"Average write phase latency is {} secs per task",
+			average_write_latency.as_secs()
+		);
+		println!("Average read phase latency is {} secs per task", average_read_latency.as_secs());
+		println!(
+			"Average finish phase latency is {} secs per task",
+			average_finish_latency.as_secs()
+		);
+		println!("Average total latency is {} secs per task", average_total_latency.as_secs());
+	}
+
+	pub fn get_finished_tasks(&self) -> usize {
+		self.tasks.iter().filter(|(_, phase)| phase.finish_time.is_some()).count()
 	}
 }
 

@@ -4,12 +4,14 @@ use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tc_subxt::ext::futures::StreamExt;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
 	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
 };
+use tokio::time::{interval_at, Instant};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -196,8 +198,6 @@ async fn gmp_benchmark(
 	// start the timer for gmp execution
 	bench_state.start();
 
-	// calculate total gas used
-
 	// Get last block result of contract stats
 	let last_result = results.last().unwrap().receipt().unwrap().block_number;
 
@@ -206,43 +206,65 @@ async fn gmp_benchmark(
 	println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
 	assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
 
-	// loop to listen for stats events from destination chain
+	let mut block_stream = src_tester.finality_block_stream().await;
+	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
+
+	// loop to listen for task change and stats events from destination chain
 	loop {
-		if bench_state.tasks.len() != number_of_calls as usize {
-			let events = subxt_client.events().at_latest().await?;
-
-			// look for created tasks
-			let task_inserted_events = events.find::<events::TaskCreated>();
-
-			// check thoses tasks which have our source contract address and keep track of it
-			for task in task_inserted_events.flatten() {
-				let task_id = task.0;
-				let task_details = src_tester.get_task(task_id).await;
-				if let time_primitives::Function::SendMessage { msg } = task_details.function {
-					if msg.dest == dest_contract {
-						// GMP task found matching destination contract
-						bench_state.add_task(task_id)
+		let tasks_in_bench = bench_state.task_ids();
+		tokio::select! {
+			block = block_stream.next() => {
+				if let Some((block_hash, _)) = block {
+					let events = subxt_client.events().at(block_hash).await?;
+					let task_inserted_events = events.find::<events::TaskCreated>();
+					for task in task_inserted_events.flatten() {
+						let task_id = task.0;
+						let task_details = src_tester.get_task(task_id).await;
+						if let time_primitives::Function::SendMessage { msg } = task_details.function {
+							if msg.dest == dest_contract {
+								// GMP task found matching destination contract
+								bench_state.add_task(task_id);
+							}
+						};
 					}
-				};
+
+					// finish tasks
+					let task_result_submitted = events.find::<events::TaskResult>();
+					for task_result in task_result_submitted.flatten() {
+						let task_id = task_result.0;
+						if tasks_in_bench.contains(&task_id) {
+							bench_state.finish_task(task_id);
+						}
+					}
+					// update task phase
+					bench_state.sync_phase(src_tester).await;
+				}
+			}
+			_ = one_min_tick.tick() => {
+				let current = stats(dest_tester, dest_contract, None).await?;
+				if current != (dest_stats.0 + number_of_calls, dest_stats.1) {
+					println!(
+						"2: yes: {} no: {}, time_since_start: {}",
+						current.0,
+						current.1,
+						format_duration(bench_state.current_duration())
+					);
+				} else {
+					println!("contract updated, waiting for task to complete");
+				}
+
+				if bench_state.get_finished_tasks() == number_of_calls as usize {
+					break;
+				}
+			}
+			_ = tokio::signal::ctrl_c() => {
+				println!("aborting...");
+				anyhow::bail!("abort");
 			}
 		}
-
-		let current = stats(dest_tester, dest_contract, None).await?;
-		println!(
-			"2: yes: {} no: {}, time_since_start: {}",
-			current.0,
-			current.1,
-			format_duration(bench_state.current_duration())
-		);
-
-		if current == (dest_stats.0 + number_of_calls, dest_stats.1) {
-			break;
-		}
-		sleep_or_abort(Duration::from_secs(60)).await?;
 	}
-
+	bench_state.finish();
 	bench_state.print_analysis();
-	println!("{:?}", bench_state);
 	Ok(())
 }
 

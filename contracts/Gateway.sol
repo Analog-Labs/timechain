@@ -107,7 +107,6 @@ contract Gateway is IGateway, IExecutor, GatewayEIP712 {
         return _deposits[source][networkId];
     }
 
-
     function keyInfo(bytes32 id) external view returns (KeyInfo memory) {
         return _shards[id];
     }

@@ -1,4 +1,7 @@
-pragma solidity >=0.7.0 <0.9.0;
+// SPDX-License-Identifier: MIT
+// Analog's Contracts (last updated v0.1.0) (contracts/utils/BranchlessMath.sol)
+
+pragma solidity ^0.8.20;
 
 /**
  * @dev Utilities for branchless operations, useful when a constant gas cost is required.
@@ -100,7 +103,8 @@ library BranchlessMath {
      * @dev Cast a boolean (false or true) to a uint256 (0 or 1) with no jump.
      */
     function toUint(bool b) internal pure returns (uint256 u) {
-        assembly ("memory-safe") {
+        /// @solidity memory-safe-assembly
+        assembly {
             u := iszero(iszero(b))
         }
     }

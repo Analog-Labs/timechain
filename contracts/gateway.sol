@@ -1,161 +1,19 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
+// Analog's Contracts (last updated v0.1.0) (src/Gateway.sol)
 
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity ^0.8.20;
 
-import "frost-evm/sol/Schnorr.sol";
-import "./BranchlessMath.sol";
+import {Schnorr} from "frost-evm/sol/Schnorr.sol";
+import {BranchlessMath} from "./utils/BranchlessMath.sol";
+import {IGateway} from "./interfaces/IGateway.sol";
+import {IGmpReceiver} from "./interfaces/IGmpReceiver.sol";
+import {IExecutor, IGatewayEIP712} from "./interfaces/IExecutor.sol";
 
-/**
- * @dev Required interface of an GMP compliant contract
- */
-interface IGmpReceiver {
-    /**
-     * @dev Handles the receipt of a single GMP message.
-     * The contract must verify the msg.sender, it must be the Gateway Contract address.
-     *
-     * @param id The EIP-712 hash of the message payload, used as GMP unique identifier
-     * @param network The chain_id of the source chain who send the message
-     * @param source The pubkey/address which sent the GMP message
-     * @param payload The message payload with no specified format
-     * @return 32 byte result which will be stored together with GMP message
-     */
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 source, bytes calldata payload)
-        external
-        payable
-        returns (bytes32);
-}
-
-/**
- * @dev Required interface of an Gateway compliant contract
- */
-interface IGateway {
-    /**
-     * @dev Emitted when `GmpMessage` is executed.
-     * - `id` EIP-712 hash of the `GmpPayload`, which is it's unique identifier
-     * - `source` sender pubkey/address (the format depends on src chain)
-     * - `dest` recipient address
-     * - `status` GMP message execution status
-     * - `result` GMP result
-     */
-    event GmpExecuted(bytes32 indexed id, bytes32 indexed source, address indexed dest, uint256 status, bytes32 result);
-
-    /**
-     * @dev Emitted when `UpdateShardsMessage` is executed.
-     * - `id` EIP-712 hash of the UpdateShardsMessage, zero for sudo
-     * - `revoked` shards with keys revoked
-     * - `registered` new shards registered
-     */
-    event KeySetChanged(bytes32 indexed id, TssKey[] revoked, TssKey[] registered);
-
-    /**
-     * @dev New GMP submitted by calling the `submitMessage` method.
-     * - `id` EIP-712 hash of the `GmpPayload`, which is it's unique identifier
-     * - `sender` sender account, with an extra flag indicating if it is a contract or an EOA
-     * - `recipient` address or pubkey, the format depends on the destination network.
-     * - `network` recipient network identifier
-     * - `gasLimit` maximum gas limit for the GMP call
-     * - `salt` salt is equal to the previous message id (EIP-712 hash).
-     * - `data` message data with no specified format
-     */
-    event GmpCreated(
-        bytes32 indexed id,
-        bytes32 indexed sender,
-        address indexed recipient,
-        uint16 network,
-        uint256 gasLimit,
-        uint256 salt,
-        bytes data
-    );
-
-    function deposit(bytes32 source, uint16 network) external payable;
-
-    /**
-     * Execute GMP message
-     */
-    function execute(Signature memory signature, GmpMessage memory message)
-        external
-        returns (uint8 status, bytes32 result);
-
-    /**
-     * Update TSS key set
-     */
-    function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
-
-    function submitMessage(address recipient, uint16 network, uint256 gasLimit, bytes memory data) external payable;
-}
-
-/**
- * @dev Tss public key
- */
-struct TssKey {
-    uint8 yParity; // public key y-coord parity, the contract converts it to 27/28
-    uint256 xCoord; // affine x-coordinate
-}
-
-/**
- * @dev Message payload used to revoke or/and register new shards
- */
-struct UpdateKeysMessage {
-    TssKey[] revoke; // Keys to revoke
-    TssKey[] register; // Keys to add
-}
-
-/**
- * @dev GMP payload, this is what the timechain creates as task payload
- */
-struct GmpMessage {
-    bytes32 source; // Pubkey/Address of who send the GMP message
-    uint16 srcNetwork; // Source chain identifier (for ethereum networks it is the EIP-155 chain id)
-    address dest; // Destination/Recipient contract address
-    uint16 destNetwork; // Destination chain identifier (it's the EIP-155 chain_id for ethereum networks)
-    uint256 gasLimit; // gas limit of the GMP call
-    uint256 salt; // Message salt, useful for sending two messages with same content
-    bytes data; // message data with no specified format
-}
-
-/**
- * @dev this is what must be signed using the schnorr signature,
- * OBS: what is actually signed is: keccak256(abi.encodePacked(R, parity, px, nonce, message))
- * Where `parity` is the public key y coordinate stored in the contract, and `R` is computed from `e` and `s` parameters.
- */
-struct Signature {
-    uint256 xCoord; // public key x coordinates, y-parity is stored in the contract
-    uint256 e; // Schnorr signature e parameter
-    uint256 s; // Schnorr signature s parameter
-}
-
-/**
- * @dev Shard info stored in the Gateway Contract
- * OBS: the order of the attributes matters! ethereum storage is 256bit aligned, try to keep
- * the shard info below 256 bit, so it can be stored in one single storage slot.
- * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
- *
- */
-struct KeyInfo {
-    uint216 _gap; // gap, so we can use later for store more information about a shard
-    uint8 status; // status, 0 = unregisted, 1 = active, 3 = revoked
-    uint32 nonce; // shard nonce
-}
-
-/**
- * @dev GMP info stored in the Gateway Contract
- * OBS: the order of the attributes matters! ethereum storage is 256bit aligned, try to keep
- * the attributes 256 bit aligned, ex: nonce, block and status can be read in one storage access.
- * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
- *
- */
-struct GmpInfo {
-    uint184 _gap; // gap to keep status and blocknumber 256bit aligned
-    uint8 status; // message status: NOT_FOUND | PENDING | SUCCESS | REVERT
-    uint64 blockNumber; // block in which the message was processed
-    bytes32 result; // the result of the GMP message
-}
-
-contract SigUtils {
+abstract contract GatewayEIP712 {
     // EIP-712: Typed structured data hashing and signing
     // https://eips.ethereum.org/EIPS/eip-712
     uint16 internal immutable NETWORK_ID;
-    bytes32 internal immutable DOMAIN_SEPARATOR;
+    bytes32 public immutable DOMAIN_SEPARATOR;
 
     constructor(uint16 networkId, address gateway) {
         NETWORK_ID = networkId;
@@ -174,70 +32,12 @@ contract SigUtils {
             )
         );
     }
-
-    // computes the hash of an array of tss keys
-    function _getTssKeyHash(TssKey memory tssKey) private pure returns (bytes32) {
-        return keccak256(abi.encode(keccak256("TssKey(uint8 yParity,uint256 xCoord)"), tssKey.yParity, tssKey.xCoord));
-    }
-
-    // computes the hash of an array of tss keys
-    function _getTssKeyArrayHash(TssKey[] memory tssKeys) private pure returns (bytes32) {
-        bytes memory keysHashed = new bytes(tssKeys.length * 32);
-        uint256 ptr;
-        assembly {
-            ptr := keysHashed
-        }
-        for (uint256 i = 0; i < tssKeys.length; i++) {
-            bytes32 hash = _getTssKeyHash(tssKeys[i]);
-            assembly {
-                ptr := add(ptr, 32)
-                mstore(ptr, hash)
-            }
-        }
-
-        return keccak256(keysHashed);
-    }
-
-    // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function _getUpdateKeysHash(UpdateKeysMessage memory message) private pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                keccak256("UpdateKeysMessage(TssKey[] revoke,TssKey[] register)TssKey(uint8 yParity,uint256 xCoord)"),
-                _getTssKeyArrayHash(message.revoke),
-                _getTssKeyArrayHash(message.register)
-            )
-        );
-    }
-
-    function getUpdateKeysTypedHash(UpdateKeysMessage memory message) internal view returns (bytes memory) {
-        return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getUpdateKeysHash(message));
-    }
-
-    // computes the hash of an array of tss keys
-    function _getGmpHash(GmpMessage memory gmp) private pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                keccak256(
-                    "GmpMessage(bytes32 source,uint16 srcNetwork,address dest,uint16 destNetwork,uint256 gasLimit,uint256 salt,bytes data)"
-                ),
-                gmp.source,
-                gmp.srcNetwork,
-                gmp.dest,
-                gmp.destNetwork,
-                gmp.gasLimit,
-                gmp.salt,
-                keccak256(gmp.data)
-            )
-        );
-    }
-
-    // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function getGmpTypedHash(GmpMessage memory message) public view returns (bytes memory) {
-        return abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, _getGmpHash(message));
-    }
 }
 
-contract Gateway is IGateway, SigUtils {
+contract Gateway is IGateway, IExecutor, GatewayEIP712 {
+    using IGatewayEIP712 for IExecutor.UpdateKeysMessage;
+    using IGatewayEIP712 for IExecutor.GmpMessage;
+
     uint8 internal constant GMP_STATUS_NOT_FOUND = 0; // GMP message not processed
     uint8 internal constant GMP_STATUS_SUCCESS = 1; // GMP message executed successfully
     uint8 internal constant GMP_STATUS_REVERTED = 2; // GMP message executed, but reverted
@@ -246,7 +46,7 @@ contract Gateway is IGateway, SigUtils {
     uint8 internal constant SHARD_ACTIVE = (1 << 0); // Shard active bitflag
     uint8 internal constant SHARD_Y_PARITY = (1 << 1); // Pubkey y parity bitflag
 
-    uint256 internal constant EXECUTE_GAS_DIFF = 9072; // 9081; // Measured gas cost difference for `execute`
+    uint256 internal constant EXECUTE_GAS_DIFF = 9039; // Measured gas cost difference for `execute`
 
     // Non-zero value used to initialize the `prevMessageHash` storage
     bytes32 internal constant FIRST_MESSAGE_PLACEHOLDER = bytes32(uint256(2 ** 256 - 1));
@@ -263,7 +63,32 @@ contract Gateway is IGateway, SigUtils {
     // Hash of the previous GMP message submitted.
     bytes32 public prevMessageHash;
 
-    constructor(uint16 networkId, TssKey[] memory keys) payable SigUtils(networkId, address(this)) {
+    /**
+     * @dev Shard info stored in the Gateway Contract
+     * OBS: the order of the attributes matters! ethereum storage is 256bit aligned, try to keep
+     * the shard info below 256 bit, so it can be stored in one single storage slot.
+     * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
+     */
+    struct KeyInfo {
+        uint216 _gap; // gap, so we can use later for store more information about a shard
+        uint8 status; // status, 0 = unregisted, 1 = active, 3 = revoked
+        uint32 nonce; // shard nonce
+    }
+
+    /**
+     * @dev GMP info stored in the Gateway Contract
+     * OBS: the order of the attributes matters! ethereum storage is 256bit aligned, try to keep
+     * the attributes 256 bit aligned, ex: nonce, block and status can be read in one storage access.
+     * reference: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
+     */
+    struct GmpInfo {
+        uint184 _gap; // gap to keep status and blocknumber 256bit aligned
+        uint8 status; // message status: NOT_FOUND | PENDING | SUCCESS | REVERT
+        uint64 blockNumber; // block in which the message was processed
+        bytes32 result; // the result of the GMP message
+    }
+
+    constructor(uint16 networkId, TssKey[] memory keys) payable GatewayEIP712(networkId, address(this)) {
         // Initialize the prevMessageHash with a non-zero value to avoid the first GMP to spent more gas,
         // once initialize the storage cost 21k gas, while alter it cost just 2800 gas.
         prevMessageHash = FIRST_MESSAGE_PLACEHOLDER;
@@ -286,7 +111,9 @@ contract Gateway is IGateway, SigUtils {
         return _shards[id];
     }
 
-    // Check if shard exists, verify TSS signature and increment shard nonce
+    /**
+     * @dev  Verify if shard exists, if the TSS signature is valid then increment shard's nonce.
+     */
     function _verifySignature(Signature memory signature, bytes32 message) private view {
         // Load shard from storage
         KeyInfo storage signer = _shards[bytes32(signature.xCoord)];
@@ -297,12 +124,7 @@ contract Gateway is IGateway, SigUtils {
 
         // Load y parity bit, it must be 27 (even), or 28 (odd)
         // ref: https://ethereum.github.io/yellowpaper/paper.pdf
-        uint8 yParity;
-        if ((status & SHARD_Y_PARITY) > 0) {
-            yParity = 28;
-        } else {
-            yParity = 27;
-        }
+        uint8 yParity = uint8(BranchlessMath.select((status & SHARD_Y_PARITY) > 0, 28, 27));
 
         // Verify Signature
         require(
@@ -411,8 +233,7 @@ contract Gateway is IGateway, SigUtils {
 
     // Register/Revoke TSS keys using shard TSS signature
     function updateKeys(Signature memory signature, UpdateKeysMessage memory message) public {
-        bytes memory payload = getUpdateKeysTypedHash(message);
-        bytes32 messageHash = keccak256(payload);
+        bytes32 messageHash = message.eip712TypedHash(DOMAIN_SEPARATOR);
         _verifySignature(signature, messageHash);
 
         // Register shards pubkeys
@@ -457,7 +278,9 @@ contract Gateway is IGateway, SigUtils {
             gasAvailable -= gasAvailable >> 6;
             require(gasAvailable > gasLimit, "gas left below message.gasLimit");
         }
-        assembly ("memory-safe") {
+
+        /// @solidity memory-safe-assembly
+        assembly {
             // Using low-level assembly because the GMP is considered executed
             // regardless if the call reverts or not.
             let ptr := add(data, 32)
@@ -500,8 +323,7 @@ contract Gateway is IGateway, SigUtils {
         // Theoretically we could remove the destination network field
         // and fill it up with the network id of the contract, then the signature will fail.
         require(message.destNetwork == NETWORK_ID, "invalid gmp network");
-        bytes memory payload = getGmpTypedHash(message);
-        bytes32 messageHash = keccak256(payload);
+        bytes32 messageHash = message.eip712TypedHash(DOMAIN_SEPARATOR);
         _verifySignature(signature, messageHash);
         (status, result) = _execute(messageHash, message);
         uint256 deposited = _deposits[message.source][message.srcNetwork];
@@ -515,8 +337,19 @@ contract Gateway is IGateway, SigUtils {
         payable(tx.origin).transfer(refund);
     }
 
-    // Submit a new GMP message
-    function submitMessage(address recipient, uint16 network, uint256 gasLimit, bytes memory data) external payable {
+    /**
+     * @dev Send message from chain A to chain B
+     * @param destinationAddress the target address on the destination chain
+     * @param destinationNetwork the target chain where the contract call will be made
+     * @param executionGasLimit the gas limit available for the contract call
+     * @param data message data with no specified format
+     */
+    function submitMessage(
+        address destinationAddress,
+        uint16 destinationNetwork,
+        uint256 executionGasLimit,
+        bytes memory data
+    ) external payable {
         // TODO: charge the gas cost of the Gateway execution
 
         // Check if the msg.sender is a contract or an EOA
@@ -533,11 +366,12 @@ contract Gateway is IGateway, SigUtils {
 
         // Create GMP message and update prevMessageHash
         {
-            GmpMessage memory message = GmpMessage(source, NETWORK_ID, recipient, network, gasLimit, salt, data);
-            prevHash = keccak256(getGmpTypedHash(message));
+            GmpMessage memory message =
+                GmpMessage(source, NETWORK_ID, destinationAddress, destinationNetwork, executionGasLimit, salt, data);
+            prevHash = message.eip712TypedHash(DOMAIN_SEPARATOR);
             prevMessageHash = prevHash;
         }
 
-        emit GmpCreated(prevHash, source, recipient, network, gasLimit, salt, data);
+        emit GmpCreated(prevHash, source, destinationAddress, destinationNetwork, executionGasLimit, salt, data);
     }
 }

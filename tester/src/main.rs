@@ -16,9 +16,9 @@ struct Args {
 	timechain_url: String,
 	#[arg(long, default_value = "/etc/keyfile")]
 	target_keyfile: PathBuf,
-	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
+	#[arg(long, default_value = "/etc/contracts/Gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
-	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
+	#[arg(long, default_value = "/etc/contracts/VotingContract.sol/VotingContract.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
 	cmd: TestCommand,

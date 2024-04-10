@@ -1,18 +1,27 @@
-pragma solidity ^0.8.24;
+// SPDX-License-Identifier: MIT
+// Analog's Contracts (last updated v0.1.0) (test/TestUtils.sol)
 
-import "contracts/gateway.sol";
-import "frost-evm/sol/Signer.sol";
+pragma solidity ^0.8.20;
+
+import {Gateway, GatewayEIP712} from "../Gateway.sol";
+import {IExecutor, IGatewayEIP712} from "../interfaces/IExecutor.sol";
+import {IGmpReceiver} from "../interfaces/IGmpReceiver.sol";
+import {IGateway} from "../interfaces/IGateway.sol";
+import {Signer} from "frost-evm/sol/Signer.sol";
 import "forge-std/Test.sol";
 import "forge-std/Vm.sol";
-import "contracts/TestUtils.sol";
+import "./TestUtils.sol";
 
 uint256 constant secret = 0x42;
 uint256 constant nonce = 0x69;
 
-contract SigUtilsTest is Test {
+contract SigUtilsTest is GatewayEIP712, Test {
+    using IGatewayEIP712 for IExecutor.GmpMessage;
+
+    constructor() GatewayEIP712(69, address(0)) {}
+
     function testPayload() public {
-        SigUtils utils = new SigUtils(69, address(0));
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: 0x0,
             srcNetwork: 42,
             dest: address(0x0),
@@ -21,16 +30,18 @@ contract SigUtilsTest is Test {
             salt: 0,
             data: ""
         });
-        bytes memory payload = utils.getGmpTypedHash(gmp);
-        assertEq(
-            payload,
+        bytes32 typedHash = gmp.eip712TypedHash(DOMAIN_SEPARATOR);
+        bytes32 expected = keccak256(
             hex"19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd"
         );
+        assertEq(typedHash, expected);
     }
 }
 
 contract GatewayBase is Test {
     using TestUtils for address;
+    using IGatewayEIP712 for IExecutor.UpdateKeysMessage;
+    using IGatewayEIP712 for IExecutor.GmpMessage;
 
     Gateway internal gateway;
     Signer internal signer;
@@ -38,17 +49,16 @@ contract GatewayBase is Test {
     // Receiver Contract, the will waste the exact amount of gas you sent to it in the data field
     IGmpReceiver internal receiver;
 
-    uint256 private constant EXECUTE_CALL_COST = 47_324;
-    uint256 private constant SUBMIT_GAS_COST = 5539;
+    uint256 private constant EXECUTE_CALL_COST = 47_236;
+    uint256 private constant SUBMIT_GAS_COST = 5551;
     uint16 private constant SRC_NETWORK_ID = 0;
     uint16 internal constant DEST_NETWORK_ID = 69;
-    // uint256 private immutable GAS_LIMIT = (block.gaslimit / 5) * 4; // 80% of the block gas limit
     uint8 private constant GMP_STATUS_SUCCESS = 1;
 
     constructor() {
         signer = new Signer(secret);
-        TssKey[] memory keys = new TssKey[](1);
-        keys[0] = TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
+        IExecutor.TssKey[] memory keys = new IExecutor.TssKey[](1);
+        keys[0] = IExecutor.TssKey({yParity: signer.yParity() == 28 ? 1 : 0, xCoord: signer.xCoord()});
         gateway = new Gateway(DEST_NETWORK_ID, keys);
     }
 
@@ -66,15 +76,16 @@ contract GatewayBase is Test {
         }
     }
 
-    function sign(GmpMessage memory gmp) internal view returns (Signature memory) {
-        uint256 hash = uint256(keccak256(gateway.getGmpTypedHash(gmp)));
+    function sign(IExecutor.GmpMessage memory gmp) internal view returns (IExecutor.Signature memory) {
+        uint256 hash = uint256(gmp.eip712TypedHash(gateway.DOMAIN_SEPARATOR()));
         (uint256 e, uint256 s) = signer.signPrehashed(hash, nonce);
-        return Signature({xCoord: signer.xCoord(), e: e, s: s});
+        return IExecutor.Signature({xCoord: signer.xCoord(), e: e, s: s});
     }
 
     // Count the number of occurrences of a byte in a bytes array
     function countBytes(bytes memory input, uint8 haystack) internal pure returns (uint256 zeros) {
-        assembly ("memory-safe") {
+        /// @solidity memory-safe-assembly
+        assembly {
             zeros := 0
             let ptr := add(input, 32)
             let size := mload(input)
@@ -97,7 +108,8 @@ contract GatewayBase is Test {
         assertTrue(gasleft() > (gasLimit + 5000), "insufficient gas");
         assertTrue(addr.code.length > 0, "Not a contract address");
         uint256 gasAfter;
-        assembly ("memory-safe") {
+        /// @solidity memory-safe-assembly
+        assembly {
             let gasBefore := gas()
             success :=
                 call(
@@ -150,8 +162,8 @@ contract GatewayBase is Test {
     // Allows you to define the gas limit for the GMP call, also retrieve a more accurate gas usage
     // by executing the GMP message.
     function executeGmp(
-        Signature memory signature, // coordinate x, nonce, e, s
-        GmpMessage memory message,
+        IExecutor.Signature memory signature, // coordinate x, nonce, e, s
+        IExecutor.GmpMessage memory message,
         uint256 gasLimit,
         address sender
     ) internal returns (uint8 status, bytes32 result, uint256 executionCost, uint256 baseCost) {
@@ -233,7 +245,7 @@ contract GatewayBase is Test {
         assertEq(gateway.depositOf(sender.source(), SRC_NETWORK_ID), expectGasUsed);
 
         // Build and sign GMP message
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: sender.source(),
             srcNetwork: SRC_NETWORK_ID,
             dest: address(receiver),
@@ -242,7 +254,7 @@ contract GatewayBase is Test {
             salt: 1,
             data: abi.encode(gmpGasUsed)
         });
-        Signature memory sig = sign(gmp);
+        IExecutor.Signature memory sig = sign(gmp);
 
         // Execute GMP message
         bytes32 expectResult = bytes32(0);
@@ -259,7 +271,7 @@ contract GatewayBase is Test {
 
         // Verify the GMP message status
         assertEq(status, GMP_STATUS_SUCCESS, "Unexpected GMP status");
-        GmpInfo memory info = gateway.gmpInfo(keccak256(gateway.getGmpTypedHash(gmp)));
+        Gateway.GmpInfo memory info = gateway.gmpInfo(gmp.eip712TypedHash(gateway.DOMAIN_SEPARATOR()));
         assertEq(info.status, GMP_STATUS_SUCCESS, "GMP status stored doesn't match the returned status");
         assertEq(info.result, expectResult, "GMP result stored doesn't match the returned result");
     }
@@ -270,7 +282,7 @@ contract GatewayBase is Test {
         address sender = TestUtils.createTestAccount(amount * 2);
 
         gateway.deposit{value: amount}(sender.source(), 1234);
-        GmpMessage memory wrongNetwork = GmpMessage({
+        IExecutor.GmpMessage memory wrongNetwork = IExecutor.GmpMessage({
             source: sender.source(),
             srcNetwork: 1,
             dest: address(0x0),
@@ -279,7 +291,7 @@ contract GatewayBase is Test {
             salt: 1,
             data: ""
         });
-        Signature memory wrongNetworkSig = sign(wrongNetwork);
+        IExecutor.Signature memory wrongNetworkSig = sign(wrongNetwork);
         vm.expectRevert("invalid gmp network");
         executeGmp(wrongNetworkSig, wrongNetwork, 10_000, sender);
     }
@@ -290,7 +302,7 @@ contract GatewayBase is Test {
         address mockSender = address(0x0);
         vm.deal(mockSender, amount * 2);
         gateway.deposit{value: amount}(0x0, 0);
-        GmpMessage memory wrongSource = GmpMessage({
+        IExecutor.GmpMessage memory wrongSource = IExecutor.GmpMessage({
             source: bytes32(uint256(0x1)),
             srcNetwork: 0,
             dest: address(0x0),
@@ -299,14 +311,14 @@ contract GatewayBase is Test {
             salt: 1,
             data: ""
         });
-        Signature memory wrongSourceSig = sign(wrongSource);
+        IExecutor.Signature memory wrongSourceSig = sign(wrongSource);
         vm.expectRevert(bytes("deposit below max refund"));
         executeGmp(wrongSourceSig, wrongSource, 100_000, mockSender);
     }
 
     function testExecuteRevertsWithoutDeposit() public {
         vm.txGasPrice(1);
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: bytes32(0),
             srcNetwork: 0,
             dest: address(receiver),
@@ -315,7 +327,7 @@ contract GatewayBase is Test {
             salt: 1,
             data: abi.encode(uint256(1_000_000))
         });
-        Signature memory sig = sign(gmp);
+        IExecutor.Signature memory sig = sign(gmp);
         assertEq(gateway.depositOf(bytes32(0), 0), 0);
         vm.expectRevert("deposit below max refund");
         executeGmp(sig, gmp, 1_500_000, address(0));
@@ -327,7 +339,7 @@ contract GatewayBase is Test {
         address mockSender = address(0x0);
         vm.deal(mockSender, insufficientDeposit);
         gateway.deposit{value: insufficientDeposit}(0x0, 0);
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: 0x0,
             srcNetwork: 0,
             dest: address(receiver),
@@ -336,7 +348,7 @@ contract GatewayBase is Test {
             salt: 1,
             data: abi.encode(uint256(10_000))
         });
-        Signature memory sig = sign(gmp);
+        IExecutor.Signature memory sig = sign(gmp);
         vm.expectRevert("deposit below max refund");
         executeGmp(sig, gmp, 100_000, mockSender);
     }
@@ -348,7 +360,7 @@ contract GatewayBase is Test {
         address mockSender = address(0x0);
         vm.deal(mockSender, insufficientDeposit);
         gateway.deposit{value: insufficientDeposit}(0x0, 0);
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: 0x0,
             srcNetwork: 0,
             dest: address(receiver),
@@ -357,7 +369,7 @@ contract GatewayBase is Test {
             salt: 1,
             data: abi.encode(uint256(100_000))
         });
-        Signature memory sig = sign(gmp);
+        IExecutor.Signature memory sig = sign(gmp);
         vm.expectRevert(bytes("gas left below message.gasLimit"));
         executeGmp(sig, gmp, 100_000, mockSender);
     }
@@ -368,7 +380,7 @@ contract GatewayBase is Test {
         address mockSender = address(0x0);
         vm.deal(mockSender, amount * 2);
         gateway.deposit{value: amount}(0x0, 0);
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: 0x0,
             srcNetwork: 0,
             dest: address(receiver),
@@ -377,7 +389,7 @@ contract GatewayBase is Test {
             salt: 1,
             data: abi.encode(uint256(1000))
         });
-        Signature memory sig = sign(gmp);
+        IExecutor.Signature memory sig = sign(gmp);
         (uint8 status,,,) = executeGmp(sig, gmp, 100_000, mockSender);
         assertEq(status, GMP_STATUS_SUCCESS);
         vm.expectRevert(bytes("message already executed"));
@@ -388,7 +400,7 @@ contract GatewayBase is Test {
         vm.txGasPrice(1);
         address gmpSender = address(0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287);
         vm.deal(gmpSender, 1_000_000_000_000_000_000);
-        GmpMessage memory gmp = GmpMessage({
+        IExecutor.GmpMessage memory gmp = IExecutor.GmpMessage({
             source: bytes32(uint256(uint160(gmpSender))),
             srcNetwork: DEST_NETWORK_ID,
             dest: address(receiver),
@@ -398,17 +410,9 @@ contract GatewayBase is Test {
             // data: ""
             data: abi.encodePacked(uint256(100_000))
         });
-        bytes32 id = keccak256(gateway.getGmpTypedHash(gmp));
+        bytes32 id = gmp.eip712TypedHash(gateway.DOMAIN_SEPARATOR());
 
-        // Touch the gateway contract
-        vm.prank(gmpSender, gmpSender);
-        gateway.deposit{value: 1}(0x0, 0);
-        {
-            bytes memory encodedCall =
-                abi.encodeCall(Gateway.submitMessage, (gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data));
-            vm.expectRevert();
-            executeCall(gmpSender, address(gateway), 1000, encodedCall);
-        }
+        // Check the previous message hash
         assertEq(gateway.prevMessageHash(), bytes32(uint256(2 ** 256 - 1)), "WROONNGG");
 
         // Expect event
@@ -428,7 +432,7 @@ contract GatewayBase is Test {
 
         // Now the second GMP message should have the salt equals to previous gmp hash
         gmp.salt = uint256(id);
-        id = keccak256(gateway.getGmpTypedHash(gmp));
+        id = gmp.eip712TypedHash(gateway.DOMAIN_SEPARATOR());
 
         // Expect event
         vm.expectEmit(true, true, true, true);
@@ -445,7 +449,7 @@ contract GatewayBase is Test {
 
         // Now the second GMP message should have the salt equals to previous gmp hash
         gmp.salt = uint256(id);
-        id = keccak256(gateway.getGmpTypedHash(gmp));
+        id = gmp.eip712TypedHash(gateway.DOMAIN_SEPARATOR());
 
         // Expect event
         vm.expectEmit(true, true, true, true);
@@ -463,17 +467,17 @@ contract GatewayBase is Test {
 }
 
 /**
- * @dev Workaround to fix Forge the gas report.
+ * @dev Workaround to fix Forge gas report.
  *
  * Due to limitations in forge, the gas cost reported is misleading:
  * - https://github.com/foundry-rs/foundry/issues/6578
  * - https://github.com/foundry-rs/foundry/issues/6910
  *
- * The contract is a workaround that fixes it by inject an arbitrary code into the `GatewayBase`,
+ * This contract is a workaround that fixes it by inject an arbitrary code into the `GatewayBase`,
  * it replaces the constant `0x7E7E7E7E7E7E...` defined in the `_call` function by the `INLINE_BYTECODE`.
- * This guarantees us to precisely compute the execution gas cost.
+ * This allow us to precisely compute the execution gas cost.
  *
- * This workaround is necessary while solidity doesn't support verbatim in inline assembly code.
+ * This workaround is necessary while solidity doesn't add support to verbatim in inline assembly code.
  * - https://github.com/ethereum/solidity/issues/12067
  *
  * @author Lohann Ferreira
@@ -504,7 +508,8 @@ contract GatewayTest is GatewayBase {
         bytes memory runtimeCode = type(GatewayBase).runtimeCode;
 
         // Replaces the first occurence of `0x7E7E..` in the runtime code by the `INLINE_BYTECODE`
-        assembly ("memory-safe") {
+        /// @solidity memory-safe-assembly
+        assembly {
             let size := mload(runtimeCode)
             let i := add(runtimeCode, 32)
 

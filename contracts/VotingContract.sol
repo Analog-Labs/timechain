@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import "contracts/gateway.sol";
+import {IGateway} from "contracts/interfaces/IGateway.sol";
 
 struct GmpVotingContract {
     address dest;

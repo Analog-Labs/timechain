@@ -1,3 +1,4 @@
+use crate::mock_results::*;
 use crate::{Call, Config, Pallet, TaskSigner};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::{Currency, Get};
@@ -7,7 +8,7 @@ use sp_runtime::traits::IdentifyAccount;
 use sp_std::vec;
 use time_primitives::{
 	AccountId, ElectionsInterface, Function, Msg, NetworkId, PublicKey, ShardStatus,
-	ShardsInterface, TaskDescriptorParams, TaskResult, TasksInterface,
+	ShardsInterface, TaskDescriptorParams, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -30,30 +31,6 @@ fn mock_submit_sig() -> ([u8; 33], [u8; 64]) {
 			13, 69, 29, 16, 233, 116, 44, 67, 56, 152, 73, 90, 169, 128, 178, 106, 195, 156, 92,
 			13, 62, 34, 215, 115, 94, 51, 80,
 		],
-	)
-}
-
-// Generated via `tests::bench_result_helper`
-// Returns pub_key, TaskResult
-fn mock_result_ok() -> ([u8; 33], TaskResult) {
-	(
-		[
-			2, 36, 79, 43, 160, 29, 26, 4, 168, 242, 35, 104, 66, 1, 179, 183, 189, 197, 92, 84, 2,
-			101, 52, 245, 230, 250, 199, 131, 188, 204, 228, 70, 248,
-		],
-		TaskResult {
-			shard_id: 0,
-			payload: time_primitives::Payload::Hashed([
-				11, 210, 118, 190, 192, 58, 251, 12, 81, 99, 159, 107, 191, 242, 96, 233, 203, 127,
-				91, 0, 219, 14, 241, 19, 45, 124, 246, 145, 176, 169, 138, 11,
-			]),
-			signature: [
-				6, 7, 9, 187, 47, 68, 0, 246, 107, 215, 169, 76, 121, 8, 85, 213, 42, 253, 100, 32,
-				62, 87, 85, 101, 146, 126, 200, 74, 76, 101, 188, 229, 30, 17, 202, 255, 105, 25,
-				145, 174, 219, 202, 54, 185, 97, 39, 171, 219, 81, 123, 73, 35, 124, 32, 124, 148,
-				155, 133, 40, 73, 165, 196, 167, 130,
-			],
-		},
 	)
 }
 
@@ -87,6 +64,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(whitelisted_caller()), descriptor) verify {}
 
 	submit_result {
+		//let b in MIN_PAYLOAD_LENGTH..1000;
 		let descriptor = TaskDescriptorParams {
 			network: ETHEREUM,
 			function: Function::EvmViewCall {
@@ -110,7 +88,7 @@ benchmarks! {
 			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
-		let (pub_key, result) = mock_result_ok();
+		let (pub_key, result) = mock_result(MIN_PAYLOAD_LENGTH);
 		ShardCommitment::<T>::insert(0, vec![pub_key]);
 	}: _(RawOrigin::Signed(caller), 0, result) verify {}
 

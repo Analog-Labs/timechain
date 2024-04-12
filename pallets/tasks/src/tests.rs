@@ -1603,3 +1603,8 @@ fn lock_gateway_if_less_than_one_shard_online() {
 		);
 	});
 }
+
+#[test]
+fn no_tasks_deleted_by_register_shard() {
+	// todo
+}

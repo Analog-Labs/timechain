@@ -1605,6 +1605,50 @@ fn lock_gateway_if_less_than_one_shard_online() {
 }
 
 #[test]
-fn no_tasks_deleted_by_register_shard() {
-	// todo
+fn register_gateway_fails_previous_shard_registration_tasks() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 5;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		let mut expected_failed_tasks = Vec::new();
+		let mut expected_successful_task = Vec::new();
+		for (task_id, task) in crate::Tasks::<Test>::iter() {
+			if let Function::RegisterShard { shard_id } = task.function {
+				if shard_id != 0 {
+					expected_failed_tasks.push((shard_id, task_id));
+				} else {
+					expected_successful_task.push((shard_id, task_id));
+				}
+			}
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
+		for (shard_id, task_id) in expected_failed_tasks.iter() {
+			assert_eq!(
+				TaskOutput::<Test>::get(task_id),
+				Some(TaskResult {
+					shard_id: *shard_id,
+					payload: Payload::Error("new gateway registered".into()),
+					signature: [0u8; 64],
+				})
+			);
+		}
+		for (shard_id, task_id) in expected_successful_task.iter() {
+			assert_eq!(
+				TaskOutput::<Test>::get(task_id),
+				Some(TaskResult {
+					shard_id: *shard_id,
+					payload: Payload::Hashed([0u8; 32]),
+					signature: [0u8; 64],
+				})
+			);
+		}
+	});
 }

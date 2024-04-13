@@ -1618,14 +1618,9 @@ fn register_gateway_fails_previous_shard_registration_tasks() {
 			Tasks::shard_online(i, ETHEREUM);
 		}
 		let mut expected_failed_tasks = Vec::new();
-		let mut expected_successful_task = Vec::new();
 		for (task_id, task) in crate::Tasks::<Test>::iter() {
 			if let Function::RegisterShard { shard_id } = task.function {
-				if shard_id != 0 {
-					expected_failed_tasks.push((shard_id, task_id));
-				} else {
-					expected_successful_task.push((shard_id, task_id));
-				}
+				expected_failed_tasks.push((shard_id, task_id));
 			}
 		}
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
@@ -1636,16 +1631,6 @@ fn register_gateway_fails_previous_shard_registration_tasks() {
 				Some(TaskResult {
 					shard_id: *shard_id,
 					payload: Payload::Error("new gateway registered".into()),
-					signature: [0u8; 64],
-				})
-			);
-		}
-		for (shard_id, task_id) in expected_successful_task.iter() {
-			assert_eq!(
-				TaskOutput::<Test>::get(task_id),
-				Some(TaskResult {
-					shard_id: *shard_id,
-					payload: Payload::Hashed([0u8; 32]),
 					signature: [0u8; 64],
 				})
 			);

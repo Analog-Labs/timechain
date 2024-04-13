@@ -391,11 +391,7 @@ pub mod pallet {
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
-				if shard_id != bootstrap {
-					Self::rm_or_fail_shard_registration(shard_id);
-				} else {
-					Self::keep_and_pass_shard_registration(shard_id);
-				}
+				Self::rm_or_fail_shard_registration(shard_id);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -647,28 +643,6 @@ pub mod pallet {
 							TaskResult {
 								shard_id,
 								payload: Payload::Error("new gateway registered".into()),
-								signature: [0u8; 64],
-							},
-						);
-						return;
-					}
-				}
-			}
-		}
-
-		fn keep_and_pass_shard_registration(shard_id: ShardId) {
-			if ShardRegistered::<T>::get(shard_id).is_some() {
-				// => no RegisterShard task pending
-				return;
-			}
-			for (task_id, task) in Tasks::<T>::iter() {
-				if let Function::RegisterShard { shard_id: s } = task.function {
-					if s == shard_id {
-						TaskOutput::<T>::insert(
-							task_id,
-							TaskResult {
-								shard_id,
-								payload: Payload::Hashed([0u8; 32]),
 								signature: [0u8; 64],
 							},
 						);

@@ -1266,7 +1266,7 @@ impl_runtime_apis! {
 		}
 
 		fn get_heartbeat_timeout() -> BlockNumber {
-			Members::get_heartbeat_timeout().into()
+			Members::get_heartbeat_timeout()
 		}
 
 		fn get_min_stake() -> Balance {

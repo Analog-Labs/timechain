@@ -11,7 +11,6 @@ clap = { version = "4.4.2", features = [ "derive" ] }
 ethers-solc = "2.0.1"
 getrandom = "0.2.12"
 hex = "0.4.3"
-indicatif = "0.17.8"
 tabled = "0.15.0"
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true

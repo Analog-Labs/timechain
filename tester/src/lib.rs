@@ -1,7 +1,6 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
-use indicatif::ProgressBar;
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
 use sp_core::crypto::Ss58Codec;
@@ -274,8 +273,8 @@ impl Tester {
 			.unwrap_or_else(|| panic!("Task not found for task_id {:?}", task_id))
 	}
 
-	pub async fn get_task_phase(&self, task_id: TaskId) -> TaskPhase {
-		let val = self.runtime.get_task_phase(task_id).await.unwrap().expect("Phase not found");
+	pub async fn get_task_phase(&self, task_id: TaskId) -> Option<TaskPhase> {
+		let val = self.runtime.get_task_phase(task_id).await.unwrap();
 		unsafe { transmute(val) }
 	}
 
@@ -479,7 +478,13 @@ impl GmpBenchState {
 	pub async fn sync_phase(&mut self, src_tester: &Tester) {
 		for (task_id, phase) in self.tasks.iter_mut() {
 			let task_state = src_tester.get_task_phase(*task_id).await;
-			phase.shift_phase(task_state)
+			if let Some(task_state) = task_state {
+				phase.shift_phase(task_state)
+			} else {
+				// Getting task phase of some inserted tasks returns a panic saying phase not found
+				// which means that the task isnt inserted at the time of fetching the task phase
+				println!("Task phase not found for task: {:?}", task_id);
+			}
 		}
 	}
 
@@ -546,16 +551,16 @@ impl GmpBenchState {
 	}
 
 	fn print_latencies(&self) {
-		let write_latencies: Vec<Duration> = self
+		let sign_latencies: Vec<Duration> = self
 			.tasks
 			.values()
 			.map(|info| info.start_to_write_duration().unwrap())
 			.collect();
 
-		let read_latencies: Vec<Duration> =
+		let write_latencies: Vec<Duration> =
 			self.tasks.values().map(|info| info.write_to_read_duration().unwrap()).collect();
 
-		let finish_latencies: Vec<Duration> = self
+		let read_latencies: Vec<Duration> = self
 			.tasks
 			.values()
 			.map(|info| info.read_to_finish_duration().unwrap())
@@ -571,26 +576,26 @@ impl GmpBenchState {
 			duration.iter().fold(Duration::new(0, 0), |acc, &dur| acc + dur)
 		};
 
+		let average_sign_latency =
+			sum_duration(sign_latencies.clone()) / sign_latencies.len() as u32;
 		let average_write_latency =
 			sum_duration(write_latencies.clone()) / write_latencies.len() as u32;
 		let average_read_latency =
 			sum_duration(read_latencies.clone()) / read_latencies.len() as u32;
-		let average_finish_latency =
-			sum_duration(finish_latencies.clone()) / finish_latencies.len() as u32;
 		let average_total_latency =
 			sum_duration(total_latencies.clone()) / total_latencies.len() as u32;
 
 		// let throughput = self.total_calls as f32 / self.gmp_execution_duration.as_secs_f32();
 
+		// sign phase is when tss signing happens and task is converted to write phase
+		println!("Average sign phase latency is {} secs per task", average_sign_latency.as_secs());
+		// write phase is when chain sends calls the contract
 		println!(
 			"Average write phase latency is {} secs per task",
 			average_write_latency.as_secs()
 		);
+		// read phase is when we read the reciept of tx and finish the task
 		println!("Average read phase latency is {} secs per task", average_read_latency.as_secs());
-		println!(
-			"Average finish phase latency is {} secs per task",
-			average_finish_latency.as_secs()
-		);
 		println!("Average total latency is {} secs per task", average_total_latency.as_secs());
 	}
 
@@ -796,8 +801,7 @@ pub async fn setup_gmp_with_contracts(
 		)
 		.await?;
 
-	let deposit_amount =
-		deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
+	let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
 
 	Ok((src_contract, dest_contract, deposit_amount))
 }
@@ -826,8 +830,7 @@ pub async fn setup_funds_if_needed(
 		&hex::decode(contracts.1.strip_prefix("0x").unwrap_or(&contracts.1)).unwrap()[..20],
 	);
 
-	let deposit_amount =
-		deposit_gmp_funds(src, src_contract, dest, dest_contract, total_calls).await?;
+	let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
 
 	Ok((src_contract, dest_contract, deposit_amount))
 }
@@ -845,7 +848,6 @@ pub async fn deposit_gmp_funds(
 	src: &Tester,
 	src_contract: EthContractAddress,
 	dest: &Tester,
-	dest_contract: EthContractAddress,
 	total_calls: u128,
 ) -> Result<u128> {
 	let dest_gmp_contract = dest.runtime.get_gateway(dest.network_id).await.unwrap().unwrap();
@@ -872,26 +874,9 @@ pub async fn deposit_gmp_funds(
 		}
 	};
 
-	// this is reregisteration source contract in destination contract to inform gmp compatibility.
-	let receipt = dest
-		.wallet()
-		.eth_send_call(
-			dest_contract,
-			VotingContract::registerGmpContractsCall {
-				_registered: vec![GmpVotingContract {
-					dest: src_contract.into(),
-					network: src_network,
-				}],
-			}
-			.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?
-		.receipt()
-		.unwrap()
-		.clone();
+	// this is transfer call to just get the effective_gas_price in recent blocks.
+	let transfer_result = dest.wallet().transfer(dest.wallet.account(), 1000, None, None).await?;
+	let receipt = transfer_result.receipt().unwrap();
 
 	// Calculate the gas price based on the latest transaction
 	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
@@ -961,18 +946,16 @@ where
 {
 	let mut results = Vec::new();
 
-	let pb = ProgressBar::new(number_of_calls);
 	let calls_stream = stream::iter(calls.into_iter());
 	let mut chunks = calls_stream.chunks(chunk_size);
 
 	while let Some(chunk) = chunks.next().await {
-		println!("Waiting for gmp init calls");
 		let futures = chunk.into_iter().collect::<Vec<_>>();
 		let chunk_results: Result<Vec<_>, _> = join_all(futures).await.into_iter().collect();
 		results.extend(chunk_results?);
-		pb.inc(chunk_size as u64);
+		println!("Waiting gmp send calls: {:?}/{:?}", results.len(), number_of_calls);
 	}
-	pb.finish_with_message("all src tx successful..");
+	println!("Done");
 
 	Ok(results)
 }

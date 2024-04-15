@@ -80,7 +80,7 @@ pub mod pallet {
 
 	/// Get whether member submitted heartbeat within last peiod
 	#[pallet::storage]
-	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, u64, OptionQuery>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -119,7 +119,6 @@ pub mod pallet {
 						writes += 1;
 					}
 				}
-				Heartbeat::<T>::drain();
 			}
 			T::DbWeight::get().writes(writes)
 		}
@@ -148,7 +147,7 @@ pub mod pallet {
 			MemberNetwork::<T>::insert(&member, network);
 			MemberPublicKey::<T>::insert(&member, public_key);
 			MemberPeerId::<T>::insert(&member, peer_id);
-			Heartbeat::<T>::insert(&member, ());
+			Heartbeat::<T>::insert(&member, u64::MAX);
 			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
 			Self::member_online(&member, network);
 			Ok(())
@@ -159,12 +158,16 @@ pub mod pallet {
 		pub fn send_heartbeat(origin: OriginFor<T>, block_height: u64) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(&member, ());
+			if let Some(last_block_height) = Heartbeat::<T>::get(&member) {
+				let period = T::HeartbeatTimeout::get().into().as_u64();
+				let block_speed = block_height.saturating_sub(last_block_height) * 1000 / period;
+				T::Networks::seen_block_speed(network, block_speed);
+			}
+			Heartbeat::<T>::insert(&member, block_height);
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
-			T::Networks::seen_block_height(network, block_height);
 			Ok(())
 		}
 

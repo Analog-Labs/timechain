@@ -121,7 +121,7 @@ pub trait TasksInterface {
 }
 
 pub trait NetworksInterface {
-	fn seen_block_height(network: NetworkId, block_height: u64);
+	fn seen_block_speed(network: NetworkId, block_speed: u64);
 }
 
 pub trait NetworkEvents {

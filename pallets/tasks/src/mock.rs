@@ -55,7 +55,7 @@ impl ElectionsInterface for MockElections {
 pub struct MockNetworks;
 
 impl NetworksInterface for MockNetworks {
-	fn seen_block_height(_: NetworkId, _: u64) {}
+	fn seen_block_speed(_: NetworkId, _: u64) {}
 }
 
 // Configure a mock runtime to test the pallet.

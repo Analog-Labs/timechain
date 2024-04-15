@@ -62,6 +62,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BlockHeight<T: Config> = StorageMap<_, Twox64Concat, NetworkId, u64, ValueQuery>;
 
+	#[pallet::storage]
+	pub type BlockSpeed<T: Config> = StorageMap<_, Twox64Concat, NetworkId, u64, ValueQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		pub networks: Vec<(String, String)>,
@@ -84,6 +87,25 @@ pub mod pallet {
 				Pallet::<T>::insert_network(name.clone(), network.clone())
 					.expect("No networks exist before genesis; NetworkId not overflow from 0 at genesis; QED");
 			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			let mut writes = 0;
+			for (network, speed) in BlockSpeed::<T>::iter() {
+				let height = BlockHeight::<T>::get(network);
+				let next_height = height + speed;
+				BlockHeight::<T>::insert(network, next_height);
+				// NOTE: is not distributive since the rounding
+				// is important.
+				if next_height / 1000 - height / 1000 > 0 {
+					T::NetworkEvents::block_height_changed(network, next_height / 1000);
+				}
+				writes += 1;
+			}
+			T::DbWeight::get().writes(writes)
 		}
 	}
 
@@ -133,12 +155,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> NetworksInterface for Pallet<T> {
-		fn seen_block_height(network_id: NetworkId, block_height: u64) {
-			let current = BlockHeight::<T>::get(network_id);
-			if block_height > current {
-				BlockHeight::<T>::set(network_id, block_height);
-				T::NetworkEvents::block_height_changed(network_id, block_height);
-			}
+		fn seen_block_speed(network_id: NetworkId, block_speed: u64) {
+			BlockSpeed::<T>::insert(network_id, block_speed);
 		}
 	}
 }

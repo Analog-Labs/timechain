@@ -23,7 +23,7 @@ impl MemberEvents for MockShards {
 pub struct MockNetworks;
 
 impl NetworksInterface for MockNetworks {
-	fn seen_block_height(_: NetworkId, _: u64) {}
+	fn seen_block_speed(_: NetworkId, _: u64) {}
 }
 
 frame_support::construct_runtime!(

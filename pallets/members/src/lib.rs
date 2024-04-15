@@ -80,8 +80,7 @@ pub mod pallet {
 
 	/// Get target block number
 	#[pallet::storage]
-	pub type Heartbeat<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, BlockNumberFor<T>, OptionQuery>;
+	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -120,6 +119,7 @@ pub mod pallet {
 						writes += 1;
 					}
 				}
+				Heartbeat::<T>::drain();
 			}
 			T::DbWeight::get().writes(writes)
 		}
@@ -148,7 +148,7 @@ pub mod pallet {
 			MemberNetwork::<T>::insert(&member, network);
 			MemberPublicKey::<T>::insert(&member, public_key);
 			MemberPeerId::<T>::insert(&member, peer_id);
-			Heartbeat::<T>::insert(&member, frame_system::Pallet::<T>::block_number());
+			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
 			Self::member_online(&member, network);
 			Ok(())
@@ -159,7 +159,7 @@ pub mod pallet {
 		pub fn send_heartbeat(origin: OriginFor<T>, block_height: u64) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(&member, frame_system::Pallet::<T>::block_number());
+			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);

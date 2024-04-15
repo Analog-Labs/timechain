@@ -32,7 +32,7 @@ fn register_member_works() {
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
 		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap(), 1);
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -92,7 +92,7 @@ fn register_member_replaces_previous_call() {
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
 		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap(), 1);
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(A.into()).into(),
 			ETHEREUM,
@@ -107,7 +107,7 @@ fn register_member_replaces_previous_call() {
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
 		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap(), 1);
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -126,7 +126,7 @@ fn send_heartbeat_works() {
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0));
 		System::assert_last_event(Event::<Test>::HeartbeatReceived(a.clone()).into());
 		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap(), 5);
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -163,7 +163,7 @@ fn send_heartbeat_sets_member_back_online_after_timeout() {
 		assert!(MemberOnline::<Test>::get(&a).is_none());
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0));
 		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap(), 20);
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 

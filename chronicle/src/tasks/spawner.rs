@@ -148,7 +148,7 @@ where
 			Function::ReadMessages => {
 				let network_id = self.network_id;
 				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
-					return Ok(Payload::Gmp(Vec::new()));
+					anyhow::bail!("no gateway registered: skipped reading messages");
 				};
 				let logs: Vec<_> = self
 					.get_gmp_events_at(gateway_contract, target_block_number)

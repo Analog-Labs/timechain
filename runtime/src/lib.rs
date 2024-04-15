@@ -59,9 +59,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus, MemberStorage,
-	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature,
+	AccountId, Balance, BlockNumber, ChainName, ChainNetwork, Commitment, DepreciationRate,
+	MemberStatus, MemberStorage, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Signature, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TssPublicKey, TssSignature,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -110,12 +111,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight =
 	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
-
-/// An index to a block.
-pub type BlockNumber = u32;
-
-/// Balance of an account.
-pub type Balance = u128;
 
 /// Index of a transaction in the chain.
 pub type Index = u32;
@@ -1270,11 +1265,11 @@ impl_runtime_apis! {
 			Members::member_peer_id(account)
 		}
 
-		fn get_heartbeat_timeout() -> u64 {
+		fn get_heartbeat_timeout() -> BlockNumber {
 			Members::get_heartbeat_timeout().into()
 		}
 
-		fn get_min_stake() -> u128 {
+		fn get_min_stake() -> Balance {
 			Members::get_min_stake()
 		}
 	}
@@ -1342,12 +1337,6 @@ impl_runtime_apis! {
 
 		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
 			Tasks::get_gateway(network)
-		}
-	}
-
-	impl time_primitives::BlockTimeApi<Block> for Runtime {
-		fn get_block_time_in_msec() -> u64{
-			MILLISECS_PER_BLOCK
 		}
 	}
 

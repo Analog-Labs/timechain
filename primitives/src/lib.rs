@@ -9,13 +9,11 @@ use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
 mod gmp;
-mod member;
 mod network;
 mod shard;
 mod task;
 
 pub use crate::gmp::*;
-pub use crate::member::*;
 pub use crate::network::*;
 pub use crate::shard::*;
 pub use crate::task::*;
@@ -49,8 +47,8 @@ pub mod crypto {
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
-		fn get_heartbeat_timeout() -> u64;
-		fn get_min_stake() -> u128;
+		fn get_heartbeat_timeout() -> BlockNumber;
+		fn get_min_stake() -> Balance;
 	}
 
 	pub trait NetworksApi {
@@ -77,10 +75,6 @@ sp_api::decl_runtime_apis! {
 		fn get_gateway(network: NetworkId) -> Option<[u8; 20]>;
 	}
 
-	pub trait BlockTimeApi {
-		fn get_block_time_in_msec() -> u64;
-	}
-
 	pub trait SubmitTransactionApi{
 		#[allow(clippy::result_unit_err)]
 		fn submit_transaction(encoded_tx: Vec<u8>) -> Result<(), ()>;
@@ -102,7 +96,7 @@ pub trait MemberStorage {
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;
-	fn total_stake() -> u128;
+	fn total_stake() -> Balance;
 }
 
 pub trait ElectionsInterface {
@@ -141,8 +135,6 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	fn account_id(&self) -> &AccountId;
 
-	async fn get_block_time_in_ms(&self) -> Result<u64>;
-
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;
@@ -153,9 +145,9 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		account: &AccountId,
 	) -> Result<Option<PeerId>>;
 
-	async fn get_heartbeat_timeout(&self) -> Result<u64>;
+	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
 
-	async fn get_min_stake(&self) -> Result<u128>;
+	async fn get_min_stake(&self) -> Result<Balance>;
 
 	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>>;
 

@@ -78,7 +78,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
-	/// Get target block number
+	/// Get whether member submitted heartbeat within last peiod
 	#[pallet::storage]
 	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 

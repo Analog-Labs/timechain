@@ -10,9 +10,9 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use time_primitives::sp_runtime::traits::IdentifyAccount;
 use time_primitives::{
-	sp_core, AccountId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Function,
-	MemberStatus, NetworkId, Payload, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId,
-	ShardStatus, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash,
+	sp_core, AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	Function, MemberStatus, NetworkId, Payload, PeerId, ProofOfKnowledge, PublicKey, Runtime,
+	ShardId, ShardStatus, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash,
 	TssSignature, TssSigningRequest,
 };
 use tokio::time::Duration;
@@ -230,10 +230,6 @@ impl Runtime for Mock {
 		self.account_id.as_ref().unwrap()
 	}
 
-	async fn get_block_time_in_ms(&self) -> Result<u64> {
-		Ok(6000)
-	}
-
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
 			let n = n + 1;
@@ -268,11 +264,11 @@ impl Runtime for Mock {
 			.map(|(_, peer_id)| *peer_id))
 	}
 
-	async fn get_heartbeat_timeout(&self) -> Result<u64> {
+	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
 		Ok(1000)
 	}
 
-	async fn get_min_stake(&self) -> Result<u128> {
+	async fn get_min_stake(&self) -> Result<Balance> {
 		Ok(0)
 	}
 

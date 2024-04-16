@@ -390,17 +390,6 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
-			// reset all previous GMP tasks to sign phase once gateway is registered
-			Tasks::<T>::iter()
-				.filter(|(t, n)| {
-					n.network == network
-						&& matches!(n.function, Function::SendMessage { .. })
-						&& !matches!(TaskPhaseState::<T>::get(t), TaskPhase::Read)
-				})
-				.for_each(|(t, _)| {
-					// reset to sign phase
-					TaskPhaseState::<T>::insert(t, TaskPhase::Sign);
-				});
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
 				ShardRegistered::<T>::remove(shard_id);
 			}

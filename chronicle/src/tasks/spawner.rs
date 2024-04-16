@@ -69,14 +69,16 @@ where
 	async fn get_gmp_events_at(
 		&self,
 		gateway_contract: [u8; 20],
-		target_block_number: u64,
+		start_block: u64,
+		end_block: u64,
 	) -> Result<Vec<IGateway::GmpCreated>> {
 		let logs = self
 			.wallet
 			.query(GetLogs {
 				contracts: vec![gateway_contract.into()],
 				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
-				block: target_block_number.into(),
+				// TODO: @Lohann
+				block: end_block.into(),
 			})
 			.await?
 			.into_iter()
@@ -145,13 +147,17 @@ where
 				.to_string();
 				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
-			Function::ReadMessages => {
+			Function::ReadMessages { batch_size } => {
 				let network_id = self.network_id;
 				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
 					anyhow::bail!("no gateway registered: skipped reading messages");
 				};
 				let logs: Vec<_> = self
-					.get_gmp_events_at(gateway_contract, target_block_number)
+					.get_gmp_events_at(
+						gateway_contract,
+						target_block_number - batch_size,
+						target_block_number,
+					)
 					.await
 					.context("get_gmp_events_at")?
 					.into_iter()

@@ -38,6 +38,7 @@ pub mod pallet {
 		fn set_read_task_reward() -> Weight;
 		fn set_write_task_reward() -> Weight;
 		fn set_send_message_task_reward() -> Weight;
+		fn set_batch_size() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -70,6 +71,10 @@ pub mod pallet {
 		}
 
 		fn set_send_message_task_reward() -> Weight {
+			Weight::default()
+		}
+
+		fn set_batch_size() -> Weight {
 			Weight::default()
 		}
 	}
@@ -181,6 +186,12 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn network_batch_size)]
+	pub type NetworkBatchSize<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
@@ -246,6 +257,8 @@ pub mod pallet {
 		TaskAssigned(TaskId, ShardId),
 		/// Task was not assigned.
 		TaskUnassigned(TaskId, UnassignedReason),
+		/// Network batch size changed.
+		NetworkBatchSizeChanged(NetworkId, u64),
 	}
 
 	#[pallet::error]
@@ -447,6 +460,20 @@ pub mod pallet {
 			Self::deposit_event(Event::SendMessageTaskRewardSet(network, amount));
 			Ok(())
 		}
+
+		/// Set batch size
+		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
+		pub fn set_batch_size(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			batch_size: u64,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			NetworkBatchSize::<T>::insert(network, batch_size);
+			Self::deposit_event(Event::NetworkBatchSizeChanged(network, batch_size));
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -520,10 +547,10 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
-		fn recv_messages(network_id: NetworkId, block_height: u64) {
+		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: u64) {
 			let mut task = TaskDescriptorParams::new(
 				network_id,
-				Function::ReadMessages,
+				Function::ReadMessages { batch_size },
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
@@ -912,12 +939,10 @@ pub mod pallet {
 	impl<T: Config> NetworkEvents for Pallet<T> {
 		fn block_height_changed(network_id: NetworkId, block_height: u64) {
 			if let Some(current) = RecvTasks::<T>::get(network_id) {
-				let next = block_height + 10;
-				if current < next {
-					for block_height in current..next {
-						Self::recv_messages(network_id, block_height);
-					}
-					RecvTasks::<T>::insert(network_id, next);
+				let batch_size = NetworkBatchSize::<T>::get(network_id).unwrap_or(1);
+				for block_height in (current..block_height).step_by(batch_size as _).skip(1) {
+					Self::recv_messages(network_id, block_height, batch_size);
+					RecvTasks::<T>::insert(network_id, block_height);
 				}
 			}
 		}

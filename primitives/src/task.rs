@@ -21,7 +21,7 @@ pub enum Function {
 	// read
 	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 	EvmTxReceipt { tx: [u8; 32] },
-	ReadMessages,
+	ReadMessages { batch_size: u64 },
 }
 
 impl Function {
@@ -31,7 +31,7 @@ impl Function {
 			| Self::UnregisterShard { .. }
 			| Self::SendMessage { .. } => TaskPhase::Sign,
 			Self::EvmDeploy { .. } | Self::EvmCall { .. } => TaskPhase::Write,
-			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages => {
+			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages { .. } => {
 				TaskPhase::Read
 			},
 		}

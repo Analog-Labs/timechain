@@ -9,12 +9,13 @@ use std::sync::Arc;
 use time_primitives::{NetworkId, Runtime, TssSigningRequest};
 use tracing::{event, span, Level};
 
+mod metrics;
+
 #[cfg(test)]
 mod mock;
 mod network;
 mod shards;
 mod tasks;
-mod metrics;
 
 pub use crate::network::{
 	create_iroh_network, Message, Network, NetworkConfig, PeerId, PROTOCOL_NAME,

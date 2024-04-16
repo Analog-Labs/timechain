@@ -1,4 +1,4 @@
-use crate::tasks::TaskSpawner;
+use crate::{metrics::TaskPhaseCounter, tasks::TaskSpawner};
 use crate::TW_LOG;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -23,6 +23,7 @@ pub struct TaskExecutor<S, T> {
 	task_spawner: T,
 	network: NetworkId,
 	running_tasks: BTreeMap<TaskExecution, JoinHandle<()>>,
+	task_counter_metric: TaskPhaseCounter,
 }
 
 impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
@@ -32,6 +33,7 @@ impl<S: Clone, T: Clone> Clone for TaskExecutor<S, T> {
 			task_spawner: self.task_spawner.clone(),
 			network: self.network,
 			running_tasks: Default::default(),
+			task_counter_metric: self.task_counter_metric.clone(),
 		}
 	}
 }
@@ -78,6 +80,7 @@ where
 			task_spawner,
 			network,
 			running_tasks: Default::default(),
+			task_counter_metric: TaskPhaseCounter::new(),
 		}
 	}
 
@@ -96,10 +99,21 @@ where
 			}
 			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
 			let target_block_number = task_descr.start;
+
+			if target_block_height < target_block_number {
+				tracing::debug!(
+					"Task {} is scheduled for future {:?}/{:?}",
+					task_id,
+					target_block_height,
+					target_block_number
+				);
+				continue;
+			}
+
 			let function = task_descr.function;
-			let phase = executable_task.phase;
-			if target_block_height >= target_block_number {
-				tracing::debug!(target: TW_LOG, "Starting task {}, {:?}", executable_task, executable_task.phase);
+			let function_metric_clone = function.clone();
+			let phase: TaskPhase = executable_task.phase;
+				tracing::info!(target: TW_LOG, "Starting task {}, {:?}", executable_task, executable_task.phase);
 				let task = match phase {
 					TaskPhase::Sign => {
 						let Some(gmp_params) = self.gmp_params(shard_id, block_hash).await? else {
@@ -232,37 +246,39 @@ where
 						)
 					},
 				};
-				let handle = tokio::task::spawn(async move {
-					match task.await {
-						Ok(()) => {
-							tracing::info!(
-								target: TW_LOG,
-								"Task {} phase {:?} completed",
-								task_id,
-								phase,
-							);
-						},
-						Err(error) => {
-							tracing::error!(
-								target: TW_LOG,
-								"Task {} phase {:?} failed {:?}",
-								task_id,
-								phase,
-								error,
-							);
-						},
-					}
-				});
-				self.running_tasks.insert(executable_task.clone(), handle);
-			} else {
-				tracing::debug!(
-					"Task {} is scheduled for future {:?}/{:?}",
-					task_id,
-					target_block_height,
-					target_block_number
-				);
-			}
+
+			// Metrics: Increase number of running tasks
+			self.task_counter_metric.inc(&phase, &function_metric_clone);
+			let counter = self.task_counter_metric.clone();
+
+			let handle = tokio::task::spawn(async move {
+				let task_handle = match task.await {
+					Ok(()) => {
+						tracing::info!(
+							target: TW_LOG,
+							"Task {} phase {:?} completed",
+							task_id,
+							phase,
+						);
+					},
+					Err(error) => {
+						tracing::error!(
+							target: TW_LOG,
+							"Task {} phase {:?} failed {:?}",
+							task_id,
+							phase,
+							error,
+						);
+					},
+				};
+
+				// Metrics: Decrease number of running tasks
+				counter.dec(&phase, &function_metric_clone);
+				task_handle
+			});
+			self.running_tasks.insert(executable_task.clone(), handle);
 		}
+		
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		self.running_tasks.retain(|x, handle| {
 			if tasks.contains(x) {

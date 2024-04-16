@@ -81,8 +81,8 @@ services:
       prometheus-scrape.enabled: 'true'
     profiles:
     - ethereum
-    # ports:
-    # - 6881:6881/udp
+    ports:
+    - 9090:9090
 
   chronicle-astar1:
     image: 'analoglabs/chronicle'

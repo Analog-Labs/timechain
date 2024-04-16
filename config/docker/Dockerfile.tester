@@ -1,8 +1,8 @@
-FROM rust:1.76-buster
+# Ensures compatibility when running on apple silicon chips
+FROM --platform=linux/amd64 ubuntu:22.04
 RUN apt update && apt install -y docker.io
-RUN apt install -y software-properties-common gcc-8
-RUN cargo install svm-rs
-RUN svm install 0.8.24
-RUN svm use 0.8.24
+RUN apt install -y software-properties-common
+RUN add-apt-repository ppa:ethereum/ethereum
+RUN apt update && apt install -y solc
 COPY tester tester
 ENTRYPOINT ["/tester"]

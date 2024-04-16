@@ -1,6 +1,9 @@
 use prometheus_exporter::prometheus::{core::{AtomicF64, GenericGaugeVec}, register_gauge_vec};
 use time_primitives::{Function, TaskPhase};
 
+/// Prometheus counter metric for chronicle tasks. It records the
+/// the number of tasks per (task_phase,function) that the
+/// chronicle is currently running.
 #[derive(Clone, Debug)]
 pub struct TaskPhaseCounter {
     gauge: GenericGaugeVec<AtomicF64>

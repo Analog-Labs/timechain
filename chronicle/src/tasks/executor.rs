@@ -59,6 +59,7 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<Vec<TssId>> {
+		tracing::span!(target: TW_LOG, tracing::Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
 		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
 			.await
 	}
@@ -99,7 +100,7 @@ where
 			}
 			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
 			let target_block_number = task_descr.start;
-
+			
 			if target_block_height < target_block_number {
 				tracing::debug!(
 					"Task {} is scheduled for future {:?}/{:?}",
@@ -111,9 +112,18 @@ where
 			}
 
 			let function = task_descr.function;
+
+			// To avoid cloning the whole function later on for metric update
 			let function_metric_clone = function.clone();
 			let phase: TaskPhase = executable_task.phase;
-				tracing::info!(target: TW_LOG, "Starting task {}, {:?}", executable_task, executable_task.phase);
+				tracing::info!(
+					target: TW_LOG,
+					task_id = executable_task.task_id,
+					task_phase = ?executable_task.phase,
+					%function,
+					target_block_height,
+					"Starting task"
+				);
 				let task = match phase {
 					TaskPhase::Sign => {
 						let Some(gmp_params) = self.gmp_params(shard_id, block_hash).await? else {
@@ -158,7 +168,7 @@ where
 							continue;
 						};
 						if &public_key != self.substrate.public_key() {
-							tracing::debug!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+							tracing::warn!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
 							continue;
 						}
 						let gmp_params = self.gmp_params(shard_id, block_hash).await?;

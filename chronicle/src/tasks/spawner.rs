@@ -330,7 +330,7 @@ impl<'a> Stream for BlockStream<'a> {
 						ClientEvent::NewHead(_) => continue,
 						ClientEvent::Event(_) => continue,
 						ClientEvent::Close(reason) => {
-							tracing::debug!("block stream closed {}", reason);
+							tracing::warn!("block stream closed {}", reason);
 							self.listener.take();
 						},
 					},

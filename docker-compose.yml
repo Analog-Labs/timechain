@@ -44,8 +44,7 @@ services:
     - 8545:8545
 
   astar:
-    # image: "staketechnologies/astar-collator:v5.28.0-rerun"
-    image: "staketechnologies/astar-collator:v5.35.0"
+    image: "staketechnologies/astar-collator:v5.28.0-rerun"
     command:
     - 'astar-collator'
     - '--base-path=/data'

@@ -116,7 +116,6 @@ where
 			let function_metric_clone = function.clone();
 			let phase: TaskPhase = executable_task.phase;
 			tracing::info!(
-				target: TW_LOG,
 				task_id = executable_task.task_id,
 				task_phase = ?executable_task.phase,
 				%function,
@@ -155,7 +154,7 @@ where
 						continue;
 					};
 					if &public_key != self.substrate.public_key() {
-						tracing::warn!(target: TW_LOG, "Skipping task {} due to public_key mismatch", task_id);
+						tracing::warn!("Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
 					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
@@ -251,19 +250,17 @@ where
 				let task_handle = match task.await {
 					Ok(()) => {
 						tracing::info!(
-							target: TW_LOG,
-							"Task {} phase {:?} completed",
 							task_id,
-							phase,
+							task_phase = ?phase,
+							"Task completed"
 						);
 					},
 					Err(error) => {
 						tracing::error!(
-							target: TW_LOG,
-							"Task {} phase {:?} failed {:?}",
 							task_id,
-							phase,
-							error,
+							task_phase = ?phase,
+							?error,
+							"Task failed"
 						);
 					},
 				};
@@ -280,7 +277,7 @@ where
 				true
 			} else {
 				if !handle.is_finished() {
-					tracing::debug!(target: TW_LOG, "Task {} aborted", x.task_id);
+					tracing::debug!("Task {} aborted", x.task_id);
 					handle.abort();
 				}
 				completed_sessions.push(x.task_id);

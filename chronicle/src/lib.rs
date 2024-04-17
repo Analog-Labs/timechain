@@ -9,6 +9,8 @@ use std::sync::Arc;
 use time_primitives::{NetworkId, Runtime, TssSigningRequest};
 use tracing::{event, span, Level};
 
+mod metrics;
+
 #[cfg(test)]
 mod mock;
 mod network;

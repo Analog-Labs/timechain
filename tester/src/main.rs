@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use sysinfo::System;
 use tc_subxt::ext::futures::StreamExt;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
@@ -123,6 +124,10 @@ async fn gmp_benchmark(
 	test_contracts: Option<(String, String)>,
 ) -> Result<()> {
 	println!("Running gmp benchmark for {:?} GMP calls", number_of_calls);
+
+	let mut sys = System::new_all();
+	let mut memory_usage = vec![];
+	let mut cpu_usage = vec![];
 
 	// Initialized it to get events from timechain
 	// SubxtClient client doesnt support exporting client to outer space
@@ -253,7 +258,30 @@ async fn gmp_benchmark(
 					println!("contract updated, waiting for task to complete");
 				}
 
-				if bench_state.get_finished_tasks() == number_of_calls as usize {
+				// compute memory usage
+				sys.refresh_memory();
+				let total_memory = sys.total_memory() as f64;
+				let used_memory = sys.used_memory() as f64;
+				let memory_usage_percent = (used_memory / total_memory) * 100.0;
+				memory_usage.push(memory_usage_percent);
+
+
+				// compute cpu usage
+				sys.refresh_cpu();
+				let cpu_count = sys.cpus().len() as f64;
+				let total_cpu_usage: f64 = sys.cpus().iter()
+						.map(|cpu| cpu.cpu_usage() as f64)
+						.fold(0.0, |acc, x| acc + x);
+				let average_cpu_usage = if cpu_count == 0.0  {
+					0.0
+				}else {
+					total_cpu_usage / cpu_count
+				};
+				println!("total_cpu_usage: {:?}", total_cpu_usage);
+				println!("cpu_count: {:?}", cpu_count);
+				cpu_usage.push(average_cpu_usage);
+
+				 if bench_state.get_finished_tasks() == number_of_calls as usize {
 					break;
 				}
 			}
@@ -265,6 +293,11 @@ async fn gmp_benchmark(
 	}
 	bench_state.finish();
 	bench_state.print_analysis();
+	println!(
+		"Average memory consumed is {:.2}%",
+		memory_usage.iter().sum::<f64>() / memory_usage.len() as f64
+	);
+	println!("Average cpu usage is {:.2}%", cpu_usage.iter().sum::<f64>() / cpu_usage.len() as f64);
 	Ok(())
 }
 

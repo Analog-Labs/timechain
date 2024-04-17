@@ -155,6 +155,7 @@ mod tests {
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
 		env_logger::try_init().ok();
+		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network("ethereum".into(), "dev".into());

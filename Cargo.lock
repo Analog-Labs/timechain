@@ -1787,6 +1787,7 @@ dependencies = [
  "time-primitives",
  "tokio",
  "tracing",
+ "tracing-panic",
  "tracing-subscriber 0.3.18",
  "tss",
 ]
@@ -15339,6 +15340,16 @@ dependencies = [
  "log",
  "once_cell",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-panic"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf80030ce049691c9922d75be63cadf345110a245cd4581833c66f87c02ad25"
+dependencies = [
+ "tracing",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]

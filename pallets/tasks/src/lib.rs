@@ -880,8 +880,6 @@ pub mod pallet {
 				Gateway::<T>::remove(network);
 				Tasks::<T>::iter().filter(|(_, n)| n.network == network).for_each(|(t, _)| {
 					// Task failed because gateway locked
-					Tasks::<T>::remove(t);
-					TaskPhaseState::<T>::remove(t);
 					TaskOutput::<T>::insert(
 						t,
 						TaskResult {

@@ -1590,9 +1590,7 @@ fn lock_gateway_if_less_than_one_shard_online() {
 		assert!(Gateway::<Test>::get(ETHEREUM).is_none());
 		// Emit `Event::GatewayLocked(Network)`
 		System::assert_last_event(Event::<Test>::GatewayLocked(ETHEREUM).into());
-		// Kill all tasks for network and set their output to failed
-		assert!(Tasks::tasks(0).is_none());
-		assert_eq!(TaskPhaseState::<Test>::get(0), TaskPhase::Read);
+		// Set all task output to failed
 		assert_eq!(
 			TaskOutput::<Test>::get(0).unwrap(),
 			TaskResult {

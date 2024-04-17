@@ -155,7 +155,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::send_heartbeat())]
+		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
 		pub fn send_heartbeat(origin: OriginFor<T>, block_height: u64) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;

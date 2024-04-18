@@ -948,6 +948,7 @@ impl pallet_tasks::Config for Runtime {
 	type SignPhaseTimeout = ConstU32<10>;
 	type WritePhaseTimeout = ConstU32<10>;
 	type ReadPhaseTimeout = ConstU32<10>;
+	type GatewayResetReadTimeout = ConstU64<10>;
 	type PalletId = TaskPalletId;
 }
 

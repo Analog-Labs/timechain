@@ -137,6 +137,7 @@ impl task_schedule::Config for Test {
 	type SignPhaseTimeout = ConstU64<10>;
 	type WritePhaseTimeout = ConstU64<10>;
 	type ReadPhaseTimeout = ConstU64<20>;
+	type GatewayResetReadTimeout = ConstU64<10>;
 	type PalletId = PalletIdentifier;
 }
 

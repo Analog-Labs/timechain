@@ -1,9 +1,9 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, Gateway, NetworkReadReward, NetworkSendMessageReward, NetworkShards,
-	NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskHash, TaskIdCounter,
-	TaskOutput, TaskPhaseState, TaskRewardConfig, TaskShard, TaskSignature, TaskSigner,
-	UnassignedTasks,
+	Error, Event, Gateway, GatewayReset, NetworkReadReward, NetworkSendMessageReward,
+	NetworkShards, NetworkWriteReward, ShardRegistered, ShardTasks, SignerPayout, TaskHash,
+	TaskIdCounter, TaskOutput, TaskPhaseState, TaskRewardConfig, TaskShard, TaskSignature,
+	TaskSigner, UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -715,6 +715,22 @@ fn register_gateway_emits_event() {
 		Tasks::shard_online(0, ETHEREUM);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		System::assert_last_event(Event::<Test>::GatewayRegistered(ETHEREUM, [0u8; 20], 0).into());
+	});
+}
+
+#[test]
+fn register_gateway_resets_timeout_storage() {
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		assert_eq!(GatewayReset::<Test>::get(0), None);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_eq!(GatewayReset::<Test>::get(0), Some(1));
 	});
 }
 

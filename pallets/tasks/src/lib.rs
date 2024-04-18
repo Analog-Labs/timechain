@@ -107,6 +107,7 @@ pub mod pallet {
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
 		type ReadPhaseTimeout: Get<BlockNumberFor<Self>>;
+		type GatewayResetReadTimeout: Get<BlockNumberFor<Self>>;
 		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -218,6 +219,10 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	#[pallet::storage]
+	pub type GatewayReset<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, BlockNumberFor<T>, OptionQuery>;
+
 	#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 	pub enum UnassignedReason {
 		NoShardOnline,
@@ -236,6 +241,8 @@ pub mod pallet {
 		GatewayRegistered(NetworkId, [u8; 20], u64),
 		/// Gateway contract locked for network
 		GatewayLocked(NetworkId),
+		/// Gateway reset task phase to sign from read phase
+		GatewayResetReadToSign(TaskId, ShardId),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -390,7 +397,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
-			// reset all previous GMP tasks to sign phase once gateway is registered
+			// reset all non-Read phase GMP tasks to sign phase once gateway is registered
 			Tasks::<T>::iter()
 				.filter(|(t, n)| {
 					n.network == network
@@ -401,6 +408,7 @@ pub mod pallet {
 					// reset to sign phase
 					TaskPhaseState::<T>::insert(t, TaskPhase::Sign);
 				});
+			GatewayReset::<T>::insert(network, frame_system::Pallet::<T>::block_number());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
 				ShardRegistered::<T>::remove(shard_id);
 			}
@@ -464,7 +472,11 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			TaskShard::<T>::iter().for_each(|(task_id, shard_id)| {
+			for (task_id, shard_id) in TaskShard::<T>::iter() {
+				// no timeouts for completed tasks
+				if TaskOutput::<T>::get(task_id).is_some() {
+					continue;
+				}
 				let phase = TaskPhaseState::<T>::get(task_id);
 				let start = PhaseStart::<T>::get(task_id, phase);
 				let timeout = match phase {
@@ -473,14 +485,21 @@ pub mod pallet {
 					TaskPhase::Read => T::ReadPhaseTimeout::get(),
 				};
 				if current.saturating_sub(start) >= timeout {
-					if phase == TaskPhase::Write {
-						Self::start_phase(shard_id, task_id, phase);
-					} else {
-						Self::schedule_task(task_id);
+					match phase {
+						TaskPhase::Sign => Self::schedule_task(task_id),
+						TaskPhase::Write => {
+							Self::start_phase(shard_id, task_id, phase);
+						},
+						TaskPhase::Read => {
+							Self::if_gateway_reset_timeout_read_to_sign_phase(
+								current, task_id, shard_id,
+							);
+							Self::schedule_task(task_id);
+						},
 					}
 					writes += 3;
 				}
-			});
+			}
 			T::DbWeight::get().writes(writes)
 		}
 	}
@@ -647,6 +666,27 @@ pub mod pallet {
 			PhaseStart::<T>::insert(task_id, phase, block);
 			if phase == TaskPhase::Write {
 				TaskSigner::<T>::insert(task_id, T::Shards::next_signer(shard_id));
+			}
+		}
+
+		/// Note: task must be in Read phase before calling this helper function
+		/// IFF read phase started before the gateway was reset AND >= `GatewayResetReadTimeout` blocks have since passed
+		/// => THEN phase is reset to Sign phase and an event is emitted for logging purposes.
+		fn if_gateway_reset_timeout_read_to_sign_phase(
+			current: BlockNumberFor<T>,
+			task_id: TaskId,
+			shard_id: ShardId,
+		) {
+			if let Some(TaskDescriptor { network, .. }) = Tasks::<T>::get(task_id) {
+				if let Some(when_gateway_reset) = GatewayReset::<T>::get(network) {
+					if when_gateway_reset > PhaseStart::<T>::get(task_id, TaskPhase::Read)
+						&& current.saturating_sub(when_gateway_reset)
+							>= T::GatewayResetReadTimeout::get()
+					{
+						Self::start_phase(shard_id, task_id, TaskPhase::Sign);
+						Self::deposit_event(Event::GatewayResetReadToSign(task_id, shard_id));
+					}
+				}
 			}
 		}
 

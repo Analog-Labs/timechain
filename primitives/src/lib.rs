@@ -187,7 +187,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		stake_amount: u128,
 	) -> Result<()>;
 
-	async fn submit_heartbeat(&self, block_height: u64) -> Result<()>;
+	async fn submit_heartbeat(&self) -> Result<()>;
 
 	async fn submit_commitment(
 		&self,

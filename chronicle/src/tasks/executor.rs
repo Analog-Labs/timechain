@@ -247,7 +247,7 @@ where
 			let counter = self.task_counter_metric.clone();
 
 			let handle = tokio::task::spawn(async move {
-				let task_handle = match task.await {
+				match task.await {
 					Ok(()) => {
 						tracing::info!(
 							task_id,
@@ -267,7 +267,6 @@ where
 
 				// Metrics: Decrease number of running tasks
 				counter.dec(&phase, &function_metric_clone);
-				task_handle
 			});
 			self.running_tasks.insert(executable_task.clone(), handle);
 		}

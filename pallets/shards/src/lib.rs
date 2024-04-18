@@ -316,7 +316,10 @@ pub mod pallet {
 
 	impl<T: Config> ShardsInterface for Pallet<T> {
 		fn is_shard_online(shard_id: ShardId) -> bool {
-			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
+			matches!(
+				ShardState::<T>::get(shard_id),
+				Some(ShardStatus::Online | ShardStatus::PartialOffline(_))
+			)
 		}
 
 		fn is_shard_member(member: &AccountId) -> bool {

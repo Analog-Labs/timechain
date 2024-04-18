@@ -27,7 +27,7 @@ pub enum Function {
 #[cfg(feature = "std")]
 impl std::fmt::Display for Function {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let var_name = match self {
+		match self {
 			Function::RegisterShard { shard_id: _ } => write!(f, "RegisterShard"),
 			Function::UnregisterShard { shard_id: _ } => write!(f, "UnregisterShard"),
 			Function::ReadMessages => write!(f, "ReadMessages"),
@@ -41,9 +41,7 @@ impl std::fmt::Display for Function {
 			} => write!(f, "EvmCall"),
 			Function::EvmViewCall { address: _, input: _ } => write!(f, "EvmViewCall"),
 			Function::EvmTxReceipt { tx: _ } => write!(f, "EvmTxReceipt"),
-		};
-		let var_name = var_name;
-		var_name
+		}
 	}
 }
 

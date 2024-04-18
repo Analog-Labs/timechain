@@ -24,6 +24,7 @@ impl TaskPhaseCounter {
 		Self { gauge }
 	}
 
+	#[allow(dead_code)]
 	pub fn set(&self, phase: &TaskPhase, function: &Function, value: f64) {
 		self.gauge
 			.with_label_values(&[&phase.to_string(), &function.to_string()])

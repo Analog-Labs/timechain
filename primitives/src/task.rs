@@ -21,7 +21,7 @@ pub enum Function {
 	// read
 	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 	EvmTxReceipt { tx: [u8; 32] },
-	ReadMessages,
+	ReadMessages { batch_size: u64 },
 }
 
 #[cfg(feature = "std")]
@@ -30,7 +30,7 @@ impl std::fmt::Display for Function {
 		match self {
 			Function::RegisterShard { shard_id: _ } => write!(f, "RegisterShard"),
 			Function::UnregisterShard { shard_id: _ } => write!(f, "UnregisterShard"),
-			Function::ReadMessages => write!(f, "ReadMessages"),
+			Function::ReadMessages { batch_size: _ } => write!(f, "ReadMessages"),
 			Function::SendMessage { msg: _ } => write!(f, "SendMessage"),
 			Function::EvmDeploy { bytecode: _ } => write!(f, "EvmDeploy"),
 			Function::EvmCall {
@@ -52,7 +52,7 @@ impl Function {
 			| Self::UnregisterShard { .. }
 			| Self::SendMessage { .. } => TaskPhase::Sign,
 			Self::EvmDeploy { .. } | Self::EvmCall { .. } => TaskPhase::Write,
-			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages => {
+			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages { .. } => {
 				TaskPhase::Read
 			},
 		}

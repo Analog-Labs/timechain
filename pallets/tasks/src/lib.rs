@@ -76,6 +76,8 @@ pub mod pallet {
 
 	type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
+	const BATCH_SIZE: u64 = 32;
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -327,8 +329,8 @@ pub mod pallet {
 					Self::send_message(result.shard_id, msg.clone());
 				}
 				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-					if let Some(next_block_height) = block_height.checked_add(1) {
-						Self::recv_messages(task.network, next_block_height);
+					if let Some(next_block_height) = block_height.checked_add(BATCH_SIZE) {
+						Self::recv_messages(task.network, next_block_height, BATCH_SIZE);
 					}
 				}
 			}
@@ -408,7 +410,9 @@ pub mod pallet {
 			Gateway::<T>::insert(network, address);
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
-			Self::recv_messages(network, block_height);
+			let batch_size = BATCH_SIZE - (block_height % BATCH_SIZE);
+			let block_height = block_height + batch_size;
+			Self::recv_messages(network, block_height, batch_size);
 			Ok(())
 		}
 
@@ -526,11 +530,11 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
-		fn recv_messages(network_id: NetworkId, block_height: u64) {
+		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: u64) {
 			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
 				network_id,
-				Function::ReadMessages,
+				Function::ReadMessages { batch_size },
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;

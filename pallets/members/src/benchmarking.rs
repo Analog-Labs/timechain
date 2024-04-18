@@ -29,7 +29,7 @@ benchmarks! {
 			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 		);
 		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(caller), 0)
+	}: _(RawOrigin::Signed(caller))
 	verify { }
 
 	unregister_member {

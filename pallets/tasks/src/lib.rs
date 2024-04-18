@@ -407,12 +407,15 @@ pub mod pallet {
 					Self::register_shard(shard_id, network);
 				}
 			}
+			let gateway_changed = Gateway::<T>::get(network).is_some();
 			Gateway::<T>::insert(network, address);
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
-			let batch_size = BATCH_SIZE - (block_height % BATCH_SIZE);
-			let block_height = block_height + batch_size;
-			Self::recv_messages(network, block_height, batch_size);
+			if !gateway_changed {
+				let batch_size = BATCH_SIZE - (block_height % BATCH_SIZE);
+				let block_height = block_height + batch_size;
+				Self::recv_messages(network, block_height, batch_size);
+			}
 			Ok(())
 		}
 

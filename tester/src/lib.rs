@@ -278,6 +278,9 @@ impl Tester {
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, block_height) = self.deploy_gateway(shard_public_key).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
+		// can you believe it, substrate can return old values after emitting a
+		// successful event
+		tokio::time::sleep(Duration::from_secs(2)).await;
 		Ok(address)
 	}
 

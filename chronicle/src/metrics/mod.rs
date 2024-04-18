@@ -66,7 +66,7 @@ mod tests {
 	use super::*;
 
 	#[test]
-	pub fn duplicate_metrics() {
+	pub fn duplicate_metrics_dont_panic() {
 		let metric1 = TaskPhaseCounter::new();
 		let metric2 = TaskPhaseCounter::new();
 
@@ -75,5 +75,8 @@ mod tests {
 
 		metric1.inc(&TaskPhase::Sign, &Function::ReadMessages);
 		metric2.inc(&TaskPhase::Write, &Function::RegisterShard { shard_id: 2 });
+
+		metric1.dec(&TaskPhase::Read, &Function::ReadMessages);
+		metric2.dec(&TaskPhase::Write, &Function::RegisterShard { shard_id: 2 });
 	}
 }

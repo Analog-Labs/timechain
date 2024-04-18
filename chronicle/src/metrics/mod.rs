@@ -35,23 +35,20 @@ impl TaskPhaseCounter {
 
 	#[allow(dead_code)]
 	pub fn set(&self, phase: &TaskPhase, function: &Function, value: f64) {
-		match self.gauge.as_ref() {
-			Some(g) => g.with_label_values(&[&phase.to_string(), &function.to_string()]).set(value),
-			None => (),
+		if let Some(g) = self.gauge.as_ref() {
+			g.with_label_values(&[&phase.to_string(), &function.to_string()]).set(value);
 		}
 	}
 
 	pub fn inc(&self, phase: &TaskPhase, function: &Function) {
-		match self.gauge.as_ref() {
-			Some(g) => g.with_label_values(&[&phase.to_string(), &function.to_string()]).inc(),
-			None => (),
+		if let Some(g) = self.gauge.as_ref() {
+			g.with_label_values(&[&phase.to_string(), &function.to_string()]).inc();
 		}
 	}
 
 	pub fn dec(&self, phase: &TaskPhase, function: &Function) {
-		match self.gauge.as_ref() {
-			Some(g) => g.with_label_values(&[&phase.to_string(), &function.to_string()]).dec(),
-			None => (),
+		if let Some(g) = self.gauge.as_ref() {
+			g.with_label_values(&[&phase.to_string(), &function.to_string()]).dec();
 		}
 	}
 }
@@ -65,13 +62,13 @@ mod tests {
 		let metric1 = TaskPhaseCounter::new();
 		let metric2 = TaskPhaseCounter::new();
 
-		metric1.inc(&TaskPhase::Read, &Function::ReadMessages);
-		metric2.inc(&TaskPhase::Read, &Function::ReadMessages);
+		metric1.inc(&TaskPhase::Read, &Function::ReadMessages { batch_size: 32 });
+		metric2.inc(&TaskPhase::Read, &Function::ReadMessages { batch_size: 32 });
 
-		metric1.inc(&TaskPhase::Sign, &Function::ReadMessages);
+		metric1.inc(&TaskPhase::Sign, &Function::ReadMessages { batch_size: 32 });
 		metric2.inc(&TaskPhase::Write, &Function::RegisterShard { shard_id: 2 });
 
-		metric1.dec(&TaskPhase::Read, &Function::ReadMessages);
+		metric1.dec(&TaskPhase::Read, &Function::ReadMessages { batch_size: 32 });
 		metric2.dec(&TaskPhase::Write, &Function::RegisterShard { shard_id: 2 });
 	}
 }

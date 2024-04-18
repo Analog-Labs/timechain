@@ -123,7 +123,7 @@ fn send_heartbeat_works() {
 			5,
 		));
 		roll_to(5);
-		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		System::assert_last_event(Event::<Test>::HeartbeatReceived(a.clone()).into());
 		assert!(MemberOnline::<Test>::get(&a).is_some());
 		assert!(Heartbeat::<Test>::get(&a).is_some());
@@ -161,7 +161,7 @@ fn send_heartbeat_sets_member_back_online_after_timeout() {
 		));
 		roll_to(20);
 		assert!(MemberOnline::<Test>::get(&a).is_none());
-		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		assert!(MemberOnline::<Test>::get(&a).is_some());
 		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
@@ -172,7 +172,7 @@ fn cannot_send_heartbeat_if_not_member() {
 	new_test_ext().execute_with(|| {
 		let a: AccountId = A.into();
 		assert_noop!(
-			Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0),
+			Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()),
 			Error::<Test>::NotMember
 		);
 	});

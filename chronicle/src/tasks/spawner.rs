@@ -5,7 +5,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{query::GetLogs, CallResult};
+use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::{
@@ -77,8 +77,10 @@ where
 			.query(GetLogs {
 				contracts: vec![gateway_contract.into()],
 				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
-				// TODO: @Lohann
-				block: end_block.into(),
+				block: FilterBlockOption::Range {
+					from_block: Some(start_block.into()),
+					to_block: Some(end_block.into()),
+				},
 			})
 			.await?
 			.into_iter()

@@ -35,27 +35,21 @@ impl TaskPhaseCounter {
 
 	pub fn set(&self, phase: &TaskPhase, function: &Function, value: f64) {
 		match self.gauge.as_ref() {
-			Some(g) => 
-				g.with_label_values(&[&phase.to_string(), &function.to_string()])
-				.set(value),
+			Some(g) => g.with_label_values(&[&phase.to_string(), &function.to_string()]).set(value),
 			None => (),
 		}
 	}
 
 	pub fn inc(&self, phase: &TaskPhase, function: &Function) {
 		match self.gauge.as_ref() {
-			Some(g) => 
-				g.with_label_values(&[&phase.to_string(), &function.to_string()])
-				.inc(),
+			Some(g) => g.with_label_values(&[&phase.to_string(), &function.to_string()]).inc(),
 			None => (),
 		}
 	}
 
 	pub fn dec(&self, phase: &TaskPhase, function: &Function) {
 		match self.gauge.as_ref() {
-			Some(g) => 
-				g.with_label_values(&[&phase.to_string(), &function.to_string()])
-				.dec(),
+			Some(g) => g.with_label_values(&[&phase.to_string(), &function.to_string()]).dec(),
 			None => (),
 		}
 	}

@@ -907,7 +907,6 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
-	type Networks = Networks;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
 }
@@ -960,7 +959,6 @@ impl pallet_timegraph::Config for Runtime {
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
-	type NetworkEvents = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

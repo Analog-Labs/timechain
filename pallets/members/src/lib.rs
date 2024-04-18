@@ -16,8 +16,8 @@ pub mod pallet {
 	use sp_runtime::traits::IdentifyAccount;
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, Balance, MemberEvents, MemberStorage, NetworkId, NetworksInterface, PeerId,
-		PublicKey, TransferStake,
+		AccountId, Balance, MemberEvents, MemberStorage, NetworkId, PeerId, PublicKey,
+		TransferStake,
 	};
 
 	pub trait WeightInfo {
@@ -51,7 +51,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: MemberEvents;
-		type Networks: NetworksInterface;
 		/// Minimum stake to register member
 		#[pallet::constant]
 		type MinStake: Get<BalanceOf<Self>>;
@@ -156,7 +155,7 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
-		pub fn send_heartbeat(origin: OriginFor<T>, block_height: u64) -> DispatchResult {
+		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
@@ -164,7 +163,6 @@ pub mod pallet {
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
-			T::Networks::seen_block_height(network, block_height);
 			Ok(())
 		}
 

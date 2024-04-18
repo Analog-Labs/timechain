@@ -120,14 +120,6 @@ pub trait TasksInterface {
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
 }
 
-pub trait NetworksInterface {
-	fn seen_block_height(network: NetworkId, block_height: u64);
-}
-
-pub trait NetworkEvents {
-	fn block_height_changed(network_id: NetworkId, block_height: u64);
-}
-
 #[cfg(feature = "std")]
 #[async_trait]
 pub trait Runtime: Clone + Send + Sync + 'static {

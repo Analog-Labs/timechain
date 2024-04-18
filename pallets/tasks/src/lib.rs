@@ -24,9 +24,9 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
-		Msg, NetworkEvents, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface,
-		TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase,
-		TaskResult, TasksInterface, TransferStake, TssSignature,
+		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -181,6 +181,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
@@ -325,6 +326,11 @@ pub mod pallet {
 				for msg in msgs {
 					Self::send_message(result.shard_id, msg.clone());
 				}
+				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+					if let Some(next_block_height) = block_height.checked_add(1) {
+						Self::recv_messages(task.network, next_block_height);
+					}
+				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
@@ -400,9 +406,9 @@ pub mod pallet {
 				}
 			}
 			Gateway::<T>::insert(network, address);
-			RecvTasks::<T>::insert(network, block_height);
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
+			Self::recv_messages(network, block_height);
 			Ok(())
 		}
 
@@ -521,6 +527,7 @@ pub mod pallet {
 		}
 
 		fn recv_messages(network_id: NetworkId, block_height: u64) {
+			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
 				network_id,
 				Function::ReadMessages,
@@ -904,20 +911,6 @@ pub mod pallet {
 				.expect("task funded through inflation");
 			}
 			Self::schedule_tasks(network);
-		}
-	}
-
-	impl<T: Config> NetworkEvents for Pallet<T> {
-		fn block_height_changed(network_id: NetworkId, block_height: u64) {
-			if let Some(current) = RecvTasks::<T>::get(network_id) {
-				let next = block_height + 10;
-				if current < next {
-					for block_height in current..next {
-						Self::recv_messages(network_id, block_height);
-					}
-					RecvTasks::<T>::insert(network_id, next);
-				}
-			}
 		}
 	}
 }

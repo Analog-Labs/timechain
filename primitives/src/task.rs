@@ -30,7 +30,7 @@ impl std::fmt::Display for Function {
 		match self {
 			Function::RegisterShard { shard_id: _ } => write!(f, "RegisterShard"),
 			Function::UnregisterShard { shard_id: _ } => write!(f, "UnregisterShard"),
-			Function::ReadMessages { batch_size: _ } => write!(f, "ReadMessages"),
+			Function::ReadMessages { batch_size } => write!(f, "ReadMessages({batch_size})"),
 			Function::SendMessage { msg: _ } => write!(f, "SendMessage"),
 			Function::EvmDeploy { bytecode: _ } => write!(f, "EvmDeploy"),
 			Function::EvmCall {

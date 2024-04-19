@@ -28,6 +28,12 @@ pub struct ChronicleArgs {
 	/// keyfile having an account with funds for timechain.
 	#[clap(long)]
 	pub timechain_keyfile: PathBuf,
+	/// Enables Prometheus exported metrics
+	#[clap(long, default_value_t = true)]
+	pub prometheus_enabled: bool,
+	/// Port for exporting Prometheus metrics
+	#[clap(long, default_value_t = 9090)]
+	pub prometheus_port: u16,
 }
 
 impl ChronicleArgs {
@@ -50,7 +56,20 @@ async fn main() -> Result<()> {
 		.with_max_level(tracing::Level::DEBUG)
 		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
 		.init();
-	let config = ChronicleArgs::parse().config();
+	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+
+	let args = ChronicleArgs::parse();
+
+	// Setup Prometheus exporter if enabled
+	if args.prometheus_enabled {
+		let binding = format!("0.0.0.0:{}", args.prometheus_port).parse().unwrap();
+		if let Err(err) = prometheus_exporter::start(binding) {
+			panic!("Error while starting Prometheus exporter: {}", err);
+		}
+	}
+
+	let config = args.config();
+
 	let (network, network_requests) =
 		chronicle::create_iroh_network(config.network_config()).await?;
 	let tx_submitter = loop {
@@ -61,6 +80,7 @@ async fn main() -> Result<()> {
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
 	};
+
 	let subxt =
 		SubxtClient::with_keyfile(&config.timechain_url, &config.timechain_keyfile, tx_submitter)
 			.await?;

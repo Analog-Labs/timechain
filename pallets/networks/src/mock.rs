@@ -2,7 +2,6 @@ use crate::{self as pallet_networks};
 use frame_support::derive_impl;
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{app_crypto::sp_core, traits::IdentityLookup, BuildStorage};
-use time_primitives::{NetworkEvents, NetworkId};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u64;
@@ -37,16 +36,9 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
 
-pub struct MockNetworkEvents;
-
-impl NetworkEvents for MockNetworkEvents {
-	fn block_height_changed(_: NetworkId, _: u64) {}
-}
-
 impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type NetworkEvents = MockNetworkEvents;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

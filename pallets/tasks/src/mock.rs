@@ -9,8 +9,8 @@ use sp_runtime::{
 	BuildStorage, DispatchResult, MultiSignature, Percent,
 };
 use time_primitives::{
-	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, NetworksInterface,
-	PeerId, PublicKey, TransferStake,
+	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
+	TransferStake,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -52,12 +52,6 @@ impl ElectionsInterface for MockElections {
 	}
 }
 
-pub struct MockNetworks;
-
-impl NetworksInterface for MockNetworks {
-	fn seen_block_height(_: NetworkId, _: u64) {}
-}
-
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub struct Test {
@@ -97,7 +91,6 @@ impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = Shards;
-	type Networks = MockNetworks;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }

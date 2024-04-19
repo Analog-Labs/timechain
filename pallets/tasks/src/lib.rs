@@ -110,6 +110,7 @@ pub mod pallet {
 		type WritePhaseTimeout: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
 		type ReadPhaseTimeout: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
 		type GatewayResetReadTimeout: Get<BlockNumberFor<Self>>;
 		/// `PalletId` for this pallet, used to derive an account for each task.
 		#[pallet::constant]
@@ -415,7 +416,9 @@ pub mod pallet {
 				})
 				.for_each(|(t, _)| {
 					// reset to sign phase
-					TaskPhaseState::<T>::insert(t, TaskPhase::Sign);
+					if let Some(shard_id) = TaskShard::<T>::get(t) {
+						Self::start_phase(shard_id, t, TaskPhase::Sign);
+					}
 				});
 			GatewayReset::<T>::insert(network, frame_system::Pallet::<T>::block_number());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {

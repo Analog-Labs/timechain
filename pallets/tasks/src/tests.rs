@@ -766,6 +766,15 @@ fn register_gateway_updates_gateway_storage() {
 	});
 }
 
+// #[test]
+// fn register_gateway_resets_non_read_GMP_tasks_to_sign_phase() {
+// 	// TODO: need to find a write task specifically
+// 	assert!(true);
+// }
+// timeout after register_gateway is called:
+// - gateway reset task phase to sign from read phase
+// - event emitted
+
 #[test]
 fn shard_online_starts_register_shard_task() {
 	new_test_ext().execute_with(|| {

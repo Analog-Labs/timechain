@@ -10,6 +10,7 @@ use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::{
 	future::Future,
+	num::NonZeroU64,
 	path::PathBuf,
 	pin::Pin,
 	sync::Arc,
@@ -69,8 +70,8 @@ where
 	async fn get_gmp_events_at(
 		&self,
 		gateway_contract: [u8; 20],
-		start_block: u64,
-		end_block: u64,
+		from_block: Option<NonZeroU64>,
+		to_block: u64,
 	) -> Result<Vec<IGateway::GmpCreated>> {
 		let logs = self
 			.wallet
@@ -78,8 +79,8 @@ where
 				contracts: vec![gateway_contract.into()],
 				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
 				block: FilterBlockOption::Range {
-					from_block: Some(start_block.into()),
-					to_block: Some(end_block.into()),
+					from_block: from_block.map(|x| x.get().into()),
+					to_block: Some(to_block.into()),
 				},
 			})
 			.await?
@@ -157,7 +158,7 @@ where
 				let logs: Vec<_> = self
 					.get_gmp_events_at(
 						gateway_contract,
-						target_block_number - batch_size,
+						NonZeroU64::new(target_block_number - batch_size.get() - 1),
 						target_block_number,
 					)
 					.await

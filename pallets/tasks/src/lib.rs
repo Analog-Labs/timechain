@@ -10,6 +10,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use core::num::NonZeroU64;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
@@ -76,7 +77,7 @@ pub mod pallet {
 
 	type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
-	const BATCH_SIZE: u64 = 32;
+	const BATCH_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(32) };
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -329,7 +330,7 @@ pub mod pallet {
 					Self::send_message(result.shard_id, msg.clone());
 				}
 				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-					if let Some(next_block_height) = block_height.checked_add(BATCH_SIZE) {
+					if let Some(next_block_height) = block_height.checked_add(BATCH_SIZE.into()) {
 						Self::recv_messages(task.network, next_block_height, BATCH_SIZE);
 					}
 				}
@@ -412,8 +413,9 @@ pub mod pallet {
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
 			if !gateway_changed {
-				let batch_size = BATCH_SIZE - (block_height % BATCH_SIZE);
-				let block_height = block_height + batch_size;
+				let batch_size = NonZeroU64::new(BATCH_SIZE.get() - (block_height % BATCH_SIZE))
+					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
+				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);
 			}
 			Ok(())
@@ -533,7 +535,7 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
-		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: u64) {
+		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {
 			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
 				network_id,

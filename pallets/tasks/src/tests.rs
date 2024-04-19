@@ -766,14 +766,32 @@ fn register_gateway_updates_gateway_storage() {
 	});
 }
 
-// #[test]
-// fn register_gateway_resets_non_read_GMP_tasks_to_sign_phase() {
-// 	// TODO: need to find a write task specifically
-// 	assert!(true);
-// }
-// timeout after register_gateway is called:
-// - gateway reset task phase to sign from read phase
-// - event emitted
+#[test]
+fn register_gateway_sets_non_read_gmp_tasks_to_sign_phase() {
+	const NUM_TASKS: u64 = 5;
+	const SHARD_ID: u64 = 0;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(SHARD_ID, ShardStatus::Online);
+		Tasks::shard_online(SHARD_ID, ETHEREUM);
+		for i in 0..NUM_TASKS {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_sign_task(ETHEREUM)
+			));
+			TaskShard::<Test>::insert(i, SHARD_ID);
+			TaskPhaseState::<Test>::insert(i, TaskPhase::Write);
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), SHARD_ID, [0u8; 20], 0),);
+		for i in 0..NUM_TASKS {
+			assert_eq!(TaskPhaseState::<Test>::get(i), TaskPhase::Sign);
+		}
+	});
+}
 
 #[test]
 fn shard_online_starts_register_shard_task() {

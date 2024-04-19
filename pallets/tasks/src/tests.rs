@@ -1628,3 +1628,37 @@ fn lock_gateway_if_less_than_one_shard_online() {
 		);
 	});
 }
+
+#[test]
+fn register_gateway_fails_previous_shard_registration_tasks() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 5;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		let mut expected_failed_tasks = Vec::new();
+		for (task_id, task) in crate::Tasks::<Test>::iter() {
+			if let Function::RegisterShard { shard_id } = task.function {
+				expected_failed_tasks.push((shard_id, task_id));
+			}
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
+		for (shard_id, task_id) in expected_failed_tasks.iter() {
+			assert_eq!(
+				TaskOutput::<Test>::get(task_id),
+				Some(TaskResult {
+					shard_id: *shard_id,
+					payload: Payload::Error("new gateway registered".into()),
+					signature: [0u8; 64],
+				})
+			);
+		}
+	});
+}

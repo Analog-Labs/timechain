@@ -422,7 +422,7 @@ pub mod pallet {
 				});
 			GatewayReset::<T>::insert(network, frame_system::Pallet::<T>::block_number());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
-				ShardRegistered::<T>::remove(shard_id);
+				Self::rm_or_fail_shard_registration(shard_id);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -677,6 +677,28 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_task(task_id);
 			Ok(())
+		}
+
+		fn rm_or_fail_shard_registration(shard_id: ShardId) {
+			if ShardRegistered::<T>::take(shard_id).is_some() {
+				// => no RegisterShard task pending
+				return;
+			}
+			for (task_id, task) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id: s } = task.function {
+					if s == shard_id {
+						TaskOutput::<T>::insert(
+							task_id,
+							TaskResult {
+								shard_id,
+								payload: Payload::Error("new gateway registered".into()),
+								signature: [0u8; 64],
+							},
+						);
+						return;
+					}
+				}
+			}
 		}
 
 		fn start_phase(shard_id: ShardId, task_id: TaskId, phase: TaskPhase) {

@@ -48,7 +48,7 @@ pub trait TxSubmitter: Clone + Send + Sync + 'static {
 
 pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
-	Heartbeat { block_height: u64 },
+	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	InsertTask { task: TaskDescriptorParams },
 	InsertGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
@@ -122,8 +122,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				);
 				self.create_signed_payload(&tx)
 			},
-			Tx::Heartbeat { block_height } => {
-				let tx = timechain_runtime::tx().members().send_heartbeat(block_height);
+			Tx::Heartbeat => {
+				let tx = timechain_runtime::tx().members().send_heartbeat();
 				self.create_signed_payload(&tx)
 			},
 			Tx::Commitment {
@@ -462,9 +462,9 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_heartbeat(&self, block_height: u64) -> Result<()> {
+	async fn submit_heartbeat(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::Heartbeat { block_height }, tx))?;
+		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
 		rx.await?;
 		Ok(())
 	}

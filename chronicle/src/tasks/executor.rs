@@ -120,6 +120,7 @@ where
 				task_phase = ?executable_task.phase,
 				%function,
 				target_block_height,
+				target_block_number,
 				"Starting task"
 			);
 			let task = match phase {
@@ -252,6 +253,9 @@ where
 						tracing::info!(
 							task_id,
 							task_phase = ?phase,
+							%function_metric_clone,
+							target_block_height,
+							target_block_number,
 							"Task completed"
 						);
 					},
@@ -259,6 +263,9 @@ where
 						tracing::error!(
 							task_id,
 							task_phase = ?phase,
+							%function_metric_clone,
+							target_block_height,
+							target_block_number,
 							?error,
 							"Task failed"
 						);

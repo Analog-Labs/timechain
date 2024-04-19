@@ -56,19 +56,21 @@ impl TaskPhaseCounter {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::num::NonZeroU64;
 
 	#[test]
 	pub fn duplicate_metrics_dont_panic() {
+		let batch_size = NonZeroU64::new(32).unwrap();
 		let metric1 = TaskPhaseCounter::new();
 		let metric2 = TaskPhaseCounter::new();
 
-		metric1.inc(&TaskPhase::Read, &Function::ReadMessages);
-		metric2.inc(&TaskPhase::Read, &Function::ReadMessages);
+		metric1.inc(&TaskPhase::Read, &Function::ReadMessages { batch_size });
+		metric2.inc(&TaskPhase::Read, &Function::ReadMessages { batch_size });
 
-		metric1.inc(&TaskPhase::Sign, &Function::ReadMessages);
+		metric1.inc(&TaskPhase::Sign, &Function::ReadMessages { batch_size });
 		metric2.inc(&TaskPhase::Write, &Function::RegisterShard { shard_id: 2 });
 
-		metric1.dec(&TaskPhase::Read, &Function::ReadMessages);
+		metric1.dec(&TaskPhase::Read, &Function::ReadMessages { batch_size });
 		metric2.dec(&TaskPhase::Write, &Function::RegisterShard { shard_id: 2 });
 	}
 }

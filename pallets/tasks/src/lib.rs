@@ -10,6 +10,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use core::num::NonZeroU64;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
@@ -24,9 +25,9 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
-		Msg, NetworkEvents, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface,
-		TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase,
-		TaskResult, TasksInterface, TransferStake, TssSignature,
+		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -75,6 +76,8 @@ pub mod pallet {
 	}
 
 	type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
+
+	const BATCH_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(32) };
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -181,6 +184,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
@@ -325,6 +329,11 @@ pub mod pallet {
 				for msg in msgs {
 					Self::send_message(result.shard_id, msg.clone());
 				}
+				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+					if let Some(next_block_height) = block_height.checked_add(BATCH_SIZE.into()) {
+						Self::recv_messages(task.network, next_block_height, BATCH_SIZE);
+					}
+				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
@@ -399,10 +408,16 @@ pub mod pallet {
 					Self::register_shard(shard_id, network);
 				}
 			}
+			let gateway_changed = Gateway::<T>::get(network).is_some();
 			Gateway::<T>::insert(network, address);
-			RecvTasks::<T>::insert(network, block_height);
 			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
+			if !gateway_changed {
+				let batch_size = NonZeroU64::new(BATCH_SIZE.get() - (block_height % BATCH_SIZE))
+					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
+				let block_height = block_height + batch_size.get();
+				Self::recv_messages(network, block_height, batch_size);
+			}
 			Ok(())
 		}
 
@@ -520,10 +535,11 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
-		fn recv_messages(network_id: NetworkId, block_height: u64) {
+		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {
+			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
 				network_id,
-				Function::ReadMessages,
+				Function::ReadMessages { batch_size },
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
@@ -904,20 +920,6 @@ pub mod pallet {
 				.expect("task funded through inflation");
 			}
 			Self::schedule_tasks(network);
-		}
-	}
-
-	impl<T: Config> NetworkEvents for Pallet<T> {
-		fn block_height_changed(network_id: NetworkId, block_height: u64) {
-			if let Some(current) = RecvTasks::<T>::get(network_id) {
-				let next = block_height + 10;
-				if current < next {
-					for block_height in current..next {
-						Self::recv_messages(network_id, block_height);
-					}
-					RecvTasks::<T>::insert(network_id, next);
-				}
-			}
 		}
 	}
 }

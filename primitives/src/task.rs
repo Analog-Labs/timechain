@@ -21,7 +21,7 @@ pub enum Function {
 	// read
 	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 	EvmTxReceipt { tx: [u8; 32] },
-	ReadMessages { batch_size: u64 },
+	ReadMessages { batch_size: core::num::NonZeroU64 },
 }
 
 #[cfg(feature = "std")]

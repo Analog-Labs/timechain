@@ -155,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 106,
+	spec_version: 107,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -907,9 +907,8 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
-	type Networks = Networks;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
-	type HeartbeatTimeout = ConstU32<50>;
+	type HeartbeatTimeout = ConstU32<300>;
 }
 
 impl pallet_elections::Config for Runtime {
@@ -960,7 +959,6 @@ impl pallet_timegraph::Config for Runtime {
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
-	type NetworkEvents = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

@@ -380,7 +380,7 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	async fn submit_heartbeat(&self, _: u64) -> Result<()> {
+	async fn submit_heartbeat(&self) -> Result<()> {
 		Ok(())
 	}
 

@@ -5,11 +5,12 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{query::GetLogs, CallResult};
+use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::{
 	future::Future,
+	num::NonZeroU64,
 	path::PathBuf,
 	pin::Pin,
 	sync::Arc,
@@ -69,14 +70,18 @@ where
 	async fn get_gmp_events_at(
 		&self,
 		gateway_contract: [u8; 20],
-		target_block_number: u64,
+		from_block: Option<NonZeroU64>,
+		to_block: u64,
 	) -> Result<Vec<IGateway::GmpCreated>> {
 		let logs = self
 			.wallet
 			.query(GetLogs {
 				contracts: vec![gateway_contract.into()],
 				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
-				block: target_block_number.into(),
+				block: FilterBlockOption::Range {
+					from_block: from_block.map(|x| x.get().into()),
+					to_block: Some(to_block.into()),
+				},
 			})
 			.await?
 			.into_iter()
@@ -145,13 +150,17 @@ where
 				.to_string();
 				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
 			},
-			Function::ReadMessages => {
+			Function::ReadMessages { batch_size } => {
 				let network_id = self.network_id;
 				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
 					anyhow::bail!("no gateway registered: skipped reading messages");
 				};
 				let logs: Vec<_> = self
-					.get_gmp_events_at(gateway_contract, target_block_number)
+					.get_gmp_events_at(
+						gateway_contract,
+						NonZeroU64::new(target_block_number - batch_size.get() - 1),
+						target_block_number,
+					)
 					.await
 					.context("get_gmp_events_at")?
 					.into_iter()
@@ -330,7 +339,7 @@ impl<'a> Stream for BlockStream<'a> {
 						ClientEvent::NewHead(_) => continue,
 						ClientEvent::Event(_) => continue,
 						ClientEvent::Close(reason) => {
-							tracing::debug!("block stream closed {}", reason);
+							tracing::warn!("block stream closed {}", reason);
 							self.listener.take();
 						},
 					},

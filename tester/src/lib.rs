@@ -269,6 +269,7 @@ impl Tester {
 
 	pub async fn setup_gmp(&self, redeploy: bool) -> Result<[u8; 20]> {
 		if !redeploy {
+			println!("looking for gateway");
 			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
 				println!("Gateway contract already deployed at {:?}. If you want to redeploy, please use the --redeploy flag.", H160::from_slice(&gateway[..]));
 				return Ok(gateway);
@@ -278,6 +279,9 @@ impl Tester {
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		let (address, block_height) = self.deploy_gateway(shard_public_key).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
+		// can you believe it, substrate can return old values after emitting a
+		// successful event
+		tokio::time::sleep(Duration::from_secs(20)).await;
 		Ok(address)
 	}
 

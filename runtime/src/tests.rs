@@ -275,8 +275,8 @@ fn register_unregister_kills_task() {
 		Tasks::shard_offline(0, ETHEREUM);
 		// task no longer assigned
 		assert!(Tasks::task_shard(0).is_none());
-		// task killed
-		assert!(Tasks::tasks(0).is_none());
+		// task not killed
+		assert!(Tasks::tasks(0).is_some());
 		// new member
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(d.clone()).into(),

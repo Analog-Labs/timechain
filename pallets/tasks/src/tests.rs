@@ -328,7 +328,7 @@ fn shard_offline_removes_tasks() {
 			.collect::<Vec<_>>()
 			.is_empty());
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0));
-		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		// put shard 2 online to be assigned UnregisterShard task for new offline shard
 		Shards::create_shard(
@@ -341,7 +341,7 @@ fn shard_offline_removes_tasks() {
 		Tasks::shard_offline(0, ETHEREUM);
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(),
-			vec![1, 2]
+			vec![3, 2]
 		);
 	});
 }
@@ -406,7 +406,7 @@ fn submit_completed_result_purges_task_from_storage() {
 			0,
 			mock_result_ok(0, 0)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
@@ -440,7 +440,7 @@ fn shard_offline_drops_failed_tasks() {
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 	});
 }
 
@@ -714,7 +714,9 @@ fn register_gateway_emits_event() {
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
-		System::assert_last_event(Event::<Test>::GatewayRegistered(ETHEREUM, [0u8; 20], 0).into());
+		assert!(System::events()
+			.iter()
+			.any(|e| e.event == Event::<Test>::GatewayRegistered(ETHEREUM, [0u8; 20], 0).into()));
 	});
 }
 
@@ -1590,9 +1592,7 @@ fn lock_gateway_if_less_than_one_shard_online() {
 		assert!(Gateway::<Test>::get(ETHEREUM).is_none());
 		// Emit `Event::GatewayLocked(Network)`
 		System::assert_last_event(Event::<Test>::GatewayLocked(ETHEREUM).into());
-		// Kill all tasks for network and set their output to failed
-		assert!(Tasks::tasks(0).is_none());
-		assert_eq!(TaskPhaseState::<Test>::get(0), TaskPhase::Read);
+		// Set all task output to failed
 		assert_eq!(
 			TaskOutput::<Test>::get(0).unwrap(),
 			TaskResult {

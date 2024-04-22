@@ -465,7 +465,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::hooks]
+	/*#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
@@ -488,7 +488,7 @@ pub mod pallet {
 			});
 			T::DbWeight::get().writes(writes)
 		}
-	}
+	}*/
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {

@@ -336,6 +336,7 @@ pub mod pallet {
 				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
+			Self::schedule_tasks(task.network, Some(shard_id));
 			Ok(())
 		}
 
@@ -410,7 +411,6 @@ pub mod pallet {
 			}
 			let gateway_changed = Gateway::<T>::get(network).is_some();
 			Gateway::<T>::insert(network, address);
-			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
 			if !gateway_changed {
 				let batch_size = NonZeroU64::new(BATCH_SIZE.get() - (block_height % BATCH_SIZE))
@@ -418,6 +418,7 @@ pub mod pallet {
 				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);
 			}
+			Self::schedule_tasks(network, None);
 			Ok(())
 		}
 
@@ -701,85 +702,48 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn shard_task_count(shard_id: ShardId) -> usize {
-			ShardTasks::<T>::iter_prefix(shard_id).count()
-		}
-
-		fn schedule_tasks(network: NetworkId) {
-			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
-				Self::schedule_task(task_id);
+		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
+			if let Some(shard_id) = shard_id {
+				Self::schedule_tasks_shard(network, shard_id);
+			} else {
+				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+					Self::schedule_tasks_shard(network, shard);
+				}
 			}
 		}
 
-		fn schedule_task(task_id: TaskId) {
-			let Some(task) = Tasks::<T>::get(task_id) else {
-				// this branch should never be hit, maybe turn this into expect
-				return;
-			};
-			let Some(shard_id) = Self::select_shard(task.network, task_id, task.shard_size) else {
-				// on gmp task sometimes returns none and it stops every other schedule
-				return;
-			};
+		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
+			let tasks = ShardTasks::<T>::iter_prefix(shard_id).count();
+			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
+			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
+			let capacity = 10 - tasks;
+			let tasks = UnassignedTasks::<T>::iter_prefix(network)
+				.filter(|(task_id, _)| {
+					let Some(task) = Tasks::<T>::get(task_id) else { return false };
+					if task.shard_size != shard_size {
+						return false;
+					}
+					if !is_registered {
+						if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+							return false;
+						}
+					}
+					true
+				})
+				.take(capacity);
+			for (task, _) in tasks {
+				Self::assign_task(network, shard_id, task);
+			}
+		}
+
+		fn assign_task(network: NetworkId, shard_id: ShardId, task_id: TaskId) {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
-			UnassignedTasks::<T>::remove(task.network, task_id);
+			UnassignedTasks::<T>::remove(network, task_id);
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
-		}
-
-		/// Select shard for task assignment
-		/// Selects the shard for the input Network with the least number of tasks
-		/// assigned to it.
-		/// Excludes selecting the `old` shard_id optional input if it is passed
-		/// for task reassignment purposes.
-		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
-			let mut reason = UnassignedReason::NoShardOnline;
-			let mut selected = None;
-			let mut selected_tasks = usize::MAX;
-			let mut plan_b = None;
-			let mut plan_b_tasks = usize::MAX;
-			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
-				if !T::Shards::is_shard_online(shard_id) {
-					continue;
-				}
-				reason = core::cmp::max(reason, UnassignedReason::NoShardWithRequestedMembers);
-				if T::Shards::shard_members(shard_id).len() != shard_size as usize {
-					continue;
-				}
-				reason = core::cmp::max(reason, UnassignedReason::NoRegisteredShard);
-				if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-					if Gateway::<T>::get(network).is_none() {
-						continue;
-					}
-					if ShardRegistered::<T>::get(shard_id).is_none() {
-						continue;
-					}
-				}
-
-				let tasks = Self::shard_task_count(shard_id);
-				if tasks < selected_tasks {
-					selected = Some(shard_id);
-					selected_tasks = tasks;
-				} else if tasks < plan_b_tasks {
-					plan_b = Some(shard_id);
-					plan_b_tasks = tasks;
-				}
-			}
-
-			if let Some(shard_id) = &mut selected {
-				let old = TaskShard::<T>::get(task_id);
-				if let (Some(previous_shard), Some(plan_b)) = (old, plan_b) {
-					if previous_shard == *shard_id {
-						*shard_id = plan_b;
-					}
-				}
-				Self::deposit_event(Event::TaskAssigned(task_id, *shard_id));
-			} else {
-				Self::deposit_event(Event::TaskUnassigned(task_id, reason));
-			}
-			selected
 		}
 
 		/// Apply the depreciation rate

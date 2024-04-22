@@ -716,7 +716,7 @@ pub mod pallet {
 			let tasks = ShardTasks::<T>::iter_prefix(shard_id).count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
-			let capacity = 10 - tasks;
+			let capacity = 10.saturating_sub(tasks);
 			let tasks = UnassignedTasks::<T>::iter_prefix(network)
 				.filter(|(task_id, _)| {
 					let Some(task) = Tasks::<T>::get(task_id) else { return false };

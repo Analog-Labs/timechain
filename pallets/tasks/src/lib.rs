@@ -400,7 +400,7 @@ pub mod pallet {
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
-				Self::rm_or_fail_shard_registration(shard_id);
+				Self::unregister_shard(shard_id, network);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -558,6 +558,36 @@ pub mod pallet {
 			.expect("task funded through inflation");
 		}
 
+		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
+			if ShardRegistered::<T>::take(shard_id).is_some() {
+				Self::start_task(
+					TaskDescriptorParams::new(
+						network,
+						Function::UnregisterShard { shard_id },
+						T::Shards::shard_members(shard_id).len() as _,
+					),
+					TaskFunder::Inflation,
+				)
+				.expect("task funded through inflation");
+				return;
+			}
+			for (task_id, task) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id: s } = task.function {
+					if s == shard_id {
+						TaskOutput::<T>::insert(
+							task_id,
+							TaskResult {
+								shard_id,
+								payload: Payload::Error("shard offline or gateway changed".into()),
+								signature: [0u8; 64],
+							},
+						);
+						return;
+					}
+				}
+			}
+		}
+
 		fn send_message(shard_id: ShardId, msg: Msg) {
 			Self::start_task(
 				TaskDescriptorParams::new(
@@ -642,30 +672,8 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_task(task_id);
+			Self::schedule_tasks(schedule.network, None);
 			Ok(())
-		}
-
-		fn rm_or_fail_shard_registration(shard_id: ShardId) {
-			if ShardRegistered::<T>::take(shard_id).is_some() {
-				// => no RegisterShard task pending
-				return;
-			}
-			for (task_id, task) in Tasks::<T>::iter() {
-				if let Function::RegisterShard { shard_id: s } = task.function {
-					if s == shard_id {
-						TaskOutput::<T>::insert(
-							task_id,
-							TaskResult {
-								shard_id,
-								payload: Payload::Error("new gateway registered".into()),
-								signature: [0u8; 64],
-							},
-						);
-						return;
-					}
-				}
-			}
 		}
 
 		fn start_phase(shard_id: ShardId, task_id: TaskId, phase: TaskPhase) {
@@ -902,46 +910,17 @@ pub mod pallet {
 			if Gateway::<T>::get(network).is_some() {
 				Self::register_shard(shard_id, network);
 			}
-			Self::schedule_tasks(network);
+			Self::schedule_tasks(network, Some(shard_id));
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
+			// unassign tasks
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
 				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
-			let less_than_one_shard_online =
-				NetworkShards::<T>::iter_prefix(network).next().is_none();
-			if less_than_one_shard_online {
-				ShardRegistered::<T>::remove(shard_id);
-				Gateway::<T>::remove(network);
-				Tasks::<T>::iter().filter(|(_, n)| n.network == network).for_each(|(t, _)| {
-					// Task failed because gateway locked
-					TaskOutput::<T>::insert(
-						t,
-						TaskResult {
-							shard_id,
-							payload: Payload::Error("Gateway locked".into()),
-							signature: [0u8; 64],
-						},
-					);
-				});
-				Self::deposit_event(Event::GatewayLocked(network));
-				return;
-			}
-			if ShardRegistered::<T>::take(shard_id).is_some() {
-				Self::start_task(
-					TaskDescriptorParams::new(
-						network,
-						Function::UnregisterShard { shard_id },
-						T::Shards::shard_members(shard_id).len() as _,
-					),
-					TaskFunder::Inflation,
-				)
-				.expect("task funded through inflation");
-			}
-			Self::schedule_tasks(network);
+			Self::unregister_shard(shard_id, network);
 		}
 	}
 }

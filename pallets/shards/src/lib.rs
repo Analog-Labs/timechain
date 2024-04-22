@@ -284,16 +284,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
-		fn member_online(id: &AccountId, network: NetworkId) {
+		fn member_online(id: &AccountId, _network: NetworkId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			let new_status = old_status.online_member();
 			ShardState::<T>::insert(shard_id, new_status);
-			if matches!(new_status, ShardStatus::Online)
-				&& !matches!(old_status, ShardStatus::Online)
-			{
-				T::TaskScheduler::shard_online(shard_id, network);
-			}
 		}
 
 		fn member_offline(id: &AccountId, _: NetworkId) {

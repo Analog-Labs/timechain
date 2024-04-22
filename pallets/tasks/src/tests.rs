@@ -794,6 +794,38 @@ fn register_gateway_sets_non_read_gmp_tasks_to_sign_phase() {
 }
 
 #[test]
+fn register_gateway_resets_stuck_read_tasks_after_timeout_to_sign_phase() {
+	const NUM_TASKS: u64 = 5;
+	const SHARD_ID: u64 = 0;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(SHARD_ID, ShardStatus::Online);
+		Tasks::shard_online(SHARD_ID, ETHEREUM);
+		for i in 0..NUM_TASKS {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_sign_task(ETHEREUM)
+			));
+			TaskShard::<Test>::insert(i, SHARD_ID);
+			TaskPhaseState::<Test>::insert(i, TaskPhase::Read);
+		}
+		roll_to(2);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), SHARD_ID, [0u8; 20], 0),);
+		for i in 0..NUM_TASKS {
+			assert_eq!(TaskPhaseState::<Test>::get(i), TaskPhase::Read);
+		}
+		roll_to(22);
+		for i in 0..NUM_TASKS {
+			assert_eq!(TaskPhaseState::<Test>::get(i), TaskPhase::Sign);
+		}
+	});
+}
+
+#[test]
 fn shard_online_starts_register_shard_task() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(

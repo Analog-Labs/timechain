@@ -491,8 +491,10 @@ pub mod pallet {
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
 			for (task_id, shard_id) in TaskShard::<T>::iter() {
+				println!("task {} assigned to shard {}", task_id, shard_id);
 				// no timeouts for completed tasks
 				if TaskOutput::<T>::get(task_id).is_some() {
+					println!("skipped timeout because task completed");
 					continue;
 				}
 				let phase = TaskPhaseState::<T>::get(task_id);
@@ -502,6 +504,7 @@ pub mod pallet {
 					TaskPhase::Write => T::WritePhaseTimeout::get(),
 					TaskPhase::Read => T::ReadPhaseTimeout::get(),
 				};
+				println!("current block {current} - start {start} < timeout {timeout} ");
 				if current.saturating_sub(start) >= timeout {
 					match phase {
 						TaskPhase::Sign => Self::schedule_task(task_id),
@@ -509,6 +512,7 @@ pub mod pallet {
 							Self::start_phase(shard_id, task_id, phase);
 						},
 						TaskPhase::Read => {
+							println!("progress");
 							Self::if_gateway_reset_timeout_read_to_sign_phase(
 								current, task_id, shard_id,
 							);
@@ -724,10 +728,31 @@ pub mod pallet {
 						&& current.saturating_sub(when_gateway_reset)
 							>= T::GatewayResetReadTimeout::get()
 					{
+						println!("A");
 						Self::start_phase(shard_id, task_id, TaskPhase::Sign);
 						Self::deposit_event(Event::GatewayResetReadToSign(task_id, shard_id));
+					} else {
+						println!(
+							"when gateway reset {} > when read phase was started {}",
+							when_gateway_reset,
+							PhaseStart::<T>::get(task_id, TaskPhase::Read)
+						);
+						println!(
+							"first condition = {}",
+							when_gateway_reset > PhaseStart::<T>::get(task_id, TaskPhase::Read)
+						);
+						println!(
+							"second condition = {}",
+							current.saturating_sub(when_gateway_reset)
+								>= T::GatewayResetReadTimeout::get()
+						);
+						println!("B");
 					}
+				} else {
+					println!("C");
 				}
+			} else {
+				println!("D");
 			}
 		}
 

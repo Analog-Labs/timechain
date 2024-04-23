@@ -721,10 +721,8 @@ pub mod pallet {
 					if task.shard_size != shard_size {
 						return false;
 					}
-					if !is_registered {
-						if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-							return false;
-						}
+					if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+						return false;
 					}
 					true
 				})

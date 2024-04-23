@@ -1,7 +1,7 @@
 /// Integration tests
 use crate::*;
+use frame_support::assert_ok;
 use frame_support::traits::WhitelistedStorageKeys;
-use frame_support::{assert_ok, traits::OnInitialize};
 use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
 // use pallet_tasks::TaskSigner;

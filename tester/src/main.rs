@@ -265,7 +265,6 @@ async fn gmp_benchmark(
 				let memory_usage_percent = (used_memory / total_memory) * 100.0;
 				memory_usage.push(memory_usage_percent);
 
-
 				// compute cpu usage
 				sys.refresh_cpu();
 				let cpu_count = sys.cpus().len() as f64;
@@ -277,8 +276,7 @@ async fn gmp_benchmark(
 				}else {
 					total_cpu_usage / cpu_count
 				};
-				println!("total_cpu_usage: {:?}", total_cpu_usage);
-				println!("cpu_count: {:?}", cpu_count);
+
 				cpu_usage.push(average_cpu_usage);
 
 				 if bench_state.get_finished_tasks() == number_of_calls as usize {

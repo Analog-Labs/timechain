@@ -238,8 +238,6 @@ pub mod pallet {
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, [u8; 20], u64),
-		/// Gateway contract locked for network
-		GatewayLocked(NetworkId),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network

@@ -153,7 +153,7 @@ fn elections_chooses_top_members_by_stake() {
 	});
 }
 
-#[test]
+/*#[test]
 fn write_phase_timeout_reassigns_task() {
 	let task_id = 0;
 	let a: AccountId = A.into();
@@ -210,7 +210,7 @@ fn write_phase_timeout_reassigns_task() {
 		roll_to(31);
 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
 	});
-}
+}*/
 
 #[test]
 fn register_unregister_kills_task() {

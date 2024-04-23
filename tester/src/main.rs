@@ -273,14 +273,16 @@ async fn gmp_benchmark(
 						.fold(0.0, |acc, x| acc + x);
 				let average_cpu_usage = if cpu_count == 0.0  {
 					0.0
-				}else {
+				} else {
 					total_cpu_usage / cpu_count
 				};
 
 				cpu_usage.push(average_cpu_usage);
 
-				 if bench_state.get_finished_tasks() == number_of_calls as usize {
+				if bench_state.get_finished_tasks() == number_of_calls as usize {
 					break;
+				} else {
+					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());
 				}
 			}
 			_ = tokio::signal::ctrl_c() => {

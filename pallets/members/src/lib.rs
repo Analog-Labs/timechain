@@ -13,11 +13,11 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{IdentifyAccount, Saturating};
+	use sp_runtime::traits::IdentifyAccount;
 	use sp_std::vec;
 	use time_primitives::{
-		AccountId, Balance, HeartbeatInfo, MemberEvents, MemberStorage, NetworkId,
-		NetworksInterface, PeerId, PublicKey, TransferStake,
+		AccountId, Balance, MemberEvents, MemberStorage, NetworkId, PeerId, PublicKey,
+		TransferStake,
 	};
 
 	pub trait WeightInfo {
@@ -51,7 +51,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: MemberEvents;
-		type Networks: NetworksInterface;
 		/// Minimum stake to register member
 		#[pallet::constant]
 		type MinStake: Get<BalanceOf<Self>>;
@@ -74,10 +73,13 @@ pub mod pallet {
 	pub type MemberPublicKey<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, PublicKey, OptionQuery>;
 
-	/// Indicate if member is online or offline
+	/// Get status of member
 	#[pallet::storage]
-	pub type Heartbeat<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, HeartbeatInfo<BlockNumberFor<T>>, OptionQuery>;
+	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
+	/// Get whether member submitted heartbeat within last peiod
+	#[pallet::storage]
+	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -107,15 +109,17 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
-			Heartbeat::<T>::iter().for_each(|(member, heart)| {
-				if heart.is_online && n.saturating_sub(heart.block) >= T::HeartbeatTimeout::get() {
-					Heartbeat::<T>::insert(&member, heart.set_offline());
-					if let Some(network) = MemberNetwork::<T>::get(&member) {
-						Self::member_offline(&member, network);
+			if n % T::HeartbeatTimeout::get() == BlockNumberFor::<T>::default() {
+				for (member, _) in MemberOnline::<T>::iter() {
+					if Heartbeat::<T>::take(&member).is_none() {
+						if let Some(network) = MemberNetwork::<T>::get(&member) {
+							Self::member_offline(&member, network);
+						}
+						writes += 1;
 					}
-					writes += 1;
 				}
-			});
+				Heartbeat::<T>::drain();
+			}
 			T::DbWeight::get().writes(writes)
 		}
 	}
@@ -143,30 +147,22 @@ pub mod pallet {
 			MemberNetwork::<T>::insert(&member, network);
 			MemberPublicKey::<T>::insert(&member, public_key);
 			MemberPeerId::<T>::insert(&member, peer_id);
-			Heartbeat::<T>::insert(
-				&member,
-				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
-			);
+			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
 			Self::member_online(&member, network);
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::send_heartbeat())]
-		pub fn send_heartbeat(origin: OriginFor<T>, block_height: u64) -> DispatchResult {
+		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
+		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			let heart = Heartbeat::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(
-				&member,
-				HeartbeatInfo::new(frame_system::Pallet::<T>::block_number()),
-			);
+			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
-			if !heart.is_online {
+			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
-			T::Networks::seen_block_height(network, block_height);
 			Ok(())
 		}
 
@@ -182,11 +178,13 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn member_online(member: &AccountId, network: NetworkId) {
+			MemberOnline::<T>::insert(member.clone(), ());
 			Self::deposit_event(Event::MemberOnline(member.clone()));
 			T::Elections::member_online(member, network);
 		}
 
 		fn member_offline(member: &AccountId, network: NetworkId) {
+			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));
 			T::Elections::member_offline(member, network);
 		}
@@ -240,9 +238,7 @@ pub mod pallet {
 		}
 
 		fn is_member_online(account: &AccountId) -> bool {
-			let Some(heart) = Heartbeat::<T>::get(account) else { return false };
-			frame_system::Pallet::<T>::block_number().saturating_sub(heart.block)
-				< T::HeartbeatTimeout::get()
+			MemberOnline::<T>::get(account).is_some()
 		}
 
 		fn total_stake() -> u128 {

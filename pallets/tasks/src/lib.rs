@@ -12,6 +12,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use core::num::NonZeroU64;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
@@ -26,9 +27,9 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
-		Msg, NetworkEvents, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface,
-		TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase,
-		TaskResult, TasksInterface, TransferStake, TssSignature,
+		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
+		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TasksInterface, TransferStake, TssSignature,
 	};
 
 	pub trait WeightInfo {
@@ -77,6 +78,8 @@ pub mod pallet {
 	}
 
 	type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
+
+	const BATCH_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(32) };
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -183,6 +186,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
@@ -236,8 +240,6 @@ pub mod pallet {
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
 		GatewayRegistered(NetworkId, [u8; 20], u64),
-		/// Gateway contract locked for network
-		GatewayLocked(NetworkId),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -327,8 +329,14 @@ pub mod pallet {
 				for msg in msgs {
 					Self::send_message(result.shard_id, msg.clone());
 				}
+				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+					if let Some(next_block_height) = block_height.checked_add(BATCH_SIZE.into()) {
+						Self::recv_messages(task.network, next_block_height, BATCH_SIZE);
+					}
+				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
+			Self::schedule_tasks(task.network, Some(shard_id));
 			Ok(())
 		}
 
@@ -393,7 +401,7 @@ pub mod pallet {
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
-				ShardRegistered::<T>::remove(shard_id);
+				Self::unregister_shard(shard_id, network);
 			}
 			ShardRegistered::<T>::insert(bootstrap, ());
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -401,10 +409,16 @@ pub mod pallet {
 					Self::register_shard(shard_id, network);
 				}
 			}
+			let gateway_changed = Gateway::<T>::get(network).is_some();
 			Gateway::<T>::insert(network, address);
-			RecvTasks::<T>::insert(network, block_height);
-			Self::schedule_tasks(network);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
+			if !gateway_changed {
+				let batch_size = NonZeroU64::new(BATCH_SIZE.get() - (block_height % BATCH_SIZE))
+					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
+				let block_height = block_height + batch_size.get();
+				Self::recv_messages(network, block_height, batch_size);
+			}
+			Self::schedule_tasks(network, None);
 			Ok(())
 		}
 
@@ -451,7 +465,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::hooks]
+	/*#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
@@ -474,7 +488,7 @@ pub mod pallet {
 			});
 			T::DbWeight::get().writes(writes)
 		}
-	}
+	}*/
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
@@ -522,10 +536,11 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
-		fn recv_messages(network_id: NetworkId, block_height: u64) {
+		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {
+			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
 				network_id,
-				Function::ReadMessages,
+				Function::ReadMessages { batch_size },
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
@@ -542,6 +557,36 @@ pub mod pallet {
 				TaskFunder::Inflation,
 			)
 			.expect("task funded through inflation");
+		}
+
+		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
+			if ShardRegistered::<T>::take(shard_id).is_some() {
+				Self::start_task(
+					TaskDescriptorParams::new(
+						network,
+						Function::UnregisterShard { shard_id },
+						T::Shards::shard_members(shard_id).len() as _,
+					),
+					TaskFunder::Inflation,
+				)
+				.expect("task funded through inflation");
+				return;
+			}
+			for (task_id, task) in Tasks::<T>::iter() {
+				if let Function::RegisterShard { shard_id: s } = task.function {
+					if s == shard_id {
+						TaskOutput::<T>::insert(
+							task_id,
+							TaskResult {
+								shard_id,
+								payload: Payload::Error("shard offline or gateway changed".into()),
+								signature: [0u8; 64],
+							},
+						);
+						return;
+					}
+				}
+			}
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {
@@ -628,7 +673,7 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_task(task_id);
+			Self::schedule_tasks(schedule.network, None);
 			Ok(())
 		}
 
@@ -657,85 +702,46 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn shard_task_count(shard_id: ShardId) -> usize {
-			ShardTasks::<T>::iter_prefix(shard_id).count()
-		}
-
-		fn schedule_tasks(network: NetworkId) {
-			for (task_id, _) in UnassignedTasks::<T>::iter_prefix(network) {
-				Self::schedule_task(task_id);
+		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
+			if let Some(shard_id) = shard_id {
+				Self::schedule_tasks_shard(network, shard_id);
+			} else {
+				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+					Self::schedule_tasks_shard(network, shard);
+				}
 			}
 		}
 
-		fn schedule_task(task_id: TaskId) {
-			let Some(task) = Tasks::<T>::get(task_id) else {
-				// this branch should never be hit, maybe turn this into expect
-				return;
-			};
-			let Some(shard_id) = Self::select_shard(task.network, task_id, task.shard_size) else {
-				// on gmp task sometimes returns none and it stops every other schedule
-				return;
-			};
+		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
+			let tasks = ShardTasks::<T>::iter_prefix(shard_id).count();
+			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
+			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
+			let capacity = 10.saturating_sub(tasks);
+			let tasks = UnassignedTasks::<T>::iter_prefix(network)
+				.filter(|(task_id, _)| {
+					let Some(task) = Tasks::<T>::get(task_id) else { return false };
+					if task.shard_size != shard_size {
+						return false;
+					}
+					if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+						return false;
+					}
+					true
+				})
+				.take(capacity);
+			for (task, _) in tasks {
+				Self::assign_task(network, shard_id, task);
+			}
+		}
+
+		fn assign_task(network: NetworkId, shard_id: ShardId, task_id: TaskId) {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
-			UnassignedTasks::<T>::remove(task.network, task_id);
+			UnassignedTasks::<T>::remove(network, task_id);
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
-		}
-
-		/// Select shard for task assignment
-		/// Selects the shard for the input Network with the least number of tasks
-		/// assigned to it.
-		/// Excludes selecting the `old` shard_id optional input if it is passed
-		/// for task reassignment purposes.
-		fn select_shard(network: NetworkId, task_id: TaskId, shard_size: u16) -> Option<ShardId> {
-			let mut reason = UnassignedReason::NoShardOnline;
-			let mut selected = None;
-			let mut selected_tasks = usize::MAX;
-			let mut plan_b = None;
-			let mut plan_b_tasks = usize::MAX;
-			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
-				if !T::Shards::is_shard_online(shard_id) {
-					continue;
-				}
-				reason = core::cmp::max(reason, UnassignedReason::NoShardWithRequestedMembers);
-				if T::Shards::shard_members(shard_id).len() != shard_size as usize {
-					continue;
-				}
-				reason = core::cmp::max(reason, UnassignedReason::NoRegisteredShard);
-				if TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-					if Gateway::<T>::get(network).is_none() {
-						continue;
-					}
-					if ShardRegistered::<T>::get(shard_id).is_none() {
-						continue;
-					}
-				}
-
-				let tasks = Self::shard_task_count(shard_id);
-				if tasks < selected_tasks {
-					selected = Some(shard_id);
-					selected_tasks = tasks;
-				} else if tasks < plan_b_tasks {
-					plan_b = Some(shard_id);
-					plan_b_tasks = tasks;
-				}
-			}
-
-			if let Some(shard_id) = &mut selected {
-				let old = TaskShard::<T>::get(task_id);
-				if let (Some(previous_shard), Some(plan_b)) = (old, plan_b) {
-					if previous_shard == *shard_id {
-						*shard_id = plan_b;
-					}
-				}
-				Self::deposit_event(Event::TaskAssigned(task_id, *shard_id));
-			} else {
-				Self::deposit_event(Event::TaskUnassigned(task_id, reason));
-			}
-			selected
 		}
 
 		/// Apply the depreciation rate
@@ -866,62 +872,17 @@ pub mod pallet {
 			if Gateway::<T>::get(network).is_some() {
 				Self::register_shard(shard_id, network);
 			}
-			Self::schedule_tasks(network);
+			Self::schedule_tasks(network, Some(shard_id));
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
+			// unassign tasks
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
 				UnassignedTasks::<T>::insert(network, task_id, ());
 			});
-			let less_than_one_shard_online =
-				NetworkShards::<T>::iter_prefix(network).next().is_none();
-			if less_than_one_shard_online {
-				ShardRegistered::<T>::remove(shard_id);
-				Gateway::<T>::remove(network);
-				Tasks::<T>::iter().filter(|(_, n)| n.network == network).for_each(|(t, _)| {
-					// Task failed because gateway locked
-					Tasks::<T>::remove(t);
-					TaskPhaseState::<T>::remove(t);
-					TaskOutput::<T>::insert(
-						t,
-						TaskResult {
-							shard_id,
-							payload: Payload::Error("Gateway locked".into()),
-							signature: [0u8; 64],
-						},
-					);
-				});
-				Self::deposit_event(Event::GatewayLocked(network));
-				return;
-			}
-			if ShardRegistered::<T>::take(shard_id).is_some() {
-				Self::start_task(
-					TaskDescriptorParams::new(
-						network,
-						Function::UnregisterShard { shard_id },
-						T::Shards::shard_members(shard_id).len() as _,
-					),
-					TaskFunder::Inflation,
-				)
-				.expect("task funded through inflation");
-			}
-			Self::schedule_tasks(network);
-		}
-	}
-
-	impl<T: Config> NetworkEvents for Pallet<T> {
-		fn block_height_changed(network_id: NetworkId, block_height: u64) {
-			if let Some(current) = RecvTasks::<T>::get(network_id) {
-				let next = block_height + 10;
-				if current < next {
-					for block_height in current..next {
-						Self::recv_messages(network_id, block_height);
-					}
-					RecvTasks::<T>::insert(network_id, next);
-				}
-			}
+			Self::unregister_shard(shard_id, network);
 		}
 	}
 }

@@ -59,9 +59,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 pub use time_primitives::{
-	AccountId, ChainName, ChainNetwork, Commitment, DepreciationRate, MemberStatus, MemberStorage,
-	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature,
+	AccountId, Balance, BlockNumber, ChainName, ChainNetwork, Commitment, DepreciationRate,
+	MemberStatus, MemberStorage, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Signature, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult,
+	TssPublicKey, TssSignature,
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -111,12 +112,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight =
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
-/// An index to a block.
-pub type BlockNumber = u32;
-
-/// Balance of an account.
-pub type Balance = u128;
-
 /// Index of a transaction in the chain.
 pub type Index = u32;
 
@@ -160,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 106,
+	spec_version: 108,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -912,9 +907,8 @@ impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
 	type Elections = Elections;
-	type Networks = Networks;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
-	type HeartbeatTimeout = ConstU32<50>;
+	type HeartbeatTimeout = ConstU32<300>;
 }
 
 impl pallet_elections::Config for Runtime {
@@ -965,7 +959,6 @@ impl pallet_timegraph::Config for Runtime {
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
-	type NetworkEvents = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1270,11 +1263,11 @@ impl_runtime_apis! {
 			Members::member_peer_id(account)
 		}
 
-		fn get_heartbeat_timeout() -> u64 {
-			Members::get_heartbeat_timeout().into()
+		fn get_heartbeat_timeout() -> BlockNumber {
+			Members::get_heartbeat_timeout()
 		}
 
-		fn get_min_stake() -> u128 {
+		fn get_min_stake() -> Balance {
 			Members::get_min_stake()
 		}
 	}
@@ -1342,12 +1335,6 @@ impl_runtime_apis! {
 
 		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
 			Tasks::get_gateway(network)
-		}
-	}
-
-	impl time_primitives::BlockTimeApi<Block> for Runtime {
-		fn get_block_time_in_msec() -> u64{
-			MILLISECS_PER_BLOCK
 		}
 	}
 

@@ -9,7 +9,7 @@ use subxt::backend::rpc::RpcClient;
 use subxt::tx::{SubmittableExtrinsic, TxPayload, TxStatus};
 use subxt_signer::SecretUri;
 use time_primitives::{
-	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
+	AccountId, Balance, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskDescriptor,
 	TaskDescriptorParams, TaskExecution, TaskId, TaskResult, TssSignature,
 };
@@ -48,7 +48,7 @@ pub trait TxSubmitter: Clone + Send + Sync + 'static {
 
 pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
-	Heartbeat { block_height: u64 },
+	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	InsertTask { task: TaskDescriptorParams },
 	InsertGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
@@ -122,8 +122,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				);
 				self.create_signed_payload(&tx)
 			},
-			Tx::Heartbeat { block_height } => {
-				let tx = timechain_runtime::tx().members().send_heartbeat(block_height);
+			Tx::Heartbeat => {
+				let tx = timechain_runtime::tx().members().send_heartbeat();
 				self.create_signed_payload(&tx)
 			},
 			Tx::Commitment {
@@ -307,12 +307,6 @@ impl Runtime for SubxtClient {
 		&self.account_id
 	}
 
-	async fn get_block_time_in_ms(&self) -> Result<u64> {
-		let runtime_call = timechain_runtime::apis().block_time_api().get_block_time_in_msec();
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-		Ok(data)
-	}
-
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		let api = self.client.clone();
 
@@ -372,13 +366,13 @@ impl Runtime for SubxtClient {
 		Ok(data)
 	}
 
-	async fn get_heartbeat_timeout(&self) -> Result<u64> {
+	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
 		let runtime_call = timechain_runtime::apis().members_api().get_heartbeat_timeout();
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(data)
 	}
 
-	async fn get_min_stake(&self) -> Result<u128> {
+	async fn get_min_stake(&self) -> Result<Balance> {
 		let runtime_call = timechain_runtime::apis().members_api().get_min_stake();
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(data)
@@ -468,9 +462,9 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_heartbeat(&self, block_height: u64) -> Result<()> {
+	async fn submit_heartbeat(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::Heartbeat { block_height }, tx))?;
+		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
 		rx.await?;
 		Ok(())
 	}

@@ -19,7 +19,7 @@ use std::{
 use time_primitives::{
 	BlockHash, BlockNumber, Runtime, ShardId, ShardStatus, TssId, TssSignature, TssSigningRequest,
 };
-use tokio::time::{interval_at, sleep, Duration, Instant};
+use tokio::time::{sleep, Duration};
 use tracing::{event, span, Level, Span};
 
 pub struct TimeWorkerParams<S, T, Tx, Rx> {
@@ -349,12 +349,7 @@ where
 			"Registered Member successfully",
 		);
 
-		let min_block_time = self.substrate.get_block_time_in_ms().await.unwrap();
-		let heartbeat_time =
-			(self.substrate.get_heartbeat_timeout().await.unwrap() / 2) * min_block_time;
-		let heartbeat_duration = Duration::from_millis(heartbeat_time);
-		let mut heartbeat_tick =
-			interval_at(Instant::now() + heartbeat_duration, heartbeat_duration);
+		let heartbeat_period = self.substrate.get_heartbeat_timeout().await.unwrap();
 
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
@@ -375,6 +370,22 @@ where
 						);
 						continue;
 					};
+					if block_number % heartbeat_period == 0 {
+						event!(
+							target: TW_LOG,
+							parent: span,
+							Level::INFO,
+							"submitting heartbeat",
+						);
+						if let Err(e) = self.substrate.submit_heartbeat().await {
+							event!(
+								target: TW_LOG,
+								parent: span,
+								Level::ERROR,
+								"Error submitting heartbeat: {:?}",e
+							);
+						};
+					}
 					if let Err(e) = self.on_finality(span, block_hash, block_number).await {
 						tracing::error!("Error running on_finality {:?}", e);
 					}
@@ -433,22 +444,6 @@ where
 							error,
 						);
 					}
-				}
-				_ = heartbeat_tick.tick().fuse() => {
-					event!(
-						target: TW_LOG,
-						parent: span,
-						Level::DEBUG,
-						"submitting heartbeat",
-					);
-					if let Err(e) = self.substrate.submit_heartbeat(self.block_height).await {
-							event!(
-							target: TW_LOG,
-							parent: span,
-							Level::DEBUG,
-							"Error submitting heartbeat {:?}",e
-						);
-					};
 				}
 				data = block_stream.next() => {
 					if let Some(index) = data {

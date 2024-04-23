@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{Error, Event, Heartbeat, MemberNetwork, MemberPeerId, MemberStake};
+use crate::{Error, Event, Heartbeat, MemberNetwork, MemberOnline, MemberPeerId, MemberStake};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::{DispatchError, ModuleError};
@@ -31,8 +31,8 @@ fn register_member_works() {
 		assert_eq!(Balances::free_balance(&a), 9999999995);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
-		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
+		assert!(MemberOnline::<Test>::get(&a).is_some());
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -91,8 +91,8 @@ fn register_member_replaces_previous_call() {
 		assert_eq!(Balances::free_balance(&a), 9999999995);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
-		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
+		assert!(MemberOnline::<Test>::get(&a).is_some());
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(A.into()).into(),
 			ETHEREUM,
@@ -106,8 +106,8 @@ fn register_member_replaces_previous_call() {
 		assert_eq!(Balances::free_balance(&a), 9999999990);
 		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
 		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
-		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
+		assert!(MemberOnline::<Test>::get(&a).is_some());
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -123,10 +123,10 @@ fn send_heartbeat_works() {
 			5,
 		));
 		roll_to(5);
-		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		System::assert_last_event(Event::<Test>::HeartbeatReceived(a.clone()).into());
-		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 5);
+		assert!(MemberOnline::<Test>::get(&a).is_some());
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -141,9 +141,10 @@ fn no_heartbeat_sets_member_offline_after_timeout() {
 			A,
 			5,
 		));
-		roll_to(11);
-		assert!(!Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
+		roll_to(10);
+		assert!(MemberOnline::<Test>::get(&a).is_some());
+		roll_to(20);
+		assert!(MemberOnline::<Test>::get(&a).is_none());
 	});
 }
 
@@ -158,12 +159,11 @@ fn send_heartbeat_sets_member_back_online_after_timeout() {
 			A,
 			5,
 		));
-		roll_to(11);
-		assert!(!Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 1);
-		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0));
-		assert!(Heartbeat::<Test>::get(&a).unwrap().is_online);
-		assert_eq!(Heartbeat::<Test>::get(&a).unwrap().block, 11);
+		roll_to(20);
+		assert!(MemberOnline::<Test>::get(&a).is_none());
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
+		assert!(MemberOnline::<Test>::get(&a).is_some());
+		assert!(Heartbeat::<Test>::get(&a).is_some());
 	});
 }
 
@@ -172,7 +172,7 @@ fn cannot_send_heartbeat_if_not_member() {
 	new_test_ext().execute_with(|| {
 		let a: AccountId = A.into();
 		assert_noop!(
-			Members::send_heartbeat(RawOrigin::Signed(a.clone()).into(), 0),
+			Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()),
 			Error::<Test>::NotMember
 		);
 	});

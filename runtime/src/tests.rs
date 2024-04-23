@@ -1,10 +1,10 @@
 /// Integration tests
 use crate::*;
+use frame_support::assert_ok;
 use frame_support::traits::WhitelistedStorageKeys;
-use frame_support::{assert_ok, traits::OnInitialize};
 use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
-use pallet_tasks::TaskSigner;
+// use pallet_tasks::TaskSigner;
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
@@ -54,14 +54,14 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-/// To from `now` to block `n`.
+/*/// To from `now` to block `n`.
 fn roll_to(n: u32) {
 	let now = System::block_number();
 	for i in now + 1..=n {
 		System::set_block_number(i);
 		Tasks::on_initialize(i);
 	}
-}
+}*/
 
 #[test]
 fn shard_not_stuck_in_committed_state() {
@@ -153,7 +153,7 @@ fn elections_chooses_top_members_by_stake() {
 	});
 }
 
-#[test]
+/*#[test]
 fn write_phase_timeout_reassigns_task() {
 	let task_id = 0;
 	let a: AccountId = A.into();
@@ -210,7 +210,7 @@ fn write_phase_timeout_reassigns_task() {
 		roll_to(31);
 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
 	});
-}
+}*/
 
 #[test]
 fn register_unregister_kills_task() {

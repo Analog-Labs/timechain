@@ -153,64 +153,64 @@ fn elections_chooses_top_members_by_stake() {
 	});
 }
 
-// #[test]
-// fn write_phase_timeout_reassigns_task() {
-// 	let task_id = 0;
-// 	let a: AccountId = A.into();
-// 	let b: AccountId = B.into();
-// 	let c: AccountId = C.into();
-// 	let shard = [a.clone(), b.clone(), c.clone()].to_vec();
-// 	new_test_ext().execute_with(|| {
-// 		assert_ok!(Members::register_member(
-// 			RawOrigin::Signed(a.clone()).into(),
-// 			ETHEREUM,
-// 			pubkey_from_bytes(A),
-// 			get_peer_id(A),
-// 			90_000 * ANLOG,
-// 		));
-// 		assert_ok!(Members::register_member(
-// 			RawOrigin::Signed(b.clone()).into(),
-// 			ETHEREUM,
-// 			pubkey_from_bytes(B),
-// 			get_peer_id(B),
-// 			90_000 * ANLOG,
-// 		));
-// 		assert_ok!(Members::register_member(
-// 			RawOrigin::Signed(c.clone()).into(),
-// 			ETHEREUM,
-// 			pubkey_from_bytes(C),
-// 			get_peer_id(C),
-// 			90_000 * ANLOG,
-// 		));
-// 		Shards::create_shard(ETHEREUM, shard, 1);
-// 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
-// 		Tasks::shard_online(0, ETHEREUM);
-// 		assert_ok!(Tasks::create_task(
-// 			RawOrigin::Signed(a.clone()).into(),
-// 			TaskDescriptorParams {
-// 				network: ETHEREUM,
-// 				function: Function::EvmCall {
-// 					address: Default::default(),
-// 					input: Default::default(),
-// 					amount: 0,
-// 					gas_limit: None,
-// 				},
-// 				start: 0,
-// 				funds: 10_000, //TODO: why does this underflow or below min error
-// 				shard_size: 3,
-// 			}
-// 		));
-// 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
-// 		roll_to(10);
-// 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
-// 		roll_to(11);
-// 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(A)));
-// 		roll_to(21);
-// 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(B)));
-// 		roll_to(31);
-// 		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
-// 	});
-// }
+/*#[test]
+fn write_phase_timeout_reassigns_task() {
+	let task_id = 0;
+	let a: AccountId = A.into();
+	let b: AccountId = B.into();
+	let c: AccountId = C.into();
+	let shard = [a.clone(), b.clone(), c.clone()].to_vec();
+	new_test_ext().execute_with(|| {
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(a.clone()).into(),
+			ETHEREUM,
+			pubkey_from_bytes(A),
+			get_peer_id(A),
+			90_000 * ANLOG,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(b.clone()).into(),
+			ETHEREUM,
+			pubkey_from_bytes(B),
+			get_peer_id(B),
+			90_000 * ANLOG,
+		));
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(c.clone()).into(),
+			ETHEREUM,
+			pubkey_from_bytes(C),
+			get_peer_id(C),
+			90_000 * ANLOG,
+		));
+		Shards::create_shard(ETHEREUM, shard, 1);
+		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed(a.clone()).into(),
+			TaskDescriptorParams {
+				network: ETHEREUM,
+				function: Function::EvmCall {
+					address: Default::default(),
+					input: Default::default(),
+					amount: 0,
+					gas_limit: None,
+				},
+				start: 0,
+				funds: 10_000, //TODO: why does this underflow or below min error
+				shard_size: 3,
+			}
+		));
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
+		roll_to(10);
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
+		roll_to(11);
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(A)));
+		roll_to(21);
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(B)));
+		roll_to(31);
+		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
+	});
+}*/
 
 #[test]
 fn register_unregister_kills_task() {

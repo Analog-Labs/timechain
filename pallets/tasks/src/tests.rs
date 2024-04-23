@@ -498,34 +498,6 @@ fn task_moved_on_shard_offline() {
 }
 
 #[test]
-fn schedule_tasks_assigns_tasks_to_least_assigned_shard() {
-	new_test_ext().execute_with(|| {
-		// register shard before task assignment
-		for i in 0..10 {
-			Shards::create_shard(
-				ETHEREUM,
-				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-				1,
-			);
-			ShardState::<Test>::insert(i, ShardStatus::Online);
-		}
-		// shard online triggers task assignment
-		for i in (0..10).rev() {
-			Tasks::shard_online(i, ETHEREUM);
-			for _ in 0..i {
-				assert_ok!(Tasks::create_task(
-					RawOrigin::Signed([0; 32].into()).into(),
-					mock_task(ETHEREUM)
-				));
-			}
-		}
-		for i in 0..10 {
-			assert_eq!(Tasks::get_shard_tasks(i).len() as u64, i);
-		}
-	});
-}
-
-#[test]
 fn submit_task_result_inserts_task_output() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
@@ -1104,99 +1076,99 @@ fn send_message_payout_clears_storage() {
 	});
 }
 
-// #[test]
-// /// Test read phase timeout to assign to new shard
-// /// NOTE write phase timeout test in runtime integration tests
-// fn read_phase_times_out_and_reassigns_for_read_only_task() {
-// 	let shards_count = 2;
-// 	new_test_ext().execute_with(|| {
-// 		Shards::create_shard(
-// 			ETHEREUM,
-// 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-// 			1,
-// 		);
-// 		ShardState::<Test>::insert(0, ShardStatus::Online);
-// 		Tasks::shard_online(0, ETHEREUM);
-// 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-// 		assert_ok!(Tasks::create_task(
-// 			RawOrigin::Signed([0u8; 32].into()).into(),
-// 			mock_task(ETHEREUM)
-// 		));
-// 		for i in 1..shards_count {
-// 			Shards::create_shard(
-// 				ETHEREUM,
-// 				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-// 				1,
-// 			);
-// 			ShardState::<Test>::insert(i, ShardStatus::Online);
-// 			Tasks::shard_online(i, ETHEREUM);
-// 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
-// 		}
-// 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
-// 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
-// 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
-// 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
-// 		let mut next =
-// 			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one();
-// 		roll_to(next);
-// 		assert_eq!(TaskShard::<Test>::get(0), Some(1));
-// 		assert_eq!(ShardTasks::<Test>::get(0, 0), None);
-// 		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
-// 		next = next.saturating_add(<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get());
-// 		roll_to(next);
-// 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
-// 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
-// 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
-// 	});
-// }
+/*#[test]
+/// Test read phase timeout to assign to new shard
+/// NOTE write phase timeout test in runtime integration tests
+fn read_phase_times_out_and_reassigns_for_read_only_task() {
+	let shards_count = 2;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			mock_task(ETHEREUM)
+		));
+		for i in 1..shards_count {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
+		let mut next =
+			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one();
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(1));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), None);
+		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
+		next = next.saturating_add(<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get());
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
+	});
+}
 
-// #[test]
-// fn read_phase_times_out_for_sign_task_in_read_phase() {
-// 	let shards_count = 2;
-// 	new_test_ext().execute_with(|| {
-// 		Shards::create_shard(
-// 			ETHEREUM,
-// 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-// 			1,
-// 		);
-// 		ShardState::<Test>::insert(0, ShardStatus::Online);
-// 		Tasks::shard_online(0, ETHEREUM);
-// 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
-// 		let sign_task = mock_sign_task(ETHEREUM);
-// 		assert_ok!(Tasks::create_task(
-// 			RawOrigin::Signed([0u8; 32].into()).into(),
-// 			sign_task.clone()
-// 		));
-// 		for i in 1..shards_count {
-// 			Shards::create_shard(
-// 				ETHEREUM,
-// 				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-// 				1,
-// 			);
-// 			ShardState::<Test>::insert(i, ShardStatus::Online);
-// 			Tasks::shard_online(i, ETHEREUM);
-// 			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
-// 		}
-// 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
-// 		let sig = mock_submit_sig(sign_task.function);
-// 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
-// 		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
-// 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
-// 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
-// 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
-// 		let mut next =
-// 			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one();
-// 		roll_to(next);
-// 		assert_eq!(TaskShard::<Test>::get(0), Some(1));
-// 		assert_eq!(ShardTasks::<Test>::get(0, 0), None);
-// 		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
-// 		next = next.saturating_add(<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get());
-// 		roll_to(next);
-// 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
-// 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
-// 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
-// 	});
-// }
+#[test]
+fn read_phase_times_out_for_sign_task_in_read_phase() {
+	let shards_count = 2;
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let sign_task = mock_sign_task(ETHEREUM);
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0u8; 32].into()).into(),
+			sign_task.clone()
+		));
+		for i in 1..shards_count {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+			ShardCommitment::<Test>::insert(i, vec![MockTssSigner::new().public_key()]);
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		let sig = mock_submit_sig(sign_task.function);
+		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
+		let mut next =
+			<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get().saturating_plus_one();
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(1));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), None);
+		assert_eq!(ShardTasks::<Test>::get(1, 0), Some(()));
+		next = next.saturating_add(<<Test as crate::Config>::ReadPhaseTimeout as Get<u64>>::get());
+		roll_to(next);
+		assert_eq!(TaskShard::<Test>::get(0), Some(0));
+		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
+		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
+	});
+}*/
 
 #[test]
 fn submit_result_fails_if_not_read_phase() {

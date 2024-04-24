@@ -74,9 +74,7 @@ impl Dkg {
 				*round1_package.proof_of_knowledge(),
 			));
 		};
-		let Some(commitment) = self.commitment.as_ref() else {
-			return None;
-		};
+		let commitment = self.commitment.as_ref()?;
 		if !self.sent_round2_packages {
 			let mut msgs = Vec::with_capacity(self.members.len());
 			for peer in &self.members {

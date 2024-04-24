@@ -11,11 +11,13 @@ clap = { version = "4.4.2", features = [ "derive" ] }
 ethers-solc = "2.0.1"
 getrandom = "0.2.12"
 hex = "0.4.3"
+tabled = "0.15.0"
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
 serde_json = "1.0"
 sha3 = "0.10.8"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
+sysinfo = "0.30.10"
 tc-subxt = { path = "../tc-subxt"}
 time-primitives = { path = "../primitives" }
 tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread", "signal"]}

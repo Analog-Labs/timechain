@@ -70,6 +70,11 @@ interface IGateway {
     function deposit(bytes32 source, uint16 network) external payable;
 
     /**
+     * Returns the deposit of a source against its network id
+     */
+    function depositOf(bytes32 source, uint16 networkId) external view returns (uint256);
+
+    /**
      * Execute GMP message
      */
     function execute(Signature memory signature, GmpMessage memory message)

@@ -14833,6 +14833,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "frame-support",
  "frame-system",
  "futures",
  "hex",

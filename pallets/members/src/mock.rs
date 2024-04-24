@@ -1,6 +1,7 @@
 use crate::{self as pallet_members};
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
+use frame_support::weight::Weight;
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
@@ -17,7 +18,7 @@ pub struct MockShards;
 
 impl MemberEvents for MockShards {
 	fn member_online(_: &AccountId, _: NetworkId) {}
-	fn member_offline(_: &AccountId, _: NetworkId) {}
+	fn member_offline(_: &AccountId, _: NetworkId) -> Weight {}
 }
 
 frame_support::construct_runtime!(

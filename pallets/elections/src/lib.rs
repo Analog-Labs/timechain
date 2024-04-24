@@ -125,9 +125,11 @@ pub mod pallet {
 			}
 			T::Shards::member_online(member, network);
 		}
-		fn member_offline(member: &AccountId, network: NetworkId) {
+		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
 			Unassigned::<T>::remove(network, member);
-			T::Shards::member_offline(member, network);
+			T::DbWeight::get()
+				.writes(1)
+				.saturating_add(T::Shards::member_offline(member, network))
 		}
 	}
 

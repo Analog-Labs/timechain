@@ -291,13 +291,21 @@ pub mod pallet {
 			ShardState::<T>::insert(shard_id, new_status);
 		}
 
-		fn member_offline(id: &AccountId, _: NetworkId) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
+		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
+			let Some(shard_id) = MemberShard::<T>::get(id) else {
+				return T::DbWeight::get().reads(1);
+			};
+			let Some(old_status) = ShardState::<T>::get(shard_id) else {
+				return T::DbWeight::get().reads(2);
+			};
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
+				return T::DbWeight::get().reads(3);
+			};
 			let total_members = Self::get_shard_members(shard_id).len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
-			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
+			let Ok(max_members_offline) = max_members_offline.try_into() else {
+				return T::DbWeight::get().reads(4);
+			};
 			let new_status = old_status.offline_member(max_members_offline);
 			if matches!(new_status, ShardStatus::Offline)
 				&& !matches!(old_status, ShardStatus::Offline)
@@ -306,6 +314,8 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
+			// TODO: benchmark and use T::WeightInfo::member_offline()
+			T::DbWeight::get().writes(10)
 		}
 	}
 

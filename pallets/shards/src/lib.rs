@@ -220,8 +220,10 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
+			let mut reads = 0;
 			// use DkgTimeout instead
 			DkgTimeout::<T>::iter().for_each(|(shard_id, created_block)| {
+				reads += 1;
 				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
 					if let Some(status) = ShardState::<T>::get(shard_id) {
 						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
@@ -233,9 +235,12 @@ pub mod pallet {
 							writes += 5;
 						}
 					}
+					reads += 1;
 				}
 			});
-			T::DbWeight::get().writes(writes)
+			T::DbWeight::get()
+				.writes(writes)
+				.saturating_add(T::DbWeight::get().reads(reads))
 		}
 	}
 

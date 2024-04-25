@@ -111,4 +111,14 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(16))
 			.saturating_add(T::DbWeight::get().writes(15))
 	}
+	fn member_offline() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `609`
+		//  Estimated: `11499`
+		// Minimum execution time: 131_394_000 picoseconds.
+		Weight::from_parts(134_890_000, 0)
+			.saturating_add(Weight::from_parts(0, 11499))
+			.saturating_add(T::DbWeight::get().reads(16))
+			.saturating_add(T::DbWeight::get().writes(15))
+	}
 }

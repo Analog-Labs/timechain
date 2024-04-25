@@ -254,10 +254,6 @@ pub mod pallet {
 		WriteTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Send message task reward set for network
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
-		/// Task was assigned.
-		TaskAssigned(TaskId, ShardId),
-		/// Task was not assigned.
-		TaskUnassigned(TaskId, UnassignedReason),
 	}
 
 	#[pallet::error]
@@ -480,19 +476,22 @@ pub mod pallet {
 			if TaskOutput::<T>::get(task_id).is_some() {
 				return Ok(());
 			}
-			TaskOutput::<T>::insert(
-				task_id,
-				TaskResult {
-					shard_id: 0,
-					payload: Payload::Error("task cancelled by sudo".into()),
-					signature: [0; 64],
-				},
-			);
+			let result = TaskResult {
+				shard_id: 0,
+				payload: Payload::Error("task cancelled by sudo".into()),
+				signature: [0; 64],
+			};
+			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
 			} else {
 				UnassignedTasks::<T>::remove(task.network, task_id);
 			}
+			TaskPhaseState::<T>::remove(task_id);
+			TaskSigner::<T>::remove(task_id);
+			TaskSignature::<T>::remove(task_id);
+			TaskHash::<T>::remove(task_id);
+			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
 		}
 

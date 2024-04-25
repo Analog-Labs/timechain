@@ -39,6 +39,8 @@ pub mod pallet {
 		fn set_read_task_reward() -> Weight;
 		fn set_write_task_reward() -> Weight;
 		fn set_send_message_task_reward() -> Weight;
+		fn cancel_task() -> Weight;
+		fn reset_tasks() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -71,6 +73,14 @@ pub mod pallet {
 		}
 
 		fn set_send_message_task_reward() -> Weight {
+			Weight::default()
+		}
+
+		fn cancel_task() -> Weight {
+			Weight::default()
+		}
+
+		fn reset_tasks() -> Weight {
 			Weight::default()
 		}
 	}
@@ -459,6 +469,51 @@ pub mod pallet {
 			ensure_root(origin)?;
 			NetworkSendMessageReward::<T>::insert(network, amount);
 			Self::deposit_event(Event::SendMessageTaskRewardSet(network, amount));
+			Ok(())
+		}
+
+		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
+		pub fn cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
+			ensure_root(origin)?;
+			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			if TaskOutput::<T>::get(task_id).is_some() {
+				return Ok(());
+			}
+			TaskOutput::<T>::insert(
+				task_id,
+				TaskResult {
+					shard_id: 0,
+					payload: Payload::Error("task cancelled by sudo".into()),
+					signature: [0; 64],
+				},
+			);
+			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
+				ShardTasks::<T>::remove(shard_id, task_id);
+			} else {
+				UnassignedTasks::<T>::remove(task.network, task_id);
+			}
+			Ok(())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks())]
+		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			for (task_id, shard_id) in TaskShard::<T>::drain() {
+				ShardTasks::<T>::remove(shard_id, task_id);
+				if let Some(task) = Tasks::<T>::get(task_id) {
+					UnassignedTasks::<T>::insert(task.network, task_id, ());
+				}
+			}
+			for (_, task_id, _) in UnassignedTasks::<T>::iter() {
+				if let Some(task) = Tasks::<T>::get(task_id) {
+					TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
+				}
+			}
+			for (network, shard, _) in NetworkShards::<T>::iter() {
+				Self::schedule_tasks(network, Some(shard));
+			}
 			Ok(())
 		}
 	}

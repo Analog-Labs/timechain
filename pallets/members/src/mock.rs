@@ -18,7 +18,9 @@ pub struct MockShards;
 
 impl MemberEvents for MockShards {
 	fn member_online(_: &AccountId, _: NetworkId) {}
-	fn member_offline(_: &AccountId, _: NetworkId) -> Weight {}
+	fn member_offline(_: &AccountId, _: NetworkId) -> Weight {
+		Weight::default()
+	}
 }
 
 frame_support::construct_runtime!(

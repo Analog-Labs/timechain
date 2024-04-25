@@ -1,10 +1,18 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::{AtBlock, CallContract, CallResult};
+use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tester::{sleep_or_abort, GmpVotingContract, Network, Tester, VotingContract};
+use sysinfo::System;
+use tc_subxt::ext::futures::StreamExt;
+use tc_subxt::timechain_runtime::tasks::events;
+use tc_subxt::SubxtClient;
+use tester::{
+	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
+	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
+};
+use tokio::time::{interval_at, Instant};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -24,9 +32,6 @@ struct Args {
 	cmd: TestCommand,
 }
 
-// A fixed gas cost of executing the gateway contract
-const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
-
 #[derive(Parser, Debug)]
 enum TestCommand {
 	FundWallet,
@@ -43,20 +48,13 @@ enum TestCommand {
 		tasks: u64,
 	},
 	Gmp,
+	GmpBenchmark {
+		tasks: u64,
+		test_contract_addresses: Vec<String>,
+	},
 	TaskMigration,
 	KeyRecovery {
 		nodes: u8,
-	},
-	/// # Arguments:
-	/// * `env`: on which env to run local/staging.
-	/// * `tasks`: number of tasks to register at once.
-	/// * `cycle`: number of times to register task at once.
-	/// * `block_timeout`: total number of blocks after which stop watching
-	LatencyCheck {
-		env: Environment,
-		tasks: u64,
-		cycle: u64,
-		block_timeout: u64,
 	},
 }
 
@@ -85,6 +83,7 @@ async fn main() -> Result<()> {
 			tester[0].faucet().await;
 		},
 		TestCommand::SetupGmp { redeploy } => {
+			tester[0].faucet().await;
 			tester[0].setup_gmp(redeploy).await?;
 		},
 		TestCommand::WatchTask { task_id } => {
@@ -103,226 +102,203 @@ async fn main() -> Result<()> {
 		TestCommand::KeyRecovery { nodes } => {
 			chronicle_restart_test(&tester[0], &contract, nodes).await?;
 		},
-		TestCommand::LatencyCheck { .. } => todo!(),
-	}
-	Ok(())
-}
-
-/*async fn latency_checker(
-	tester: &Tester,
-	env: Environment,
-	tasks: u64,
-	rounds: u64,
-	block_timeout: u64,
-	contract: &Path,
-) -> Result<()> {
-	let mut overall_latencies = 0.0;
-	let mut overall_throughput = 0.0;
-
-	let mut rounds_future = Vec::new();
-	for c in 0..rounds {
-		let data = latency_cycle(tester, env.clone(), tasks, block_timeout, c, contract);
-		rounds_future.push(data);
-		// wait approximate block time;
-		tokio::time::sleep(Duration::from_secs(6)).await;
-	}
-
-	let cycles_data = join_all(rounds_future).await;
-
-	for data in cycles_data.into_iter().flatten() {
-		overall_latencies += data.0;
-		overall_throughput += data.1;
-	}
-
-	let average_latencies = overall_latencies / (rounds as f32);
-	println!(
-		"Average latency for round(s) {:?} of total {:?} tasks each is {:?} blocks per task",
-		rounds, tasks, average_latencies
-	);
-	let average_throughput = overall_throughput / (rounds as f32);
-	println!(
-		"Average Throughput for round(s) {:?} of total of {:?} tasks is {:?} tasks per block",
-		rounds, tasks, average_throughput
-	);
-	Ok(())
-}
-async fn latency_cycle(
-	tester: &Tester,
-	env: Environment,
-	total_tasks: u64,
-	block_timeout: u64,
-	round_num: u64,
-	contract: &Path,
-) -> Result<(f32, f32)> {
-	let gas_limit = 500_000;
-	let contract = match env {
-		Environment::Local => {
-			tester.faucet().await;
-			let gateway = tester.setup_gmp().await?;
-			let (contract_address, _) = tester.deploy(contract, &[]).await?;
-			tester
-				.deposit_funds(gateway, tester.network_id(), contract_address, gas_limit * 10_000)
+		TestCommand::GmpBenchmark { tasks, test_contract_addresses } => {
+			let contracts = if test_contract_addresses.len() >= 2 {
+				Some((test_contract_addresses[0].clone(), test_contract_addresses[1].clone()))
+			} else {
+				None
+			};
+			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
 				.await?;
-			contract_address
 		},
-		// you need to deposit gateway with below address otherwise it might give error:
-		// deposit below max refund
-		Environment::Staging => address!("b77791b3e38158475216dd4c0e2143b858188ba6").into(),
+	}
+	Ok(())
+}
+
+async fn gmp_benchmark(
+	timechain_url: &str,
+	src_tester: &Tester,
+	dest_tester: &Tester,
+	contract: &Path,
+	number_of_calls: u64,
+	test_contracts: Option<(String, String)>,
+) -> Result<()> {
+	println!("Running gmp benchmark for {:?} GMP calls", number_of_calls);
+
+	let mut sys = System::new_all();
+	let mut memory_usage = vec![];
+	let mut cpu_usage = vec![];
+
+	// Initialized it to get events from timechain
+	// SubxtClient client doesnt support exporting client to outer space
+	// doesnt want to modify it without asking David.
+	let subxt_client = SubxtClient::get_client(timechain_url).await?;
+
+	// gmp_bench_state to do analysis on data in the end
+	let mut bench_state = GmpBenchState::new(number_of_calls);
+
+	// check if deployed test contracts are already provided
+	let (src_contract, dest_contract, deposit_amount) = if let Some(test_contracts) = test_contracts
+	{
+		// if contracts are already deployed check the funds and add more funds in gateway contract if needed
+		setup_funds_if_needed(test_contracts, src_tester, dest_tester, number_of_calls as u128)
+			.await?
+	} else {
+		// if contracts are not provided deploy contracts and fund gmp contract
+		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128).await?
 	};
 
-	let mut registerations = vec![];
-	for _ in 0..total_tasks {
-		let send_msg =
-			tester.send_message(tester.network_id(), contract, contract, "vote_yes()", gas_limit);
-		registerations.push(send_msg);
-	}
+	bench_state.set_deposit(deposit_amount);
 
-	let mut task_ids: Vec<u64> = join_all(registerations)
-		.await
-		.into_iter()
-		.map(|result| result.unwrap())
-		.collect();
+	// get contract stats of src contract
+	let start_stats = stats(src_tester, src_contract, None).await?;
+	// get contract stats of destination contract
+	let dest_stats = stats(src_tester, src_contract, None).await?;
+	println!("stats in start: {:?}", start_stats);
 
-	let starting_block = tester.get_latest_block().await?;
-
-	let mut task_phases_data = HashMap::new();
-	for id in task_ids.clone().into_iter() {
-		task_phases_data.insert(id, TaskPhaseInfo::new(starting_block));
-	}
-
-	let mut finished_tasks = HashMap::new();
-	println!("starting block {:?}", starting_block);
-	while finished_tasks.len() < total_tasks as usize {
-		let current_block = tester.get_latest_block().await?;
-		let time_since_execution = current_block - starting_block;
-		if time_since_execution > block_timeout {
-			return Err(anyhow::anyhow!("Block Timeout"))?;
-		}
-
-		let status: Vec<_> = task_ids
-			.iter()
-			.map(|&id| async move {
-				(id, tester.get_task_phase(id).await, tester.is_task_finished(id).await)
-			})
-			.collect();
-		let results: Vec<(u64, TaskPhase, bool)> = join_all(status).await;
-
-		for (task_id, task_phase, is_completed) in results {
-			let task_info = task_phases_data.get_mut(&task_id).unwrap();
-			if is_completed {
-				task_info.task_finished(current_block);
-				finished_tasks.insert(task_id, time_since_execution);
-				let index = task_ids.iter().position(|x| *x == task_id).unwrap();
-				task_ids.remove(index);
-				continue;
-			}
-			match task_phase {
-				TaskPhase::Write => {
-					if task_info.write_phase_start.is_none() {
-						task_info.enter_write_phase(current_block);
-					}
-				},
-				TaskPhase::Read => {
-					if task_info.read_phase_start.is_none() {
-						task_info.enter_read_phase(current_block);
-					}
-				},
-				_ => {},
-			}
-		}
-
-		if finished_tasks.len() == total_tasks as usize {
-			break;
-		}
-
-		tokio::time::sleep(Duration::from_secs(6)).await;
-	}
-
-	let ending_block = tester.get_latest_block().await?;
-	let round_num = round_num + 1;
-	let total_block_time = ending_block - starting_block;
-
-	let write_latencies: Vec<u64> = task_phases_data
-		.values()
-		.filter_map(|info| info.write_phase_start.map(|start| start - info.start_block))
-		.collect();
-
-	let read_latencies: Vec<u64> = task_phases_data
-		.values()
-		.filter_map(|info| {
-			if let Some(read_start) = info.read_phase_start {
-				info.write_phase_start.map(|write_start| read_start - write_start)
-			} else {
-				None
-			}
-		})
-		.collect();
-
-	let finish_latencies: Vec<u64> = task_phases_data
-		.values()
-		.filter_map(|info| {
-			if let Some(finish_block) = info.finish_block {
-				info.read_phase_start.map(|read_start| finish_block - read_start)
-			} else {
-				None
-			}
-		})
-		.collect();
-
-	let total_latencies: Vec<u64> = finished_tasks.values().cloned().collect();
-
-	let average_write_latency =
-		write_latencies.iter().sum::<u64>() as f32 / write_latencies.len() as f32;
-	let average_read_latency =
-		read_latencies.iter().sum::<u64>() as f32 / read_latencies.len() as f32;
-	let average_finish_latency =
-		finish_latencies.iter().sum::<u64>() as f32 / finish_latencies.len() as f32;
-	let average_total_latency =
-		total_latencies.iter().sum::<u64>() as f32 / total_latencies.len() as f32;
-
-	let throughput = total_tasks as f32 / total_block_time as f32;
-
-	println!(
-		"Total block time taken by round {} of {} tasks is {} blocks",
-		round_num, total_tasks, total_block_time
-	);
-	println!(
-		"Average write phase latency for round {} is {} blocks per task",
-		round_num, average_write_latency
-	);
-	println!(
-		"Average read phase latency for round {} is {} blocks per task",
-		round_num, average_read_latency
-	);
-	println!(
-		"Average finish phase latency for round {} is {} blocks per task",
-		round_num, average_finish_latency
-	);
-	println!(
-		"Average total latency for round {} is {} blocks per task",
-		round_num, average_total_latency
-	);
-	println!("Throughput for round {} is {} tasks per block", round_num, throughput);
-	Ok((average_total_latency, throughput))
-}*/
-
-async fn test_setup(tester: &Tester, contract: &Path) -> Result<([u8; 20], [u8; 20], u64)> {
-	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false).await?;
-	let (contract, start_block) = tester
-		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
-		.await?;
-	tester
+	//get nonce of the caller to manage explicitly
+	let bytes = hex::decode(src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
+	let mut address_bytes = [0u8; 20];
+	address_bytes.copy_from_slice(&bytes[..20]);
+	let nonce = src_tester
 		.wallet()
-		.eth_send_call(
-			contract,
-			VotingContract::registerGmpContractsCall { _registered: vec![] }.abi_encode(),
-			0,
-			None,
-			None,
-		)
+		.query(GetTransactionCount {
+			address: address_bytes.into(),
+			block: AtBlock::Latest,
+		})
 		.await?;
-	Ok((gmp_contract, contract, start_block))
+
+	// make list of contract calls to initiate gmp tasks
+	let mut calls = Vec::new();
+	for i in 0..number_of_calls {
+		let nonce = nonce + i;
+		calls.push({
+			src_tester.wallet().eth_send_call(
+				src_contract,
+				VotingContract::voteCall { _vote: true }.abi_encode(),
+				0,
+				Some(nonce),
+				None,
+			)
+		});
+	}
+
+	// wait for calls in chunks
+	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
+	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
+	println!("tx hash for block {:?}", results.first().unwrap().receipt().unwrap().block_number);
+	let gas_amount_used = results
+		.iter()
+		.map(|result| {
+			let receipt = result.receipt().unwrap();
+			let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+			let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
+			gas_price.saturating_mul(gas_used)
+		})
+		.collect::<Vec<_>>();
+
+	// total gas fee for src_contract call
+	bench_state.insert_src_gas(gas_amount_used);
+
+	// start the timer for gmp execution
+	bench_state.start();
+
+	// Get last block result of contract stats
+	let last_result = results.last().unwrap().receipt().unwrap().block_number;
+
+	// get src contract result
+	let src_stats = stats(src_tester, src_contract, last_result).await?;
+	println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
+	assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
+
+	let mut block_stream = src_tester.finality_block_stream().await;
+	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
+
+	// loop to listen for task change and stats events from destination chain
+	loop {
+		let tasks_in_bench = bench_state.task_ids();
+		tokio::select! {
+			block = block_stream.next() => {
+				if let Some((block_hash, _)) = block {
+					let events = subxt_client.events().at(block_hash).await?;
+					let task_inserted_events = events.find::<events::TaskCreated>();
+					for task in task_inserted_events.flatten() {
+						let task_id = task.0;
+						let task_details = src_tester.get_task(task_id).await;
+						if let time_primitives::Function::SendMessage { msg } = task_details.function {
+							if msg.dest == dest_contract {
+								// GMP task found matching destination contract
+								bench_state.add_task(task_id);
+							}
+						};
+					}
+
+					// finish tasks
+					let task_result_submitted = events.find::<events::TaskResult>();
+					for task_result in task_result_submitted.flatten() {
+						let task_id = task_result.0;
+						if tasks_in_bench.contains(&task_id) {
+							bench_state.finish_task(task_id);
+						}
+					}
+					// update task phase
+					bench_state.sync_phase(src_tester).await;
+				}
+			}
+			_ = one_min_tick.tick() => {
+				let current = stats(dest_tester, dest_contract, None).await?;
+				if current != (dest_stats.0 + number_of_calls, dest_stats.1) {
+					println!(
+						"2: yes: {} no: {}, time_since_start: {}",
+						current.0,
+						current.1,
+						format_duration(bench_state.current_duration())
+					);
+				} else {
+					println!("contract updated, waiting for task to complete");
+				}
+
+				// compute memory usage
+				sys.refresh_memory();
+				let total_memory = sys.total_memory() as f64;
+				let used_memory = sys.used_memory() as f64;
+				let memory_usage_percent = (used_memory / total_memory) * 100.0;
+				memory_usage.push(memory_usage_percent);
+
+				// compute cpu usage
+				sys.refresh_cpu();
+				let cpu_count = sys.cpus().len() as f64;
+				let total_cpu_usage: f64 = sys.cpus().iter()
+						.map(|cpu| cpu.cpu_usage() as f64)
+						.fold(0.0, |acc, x| acc + x);
+				let average_cpu_usage = if cpu_count == 0.0  {
+					0.0
+				} else {
+					total_cpu_usage / cpu_count
+				};
+
+				cpu_usage.push(average_cpu_usage);
+
+				if bench_state.get_finished_tasks() == number_of_calls as usize {
+					break;
+				} else {
+					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());
+				}
+			}
+			_ = tokio::signal::ctrl_c() => {
+				println!("aborting...");
+				anyhow::bail!("abort");
+			}
+		}
+	}
+	bench_state.finish();
+	bench_state.print_analysis();
+	println!(
+		"Average memory consumed is {:.2}%",
+		memory_usage.iter().sum::<f64>() / memory_usage.len() as f64
+	);
+	println!("Average cpu usage is {:.2}%", cpu_usage.iter().sum::<f64>() / cpu_usage.len() as f64);
+	Ok(())
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
@@ -354,95 +330,10 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 }
 
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
-	src.faucet().await;
-	dest.faucet().await;
-	let src_gmp_contract = src.setup_gmp(false).await?;
-	let dest_gmp_contract = dest.setup_gmp(false).await?;
-	let (src_contract, _) = src
-		.deploy(
-			contract,
-			VotingContract::constructorCall {
-				_gateway: src_gmp_contract.into(),
-			},
-		)
-		.await?;
-	let (dest_contract, _) = dest
-		.deploy(
-			contract,
-			VotingContract::constructorCall {
-				_gateway: dest_gmp_contract.into(),
-			},
-		)
-		.await?;
-
-	let src_network = src.network_id();
-	let dest_network = dest.network_id();
-	src.wallet()
-		.eth_send_call(
-			src_contract,
-			VotingContract::registerGmpContractsCall {
-				_registered: vec![GmpVotingContract {
-					dest: dest_contract.into(),
-					network: dest_network,
-				}],
-			}
-			.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?;
-	let receipt = dest
-		.wallet()
-		.eth_send_call(
-			dest_contract,
-			VotingContract::registerGmpContractsCall {
-				_registered: vec![GmpVotingContract {
-					dest: src_contract.into(),
-					network: src_network,
-				}],
-			}
-			.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?
-		.receipt()
-		.unwrap()
-		.clone();
-
-	// Calculate the gas price based on the latest transaction
-	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-
-	// Get the GMP_GAS_LIMIT from the VotingContract
-	let gmp_gas_limit = {
-		let result = src
-			.wallet()
-			.query(CallContract {
-				from: None,
-				to: src_contract.into(),
-				value: 0.into(),
-				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
-				block: AtBlock::Latest,
-			})
-			.await?;
-		match result {
-			CallResult::Success(payload) => {
-				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
-			},
-			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
-		}
-	};
-
-	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
-	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
-	let deposit_amount = gas_price.saturating_mul(gmp_gas_limit).saturating_mul(12) / 10; // 20% more, in case of the gas price increase
-
-	dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
-		.await?;
+	let (src_contract, dest_contract, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
 
 	println!("submitting vote");
+	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
 	let res = src
 		.wallet()
 		.eth_send_call(
@@ -455,19 +346,6 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 		.await?;
 	let block = res.receipt().unwrap().block_number.unwrap();
 	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());
-
-	async fn stats(tester: &Tester, contract: [u8; 20], block: Option<u64>) -> Result<(u64, u64)> {
-		let block =
-			if let Some(block) = block { block } else { tester.wallet().status().await?.index };
-		let call = VotingContract::statsCall {};
-		let stats =
-			tester.wallet().eth_view_call(contract, call.abi_encode(), block.into()).await?;
-		let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
-		let stats = VotingContract::statsCall::abi_decode_returns(&stats, true)?._0;
-		let yes_votes = stats[0].try_into().unwrap();
-		let no_votes = stats[1].try_into().unwrap();
-		Ok((yes_votes, no_votes))
-	}
 
 	let target = stats(src, src_contract, Some(block)).await?;
 	println!("1: yes: {} no: {}", target.0, target.1);

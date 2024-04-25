@@ -96,6 +96,7 @@ sol! {
 		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
 		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
 		function deposit(bytes32 source, uint16 network) public payable;
+		function depositOf(bytes32 source, uint16 networkId) external view returns (uint256);
 	}
 }
 

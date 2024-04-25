@@ -107,7 +107,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::ShardRegistered` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::UnassignedTasks` (r:1 w:0)
 	/// Proof: `Tasks::UnassignedTasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn submit_result() -> Weight {
+	fn submit_result(_: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1226`
 		//  Estimated: `12116`
@@ -259,5 +259,11 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(12_464_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn cancel_task() -> Weight {
+		Weight::default()
+	}
+	fn reset_tasks() -> Weight {
+		Weight::default()
 	}
 }

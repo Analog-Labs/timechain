@@ -27,6 +27,7 @@ pub mod pallet {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
+		fn member_offline() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -39,6 +40,10 @@ pub mod pallet {
 		}
 
 		fn force_shard_offline() -> Weight {
+			Weight::default()
+		}
+
+		fn member_offline() -> Weight {
 			Weight::default()
 		}
 	}
@@ -314,8 +319,7 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
-			// TODO: benchmark and use T::WeightInfo::member_offline()
-			T::DbWeight::get().writes(10)
+			T::WeightInfo::member_offline()
 		}
 	}
 

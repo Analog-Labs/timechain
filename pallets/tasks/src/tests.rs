@@ -1589,11 +1589,17 @@ fn cancel_task_sets_task_output_to_err() {
 			Tasks::shard_online(i, ETHEREUM);
 		}
 		for (task_id, _) in crate::Tasks::<Test>::iter() {
+			let shard_id = if let Some(s) = crate::TaskShard::<Test>::get(task_id) {
+				s
+			} else {
+				// 0 only if unassigned at cancellation
+				0
+			};
 			assert_ok!(Tasks::sudo_cancel_task(RawOrigin::Root.into(), task_id));
 			assert_eq!(
 				TaskOutput::<Test>::get(task_id),
 				Some(TaskResult {
-					shard_id: 0,
+					shard_id,
 					payload: Payload::Error("task cancelled by sudo".into()),
 					signature: [0u8; 64],
 				})

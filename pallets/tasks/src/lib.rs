@@ -740,12 +740,19 @@ pub mod pallet {
 		}
 
 		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
+			let shard_id = if let Some(shard_id) = TaskShard::<T>::take(task_id) {
+				ShardTasks::<T>::remove(shard_id, task_id);
+				shard_id
+			} else {
+				// 0 only if unassigned at cancellation
+				0
+			};
 			let result = TaskResult {
-				shard_id: 0,
+				shard_id,
 				payload: Payload::Error("task cancelled by sudo".into()),
 				signature: [0; 64],
 			};
-			Self::finish_task(task_id, result.clone());
+			TaskOutput::<T>::insert(task_id, result.clone());
 			UnassignedTasks::<T>::remove(task_network, task_id);
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);

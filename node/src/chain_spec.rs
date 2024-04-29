@@ -160,12 +160,18 @@ impl GenesisKeysConfig {
 		properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 		properties.insert("ss58Format".into(), SS_58_FORMAT.into());
 
-		// Setup default telemetry server
-		let telemetry = TelemetryEndpoints::new(vec![(
-			DEFAULT_TELEMETRY_URL.to_string(),
-			DEFAULT_TELEMETRY_LEVEL,
-		)])
-		.expect("Default telemetry url is valid");
+		// Add default telemetry for all deployed networks
+		let telemetry = if chain_type != ChainType::Local {
+			Some(
+				TelemetryEndpoints::new(vec![(
+					DEFAULT_TELEMETRY_URL.to_string(),
+					DEFAULT_TELEMETRY_LEVEL,
+				)])
+				.expect("Default telemetry url is valid"),
+			)
+		} else {
+			None
+		};
 
 		// Convert endowments in config according to token decimals
 		let mut endowments = self
@@ -313,15 +319,21 @@ impl GenesisKeysConfig {
 			},
 		});
 
-		// Put it all together to generate chain spec
-		Ok(ChainSpec::builder(wasm_binary, None)
+		// Put it all together ...
+		let mut builder = ChainSpec::builder(wasm_binary, None)
 			.with_name(&name)
 			.with_id(id)
 			.with_protocol_id(id)
 			.with_chain_type(chain_type)
 			.with_properties(properties)
-			.with_telemetry_endpoints(telemetry)
-			.with_genesis_config_patch(genesis_patch)
-			.build())
+			.with_genesis_config_patch(genesis_patch);
+
+		// ... and add optional telemetry
+		if let Some(endpoints) = telemetry {
+			builder = builder.with_telemetry_endpoints(endpoints);
+		}
+
+		// ... to generate chain spec
+		Ok(builder.build())
 	}
 }

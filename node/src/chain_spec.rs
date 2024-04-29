@@ -1,7 +1,7 @@
 use convert_case::{Case, Casing};
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sc_service::ChainType;
+use sc_service::{config::TelemetryEndpoints, ChainType};
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
@@ -39,9 +39,12 @@ const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 const SUDO_SUPPLY: Balance = ANLOG * 50_000;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
-
 /// Minimum needed validators, currently lowered for testing environments
 const MIN_VALIDATOR_COUNT: u32 = 1;
+
+/// Default telemetry server for all networks
+const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
+const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
@@ -151,11 +154,18 @@ impl GenesisKeysConfig {
 			_ => return Err("Unsupported chain type".to_string()),
 		};
 
-		// Give your base currency a unit name and decimal places
+		// Setup base currency unit name and decimal places
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("tokenSymbol".into(), token_symbol.into());
 		properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
 		properties.insert("ss58Format".into(), SS_58_FORMAT.into());
+
+		// Setup default telemetry server
+		let telemetry = TelemetryEndpoints::new(vec![(
+			DEFAULT_TELEMETRY_URL.to_string(),
+			DEFAULT_TELEMETRY_LEVEL,
+		)])
+		.expect("Default telemetry url is valid");
 
 		// Convert endowments in config according to token decimals
 		let mut endowments = self
@@ -310,6 +320,7 @@ impl GenesisKeysConfig {
 			.with_protocol_id(id)
 			.with_chain_type(chain_type)
 			.with_properties(properties)
+			.with_telemetry_endpoints(telemetry)
 			.with_genesis_config_patch(genesis_patch)
 			.build())
 	}

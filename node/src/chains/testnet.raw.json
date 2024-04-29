@@ -6,7 +6,12 @@
     "/dns/bootnode-1.testnet.analog.one/tcp/30333/ws/p2p/12D3KooWCBYeyrxGref7xs6s5W2hDu8po8GG4B8ApxqR6RG8RRW5",
     "/dns/bootnode-2.testnet.analog.one/tcp/30334/ws/p2p/12D3KooWQcuGD4sqcqPX2G8DcZpmSaLgnF5NjeCxf9NCL2oof5Ec"
   ],
-  "telemetryEndpoints": null,
+  "telemetryEndpoints": [
+    [
+      "wss://telemetry.analog.one/submit",
+      1
+    ]
+  ],
   "protocolId": "anlogcc1",
   "properties": {
     "ss58Format": 12850,

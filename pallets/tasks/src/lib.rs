@@ -41,6 +41,7 @@ pub mod pallet {
 		fn set_send_message_task_reward() -> Weight;
 		fn cancel_task() -> Weight;
 		fn reset_tasks() -> Weight;
+		fn set_shard_task_limit() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -81,6 +82,10 @@ pub mod pallet {
 		}
 
 		fn reset_tasks() -> Weight {
+			Weight::default()
+		}
+
+		fn set_shard_task_limit() -> Weight {
 			Weight::default()
 		}
 	}
@@ -128,6 +133,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, NetworkId, Blake2_128Concat, TaskId, (), OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn shard_task_limit)]
+	pub type ShardTaskLimit<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
@@ -254,6 +264,8 @@ pub mod pallet {
 		WriteTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Send message task reward set for network
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
+		/// Set the maximum number of assigned tasks for all shards on the network
+		ShardTaskLimitSet(NetworkId, u64),
 	}
 
 	#[pallet::error]
@@ -503,6 +515,21 @@ pub mod pallet {
 			for (network, shard, _) in NetworkShards::<T>::iter() {
 				Self::schedule_tasks(network, Some(shard));
 			}
+			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_shard_task_limit())]
+		pub fn set_shard_task_limit(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			limit: u64,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			// TODO: if new_limit < old_limit, shards should not be assigned
+			// tasks until number of tasks assigned are less than the new_limit
+			ShardTaskLimit::<T>::insert(network, limit);
+			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
 			Ok(())
 		}
 	}

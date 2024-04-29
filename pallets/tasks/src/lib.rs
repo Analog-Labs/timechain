@@ -321,10 +321,7 @@ pub mod pallet {
 			ensure!(result.shard_id == shard_id, Error::<T>::InvalidOwner);
 			let bytes = result.payload.bytes(task_id);
 			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
-			TaskOutput::<T>::insert(task_id, result.clone());
-			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-				ShardTasks::<T>::remove(shard_id, task_id);
-			}
+			Self::finish_task(task_id, result.clone());
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
@@ -473,20 +470,13 @@ pub mod pallet {
 		pub fn cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if TaskOutput::<T>::get(task_id).is_some() {
-				return Ok(());
-			}
 			let result = TaskResult {
 				shard_id: 0,
 				payload: Payload::Error("task cancelled by sudo".into()),
 				signature: [0; 64],
 			};
-			TaskOutput::<T>::insert(task_id, result.clone());
-			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-				ShardTasks::<T>::remove(shard_id, task_id);
-			} else {
-				UnassignedTasks::<T>::remove(task.network, task_id);
-			}
+			Self::finish_task(task_id, result.clone());
+			UnassignedTasks::<T>::remove(task.network, task_id);
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);
@@ -627,7 +617,7 @@ pub mod pallet {
 			for (task_id, task) in Tasks::<T>::iter() {
 				if let Function::RegisterShard { shard_id: s } = task.function {
 					if s == shard_id {
-						TaskOutput::<T>::insert(
+						Self::finish_task(
 							task_id,
 							TaskResult {
 								shard_id,
@@ -735,6 +725,13 @@ pub mod pallet {
 			PhaseStart::<T>::insert(task_id, phase, block);
 			if phase == TaskPhase::Write {
 				TaskSigner::<T>::insert(task_id, T::Shards::next_signer(shard_id));
+			}
+		}
+
+		fn finish_task(task_id: TaskId, result: TaskResult) {
+			TaskOutput::<T>::insert(task_id, result);
+			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
+				ShardTasks::<T>::remove(shard_id, task_id);
 			}
 		}
 

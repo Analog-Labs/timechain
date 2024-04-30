@@ -229,7 +229,6 @@ async fn gmp_benchmark(
 
 	// loop to listen for task change and stats events from destination chain
 	loop {
-		let tasks_in_bench = bench_state.task_ids();
 		tokio::select! {
 			block = block_stream.next() => {
 				if let Some((block_hash, _)) = block {
@@ -239,18 +238,20 @@ async fn gmp_benchmark(
 						let task_id = task.0;
 						let task_details = src_tester.get_task(task_id).await;
 						match task_details.function {
+							// send message task inserted verify if it contains our testing contract
 							time_primitives::Function::SendMessage { msg } => {
 								if msg.dest == dest_contract {
 									// GMP task found matching destination contract
 									bench_state.add_task(task_id);
 								}
 							},
+							// read message task inserted, verify if it contains our gmp tx block number
 							time_primitives::Function::ReadMessages { batch_size } => {
 								let start_block = task_details.start - (batch_size.get() - 1);
 								for item in start_block..task_details.start + 1 {
 									let count = all_gmp_blocks.iter().filter(|block| *block == &item).count();
 									if count > 0 {
-										println!("Timechain received tasks for {:?} gmp receive task in {:?}", count, bench_state.current_duration());
+										bench_state.add_recv_task(task_id, count as u64);
 									}
 								}
 							},
@@ -262,7 +263,7 @@ async fn gmp_benchmark(
 					let task_result_submitted = events.find::<events::TaskResult>();
 					for task_result in task_result_submitted.flatten() {
 						let task_id = task_result.0;
-						if tasks_in_bench.contains(&task_id) {
+						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
 							bench_state.finish_task(task_id);
 						}
 					}

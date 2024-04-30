@@ -41,6 +41,7 @@ pub mod pallet {
 		fn set_send_message_task_reward() -> Weight;
 		fn cancel_task() -> Weight;
 		fn reset_tasks() -> Weight;
+		fn unregister_gateways() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -81,6 +82,10 @@ pub mod pallet {
 		}
 
 		fn reset_tasks() -> Weight {
+			Weight::default()
+		}
+
+		fn unregister_gateways() -> Weight {
 			Weight::default()
 		}
 	}
@@ -231,13 +236,6 @@ pub mod pallet {
 		BalanceOf<T>,
 		ValueQuery,
 	>;
-
-	#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
-	pub enum UnassignedReason {
-		NoShardOnline,
-		NoShardWithRequestedMembers,
-		NoRegisteredShard,
-	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -506,6 +504,27 @@ pub mod pallet {
 			}
 			for (network, shard, _) in NetworkShards::<T>::iter() {
 				Self::schedule_tasks(network, Some(shard));
+			}
+			Ok(())
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
+		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			Gateway::<T>::drain();
+			ShardRegistered::<T>::drain();
+			for (task_id, task) in Tasks::<T>::iter() {
+				if let Function::ReadMessages { .. } = task.function {
+					Self::finish_task(
+						task_id,
+						TaskResult {
+							shard_id: 0,
+							payload: Payload::Error("shard offline or gateway changed".into()),
+							signature: [0u8; 64],
+						},
+					);
+				}
 			}
 			Ok(())
 		}

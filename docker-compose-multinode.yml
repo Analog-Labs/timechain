@@ -69,8 +69,8 @@ services:
     - validator
     - ethereum
     volumes:
-    - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    - './config/wallets/one:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -93,8 +93,8 @@ services:
     - validator
     - ethereum
     volumes:
-    - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    - './config/wallets/two:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -117,8 +117,8 @@ services:
     - validator
     - ethereum
     volumes:
-    - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile3:/etc/timechain_keyfile:ro'
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    - './config/wallets/three:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -148,7 +148,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile4:/etc/timechain_keyfile:ro'
+    - './config/wallets/four:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -176,7 +176,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile5:/etc/timechain_keyfile:ro'
+    - './config/wallets/five:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -204,7 +204,7 @@ services:
     - astar
     volumes:
     - './config/wallets/keyfile:/etc/keyfile:ro'
-    - './config/wallets/timechain_keyfile6:/etc/timechain_keyfile:ro'
+    - './config/wallets/six:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

@@ -4,7 +4,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_service::{config::TelemetryEndpoints, ChainType};
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::crypto::UncheckedInto;
+use sp_core::{crypto::UncheckedInto, hex2array};
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 use timechain_runtime::{
@@ -39,12 +39,23 @@ const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 const SUDO_SUPPLY: Balance = ANLOG * 50_000;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
+
 /// Minimum needed validators, currently lowered for testing environments
 const MIN_VALIDATOR_COUNT: u32 = 1;
 
 /// Default telemetry server for all networks
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
+
+/// Additional development keys used for chronicles
+const THREE: [u8; 32] =
+	hex2array!("9026941b7aa2328a8c5ea4e25bb747a2bf92a066fae0cc3722faf58cf44d3502");
+const FOUR: [u8; 32] =
+	hex2array!("4017e17f10cc5a98731de9f020dbb37986f6e575789152d7fadae2b32eea6c13");
+const FIVE: [u8; 32] =
+	hex2array!("b0521e374b0586d6829dad320753c62cdc6ef5edbd37ffdd36da0ae97c521819");
+const SIX: [u8; 32] =
+	hex2array!("1880104772db7b947f3f8ccdcab3650d7179c44551d22dd0cca5dc852a140563");
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
@@ -93,7 +104,14 @@ impl Default for GenesisKeysConfig {
 					Bob.to_raw_public().unchecked_into(),
 				),
 			],
-			chronicles: vec![One.into(), Two.into()],
+			chronicles: vec![
+				One.into(),
+				Two.into(),
+				THREE.into(),
+				FOUR.into(),
+				FIVE.into(),
+				SIX.into(),
+			],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
 			councils: vec![Bob.into(), Charlie.into(), Dave.into(), Eve.into(), Ferdie.into()],

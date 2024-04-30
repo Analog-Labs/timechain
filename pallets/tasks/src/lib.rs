@@ -514,7 +514,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Gateway::<T>::drain();
 			ShardRegistered::<T>::drain();
-			for (task_id, task) in Tasks::<T>::iter() {
+			Self::filter_tasks(|task_id| {
+				let Some(task) = Tasks::<T>::get(task_id) else {
+					return;
+				};
 				if let Function::ReadMessages { .. } = task.function {
 					Self::finish_task(
 						task_id,
@@ -525,7 +528,7 @@ pub mod pallet {
 						},
 					);
 				}
-			}
+			});
 			Ok(())
 		}
 	}
@@ -624,6 +627,15 @@ pub mod pallet {
 			.expect("task funded through inflation");
 		}
 
+		fn filter_tasks<F: Fn(TaskId)>(f: F) {
+			for (_network, task_id, _) in UnassignedTasks::<T>::iter() {
+				f(task_id);
+			}
+			for (_shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				f(task_id);
+			}
+		}
+
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
@@ -637,21 +649,23 @@ pub mod pallet {
 				.expect("task funded through inflation");
 				return;
 			}
-			for (task_id, task) in Tasks::<T>::iter() {
+			Self::filter_tasks(|task_id| {
+				let Some(task) = Tasks::<T>::get(task_id) else {
+					return;
+				};
 				if let Function::RegisterShard { shard_id: s } = task.function {
 					if s == shard_id {
 						Self::finish_task(
 							task_id,
 							TaskResult {
-								shard_id,
+								shard_id: 0,
 								payload: Payload::Error("shard offline or gateway changed".into()),
 								signature: [0u8; 64],
 							},
 						);
-						return;
 					}
 				}
-			}
+			});
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {

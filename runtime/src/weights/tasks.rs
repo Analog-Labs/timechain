@@ -233,4 +233,8 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	fn reset_tasks() -> Weight {
 		Weight::from_parts(0, 0)
 	}
+
+	fn unregister_gateways() -> Weight {
+		Weight::from_parts(0, 0)
+	}
 }

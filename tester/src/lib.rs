@@ -439,6 +439,7 @@ pub struct GmpBenchState {
 	gmp_start_time: Instant,
 	gmp_execution_duration: Duration,
 	pub tasks: HashMap<TaskId, TaskPhaseInfo>,
+	recv_tasks: Vec<TaskId>,
 	total_src_gas: Vec<u128>,
 }
 
@@ -450,6 +451,7 @@ impl GmpBenchState {
 			gmp_execution_duration: Duration::from_secs(0),
 			total_deposit: Default::default(),
 			tasks: HashMap::with_capacity(total_calls as usize),
+			recv_tasks: Default::default(),
 			total_src_gas: Vec::with_capacity(total_calls as usize),
 		}
 	}
@@ -542,7 +544,10 @@ impl GmpBenchState {
 			})
 			.collect();
 
-		for item in all_task_phase_duration.clone() {
+		let mut sorted_all_task_phase_duration = all_task_phase_duration;
+		sorted_all_task_phase_duration.sort_by_key(|&(k, _, _, _)| k);
+
+		for item in sorted_all_task_phase_duration.clone() {
 			builder.push_record([
 				format!("{}", item.0),
 				format!("{}", item.1),

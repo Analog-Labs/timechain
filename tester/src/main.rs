@@ -194,6 +194,10 @@ async fn gmp_benchmark(
 
 	// wait for calls in chunks
 	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
+	let all_gmp_blocks = results
+		.iter()
+		.map(|item| item.receipt().unwrap().block_number.unwrap())
+		.collect::<Vec<_>>();
 	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
 	println!("tx hash for block {:?}", results.first().unwrap().receipt().unwrap().block_number);
 	let gas_amount_used = results
@@ -234,12 +238,24 @@ async fn gmp_benchmark(
 					for task in task_inserted_events.flatten() {
 						let task_id = task.0;
 						let task_details = src_tester.get_task(task_id).await;
-						if let time_primitives::Function::SendMessage { msg } = task_details.function {
-							if msg.dest == dest_contract {
-								// GMP task found matching destination contract
-								bench_state.add_task(task_id);
-							}
-						};
+						match task_details.function {
+							time_primitives::Function::SendMessage { msg } => {
+								if msg.dest == dest_contract {
+									// GMP task found matching destination contract
+									bench_state.add_task(task_id);
+								}
+							},
+							time_primitives::Function::ReadMessages { batch_size } => {
+								let start_block = task_details.start - (batch_size.get() - 1);
+								for item in start_block..task_details.start + 1 {
+									let count = all_gmp_blocks.iter().filter(|block| *block == &item).count();
+									if count > 0 {
+										println!("Timechain received tasks for {:?} gmp receive task in {:?}", count, bench_state.current_duration());
+									}
+								}
+							},
+							_ => {},
+						}
 					}
 
 					// finish tasks

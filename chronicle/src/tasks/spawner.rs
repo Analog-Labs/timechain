@@ -168,11 +168,6 @@ where
 					anyhow::bail!("no gateway registered: skipped reading messages");
 				};
 				// gets gmp created events form contract and then convert it to a `Msg`
-				println!(
-					"range for fetching blocks is from {:?} to {:?}",
-					NonZeroU64::new(target_block_number - batch_size.get() + 1),
-					target_block_number
-				);
 				let logs: Vec<_> = self
 					.get_gmp_events_at(
 						gateway_contract,
@@ -224,7 +219,6 @@ where
 		function: Function,
 		block_num: BlockNumber,
 	) -> Result<()> {
-		tracing::info!("========== executing task_id {:?}", task_id);
 		let result = self.execute_function(&function, target_block).await.map_err(|err| {
 			tracing::error!("{:#?}", err);
 			format!("{err}")

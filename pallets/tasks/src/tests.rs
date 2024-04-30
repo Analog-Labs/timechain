@@ -1574,3 +1574,30 @@ fn register_gateway_fails_previous_shard_registration_tasks() {
 		}
 	});
 }
+
+#[test]
+fn cancel_task_sets_task_output_to_err() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 5;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		for (task_id, _) in crate::Tasks::<Test>::iter() {
+			assert_ok!(Tasks::sudo_cancel_task(RawOrigin::Root.into(), task_id));
+			assert_eq!(
+				TaskOutput::<Test>::get(task_id),
+				Some(TaskResult {
+					shard_id: 0,
+					payload: Payload::Error("task cancelled by sudo".into()),
+					signature: [0u8; 64],
+				})
+			);
+		}
+	});
+}

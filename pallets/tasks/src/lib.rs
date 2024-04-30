@@ -467,21 +467,25 @@ pub mod pallet {
 
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
-		pub fn cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
+		pub fn sudo_cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let result = TaskResult {
-				shard_id: 0,
-				payload: Payload::Error("task cancelled by sudo".into()),
-				signature: [0; 64],
-			};
-			Self::finish_task(task_id, result.clone());
-			UnassignedTasks::<T>::remove(task.network, task_id);
-			TaskPhaseState::<T>::remove(task_id);
-			TaskSigner::<T>::remove(task_id);
-			TaskSignature::<T>::remove(task_id);
-			TaskHash::<T>::remove(task_id);
-			Self::deposit_event(Event::TaskResult(task_id, result));
+			Self::cancel_task(task_id, task.network);
+			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
+		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			for (network, task_id, _) in UnassignedTasks::<T>::iter() {
+				Self::cancel_task(task_id, network);
+			}
+			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				if let Some(network) = T::Shards::shard_network(shard_id) {
+					Self::cancel_task(task_id, network);
+				}
+			}
 			Ok(())
 		}
 
@@ -733,6 +737,21 @@ pub mod pallet {
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
 			}
+		}
+
+		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
+			let result = TaskResult {
+				shard_id: 0,
+				payload: Payload::Error("task cancelled by sudo".into()),
+				signature: [0; 64],
+			};
+			Self::finish_task(task_id, result.clone());
+			UnassignedTasks::<T>::remove(task_network, task_id);
+			TaskPhaseState::<T>::remove(task_id);
+			TaskSigner::<T>::remove(task_id);
+			TaskSignature::<T>::remove(task_id);
+			TaskHash::<T>::remove(task_id);
+			Self::deposit_event(Event::TaskResult(task_id, result));
 		}
 
 		fn validate_signature(

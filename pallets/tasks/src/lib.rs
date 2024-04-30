@@ -512,8 +512,8 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
 		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
-			for _ in Gateway::<T>::drain() {}
-			for _ in ShardRegistered::<T>::drain() {}
+			let _ = Gateway::<T>::clear(u32::MAX, None);
+			let _ = ShardRegistered::<T>::clear(u32::MAX, None);
 			Self::filter_tasks(|task_id| {
 				let Some(task) = Tasks::<T>::get(task_id) else {
 					return;

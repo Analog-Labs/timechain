@@ -41,6 +41,7 @@ pub mod pallet {
 		fn set_send_message_task_reward() -> Weight;
 		fn cancel_task() -> Weight;
 		fn reset_tasks() -> Weight;
+		fn unregister_gateways() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -81,6 +82,10 @@ pub mod pallet {
 		}
 
 		fn reset_tasks() -> Weight {
+			Weight::default()
+		}
+
+		fn unregister_gateways() -> Weight {
 			Weight::default()
 		}
 	}
@@ -231,13 +236,6 @@ pub mod pallet {
 		BalanceOf<T>,
 		ValueQuery,
 	>;
-
-	#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
-	pub enum UnassignedReason {
-		NoShardOnline,
-		NoShardWithRequestedMembers,
-		NoRegisteredShard,
-	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -509,6 +507,30 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
+		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			Gateway::<T>::drain();
+			ShardRegistered::<T>::drain();
+			Self::filter_tasks(|task_id| {
+				let Some(task) = Tasks::<T>::get(task_id) else {
+					return;
+				};
+				if let Function::ReadMessages { .. } = task.function {
+					Self::finish_task(
+						task_id,
+						TaskResult {
+							shard_id: 0,
+							payload: Payload::Error("shard offline or gateway changed".into()),
+							signature: [0u8; 64],
+						},
+					);
+				}
+			});
+			Ok(())
+		}
 	}
 
 	/*#[pallet::hooks]
@@ -605,6 +627,15 @@ pub mod pallet {
 			.expect("task funded through inflation");
 		}
 
+		fn filter_tasks<F: Fn(TaskId)>(f: F) {
+			for (_network, task_id, _) in UnassignedTasks::<T>::iter() {
+				f(task_id);
+			}
+			for (_shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				f(task_id);
+			}
+		}
+
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
@@ -618,21 +649,23 @@ pub mod pallet {
 				.expect("task funded through inflation");
 				return;
 			}
-			for (task_id, task) in Tasks::<T>::iter() {
+			Self::filter_tasks(|task_id| {
+				let Some(task) = Tasks::<T>::get(task_id) else {
+					return;
+				};
 				if let Function::RegisterShard { shard_id: s } = task.function {
 					if s == shard_id {
 						Self::finish_task(
 							task_id,
 							TaskResult {
-								shard_id,
+								shard_id: 0,
 								payload: Payload::Error("shard offline or gateway changed".into()),
 								signature: [0u8; 64],
 							},
 						);
-						return;
 					}
 				}
-			}
+			});
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {

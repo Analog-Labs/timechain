@@ -1595,6 +1595,33 @@ fn set_shard_task_limit_updates_storage_and_emits_event() {
 }
 
 #[test]
+fn cancel_task_sets_task_output_to_err() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 5;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		for (task_id, _) in crate::Tasks::<Test>::iter() {
+			assert_ok!(Tasks::sudo_cancel_task(RawOrigin::Root.into(), task_id));
+			assert_eq!(
+				TaskOutput::<Test>::get(task_id),
+				Some(TaskResult {
+					shard_id: 0,
+					payload: Payload::Error("task cancelled by sudo".into()),
+					signature: [0u8; 64],
+				})
+			);
+		}
+	});
+}
+
+#[test]
 fn set_shard_task_limit_successfully_limits_task_assignment() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(
@@ -1627,5 +1654,65 @@ fn set_shard_task_limit_successfully_limits_task_assignment() {
 		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 6);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 6));
+	});
+}
+
+#[test]
+fn unregister_gateways_removes_all_gateways_and_shard_registrations() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 5;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
+		assert_eq!(Gateway::<Test>::get(ETHEREUM), Some([0u8; 20]));
+		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into()));
+		assert_eq!(ShardRegistered::<Test>::get(0), None);
+		assert_eq!(Gateway::<Test>::get(ETHEREUM), None);
+	});
+}
+
+#[test]
+fn unregister_gateways_sets_all_read_task_outputs_to_err() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 5;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0u8; 32].into()).into(),
+				mock_task(ETHEREUM)
+			));
+		}
+		let mut expected_failed_tasks = Vec::new();
+		for (task_id, task) in crate::Tasks::<Test>::iter() {
+			if let Function::ReadMessages { .. } = task.function {
+				expected_failed_tasks.push(task_id);
+			}
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into()));
+		for task_id in expected_failed_tasks.iter() {
+			assert_eq!(
+				TaskOutput::<Test>::get(task_id),
+				Some(TaskResult {
+					shard_id: 0,
+					payload: Payload::Error("shard offline or gateway changed".into()),
+					signature: [0u8; 64],
+				})
+			);
+		}
 	});
 }

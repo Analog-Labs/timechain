@@ -42,6 +42,7 @@ pub mod pallet {
 		fn cancel_task() -> Weight;
 		fn reset_tasks() -> Weight;
 		fn set_shard_task_limit() -> Weight;
+		fn unregister_gateways() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -86,6 +87,10 @@ pub mod pallet {
 		}
 
 		fn set_shard_task_limit() -> Weight {
+			Weight::default()
+		}
+
+		fn unregister_gateways() -> Weight {
 			Weight::default()
 		}
 	}
@@ -241,13 +246,6 @@ pub mod pallet {
 		BalanceOf<T>,
 		ValueQuery,
 	>;
-
-	#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
-	pub enum UnassignedReason {
-		NoShardOnline,
-		NoShardWithRequestedMembers,
-		NoRegisteredShard,
-	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -479,21 +477,25 @@ pub mod pallet {
 
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
-		pub fn cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
+		pub fn sudo_cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			let result = TaskResult {
-				shard_id: 0,
-				payload: Payload::Error("task cancelled by sudo".into()),
-				signature: [0; 64],
-			};
-			Self::finish_task(task_id, result.clone());
-			UnassignedTasks::<T>::remove(task.network, task_id);
-			TaskPhaseState::<T>::remove(task_id);
-			TaskSigner::<T>::remove(task_id);
-			TaskSignature::<T>::remove(task_id);
-			TaskHash::<T>::remove(task_id);
-			Self::deposit_event(Event::TaskResult(task_id, result));
+			Self::cancel_task(task_id, task.network);
+			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
+		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			for (network, task_id, _) in UnassignedTasks::<T>::iter() {
+				Self::cancel_task(task_id, network);
+			}
+			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				if let Some(network) = T::Shards::shard_network(shard_id) {
+					Self::cancel_task(task_id, network);
+				}
+			}
 			Ok(())
 		}
 
@@ -528,6 +530,29 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ShardTaskLimit::<T>::insert(network, limit);
 			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
+		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			let _ = Gateway::<T>::clear(u32::MAX, None);
+			let _ = ShardRegistered::<T>::clear(u32::MAX, None);
+			Self::filter_tasks(|task_id| {
+				let Some(task) = Tasks::<T>::get(task_id) else {
+					return;
+				};
+				if let Function::ReadMessages { .. } = task.function {
+					Self::finish_task(
+						task_id,
+						TaskResult {
+							shard_id: 0,
+							payload: Payload::Error("shard offline or gateway changed".into()),
+							signature: [0u8; 64],
+						},
+					);
+				}
+			});
 			Ok(())
 		}
 	}
@@ -626,6 +651,15 @@ pub mod pallet {
 			.expect("task funded through inflation");
 		}
 
+		fn filter_tasks<F: Fn(TaskId)>(f: F) {
+			for (_network, task_id, _) in UnassignedTasks::<T>::iter() {
+				f(task_id);
+			}
+			for (_shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				f(task_id);
+			}
+		}
+
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				Self::start_task(
@@ -639,21 +673,23 @@ pub mod pallet {
 				.expect("task funded through inflation");
 				return;
 			}
-			for (task_id, task) in Tasks::<T>::iter() {
+			Self::filter_tasks(|task_id| {
+				let Some(task) = Tasks::<T>::get(task_id) else {
+					return;
+				};
 				if let Function::RegisterShard { shard_id: s } = task.function {
 					if s == shard_id {
 						Self::finish_task(
 							task_id,
 							TaskResult {
-								shard_id,
+								shard_id: 0,
 								payload: Payload::Error("shard offline or gateway changed".into()),
 								signature: [0u8; 64],
 							},
 						);
-						return;
 					}
 				}
-			}
+			});
 		}
 
 		fn send_message(shard_id: ShardId, msg: Msg) {
@@ -758,6 +794,21 @@ pub mod pallet {
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
 			}
+		}
+
+		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
+			let result = TaskResult {
+				shard_id: 0,
+				payload: Payload::Error("task cancelled by sudo".into()),
+				signature: [0; 64],
+			};
+			Self::finish_task(task_id, result.clone());
+			UnassignedTasks::<T>::remove(task_network, task_id);
+			TaskPhaseState::<T>::remove(task_id);
+			TaskSigner::<T>::remove(task_id);
+			TaskSignature::<T>::remove(task_id);
+			TaskHash::<T>::remove(task_id);
+			Self::deposit_event(Event::TaskResult(task_id, result));
 		}
 
 		fn validate_signature(

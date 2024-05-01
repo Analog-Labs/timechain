@@ -530,6 +530,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ShardTaskLimit::<T>::insert(network, limit);
 			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
+			Ok(())
 		}
 
 		#[pallet::call_index(12)]

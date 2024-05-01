@@ -792,13 +792,17 @@ pub mod pallet {
 				.count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
-			// limit not set for network => use previous hardcoded default = 10
+			const PREV_HARDCODED_LIMIT: usize = 10;
 			let shard_task_limit: usize = if let Some(limit) = ShardTaskLimit::<T>::get(network) {
-				limit.try_into().unwrap_or(10)
+				limit.try_into().unwrap_or(PREV_HARDCODED_LIMIT)
 			} else {
-				10
+				PREV_HARDCODED_LIMIT
 			};
 			let capacity = shard_task_limit.saturating_sub(tasks);
+			if capacity.is_zero() {
+				// no new tasks assigned if capacity reached or exceeded
+				return;
+			}
 			let tasks = UnassignedTasks::<T>::iter_prefix(network)
 				.filter(|(task_id, _)| {
 					let Some(task) = Tasks::<T>::get(task_id) else { return false };

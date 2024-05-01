@@ -554,7 +554,7 @@ impl GmpBenchState {
 		// there are chances that the read message tasks are inserted for the block before our loop starts
 		// that fetches them in that case we might miss one read message task
 		// or if all the tx are read by single message the readmessage could be 0
-		if self.recv_tasks.len() > 0 {
+		if !self.recv_tasks.is_empty() {
 			// recv message delays per each task
 			self.print_recv_message_analysis();
 			// recv message average delays per each task

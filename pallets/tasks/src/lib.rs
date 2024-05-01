@@ -526,8 +526,6 @@ pub mod pallet {
 			limit: u64,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			// TODO: if new_limit < old_limit, shards should not be assigned
-			// tasks until number of tasks assigned are less than the new_limit
 			ShardTaskLimit::<T>::insert(network, limit);
 			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
 			Ok(())
@@ -789,10 +787,18 @@ pub mod pallet {
 		}
 
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
-			let tasks = ShardTasks::<T>::iter_prefix(shard_id).count();
+			let tasks = ShardTasks::<T>::iter_prefix(shard_id)
+				.filter(|(t, _)| TaskOutput::<T>::get(t).is_none())
+				.count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
-			let capacity = 10.saturating_sub(tasks);
+			// limit not set for network => use previous hardcoded default = 10
+			let shard_task_limit: usize = if let Some(limit) = ShardTaskLimit::<T>::get(network) {
+				limit.try_into().unwrap_or(10)
+			} else {
+				10
+			};
+			let capacity = shard_task_limit.saturating_sub(tasks);
 			let tasks = UnassignedTasks::<T>::iter_prefix(network)
 				.filter(|(task_id, _)| {
 					let Some(task) = Tasks::<T>::get(task_id) else { return false };

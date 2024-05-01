@@ -551,10 +551,15 @@ impl GmpBenchState {
 	///
 	/// print average delays find in task execution
 	pub fn print_analysis(&self) {
-		// recv message delays per each task
-		self.print_recv_message_analysis();
-		// recv message average delays per each task
-		self.print_recv_message_latencies();
+		// there are chances that the read message tasks are inserted for the block before our loop starts
+		// that fetches them in that case we might miss one read message task
+		// or if all the tx are read by single message the readmessage could be 0
+		if self.recv_tasks.len() > 0 {
+			// recv message delays per each task
+			self.print_recv_message_analysis();
+			// recv message average delays per each task
+			self.print_recv_message_latencies();
+		}
 		// send message delays per each task
 		self.print_send_message_analysis();
 		// send message delays per each task
@@ -577,9 +582,9 @@ impl GmpBenchState {
 			.map(|(k, v)| {
 				(
 					k,
-					v.start_time.unwrap().duration_since(self.gmp_start_time).as_secs_f32().round(),
-					v.get_start_duration().unwrap().as_secs_f32().round(),
-					v.get_execution_time().unwrap().as_secs_f32().round(),
+					v.start_time.unwrap().duration_since(self.gmp_start_time).as_secs(),
+					v.get_start_duration().unwrap().as_secs(),
+					v.get_execution_time().unwrap().as_secs(),
 					v.gmp_in_task,
 				)
 			})
@@ -668,10 +673,10 @@ impl GmpBenchState {
 			.map(|(k, v)| {
 				(
 					k,
-					v.unassigned_time().unwrap().as_secs_f32().round(),
-					v.sign_to_write_duration().unwrap().as_secs_f32().round(),
-					v.write_to_read_duration().unwrap().as_secs_f32().round(),
-					v.read_to_finish_duration().unwrap().as_secs_f32().round(),
+					v.unassigned_time().unwrap().as_secs(),
+					v.sign_to_write_duration().unwrap().as_secs(),
+					v.write_to_read_duration().unwrap().as_secs(),
+					v.read_to_finish_duration().unwrap().as_secs(),
 				)
 			})
 			.collect();

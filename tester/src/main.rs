@@ -213,11 +213,11 @@ async fn gmp_benchmark(
 	// total gas fee for src_contract call
 	bench_state.insert_src_gas(gas_amount_used);
 
-	// start the timer for gmp execution
-	bench_state.start();
-
 	// Get last block result of contract stats
 	let last_result = results.last().unwrap().receipt().unwrap().block_number;
+
+	// start the timer for gmp execution
+	bench_state.start();
 
 	// get src contract result
 	let src_stats = stats(src_tester, src_contract, last_result).await?;
@@ -238,7 +238,7 @@ async fn gmp_benchmark(
 						let task_id = task.0;
 						let task_details = src_tester.get_task(task_id).await;
 						match task_details.function {
-							// send message task inserted verify if it contains our testing contract
+							// send message task inserted verify if is for our testing contract
 							time_primitives::Function::SendMessage { msg } => {
 								if msg.dest == dest_contract {
 									// GMP task found matching destination contract
@@ -248,6 +248,7 @@ async fn gmp_benchmark(
 							// read message task inserted, verify if it contains our gmp tx block number
 							time_primitives::Function::ReadMessages { batch_size } => {
 								let start_block = task_details.start - (batch_size.get() - 1);
+								println!("rrecv task inserted {:?}", task_id);
 								for item in start_block..task_details.start + 1 {
 									let count = all_gmp_blocks.iter().filter(|block| *block == &item).count();
 									if count > 0 {

@@ -484,7 +484,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(10)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -499,7 +499,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(9)]
+		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks())]
 		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -520,7 +520,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(10)]
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_shard_task_limit())]
 		pub fn set_shard_task_limit(
 			origin: OriginFor<T>,
@@ -532,7 +532,7 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
 		}
 
-		#[pallet::call_index(11)]
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
 		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;

@@ -11,6 +11,7 @@ services:
     - '--prometheus-port=9090'
     - '--alice'
     - '--validator'
+    - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     labels:
       prometheus-scrape.enabled: 'true'

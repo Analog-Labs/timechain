@@ -75,7 +75,8 @@ services:
       RUST_BACKTRACE: 1
     restart: 'always'
     volumes:
-    - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    - './config/wallets/keyfile1:/etc/target_keyfile:ro'
+    - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -144,7 +145,10 @@ services:
       RUST_BACKTRACE: 1
     volumes:
     - '/var/run/docker.sock:/var/run/docker.sock'
-    - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/keyfile_tester:/etc/keyfile:ro'
+    - './config/wallets/keyfile1:/etc/keyfile1:ro'
+    - './config/wallets/keyfile1:/etc/keyfile1:ro'
+    - './config/wallets/keyfile1:/etc/keyfile1:ro'
     - './config/wallets/alice:/etc/alice:ro'
     - './out:/etc/contracts:ro'
 

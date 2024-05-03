@@ -14,6 +14,8 @@ use tester::{
 };
 use tokio::time::{interval_at, Instant};
 
+const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/keyfile3"];
+
 #[derive(Parser, Debug)]
 struct Args {
 	#[arg(long, default_values = ["3;ws://ethereum:8545", "6;ws://astar:9944"])]
@@ -81,6 +83,10 @@ async fn main() -> Result<()> {
 			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
 				.await?,
 		);
+		// chronicle faucets for tx processing
+		for item in CHRONICLE_KEYFILES {
+			Tester::wallet_faucet(runtime.clone(), network, Path::new(item)).await?;
+		}
 	}
 	let contract = args.contract;
 
@@ -306,7 +312,8 @@ async fn gmp_benchmark(
 
 				cpu_usage.push(average_cpu_usage);
 
-				if bench_state.get_finished_tasks() == number_of_calls as usize {
+				// very if the number of tasks finished matches the number of calls or greater and all tasks are finished
+				if bench_state.get_finished_tasks() >= number_of_calls as usize && bench_state.all_tasks_completed() {
 					break;
 				} else {
 					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());

@@ -96,12 +96,23 @@ impl Tester {
 		let wallet =
 			Wallet::new(conn_blockchain.parse()?, &conn_network, &network.url, Some(keyfile), None)
 				.await?;
+
 		Ok(Self {
 			network_id: network.id,
 			gateway_contract: gateway.into(),
 			runtime,
 			wallet,
 		})
+	}
+
+	pub async fn wallet_faucet(
+		runtime: SubxtClient,
+		network: &Network,
+		keyfile: &Path,
+	) -> Result<()> {
+		let tester = Tester::new(runtime, network, keyfile, &PathBuf::new()).await?;
+		tester.faucet().await;
+		Ok(())
 	}
 
 	pub fn wallet(&self) -> &Wallet {
@@ -764,6 +775,10 @@ impl GmpBenchState {
 		println!("Average total latency is {} secs per task", average_total_latency.as_secs());
 	}
 
+	pub fn all_tasks_completed(&self) -> bool {
+		self.tasks.iter().all(|(_, phase)| phase.finish_time.is_some())
+	}
+
 	pub fn get_finished_tasks(&self) -> usize {
 		self.tasks.iter().filter(|(_, phase)| phase.finish_time.is_some()).count()
 	}
@@ -897,14 +912,13 @@ impl TaskPhaseInfo {
 
 	pub fn read_to_finish_duration(&self) -> Option<Duration> {
 		match (self.read_phase_start, self.finish_time) {
-			(Some(read_start), Some(finish_block)) => Some(finish_block - read_start),
+			(Some(read_start), Some(finish_time)) => Some(finish_time.duration_since(read_start)),
 			_ => None,
 		}
 	}
 
 	pub fn total_execution_duration(&self) -> Option<Duration> {
-		self.finish_time
-			.map(|finish_block| finish_block.duration_since(self.insert_time))
+		self.finish_time.map(|finish_time| finish_time.duration_since(self.insert_time))
 	}
 }
 

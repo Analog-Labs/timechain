@@ -61,7 +61,7 @@ services:
     - '--target-url=ws://ethereum:8545'
     # - '--target-url=wss://sepolia.drpc.org'
     - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/target_keyfile'
+    - '--target-keyfile=/etc/keyfile1'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -86,7 +86,7 @@ services:
     - '--target-url=ws://ethereum:8545'
     # - '--target-url=wss://sepolia.drpc.org'
     - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/target_keyfile'
+    - '--target-keyfile=/etc/keyfile2'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'
@@ -111,7 +111,7 @@ services:
     - '--target-url=ws://ethereum:8545'
     # - '--target-url=wss://sepolia.drpc.org'
     - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/target_keyfile'
+    - '--target-keyfile=/etc/keyfile3'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
       RUST_LOG: 'chronicle=debug,tss=debug'

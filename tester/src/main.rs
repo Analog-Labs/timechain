@@ -83,7 +83,8 @@ async fn main() -> Result<()> {
 			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
 				.await?,
 		);
-		// chronicle faucets for tx processing
+
+		// fund chronicle faucets for testing
 		for item in CHRONICLE_KEYFILES {
 			Tester::wallet_faucet(runtime.clone(), network, Path::new(item)).await?;
 		}

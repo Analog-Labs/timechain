@@ -242,8 +242,6 @@ where
 					self.task_spawner.execute_write(task_id, function)
 				},
 				TaskPhase::Read => {
-					tracing::info!("===========");
-					tracing::info!("Executing Read phase for taskid: {:?} start", task_id);
 					let function = if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
 						Function::EvmTxReceipt { tx }
 					} else {

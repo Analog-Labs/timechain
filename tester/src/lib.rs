@@ -96,6 +96,7 @@ impl Tester {
 		let wallet =
 			Wallet::new(conn_blockchain.parse()?, &conn_network, &network.url, Some(keyfile), None)
 				.await?;
+		println!("wallet_public_key: {:?}", wallet.account().address);
 
 		Ok(Self {
 			network_id: network.id,
@@ -110,6 +111,7 @@ impl Tester {
 		network: &Network,
 		keyfile: &Path,
 	) -> Result<()> {
+		println!("wallet_faucet in progress");
 		let tester = Tester::new(runtime, network, keyfile, &PathBuf::new()).await?;
 		tester.faucet().await;
 		Ok(())
@@ -503,8 +505,15 @@ impl GmpBenchState {
 		self.tasks.insert(task_id, TaskPhaseInfo::new());
 	}
 
-	pub fn add_recv_task(&mut self, task_id: u64, tasks_in_block: u64) {
-		self.recv_tasks.insert(task_id, RecvTaskPhase::new(tasks_in_block));
+	pub fn add_recv_task(&mut self, task_id: u64) {
+		self.recv_tasks.insert(task_id, RecvTaskPhase::new());
+	}
+
+	pub fn update_recv_gmp_task(&mut self, task_id: u64, gmp_tasks: u64) {
+		let recv_phase = self.recv_tasks.get_mut(&task_id);
+		if let Some(phase) = recv_phase {
+			phase.update_gmp_tasks(gmp_tasks);
+		}
 	}
 
 	pub fn task_ids(&self) -> Vec<TaskId> {
@@ -793,10 +802,10 @@ pub struct RecvTaskPhase {
 }
 
 impl RecvTaskPhase {
-	pub fn new(gmp_in_task: u64) -> Self {
+	pub fn new() -> Self {
 		Self {
 			insert_time: Instant::now(),
-			gmp_in_task,
+			gmp_in_task: 0,
 			start_time: None,
 			finish_time: None,
 		}
@@ -806,6 +815,10 @@ impl RecvTaskPhase {
 		if self.start_time.is_none() {
 			self.start_time = Some(Instant::now());
 		}
+	}
+
+	pub fn update_gmp_tasks(&mut self, gmp_tasks: u64) {
+		self.gmp_in_task = gmp_tasks;
 	}
 
 	pub fn finish_task(&mut self) {

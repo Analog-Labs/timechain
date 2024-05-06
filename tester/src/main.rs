@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
 use tc_subxt::ext::futures::StreamExt;
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::Payload;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
@@ -14,6 +15,9 @@ use tester::{
 };
 use tokio::time::{interval_at, Instant};
 
+// 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1
+// 0x64AC191E26b66564bfda3249de27C9a8A96F9981 keyfile2
+// 0x1Be6ACA05B9e3E28Cb8ED04B99C9B989D1342eF4 keyfile3
 const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/keyfile3"];
 
 #[derive(Parser, Debug)]
@@ -252,14 +256,14 @@ async fn gmp_benchmark(
 									bench_state.add_task(task_id);
 								}
 							},
-							// read message task inserted, verify if it contains our gmp tx block number
+							// insert read messages fetched
 							time_primitives::Function::ReadMessages { batch_size } => {
 								let start_block = task_details.start - (batch_size.get() - 1);
-								println!("rrecv task inserted {:?}", task_id);
+								println!("Receive task: {:?}", task_id);
 								for item in start_block..task_details.start + 1 {
 									let count = all_gmp_blocks.iter().filter(|block| *block == &item).count();
 									if count > 0 {
-										bench_state.add_recv_task(task_id, count as u64);
+										bench_state.add_recv_task(task_id);
 									}
 								}
 							},
@@ -270,10 +274,21 @@ async fn gmp_benchmark(
 					// finish tasks
 					let task_result_submitted = events.find::<events::TaskResult>();
 					for task_result in task_result_submitted.flatten() {
+						// finish the task
 						let task_id = task_result.0;
+						let task_payload = task_result.1;
+
 						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
 							bench_state.finish_task(task_id);
 						}
+
+						match task_payload.payload {
+							Payload::Gmp(msgs)=> {
+								bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
+							},
+							_ => {}
+						};
+
 					}
 					// update task phase
 					bench_state.sync_phase(src_tester).await;

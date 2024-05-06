@@ -98,7 +98,9 @@ where
 	) -> Result<Vec<TssId>> {
 		// get task metadata from runtime
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
+		tracing::debug!("debug_latency Current Tasks Under processing: {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
+			tracing::debug!("debug_latency:{} in execution", executable_task);
 			let task_id = executable_task.task_id;
 			if self.running_tasks.contains_key(executable_task) {
 				continue;
@@ -243,6 +245,7 @@ where
 					self.task_spawner.execute_write(task_id, function)
 				},
 				TaskPhase::Read => {
+					tracing::debug!("debug_latency:{} getting task_hash", task_id);
 					let function = if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
 						Function::EvmTxReceipt { tx }
 					} else {

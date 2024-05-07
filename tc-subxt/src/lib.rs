@@ -207,8 +207,11 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 			},
 			Err(err) => {
 				tracing::error!("Error occured while submitting transaction: {err}");
+				let nonce = self.nonce;
 				if let Err(err) = self.resync_nonce().await {
 					tracing::error!("failed to resync nonce: {err}");
+				} else {
+					tracing::info!("resynced nonce from {} to {}", nonce, self.nonce);
 				}
 			},
 		}
@@ -217,9 +220,11 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
+			tracing::info!("starting subxt worker");
 			while let Some(tx) = rx.next().await {
 				self.submit(tx).await;
 			}
+			tracing::error!("shutting down subxt worker");
 		});
 		tx
 	}
@@ -239,6 +244,7 @@ impl SubxtClient {
 		let worker = SubxtWorker::new(client.clone(), keypair, tx_submitter).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
+		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();
 		Ok(Self {
 			client,
@@ -253,8 +259,9 @@ impl SubxtClient {
 		keyfile: &Path,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let content =
-			std::fs::read_to_string(keyfile).context("failed to read substrate keyfile")?;
+		let content = std::fs::read_to_string(keyfile)
+			.context("failed to read substrate keyfile")
+			.with_context(|| keyfile.display().to_string())?;
 		let secret = SecretUri::from_str(&content).context("failed to parse substrate keyfile")?;
 		let keypair =
 			Keypair::from_uri(&secret).context("substrate keyfile contains invalid suri")?;
@@ -407,7 +414,11 @@ impl Runtime for SubxtClient {
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
-	async fn get_shard_commitment(&self, _: BlockHash, shard_id: ShardId) -> Result<Commitment> {
+	async fn get_shard_commitment(
+		&self,
+		_: BlockHash,
+		shard_id: ShardId,
+	) -> Result<Option<Commitment>> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_commitment(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(data)

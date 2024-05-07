@@ -278,8 +278,8 @@ pub mod pallet {
 			ShardState::<T>::get(shard_id).unwrap_or_default()
 		}
 
-		pub fn get_shard_commitment(shard_id: ShardId) -> Vec<TssPublicKey> {
-			ShardCommitment::<T>::get(shard_id).unwrap_or_default()
+		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Vec<TssPublicKey>> {
+			ShardCommitment::<T>::get(shard_id)
 		}
 	}
 

@@ -139,13 +139,19 @@ where
 					};
 					let payload = match function {
 						Function::RegisterShard { shard_id } => {
-							let tss_public_key =
-								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
+							let tss_public_key = self
+								.substrate
+								.get_shard_commitment(block_hash, shard_id)
+								.await?
+								.unwrap()[0];
 							Message::update_keys([], [tss_public_key]).to_eip712_bytes(&gmp_params)
 						},
 						Function::UnregisterShard { shard_id } => {
-							let tss_public_key =
-								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
+							let tss_public_key = self
+								.substrate
+								.get_shard_commitment(block_hash, shard_id)
+								.await?
+								.unwrap()[0];
 							Message::update_keys([tss_public_key], []).to_eip712_bytes(&gmp_params)
 						},
 						Function::SendMessage { msg } => {
@@ -179,7 +185,8 @@ where
 								let tss_public_key = self
 									.substrate
 									.get_shard_commitment(block_hash, shard_id)
-									.await?[0];
+									.await?
+									.unwrap()[0];
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
@@ -199,7 +206,8 @@ where
 								let tss_public_key = self
 									.substrate
 									.get_shard_commitment(block_hash, shard_id)
-									.await?[0];
+									.await?
+									.unwrap()[0];
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
@@ -310,19 +318,14 @@ where
 		let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
 			return Ok(None);
 		};
-		let Some(tss_public_key) = self
-			.substrate
-			.get_shard_commitment(block_hash, shard_id)
-			.await?
-			.first()
-			.copied()
+		let Some(commitment) = self.substrate.get_shard_commitment(block_hash, shard_id).await?
 		else {
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);
 		};
 		Ok(Some(GmpParams {
 			network_id: self.network,
-			tss_public_key,
+			tss_public_key: commitment[0],
 			gateway_contract: gateway_contract.into(),
 		}))
 	}

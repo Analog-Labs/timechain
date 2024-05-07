@@ -29,11 +29,11 @@ struct Args {
 	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
-	cmd: TestCommand,
+	cmd: Command,
 }
 
 #[derive(Parser, Debug)]
-enum TestCommand {
+enum Command {
 	FundWallet,
 	SetupGmp {
 		/// Deploys and registers a new gateway contract even, replacing the existing one.
@@ -43,19 +43,21 @@ enum TestCommand {
 	WatchTask {
 		task_id: u64,
 	},
-	Basic,
-	BatchTask {
-		tasks: u64,
-	},
-	Gmp,
 	GmpBenchmark {
 		tasks: u64,
 		test_contract_addresses: Vec<String>,
 	},
-	TaskMigration,
-	KeyRecovery {
-		nodes: u8,
-	},
+	#[clap(subcommand)]
+	Test(Test),
+}
+
+#[derive(Parser, Debug)]
+enum Test {
+	Basic,
+	Batch { tasks: u64 },
+	Gmp,
+	Migration,
+	Restart { shard_size: u8, threshold: u8 },
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -79,30 +81,17 @@ async fn main() -> Result<()> {
 	let contract = args.contract;
 
 	match args.cmd {
-		TestCommand::FundWallet => {
+		Command::FundWallet => {
 			tester[0].faucet().await;
 		},
-		TestCommand::SetupGmp { redeploy } => {
+		Command::SetupGmp { redeploy } => {
 			tester[0].faucet().await;
 			tester[0].setup_gmp(redeploy).await?;
 		},
-		TestCommand::WatchTask { task_id } => {
+		Command::WatchTask { task_id } => {
 			tester[0].wait_for_task(task_id).await;
 		},
-		TestCommand::Basic => basic_test(&tester[0], &contract).await?,
-		TestCommand::BatchTask { tasks } => {
-			batch_test(&tester[0], &contract, tasks).await?;
-		},
-		TestCommand::Gmp => {
-			gmp_test(&tester[0], &tester[1], &contract).await?;
-		},
-		TestCommand::TaskMigration => {
-			task_migration_test(&tester[0], &contract).await?;
-		},
-		TestCommand::KeyRecovery { nodes } => {
-			chronicle_restart_test(&tester[0], &contract, nodes).await?;
-		},
-		TestCommand::GmpBenchmark { tasks, test_contract_addresses } => {
+		Command::GmpBenchmark { tasks, test_contract_addresses } => {
 			let contracts = if test_contract_addresses.len() >= 2 {
 				Some((test_contract_addresses[0].clone(), test_contract_addresses[1].clone()))
 			} else {
@@ -110,6 +99,19 @@ async fn main() -> Result<()> {
 			};
 			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
 				.await?;
+		},
+		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await?,
+		Command::Test(Test::Batch { tasks }) => {
+			batch_test(&tester[0], &contract, tasks).await?;
+		},
+		Command::Test(Test::Gmp) => {
+			gmp_test(&tester[0], &tester[1], &contract).await?;
+		},
+		Command::Test(Test::Migration) => {
+			task_migration_test(&tester[0], &contract).await?;
+		},
+		Command::Test(Test::Restart { shard_size, threshold }) => {
+			chronicle_restart_test(&tester[0], &contract, shard_size, threshold).await?;
 		},
 	}
 	Ok(())
@@ -370,13 +372,13 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	sleep_or_abort(Duration::from_secs(60)).await?;
 
 	// drop 2 nodes
-	tester::drop_node("testnet-chronicle-eth1-1".to_string());
-	tester::drop_node("testnet-chronicle-eth1-1".to_string());
+	tester::stop_node("testnet-chronicle-eth1-1".to_string());
+	tester::stop_node("testnet-chronicle-eth1-1".to_string());
 	println!("dropped 2 nodes");
 
 	// wait for some time
 	let shard_id = tester.get_shard_id().await?.unwrap();
-	while tester.is_shard_online(shard_id).await {
+	while tester.is_shard_online(shard_id).await? {
 		println!("Waiting for shard offline");
 		sleep_or_abort(Duration::from_secs(10)).await?;
 	}
@@ -395,26 +397,21 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 async fn chronicle_restart_test(
 	tester: &Tester,
 	contract: &Path,
-	nodes_to_restart: u8,
+	shard_size: u8,
+	threshold: u8,
 ) -> Result<()> {
 	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
 
-	let call = tester::create_evm_view_call(contract_address);
-	let task_id = tester.create_task(call, start_block).await?;
-
-	// wait for some cycles to run, Note: tasks are running in background
-	for i in 1..nodes_to_restart + 1 {
-		println!("waiting for 1 min");
-		sleep_or_abort(Duration::from_secs(60)).await?;
-		println!("restarting node {}", i);
-		tester::restart_node(format!("testnet-chronicle-eth{}-1", i));
+	for i in 0..shard_size {
+		if i < threshold {
+			tester::restart_node(format!("testnet-chronicle-eth{}-1", i + 1));
+		} else {
+			tester::stop_node(format!("testnet-chronicle-eth{}-1", i + 1));
+		}
 	}
 
-	println!("waiting for 20 secs to let node recover completely");
-	sleep_or_abort(Duration::from_secs(20)).await?;
-
-	// watch task
-	tester.wait_for_task(task_id).await;
+	let call = tester::create_evm_view_call(contract_address);
+	tester.create_task_and_wait(call, start_block).await;
 
 	Ok(())
 }

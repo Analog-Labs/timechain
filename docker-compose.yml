@@ -2,8 +2,8 @@ services:
   validator:
     image: 'analoglabs/timechain-node'
     command:
-    - '--base-path=/data'
     - '--chain=notss'
+    - '--base-path=/data'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
     - '--rpc-methods=unsafe'
@@ -20,6 +20,28 @@ services:
     profiles:
     - ethereum
     - astar
+
+  validator3:
+    image: 'analoglabs/timechain-node'
+    command:
+    - '--chain=dev'
+    - '--base-path=/data'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--alice'
+    - '--validator'
+    - '--force-authoring'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    ports:
+      - 9944:9944
+    profiles:
+    - ethereum3
+    - astar3
 
   ethereum:
     image: 'ethereum/client-go:v1.13.14'
@@ -41,6 +63,7 @@ services:
     - '--ws.api=eth,debug,admin,txpool,web3,net'
     profiles:
     - ethereum
+    - ethereum3
     ports:
     - 8545:8545
 
@@ -57,8 +80,9 @@ services:
     - '--no-mdns'
     profiles:
     - astar
+    - astar3
 
-  chronicle-eth1:
+  chronicle-eth-template:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=3'
@@ -68,23 +92,59 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    depends_on:
-    - validator
-    - ethereum
     restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/target_keyfile:ro'
-    - './config/wallets/one:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
+    - never
+
+  chronicle-eth:
+    extends: chronicle-eth-template
+    volumes:
+    - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
+    profiles:
+    - ethereum
+    depends_on:
+    - validator
     - ethereum
     ports:
     - 9090:9090
 
-  chronicle-astar1:
+  chronicle-eth1:
+    extends: chronicle-eth-template
+    volumes:
+    - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
+    profiles:
+    - ethereum3
+    depends_on:
+    - validator3
+    - ethereum
+
+  chronicle-eth2:
+    extends: chronicle-eth-template
+    volumes:
+    - './config/wallets/eth-2:/etc/timechain_keyfile:ro'
+    profiles:
+    - ethereum3
+    depends_on:
+    - validator3
+    - ethereum
+
+  chronicle-eth3:
+    extends: chronicle-eth-template
+    volumes:
+    - './config/wallets/eth-3:/etc/timechain_keyfile:ro'
+    profiles:
+    - ethereum3
+    depends_on:
+    - validator3
+    - ethereum
+
+  chronicle-astar-template:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=6'
@@ -93,18 +153,55 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
-      RUST_LOG: 'chronicle=debug,tss=debug'
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    depends_on:
-    - validator
-    - astar
     restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/target_keyfile:ro'
-    - './config/wallets/two:/etc/timechain_keyfile:ro'
+    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
+    - never
+
+  chronicle-astar:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
+    profiles:
+    - astar
+    depends_on:
+    - validator
+    - astar
+
+  chronicle-astar1:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
+    profiles:
+    - astar3
+    depends_on:
+    - validator3
+    - astar
+
+  chronicle-astar2:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/astar-2:/etc/timechain_keyfile:ro'
+    profiles:
+    - astar3
+    depends_on:
+    - validator3
+    - astar
+
+  chronicle-astar3:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/astar-3:/etc/timechain_keyfile:ro'
+    profiles:
+    - astar3
+    depends_on:
+    - validator3
     - astar
 
   tester:
@@ -112,7 +209,7 @@ services:
     profiles:
     - tester
     environment:
-      RUST_LOG: 'tc-subxt=debug,tester=debug'
+      RUST_LOG: 'tc_subxt=debug,tester=debug'
       RUST_BACKTRACE: 1
     volumes:
     - '/var/run/docker.sock:/var/run/docker.sock'

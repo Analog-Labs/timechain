@@ -121,7 +121,7 @@ impl TssTester {
 								}
 							}
 						},
-						TssAction::PublicKey(pubkey) => {
+						TssAction::Ready(_, _, pubkey) => {
 							tracing::info!("{} action pubkey", from);
 							assert!(self.events.pubkeys.insert(from, pubkey).is_none());
 						},

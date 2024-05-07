@@ -1290,7 +1290,7 @@ impl_runtime_apis! {
 			Shards::get_shard_status(shard_id)
 		}
 
-		fn get_shard_commitment(shard_id: ShardId) -> Commitment {
+		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
 			Shards::get_shard_commitment(shard_id)
 		}
 	}

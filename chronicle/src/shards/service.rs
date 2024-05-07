@@ -10,9 +10,9 @@ use futures::{
 	stream::FuturesUnordered,
 	Future, FutureExt, Stream, StreamExt,
 };
-use std::collections::BTreeSet;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap},
+	path::PathBuf,
 	pin::Pin,
 	task::Poll,
 };
@@ -28,6 +28,7 @@ pub struct TimeWorkerParams<S, T, Tx, Rx> {
 	pub network: Tx,
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
 	pub net_request: Rx,
+	pub tss_keyshare_cache: PathBuf,
 }
 
 pub struct TimeWorker<S, T, Tx, Rx> {
@@ -46,6 +47,7 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	outgoing_requests: FuturesUnordered<
 		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,
 	>,
+	tss_keyshare_cache: PathBuf,
 }
 
 impl<S, T, Tx, Rx> TimeWorker<S, T, Tx, Rx>
@@ -62,6 +64,7 @@ where
 			network,
 			tss_request,
 			net_request,
+			tss_keyshare_cache,
 		} = worker_params;
 		Self {
 			substrate,
@@ -76,6 +79,7 @@ where
 			requests: Default::default(),
 			channels: Default::default(),
 			outgoing_requests: Default::default(),
+			tss_keyshare_cache,
 		}
 	}
 
@@ -117,7 +121,7 @@ where
 					async move {
 						match substrate.get_member_peer_id(block, &account).await {
 							Ok(Some(peer_id)) => Some(peer_id),
-							Ok(None) | Err(_) => None, // Handles both the None and Error cases
+							Ok(None) | Err(_) => None,
 						}
 					}
 				})
@@ -125,8 +129,24 @@ where
 			let members =
 				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
 
-			self.tss_states
-				.insert(shard_id, Tss::new(self.network.peer_id(), members, threshold, None)?);
+			let commitment = if let Some(commitment) =
+				self.substrate.get_shard_commitment(block, shard_id).await?
+			{
+				let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
+				Some(commitment)
+			} else {
+				None
+			};
+			self.tss_states.insert(
+				shard_id,
+				Tss::new(
+					self.network.peer_id(),
+					members,
+					threshold,
+					commitment,
+					&self.tss_keyshare_cache,
+				)?,
+			);
 			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		for shard_id in shards.iter().copied() {
@@ -139,7 +159,7 @@ where
 			if self.substrate.get_shard_status(block, shard_id).await? != ShardStatus::Committed {
 				continue;
 			}
-			let commitment = self.substrate.get_shard_commitment(block, shard_id).await?;
+			let commitment = self.substrate.get_shard_commitment(block, shard_id).await?.unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number).await;
@@ -242,7 +262,12 @@ where
 	}
 
 	async fn poll_actions(&mut self, span: &Span, shard_id: ShardId, block_number: BlockNumber) {
-		while let Some(action) = self.tss_states.get_mut(&shard_id).unwrap().next_action() {
+		while let Some(action) = self
+			.tss_states
+			.get_mut(&shard_id)
+			.unwrap()
+			.next_action(&self.tss_keyshare_cache)
+		{
 			match action {
 				TssAction::Send(msgs) => {
 					for (peer, payload) in msgs {
@@ -337,7 +362,7 @@ where
 				target: TW_LOG,
 				parent: span,
 				Level::ERROR,
-				"Error while submitting member {:?}, retrying again in 10 secs",
+				"Error while submitting member: {:?}, retrying again in 10 secs",
 				e
 			);
 			sleep(Duration::from_secs(10)).await;
@@ -385,6 +410,7 @@ where
 								"Error submitting heartbeat: {:?}",e
 							);
 						};
+						event!(target: TW_LOG, parent: span, Level::INFO, "submitted heartbeat");
 					}
 					if let Err(e) = self.on_finality(span, block_hash, block_number).await {
 						tracing::error!("Error running on_finality {:?}", e);

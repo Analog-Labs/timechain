@@ -96,8 +96,6 @@ impl Tester {
 		let wallet =
 			Wallet::new(conn_blockchain.parse()?, &conn_network, &network.url, Some(keyfile), None)
 				.await?;
-		println!("wallet_public_key: {:?}", wallet.account().address);
-
 		Ok(Self {
 			network_id: network.id,
 			gateway_contract: gateway.into(),
@@ -111,7 +109,6 @@ impl Tester {
 		network: &Network,
 		keyfile: &Path,
 	) -> Result<()> {
-		println!("wallet_faucet in progress");
 		let tester = Tester::new(runtime, network, keyfile, &PathBuf::new()).await?;
 		tester.faucet().await;
 		Ok(())
@@ -571,7 +568,7 @@ impl GmpBenchState {
 	///
 	/// print average delays find in task execution
 	pub fn print_analysis(&self) {
-		// there are chances that the read message tasks are inserted for the block before our loop starts
+		// there are chances that in local read tasks are inserted before block subscription starts
 		// that fetches them in that case we might miss one read message task
 		// or if all the tx are read by single message the readmessage could be 0
 		if !self.recv_tasks.is_empty() {
@@ -602,9 +599,16 @@ impl GmpBenchState {
 			.map(|(k, v)| {
 				(
 					k,
-					v.start_time.unwrap().duration_since(self.gmp_start_time).as_secs(),
-					v.get_start_duration().unwrap().as_secs(),
-					v.get_execution_time().unwrap().as_secs(),
+					v.start_time
+						.expect(&format!("Start time not found for task {:?}", k))
+						.duration_since(self.gmp_start_time)
+						.as_secs(),
+					v.get_start_duration()
+						.expect(&format!("Insert time not found for task {:?}", k))
+						.as_secs(),
+					v.get_execution_time()
+						.expect(&format!("Finish time not found for task {:?}", k))
+						.as_secs(),
 					v.gmp_in_task,
 				)
 			})
@@ -693,10 +697,18 @@ impl GmpBenchState {
 			.map(|(k, v)| {
 				(
 					k,
-					v.unassigned_time().unwrap().as_secs(),
-					v.sign_to_write_duration().unwrap().as_secs(),
-					v.write_to_read_duration().unwrap().as_secs(),
-					v.read_to_finish_duration().unwrap().as_secs(),
+					v.unassigned_time()
+						.expect(&format!("Insert time not found: {:?}", k))
+						.as_secs(),
+					v.sign_to_write_duration()
+						.expect(&format!("Write time not found: {:?}", k))
+						.as_secs(),
+					v.write_to_read_duration()
+						.expect(&format!("Read time not found: {}", k))
+						.as_secs(),
+					v.read_to_finish_duration()
+						.expect(&format!("Finish time not found: {}", k))
+						.as_secs(),
 				)
 			})
 			.collect();

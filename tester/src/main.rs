@@ -15,6 +15,7 @@ use tester::{
 };
 use tokio::time::{interval_at, Instant};
 
+// 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
 // 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1
 // 0x64AC191E26b66564bfda3249de27C9a8A96F9981 keyfile2
 // 0x1Be6ACA05B9e3E28Cb8ED04B99C9B989D1342eF4 keyfile3
@@ -170,6 +171,12 @@ async fn gmp_benchmark(
 
 	bench_state.set_deposit(deposit_amount);
 
+	// block stream of timechain
+	let mut block_stream = src_tester.finality_block_stream().await;
+	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
+
+	let mut is_stats_fetched = false;
+
 	// get contract stats of src contract
 	let start_stats = stats(src_tester, src_contract, None).await?;
 	// get contract stats of destination contract
@@ -209,8 +216,11 @@ async fn gmp_benchmark(
 		.iter()
 		.map(|item| item.receipt().unwrap().block_number.unwrap())
 		.collect::<Vec<_>>();
-	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
-	println!("tx hash for block {:?}", results.first().unwrap().receipt().unwrap().block_number);
+	println!("tx hash for first gmp call {:?}", results.first().unwrap().tx_hash());
+	println!(
+		"tx block for first gmp call {:?}",
+		results.first().unwrap().receipt().unwrap().block_number
+	);
 	let gas_amount_used = results
 		.iter()
 		.map(|result| {
@@ -229,14 +239,6 @@ async fn gmp_benchmark(
 
 	// start the timer for gmp execution
 	bench_state.start();
-
-	// get src contract result
-	let src_stats = stats(src_tester, src_contract, last_result).await?;
-	println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
-	assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
-
-	let mut block_stream = src_tester.finality_block_stream().await;
-	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
 
 	// loop to listen for task change and stats events from destination chain
 	loop {
@@ -259,10 +261,10 @@ async fn gmp_benchmark(
 							// insert read messages fetched
 							time_primitives::Function::ReadMessages { batch_size } => {
 								let start_block = task_details.start - (batch_size.get() - 1);
-								println!("Receive task: {:?}", task_id);
+								println!("Received ReadMessage task: {:?}", task_id);
 								for item in start_block..task_details.start + 1 {
-									let count = all_gmp_blocks.iter().filter(|block| *block == &item).count();
-									if count > 0 {
+									let contains_gmp_task = all_gmp_blocks.iter().any(|block| *block == item);
+									if contains_gmp_task {
 										bench_state.add_recv_task(task_id);
 									}
 								}
@@ -283,7 +285,7 @@ async fn gmp_benchmark(
 						}
 
 						match task_payload.payload {
-							Payload::Gmp(msgs)=> {
+							Payload::Gmp(msgs) => {
 								bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
 							},
 							_ => {}
@@ -295,6 +297,14 @@ async fn gmp_benchmark(
 				}
 			}
 			_ = one_min_tick.tick() => {
+				//src contract stats
+				if !is_stats_fetched {
+					let src_stats = stats(src_tester, src_contract, last_result).await?;
+					println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
+					assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
+					is_stats_fetched = true;
+				}
+
 				let current = stats(dest_tester, dest_contract, None).await?;
 				if current != (dest_stats.0 + number_of_calls, dest_stats.1) {
 					println!(
@@ -328,7 +338,7 @@ async fn gmp_benchmark(
 
 				cpu_usage.push(average_cpu_usage);
 
-				// very if the number of tasks finished matches the number of calls or greater and all tasks are finished
+				// verify if the number of tasks finished matches the number of calls or greater and all tasks are finished
 				if bench_state.get_finished_tasks() >= number_of_calls as usize && bench_state.all_tasks_completed() {
 					break;
 				} else {

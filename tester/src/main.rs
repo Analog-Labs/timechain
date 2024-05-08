@@ -1,11 +1,11 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
+use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
-use tc_subxt::ext::futures::StreamExt;
+use tc_subxt::ext::futures::{FutureExt, StreamExt};
 use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::Payload;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
@@ -171,12 +171,6 @@ async fn gmp_benchmark(
 
 	bench_state.set_deposit(deposit_amount);
 
-	// block stream of timechain
-	let mut block_stream = src_tester.finality_block_stream().await;
-	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
-
-	let mut is_stats_fetched = false;
-
 	// get contract stats of src contract
 	let start_stats = stats(src_tester, src_contract, None).await?;
 	// get contract stats of destination contract
@@ -210,39 +204,52 @@ async fn gmp_benchmark(
 		});
 	}
 
-	// wait for calls in chunks
-	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
-	let all_gmp_blocks = results
-		.iter()
-		.map(|item| item.receipt().unwrap().block_number.unwrap())
-		.collect::<Vec<_>>();
-	println!("tx hash for first gmp call {:?}", results.first().unwrap().tx_hash());
-	println!(
-		"tx block for first gmp call {:?}",
-		results.first().unwrap().receipt().unwrap().block_number
-	);
-	let gas_amount_used = results
-		.iter()
-		.map(|result| {
-			let receipt = result.receipt().unwrap();
-			let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-			let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
-			gas_price.saturating_mul(gas_used)
-		})
-		.collect::<Vec<_>>();
+	// block stream of timechain
+	let mut block_stream = src_tester.finality_block_stream().await;
+	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
 
-	// total gas fee for src_contract call
-	bench_state.insert_src_gas(gas_amount_used);
-
-	// Get last block result of contract stats
-	let last_result = results.last().unwrap().receipt().unwrap().block_number;
-
-	// start the timer for gmp execution
-	bench_state.start();
+	let mut gmp_task = Box::pin(wait_for_gmp_calls(calls, number_of_calls, 25)).fuse();
+	let mut all_gmp_blocks: Vec<u64> = vec![];
 
 	// loop to listen for task change and stats events from destination chain
 	loop {
 		tokio::select! {
+			// wait for gmp calls to be sent to src contract
+			result = &mut gmp_task => {
+				let result = result.unwrap();
+				let blocks = result
+					.iter()
+					.map(|item| item.receipt().unwrap().block_number.unwrap())
+					.collect::<Vec<_>>();
+				all_gmp_blocks.extend(blocks);
+				println!("tx hash for first gmp call {:?}", result.first().unwrap().tx_hash());
+				println!(
+					"tx block for first gmp call {:?}",
+					result.first().unwrap().receipt().unwrap().block_number
+				);
+
+				let gas_amount_used = result
+					.iter()
+					.map(|result| {
+						let receipt = result.receipt().unwrap();
+						let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+						let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
+						gas_price.saturating_mul(gas_used)
+					})
+					.collect::<Vec<_>>();
+
+				// total gas fee for src_contract call
+				bench_state.insert_src_gas(gas_amount_used);
+
+				// Get last block result of contract stats
+				let last_result = result.last().unwrap().receipt().unwrap().block_number;
+				let src_stats = stats(src_tester, src_contract, last_result).await?;
+				println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
+				assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
+
+				// start the timer for gmp execution
+				bench_state.start();
+			}
 			block = block_stream.next() => {
 				if let Some((block_hash, _)) = block {
 					let events = subxt_client.events().at(block_hash).await?;
@@ -266,6 +273,7 @@ async fn gmp_benchmark(
 									let contains_gmp_task = all_gmp_blocks.iter().any(|block| *block == item);
 									if contains_gmp_task {
 										bench_state.add_recv_task(task_id);
+										println!("Contians gmp task");
 									}
 								}
 							},
@@ -297,14 +305,6 @@ async fn gmp_benchmark(
 				}
 			}
 			_ = one_min_tick.tick() => {
-				//src contract stats
-				if !is_stats_fetched {
-					let src_stats = stats(src_tester, src_contract, last_result).await?;
-					println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
-					assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
-					is_stats_fetched = true;
-				}
-
 				let current = stats(dest_tester, dest_contract, None).await?;
 				if current != (dest_stats.0 + number_of_calls, dest_stats.1) {
 					println!(

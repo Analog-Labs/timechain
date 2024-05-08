@@ -1227,7 +1227,6 @@ where
 		results.extend(chunk_results?);
 		println!("Waiting gmp send calls: {:?}/{:?}", results.len(), number_of_calls);
 	}
-	println!("Done");
 
 	Ok(results)
 }

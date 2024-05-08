@@ -82,11 +82,10 @@ services:
     - astar
     - astar3
 
-  chronicle-eth-template:
+  chronicle-eth:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=3'
-    # - '--network-port=6881'
     - '--target-url=ws://ethereum:8545'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
@@ -97,15 +96,9 @@ services:
     restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
-    profiles:
-    - never
-
-  chronicle-eth:
-    extends: chronicle-eth-template
-    volumes:
-    - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
     profiles:
     - ethereum
     depends_on:
@@ -114,8 +107,27 @@ services:
     ports:
     - 9090:9090
 
+  chronicle-eth-template:
+    image: 'analoglabs/chronicle'
+    command:
+    - '--network-id=3'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-url=ws://validator3:9944'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
+    restart: 'always'
+    volumes:
+    - './config/wallets/keyfile:/etc/target_keyfile:ro'
+    labels:
+      prometheus-scrape.enabled: 'true'
+    ports:
+    - 9090:9090
+
   chronicle-eth1:
-    extends: chronicle-eth-template
+    extends: chronicle-eth3
     volumes:
     - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
     profiles:
@@ -144,7 +156,7 @@ services:
     - validator3
     - ethereum
 
-  chronicle-astar-template:
+  chronicle-astar:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=6'
@@ -162,52 +174,15 @@ services:
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
-    - never
-
-  chronicle-astar:
-    extends: chronicle-astar-template
-    volumes:
-    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
-    profiles:
     - astar
     depends_on:
     - validator
     - astar
 
-  chronicle-astar1:
-    extends: chronicle-astar-template
-    volumes:
-    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
-    profiles:
-    - astar3
-    depends_on:
-    - validator3
-    - astar
-
-  chronicle-astar2:
-    extends: chronicle-astar-template
-    volumes:
-    - './config/wallets/astar-2:/etc/timechain_keyfile:ro'
-    profiles:
-    - astar3
-    depends_on:
-    - validator3
-    - astar
-
-  chronicle-astar3:
-    extends: chronicle-astar-template
-    volumes:
-    - './config/wallets/astar-3:/etc/timechain_keyfile:ro'
-    profiles:
-    - astar3
-    depends_on:
-    - validator3
-    - astar
-
   tester:
     image: 'analoglabs/timechain-tester'
     profiles:
-    - tester
+    - never
     environment:
       RUST_LOG: 'tc_subxt=debug,tester=debug'
       RUST_BACKTRACE: 1

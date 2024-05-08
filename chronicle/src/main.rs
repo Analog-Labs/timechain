@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
 		if let Ok(t) = SubxtTxSubmitter::try_new(&config.timechain_url).await {
 			break t;
 		} else {
-			tracing::error!("Error connecting to chain retrying");
+			tracing::error!("Error connecting to {} retrying", &config.timechain_url);
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
 	};

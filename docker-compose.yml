@@ -104,8 +104,6 @@ services:
     depends_on:
     - validator
     - ethereum
-    ports:
-    - 9090:9090
 
   chronicle-eth-template:
     image: 'analoglabs/chronicle'
@@ -123,8 +121,8 @@ services:
     - './config/wallets/keyfile:/etc/target_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
-    ports:
-    - 9090:9090
+    profiles:
+    - never
 
   chronicle-eth1:
     extends: chronicle-eth3

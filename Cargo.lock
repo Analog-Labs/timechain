@@ -2088,15 +2088,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
-name = "convert_case"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
 name = "cookie"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2820,7 +2811,7 @@ version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
- "convert_case 0.4.0",
+ "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
@@ -13794,7 +13785,7 @@ dependencies = [
 [[package]]
 name = "ss58-registry"
 version = "1.48.0"
-source = "git+https://github.com/Analog-Labs/ss58-registry.git#00ee0ef1f4da732f366348337ad7171d3f089b9d"
+source = "git+https://github.com/Analog-Labs/ss58-registry.git#db1f1a72cb15b3ead80b3679b13620da89b691b5"
 dependencies = [
  "Inflector",
  "num-format",
@@ -14954,7 +14945,6 @@ dependencies = [
  "bincode",
  "chronicle",
  "clap",
- "convert_case 0.6.0",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -15764,12 +15754,6 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
-
-[[package]]
-name = "unicode-segmentation"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4c87d22b6e3f4a18d4d40ef354e97c90fcb14dd91d7dc0aa9d8a1172ebf7202"
 
 [[package]]
 name = "unicode-width"

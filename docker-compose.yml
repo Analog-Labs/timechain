@@ -11,7 +11,6 @@ services:
     - '--prometheus-port=9090'
     - '--alice'
     - '--validator'
-    - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     labels:
       prometheus-scrape.enabled: 'true'
@@ -76,7 +75,7 @@ services:
     restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/target_keyfile:ro'
-    - './config/wallets/one:/etc/timechain_keyfile:ro'
+    - './config/wallets/timechain_keyfile1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
@@ -101,7 +100,7 @@ services:
     restart: 'always'
     volumes:
     - './config/wallets/keyfile:/etc/target_keyfile:ro'
-    - './config/wallets/two:/etc/timechain_keyfile:ro'
+    - './config/wallets/timechain_keyfile2:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:

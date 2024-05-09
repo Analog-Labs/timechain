@@ -49,4 +49,26 @@ impl SubxtClient {
 			.await?
 			.ok_or(anyhow!("Shard Status not found"))
 	}
+
+	pub async fn shard_size(&self) -> Result<u16> {
+		let storage_query = timechain_runtime::storage().elections().shard_size();
+		self.client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&storage_query)
+			.await?
+			.ok_or(anyhow!("Shard size not found"))
+	}
+
+	pub async fn shard_threshold(&self) -> Result<u16> {
+		let storage_query = timechain_runtime::storage().elections().shard_threshold();
+		self.client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&storage_query)
+			.await?
+			.ok_or(anyhow!("Shard size not found"))
+	}
 }

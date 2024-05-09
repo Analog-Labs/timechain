@@ -57,7 +57,7 @@ enum Test {
 	Batch { tasks: u64 },
 	Gmp,
 	Migration,
-	Restart { shard_size: u8, threshold: u8 },
+	Restart,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -110,8 +110,8 @@ async fn main() -> Result<()> {
 		Command::Test(Test::Migration) => {
 			task_migration_test(&tester[0], &contract).await?;
 		},
-		Command::Test(Test::Restart { shard_size, threshold }) => {
-			chronicle_restart_test(&tester[0], &contract, shard_size, threshold).await?;
+		Command::Test(Test::Restart) => {
+			chronicle_restart_test(&tester[0], &contract).await?;
 		},
 	}
 	Ok(())
@@ -394,13 +394,10 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	Ok(())
 }
 
-async fn chronicle_restart_test(
-	tester: &Tester,
-	contract: &Path,
-	shard_size: u8,
-	threshold: u8,
-) -> Result<()> {
+async fn chronicle_restart_test(tester: &Tester, contract: &Path) -> Result<()> {
 	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let shard_size = tester.shard_size().await?;
+	let threshold = tester.shard_threshold().await?;
 
 	for i in 0..shard_size {
 		if i < threshold {

@@ -230,13 +230,22 @@ impl Tester {
 		Ok(shard_id)
 	}
 
+	pub async fn shard_size(&self) -> Result<u16> {
+		self.runtime.shard_size().await
+	}
+
+	pub async fn shard_threshold(&self) -> Result<u16> {
+		self.runtime.shard_threshold().await
+	}
+
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
 		println!("creating task");
+		let shard_size = self.shard_size().await?;
 		let params = TaskDescriptorParams {
 			network: self.network_id,
 			function,
 			start: block,
-			shard_size: 1,
+			shard_size,
 			funds: 10000000000000000,
 		};
 		let events = self.runtime.create_task(params).await?.wait_for_success().await?;

@@ -37,11 +37,26 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			// Live networks
-			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
-			// Development networks
-			"staging" => Box::new(chain_spec::analog_staging_config()?),
-			"" | "dev" => Box::new(chain_spec::analog_dev_config()?),
+			// Choose latest live network by default
+			"" | "testnet" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+				&include_bytes!("chains/testnet.raw.json")[..],
+			)?),
+			// Internal development networks
+			"staging" => Box::new(
+				chain_spec::GenesisKeysConfig::from_json_bytes(
+					&include_bytes!("chains/staging.keys.json")[..],
+				)?
+				.to_development_spec("staging")?,
+			),
+			"development" => Box::new(
+				chain_spec::GenesisKeysConfig::from_json_bytes(
+					&include_bytes!("chains/staging.keys.json")[..],
+				)?
+				.to_development_spec("development")?,
+			),
+			// Local testing networks
+			"dev" => Box::new(chain_spec::GenesisKeysConfig::default().to_local_spec()?),
+			// External chain spec file
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
 			},

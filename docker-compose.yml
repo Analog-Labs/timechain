@@ -2,28 +2,6 @@ services:
   validator:
     image: 'analoglabs/timechain-node'
     command:
-    - '--chain=notss'
-    - '--base-path=/data'
-    - '--rpc-cors=all'
-    - '--unsafe-rpc-external'
-    - '--rpc-methods=unsafe'
-    - '--prometheus-external'
-    - '--prometheus-port=9090'
-    - '--alice'
-    - '--validator'
-    - '--force-authoring'
-    - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    ports:
-      - 9944:9944
-    profiles:
-    - ethereum
-    - astar
-
-  validator3:
-    image: 'analoglabs/timechain-node'
-    command:
     - '--chain=dev'
     - '--base-path=/data'
     - '--rpc-cors=all'
@@ -40,7 +18,9 @@ services:
     ports:
       - 9944:9944
     profiles:
+    - ethereum
     - ethereum3
+    - astar
     - astar3
 
   ethereum:
@@ -82,35 +62,12 @@ services:
     - astar
     - astar3
 
-  chronicle-eth:
-    image: 'analoglabs/chronicle'
-    command:
-    - '--network-id=3'
-    - '--target-url=ws://ethereum:8545'
-    - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    environment:
-      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
-      RUST_BACKTRACE: 1
-    restart: 'always'
-    volumes:
-    - './config/wallets/keyfile:/etc/target_keyfile:ro'
-    - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - ethereum
-    depends_on:
-    - validator
-    - ethereum
-
   chronicle-eth-template:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=3'
     - '--target-url=ws://ethereum:8545'
-    - '--timechain-url=ws://validator3:9944'
+    - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:
@@ -129,9 +86,10 @@ services:
     volumes:
     - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
     profiles:
+    - ethereum
     - ethereum3
     depends_on:
-    - validator3
+    - validator
     - ethereum
 
   chronicle-eth2:
@@ -141,7 +99,7 @@ services:
     profiles:
     - ethereum3
     depends_on:
-    - validator3
+    - validator
     - ethereum
 
   chronicle-eth3:
@@ -151,7 +109,7 @@ services:
     profiles:
     - ethereum3
     depends_on:
-    - validator3
+    - validator
     - ethereum
 
   chronicle-astar:

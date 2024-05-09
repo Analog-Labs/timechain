@@ -238,6 +238,15 @@ impl Tester {
 		self.runtime.shard_threshold().await
 	}
 
+	pub async fn set_shard_config(&self, shard_size: u16, shard_threshold: u16) -> Result<()> {
+		self.runtime
+			.set_shard_config(shard_size, shard_threshold)
+			.await?
+			.wait_for_success()
+			.await?;
+		Ok(())
+	}
+
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
 		println!("creating task");
 		let shard_size = self.shard_size().await?;
@@ -264,7 +273,7 @@ impl Tester {
 	) -> Result<()> {
 		let events = self
 			.runtime
-			.insert_gateway(shard_id, address, block_height)
+			.register_gateway(shard_id, address, block_height)
 			.await?
 			.wait_for_success()
 			.await?;
@@ -698,7 +707,10 @@ impl TaskPhaseInfo {
 pub async fn test_setup(
 	tester: &Tester,
 	contract: &Path,
+	shard_size: u16,
+	threshold: u16,
 ) -> Result<(EthContractAddress, EthContractAddress, u64)> {
+	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
 	let gmp_contract = tester.setup_gmp(false).await?;
 	let (contract, start_block) = tester

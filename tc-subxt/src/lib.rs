@@ -50,8 +50,9 @@ pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
-	InsertTask { task: TaskDescriptorParams },
-	InsertGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
+	CreateTask { task: TaskDescriptorParams },
+	RegisterGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
+	SetShardConfig { shard_size: u16, shard_threshold: u16 },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, hash: [u8; 32] },
 	TaskResult { task_id: TaskId, result: TaskResult },
@@ -155,12 +156,12 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				let tx = timechain_runtime::tx().tasks().submit_result(task_id, result);
 				self.create_signed_payload(&tx)
 			},
-			Tx::InsertTask { task } => {
+			Tx::CreateTask { task } => {
 				let task_params: task::TaskDescriptorParams = unsafe { std::mem::transmute(task) };
 				let tx = timechain_runtime::tx().tasks().create_task(task_params);
 				self.create_signed_payload(&tx)
 			},
-			Tx::InsertGateway {
+			Tx::RegisterGateway {
 				shard_id,
 				address,
 				block_height,
@@ -172,6 +173,14 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 						block_height,
 					},
 				);
+				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
+				self.create_signed_payload(&sudo_call)
+			},
+			Tx::SetShardConfig { shard_size, shard_threshold } => {
+				let runtime_call = RuntimeCall::Elections(timechain_runtime::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+					shard_size,
+					shard_threshold,
+				});
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
 				self.create_signed_payload(&sudo_call)
 			},
@@ -277,11 +286,11 @@ impl SubxtClient {
 
 	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::InsertTask { task }, tx))?;
+		self.tx.unbounded_send((Tx::CreateTask { task }, tx))?;
 		Ok(rx.await?)
 	}
 
-	pub async fn insert_gateway(
+	pub async fn register_gateway(
 		&self,
 		shard_id: ShardId,
 		address: [u8; 20],
@@ -289,13 +298,24 @@ impl SubxtClient {
 	) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
-			Tx::InsertGateway {
+			Tx::RegisterGateway {
 				shard_id,
 				address,
 				block_height,
 			},
 			tx,
 		))?;
+		Ok(rx.await?)
+	}
+
+	pub async fn set_shard_config(
+		&self,
+		shard_size: u16,
+		shard_threshold: u16,
+	) -> Result<TxInBlock> {
+		let (tx, rx) = oneshot::channel();
+		self.tx
+			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
 		Ok(rx.await?)
 	}
 

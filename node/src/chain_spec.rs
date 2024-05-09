@@ -235,7 +235,7 @@ pub fn analog_testnet_config() -> Result<ChainSpec, String> {
 }
 
 /// Generate a chain spec for Analog staging environment.
-pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
+pub fn analog_staging_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Staging wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
@@ -523,7 +523,6 @@ pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
 						COMMUNITY_SUPPLY,
 					),
 				],
-				disable_tss,
 			)
 		},
 		// Bootnodes
@@ -544,7 +543,7 @@ pub fn analog_staging_config(disable_tss: bool) -> Result<ChainSpec, String> {
 }
 
 /// Generate a chain spec for local developement and testing.
-pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
+pub fn analog_dev_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// Give your base currency a unit name and decimal places
@@ -615,7 +614,6 @@ pub fn analog_dev_config(disable_tss: bool) -> Result<ChainSpec, String> {
 						ANLOG * 2000000,
 					),
 				],
-				disable_tss,
 			)
 		},
 		// Bootnodes
@@ -639,7 +637,6 @@ fn generate_analog_genesis(
 	council_key: AccountId,
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId)>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
-	disable_tss: bool,
 ) -> GenesisConfig {
 	let initial_nominators: Vec<AccountId> = vec![];
 	let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
@@ -655,7 +652,6 @@ fn generate_analog_genesis(
 			(x.clone(), x.clone(), locked, StakerStatus::<AccountId>::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
-	let (shard_size, shard_threshold) = if disable_tss { (1, 1) } else { (3, 2) };
 	GenesisConfig {
 		system: SystemConfig { ..Default::default() },
 		balances: BalancesConfig {
@@ -668,8 +664,8 @@ fn generate_analog_genesis(
 			..Default::default()
 		},
 		elections: ElectionsConfig {
-			shard_size,
-			shard_threshold,
+			shard_size: 3,
+			shard_threshold: 2,
 			..Default::default()
 		},
 		grandpa: GrandpaConfig {

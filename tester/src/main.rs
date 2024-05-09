@@ -40,6 +40,10 @@ enum Command {
 		#[clap(long, short = 'r', default_value_t = false)]
 		redeploy: bool,
 	},
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
 	WatchTask {
 		task_id: u64,
 	},
@@ -87,6 +91,9 @@ async fn main() -> Result<()> {
 		Command::SetupGmp { redeploy } => {
 			tester[0].faucet().await;
 			tester[0].setup_gmp(redeploy).await?;
+		},
+		Command::SetShardConfig { shard_size, shard_threshold } => {
+			tester[0].set_shard_config(shard_size, shard_threshold).await?;
 		},
 		Command::WatchTask { task_id } => {
 			tester[0].wait_for_task(task_id).await;
@@ -304,7 +311,7 @@ async fn gmp_benchmark(
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 1, 1).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	tester.create_task_and_wait(call, start_block).await;
@@ -316,7 +323,7 @@ async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 }
 
 async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 1, 1).await?;
 
 	let mut task_ids = vec![];
 	let call = tester::create_evm_view_call(contract_address);
@@ -332,6 +339,7 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 }
 
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
+	src.set_shard_config(1, 1).await?;
 	let (src_contract, dest_contract, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
 
 	println!("submitting vote");
@@ -364,7 +372,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 }
 
 async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 1, 1).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	let task_id = tester.create_task(call, start_block).await.unwrap();
@@ -395,7 +403,7 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 }
 
 async fn chronicle_restart_test(tester: &Tester, contract: &Path) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 3, 2).await?;
 	let shard_size = tester.shard_size().await?;
 	let threshold = tester.shard_threshold().await?;
 

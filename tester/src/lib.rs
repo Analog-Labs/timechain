@@ -599,16 +599,9 @@ impl GmpBenchState {
 			.map(|(k, v)| {
 				(
 					k,
-					v.start_time
-						.expect(&format!("Start time not found for task {:?}", k))
-						.duration_since(self.gmp_start_time)
-						.as_secs(),
-					v.get_start_duration()
-						.expect(&format!("Insert time not found for task {:?}", k))
-						.as_secs(),
-					v.get_execution_time()
-						.expect(&format!("Finish time not found for task {:?}", k))
-						.as_secs(),
+					v.start_time.unwrap().duration_since(self.gmp_start_time).as_secs(),
+					v.get_start_duration().unwrap().as_secs(),
+					v.get_execution_time().unwrap().as_secs(),
 					v.gmp_in_task,
 				)
 			})
@@ -697,18 +690,10 @@ impl GmpBenchState {
 			.map(|(k, v)| {
 				(
 					k,
-					v.unassigned_time()
-						.expect(&format!("Insert time not found: {:?}", k))
-						.as_secs(),
-					v.sign_to_write_duration()
-						.expect(&format!("Write time not found: {:?}", k))
-						.as_secs(),
-					v.write_to_read_duration()
-						.expect(&format!("Read time not found: {}", k))
-						.as_secs(),
-					v.read_to_finish_duration()
-						.expect(&format!("Finish time not found: {}", k))
-						.as_secs(),
+					v.unassigned_time().unwrap().as_secs(),
+					v.sign_to_write_duration().unwrap().as_secs(),
+					v.write_to_read_duration().unwrap().as_secs(),
+					v.read_to_finish_duration().unwrap().as_secs(),
 				)
 			})
 			.collect();
@@ -811,6 +796,12 @@ pub struct RecvTaskPhase {
 	pub gmp_in_task: u64,
 	pub start_time: Option<Instant>,
 	pub finish_time: Option<Instant>,
+}
+
+impl Default for RecvTaskPhase {
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl RecvTaskPhase {

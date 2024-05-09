@@ -291,14 +291,9 @@ async fn gmp_benchmark(
 						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
 							bench_state.finish_task(task_id);
 						}
-
-						match task_payload.payload {
-							Payload::Gmp(msgs) => {
-								bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
-							},
-							_ => {}
+						if let Payload::Gmp(msgs) = task_payload.payload {
+							bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
 						};
-
 					}
 					// update task phase
 					bench_state.sync_phase(src_tester).await;

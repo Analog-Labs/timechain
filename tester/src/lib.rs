@@ -14,6 +14,7 @@ use tabled::{builder::Builder, settings::Style};
 use tc_subxt::ext::futures::future::join_all;
 use tc_subxt::ext::futures::stream::BoxStream;
 use tc_subxt::ext::futures::{stream, StreamExt};
+pub use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::ShardStatus;
 use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
@@ -205,9 +206,12 @@ impl Tester {
 		Ok(None)
 	}
 
-	pub async fn is_shard_online(&self, shard_id: u64) -> bool {
-		use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::ShardStatus;
-		self.runtime.shard_state(shard_id).await.unwrap() == ShardStatus::Online
+	pub async fn shard_status(&self, shard_id: u64) -> Result<ShardStatus> {
+		self.runtime.shard_state(shard_id).await
+	}
+
+	pub async fn is_shard_online(&self, shard_id: u64) -> Result<bool> {
+		Ok(self.shard_status(shard_id).await? == ShardStatus::Online)
 	}
 
 	pub async fn wait_for_shard(&self) -> Result<ShardId> {
@@ -219,20 +223,38 @@ impl Tester {
 			};
 			break shard_id;
 		};
-		while !self.is_shard_online(shard_id).await {
+		while !self.is_shard_online(shard_id).await? {
 			println!("Waiting for shard to go online");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		Ok(shard_id)
 	}
 
+	pub async fn shard_size(&self) -> Result<u16> {
+		self.runtime.shard_size().await
+	}
+
+	pub async fn shard_threshold(&self) -> Result<u16> {
+		self.runtime.shard_threshold().await
+	}
+
+	pub async fn set_shard_config(&self, shard_size: u16, shard_threshold: u16) -> Result<()> {
+		self.runtime
+			.set_shard_config(shard_size, shard_threshold)
+			.await?
+			.wait_for_success()
+			.await?;
+		Ok(())
+	}
+
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
 		println!("creating task");
+		let shard_size = self.shard_size().await?;
 		let params = TaskDescriptorParams {
 			network: self.network_id,
 			function,
 			start: block,
-			shard_size: 1,
+			shard_size,
 			funds: 10000000000000000,
 		};
 		let events = self.runtime.create_task(params).await?.wait_for_success().await?;
@@ -251,7 +273,7 @@ impl Tester {
 	) -> Result<()> {
 		let events = self
 			.runtime
-			.insert_gateway(shard_id, address, block_height)
+			.register_gateway(shard_id, address, block_height)
 			.await?
 			.wait_for_success()
 			.await?;
@@ -352,7 +374,7 @@ fn compile_file(path: &Path) -> Result<Vec<u8>> {
 	Ok(hex::decode(json_abi["bytecode"]["object"].as_str().unwrap().replace("0x", ""))?)
 }
 
-pub fn drop_node(node_name: String) {
+pub fn stop_node(node_name: String) {
 	let output = Command::new("docker")
 		.args(["stop", &node_name])
 		.output()
@@ -685,7 +707,10 @@ impl TaskPhaseInfo {
 pub async fn test_setup(
 	tester: &Tester,
 	contract: &Path,
+	shard_size: u16,
+	threshold: u16,
 ) -> Result<(EthContractAddress, EthContractAddress, u64)> {
+	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
 	let gmp_contract = tester.setup_gmp(false).await?;
 	let (contract, start_block) = tester

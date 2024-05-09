@@ -316,18 +316,23 @@ impl Runtime for Mock {
 		&self,
 		_block: BlockHash,
 		shard_id: ShardId,
-	) -> Result<Commitment> {
+	) -> Result<Option<Commitment>> {
 		let shards = self.shards.lock().unwrap();
-		let commitments =
-			shards.get(&shard_id).map(|shard| shard.commitments.clone()).unwrap_or_default();
-		let commitments: Vec<_> = commitments
+		let Some(shard) = shards.get(&shard_id) else {
+			return Ok(None);
+		};
+		if shard.commitments.len() != shard.members.len() {
+			return Ok(None);
+		}
+		let commitments: Vec<_> = shard
+			.commitments
 			.iter()
 			.map(|commitment| {
 				VerifiableSecretSharingCommitment::deserialize(commitment.clone()).unwrap()
 			})
 			.collect();
 		let commitments = commitments.iter().collect::<Vec<_>>();
-		Ok(sum_commitments(&commitments).unwrap().serialize())
+		Ok(Some(sum_commitments(&commitments).unwrap().serialize()))
 	}
 
 	async fn get_shard_tasks(

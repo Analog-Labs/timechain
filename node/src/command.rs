@@ -40,10 +40,8 @@ impl SubstrateCli for Cli {
 			// Live networks
 			"testnet" => Box::new(chain_spec::analog_testnet_config()?),
 			// Development networks
-			"staging" => Box::new(chain_spec::analog_staging_config(false)?),
-			"staging-notss" => Box::new(chain_spec::analog_staging_config(true)?),
-			"" | "dev" => Box::new(chain_spec::analog_dev_config(false)?),
-			"notss" => Box::new(chain_spec::analog_dev_config(true)?),
+			"staging" => Box::new(chain_spec::analog_staging_config()?),
+			"" | "dev" => Box::new(chain_spec::analog_dev_config()?),
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
 			},

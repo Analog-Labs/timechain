@@ -50,8 +50,9 @@ pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
-	InsertTask { task: TaskDescriptorParams },
-	InsertGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
+	CreateTask { task: TaskDescriptorParams },
+	RegisterGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
+	SetShardConfig { shard_size: u16, shard_threshold: u16 },
 	Ready { shard_id: ShardId },
 	TaskHash { task_id: TaskId, hash: [u8; 32] },
 	TaskResult { task_id: TaskId, result: TaskResult },
@@ -155,12 +156,12 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 				let tx = timechain_runtime::tx().tasks().submit_result(task_id, result);
 				self.create_signed_payload(&tx)
 			},
-			Tx::InsertTask { task } => {
+			Tx::CreateTask { task } => {
 				let task_params: task::TaskDescriptorParams = unsafe { std::mem::transmute(task) };
 				let tx = timechain_runtime::tx().tasks().create_task(task_params);
 				self.create_signed_payload(&tx)
 			},
-			Tx::InsertGateway {
+			Tx::RegisterGateway {
 				shard_id,
 				address,
 				block_height,
@@ -172,6 +173,14 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 						block_height,
 					},
 				);
+				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
+				self.create_signed_payload(&sudo_call)
+			},
+			Tx::SetShardConfig { shard_size, shard_threshold } => {
+				let runtime_call = RuntimeCall::Elections(timechain_runtime::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+					shard_size,
+					shard_threshold,
+				});
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
 				self.create_signed_payload(&sudo_call)
 			},
@@ -207,8 +216,11 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 			},
 			Err(err) => {
 				tracing::error!("Error occured while submitting transaction: {err}");
+				let nonce = self.nonce;
 				if let Err(err) = self.resync_nonce().await {
 					tracing::error!("failed to resync nonce: {err}");
+				} else {
+					tracing::info!("resynced nonce from {} to {}", nonce, self.nonce);
 				}
 			},
 		}
@@ -217,9 +229,11 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
+			tracing::info!("starting subxt worker");
 			while let Some(tx) = rx.next().await {
 				self.submit(tx).await;
 			}
+			tracing::error!("shutting down subxt worker");
 		});
 		tx
 	}
@@ -239,6 +253,7 @@ impl SubxtClient {
 		let worker = SubxtWorker::new(client.clone(), keypair, tx_submitter).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
+		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();
 		Ok(Self {
 			client,
@@ -253,8 +268,9 @@ impl SubxtClient {
 		keyfile: &Path,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let content =
-			std::fs::read_to_string(keyfile).context("failed to read substrate keyfile")?;
+		let content = std::fs::read_to_string(keyfile)
+			.context("failed to read substrate keyfile")
+			.with_context(|| keyfile.display().to_string())?;
 		let secret = SecretUri::from_str(&content).context("failed to parse substrate keyfile")?;
 		let keypair =
 			Keypair::from_uri(&secret).context("substrate keyfile contains invalid suri")?;
@@ -270,11 +286,11 @@ impl SubxtClient {
 
 	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::InsertTask { task }, tx))?;
+		self.tx.unbounded_send((Tx::CreateTask { task }, tx))?;
 		Ok(rx.await?)
 	}
 
-	pub async fn insert_gateway(
+	pub async fn register_gateway(
 		&self,
 		shard_id: ShardId,
 		address: [u8; 20],
@@ -282,13 +298,24 @@ impl SubxtClient {
 	) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
-			Tx::InsertGateway {
+			Tx::RegisterGateway {
 				shard_id,
 				address,
 				block_height,
 			},
 			tx,
 		))?;
+		Ok(rx.await?)
+	}
+
+	pub async fn set_shard_config(
+		&self,
+		shard_size: u16,
+		shard_threshold: u16,
+	) -> Result<TxInBlock> {
+		let (tx, rx) = oneshot::channel();
+		self.tx
+			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
 		Ok(rx.await?)
 	}
 
@@ -407,7 +434,11 @@ impl Runtime for SubxtClient {
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
-	async fn get_shard_commitment(&self, _: BlockHash, shard_id: ShardId) -> Result<Commitment> {
+	async fn get_shard_commitment(
+		&self,
+		_: BlockHash,
+		shard_id: ShardId,
+	) -> Result<Option<Commitment>> {
 		let runtime_call = timechain_runtime::apis().shards_api().get_shard_commitment(shard_id);
 		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
 		Ok(data)

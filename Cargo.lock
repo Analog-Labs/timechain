@@ -1773,6 +1773,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "bincode",
  "clap",
  "env_logger",
  "futures",

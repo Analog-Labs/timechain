@@ -92,18 +92,11 @@ impl Default for GenesisKeysConfig {
 		use AccountKeyring::*;
 
 		GenesisKeysConfig {
-			bootstraps: vec![
-				(
-					Alice.to_raw_public().unchecked_into(),
-					Ed25519Keyring::Alice.to_raw_public().unchecked_into(),
-					Alice.to_raw_public().unchecked_into(),
-				),
-				(
-					Bob.to_raw_public().unchecked_into(),
-					Ed25519Keyring::Bob.to_raw_public().unchecked_into(),
-					Bob.to_raw_public().unchecked_into(),
-				),
-			],
+			bootstraps: vec![(
+				Alice.to_raw_public().unchecked_into(),
+				Ed25519Keyring::Alice.to_raw_public().unchecked_into(),
+				Alice.to_raw_public().unchecked_into(),
+			)],
 			chronicles: vec![
 				One.into(),
 				Two.into(),

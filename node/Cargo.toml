@@ -6,7 +6,7 @@ description = "A blochain node using the proof of time consensus."
 edition = "2021"
 homepage = "https://analog.one/"
 repository = "https://github.com/analog-labs/testnet"
-version = "0.0.1"
+version = "0.5.0"
 
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]

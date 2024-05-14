@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
@@ -227,13 +227,32 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 	}
 
 	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)> {
+		let updater = self.client.updater();
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			tracing::info!("starting subxt worker");
-			while let Some(tx) = rx.next().await {
-				self.submit(tx).await;
+			let mut update_stream =
+				updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
+			loop {
+				futures::select! {
+					tx = rx.next().fuse() => {
+						let Some(tx) = tx else { continue; };
+						self.submit(tx).await;
+					}
+					update = update_stream.next().fuse() => {
+						let Some(Ok(update)) = update else { continue; };
+						let version = update.runtime_version().spec_version;
+						match updater.apply_update(update) {
+							Ok(()) => {
+								tracing::info!("Upgrade to version: {} successful", version)
+							},
+							Err(e) => {
+								tracing::error!("Upgrade to version {} failed {:?}", version, e);
+							},
+						};
+					}
+				}
 			}
-			tracing::error!("shutting down subxt worker");
 		});
 		tx
 	}

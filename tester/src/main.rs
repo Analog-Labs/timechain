@@ -1,11 +1,12 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
+use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
-use tc_subxt::ext::futures::StreamExt;
+use tc_subxt::ext::futures::{FutureExt, StreamExt};
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::Payload;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
@@ -13,6 +14,12 @@ use tester::{
 	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
 };
 use tokio::time::{interval_at, Instant};
+
+// 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
+// 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1
+// 0x64AC191E26b66564bfda3249de27C9a8A96F9981 keyfile2
+// 0x1Be6ACA05B9e3E28Cb8ED04B99C9B989D1342eF4 keyfile3
+const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/keyfile3"];
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -81,6 +88,11 @@ async fn main() -> Result<()> {
 			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
 				.await?,
 		);
+
+		// fund chronicle faucets for testing
+		for item in CHRONICLE_KEYFILES {
+			Tester::wallet_faucet(runtime.clone(), network, Path::new(item)).await?;
+		}
 	}
 	let contract = args.contract;
 
@@ -192,41 +204,52 @@ async fn gmp_benchmark(
 		});
 	}
 
-	// wait for calls in chunks
-	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
-	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
-	println!("tx hash for block {:?}", results.first().unwrap().receipt().unwrap().block_number);
-	let gas_amount_used = results
-		.iter()
-		.map(|result| {
-			let receipt = result.receipt().unwrap();
-			let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-			let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
-			gas_price.saturating_mul(gas_used)
-		})
-		.collect::<Vec<_>>();
-
-	// total gas fee for src_contract call
-	bench_state.insert_src_gas(gas_amount_used);
-
-	// start the timer for gmp execution
-	bench_state.start();
-
-	// Get last block result of contract stats
-	let last_result = results.last().unwrap().receipt().unwrap().block_number;
-
-	// get src contract result
-	let src_stats = stats(src_tester, src_contract, last_result).await?;
-	println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
-	assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
-
+	// block stream of timechain
 	let mut block_stream = src_tester.finality_block_stream().await;
 	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
 
+	let mut gmp_task = Box::pin(wait_for_gmp_calls(calls, number_of_calls, 25)).fuse();
+	let mut all_gmp_blocks: Vec<u64> = vec![];
+
 	// loop to listen for task change and stats events from destination chain
 	loop {
-		let tasks_in_bench = bench_state.task_ids();
 		tokio::select! {
+			// wait for gmp calls to be sent to src contract
+			result = &mut gmp_task => {
+				let result = result.unwrap();
+				let blocks = result
+					.iter()
+					.map(|item| item.receipt().unwrap().block_number.unwrap())
+					.collect::<Vec<_>>();
+				all_gmp_blocks.extend(blocks);
+				println!("tx hash for first gmp call {:?}", result.first().unwrap().tx_hash());
+				println!(
+					"tx block for first gmp call {:?}",
+					result.first().unwrap().receipt().unwrap().block_number
+				);
+
+				let gas_amount_used = result
+					.iter()
+					.map(|result| {
+						let receipt = result.receipt().unwrap();
+						let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+						let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
+						gas_price.saturating_mul(gas_used)
+					})
+					.collect::<Vec<_>>();
+
+				// total gas fee for src_contract call
+				bench_state.insert_src_gas(gas_amount_used);
+
+				// Get last block result of contract stats
+				let last_result = result.last().unwrap().receipt().unwrap().block_number;
+				let src_stats = stats(src_tester, src_contract, last_result).await?;
+				println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
+				assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
+
+				// start the timer for gmp execution
+				bench_state.start();
+			}
 			block = block_stream.next() => {
 				if let Some((block_hash, _)) = block {
 					let events = subxt_client.events().at(block_hash).await?;
@@ -234,21 +257,43 @@ async fn gmp_benchmark(
 					for task in task_inserted_events.flatten() {
 						let task_id = task.0;
 						let task_details = src_tester.get_task(task_id).await;
-						if let time_primitives::Function::SendMessage { msg } = task_details.function {
-							if msg.dest == dest_contract {
-								// GMP task found matching destination contract
-								bench_state.add_task(task_id);
-							}
-						};
+						match task_details.function {
+							// send message task inserted verify if is for our testing contract
+							time_primitives::Function::SendMessage { msg } => {
+								if msg.dest == dest_contract {
+									// GMP task found matching destination contract
+									bench_state.add_task(task_id);
+								}
+							},
+							// insert read messages fetched
+							time_primitives::Function::ReadMessages { batch_size } => {
+								let start_block = task_details.start - (batch_size.get() - 1);
+								println!("Received ReadMessage task: {:?}", task_id);
+								for item in start_block..task_details.start + 1 {
+									let contains_gmp_task = all_gmp_blocks.iter().any(|block| *block == item);
+									if contains_gmp_task {
+										bench_state.add_recv_task(task_id);
+										println!("Contians gmp task");
+									}
+								}
+							},
+							_ => {},
+						}
 					}
 
 					// finish tasks
 					let task_result_submitted = events.find::<events::TaskResult>();
 					for task_result in task_result_submitted.flatten() {
+						// finish the task
 						let task_id = task_result.0;
-						if tasks_in_bench.contains(&task_id) {
+						let task_payload = task_result.1;
+
+						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
 							bench_state.finish_task(task_id);
 						}
+						if let Payload::Gmp(msgs) = task_payload.payload {
+							bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
+						};
 					}
 					// update task phase
 					bench_state.sync_phase(src_tester).await;
@@ -288,7 +333,8 @@ async fn gmp_benchmark(
 
 				cpu_usage.push(average_cpu_usage);
 
-				if bench_state.get_finished_tasks() == number_of_calls as usize {
+				// verify if the number of tasks finished matches the number of calls or greater and all tasks are finished
+				if bench_state.get_finished_tasks() >= number_of_calls as usize && bench_state.all_tasks_completed() {
 					break;
 				} else {
 					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());

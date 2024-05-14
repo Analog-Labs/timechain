@@ -1,10 +1,25 @@
 use crate::{
-	sum_commitments, verify_proof_of_knowledge, Tss, TssAction, TssMessage, TssRequest, TssResponse,
+	sum_commitments, verify_proof_of_knowledge, Identifier, ToFrostIdentifier, Tss, TssAction,
+	TssMessage, TssRequest, TssResponse,
 };
 use frost_evm::{Signature, VerifyingKey};
 use std::collections::{BTreeMap, BTreeSet};
 
-type Peer = u8;
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+struct Peer(u8);
+
+impl ToFrostIdentifier for Peer {
+	fn to_frost(&self) -> Identifier {
+		Identifier::derive(&[self.0]).unwrap()
+	}
+}
+
+impl std::fmt::Display for Peer {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		self.0.fmt(f)
+	}
+}
+
 type Id = u8;
 
 #[derive(Default)]
@@ -58,10 +73,10 @@ impl TssTester {
 		request_fault_injector: RequestFaultInjector,
 		response_fault_injector: ResponseFaultInjector,
 	) -> Self {
-		let members = (0..n).map(|i| i as _).collect::<BTreeSet<_>>();
+		let members = (0..n).map(|i| Peer(i as _)).collect::<BTreeSet<_>>();
 		let mut tss = Vec::with_capacity(n);
 		for i in 0..n {
-			tss.push(Tss::new(i as _, members.clone(), t as _, None));
+			tss.push(Tss::new(Peer(i as _), members.clone(), t as _, None));
 		}
 		Self {
 			tss,
@@ -104,7 +119,7 @@ impl TssTester {
 									continue;
 								};
 								if let Some(msg) = (self.request_fault_injector)(from, to, msg) {
-									let msg = match self.tss[to as usize].on_request(from, msg) {
+									let msg = match self.tss[to.0 as usize].on_request(from, msg) {
 										Ok(msg) => msg,
 										Err(error) => {
 											tracing::error!("request error {}", error);
@@ -116,7 +131,7 @@ impl TssTester {
 									};
 									if let Some(msg) = (self.response_fault_injector)(to, from, msg)
 									{
-										self.tss[from as usize].on_response(to, msg);
+										self.tss[from.0 as usize].on_response(to, msg);
 									}
 								}
 							}

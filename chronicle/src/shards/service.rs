@@ -102,7 +102,7 @@ where
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
-			if self.tss_states.get(&shard_id).is_some() {
+			if self.tss_states.contains_key(&shard_id) {
 				continue;
 			}
 			let members = self.substrate.get_shard_members(block, shard_id).await?;

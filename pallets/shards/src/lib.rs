@@ -136,7 +136,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			shard_id: ShardId,
 			commitment: Commitment,
-			_proof_of_knowledge: ProofOfKnowledge,
+			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			ensure!(
@@ -148,7 +148,14 @@ pub mod pallet {
 			for c in &commitment {
 				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
 			}
-			// TODO: verify proof of knowledge
+			let peer_id =
+				T::Members::member_peer_id(&member).ok_or(Error::<T>::UnexpectedCommit)?;
+			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
+				&peer_id,
+				&commitment,
+				proof_of_knowledge,
+			)
+			.map_err(|_| Error::<T>::InvalidProofOfKnowledge)?;
 			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
 			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
 				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
@@ -158,7 +165,6 @@ pub mod pallet {
 							group_commitment.iter_mut().zip(commitment.iter())
 						{
 							*group_commitment = VerifyingKey::new(
-								// TODO: return errors but ensure no storage changes before failing tx
 								VerifyingKey::from_bytes(*group_commitment)
 									.expect("GroupCommitment output is invalid")
 									.to_element() + VerifyingKey::from_bytes(*commitment)

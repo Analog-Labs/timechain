@@ -18,8 +18,36 @@ pub enum TssAction {
 }
 
 pub enum Tss {
-	Enabled(tss::Tss<TssId, String>),
+	Enabled(tss::Tss<TssId, TssPeerId>),
 	Disabled(SigningKey, Option<TssAction>, bool),
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TssPeerId(PeerId);
+
+impl TssPeerId {
+	pub fn new(peer_id: PeerId) -> Result<Self> {
+		peernet::PeerId::from_bytes(&peer_id)?;
+		Ok(Self(peer_id))
+	}
+}
+
+impl From<TssPeerId> for PeerId {
+	fn from(p: TssPeerId) -> Self {
+		p.0
+	}
+}
+
+impl tss::ToFrostIdentifier for TssPeerId {
+	fn to_frost(&self) -> tss::Identifier {
+		tss::Identifier::derive(&self.0).expect("not null")
+	}
+}
+
+impl std::fmt::Display for TssPeerId {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		peernet::PeerId::from_bytes(&self.0).unwrap().fmt(f)
+	}
 }
 
 fn signing_share_path(
@@ -38,11 +66,8 @@ impl Tss {
 		commitment: Option<VerifiableSecretSharingCommitment>,
 		tss_keyshare_cache: &Path,
 	) -> Result<Self> {
-		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
-		let members: BTreeSet<String> = members
-			.into_iter()
-			.map(|p| Ok(peernet::PeerId::from_bytes(&p)?.to_string()))
-			.collect::<Result<BTreeSet<_>>>()?;
+		let peer_id = TssPeerId::new(peer_id)?;
+		let members = members.into_iter().map(TssPeerId::new).collect::<Result<BTreeSet<_>>>()?;
 		if members.len() == 1 {
 			let key = SigningKey::random();
 			let public = key.public().to_bytes().unwrap();
@@ -102,7 +127,7 @@ impl Tss {
 	}
 
 	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<Option<TssMessage>> {
-		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
+		let peer_id = TssPeerId::new(peer_id)?;
 		Ok(match self {
 			Self::Enabled(tss) => tss.on_message(peer_id, msg),
 			Self::Disabled(_, _, _) => None,
@@ -115,14 +140,9 @@ impl Tss {
 			Self::Disabled(_, action, _) => return action.take(),
 		}?;
 		Some(match action {
-			tss::TssAction::Send(msgs) => TssAction::Send(
-				msgs.into_iter()
-					.map(|(peer, msg)| {
-						let peer: peernet::PeerId = peer.parse().unwrap();
-						(*peer.as_bytes(), msg)
-					})
-					.collect(),
-			),
+			tss::TssAction::Send(msgs) => {
+				TssAction::Send(msgs.into_iter().map(|(peer, msg)| (peer.into(), msg)).collect())
+			},
 			tss::TssAction::Commit(commitment, proof_of_knowledge) => {
 				TssAction::Commit(commitment, proof_of_knowledge)
 			},

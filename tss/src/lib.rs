@@ -3,7 +3,7 @@ use crate::dkg::{Dkg, DkgAction, DkgMessage};
 use crate::roast::{Roast, RoastAction, RoastRequest, RoastSignerResponse};
 use anyhow::Result;
 use frost_evm::keys::{KeyPackage, PublicKeyPackage, SecretShare};
-use frost_evm::{Identifier, Scalar};
+use frost_evm::Scalar;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,7 +12,7 @@ pub use frost_evm::frost_core::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
 pub use frost_evm::keys::{SigningShare, VerifiableSecretSharingCommitment};
 pub use frost_evm::schnorr::SigningKey;
-pub use frost_evm::{Signature, VerifyingKey};
+pub use frost_evm::{Identifier, Signature, VerifyingKey};
 
 mod dkg;
 mod roast;
@@ -82,18 +82,17 @@ impl<I: std::fmt::Display> std::fmt::Display for TssResponse<I> {
 	}
 }
 
-fn peer_to_frost(peer: impl std::fmt::Display) -> Identifier {
-	Identifier::derive(peer.to_string().as_bytes()).expect("non zero")
+pub trait ToFrostIdentifier {
+	fn to_frost(&self) -> Identifier;
 }
 
 pub fn construct_proof_of_knowledge(
-	peer: impl std::fmt::Display,
+	peer: impl ToFrostIdentifier,
 	coefficients: &[Scalar],
 	commitment: &VerifiableSecretSharingCommitment,
 ) -> Result<ProofOfKnowledge> {
-	let identifier = peer_to_frost(peer);
 	Ok(frost_evm::frost_core::keys::dkg::compute_proof_of_knowledge(
-		identifier,
+		peer.to_frost(),
 		coefficients,
 		commitment,
 		OsRng,
@@ -101,13 +100,12 @@ pub fn construct_proof_of_knowledge(
 }
 
 pub fn verify_proof_of_knowledge(
-	peer: impl std::fmt::Display,
+	peer: impl ToFrostIdentifier,
 	commitment: &VerifiableSecretSharingCommitment,
 	proof_of_knowledge: ProofOfKnowledge,
 ) -> Result<()> {
-	let identifier = peer_to_frost(peer);
 	Ok(frost_evm::frost_core::keys::dkg::verify_proof_of_knowledge(
-		identifier,
+		peer.to_frost(),
 		commitment,
 		proof_of_knowledge,
 	)?)
@@ -127,7 +125,7 @@ pub struct Tss<I, P> {
 impl<I, P> Tss<I, P>
 where
 	I: Clone + Ord + std::fmt::Display,
-	P: Clone + Ord + std::fmt::Display,
+	P: Clone + Ord + std::fmt::Display + ToFrostIdentifier,
 {
 	pub fn new(
 		peer_id: P,
@@ -136,9 +134,9 @@ where
 		recover: Option<(SigningShare, VerifiableSecretSharingCommitment)>,
 	) -> Self {
 		debug_assert!(members.contains(&peer_id));
-		let frost_id = peer_to_frost(&peer_id);
+		let frost_id = peer_id.to_frost();
 		let frost_to_peer: BTreeMap<_, _> =
-			members.into_iter().map(|peer| (peer_to_frost(&peer), peer)).collect();
+			members.into_iter().map(|peer| (peer.to_frost(), peer)).collect();
 		let members: BTreeSet<_> = frost_to_peer.keys().copied().collect();
 		let coordinators: BTreeSet<_> =
 			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
@@ -216,7 +214,7 @@ where
 		if self.peer_id == peer_id {
 			anyhow::bail!("{} received message from self", self.peer_id);
 		}
-		let frost_id = peer_to_frost(&peer_id);
+		let frost_id = peer_id.to_frost();
 		if !self.frost_to_peer.contains_key(&frost_id) {
 			anyhow::bail!("{} received message unknown peer {}", self.peer_id, peer_id);
 		}
@@ -243,7 +241,7 @@ where
 	}
 
 	fn on_response(&mut self, peer_id: P, response: TssResponse<I>) {
-		let frost_id = peer_to_frost(&peer_id);
+		let frost_id = peer_id.to_frost();
 		match (&mut self.state, response) {
 			(TssState::Dkg(_), _) => {},
 			(TssState::Roast { signing_sessions, .. }, TssResponse::Roast { id, msg }) => {

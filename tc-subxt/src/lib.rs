@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use std::path::Path;
 use std::str::FromStr;
 use subxt::backend::rpc::RpcClient;
@@ -54,7 +54,7 @@ pub enum Tx {
 	RegisterGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
 	SetShardConfig { shard_size: u16, shard_threshold: u16 },
 	Ready { shard_id: ShardId },
-	TaskHash { task_id: TaskId, hash: [u8; 32] },
+	TaskHash { task_id: TaskId, hash: Result<[u8; 32], String> },
 	TaskResult { task_id: TaskId, result: TaskResult },
 	TaskSignature { task_id: TaskId, signature: TssSignature },
 }
@@ -227,13 +227,32 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 	}
 
 	fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)> {
+		let updater = self.client.updater();
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			tracing::info!("starting subxt worker");
-			while let Some(tx) = rx.next().await {
-				self.submit(tx).await;
+			let mut update_stream =
+				updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
+			loop {
+				futures::select! {
+					tx = rx.next().fuse() => {
+						let Some(tx) = tx else { continue; };
+						self.submit(tx).await;
+					}
+					update = update_stream.next().fuse() => {
+						let Some(Ok(update)) = update else { continue; };
+						let version = update.runtime_version().spec_version;
+						match updater.apply_update(update) {
+							Ok(()) => {
+								tracing::info!("Upgrade to version: {} successful", version)
+							},
+							Err(e) => {
+								tracing::error!("Upgrade to version {} failed {:?}", version, e);
+							},
+						};
+					}
+				}
 			}
-			tracing::error!("shutting down subxt worker");
 		});
 		tx
 	}
@@ -533,7 +552,11 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()> {
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		hash: Result<[u8; 32], String>,
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskHash { task_id, hash }, tx))?;
 		rx.await?;

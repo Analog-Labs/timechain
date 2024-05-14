@@ -1,7 +1,7 @@
 use crate::{self as pallet_shards};
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
-use sp_core::{ConstU128, ConstU64};
+use sp_core::{ByteArray, ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
@@ -28,8 +28,8 @@ impl MemberStorage for MockMembers {
 	fn member_stake(_: &AccountId) -> u128 {
 		0u128
 	}
-	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
-		None
+	fn member_peer_id(id: &AccountId) -> Option<PeerId> {
+		Some(id.as_slice().try_into().unwrap())
 	}
 	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
 		None

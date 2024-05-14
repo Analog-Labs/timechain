@@ -74,16 +74,15 @@ services:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
     restart: 'always'
-    volumes:
-    - './config/wallets/keyfile:/etc/target_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
     - never
 
   chronicle-eth1:
-    extends: chronicle-eth3
+    extends: chronicle-eth-template
     volumes:
+    - './config/wallets/keyfile1:/etc/target_keyfile:ro'
     - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
     profiles:
     - ethereum
@@ -95,6 +94,7 @@ services:
   chronicle-eth2:
     extends: chronicle-eth-template
     volumes:
+    - './config/wallets/keyfile2:/etc/target_keyfile:ro'
     - './config/wallets/eth-2:/etc/timechain_keyfile:ro'
     profiles:
     - ethereum3
@@ -105,6 +105,7 @@ services:
   chronicle-eth3:
     extends: chronicle-eth-template
     volumes:
+    - './config/wallets/keyfile3:/etc/target_keyfile:ro'
     - './config/wallets/eth-3:/etc/timechain_keyfile:ro'
     profiles:
     - ethereum3
@@ -112,7 +113,7 @@ services:
     - validator
     - ethereum
 
-  chronicle-astar:
+  chronicle-astar-template:
     image: 'analoglabs/chronicle'
     command:
     - '--network-id=6'
@@ -124,13 +125,41 @@ services:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
     restart: 'always'
-    volumes:
-    - './config/wallets/keyfile:/etc/target_keyfile:ro'
-    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
     labels:
       prometheus-scrape.enabled: 'true'
     profiles:
+    - never
+
+  chronicle-astar1:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/keyfile1:/etc/target_keyfile:ro'
+    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
+    profiles:
     - astar
+    - astar3
+    depends_on:
+    - validator
+    - astar
+
+  chronicle-astar2:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/keyfile2:/etc/target_keyfile:ro'
+    - './config/wallets/astar-2:/etc/timechain_keyfile:ro'
+    profiles:
+    - astar3
+    depends_on:
+    - validator
+    - astar
+
+  chronicle-astar3:
+    extends: chronicle-astar-template
+    volumes:
+    - './config/wallets/keyfile3:/etc/target_keyfile:ro'
+    - './config/wallets/astar-3:/etc/timechain_keyfile:ro'
+    profiles:
+    - astar3
     depends_on:
     - validator
     - astar
@@ -144,7 +173,10 @@ services:
       RUST_BACKTRACE: 1
     volumes:
     - '/var/run/docker.sock:/var/run/docker.sock'
-    - './config/wallets/keyfile:/etc/keyfile:ro'
+    - './config/wallets/keyfile_tester:/etc/keyfile:ro'
+    - './config/wallets/keyfile1:/etc/keyfile1:ro'
+    - './config/wallets/keyfile2:/etc/keyfile2:ro'
+    - './config/wallets/keyfile3:/etc/keyfile3:ro'
     - './config/wallets/alice:/etc/alice:ro'
     - './out:/etc/contracts:ro'
 

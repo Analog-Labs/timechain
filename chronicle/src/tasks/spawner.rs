@@ -171,7 +171,7 @@ where
 				let logs: Vec<_> = self
 					.get_gmp_events_at(
 						gateway_contract,
-						NonZeroU64::new(target_block_number - batch_size.get() - 1),
+						NonZeroU64::new(target_block_number - batch_size.get() + 1),
 						target_block_number,
 					)
 					.await

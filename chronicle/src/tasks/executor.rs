@@ -167,7 +167,6 @@ where
 						continue;
 					};
 					if &public_key != self.substrate.public_key() {
-						tracing::warn!("Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
 					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
@@ -178,6 +177,8 @@ where
 						);
 						continue;
 					}
+
+					tracing::info!("Running write phase {}", task_id);
 
 					let function = match function {
 						Function::RegisterShard { shard_id } => {

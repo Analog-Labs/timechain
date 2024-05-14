@@ -406,7 +406,11 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()> {
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		hash: Result<[u8; 32], String>,
+	) -> Result<()> {
 		self.clone().submit_task_hash(task_id, hash).await.unwrap();
 		Ok(())
 	}

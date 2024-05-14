@@ -237,25 +237,28 @@ where
 	}
 
 	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		let submission = match function {
-			Function::EvmDeploy { bytecode } => {
-				let _guard = self.wallet_guard.lock().await;
-				self.wallet.eth_deploy_contract(bytecode.clone()).await?
-			},
-			Function::EvmCall {
-				address,
-				input,
-				amount,
-				gas_limit,
-			} => {
-				let _guard = self.wallet_guard.lock().await;
-				self.wallet
-					.eth_send_call(address, input.clone(), amount, None, gas_limit)
-					.await?
-			},
-			_ => anyhow::bail!("not a write function {function:?}"),
-		};
-		if let Err(e) = self.substrate.submit_task_hash(task_id, submission.tx_hash().0).await {
+		let submission = async move {
+			match function {
+				Function::EvmDeploy { bytecode } => {
+					let _guard = self.wallet_guard.lock().await;
+					self.wallet.eth_deploy_contract(bytecode.clone()).await
+				},
+				Function::EvmCall {
+					address,
+					input,
+					amount,
+					gas_limit,
+				} => {
+					let _guard = self.wallet_guard.lock().await;
+					self.wallet.eth_send_call(address, input.clone(), amount, None, gas_limit).await
+				},
+				_ => anyhow::bail!("not a write function {function:?}"),
+			}
+		}
+		.await
+		.map(|s| s.tx_hash().0)
+		.map_err(|err| err.to_string());
+		if let Err(e) = self.substrate.submit_task_hash(task_id, submission).await {
 			tracing::error!("Error submitting task hash {:?}", e);
 		}
 		Ok(())

@@ -54,7 +54,7 @@ pub enum Tx {
 	RegisterGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
 	SetShardConfig { shard_size: u16, shard_threshold: u16 },
 	Ready { shard_id: ShardId },
-	TaskHash { task_id: TaskId, hash: [u8; 32] },
+	TaskHash { task_id: TaskId, hash: Result<[u8; 32], String> },
 	TaskResult { task_id: TaskId, result: TaskResult },
 	TaskSignature { task_id: TaskId, signature: TssSignature },
 }
@@ -552,7 +552,11 @@ impl Runtime for SubxtClient {
 		Ok(())
 	}
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()> {
+	async fn submit_task_hash(
+		&self,
+		task_id: TaskId,
+		hash: Result<[u8; 32], String>,
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskHash { task_id, hash }, tx))?;
 		rx.await?;

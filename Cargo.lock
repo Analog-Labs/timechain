@@ -11514,13 +11514,16 @@ dependencies = [
 
 [[package]]
 name = "schnorr-evm"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a23361ad022a39a819af8606f6e622284681bddf91ffd28a7ebb5132c798e2c"
+checksum = "12d38ff0480524199151b6d716a1b97fb3235d3365f229172c21832e505d043f"
 dependencies = [
+ "frost-core",
+ "frost-secp256k1",
  "k256",
  "rand_core 0.6.4",
  "serde",
+ "sha2 0.10.8",
  "sha3",
 ]
 

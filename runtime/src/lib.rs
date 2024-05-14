@@ -199,6 +199,8 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 8 * HOURS;
+
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
 /// The version information used to identify this runtime when compiled natively.
@@ -317,7 +319,7 @@ where
 }
 
 parameter_types! {
-	pub EpochDuration: u64 = 8 * HOURS as u64;
+	pub EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS as u64;
 
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =
@@ -378,10 +380,9 @@ impl pallet_im_online::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/4 of the last session for each.
-	// in testing: 1min or half of the session for each
-	pub SignedPhase: u32 = 10;
-	pub UnsignedPhase: u32 = 5;
+	// phase durations. 1/8 of the last session for each.
+	pub SignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 8;
+	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 8;
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;

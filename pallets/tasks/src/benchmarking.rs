@@ -171,7 +171,7 @@ benchmarks! {
 			raw_signer,
 			<T as pallet_members::Config>::MinStake::get(),
 		)?;
-	}: _(RawOrigin::Signed(assigned_signer), 0, [0u8; 32]) verify {}
+	}: _(RawOrigin::Signed(assigned_signer), 0, Ok([0u8; 32])) verify {}
 
 	submit_signature {
 		let function = Function::SendMessage { msg: Msg::default() };

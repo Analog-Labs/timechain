@@ -429,7 +429,7 @@ fn shard_offline_drops_failed_tasks() {
 		ShardCommitment::<Test>::insert(0, vec![pub_key]);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, [0; 32],));
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, Ok([0; 32]),));
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -458,7 +458,7 @@ fn submit_task_error_is_task_failure() {
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, [0; 32],));
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, Ok([0; 32]),));
 		let error = mock_error_result(0, 0);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -545,7 +545,7 @@ fn payable_task_smoke() {
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
-			task_hash
+			Ok(task_hash),
 		));
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Read);
 		assert_eq!(<TaskHash<Test>>::get(task_id), Some(task_hash));
@@ -799,7 +799,7 @@ fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately(
 		ShardCommitment::<Test>::insert(1, vec![MockTssSigner::new().public_key()]);
 		let sig = mock_submit_sig(Function::UnregisterShard { shard_id: 0 });
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 1, sig,),);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 1, [0; 32],),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 1, Ok([0; 32])),);
 		// complete task to unregister shard
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
@@ -1011,7 +1011,7 @@ fn send_message_for_all_plus_write_reward_for_signer() {
 		for member in shard() {
 			balances.push(Balances::free_balance(&member));
 		}
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, Ok([0; 32])),);
 		let signer: AccountId = [0; 32].into();
 		assert_eq!(
 			SignerPayout::<Test>::get(task_id, &signer),
@@ -1063,7 +1063,7 @@ fn send_message_payout_clears_storage() {
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, Ok([0; 32])),);
 		let signer: AccountId = [0u8; 32].into();
 		let write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), write_reward);
@@ -1152,7 +1152,7 @@ fn read_phase_times_out_for_sign_task_in_read_phase() {
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0Ok(; 32]),);
 		assert_eq!(TaskShard::<Test>::get(0), Some(0));
 		assert_eq!(ShardTasks::<Test>::get(0, 0), Some(()));
 		assert_eq!(ShardTasks::<Test>::get(1, 0), None);
@@ -1207,7 +1207,7 @@ fn submit_result_fails_if_not_read_phase() {
 			),
 			Error::<Test>::NotReadPhase
 		);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, Ok([0; 32])),);
 	});
 }
 
@@ -1241,7 +1241,11 @@ fn write_reward_depreciates_correctly() {
 		assert_eq!(System::block_number(), 1);
 		roll_to(reward_config.depreciation_rate.blocks * 2);
 		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 2);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			task_id,
+			Ok([0; 32])
+		),);
 		let signer: AccountId = [0; 32].into();
 		let reward_sans_depreciation: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		let expected_write_reward = reward_sans_depreciation
@@ -1309,7 +1313,7 @@ fn submit_err_fails_if_not_read_phase() {
 			),
 			Error::<Test>::NotReadPhase
 		);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, Ok([0; 32])),);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
@@ -1348,7 +1352,11 @@ fn write_reward_eventually_depreciates_to_lower_bound_1() {
 		assert_eq!(System::block_number(), 1);
 		roll_to(reward_config.depreciation_rate.blocks * 200);
 		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 200);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			task_id,
+			Ok([0; 32])
+		),);
 		let signer: AccountId = [0; 32].into();
 		// asymptotic lower bound for all depreciation is the lowest unit
 		let expected_write_reward = 1u128;
@@ -1406,7 +1414,11 @@ fn read_send_message_rewards_depreciate_correctly() {
 		// get RewardConfig
 		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
 		assert_eq!(System::block_number(), 1);
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32]),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			task_id,
+			Ok([0; 32])
+		),);
 		let signer: AccountId = [0; 32].into();
 		let expected_write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), expected_write_reward);
@@ -1471,7 +1483,11 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		}
 		// get RewardConfig
 		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
-		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), task_id, [0; 32],),);
+		assert_ok!(Tasks::submit_hash(
+			RawOrigin::Signed([0; 32].into()).into(),
+			task_id,
+			Ok([0; 32])
+		),);
 		let signer: AccountId = [0; 32].into();
 		// asymptotic lower bound for all depreciation is the lowest unit
 		let expected_write_reward = <Test as crate::Config>::BaseWriteReward::get();

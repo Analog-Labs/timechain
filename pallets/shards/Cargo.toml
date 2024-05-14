@@ -39,6 +39,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"schnorr-evm/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",

@@ -148,9 +148,10 @@ pub mod pallet {
 			for c in &commitment {
 				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
 			}
-			let peer_id = b"";
+			let peer_id =
+				T::Members::member_peer_id(&member).ok_or(Error::<T>::UnexpectedCommit)?;
 			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
-				peer_id,
+				&peer_id,
 				&commitment,
 				proof_of_knowledge,
 			)

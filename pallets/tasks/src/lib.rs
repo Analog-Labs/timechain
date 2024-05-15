@@ -22,6 +22,7 @@ pub mod pallet {
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
 	};
+	use sp_std::collections::btree_set::BTreeSet;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -143,7 +144,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, NetworkId, Blake2_128Concat, TaskId, (), OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, BTreeSet<TaskId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_task_limit)]
@@ -152,7 +153,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ShardId, BTreeSet<TaskId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_shard)]
@@ -530,12 +531,16 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
-			for (network, task_id, _) in UnassignedTasks::<T>::iter() {
-				Self::cancel_task(task_id, network);
+			for (network, task_set) in UnassignedTasks::<T>::iter() {
+				for task_id in task_set.iter() {
+					Self::cancel_task(*task_id, network);
+				}
 			}
-			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
-				if let Some(network) = T::Shards::shard_network(shard_id) {
-					Self::cancel_task(task_id, network);
+			for (shard_id, task_set) in ShardTasks::<T>::iter() {
+				for task_id in task_set.iter() {
+					if let Some(network) = T::Shards::shard_network(shard_id) {
+						Self::cancel_task(*task_id, network);
+					}
 				}
 			}
 			Ok(())
@@ -546,16 +551,23 @@ pub mod pallet {
 		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
-				ShardTasks::<T>::remove(shard_id, task_id);
+				ShardTasks::<T>::mutate(shard_id, |task_set| {
+					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
+				});
+				// ShardTasks::<T>::remove(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
-					UnassignedTasks::<T>::insert(task.network, task_id, ());
+					UnassignedTasks::<T>::mutate(task.network, |task_set| {
+						task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
+					});
 				}
 			}
-			for (_, task_id, _) in UnassignedTasks::<T>::iter() {
-				if let Some(task) = Tasks::<T>::get(task_id) {
-					TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
-				}
-			}
+			<UnassignedTasks<T>>::iter_values().for_each(|task_set| {
+				task_set.iter().for_each(|task_id| {
+					if let Some(task) = <Tasks<T>>::get(task_id) {
+						TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
+					}
+				});
+			});
 			for (network, shard, _) in NetworkShards::<T>::iter() {
 				Self::schedule_tasks(network, Some(shard));
 			}
@@ -654,9 +666,13 @@ pub mod pallet {
 		}
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
-			ShardTasks::<T>::iter_prefix(shard_id)
-				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
-				.collect()
+			ShardTasks::<T>::get(shard_id)
+				.into_iter()
+				.flatten()
+				.flat_map(|task_id| {
+					Some(TaskExecution::new(task_id, TaskPhaseState::<T>::get(&task_id)))
+				})
+				.collect::<Vec<_>>()
 		}
 
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
@@ -710,12 +726,12 @@ pub mod pallet {
 		}
 
 		fn filter_tasks<F: Fn(TaskId)>(f: F) {
-			for (_network, task_id, _) in UnassignedTasks::<T>::iter() {
-				f(task_id);
-			}
-			for (_shard_id, task_id, _) in ShardTasks::<T>::iter() {
-				f(task_id);
-			}
+			<UnassignedTasks<T>>::iter_values().for_each(|task_set| {
+				task_set.iter().for_each(|task_id| f(*task_id));
+			});
+			<ShardTasks<T>>::iter_values().for_each(|task_set| {
+				task_set.iter().for_each(|task_id| f(*task_id));
+			});
 		}
 
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
@@ -835,7 +851,9 @@ pub mod pallet {
 			);
 			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
+			UnassignedTasks::<T>::mutate(schedule.network, |task_set| {
+				task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
+			});
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network, None);
 			Ok(task_id)
@@ -853,7 +871,9 @@ pub mod pallet {
 		fn finish_task(task_id: TaskId, result: TaskResult) {
 			TaskOutput::<T>::insert(task_id, result);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-				ShardTasks::<T>::remove(shard_id, task_id);
+				<ShardTasks<T>>::mutate(shard_id, |task_set| {
+					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
+				});
 			}
 		}
 
@@ -864,7 +884,10 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			UnassignedTasks::<T>::remove(task_network, task_id);
+			// UnassignedTasks::<T>::remove(task_network, task_id);
+			UnassignedTasks::<T>::mutate(task_network, |task_set| {
+				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
+			});
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);
@@ -910,8 +933,11 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
-			let tasks = UnassignedTasks::<T>::iter_prefix(network)
-				.filter(|(task_id, _)| {
+			let mut task_set = UnassignedTasks::<T>::get(network);
+			let tasks = task_set
+				.get_or_insert_with(BTreeSet::new)
+				.iter()
+				.filter(|task_id| {
 					let Some(task) = Tasks::<T>::get(task_id) else { return false };
 					if task.shard_size != shard_size {
 						return false;
@@ -921,18 +947,38 @@ pub mod pallet {
 					}
 					true
 				})
-				.take(capacity);
-			for (task, _) in tasks {
-				Self::assign_task(network, shard_id, task);
+				.take(capacity)
+				.collect::<Vec<_>>();
+			// let tasks = UnassignedTasks::<T>::iter_prefix(network)
+			// 	.filter(|(task_id, _)| {
+			// 		let Some(task) = Tasks::<T>::get(task_id) else { return false };
+			// 		if task.shard_size != shard_size {
+			// 			return false;
+			// 		}
+			// 		if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+			// 			return false;
+			// 		}
+			// 		true
+			// 	})
+			// 	.take(capacity);
+			for task in tasks {
+				Self::assign_task(network, shard_id, *task);
 			}
 		}
 
 		fn assign_task(network: NetworkId, shard_id: ShardId, task_id: TaskId) {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
-				ShardTasks::<T>::remove(old_shard_id, task_id);
+				ShardTasks::<T>::mutate(old_shard_id, |task_set| {
+					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
+				});
+				// ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
-			UnassignedTasks::<T>::remove(network, task_id);
-			ShardTasks::<T>::insert(shard_id, task_id, ());
+			UnassignedTasks::<T>::mutate(network, |task_set| {
+				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
+			});
+			ShardTasks::<T>::mutate(shard_id, |task_set| {
+				task_set.get_or_insert_with(BTreeSet::new).insert(task_id)
+			});
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
 		}
@@ -1071,10 +1117,13 @@ pub mod pallet {
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
 			// unassign tasks
-			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
+			ShardTasks::<T>::get(shard_id).unwrap_or_default().iter().for_each(|task_id| {
 				TaskShard::<T>::remove(task_id);
-				UnassignedTasks::<T>::insert(network, task_id, ());
+				<UnassignedTasks<T>>::get(network)
+					.get_or_insert_with(BTreeSet::new)
+					.insert(*task_id);
 			});
+			<ShardTasks<T>>::remove(shard_id);
 			Self::unregister_shard(shard_id, network);
 		}
 	}

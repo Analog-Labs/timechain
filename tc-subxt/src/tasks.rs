@@ -7,17 +7,7 @@ impl SubxtClient {
 	pub async fn get_network_unassigned_tasks(&self, network_id: u16) -> Result<Vec<TaskId>> {
 		let storage_query = timechain_runtime::storage().tasks().unassigned_tasks(network_id);
 		let items = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
-		println!("items: {:?}", items);
-		// let mut tasks: Vec<TaskId> = vec![];
-		// while let Some(Ok((key, _))) = items.next().await {
-		// 	// getting the task_id from last 8 bytes
-		// 	let s = &key[key.len() - 8..];
-		// 	let v: [u8; 8] = s.try_into()?;
-		// 	let val = u64::from_le_bytes(v);
-		// 	tasks.push(val);
-		// }
-		// Ok(tasks)
-		Ok(vec![])
+		Ok(items.unwrap_or_default())
 	}
 
 	pub async fn is_task_complete(&self, task_id: u64) -> Result<bool> {

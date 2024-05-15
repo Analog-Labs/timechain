@@ -338,7 +338,6 @@ impl GenesisKeysConfig {
 		let mut builder = ChainSpec::builder(wasm_binary, None)
 			.with_name(&name)
 			.with_id(id)
-			.with_protocol_id(id)
 			.with_chain_type(chain_type)
 			.with_properties(properties)
 			.with_genesis_config_patch(genesis_patch);

@@ -554,7 +554,6 @@ pub mod pallet {
 				ShardTasks::<T>::mutate(shard_id, |task_set| {
 					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
 				});
-				// ShardTasks::<T>::remove(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
 					UnassignedTasks::<T>::mutate(task.network, |task_set| {
 						task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
@@ -667,11 +666,9 @@ pub mod pallet {
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::get(shard_id)
+				.unwrap_or_default()
 				.into_iter()
-				.flatten()
-				.flat_map(|task_id| {
-					Some(TaskExecution::new(task_id, TaskPhaseState::<T>::get(&task_id)))
-				})
+				.map(|task_id| TaskExecution::new(task_id, TaskPhaseState::<T>::get(&task_id)))
 				.collect::<Vec<_>>()
 		}
 
@@ -884,7 +881,6 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			// UnassignedTasks::<T>::remove(task_network, task_id);
 			UnassignedTasks::<T>::mutate(task_network, |task_set| {
 				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
 			});
@@ -949,18 +945,6 @@ pub mod pallet {
 				})
 				.take(capacity)
 				.collect::<Vec<_>>();
-			// let tasks = UnassignedTasks::<T>::iter_prefix(network)
-			// 	.filter(|(task_id, _)| {
-			// 		let Some(task) = Tasks::<T>::get(task_id) else { return false };
-			// 		if task.shard_size != shard_size {
-			// 			return false;
-			// 		}
-			// 		if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-			// 			return false;
-			// 		}
-			// 		true
-			// 	})
-			// 	.take(capacity);
 			for task in tasks {
 				Self::assign_task(network, shard_id, *task);
 			}
@@ -971,7 +955,6 @@ pub mod pallet {
 				ShardTasks::<T>::mutate(old_shard_id, |task_set| {
 					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
 				});
-				// ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
 			UnassignedTasks::<T>::mutate(network, |task_set| {
 				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
@@ -1119,9 +1102,9 @@ pub mod pallet {
 			// unassign tasks
 			ShardTasks::<T>::get(shard_id).unwrap_or_default().iter().for_each(|task_id| {
 				TaskShard::<T>::remove(task_id);
-				<UnassignedTasks<T>>::get(network)
-					.get_or_insert_with(BTreeSet::new)
-					.insert(*task_id);
+				<UnassignedTasks<T>>::mutate(network, |task_set| {
+					task_set.get_or_insert_with(BTreeSet::new).insert(*task_id);
+				});
 			});
 			<ShardTasks<T>>::remove(shard_id);
 			Self::unregister_shard(shard_id, network);

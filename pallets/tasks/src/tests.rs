@@ -377,20 +377,14 @@ fn shard_offline_then_shard_online_reassigns_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
-		assert_eq!(
-			ShardTasks::<Test>::iter().map(|(s, t)| (s, t)).collect::<Vec<_>>(),
-			vec![(0, BTreeSet::from([0]))]
-		);
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>(), vec![(0, BTreeSet::from([0]))]);
 		assert!(UnassignedTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>()[0].is_empty());
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>()[0].1.is_empty());
-		assert_eq!(
-			ShardTasks::<Test>::iter().map(|(s, t)| (s, t)).collect::<Vec<_>>(),
-			vec![(1, BTreeSet::from([0]))]
-		);
+		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>(), vec![(1, BTreeSet::from([0]))]);
 	});
 }
 

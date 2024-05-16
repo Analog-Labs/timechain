@@ -531,18 +531,14 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
-			for (network, task_set) in UnassignedTasks::<T>::iter() {
-				for task_id in task_set.iter() {
-					Self::cancel_task(*task_id, network);
+			UnassignedTasks::<T>::iter().for_each(|(network, task_set)| {
+				task_set.iter().for_each(|&task_id| Self::cancel_task(task_id, network))
+			});
+			ShardTasks::<T>::iter().for_each(|(shard_id, task_set)| {
+				if let Some(network) = T::Shards::shard_network(shard_id) {
+					task_set.iter().for_each(|&task_id| Self::cancel_task(task_id, network));
 				}
-			}
-			for (shard_id, task_set) in ShardTasks::<T>::iter() {
-				for task_id in task_set.iter() {
-					if let Some(network) = T::Shards::shard_network(shard_id) {
-						Self::cancel_task(*task_id, network);
-					}
-				}
-			}
+			});
 			Ok(())
 		}
 

@@ -1752,3 +1752,26 @@ fn set_batch_size_sets_storage_and_emits_event() {
 		}
 	});
 }
+
+#[test]
+fn test_task_execution_order() {
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		for _ in 0..5 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM)
+			));
+		}
+		assert_eq!(
+			ShardTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>(),
+			vec![BTreeSet::from([0, 1, 2, 3, 4])]
+		);
+	});
+}

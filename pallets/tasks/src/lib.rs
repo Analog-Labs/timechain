@@ -14,7 +14,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
-		PalletId,
+		PalletId, StorageMap as IStorageMap,
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
@@ -547,13 +547,9 @@ pub mod pallet {
 		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
-				ShardTasks::<T>::mutate(shard_id, |task_set| {
-					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
-				});
+				Self::btree_remove::<ShardTasks<T>, ShardId>(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
-					UnassignedTasks::<T>::mutate(task.network, |task_set| {
-						task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
-					});
+					Self::btree_add::<UnassignedTasks<T>, NetworkId>(task.network, task_id);
 				}
 			}
 			<UnassignedTasks<T>>::iter_values().for_each(|task_set| {
@@ -844,9 +840,7 @@ pub mod pallet {
 			);
 			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			UnassignedTasks::<T>::mutate(schedule.network, |task_set| {
-				task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
-			});
+			Self::btree_add::<UnassignedTasks<T>, NetworkId>(schedule.network, task_id);
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network, None);
 			Ok(task_id)
@@ -864,9 +858,7 @@ pub mod pallet {
 		fn finish_task(task_id: TaskId, result: TaskResult) {
 			TaskOutput::<T>::insert(task_id, result);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-				<ShardTasks<T>>::mutate(shard_id, |task_set| {
-					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
-				});
+				Self::btree_remove::<ShardTasks<T>, ShardId>(shard_id, task_id);
 			}
 		}
 
@@ -877,9 +869,7 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			UnassignedTasks::<T>::mutate(task_network, |task_set| {
-				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
-			});
+			Self::btree_add::<UnassignedTasks<T>, NetworkId>(task_network, task_id);
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);
@@ -948,16 +938,10 @@ pub mod pallet {
 
 		fn assign_task(network: NetworkId, shard_id: ShardId, task_id: TaskId) {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
-				ShardTasks::<T>::mutate(old_shard_id, |task_set| {
-					task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
-				});
+				Self::btree_remove::<ShardTasks<T>, ShardId>(old_shard_id, task_id);
 			}
-			UnassignedTasks::<T>::mutate(network, |task_set| {
-				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
-			});
-			ShardTasks::<T>::mutate(shard_id, |task_set| {
-				task_set.get_or_insert_with(BTreeSet::new).insert(task_id)
-			});
+			Self::btree_remove::<UnassignedTasks<T>, NetworkId>(network, task_id);
+			Self::btree_add::<ShardTasks<T>, ShardId>(shard_id, task_id);
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
 		}
@@ -1082,6 +1066,26 @@ pub mod pallet {
 				_ => Err(Error::<T>::InvalidTaskFunction.into()),
 			}
 		}
+
+		pub fn btree_add<Map, Key>(key: Key, task_id: TaskId)
+		where
+			Map: IStorageMap<Key, BTreeSet<TaskId>, Query = Option<BTreeSet<TaskId>>>,
+			Key: codec::FullCodec + MaxEncodedLen,
+		{
+			Map::mutate(key, |task_set| {
+				task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
+			});
+		}
+
+		pub fn btree_remove<Map, Key>(key: Key, task_id: TaskId)
+		where
+			Map: IStorageMap<Key, BTreeSet<TaskId>, Query = Option<BTreeSet<TaskId>>>,
+			Key: codec::FullCodec + MaxEncodedLen,
+		{
+			Map::mutate(key, |task_set| {
+				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
+			});
+		}
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
@@ -1098,9 +1102,7 @@ pub mod pallet {
 			// unassign tasks
 			ShardTasks::<T>::get(shard_id).unwrap_or_default().iter().for_each(|task_id| {
 				TaskShard::<T>::remove(task_id);
-				<UnassignedTasks<T>>::mutate(network, |task_set| {
-					task_set.get_or_insert_with(BTreeSet::new).insert(*task_id);
-				});
+				Self::btree_add::<UnassignedTasks<T>, NetworkId>(network, *task_id);
 			});
 			<ShardTasks<T>>::remove(shard_id);
 			Self::unregister_shard(shard_id, network);

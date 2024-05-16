@@ -668,7 +668,7 @@ pub mod pallet {
 			ShardTasks::<T>::get(shard_id)
 				.unwrap_or_default()
 				.into_iter()
-				.map(|task_id| TaskExecution::new(task_id, TaskPhaseState::<T>::get(&task_id)))
+				.map(|task_id| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
 				.collect::<Vec<_>>()
 		}
 

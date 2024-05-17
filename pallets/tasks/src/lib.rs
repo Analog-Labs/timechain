@@ -917,10 +917,9 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
-			let mut task_set = UnassignedTasks::<T>::get(network);
-			let tasks = task_set
-				.get_or_insert_with(BTreeSet::new)
-				.iter()
+			let tasks = <UnassignedTasks<T>>::get(network)
+				.into_iter()
+				.flatten()
 				.filter(|task_id| {
 					let Some(task) = Tasks::<T>::get(task_id) else { return false };
 					if task.shard_size != shard_size {
@@ -934,7 +933,7 @@ pub mod pallet {
 				.take(capacity)
 				.collect::<Vec<_>>();
 			for task in tasks {
-				Self::assign_task(network, shard_id, *task);
+				Self::assign_task(network, shard_id, task);
 			}
 		}
 

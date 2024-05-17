@@ -61,7 +61,7 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_status(shard_id: ShardId) -> ShardStatus;
-		fn get_shard_commitment(shard_id: ShardId) -> Commitment;
+		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment>;
 	}
 
 	pub trait TasksApi {
@@ -154,8 +154,11 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_shard_status(&self, block: BlockHash, shard_id: ShardId) -> Result<ShardStatus>;
 
-	async fn get_shard_commitment(&self, block: BlockHash, shard_id: ShardId)
-		-> Result<Commitment>;
+	async fn get_shard_commitment(
+		&self,
+		block: BlockHash,
+		shard_id: ShardId,
+	) -> Result<Option<Commitment>>;
 
 	async fn get_shard_tasks(
 		&self,
@@ -193,7 +196,8 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: [u8; 32]) -> Result<()>;
+	async fn submit_task_hash(&self, task_id: TaskId, hash: Result<[u8; 32], String>)
+		-> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 }

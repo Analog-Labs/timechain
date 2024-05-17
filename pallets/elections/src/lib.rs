@@ -113,6 +113,9 @@ pub mod pallet {
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
 			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
+			for (network, _, _) in Unassigned::<T>::iter() {
+				Self::try_elect_shard(network);
+			}
 			Ok(())
 		}
 	}

@@ -1,11 +1,12 @@
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::{AtBlock, GetTransactionCount, SubmitResult};
+use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
-use tc_subxt::ext::futures::StreamExt;
+use tc_subxt::ext::futures::{FutureExt, StreamExt};
+use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::Payload;
 use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
@@ -13,6 +14,12 @@ use tester::{
 	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
 };
 use tokio::time::{interval_at, Instant};
+
+// 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
+// 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1
+// 0x64AC191E26b66564bfda3249de27C9a8A96F9981 keyfile2
+// 0x1Be6ACA05B9e3E28Cb8ED04B99C9B989D1342eF4 keyfile3
+const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/keyfile3"];
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -29,33 +36,39 @@ struct Args {
 	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
 	#[clap(subcommand)]
-	cmd: TestCommand,
+	cmd: Command,
 }
 
 #[derive(Parser, Debug)]
-enum TestCommand {
+enum Command {
 	FundWallet,
 	SetupGmp {
 		/// Deploys and registers a new gateway contract even, replacing the existing one.
 		#[clap(long, short = 'r', default_value_t = false)]
 		redeploy: bool,
 	},
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
 	WatchTask {
 		task_id: u64,
 	},
-	Basic,
-	BatchTask {
-		tasks: u64,
-	},
-	Gmp,
 	GmpBenchmark {
 		tasks: u64,
 		test_contract_addresses: Vec<String>,
 	},
-	TaskMigration,
-	KeyRecovery {
-		nodes: u8,
-	},
+	#[clap(subcommand)]
+	Test(Test),
+}
+
+#[derive(Parser, Debug)]
+enum Test {
+	Basic,
+	Batch { tasks: u64 },
+	Gmp,
+	Migration,
+	Restart,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -75,34 +88,29 @@ async fn main() -> Result<()> {
 			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
 				.await?,
 		);
+
+		// fund chronicle faucets for testing
+		for item in CHRONICLE_KEYFILES {
+			Tester::wallet_faucet(runtime.clone(), network, Path::new(item)).await?;
+		}
 	}
 	let contract = args.contract;
 
 	match args.cmd {
-		TestCommand::FundWallet => {
+		Command::FundWallet => {
 			tester[0].faucet().await;
 		},
-		TestCommand::SetupGmp { redeploy } => {
+		Command::SetupGmp { redeploy } => {
 			tester[0].faucet().await;
 			tester[0].setup_gmp(redeploy).await?;
 		},
-		TestCommand::WatchTask { task_id } => {
+		Command::SetShardConfig { shard_size, shard_threshold } => {
+			tester[0].set_shard_config(shard_size, shard_threshold).await?;
+		},
+		Command::WatchTask { task_id } => {
 			tester[0].wait_for_task(task_id).await;
 		},
-		TestCommand::Basic => basic_test(&tester[0], &contract).await?,
-		TestCommand::BatchTask { tasks } => {
-			batch_test(&tester[0], &contract, tasks).await?;
-		},
-		TestCommand::Gmp => {
-			gmp_test(&tester[0], &tester[1], &contract).await?;
-		},
-		TestCommand::TaskMigration => {
-			task_migration_test(&tester[0], &contract).await?;
-		},
-		TestCommand::KeyRecovery { nodes } => {
-			chronicle_restart_test(&tester[0], &contract, nodes).await?;
-		},
-		TestCommand::GmpBenchmark { tasks, test_contract_addresses } => {
+		Command::GmpBenchmark { tasks, test_contract_addresses } => {
 			let contracts = if test_contract_addresses.len() >= 2 {
 				Some((test_contract_addresses[0].clone(), test_contract_addresses[1].clone()))
 			} else {
@@ -110,6 +118,19 @@ async fn main() -> Result<()> {
 			};
 			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
 				.await?;
+		},
+		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await?,
+		Command::Test(Test::Batch { tasks }) => {
+			batch_test(&tester[0], &contract, tasks).await?;
+		},
+		Command::Test(Test::Gmp) => {
+			gmp_test(&tester[0], &tester[1], &contract).await?;
+		},
+		Command::Test(Test::Migration) => {
+			task_migration_test(&tester[0], &contract).await?;
+		},
+		Command::Test(Test::Restart) => {
+			chronicle_restart_test(&tester[0], &contract).await?;
 		},
 	}
 	Ok(())
@@ -183,41 +204,52 @@ async fn gmp_benchmark(
 		});
 	}
 
-	// wait for calls in chunks
-	let results: Vec<SubmitResult> = wait_for_gmp_calls(calls, number_of_calls, 25).await?;
-	println!("tx hash for sample gmp call {:?}", results.first().unwrap().tx_hash());
-	println!("tx hash for block {:?}", results.first().unwrap().receipt().unwrap().block_number);
-	let gas_amount_used = results
-		.iter()
-		.map(|result| {
-			let receipt = result.receipt().unwrap();
-			let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-			let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
-			gas_price.saturating_mul(gas_used)
-		})
-		.collect::<Vec<_>>();
-
-	// total gas fee for src_contract call
-	bench_state.insert_src_gas(gas_amount_used);
-
-	// start the timer for gmp execution
-	bench_state.start();
-
-	// Get last block result of contract stats
-	let last_result = results.last().unwrap().receipt().unwrap().block_number;
-
-	// get src contract result
-	let src_stats = stats(src_tester, src_contract, last_result).await?;
-	println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
-	assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
-
+	// block stream of timechain
 	let mut block_stream = src_tester.finality_block_stream().await;
 	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));
 
+	let mut gmp_task = Box::pin(wait_for_gmp_calls(calls, number_of_calls, 25)).fuse();
+	let mut all_gmp_blocks: Vec<u64> = vec![];
+
 	// loop to listen for task change and stats events from destination chain
 	loop {
-		let tasks_in_bench = bench_state.task_ids();
 		tokio::select! {
+			// wait for gmp calls to be sent to src contract
+			result = &mut gmp_task => {
+				let result = result.unwrap();
+				let blocks = result
+					.iter()
+					.map(|item| item.receipt().unwrap().block_number.unwrap())
+					.collect::<Vec<_>>();
+				all_gmp_blocks.extend(blocks);
+				println!("tx hash for first gmp call {:?}", result.first().unwrap().tx_hash());
+				println!(
+					"tx block for first gmp call {:?}",
+					result.first().unwrap().receipt().unwrap().block_number
+				);
+
+				let gas_amount_used = result
+					.iter()
+					.map(|result| {
+						let receipt = result.receipt().unwrap();
+						let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
+						let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
+						gas_price.saturating_mul(gas_used)
+					})
+					.collect::<Vec<_>>();
+
+				// total gas fee for src_contract call
+				bench_state.insert_src_gas(gas_amount_used);
+
+				// Get last block result of contract stats
+				let last_result = result.last().unwrap().receipt().unwrap().block_number;
+				let src_stats = stats(src_tester, src_contract, last_result).await?;
+				println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
+				assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
+
+				// start the timer for gmp execution
+				bench_state.start();
+			}
 			block = block_stream.next() => {
 				if let Some((block_hash, _)) = block {
 					let events = subxt_client.events().at(block_hash).await?;
@@ -225,21 +257,43 @@ async fn gmp_benchmark(
 					for task in task_inserted_events.flatten() {
 						let task_id = task.0;
 						let task_details = src_tester.get_task(task_id).await;
-						if let time_primitives::Function::SendMessage { msg } = task_details.function {
-							if msg.dest == dest_contract {
-								// GMP task found matching destination contract
-								bench_state.add_task(task_id);
-							}
-						};
+						match task_details.function {
+							// send message task inserted verify if is for our testing contract
+							time_primitives::Function::SendMessage { msg } => {
+								if msg.dest == dest_contract {
+									// GMP task found matching destination contract
+									bench_state.add_task(task_id);
+								}
+							},
+							// insert read messages fetched
+							time_primitives::Function::ReadMessages { batch_size } => {
+								let start_block = task_details.start - (batch_size.get() - 1);
+								println!("Received ReadMessage task: {:?}", task_id);
+								for item in start_block..task_details.start + 1 {
+									let contains_gmp_task = all_gmp_blocks.iter().any(|block| *block == item);
+									if contains_gmp_task {
+										bench_state.add_recv_task(task_id);
+										println!("Contians gmp task");
+									}
+								}
+							},
+							_ => {},
+						}
 					}
 
 					// finish tasks
 					let task_result_submitted = events.find::<events::TaskResult>();
 					for task_result in task_result_submitted.flatten() {
+						// finish the task
 						let task_id = task_result.0;
-						if tasks_in_bench.contains(&task_id) {
+						let task_payload = task_result.1;
+
+						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
 							bench_state.finish_task(task_id);
 						}
+						if let Payload::Gmp(msgs) = task_payload.payload {
+							bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
+						};
 					}
 					// update task phase
 					bench_state.sync_phase(src_tester).await;
@@ -279,7 +333,8 @@ async fn gmp_benchmark(
 
 				cpu_usage.push(average_cpu_usage);
 
-				if bench_state.get_finished_tasks() == number_of_calls as usize {
+				// verify if the number of tasks finished matches the number of calls or greater and all tasks are finished
+				if bench_state.get_finished_tasks() >= number_of_calls as usize && bench_state.all_tasks_completed() {
 					break;
 				} else {
 					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());
@@ -302,7 +357,7 @@ async fn gmp_benchmark(
 }
 
 async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 1, 1).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	tester.create_task_and_wait(call, start_block).await;
@@ -314,7 +369,7 @@ async fn basic_test(tester: &Tester, contract: &Path) -> Result<()> {
 }
 
 async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 1, 1).await?;
 
 	let mut task_ids = vec![];
 	let call = tester::create_evm_view_call(contract_address);
@@ -330,6 +385,7 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 }
 
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
+	src.set_shard_config(1, 1).await?;
 	let (src_contract, dest_contract, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
 
 	println!("submitting vote");
@@ -362,7 +418,7 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 }
 
 async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+	let (_, contract_address, start_block) = test_setup(tester, contract, 1, 1).await?;
 
 	let call = tester::create_evm_view_call(contract_address);
 	let task_id = tester.create_task(call, start_block).await.unwrap();
@@ -370,13 +426,13 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	sleep_or_abort(Duration::from_secs(60)).await?;
 
 	// drop 2 nodes
-	tester::drop_node("testnet-chronicle-eth1-1".to_string());
-	tester::drop_node("testnet-chronicle-eth1-1".to_string());
+	tester::stop_node("testnet-chronicle-eth1-1".to_string());
+	tester::stop_node("testnet-chronicle-eth1-1".to_string());
 	println!("dropped 2 nodes");
 
 	// wait for some time
 	let shard_id = tester.get_shard_id().await?.unwrap();
-	while tester.is_shard_online(shard_id).await {
+	while tester.is_shard_online(shard_id).await? {
 		println!("Waiting for shard offline");
 		sleep_or_abort(Duration::from_secs(10)).await?;
 	}
@@ -392,29 +448,21 @@ async fn task_migration_test(tester: &Tester, contract: &Path) -> Result<()> {
 	Ok(())
 }
 
-async fn chronicle_restart_test(
-	tester: &Tester,
-	contract: &Path,
-	nodes_to_restart: u8,
-) -> Result<()> {
-	let (_, contract_address, start_block) = test_setup(tester, contract).await?;
+async fn chronicle_restart_test(tester: &Tester, contract: &Path) -> Result<()> {
+	let (_, contract_address, start_block) = test_setup(tester, contract, 3, 2).await?;
+	let shard_size = tester.shard_size().await?;
+	let threshold = tester.shard_threshold().await?;
 
-	let call = tester::create_evm_view_call(contract_address);
-	let task_id = tester.create_task(call, start_block).await?;
-
-	// wait for some cycles to run, Note: tasks are running in background
-	for i in 1..nodes_to_restart + 1 {
-		println!("waiting for 1 min");
-		sleep_or_abort(Duration::from_secs(60)).await?;
-		println!("restarting node {}", i);
-		tester::restart_node(format!("testnet-chronicle-eth{}-1", i));
+	for i in 0..shard_size {
+		if i < threshold {
+			tester::restart_node(format!("testnet-chronicle-eth{}-1", i + 1));
+		} else {
+			tester::stop_node(format!("testnet-chronicle-eth{}-1", i + 1));
+		}
 	}
 
-	println!("waiting for 20 secs to let node recover completely");
-	sleep_or_abort(Duration::from_secs(20)).await?;
-
-	// watch task
-	tester.wait_for_task(task_id).await;
+	let call = tester::create_evm_view_call(contract_address);
+	tester.create_task_and_wait(call, start_block).await;
 
 	Ok(())
 }

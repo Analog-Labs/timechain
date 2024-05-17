@@ -31,6 +31,7 @@ pub struct ChronicleConfig {
 	pub timechain_keyfile: PathBuf,
 	pub target_url: String,
 	pub target_keyfile: PathBuf,
+	pub tss_keyshare_cache: PathBuf,
 }
 
 impl ChronicleConfig {
@@ -87,6 +88,7 @@ pub async fn run_chronicle(
 		task_spawner,
 		tss_rx,
 		substrate,
+		config.tss_keyshare_cache,
 	)
 	.await
 }
@@ -98,6 +100,7 @@ async fn run_chronicle_with_spawner(
 	task_spawner: impl crate::tasks::TaskSpawner,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	substrate: impl Runtime,
+	tss_keyshare_cache: PathBuf,
 ) -> Result<()> {
 	let peer_id = network.peer_id();
 	let span = span!(
@@ -119,6 +122,7 @@ async fn run_chronicle_with_spawner(
 		substrate,
 		tss_request,
 		net_request,
+		tss_keyshare_cache,
 	});
 	time_worker.run(&span).await;
 	Ok(())
@@ -147,6 +151,7 @@ mod tests {
 			mock.clone(),
 			tss_rx,
 			mock.clone(),
+			"/tmp".into(),
 		)
 		.await
 		.unwrap();

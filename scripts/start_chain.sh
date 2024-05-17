@@ -9,7 +9,7 @@ run_ethereum() {
         docker compose --profile ethereum down -v && ./scripts/build_docker.sh && docker compose --profile ethereum up
     elif [ "$1" == "multi" ]; then
         echo "Running multi node Ethereum configuration."
-        docker compose -f docker-compose-multinode.yml --profile ethereum down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile ethereum up
+        docker compose --profile ethereum3 down -v && ./scripts/build_docker.sh && docker compose --profile ethereum3 up
     fi
 }
 
@@ -19,7 +19,7 @@ run_astar() {
         docker compose --profile astar down -v && ./scripts/build_docker.sh && docker compose --profile astar up
     elif [ "$1" == "multi" ]; then
         echo "Running multi node Astar configuration."
-        docker compose -f docker-compose-multinode.yml --profile astar down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile astar up
+        docker compose --profile astar3 down -v && ./scripts/build_docker.sh && docker compose --profile astar3 up
     fi
 }
 
@@ -29,7 +29,7 @@ run_gmp() {
         docker compose --profile ethereum --profile astar down -v && ./scripts/build_docker.sh && docker compose --profile ethereum --profile astar up
     elif [ "$1" == "multi" ]; then
         echo "Running multi node for gmp"
-        docker compose -f docker-compose-multinode.yml --profile ethereum --profile astar down -v && ./scripts/build_docker.sh && docker compose -f docker-compose-multinode.yml --profile ethereum --profile astar up
+        docker compose --profile ethereum3 --profile astar3 down -v && ./scripts/build_docker.sh && docker compose --profile ethereum3 --profile astar3 up
     fi
 }
 

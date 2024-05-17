@@ -147,15 +147,10 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("timechain-node"),
-	impl_name: create_runtime_str!("timechain-node"),
+	spec_name: create_runtime_str!("analog-testnet"),
+	impl_name: create_runtime_str!("analog-testnet"),
 	authoring_version: 1,
-	// The version of the runtime specification. A full node will not attempt to use its native
-	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
-	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
-	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
-	//   the compatible custom types.
-	spec_version: 111,
+	spec_version: 116,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -203,6 +198,8 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 8 * HOURS;
 
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
@@ -322,7 +319,7 @@ where
 }
 
 parameter_types! {
-	pub EpochDuration: u64 = 8 * HOURS as u64;
+	pub EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS as u64;
 
 	pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =
@@ -383,10 +380,9 @@ impl pallet_im_online::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/4 of the last session for each.
-	// in testing: 1min or half of the session for each
-	pub SignedPhase: u32 = 10;
-	pub UnsignedPhase: u32 = 5;
+	// phase durations. 1/8 of the last session for each.
+	pub SignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 8;
+	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 8;
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
@@ -1295,7 +1291,7 @@ impl_runtime_apis! {
 			Shards::get_shard_status(shard_id)
 		}
 
-		fn get_shard_commitment(shard_id: ShardId) -> Commitment {
+		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
 			Shards::get_shard_commitment(shard_id)
 		}
 	}

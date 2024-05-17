@@ -1,15 +1,61 @@
 use crate::network::PeerId;
 use anyhow::Result;
 use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 pub use time_primitives::TssId;
-pub use tss::{SigningKey, VerifiableSecretSharingCommitment, VerifyingKey};
+pub use tss::{
+	ProofOfKnowledge, Signature, SigningKey, VerifiableSecretSharingCommitment, VerifyingKey,
+};
 
 pub type TssMessage = tss::TssMessage<TssId>;
-pub type TssAction = tss::TssAction<TssId, PeerId>;
+
+#[derive(Clone)]
+pub enum TssAction {
+	Send(Vec<(PeerId, TssMessage)>),
+	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
+	PublicKey(VerifyingKey),
+	Signature(TssId, [u8; 32], Signature),
+}
 
 pub enum Tss {
-	Enabled(tss::Tss<TssId, String>),
-	Disabled(SigningKey, Option<tss::TssAction<TssId, String>>, bool),
+	Enabled(tss::Tss<TssId, TssPeerId>),
+	Disabled(SigningKey, Option<TssAction>, bool),
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TssPeerId(PeerId);
+
+impl TssPeerId {
+	pub fn new(peer_id: PeerId) -> Result<Self> {
+		peernet::PeerId::from_bytes(&peer_id)?;
+		Ok(Self(peer_id))
+	}
+}
+
+impl From<TssPeerId> for PeerId {
+	fn from(p: TssPeerId) -> Self {
+		p.0
+	}
+}
+
+impl tss::ToFrostIdentifier for TssPeerId {
+	fn to_frost(&self) -> tss::Identifier {
+		tss::Identifier::derive(&self.0).expect("not null")
+	}
+}
+
+impl std::fmt::Display for TssPeerId {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		peernet::PeerId::from_bytes(&self.0).unwrap().fmt(f)
+	}
+}
+
+fn signing_share_path(
+	keyshare_cache: &Path,
+	commitment: &VerifiableSecretSharingCommitment,
+) -> PathBuf {
+	let file_name = hex::encode(bincode::serialize(commitment).expect("is serializable"));
+	keyshare_cache.join(file_name)
 }
 
 impl Tss {
@@ -18,12 +64,10 @@ impl Tss {
 		members: BTreeSet<PeerId>,
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
+		tss_keyshare_cache: &Path,
 	) -> Result<Self> {
-		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
-		let members: BTreeSet<String> = members
-			.into_iter()
-			.map(|p| Ok(peernet::PeerId::from_bytes(&p)?.to_string()))
-			.collect::<Result<BTreeSet<_>>>()?;
+		let peer_id = TssPeerId::new(peer_id)?;
+		let members = members.into_iter().map(TssPeerId::new).collect::<Result<BTreeSet<_>>>()?;
 		if members.len() == 1 {
 			let key = SigningKey::random();
 			let public = key.public().to_bytes().unwrap();
@@ -34,13 +78,17 @@ impl Tss {
 				&commitment,
 			)
 			.unwrap();
-			Ok(Tss::Disabled(
-				key,
-				Some(tss::TssAction::Commit(commitment, proof_of_knowledge)),
-				false,
-			))
+			Ok(Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false))
 		} else {
-			Ok(Tss::Enabled(tss::Tss::new(peer_id, members, threshold, commitment)))
+			let recover = if let Some(commitment) = commitment {
+				let file_name = signing_share_path(tss_keyshare_cache, &commitment);
+				let bytes = std::fs::read(file_name)?;
+				let signing_share = bincode::deserialize(&bytes)?;
+				Some((signing_share, commitment))
+			} else {
+				None
+			};
+			Ok(Tss::Enabled(tss::Tss::new(peer_id, members, threshold, recover)))
 		}
 	}
 
@@ -55,7 +103,7 @@ impl Tss {
 		match self {
 			Self::Enabled(tss) => tss.on_commit(commitment),
 			Self::Disabled(key, actions, committed) => {
-				*actions = Some(tss::TssAction::PublicKey(key.public()));
+				*actions = Some(TssAction::PublicKey(key.public()));
 				*committed = true;
 			},
 		}
@@ -66,8 +114,7 @@ impl Tss {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {
 				let hash = VerifyingKey::message_hash(&data);
-				*actions =
-					Some(tss::TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
+				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
 			},
 		}
 	}
@@ -80,31 +127,37 @@ impl Tss {
 	}
 
 	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<Option<TssMessage>> {
-		let peer_id = peernet::PeerId::from_bytes(&peer_id)?.to_string();
+		let peer_id = TssPeerId::new(peer_id)?;
 		Ok(match self {
 			Self::Enabled(tss) => tss.on_message(peer_id, msg),
 			Self::Disabled(_, _, _) => None,
 		})
 	}
 
-	pub fn next_action(&mut self) -> Option<TssAction> {
+	pub fn next_action(&mut self, tss_keyshare_path: &Path) -> Option<TssAction> {
 		let action = match self {
 			Self::Enabled(tss) => tss.next_action(),
-			Self::Disabled(_, action, _) => action.take(),
+			Self::Disabled(_, action, _) => return action.take(),
 		}?;
 		Some(match action {
-			tss::TssAction::Send(msgs) => TssAction::Send(
-				msgs.into_iter()
-					.map(|(peer, msg)| {
-						let peer: peernet::PeerId = peer.parse().unwrap();
-						(*peer.as_bytes(), msg)
-					})
-					.collect(),
-			),
+			tss::TssAction::Send(msgs) => {
+				TssAction::Send(msgs.into_iter().map(|(peer, msg)| (peer.into(), msg)).collect())
+			},
 			tss::TssAction::Commit(commitment, proof_of_knowledge) => {
 				TssAction::Commit(commitment, proof_of_knowledge)
 			},
-			tss::TssAction::PublicKey(public_key) => TssAction::PublicKey(public_key),
+			tss::TssAction::Ready(signing_share, commitment, public_key) => {
+				let file_name = signing_share_path(tss_keyshare_path, &commitment);
+				let bytes =
+					bincode::serialize(&signing_share).expect("can serialize signing share");
+				#[cfg(unix)]
+				{
+					use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+					std::fs::set_permissions(&file_name, Permissions::from_mode(0o600)).ok();
+				}
+				std::fs::write(file_name, bytes).ok();
+				TssAction::PublicKey(public_key)
+			},
 			tss::TssAction::Signature(id, hash, sig) => TssAction::Signature(id, hash, sig),
 		})
 	}

@@ -245,7 +245,7 @@ fn task_auto_assigned_if_shard_online() {
 				shard_size: 3,
 			}
 		);
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>()[0].1.is_empty());
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>(),
 			vec![BTreeSet::from([0])]
@@ -280,7 +280,7 @@ fn task_auto_assigned_if_shard_joins_after() {
 				shard_size: 3,
 			}
 		);
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>()[0].1.is_empty());
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>(),
 			vec![BTreeSet::from([0])]
@@ -335,7 +335,7 @@ fn shard_offline_removes_tasks() {
 			ShardTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>(),
 			vec![BTreeSet::from([0])]
 		);
-		assert!(UnassignedTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>()[0].is_empty());
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0));
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>(),
@@ -378,12 +378,12 @@ fn shard_offline_then_shard_online_reassigns_tasks() {
 			mock_task(ETHEREUM)
 		));
 		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>(), vec![(0, BTreeSet::from([0]))]);
-		assert!(UnassignedTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>()[0].is_empty());
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>()[0].1.is_empty());
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>(), vec![(1, BTreeSet::from([0]))]);
 	});
 }
@@ -409,8 +409,8 @@ fn submit_completed_result_purges_task_from_storage() {
 			0,
 			mock_result_ok(0, 0)
 		));
-		assert_eq!(ShardTasks::<Test>::iter().collect::<Vec<_>>()[0].1.len(), 1);
-		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>()[0].1.is_empty());
+		assert_eq!(ShardTasks::<Test>::get(0).into_iter().flatten().count(), 1);
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 	});
 }
 
@@ -442,8 +442,8 @@ fn shard_offline_drops_failed_tasks() {
 		));
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_offline(0, ETHEREUM);
-		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert_eq!(UnassignedTasks::<Test>::iter().map(|(_, t)| t).collect::<Vec<_>>()[0].len(), 2);
+		assert_eq!(ShardTasks::<Test>::get(0).into_iter().flatten().count(), 0);
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 2);
 	});
 }
 
@@ -1657,22 +1657,22 @@ fn set_shard_task_limit_successfully_limits_task_assignment() {
 				mock_task(ETHEREUM)
 			));
 		}
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 5);
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+		assert_eq!(ShardTasks::<Test>::get(0).into_iter().flatten().count(), 5);
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 0);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 5));
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 5);
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
+		assert_eq!(ShardTasks::<Test>::get(0).into_iter().flatten().count(), 5);
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 1);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 6));
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM)
 		));
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 6);
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
+		assert_eq!(ShardTasks::<Test>::get(0).into_iter().flatten().count(), 6);
+		assert_eq!(UnassignedTasks::<Test>::get(ETHEREUM).into_iter().flatten().count(), 1);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 6));
 	});
 }

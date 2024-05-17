@@ -904,8 +904,10 @@ pub mod pallet {
 		}
 
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
-			let tasks = ShardTasks::<T>::iter_prefix(shard_id)
-				.filter(|(t, _)| TaskOutput::<T>::get(t).is_none())
+			let tasks = ShardTasks::<T>::get(shard_id)
+				.unwrap_or_default()
+				.iter()
+				.filter(|task_id| <TaskOutput<T>>::get(task_id).is_none())
 				.count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();

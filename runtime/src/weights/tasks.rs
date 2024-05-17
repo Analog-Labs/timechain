@@ -270,4 +270,8 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	fn unregister_gateways() -> Weight {
 		Weight::from_parts(0, 0)
 	}
+
+	fn set_shard_task_limit() -> Weight {
+		Weight::from_parts(0, 0)
+	}
 }

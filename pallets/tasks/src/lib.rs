@@ -540,7 +540,7 @@ pub mod pallet {
 		pub fn set_shard_task_limit(
 			origin: OriginFor<T>,
 			network: NetworkId,
-			limit: u64,
+			limit: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ShardTaskLimit::<T>::insert(network, limit);
@@ -860,11 +860,7 @@ pub mod pallet {
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
 			const PREV_HARDCODED_LIMIT: usize = 10;
-			let shard_task_limit: usize = if let Some(limit) = ShardTaskLimit::<T>::get(network) {
-				limit.try_into().unwrap_or(PREV_HARDCODED_LIMIT)
-			} else {
-				PREV_HARDCODED_LIMIT
-			};
+			let shard_task_limit = ShardTaskLimit::<T>::get(network).unwrap_or(10) as usize;
 			let capacity = shard_task_limit.saturating_sub(tasks);
 			if capacity.is_zero() {
 				// no new tasks assigned if capacity reached or exceeded

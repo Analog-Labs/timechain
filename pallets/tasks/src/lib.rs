@@ -143,7 +143,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn shard_task_limit)]
 	pub type ShardTaskLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
@@ -264,7 +264,7 @@ pub mod pallet {
 		/// Send message task reward set for network
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Set the maximum number of assigned tasks for all shards on the network
-		ShardTaskLimitSet(NetworkId, u64),
+		ShardTaskLimitSet(NetworkId, u32),
 	}
 
 	#[pallet::error]
@@ -859,7 +859,6 @@ pub mod pallet {
 				.count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
-			const PREV_HARDCODED_LIMIT: usize = 10;
 			let shard_task_limit = ShardTaskLimit::<T>::get(network).unwrap_or(10) as usize;
 			let capacity = shard_task_limit.saturating_sub(tasks);
 			if capacity.is_zero() {

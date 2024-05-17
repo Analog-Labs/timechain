@@ -6,7 +6,7 @@ use schnorr_evm::k256::ProjectivePoint;
 use schnorr_evm::VerifyingKey;
 use sp_std::vec;
 use sp_std::vec::Vec;
-use time_primitives::{AccountId, NetworkId, ShardsInterface};
+use time_primitives::{AccountId, MemberEvents, NetworkId, ShardsInterface};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 0;
@@ -66,6 +66,13 @@ benchmarks! {
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
 	}: _(RawOrigin::Root, 0)
 	verify { }
+
+	member_offline {
+		let member: AccountId = [0u8; 32].into();
+		Pallet::<T>::member_online(&member, ETHEREUM);
+	}: {
+		Pallet::<T>::member_offline(&member, ETHEREUM);
+	} verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

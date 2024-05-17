@@ -3,6 +3,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
+use frame_support::weights::Weight;
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
 use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
@@ -88,7 +89,7 @@ pub trait TransferStake {
 
 pub trait MemberEvents {
 	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId);
+	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
 }
 
 pub trait MemberStorage {

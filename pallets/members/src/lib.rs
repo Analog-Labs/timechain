@@ -108,19 +108,26 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			let mut writes = 0;
+			let mut weight = Weight::default();
 			if n % T::HeartbeatTimeout::get() == BlockNumberFor::<T>::default() {
 				for (member, _) in MemberOnline::<T>::iter() {
 					if Heartbeat::<T>::take(&member).is_none() {
 						if let Some(network) = MemberNetwork::<T>::get(&member) {
-							Self::member_offline(&member, network);
+							weight = weight.saturating_add(Self::member_offline(&member, network));
+						} else {
+							weight = weight.saturating_add(T::DbWeight::get().reads(1));
 						}
-						writes += 1;
+					} else {
+						weight = weight
+							.saturating_add(T::DbWeight::get().reads(1))
+							.saturating_add(T::DbWeight::get().writes(1));
 					}
 				}
-				Heartbeat::<T>::drain();
+				weight = weight.saturating_add(
+					T::DbWeight::get().writes(Heartbeat::<T>::drain().count() as u64),
+				);
 			}
-			T::DbWeight::get().writes(writes)
+			weight
 		}
 	}
 
@@ -183,10 +190,12 @@ pub mod pallet {
 			T::Elections::member_online(member, network);
 		}
 
-		fn member_offline(member: &AccountId, network: NetworkId) {
+		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
 			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));
-			T::Elections::member_offline(member, network);
+			T::DbWeight::get()
+				.writes(2)
+				.saturating_add(T::Elections::member_offline(member, network))
 		}
 
 		fn unregister_member_from_network(member: &AccountId, network: NetworkId) {
@@ -195,7 +204,7 @@ pub mod pallet {
 			MemberPeerId::<T>::remove(member);
 			Heartbeat::<T>::remove(member);
 			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
-			Self::member_offline(member, network);
+			let _ = Self::member_offline(member, network);
 		}
 
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {

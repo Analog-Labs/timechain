@@ -34,6 +34,9 @@ pub struct ChronicleArgs {
 	/// Port for exporting Prometheus metrics
 	#[clap(long, default_value_t = 9090)]
 	pub prometheus_port: u16,
+	/// Location to cache tss keyshares.
+	#[clap(long, default_value = "/tmp")]
+	pub tss_keyshare_cache: PathBuf,
 }
 
 impl ChronicleArgs {
@@ -46,6 +49,7 @@ impl ChronicleArgs {
 			timechain_keyfile: self.timechain_keyfile,
 			target_url: self.target_url,
 			target_keyfile: self.target_keyfile,
+			tss_keyshare_cache: self.tss_keyshare_cache,
 		}
 	}
 }
@@ -76,7 +80,7 @@ async fn main() -> Result<()> {
 		if let Ok(t) = SubxtTxSubmitter::try_new(&config.timechain_url).await {
 			break t;
 		} else {
-			tracing::error!("Error connecting to chain retrying");
+			tracing::error!("Error connecting to {} retrying", &config.timechain_url);
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
 	};

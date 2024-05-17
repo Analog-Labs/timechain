@@ -29,27 +29,39 @@
           # Use system level fenix tooling
           fpkgs = fenix.packages.${tpkgs.system};
 
-          # Currently pinned by fenix to recent stable
-          channel = "stable";
+          # Read details from toolchain file
+          toml = fromTOML (builtins.readFile ./rust-toolchain.toml);
 
-          # Default components and developer tools
-          components = [ "cargo" "rustc" "rust-src" "rust-docs" "rust-analyzer" "rustfmt" "clippy" ];
+          # Download associated rust toolchain from mozilla
+          toolchain = fpkgs.fromToolchainName {
+            name = toml.toolchain.channel;
+            sha256 = "opUgs6ckUQCyDxcB9Wy51pqhd0MPGHUVbwRKKPGiwZU=";
+          };
 
-          # Include toolchain for target and wasm32
-          targets = [ tpkgs.stdenv.targetPlatform.config "wasm32-unknown-unknown" ];
+          # Determine profile or use default
+          profile = toml.toolchain.profile or "default";
+
+          # Collect profile components and any components additional from toolchain file
+          components = lib.unique (toolchain.manifest.profiles.${profile} ++ toml.toolchain.components or []);
+
+          # List of all components actually available in toolchain
+          tools = lib.attrVals (builtins.filter (c: toolchain ? ${c}) components) toolchain;
+
+          # Additionally add toolchain for cross chain target and any from the toolchain file
+          targets = [ (tpkgs.rust.toRustTarget tpkgs.stdenv.targetPlatform) ] ++ toml.toolchain.targets or [];
 
           # Helper function to retrieve toolchain for each target
-          toTargetToolchain = target: fpkgs.targets.${target}.${channel}.rust-std;
+          toTargetToolchain = target: (fpkgs.targets.${target}.fromManifest toolchain.manifest).rust-std;
 
         in fpkgs.combine (
           # Combine components from channel with toolchains for additional targets
-          lib.attrVals components fpkgs.${channel} ++ map toTargetToolchain targets
+          tools ++ map toTargetToolchain targets
         );
 
       # Create developer shell for combination of build and target package set
       mkDevShell = pkgs: tpkgs: pkgs.mkShell {
         # Provide target platform to cargo via env var
-        CARGO_BUILD_TARGET = tpkgs.stdenv.targetPlatform.config;
+        CARGO_BUILD_TARGET = tpkgs.rust.toRustTarget tpkgs.stdenv.targetPlatform;
 
         # Provide needed build tools:
         nativeBuildInputs = [

@@ -139,13 +139,19 @@ where
 					};
 					let payload = match function {
 						Function::RegisterShard { shard_id } => {
-							let tss_public_key =
-								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
+							let tss_public_key = self
+								.substrate
+								.get_shard_commitment(block_hash, shard_id)
+								.await?
+								.unwrap()[0];
 							Message::update_keys([], [tss_public_key]).to_eip712_bytes(&gmp_params)
 						},
 						Function::UnregisterShard { shard_id } => {
-							let tss_public_key =
-								self.substrate.get_shard_commitment(block_hash, shard_id).await?[0];
+							let tss_public_key = self
+								.substrate
+								.get_shard_commitment(block_hash, shard_id)
+								.await?
+								.unwrap()[0];
 							Message::update_keys([tss_public_key], []).to_eip712_bytes(&gmp_params)
 						},
 						Function::SendMessage { msg } => {
@@ -161,7 +167,6 @@ where
 						continue;
 					};
 					if &public_key != self.substrate.public_key() {
-						tracing::warn!("Skipping task {} due to public_key mismatch", task_id);
 						continue;
 					}
 					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
@@ -173,13 +178,16 @@ where
 						continue;
 					}
 
+					tracing::info!("Running write phase {}", task_id);
+
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
 							if let Some(gmp_params) = gmp_params {
 								let tss_public_key = self
 									.substrate
 									.get_shard_commitment(block_hash, shard_id)
-									.await?[0];
+									.await?
+									.unwrap()[0];
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
@@ -199,7 +207,8 @@ where
 								let tss_public_key = self
 									.substrate
 									.get_shard_commitment(block_hash, shard_id)
-									.await?[0];
+									.await?
+									.unwrap()[0];
 								let Some(tss_signature) =
 									self.substrate.get_task_signature(task_id).await?
 								else {
@@ -310,19 +319,14 @@ where
 		let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
 			return Ok(None);
 		};
-		let Some(tss_public_key) = self
-			.substrate
-			.get_shard_commitment(block_hash, shard_id)
-			.await?
-			.first()
-			.copied()
+		let Some(commitment) = self.substrate.get_shard_commitment(block_hash, shard_id).await?
 		else {
 			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
 			return Ok(None);
 		};
 		Ok(Some(GmpParams {
 			network_id: self.network,
-			tss_public_key,
+			tss_public_key: commitment[0],
 			gateway_contract: gateway_contract.into(),
 		}))
 	}

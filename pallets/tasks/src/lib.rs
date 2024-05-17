@@ -17,6 +17,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
@@ -357,7 +358,7 @@ pub mod pallet {
 		pub fn submit_hash(
 			origin: OriginFor<T>,
 			task_id: TaskId,
-			hash: [u8; 32],
+			hash: Result<[u8; 32], String>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
@@ -372,8 +373,22 @@ pub mod pallet {
 			);
 			let shard_id = TaskShard::<T>::get(task_id).ok_or(Error::<T>::UnassignedTask)?;
 			Self::snapshot_write_reward(task_id, signer);
-			TaskHash::<T>::insert(task_id, hash);
-			Self::start_phase(shard_id, task_id, TaskPhase::Read);
+			match hash {
+				Ok(hash) => {
+					TaskHash::<T>::insert(task_id, hash);
+					Self::start_phase(shard_id, task_id, TaskPhase::Read);
+				},
+				Err(err) => {
+					Self::finish_task(
+						task_id,
+						TaskResult {
+							shard_id,
+							payload: Payload::Error(err),
+							signature: [0; 64],
+						},
+					);
+				},
+			}
 			Ok(())
 		}
 

@@ -1767,12 +1767,13 @@ dependencies = [
 
 [[package]]
 name = "chronicle"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "bincode",
  "clap",
  "env_logger",
  "futures",
@@ -2086,6 +2087,15 @@ name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "cookie"
@@ -2811,7 +2821,7 @@ version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
- "convert_case",
+ "convert_case 0.4.0",
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
@@ -4853,7 +4863,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.13",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
@@ -4887,7 +4897,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.51.1",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -8120,9 +8130,9 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "peernet"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "493c9814c093833790f7a876c860cb9ce621eb2a41bd981f0c52b4e5ec0d4ab1"
+checksum = "8d422e763d66596a5fbf9c71e96207524ac0b087515aaee0a29a9afb2b0c3444"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11504,13 +11514,16 @@ dependencies = [
 
 [[package]]
 name = "schnorr-evm"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a23361ad022a39a819af8606f6e622284681bddf91ffd28a7ebb5132c798e2c"
+checksum = "12d38ff0480524199151b6d716a1b97fb3235d3365f229172c21832e505d043f"
 dependencies = [
+ "frost-core",
+ "frost-secp256k1",
  "k256",
  "rand_core 0.6.4",
  "serde",
+ "sha2 0.10.8",
  "sha3",
 ]
 
@@ -13785,7 +13798,7 @@ dependencies = [
 [[package]]
 name = "ss58-registry"
 version = "1.48.0"
-source = "git+https://github.com/Analog-Labs/ss58-registry.git#db1f1a72cb15b3ead80b3679b13620da89b691b5"
+source = "git+https://github.com/Analog-Labs/ss58-registry.git#00ee0ef1f4da732f366348337ad7171d3f089b9d"
 dependencies = [
  "Inflector",
  "num-format",
@@ -14677,6 +14690,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "futures",
+ "hex",
  "subxt 0.32.1",
  "subxt-signer",
  "time-primitives",
@@ -14937,7 +14951,7 @@ dependencies = [
 
 [[package]]
 name = "timechain-node"
-version = "0.0.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-channel 1.9.0",
@@ -14945,6 +14959,7 @@ dependencies = [
  "bincode",
  "chronicle",
  "clap",
+ "convert_case 0.6.0",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -15754,6 +15769,12 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4c87d22b6e3f4a18d4d40ef354e97c90fcb14dd91d7dc0aa9d8a1172ebf7202"
 
 [[package]]
 name = "unicode-width"

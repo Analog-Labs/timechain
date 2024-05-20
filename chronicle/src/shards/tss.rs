@@ -1,5 +1,6 @@
 use crate::network::PeerId;
 use anyhow::Result;
+use sha3::{Digest, Sha3_256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 pub use time_primitives::TssId;
@@ -54,7 +55,11 @@ fn signing_share_path(
 	keyshare_cache: &Path,
 	commitment: &VerifiableSecretSharingCommitment,
 ) -> PathBuf {
-	let file_name = hex::encode(bincode::serialize(commitment).expect("is serializable"));
+	let bytes = bincode::serialize(commitment).expect("is serializable");
+	let mut hasher = Sha3_256::new();
+	hasher.update(&bytes);
+	let hash = hasher.finalize();
+	let file_name = hex::encode(hash);
 	keyshare_cache.join(file_name)
 }
 

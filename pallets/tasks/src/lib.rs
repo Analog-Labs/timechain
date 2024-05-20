@@ -42,6 +42,7 @@ pub mod pallet {
 		fn set_send_message_task_reward() -> Weight;
 		fn cancel_task() -> Weight;
 		fn reset_tasks() -> Weight;
+		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways() -> Weight;
 	}
 
@@ -83,6 +84,10 @@ pub mod pallet {
 		}
 
 		fn reset_tasks() -> Weight {
+			Weight::default()
+		}
+
+		fn set_shard_task_limit() -> Weight {
 			Weight::default()
 		}
 
@@ -134,6 +139,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, NetworkId, Blake2_128Concat, TaskId, (), OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn shard_task_limit)]
+	pub type ShardTaskLimit<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
@@ -253,6 +263,8 @@ pub mod pallet {
 		WriteTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Send message task reward set for network
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
+		/// Set the maximum number of assigned tasks for all shards on the network
+		ShardTaskLimitSet(NetworkId, u32),
 	}
 
 	#[pallet::error]
@@ -487,7 +499,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(10)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -502,7 +514,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(9)]
+		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks())]
 		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -524,6 +536,19 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_shard_task_limit())]
+		pub fn set_shard_task_limit(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			limit: u32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ShardTaskLimit::<T>::insert(network, limit);
+			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
+			Ok(())
+		}
+
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
 		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -829,10 +854,17 @@ pub mod pallet {
 		}
 
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
-			let tasks = ShardTasks::<T>::iter_prefix(shard_id).count();
+			let tasks = ShardTasks::<T>::iter_prefix(shard_id)
+				.filter(|(t, _)| TaskOutput::<T>::get(t).is_none())
+				.count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
-			let capacity = 10.saturating_sub(tasks);
+			let shard_task_limit = ShardTaskLimit::<T>::get(network).unwrap_or(10) as usize;
+			let capacity = shard_task_limit.saturating_sub(tasks);
+			if capacity.is_zero() {
+				// no new tasks assigned if capacity reached or exceeded
+				return;
+			}
 			let tasks = UnassignedTasks::<T>::iter_prefix(network)
 				.filter(|(task_id, _)| {
 					let Some(task) = Tasks::<T>::get(task_id) else { return false };

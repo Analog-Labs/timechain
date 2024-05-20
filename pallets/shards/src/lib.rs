@@ -27,6 +27,7 @@ pub mod pallet {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
+		fn member_offline() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -39,6 +40,10 @@ pub mod pallet {
 		}
 
 		fn force_shard_offline() -> Weight {
+			Weight::default()
+		}
+
+		fn member_offline() -> Weight {
 			Weight::default()
 		}
 	}
@@ -221,8 +226,10 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut writes = 0;
+			let mut reads = 0;
 			// use DkgTimeout instead
 			DkgTimeout::<T>::iter().for_each(|(shard_id, created_block)| {
+				reads += 1;
 				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
 					if let Some(status) = ShardState::<T>::get(shard_id) {
 						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
@@ -234,9 +241,12 @@ pub mod pallet {
 							writes += 5;
 						}
 					}
+					reads += 1;
 				}
 			});
-			T::DbWeight::get().writes(writes)
+			T::DbWeight::get()
+				.writes(writes)
+				.saturating_add(T::DbWeight::get().reads(reads))
 		}
 	}
 
@@ -297,13 +307,21 @@ pub mod pallet {
 			ShardState::<T>::insert(shard_id, new_status);
 		}
 
-		fn member_offline(id: &AccountId, _: NetworkId) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
+		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
+			let Some(shard_id) = MemberShard::<T>::get(id) else {
+				return T::DbWeight::get().reads(1);
+			};
+			let Some(old_status) = ShardState::<T>::get(shard_id) else {
+				return T::DbWeight::get().reads(2);
+			};
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
+				return T::DbWeight::get().reads(3);
+			};
 			let total_members = Self::get_shard_members(shard_id).len();
 			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
-			let Ok(max_members_offline) = max_members_offline.try_into() else { return };
+			let Ok(max_members_offline) = max_members_offline.try_into() else {
+				return T::DbWeight::get().reads(4);
+			};
 			let new_status = old_status.offline_member(max_members_offline);
 			if matches!(new_status, ShardStatus::Offline)
 				&& !matches!(old_status, ShardStatus::Offline)
@@ -312,6 +330,7 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
+			T::WeightInfo::member_offline()
 		}
 	}
 

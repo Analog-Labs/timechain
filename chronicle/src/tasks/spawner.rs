@@ -219,6 +219,7 @@ where
 		function: Function,
 		block_num: BlockNumber,
 	) -> Result<()> {
+		tracing::debug!("debug_latency:{} executing read function", task_id);
 		let result = self.execute_function(&function, target_block).await.map_err(|err| {
 			tracing::error!("{:#?}", err);
 			format!("{err}")
@@ -227,9 +228,11 @@ where
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),
 		};
+		tracing::debug!("debug_latency:{} sending read payloa dor signing", task_id);
 		let (_, signature) =
 			self.tss_sign(block_num, shard_id, task_id, &payload.bytes(task_id)).await?;
 		let result = TaskResult { shard_id, payload, signature };
+		tracing::debug!("debug_latency:{} submitting task result", task_id);
 		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
 			tracing::error!("Error submitting task result {:?}", e);
 		}

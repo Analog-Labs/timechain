@@ -353,11 +353,10 @@ pub mod pallet {
 					Self::send_message(result.shard_id, msg.clone());
 				}
 				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-					let batch_size = if let Some(nbs) = NetworkBatchSize::<T>::get(task.network) {
-						unsafe { NonZeroU64::new_unchecked(nbs) }
-					} else {
-						BATCH_SIZE
-					};
+					let batch_size = NetworkBatchSize::<T>::get(task.network)
+						.map(NonZeroU64::new)
+						.flatten()
+						.unwrap_or(BATCH_SIZE);
 					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
 						Self::recv_messages(task.network, next_block_height, batch_size);
 					}
@@ -455,11 +454,10 @@ pub mod pallet {
 			Gateway::<T>::insert(network, address);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
 			if !gateway_changed {
-				let network_batch_size = NetworkBatchSize::<T>::get(network).unwrap_or(BATCH_SIZE);
-					unsafe { NonZeroU64::new_unchecked(nbs) }
-				} else {
-					BATCH_SIZE
-				};
+				let network_batch_size = NetworkBatchSize::<T>::get(network)
+					.map(NonZeroU64::new)
+					.flatten()
+					.unwrap_or(BATCH_SIZE);
 				let batch_size = NonZeroU64::new(network_batch_size.get() - (block_height % network_batch_size))
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();

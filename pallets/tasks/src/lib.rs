@@ -468,7 +468,7 @@ pub mod pallet {
 					.unwrap_or(BATCH_SIZE);
 				let inner_batch_size = if let Some(offset) = NetworkOffset::<T>::take(network) {
 					// `take` removes storage so it is only used once
-					offset
+					network_batch_size.get() - offset
 				} else {
 					// no offset required
 					network_batch_size.get() - (block_height % network_batch_size)

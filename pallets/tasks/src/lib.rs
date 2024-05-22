@@ -174,6 +174,10 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
 	#[pallet::storage]
+	pub type NetworkOffset<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
@@ -357,6 +361,10 @@ pub mod pallet {
 						.map(NonZeroU64::new)
 						.flatten()
 						.unwrap_or(BATCH_SIZE);
+					let offset = block_height % batch_size;
+					if offset != 0 {
+						NetworkOffset::<T>::insert(task.network, offset);
+					} // else no offset
 					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
 						Self::recv_messages(task.network, next_block_height, batch_size);
 					}
@@ -458,7 +466,14 @@ pub mod pallet {
 					.map(NonZeroU64::new)
 					.flatten()
 					.unwrap_or(BATCH_SIZE);
-				let batch_size = NonZeroU64::new(network_batch_size.get() - (block_height % network_batch_size))
+				let inner_batch_size = if let Some(offset) = NetworkOffset::<T>::take(network) {
+					// `take` removes storage so it is only used once
+					offset
+				} else {
+					// no offset required
+					network_batch_size.get() - (block_height % network_batch_size)
+				};
+				let batch_size = NonZeroU64::new(inner_batch_size)
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);

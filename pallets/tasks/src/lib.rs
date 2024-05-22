@@ -455,7 +455,7 @@ pub mod pallet {
 			Gateway::<T>::insert(network, address);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
 			if !gateway_changed {
-				let network_batch_size = if let Some(nbs) = NetworkBatchSize::<T>::get(network) {
+				let network_batch_size = NetworkBatchSize::<T>::get(network).unwrap_or(BATCH_SIZE);
 					unsafe { NonZeroU64::new_unchecked(nbs) }
 				} else {
 					BATCH_SIZE

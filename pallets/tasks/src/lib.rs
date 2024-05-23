@@ -462,9 +462,13 @@ pub mod pallet {
 					.map(NonZeroU64::new)
 					.flatten()
 					.unwrap_or(BATCH_SIZE);
-				// TODO: use the offset below
-				let batch_size = NonZeroU64::new(network_batch_size.get() - (block_height % network_batch_size))
-					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
+				let network_offset = NetworkOffset::<T>::get(network).unwrap_or(0);
+				let batch_size = if network_offset.is_zero() {
+					NonZeroU64::new(network_batch_size.get() - (block_height % network_batch_size))
+						.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED")
+				} else {
+					NonZeroU64::new(network_offset).expect("network_offset != 0; QED")
+				};
 				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);
 			}

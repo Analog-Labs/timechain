@@ -44,7 +44,7 @@ pub mod pallet {
 		fn reset_tasks() -> Weight;
 		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways() -> Weight;
-		fn set_network_batch_size() -> Weight;
+		fn set_batch_size() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -96,7 +96,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn set_network_batch_size() -> Weight {
+		fn set_batch_size() -> Weight {
 			Weight::default()
 		}
 	}
@@ -279,7 +279,7 @@ pub mod pallet {
 		/// Set the maximum number of assigned tasks for all shards on the network
 		ShardTaskLimitSet(NetworkId, u32),
 		/// Set the network batch size
-		NetworkBatchSizeSet(NetworkId, u64),
+		BatchSizeSet(NetworkId, u64, u64),
 	}
 
 	#[pallet::error]
@@ -361,10 +361,6 @@ pub mod pallet {
 						.map(NonZeroU64::new)
 						.flatten()
 						.unwrap_or(BATCH_SIZE);
-					let offset = block_height % batch_size;
-					if offset != 0 {
-						NetworkOffset::<T>::insert(task.network, offset);
-					} // else no offset
 					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
 						Self::recv_messages(task.network, next_block_height, batch_size);
 					}
@@ -466,14 +462,8 @@ pub mod pallet {
 					.map(NonZeroU64::new)
 					.flatten()
 					.unwrap_or(BATCH_SIZE);
-				let inner_batch_size = if let Some(offset) = NetworkOffset::<T>::take(network) {
-					// `take` removes storage so it is only used once
-					network_batch_size.get() - offset
-				} else {
-					// no offset required
-					network_batch_size.get() - (block_height % network_batch_size)
-				};
-				let batch_size = NonZeroU64::new(inner_batch_size)
+				// TODO: use the offset below
+				let batch_size = NonZeroU64::new(network_batch_size.get() - (block_height % network_batch_size))
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);
@@ -607,15 +597,17 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(13)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_network_batch_size())]
-		pub fn set_network_batch_size(
+		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
+		pub fn set_batch_size(
 			origin: OriginFor<T>,
 			network: NetworkId,
 			batch_size: u64,
+			offset: u64,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			NetworkBatchSize::<T>::insert(network, batch_size);
-			Self::deposit_event(Event::NetworkBatchSizeSet(network, batch_size));
+			NetworkOffset::<T>::insert(network, offset);
+			Self::deposit_event(Event::BatchSizeSet(network, batch_size, offset));
 			Ok(())
 		}
 	}

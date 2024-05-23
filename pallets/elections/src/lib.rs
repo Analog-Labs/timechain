@@ -14,6 +14,7 @@ pub mod pallet {
 	use frame_support::traits::BuildGenesisConfig;
 	use frame_system::pallet_prelude::*;
 	use sp_std::marker::PhantomData;
+	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
 		AccountId, ElectionsInterface, MemberEvents, MemberStorage, NetworkId, ShardsInterface,
@@ -61,12 +62,17 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Electable shard members
+	#[pallet::storage]
+	pub type Electable<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		#[serde(skip)]
 		pub _p: PhantomData<T>,
 		pub shard_size: u16,
 		pub shard_threshold: u16,
+		pub electable: Vec<AccountId>,
 	}
 
 	impl<T> Default for GenesisConfig<T> {
@@ -75,6 +81,7 @@ pub mod pallet {
 				_p: PhantomData,
 				shard_size: 3,
 				shard_threshold: 2,
+				electable: vec![],
 			}
 		}
 	}
@@ -84,6 +91,9 @@ pub mod pallet {
 		fn build(&self) {
 			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
+			for account in &self.electable {
+				Electable::<T>::insert(account, ());
+			}
 		}
 	}
 
@@ -123,7 +133,10 @@ pub mod pallet {
 	impl<T: Config> MemberEvents for Pallet<T> {
 		fn member_online(member: &AccountId, network: NetworkId) {
 			if !T::Shards::is_shard_member(member) {
-				Unassigned::<T>::insert(network, member, ());
+				if Electable::<T>::iter().next().is_none() || Electable::<T>::get(member).is_some()
+				{
+					Unassigned::<T>::insert(network, member, ());
+				}
 				Self::try_elect_shard(network);
 			}
 			T::Shards::member_online(member, network);

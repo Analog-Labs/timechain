@@ -64,6 +64,9 @@ async fn main() -> Result<()> {
 
 	let args = ChronicleArgs::parse();
 
+	if !args.tss_keyshare_cache.exists() {
+		anyhow::bail!("tss keyshare cache doesn't exist");
+	}
 	// Setup Prometheus exporter if enabled
 	if args.prometheus_enabled {
 		let binding = format!("0.0.0.0:{}", args.prometheus_port).parse().unwrap();

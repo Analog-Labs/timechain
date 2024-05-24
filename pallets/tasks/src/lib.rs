@@ -261,6 +261,10 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	#[pallet::storage]
+	pub type MessageTask<T: Config> =
+		StorageMap<_, Blake2_128Concat, [u8; 32], (TaskId, TaskId), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -354,7 +358,8 @@ pub mod pallet {
 			}
 			if let Payload::Gmp(msgs) = &result.payload {
 				for msg in msgs {
-					Self::send_message(result.shard_id, msg.clone());
+					let send_task_id = Self::send_message(result.shard_id, msg.clone());
+					MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
 				}
 				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
 					let batch_size = NetworkBatchSize::<T>::get(task.network)
@@ -745,7 +750,7 @@ pub mod pallet {
 			});
 		}
 
-		fn send_message(shard_id: ShardId, msg: Msg) {
+		fn send_message(shard_id: ShardId, msg: Msg) -> TaskId {
 			Self::start_task(
 				TaskDescriptorParams::new(
 					msg.dest_network,
@@ -754,11 +759,14 @@ pub mod pallet {
 				),
 				TaskFunder::Inflation,
 			)
-			.expect("task funded through inflation");
+			.expect("task funded through inflation")
 		}
 
 		/// Start task
-		fn start_task(schedule: TaskDescriptorParams, who: TaskFunder) -> DispatchResult {
+		fn start_task(
+			schedule: TaskDescriptorParams,
+			who: TaskFunder,
+		) -> Result<TaskId, DispatchError> {
 			let task_id = TaskIdCounter::<T>::get();
 			let phase = schedule.function.initial_phase();
 			let (read_task_reward, write_task_reward, send_message_reward) = (
@@ -830,7 +838,7 @@ pub mod pallet {
 			UnassignedTasks::<T>::insert(schedule.network, task_id, ());
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network, None);
-			Ok(())
+			Ok(task_id)
 		}
 
 		fn start_phase(shard_id: ShardId, task_id: TaskId, phase: TaskPhase) {

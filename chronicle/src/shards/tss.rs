@@ -160,7 +160,9 @@ impl Tss {
 					use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 					std::fs::set_permissions(&file_name, Permissions::from_mode(0o600)).ok();
 				}
-				std::fs::write(file_name, bytes).ok();
+				if let Err(err) = std::fs::write(file_name, bytes) {
+					tracing::error!("failed to write to tss cache directory {:#?}", err);
+				}
 				TssAction::PublicKey(public_key)
 			},
 			tss::TssAction::Signature(id, hash, sig) => TssAction::Signature(id, hash, sig),

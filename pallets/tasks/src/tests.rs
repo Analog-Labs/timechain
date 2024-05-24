@@ -1732,30 +1732,3 @@ fn unregister_gateways_sets_all_read_task_outputs_to_err() {
 		}
 	});
 }
-
-// #[test]
-// fn test_alignment_offset_for_recv_messages_creation() {
-// 	new_test_ext().execute_with(|| {
-// 		const NUM_SHARDS: u64 = 5;
-// 		for i in 0..NUM_SHARDS {
-// 			Shards::create_shard(
-// 				ETHEREUM,
-// 				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-// 				1,
-// 			);
-// 			ShardState::<Test>::insert(i, ShardStatus::Online);
-// 			Tasks::shard_online(i, ETHEREUM);
-// 			assert_ok!(Tasks::create_task(
-// 				RawOrigin::Signed([0u8; 32].into()).into(),
-// 				mock_task(ETHEREUM)
-// 			));
-// 		}
-// 		let mut expected_failed_tasks = Vec::new();
-// 		for (task_id, task) in crate::Tasks::<Test>::iter() {
-// 			if let Function::ReadMessages { .. } = task.function {
-// 				expected_failed_tasks.push(task_id);
-// 			}
-// 		}
-// 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
-// 	});
-// }

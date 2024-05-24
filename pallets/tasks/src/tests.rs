@@ -1738,7 +1738,7 @@ fn set_batch_size_sets_storage_and_emits_event() {
 	new_test_ext().execute_with(|| {
 		for size in 5..10 {
 			for offset in 1..4 {
-				Tasks::set_batch_size(RawOrigin::Root.into(), ETHEREUM, size, offset);
+				assert_ok!(Tasks::set_batch_size(RawOrigin::Root.into(), ETHEREUM, size, offset));
 				assert_eq!(NetworkBatchSize::<Test>::get(ETHEREUM), Some(size));
 				assert_eq!(NetworkOffset::<Test>::get(ETHEREUM), Some(offset));
 				System::assert_last_event(

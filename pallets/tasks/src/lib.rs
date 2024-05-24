@@ -44,6 +44,7 @@ pub mod pallet {
 		fn reset_tasks() -> Weight;
 		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways() -> Weight;
+		fn set_batch_size() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -92,6 +93,10 @@ pub mod pallet {
 		}
 
 		fn unregister_gateways() -> Weight {
+			Weight::default()
+		}
+
+		fn set_batch_size() -> Weight {
 			Weight::default()
 		}
 	}
@@ -163,6 +168,14 @@ pub mod pallet {
 		(),
 		OptionQuery,
 	>;
+
+	#[pallet::storage]
+	pub type NetworkBatchSize<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	#[pallet::storage]
+	pub type NetworkOffset<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -269,6 +282,8 @@ pub mod pallet {
 		SendMessageTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Set the maximum number of assigned tasks for all shards on the network
 		ShardTaskLimitSet(NetworkId, u32),
+		/// Set the network batch size
+		BatchSizeSet(NetworkId, u64, u64),
 	}
 
 	#[pallet::error]
@@ -347,8 +362,11 @@ pub mod pallet {
 					MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
 				}
 				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-					if let Some(next_block_height) = block_height.checked_add(BATCH_SIZE.into()) {
-						Self::recv_messages(task.network, next_block_height, BATCH_SIZE);
+					let batch_size = NetworkBatchSize::<T>::get(task.network)
+						.and_then(NonZeroU64::new)
+						.unwrap_or(BATCH_SIZE);
+					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
+						Self::recv_messages(task.network, next_block_height, batch_size);
 					}
 				}
 			}
@@ -444,7 +462,11 @@ pub mod pallet {
 			Gateway::<T>::insert(network, address);
 			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
 			if !gateway_changed {
-				let batch_size = NonZeroU64::new(BATCH_SIZE.get() - (block_height % BATCH_SIZE))
+				let network_batch_size = NetworkBatchSize::<T>::get(network)
+					.and_then(NonZeroU64::new)
+					.unwrap_or(BATCH_SIZE);
+				let network_offset = NetworkOffset::<T>::get(network).unwrap_or(0);
+				let batch_size = NonZeroU64::new(network_batch_size.get() - ((block_height + network_offset) % network_batch_size))
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);
@@ -574,6 +596,21 @@ pub mod pallet {
 					);
 				}
 			});
+			Ok(())
+		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
+		pub fn set_batch_size(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			batch_size: u64,
+			offset: u64,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			NetworkBatchSize::<T>::insert(network, batch_size);
+			NetworkOffset::<T>::insert(network, offset);
+			Self::deposit_event(Event::BatchSizeSet(network, batch_size, offset));
 			Ok(())
 		}
 	}

@@ -1,9 +1,9 @@
 use crate::mock::*;
 use crate::{
-	Error, Event, Gateway, NetworkReadReward, NetworkSendMessageReward, NetworkShards,
-	NetworkWriteReward, ShardRegistered, ShardTaskLimit, ShardTasks, SignerPayout, TaskHash,
-	TaskIdCounter, TaskOutput, TaskPhaseState, TaskRewardConfig, TaskSignature, TaskSigner,
-	UnassignedTasks,
+	Error, Event, Gateway, NetworkBatchSize, NetworkOffset, NetworkReadReward,
+	NetworkSendMessageReward, NetworkShards, NetworkWriteReward, ShardRegistered, ShardTaskLimit,
+	ShardTasks, SignerPayout, TaskHash, TaskIdCounter, TaskOutput, TaskPhaseState,
+	TaskRewardConfig, TaskSignature, TaskSigner, UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -1712,13 +1712,13 @@ fn unregister_gateways_sets_all_read_task_outputs_to_err() {
 				mock_task(ETHEREUM)
 			));
 		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		let mut expected_failed_tasks = Vec::new();
 		for (task_id, task) in crate::Tasks::<Test>::iter() {
 			if let Function::ReadMessages { .. } = task.function {
 				expected_failed_tasks.push(task_id);
 			}
 		}
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into()));
 		for task_id in expected_failed_tasks.iter() {
 			assert_eq!(
@@ -1729,6 +1729,22 @@ fn unregister_gateways_sets_all_read_task_outputs_to_err() {
 					signature: [0u8; 64],
 				})
 			);
+		}
+	});
+}
+
+#[test]
+fn set_batch_size_sets_storage_and_emits_event() {
+	new_test_ext().execute_with(|| {
+		for size in 5..10 {
+			for offset in 1..4 {
+				assert_ok!(Tasks::set_batch_size(RawOrigin::Root.into(), ETHEREUM, size, offset));
+				assert_eq!(NetworkBatchSize::<Test>::get(ETHEREUM), Some(size));
+				assert_eq!(NetworkOffset::<Test>::get(ETHEREUM), Some(offset));
+				System::assert_last_event(
+					Event::<Test>::BatchSizeSet(ETHEREUM, size, offset).into(),
+				);
+			}
 		}
 	});
 }

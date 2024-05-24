@@ -128,6 +128,17 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::set_shard_config())]
+		pub fn set_electable(origin: OriginFor<T>, electable: Vec<AccountId>) -> DispatchResult {
+			ensure_root(origin)?;
+			let _ = Electable::<T>::clear(u32::MAX, None);
+			for account in electable {
+				Electable::<T>::insert(account, ());
+			}
+			Ok(())
+		}
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {

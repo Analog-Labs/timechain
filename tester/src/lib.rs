@@ -19,8 +19,9 @@ use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated}
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
 use time_primitives::{
-	sp_core, BlockHash, BlockNumber, Function, IGateway, Msg, NetworkId, Runtime, ShardId,
-	TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey, TssPublicKey,
+	sp_core, BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId,
+	Runtime, ShardId, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey,
+	TssPublicKey,
 };
 use tokio::time::Instant;
 
@@ -62,6 +63,7 @@ impl std::str::FromStr for Network {
 
 pub struct Tester {
 	network_id: NetworkId,
+	network_url: String,
 	gateway_contract: PathBuf,
 	runtime: SubxtClient,
 	wallet: Wallet,
@@ -98,6 +100,7 @@ impl Tester {
 				.await?;
 		Ok(Self {
 			network_id: network.id,
+			network_url: network.url.clone(),
 			gateway_contract: gateway.into(),
 			runtime,
 			wallet,
@@ -120,6 +123,10 @@ impl Tester {
 
 	pub fn network_id(&self) -> NetworkId {
 		self.network_id
+	}
+
+	pub fn network_url(&self) -> &str {
+		&self.network_url
 	}
 
 	pub async fn faucet(&self) {
@@ -155,20 +162,19 @@ impl Tester {
 		Ok((contract_address.0, block_number))
 	}
 
-	pub async fn deploy_gateway(&self, tss_public_key: TssPublicKey) -> Result<([u8; 20], u64)> {
-		let parity_bit = if tss_public_key[0] % 2 == 0 { 0 } else { 1 };
-		let x_coords = hex::encode(&tss_public_key[1..]);
-		sol! {
-			#[derive(Debug, PartialEq, Eq)]
-			struct TssKey {
-				uint8 yParity;
-				uint256 xCoord;
-			}
+	pub async fn deploy_gateway(
+		&self,
+		tss_public_key: Vec<TssPublicKey>,
+	) -> Result<([u8; 20], u64)> {
+		let mut tss_keys: Vec<TssKeyR> = vec![];
+		for key in tss_public_key.into_iter() {
+			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
+			let x_coords = hex::encode(&key[1..]);
+			tss_keys.push(TssKeyR {
+				yParity: parity_bit,
+				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+			});
 		}
-		let tss_keys = vec![TssKeyR {
-			yParity: parity_bit,
-			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-		}];
 		let call = IGateway::constructorCall {
 			networkId: self.network_id,
 			keys: tss_keys,
@@ -329,7 +335,29 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self, redeploy: bool) -> Result<[u8; 20]> {
+	pub async fn setup_gmp(
+		&self,
+		redeploy: bool,
+		keyfile: Option<&Path>,
+		network_url: Option<&str>,
+	) -> Result<[u8; 20]> {
+		let mut gateway_keys: Vec<[u8; 33]> = vec![];
+		if let Some(file) = keyfile {
+			let (conn_blockchain, conn_network) = self
+				.runtime
+				.get_network(self.network_id)
+				.await?
+				.ok_or(anyhow::anyhow!("Unknown network id"))?;
+
+			let network_url = network_url
+				.expect("Network url must also be provided with keyfile for gateway recovery");
+			let wallet =
+				Wallet::new(conn_blockchain.parse()?, &conn_network, network_url, Some(file), None)
+					.await?;
+			let recovery_key = hex::decode(wallet.public_key().hex_bytes.clone()).unwrap();
+			gateway_keys.push(recovery_key.try_into().unwrap());
+		}
+
 		if !redeploy {
 			println!("looking for gateway");
 			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
@@ -339,12 +367,26 @@ impl Tester {
 		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		let (address, block_height) = self.deploy_gateway(shard_public_key).await?;
+		gateway_keys.push(shard_public_key);
+
+		let (address, block_height) = self.deploy_gateway(gateway_keys).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
 		tokio::time::sleep(Duration::from_secs(20)).await;
 		Ok(address)
+	}
+
+	pub async fn register_shard_on_gateway(&self, shard_id: ShardId) -> Result<()> {
+		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
+		let gmp_params = self.get_gmp_params(shard_id).await?;
+		let payload = Message::update_keys([], [shard_public_key]).to_eip712_bytes(&gmp_params);
+		self.wallet()
+		Ok(())
+	}
+
+	async fn get_gmp_params(&self, shard_id: ShardId) -> Result<GmpParams> {
+		todo!()
 	}
 
 	pub async fn get_latest_block(&self) -> Result<u64> {
@@ -950,7 +992,7 @@ pub async fn test_setup(
 ) -> Result<(EthContractAddress, EthContractAddress, u64)> {
 	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false).await?;
+	let gmp_contract = tester.setup_gmp(false, None, None).await?;
 	let (contract, start_block) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;
@@ -1004,8 +1046,8 @@ pub async fn setup_gmp_with_contracts(
 ) -> Result<(EthContractAddress, EthContractAddress, u128)> {
 	src.faucet().await;
 	dest.faucet().await;
-	let src_gmp_contract = src.setup_gmp(false).await?;
-	let dest_gmp_contract = dest.setup_gmp(false).await?;
+	let src_gmp_contract = src.setup_gmp(false, None, None).await?;
+	let dest_gmp_contract = dest.setup_gmp(false, None, None).await?;
 
 	// deploy testing contract for source chain
 	let (src_contract, _) = src

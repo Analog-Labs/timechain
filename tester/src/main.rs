@@ -13,6 +13,7 @@ use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
 	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
 };
+use time_primitives::ShardId;
 use tokio::time::{interval_at, Instant};
 
 // 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
@@ -46,6 +47,9 @@ enum Command {
 		/// Deploys and registers a new gateway contract even, replacing the existing one.
 		#[clap(long, short = 'r', default_value_t = false)]
 		redeploy: bool,
+		/// optional mnemonic for sudo key
+		#[arg(long)]
+		keyfile: Option<PathBuf>,
 	},
 	SetShardConfig {
 		shard_size: u16,
@@ -57,6 +61,9 @@ enum Command {
 	GmpBenchmark {
 		tasks: u64,
 		test_contract_addresses: Vec<String>,
+	},
+	RegisterGmpShard {
+		shard_id: ShardId,
 	},
 	#[clap(subcommand)]
 	Test(Test),
@@ -100,9 +107,17 @@ async fn main() -> Result<()> {
 		Command::FundWallet => {
 			tester[0].faucet().await;
 		},
-		Command::SetupGmp { redeploy } => {
+		Command::SetupGmp { redeploy, keyfile } => {
 			tester[0].faucet().await;
-			tester[0].setup_gmp(redeploy).await?;
+			println!("register gateway");
+			tester[0]
+				.setup_gmp(redeploy, keyfile.as_deref(), Some(tester[0].network_url()))
+				.await?;
+			println!("registered gateway");
+		},
+		// for this command kindly provide the sudo wallet for gateway contract
+		Command::RegisterGmpShard { shard_id } => {
+			tester[0].register_shard_on_gateway(shard_id).await?;
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
 			tester[0].set_shard_config(shard_size, shard_threshold).await?;
@@ -133,6 +148,7 @@ async fn main() -> Result<()> {
 			chronicle_restart_test(&tester[0], &contract).await?;
 		},
 	}
+	println!("returning from function");
 	Ok(())
 }
 

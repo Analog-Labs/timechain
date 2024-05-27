@@ -153,7 +153,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, BTreeSet<TaskId>, OptionQuery>;
+		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn task_shard)]
@@ -534,11 +534,12 @@ pub mod pallet {
 			UnassignedTasks::<T>::iter().for_each(|(network, task_set)| {
 				task_set.iter().for_each(|&task_id| Self::cancel_task(task_id, network))
 			});
-			ShardTasks::<T>::iter().for_each(|(shard_id, task_set)| {
+
+			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
 				if let Some(network) = T::Shards::shard_network(shard_id) {
-					task_set.iter().for_each(|&task_id| Self::cancel_task(task_id, network));
+					Self::cancel_task(task_id, network);
 				}
-			});
+			}
 			Ok(())
 		}
 
@@ -547,7 +548,7 @@ pub mod pallet {
 		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
-				Self::btree_remove::<ShardTasks<T>, ShardId>(shard_id, task_id);
+				ShardTasks::<T>::remove(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
 					Self::btree_add::<UnassignedTasks<T>, NetworkId>(task.network, task_id);
 				}
@@ -657,11 +658,9 @@ pub mod pallet {
 		}
 
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
-			ShardTasks::<T>::get(shard_id)
-				.unwrap_or_default()
-				.into_iter()
-				.map(|task_id| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
-				.collect::<Vec<_>>()
+			ShardTasks::<T>::iter_prefix(shard_id)
+				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
+				.collect()
 		}
 
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
@@ -718,9 +717,9 @@ pub mod pallet {
 			<UnassignedTasks<T>>::iter_values().for_each(|task_set| {
 				task_set.iter().for_each(|task_id| f(*task_id));
 			});
-			<ShardTasks<T>>::iter_values().for_each(|task_set| {
-				task_set.iter().for_each(|task_id| f(*task_id));
-			});
+			for (_shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				f(task_id);
+			}
 		}
 
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
@@ -858,7 +857,7 @@ pub mod pallet {
 		fn finish_task(task_id: TaskId, result: TaskResult) {
 			TaskOutput::<T>::insert(task_id, result);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
-				Self::btree_remove::<ShardTasks<T>, ShardId>(shard_id, task_id);
+				ShardTasks::<T>::remove(shard_id, task_id);
 			}
 		}
 
@@ -904,10 +903,8 @@ pub mod pallet {
 		}
 
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
-			let tasks = ShardTasks::<T>::get(shard_id)
-				.unwrap_or_default()
-				.iter()
-				.filter(|task_id| <TaskOutput<T>>::get(task_id).is_none())
+			let tasks = ShardTasks::<T>::iter_prefix(shard_id)
+				.filter(|(t, _)| TaskOutput::<T>::get(t).is_none())
 				.count();
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
@@ -939,10 +936,10 @@ pub mod pallet {
 
 		fn assign_task(network: NetworkId, shard_id: ShardId, task_id: TaskId) {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
-				Self::btree_remove::<ShardTasks<T>, ShardId>(old_shard_id, task_id);
+				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
 			Self::btree_remove::<UnassignedTasks<T>, NetworkId>(network, task_id);
-			Self::btree_add::<ShardTasks<T>, ShardId>(shard_id, task_id);
+			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
 		}
@@ -1101,11 +1098,10 @@ pub mod pallet {
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
 			// unassign tasks
-			ShardTasks::<T>::get(shard_id).unwrap_or_default().iter().for_each(|task_id| {
+			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				Self::btree_add::<UnassignedTasks<T>, NetworkId>(network, *task_id);
+				Self::btree_add::<UnassignedTasks<T>, NetworkId>(network, task_id);
 			});
-			<ShardTasks<T>>::remove(shard_id);
 			Self::unregister_shard(shard_id, network);
 		}
 	}

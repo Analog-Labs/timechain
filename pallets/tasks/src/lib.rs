@@ -14,7 +14,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
-		PalletId, StorageMap as IStorageMap,
+		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
@@ -22,7 +22,6 @@ pub mod pallet {
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
 	};
-	use sp_std::collections::btree_set::BTreeSet;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -143,8 +142,23 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type UnassignedTasks<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, BTreeSet<TaskId>, OptionQuery>;
+	pub type UnassignedTasks<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		NetworkId,
+		Blake2_128Concat,
+		u64,
+		TaskId,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub type UATasksInsertIndex<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	#[pallet::storage]
+	pub type UATasksRemoveIndex<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_task_limit)]
@@ -531,10 +545,9 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
-			UnassignedTasks::<T>::iter().for_each(|(network, task_set)| {
-				task_set.iter().for_each(|&task_id| Self::cancel_task(task_id, network))
-			});
-
+			for (network, _, task_id) in UnassignedTasks::<T>::iter() {
+				Self::cancel_task(task_id, network);
+			}
 			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
 				if let Some(network) = T::Shards::shard_network(shard_id) {
 					Self::cancel_task(task_id, network);
@@ -550,16 +563,15 @@ pub mod pallet {
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
 				ShardTasks::<T>::remove(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
-					Self::btree_add::<UnassignedTasks<T>, NetworkId>(task.network, task_id);
+					Self::add_unassigned_task(task.network, task_id);
 				}
 			}
-			<UnassignedTasks<T>>::iter_values().for_each(|task_set| {
-				task_set.iter().for_each(|task_id| {
-					if let Some(task) = <Tasks<T>>::get(task_id) {
-						TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
-					}
-				});
-			});
+			for (_, _, task_id) in UnassignedTasks::<T>::iter() {
+				if let Some(task) = Tasks::<T>::get(task_id) {
+					TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
+				}
+			}
+
 			for (network, shard, _) in NetworkShards::<T>::iter() {
 				Self::schedule_tasks(network, Some(shard));
 			}
@@ -714,9 +726,9 @@ pub mod pallet {
 		}
 
 		fn filter_tasks<F: Fn(TaskId)>(f: F) {
-			<UnassignedTasks<T>>::iter_values().for_each(|task_set| {
-				task_set.iter().for_each(|task_id| f(*task_id));
-			});
+			for (_network, _, task_id) in UnassignedTasks::<T>::iter() {
+				f(task_id);
+			}
 			for (_shard_id, task_id, _) in ShardTasks::<T>::iter() {
 				f(task_id);
 			}
@@ -839,7 +851,7 @@ pub mod pallet {
 			);
 			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			Self::btree_add::<UnassignedTasks<T>, NetworkId>(schedule.network, task_id);
+			Self::add_unassigned_task(schedule.network, task_id);
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network, None);
 			Ok(task_id)
@@ -868,7 +880,7 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			Self::btree_add::<UnassignedTasks<T>, NetworkId>(task_network, task_id);
+			Self::add_unassigned_task(task_network, task_id);
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);
@@ -914,31 +926,51 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
-			let tasks = <UnassignedTasks<T>>::get(network)
-				.into_iter()
-				.flatten()
-				.filter(|task_id| {
-					let Some(task) = Tasks::<T>::get(task_id) else { return false };
-					if task.shard_size != shard_size {
-						return false;
-					}
-					if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-						return false;
-					}
-					true
+			// let tasks = <UnassignedTasks<T>>::get(network)
+			// 	.into_iter()
+			// 	.flatten()
+			// 	.filter(|task_id| {
+			// 		let Some(task) = Tasks::<T>::get(task_id) else { return false };
+			// 		if task.shard_size != shard_size {
+			// 			return false;
+			// 		}
+			// 		if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
+			// 			return false;
+			// 		}
+			// 		true
+			// 	})
+			// 	.take(capacity)
+			// 	.collect::<Vec<_>>();
+
+			let insert_index = <UATasksInsertIndex<T>>::get(network).unwrap_or(0);
+			let remove_index = <UATasksRemoveIndex<T>>::get(network).unwrap_or(0);
+
+			let tasks = (remove_index..insert_index)
+				.filter_map(|index| {
+					<UnassignedTasks<T>>::get(network, index).map(|task_id| (index, task_id))
+				})
+				.filter(|(_, task_id)| {
+					Tasks::<T>::get(task_id).map_or(false, |task| {
+						task.shard_size == shard_size
+							&& (is_registered
+								|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+					})
 				})
 				.take(capacity)
 				.collect::<Vec<_>>();
-			for task in tasks {
-				Self::assign_task(network, shard_id, task);
+			for (index, task) in tasks {
+				Self::assign_task(network, shard_id, index, task);
 			}
 		}
 
-		fn assign_task(network: NetworkId, shard_id: ShardId, task_id: TaskId) {
+		fn assign_task(network: NetworkId, shard_id: ShardId, task_index: u64, task_id: TaskId) {
+			sp_std::if_std! {
+				println!("task_id getting assigned {:?}", task_id);
+			}
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
-			Self::btree_remove::<UnassignedTasks<T>, NetworkId>(network, task_id);
+			Self::remove_unassigned_task(network, task_index);
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
@@ -1065,24 +1097,23 @@ pub mod pallet {
 			}
 		}
 
-		pub fn btree_add<Map, Key>(key: Key, task_id: TaskId)
-		where
-			Map: IStorageMap<Key, BTreeSet<TaskId>, Query = Option<BTreeSet<TaskId>>>,
-			Key: codec::FullCodec + MaxEncodedLen,
-		{
-			Map::mutate(key, |task_set| {
-				task_set.get_or_insert_with(BTreeSet::new).insert(task_id);
-			});
+		pub fn add_unassigned_task(network: NetworkId, task_id: TaskId) {
+			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
+			UnassignedTasks::<T>::insert(network, insert_index, task_id);
+			UATasksInsertIndex::<T>::insert(network, insert_index + 1);
 		}
 
-		pub fn btree_remove<Map, Key>(key: Key, task_id: TaskId)
-		where
-			Map: IStorageMap<Key, BTreeSet<TaskId>, Query = Option<BTreeSet<TaskId>>>,
-			Key: codec::FullCodec + MaxEncodedLen,
-		{
-			Map::mutate(key, |task_set| {
-				task_set.get_or_insert_with(BTreeSet::new).remove(&task_id);
-			});
+		pub fn remove_unassigned_task(network: NetworkId, task_index: u64) -> Option<TaskId> {
+			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
+			let remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
+
+			if remove_index >= insert_index || remove_index != task_index {
+				return None;
+			}
+
+			let task_id = UnassignedTasks::<T>::take(network, remove_index);
+			UATasksRemoveIndex::<T>::insert(network, remove_index + 1);
+			task_id
 		}
 	}
 
@@ -1100,7 +1131,7 @@ pub mod pallet {
 			// unassign tasks
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				Self::btree_add::<UnassignedTasks<T>, NetworkId>(network, task_id);
+				Self::add_unassigned_task(network, task_id);
 			});
 			Self::unregister_shard(shard_id, network);
 		}

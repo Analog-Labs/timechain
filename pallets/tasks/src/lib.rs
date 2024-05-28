@@ -964,9 +964,6 @@ pub mod pallet {
 		}
 
 		fn assign_task(network: NetworkId, shard_id: ShardId, task_index: u64, task_id: TaskId) {
-			sp_std::if_std! {
-				println!("task_id getting assigned {:?}", task_id);
-			}
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}

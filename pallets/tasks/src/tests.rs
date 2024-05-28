@@ -1,4 +1,4 @@
-use crate::mock::*;
+use crate::{mock::*, UATasksInsertIndex, UATasksRemoveIndex};
 use crate::{
 	Error, Event, Gateway, NetworkBatchSize, NetworkOffset, NetworkReadReward,
 	NetworkSendMessageReward, NetworkShards, NetworkWriteReward, ShardRegistered, ShardTaskLimit,
@@ -1803,5 +1803,9 @@ fn test_assingment_with_diff_shard_size() {
 			.map(|(_, _, t)| t)
 			.collect::<Vec<_>>()
 			.is_empty());
+		assert_eq!(
+			UATasksRemoveIndex::<Test>::get(ETHEREUM),
+			UATasksInsertIndex::<Test>::get(ETHEREUM)
+		)
 	});
 }

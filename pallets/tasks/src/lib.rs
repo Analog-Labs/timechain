@@ -926,34 +926,20 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
-			// let tasks = <UnassignedTasks<T>>::get(network)
-			// 	.into_iter()
-			// 	.flatten()
-			// 	.filter(|task_id| {
-			// 		let Some(task) = Tasks::<T>::get(task_id) else { return false };
-			// 		if task.shard_size != shard_size {
-			// 			return false;
-			// 		}
-			// 		if !is_registered && TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign {
-			// 			return false;
-			// 		}
-			// 		true
-			// 	})
-			// 	.take(capacity)
-			// 	.collect::<Vec<_>>();
 
 			let insert_index = <UATasksInsertIndex<T>>::get(network).unwrap_or(0);
 			let remove_index = <UATasksRemoveIndex<T>>::get(network).unwrap_or(0);
 
 			let tasks = (remove_index..insert_index)
 				.filter_map(|index| {
-					<UnassignedTasks<T>>::get(network, index).map(|task_id| (index, task_id))
-				})
-				.filter(|(_, task_id)| {
-					Tasks::<T>::get(task_id).map_or(false, |task| {
-						task.shard_size == shard_size
-							&& (is_registered
-								|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+					<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
+						Tasks::<T>::get(task_id)
+							.filter(|task| {
+								task.shard_size == shard_size
+									&& (is_registered
+										|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+							})
+							.map(|_| (index, task_id))
 					})
 				})
 				.take(capacity)

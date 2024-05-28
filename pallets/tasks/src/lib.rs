@@ -1083,20 +1083,29 @@ pub mod pallet {
 		pub fn add_unassigned_task(network: NetworkId, task_id: TaskId) {
 			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
 			UnassignedTasks::<T>::insert(network, insert_index, task_id);
-			UATasksInsertIndex::<T>::insert(network, insert_index + 1);
+			UATasksInsertIndex::<T>::insert(network, insert_index.saturating_add(1));
 		}
 
-		pub fn remove_unassigned_task(network: NetworkId, task_index: u64) -> Option<TaskId> {
+		pub fn remove_unassigned_task(network: NetworkId, task_index: u64) {
 			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
-			let remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
+			let mut remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
 
-			if remove_index >= insert_index || remove_index != task_index {
-				return None;
+			if remove_index >= insert_index {
+				return;
 			}
 
-			let task_id = UnassignedTasks::<T>::take(network, remove_index);
-			UATasksRemoveIndex::<T>::insert(network, remove_index + 1);
-			task_id
+			if task_index == remove_index {
+				UnassignedTasks::<T>::remove(network, remove_index);
+				remove_index = remove_index.saturating_add(1);
+				while UnassignedTasks::<T>::get(network, remove_index).is_none()
+					&& remove_index < insert_index
+				{
+					remove_index = remove_index.saturating_add(1);
+					UATasksRemoveIndex::<T>::insert(network, remove_index);
+				}
+			} else {
+				UnassignedTasks::<T>::remove(network, task_index);
+			}
 		}
 	}
 

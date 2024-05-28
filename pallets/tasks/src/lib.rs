@@ -1101,8 +1101,8 @@ pub mod pallet {
 					&& remove_index < insert_index
 				{
 					remove_index = remove_index.saturating_add(1);
-					UATasksRemoveIndex::<T>::insert(network, remove_index);
 				}
+				UATasksRemoveIndex::<T>::insert(network, remove_index);
 			} else {
 				UnassignedTasks::<T>::remove(network, task_index);
 			}

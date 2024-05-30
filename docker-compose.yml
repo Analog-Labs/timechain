@@ -70,6 +70,7 @@ services:
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--tss-keyshare-cache=/etc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1

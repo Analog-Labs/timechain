@@ -369,8 +369,8 @@ impl Tester {
 			}
 		}
 		let shard_id = self.wait_for_shard().await?;
-		// let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		// gateway_keys.push(shard_public_key);
+		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
+		gateway_keys.push(shard_public_key);
 
 		let (address, block_height) = self.deploy_gateway(gateway_keys).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
@@ -457,7 +457,7 @@ impl Tester {
 		Ok(GmpParams {
 			network_id: self.network_id,
 			gateway_contract: gateway.into(),
-			tss_public_key: shard_key.clone(),
+			tss_public_key: shard_key,
 		})
 	}
 

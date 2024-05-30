@@ -150,7 +150,7 @@ async fn main() -> Result<()> {
 			chronicle_restart_test(&tester[0], &contract).await?;
 		},
 	}
-	println!("returning from function");
+	println!("Command executed");
 	Ok(())
 }
 

@@ -66,6 +66,10 @@ enum Command {
 		shard_id: ShardId,
 		keyfile: PathBuf,
 	},
+	RegisterNetwork {
+		chain_name: String,
+		chain_network: String,
+	},
 	#[clap(subcommand)]
 	Test(Test),
 }
@@ -113,9 +117,10 @@ async fn main() -> Result<()> {
 			tester[0].setup_gmp(redeploy, keyfile).await?;
 		},
 		Command::RegisterGmpShard { shard_id, keyfile } => {
-			if let Err(e) = tester[0].register_shard_on_gateway(shard_id, keyfile).await {
-				println!("error occured {:?}", e);
-			}
+			tester[0].register_shard_on_gateway(shard_id, keyfile).await?
+		},
+		Command::RegisterNetwork { chain_name, chain_network } => {
+			tester[0].register_network(chain_name, chain_network).await?
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
 			tester[0].set_shard_config(shard_size, shard_threshold).await?;

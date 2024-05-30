@@ -261,6 +261,15 @@ impl Tester {
 		Ok(())
 	}
 
+	pub async fn register_network(&self, chain_name: String, chain_network: String) -> Result<()> {
+		self.runtime
+			.register_network(chain_name, chain_network)
+			.await?
+			.wait_for_success()
+			.await?;
+		Ok(())
+	}
+
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
 		println!("creating task");
 		let shard_size = self.shard_size().await?;

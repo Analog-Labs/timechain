@@ -457,7 +457,7 @@ impl Tester {
 		Ok(GmpParams {
 			network_id: self.network_id,
 			gateway_contract: gateway.into(),
-			tss_public_key: shard_key,
+			tss_public_key: *shard_key,
 		})
 	}
 

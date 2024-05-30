@@ -1,6 +1,7 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
+use rosetta_client::crypto::bip32::DerivedSecretKey;
 use rosetta_client::crypto::bip39::{Language, Mnemonic};
 use rosetta_client::crypto::bip44::ChildNumber;
 use rosetta_client::{BlockchainConfig, Signer, Wallet};
@@ -66,7 +67,6 @@ impl std::str::FromStr for Network {
 
 pub struct Tester {
 	network_id: NetworkId,
-	network_url: String,
 	gateway_contract: PathBuf,
 	runtime: SubxtClient,
 	wallet: Wallet,
@@ -103,7 +103,6 @@ impl Tester {
 				.await?;
 		Ok(Self {
 			network_id: network.id,
-			network_url: network.url.clone(),
 			gateway_contract: gateway.into(),
 			runtime,
 			wallet,
@@ -126,10 +125,6 @@ impl Tester {
 
 	pub fn network_id(&self) -> NetworkId {
 		self.network_id
-	}
-
-	pub fn network_url(&self) -> &str {
-		&self.network_url
 	}
 
 	pub async fn faucet(&self) {
@@ -338,12 +333,7 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(
-		&self,
-		redeploy: bool,
-		keyfile: Option<&Path>,
-		network_url: Option<&str>,
-	) -> Result<[u8; 20]> {
+	pub async fn setup_gmp(&self, redeploy: bool, keyfile: Option<PathBuf>) -> Result<[u8; 20]> {
 		let mut gateway_keys: Vec<[u8; 33]> = vec![];
 		if let Some(file) = keyfile {
 			let (conn_blockchain, conn_network) = self
@@ -352,12 +342,12 @@ impl Tester {
 				.await?
 				.ok_or(anyhow::anyhow!("Unknown network id"))?;
 
-			let network_url = network_url
-				.expect("Network url must also be provided with keyfile for gateway recovery");
-			let wallet =
-				Wallet::new(conn_blockchain.parse()?, &conn_network, network_url, Some(file), None)
-					.await?;
-			let recovery_key = hex::decode(wallet.public_key().hex_bytes.clone()).unwrap();
+			// get chain config
+			let config = self.get_eth_config(&conn_blockchain, &conn_network)?;
+			// get signer from keyfile
+			let signer = Self::get_signer_from_keyfile(file, config)?;
+			// get public key from signer
+			let recovery_key = signer.public_key().public_key().to_bytes();
 			gateway_keys.push(recovery_key.try_into().unwrap());
 		}
 
@@ -370,7 +360,7 @@ impl Tester {
 		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		gateway_keys.push(shard_public_key);
+		// gateway_keys.push(shard_public_key);
 
 		let (address, block_height) = self.deploy_gateway(gateway_keys).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
@@ -399,11 +389,7 @@ impl Tester {
 		let config = self.get_eth_config(&conn_blockchain, &conn_network)?;
 
 		// keyfile signer
-		let mnemonic = std::fs::read_to_string(&keyfile).unwrap();
-		let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
-		let signer = Signer::new(&mnemonic, "")?
-			.bip44_account(config.algorithm, config.coin, 0)?
-			.derive(ChildNumber::non_hardened_from_u32(0))?;
+		let signer = Self::get_signer_from_keyfile(keyfile, config)?;
 		let secret_key = signer.secret_key();
 		// schnorr signing key
 		let schnorr_signing_key =
@@ -438,6 +424,31 @@ impl Tester {
 		Ok(())
 	}
 
+	///
+	/// returns signer from keyfile
+	/// similar code from rosetta-wallet without connecting to chain
+	fn get_signer_from_keyfile(
+		keyfile: PathBuf,
+		config: BlockchainConfig,
+	) -> Result<DerivedSecretKey> {
+		let mnemonic = std::fs::read_to_string(keyfile).unwrap();
+		let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
+		let signer = Signer::new(&mnemonic, "")?;
+
+		let secret_key = if config.bip44 {
+			signer
+				.bip44_account(config.algorithm, config.coin, 0)?
+				.derive(ChildNumber::non_hardened_from_u32(0))?
+		} else {
+			signer.master_key(config.algorithm).clone()
+		};
+
+		Ok(secret_key)
+	}
+
+	///
+	/// gets ethereum config from blockchain and network similar code to rosetta-wallet
+	/// since it does not export the config yet
 	fn get_eth_config(&self, blockchain: &str, network: &str) -> Result<BlockchainConfig> {
 		let config = match blockchain {
 			"ethereum" => rosetta_config_ethereum::config(network)?,
@@ -1064,7 +1075,7 @@ pub async fn test_setup(
 ) -> Result<(EthContractAddress, EthContractAddress, u64)> {
 	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false, None, None).await?;
+	let gmp_contract = tester.setup_gmp(false, None).await?;
 	let (contract, start_block) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;
@@ -1118,8 +1129,8 @@ pub async fn setup_gmp_with_contracts(
 ) -> Result<(EthContractAddress, EthContractAddress, u128)> {
 	src.faucet().await;
 	dest.faucet().await;
-	let src_gmp_contract = src.setup_gmp(false, None, None).await?;
-	let dest_gmp_contract = dest.setup_gmp(false, None, None).await?;
+	let src_gmp_contract = src.setup_gmp(false, None).await?;
+	let dest_gmp_contract = dest.setup_gmp(false, None).await?;
 
 	// deploy testing contract for source chain
 	let (src_contract, _) = src

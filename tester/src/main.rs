@@ -110,11 +110,7 @@ async fn main() -> Result<()> {
 		},
 		Command::SetupGmp { redeploy, keyfile } => {
 			tester[0].faucet().await;
-			println!("register gateway");
-			tester[0]
-				.setup_gmp(redeploy, keyfile.as_deref(), Some(tester[0].network_url()))
-				.await?;
-			println!("registered gateway");
+			tester[0].setup_gmp(redeploy, keyfile).await?;
 		},
 		Command::RegisterGmpShard { shard_id, keyfile } => {
 			if let Err(e) = tester[0].register_shard_on_gateway(shard_id, keyfile).await {

@@ -64,6 +64,7 @@ enum Command {
 	},
 	RegisterGmpShard {
 		shard_id: ShardId,
+		keyfile: PathBuf,
 	},
 	#[clap(subcommand)]
 	Test(Test),
@@ -115,9 +116,10 @@ async fn main() -> Result<()> {
 				.await?;
 			println!("registered gateway");
 		},
-		// for this command kindly provide the sudo wallet for gateway contract
-		Command::RegisterGmpShard { shard_id } => {
-			tester[0].register_shard_on_gateway(shard_id).await?;
+		Command::RegisterGmpShard { shard_id, keyfile } => {
+			if let Err(e) = tester[0].register_shard_on_gateway(shard_id, keyfile).await {
+				println!("error occured {:?}", e);
+			}
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
 			tester[0].set_shard_config(shard_size, shard_threshold).await?;

@@ -1,8 +1,11 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
-use rosetta_client::Wallet;
+use rosetta_client::crypto::bip39::{Language, Mnemonic};
+use rosetta_client::crypto::bip44::ChildNumber;
+use rosetta_client::{BlockchainConfig, Signer, Wallet};
 use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
+use schnorr_evm::SigningKey;
 use sp_core::crypto::Ss58Codec;
 use std::collections::HashMap;
 use std::future::Future;
@@ -366,8 +369,8 @@ impl Tester {
 			}
 		}
 		let shard_id = self.wait_for_shard().await?;
-		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		gateway_keys.push(shard_public_key);
+		// let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
+		// gateway_keys.push(shard_public_key);
 
 		let (address, block_height) = self.deploy_gateway(gateway_keys).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
@@ -377,16 +380,85 @@ impl Tester {
 		Ok(address)
 	}
 
-	pub async fn register_shard_on_gateway(&self, shard_id: ShardId) -> Result<()> {
+	pub async fn register_shard_on_gateway(
+		&self,
+		shard_id: ShardId,
+		keyfile: PathBuf,
+	) -> Result<()> {
+		// shard commitment
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		let gmp_params = self.get_gmp_params(shard_id).await?;
-		let payload = Message::update_keys([], [shard_public_key]).to_eip712_bytes(&gmp_params);
+
+		// get blockchain and network from network id
+		let (conn_blockchain, conn_network) = self
+			.runtime
+			.get_network(self.network_id)
+			.await?
+			.ok_or(anyhow::anyhow!("Unknown network id"))?;
+
+		// get chain config
+		let config = self.get_eth_config(&conn_blockchain, &conn_network)?;
+
+		// keyfile signer
+		let mnemonic = std::fs::read_to_string(&keyfile).unwrap();
+		let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
+		let signer = Signer::new(&mnemonic, "")?
+			.bip44_account(config.algorithm, config.coin, 0)?
+			.derive(ChildNumber::non_hardened_from_u32(0))?;
+		let secret_key = signer.secret_key();
+		// schnorr signing key
+		let schnorr_signing_key =
+			SigningKey::from_bytes(secret_key.to_bytes().try_into().unwrap())?;
+		let public_key = signer.public_key().public_key().to_bytes();
+
+		// msg building
+		// provides signer who is gonna sign to gmp_params i.e. must be registered in gateway contract
+		let gmp_params = self.get_gmp_params(&public_key.try_into().unwrap()).await?;
+		// provides key to register
+		let msg = Message::update_keys([], [shard_public_key]);
+		// builds signing payload
+		let payload = msg.to_eip712_bytes(&gmp_params);
+		// sign the msg
+		let sig = schnorr_signing_key.sign(&payload).to_bytes();
+
+		let call = msg.into_evm_call(&gmp_params, sig);
+		let Function::EvmCall {
+			address,
+			input,
+			amount,
+			gas_limit,
+		} = call
+		else {
+			println!("function is not valid");
+			return Ok(());
+		};
 		self.wallet()
+			.eth_send_call(address, input.clone(), amount, None, gas_limit)
+			.await?;
+		println!("Shard sucessfully registered");
 		Ok(())
 	}
 
-	async fn get_gmp_params(&self, shard_id: ShardId) -> Result<GmpParams> {
-		todo!()
+	fn get_eth_config(&self, blockchain: &str, network: &str) -> Result<BlockchainConfig> {
+		let config = match blockchain {
+			"ethereum" => rosetta_config_ethereum::config(network)?,
+			"polygon" => rosetta_config_ethereum::polygon_config(network)?,
+			"arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
+			blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
+		};
+		Ok(config)
+	}
+
+	async fn get_gmp_params(&self, shard_key: &[u8; 33]) -> Result<GmpParams> {
+		let gateway = self
+			.runtime
+			.get_gateway(self.network_id)
+			.await?
+			.expect("Gateway contract not registered");
+		Ok(GmpParams {
+			network_id: self.network_id,
+			gateway_contract: gateway.into(),
+			tss_public_key: shard_key.clone(),
+		})
 	}
 
 	pub async fn get_latest_block(&self) -> Result<u64> {

@@ -64,6 +64,7 @@ enum Command {
 	},
 	RegisterGmpShard {
 		shard_id: ShardId,
+		#[clap(default_value = "/etc/gmp_signer")]
 		keyfile: PathBuf,
 	},
 	RegisterNetwork {

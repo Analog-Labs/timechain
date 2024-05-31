@@ -1,10 +1,7 @@
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
-use rosetta_client::crypto::bip32::DerivedSecretKey;
-use rosetta_client::crypto::bip39::{Language, Mnemonic};
-use rosetta_client::crypto::bip44::ChildNumber;
-use rosetta_client::{BlockchainConfig, Signer, Wallet};
+use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
 use schnorr_evm::SigningKey;
 use sp_core::crypto::Ss58Codec;
@@ -345,19 +342,13 @@ impl Tester {
 	pub async fn setup_gmp(&self, redeploy: bool, keyfile: Option<PathBuf>) -> Result<[u8; 20]> {
 		let mut gateway_keys: Vec<[u8; 33]> = vec![];
 		if let Some(file) = keyfile {
-			let (conn_blockchain, conn_network) = self
-				.runtime
-				.get_network(self.network_id)
-				.await?
-				.ok_or(anyhow::anyhow!("Unknown network id"))?;
-
-			// get chain config
-			let config = self.get_eth_config(&conn_blockchain, &conn_network)?;
-			// get signer from keyfile
-			let signer = Self::get_signer_from_keyfile(file, config)?;
-			// get public key from signer
-			let recovery_key = signer.public_key().public_key().to_bytes();
-			gateway_keys.push(recovery_key.try_into().unwrap());
+			let bytes = std::fs::read_to_string(file)?;
+			let key: Vec<u8> = serde_json::from_str(&bytes)?;
+			// Read exactly 32 bytes into the buffer
+			let schnorr_signing_key =
+				SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
+			let public_key = schnorr_signing_key.public().to_bytes()?;
+			gateway_keys.push(public_key);
 		}
 
 		if !redeploy {
@@ -384,30 +375,19 @@ impl Tester {
 		shard_id: ShardId,
 		keyfile: PathBuf,
 	) -> Result<()> {
-		// shard commitment
-		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-
-		// get blockchain and network from network id
-		let (conn_blockchain, conn_network) = self
-			.runtime
-			.get_network(self.network_id)
-			.await?
-			.ok_or(anyhow::anyhow!("Unknown network id"))?;
-
-		// get chain config
-		let config = self.get_eth_config(&conn_blockchain, &conn_network)?;
-
-		// keyfile signer
-		let signer = Self::get_signer_from_keyfile(keyfile, config)?;
-		let secret_key = signer.secret_key();
 		// schnorr signing key
+		let bytes = std::fs::read_to_string(keyfile)?;
+		let key: Vec<u8> = serde_json::from_str(&bytes)?;
+		// Read exactly 32 bytes into the buffer
 		let schnorr_signing_key =
-			SigningKey::from_bytes(secret_key.to_bytes().try_into().unwrap())?;
-		let public_key = signer.public_key().public_key().to_bytes();
+			SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
+		let public_key = schnorr_signing_key.public().to_bytes()?;
 
 		// msg building
 		// provides signer who is gonna sign to gmp_params i.e. must be registered in gateway contract
-		let gmp_params = self.get_gmp_params(&public_key.try_into().unwrap()).await?;
+		let gmp_params = self.get_gmp_params(&public_key).await?;
+		// shard commitment
+		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		// provides key to register
 		let msg = Message::update_keys([], [shard_public_key]);
 		// builds signing payload
@@ -431,41 +411,6 @@ impl Tester {
 			.await?;
 		println!("Shard sucessfully registered");
 		Ok(())
-	}
-
-	///
-	/// returns signer from keyfile
-	/// similar code from rosetta-wallet without connecting to chain
-	fn get_signer_from_keyfile(
-		keyfile: PathBuf,
-		config: BlockchainConfig,
-	) -> Result<DerivedSecretKey> {
-		let mnemonic = std::fs::read_to_string(keyfile).unwrap();
-		let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
-		let signer = Signer::new(&mnemonic, "")?;
-
-		let secret_key = if config.bip44 {
-			signer
-				.bip44_account(config.algorithm, config.coin, 0)?
-				.derive(ChildNumber::non_hardened_from_u32(0))?
-		} else {
-			signer.master_key(config.algorithm).clone()
-		};
-
-		Ok(secret_key)
-	}
-
-	///
-	/// gets ethereum config from blockchain and network similar code to rosetta-wallet
-	/// since it does not export the config yet
-	fn get_eth_config(&self, blockchain: &str, network: &str) -> Result<BlockchainConfig> {
-		let config = match blockchain {
-			"ethereum" => rosetta_config_ethereum::config(network)?,
-			"polygon" => rosetta_config_ethereum::polygon_config(network)?,
-			"arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
-			blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
-		};
-		Ok(config)
 	}
 
 	async fn get_gmp_params(&self, shard_key: &[u8; 33]) -> Result<GmpParams> {

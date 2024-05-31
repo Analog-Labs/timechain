@@ -344,7 +344,6 @@ impl Tester {
 		if let Some(file) = keyfile {
 			let bytes = std::fs::read_to_string(file)?;
 			let key: Vec<u8> = serde_json::from_str(&bytes)?;
-			// Read exactly 32 bytes into the buffer
 			let schnorr_signing_key =
 				SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
 			let public_key = schnorr_signing_key.public().to_bytes()?;
@@ -378,7 +377,6 @@ impl Tester {
 		// schnorr signing key
 		let bytes = std::fs::read_to_string(keyfile)?;
 		let key: Vec<u8> = serde_json::from_str(&bytes)?;
-		// Read exactly 32 bytes into the buffer
 		let schnorr_signing_key =
 			SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
 		let public_key = schnorr_signing_key.public().to_bytes()?;

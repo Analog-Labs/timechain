@@ -40,7 +40,8 @@ pub mod pallet {
 		fn set_read_task_reward() -> Weight;
 		fn set_write_task_reward() -> Weight;
 		fn set_send_message_task_reward() -> Weight;
-		fn cancel_task() -> Weight;
+		fn sudo_cancel_task() -> Weight;
+		fn sudo_cancel_tasks() -> Weight;
 		fn reset_tasks() -> Weight;
 		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways() -> Weight;
@@ -80,7 +81,11 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn cancel_task() -> Weight {
+		fn sudo_cancel_task() -> Weight {
+			Weight::default()
+		}
+
+		fn sudo_cancel_tasks() -> Weight {
 			Weight::default()
 		}
 
@@ -533,7 +538,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(8)]
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
+		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_task())]
 		pub fn sudo_cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
@@ -542,7 +547,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
+		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_tasks())]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			for (network, _, task_id) in UnassignedTasks::<T>::iter() {

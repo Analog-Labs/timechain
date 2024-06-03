@@ -332,7 +332,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::TaskSignature` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::TaskOutput` (r:0 w:1)
 	/// Proof: `Tasks::TaskOutput` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn sudo_cancel_tasks() -> Weight {
+	fn sudo_cancel_tasks(_: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `709`
 		//  Estimated: `6649`
@@ -366,7 +366,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::PhaseStart` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::TaskPhaseState` (r:0 w:1)
 	/// Proof: `Tasks::TaskPhaseState` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn reset_tasks() -> Weight {
+	fn reset_tasks(_: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1021`
 		//  Estimated: `11911`

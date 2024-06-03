@@ -262,7 +262,6 @@ benchmarks! {
 	set_shard_task_limit {
 	}: _(RawOrigin::Root, ETHEREUM, 50) verify {}
 
-	// TODO: add weight hint for number of gateways to unregister
 	unregister_gateways {
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,

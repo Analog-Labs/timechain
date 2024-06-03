@@ -14759,6 +14759,7 @@ dependencies = [
  "hex",
  "rosetta-client",
  "rosetta-config-ethereum",
+ "schnorr-evm",
  "serde_json",
  "sha3",
  "surf",

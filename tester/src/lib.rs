@@ -3,6 +3,7 @@ use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
+use schnorr_evm::SigningKey;
 use sp_core::crypto::Ss58Codec;
 use std::collections::HashMap;
 use std::future::Future;
@@ -19,8 +20,9 @@ use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated}
 use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
 use time_primitives::{
-	sp_core, BlockHash, BlockNumber, Function, IGateway, Msg, NetworkId, Runtime, ShardId,
-	TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey, TssPublicKey,
+	sp_core, BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId,
+	Runtime, ShardId, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey,
+	TssPublicKey,
 };
 use tokio::time::Instant;
 
@@ -155,20 +157,19 @@ impl Tester {
 		Ok((contract_address.0, block_number))
 	}
 
-	pub async fn deploy_gateway(&self, tss_public_key: TssPublicKey) -> Result<([u8; 20], u64)> {
-		let parity_bit = if tss_public_key[0] % 2 == 0 { 0 } else { 1 };
-		let x_coords = hex::encode(&tss_public_key[1..]);
-		sol! {
-			#[derive(Debug, PartialEq, Eq)]
-			struct TssKey {
-				uint8 yParity;
-				uint256 xCoord;
-			}
+	pub async fn deploy_gateway(
+		&self,
+		tss_public_key: Vec<TssPublicKey>,
+	) -> Result<([u8; 20], u64)> {
+		let mut tss_keys: Vec<TssKeyR> = vec![];
+		for key in tss_public_key.into_iter() {
+			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
+			let x_coords = hex::encode(&key[1..]);
+			tss_keys.push(TssKeyR {
+				yParity: parity_bit,
+				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+			});
 		}
-		let tss_keys = vec![TssKeyR {
-			yParity: parity_bit,
-			xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-		}];
 		let call = IGateway::constructorCall {
 			networkId: self.network_id,
 			keys: tss_keys,
@@ -257,6 +258,15 @@ impl Tester {
 		Ok(())
 	}
 
+	pub async fn register_network(&self, chain_name: String, chain_network: String) -> Result<()> {
+		self.runtime
+			.register_network(chain_name, chain_network)
+			.await?
+			.wait_for_success()
+			.await?;
+		Ok(())
+	}
+
 	pub async fn create_task(&self, function: Function, block: u64) -> Result<TaskId> {
 		println!("creating task");
 		let shard_size = self.shard_size().await?;
@@ -329,7 +339,17 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self, redeploy: bool) -> Result<[u8; 20]> {
+	pub async fn setup_gmp(&self, redeploy: bool, keyfile: Option<PathBuf>) -> Result<[u8; 20]> {
+		let mut gateway_keys: Vec<[u8; 33]> = vec![];
+		if let Some(file) = keyfile {
+			let bytes = std::fs::read_to_string(file)?;
+			let key: Vec<u8> = serde_json::from_str(&bytes)?;
+			let schnorr_signing_key =
+				SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
+			let public_key = schnorr_signing_key.public().to_bytes()?;
+			gateway_keys.push(public_key);
+		}
+
 		if !redeploy {
 			println!("looking for gateway");
 			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
@@ -339,12 +359,69 @@ impl Tester {
 		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		let (address, block_height) = self.deploy_gateway(shard_public_key).await?;
+		gateway_keys.push(shard_public_key);
+
+		let (address, block_height) = self.deploy_gateway(gateway_keys).await?;
 		self.register_gateway_address(shard_id, address, block_height).await?;
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
 		tokio::time::sleep(Duration::from_secs(20)).await;
 		Ok(address)
+	}
+
+	pub async fn register_shard_on_gateway(
+		&self,
+		shard_id: ShardId,
+		keyfile: PathBuf,
+	) -> Result<()> {
+		// schnorr signing key
+		let bytes = std::fs::read_to_string(keyfile)?;
+		let key: Vec<u8> = serde_json::from_str(&bytes)?;
+		let schnorr_signing_key =
+			SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
+		let public_key = schnorr_signing_key.public().to_bytes()?;
+
+		// msg building
+		// provides signer who is gonna sign to gmp_params i.e. must be registered in gateway contract
+		let gmp_params = self.get_gmp_params(&public_key).await?;
+		// shard commitment
+		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
+		// provides key to register
+		let msg = Message::update_keys([], [shard_public_key]);
+		// builds signing payload
+		let payload = msg.to_eip712_bytes(&gmp_params);
+		// sign the msg
+		let sig = schnorr_signing_key.sign(&payload).to_bytes();
+
+		let call = msg.into_evm_call(&gmp_params, sig);
+		let Function::EvmCall {
+			address,
+			input,
+			amount,
+			gas_limit,
+		} = call
+		else {
+			println!("function is not valid");
+			return Ok(());
+		};
+		self.wallet()
+			.eth_send_call(address, input.clone(), amount, None, gas_limit)
+			.await?;
+		println!("Shard sucessfully registered");
+		Ok(())
+	}
+
+	async fn get_gmp_params(&self, shard_key: &[u8; 33]) -> Result<GmpParams> {
+		let gateway = self
+			.runtime
+			.get_gateway(self.network_id)
+			.await?
+			.expect("Gateway contract not registered");
+		Ok(GmpParams {
+			network_id: self.network_id,
+			gateway_contract: gateway.into(),
+			tss_public_key: *shard_key,
+		})
 	}
 
 	pub async fn get_latest_block(&self) -> Result<u64> {
@@ -950,7 +1027,7 @@ pub async fn test_setup(
 ) -> Result<(EthContractAddress, EthContractAddress, u64)> {
 	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false).await?;
+	let gmp_contract = tester.setup_gmp(false, None).await?;
 	let (contract, start_block) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;
@@ -1004,8 +1081,8 @@ pub async fn setup_gmp_with_contracts(
 ) -> Result<(EthContractAddress, EthContractAddress, u128)> {
 	src.faucet().await;
 	dest.faucet().await;
-	let src_gmp_contract = src.setup_gmp(false).await?;
-	let dest_gmp_contract = dest.setup_gmp(false).await?;
+	let src_gmp_contract = src.setup_gmp(false, None).await?;
+	let dest_gmp_contract = dest.setup_gmp(false, None).await?;
 
 	// deploy testing contract for source chain
 	let (src_contract, _) = src

@@ -41,7 +41,7 @@ pub mod pallet {
 		fn set_write_task_reward() -> Weight;
 		fn set_send_message_task_reward() -> Weight;
 		fn sudo_cancel_task() -> Weight;
-		fn sudo_cancel_tasks() -> Weight;
+		fn sudo_cancel_tasks(n: u32) -> Weight;
 		fn reset_tasks() -> Weight;
 		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways() -> Weight;
@@ -85,7 +85,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn sudo_cancel_tasks() -> Weight {
+		fn sudo_cancel_tasks(_: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -547,15 +547,25 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_tasks())]
-		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_tasks(*max))]
+		pub fn sudo_cancel_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
 			ensure_root(origin)?;
+			// TODO (followup): ensure max <= PalletMax which is set according to our current block size limit
+			let mut cancelled = 0;
 			for (network, _, task_id) in UnassignedTasks::<T>::iter() {
+				if cancelled >= max {
+					return Ok(());
+				}
 				Self::cancel_task(task_id, network);
+				cancelled = cancelled.saturating_plus_one();
 			}
 			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
 				if let Some(network) = T::Shards::shard_network(shard_id) {
+					if cancelled >= max {
+						return Ok(());
+					}
 					Self::cancel_task(task_id, network);
+					cancelled = cancelled.saturating_plus_one();
 				}
 			}
 			Ok(())

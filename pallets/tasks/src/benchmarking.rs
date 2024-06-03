@@ -243,10 +243,13 @@ benchmarks! {
 		let _ = create_simple_task::<T>()?;
 	}: _(RawOrigin::Root, 0) verify {}
 
-	// TODO: add weight hint for number of tasks to cancel
 	sudo_cancel_tasks {
-		let _ = create_simple_task::<T>()?;
-	}: _(RawOrigin::Root) verify {}
+		// TODO: replace 1000 with PALLET_MAXIMUM
+		let b in 1..1000;
+		for i in 0..b {
+			let _ = create_simple_task::<T>()?;
+		}
+	}: _(RawOrigin::Root, b) verify {}
 
 	// TODO: add weight hint for number of tasks to reset
 	reset_tasks {

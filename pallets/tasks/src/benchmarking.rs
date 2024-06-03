@@ -3,7 +3,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use sp_runtime::traits::IdentifyAccount;
+use sp_runtime::{traits::IdentifyAccount, DispatchError};
 use sp_std::vec;
 use time_primitives::{
 	AccountId, ElectionsInterface, Function, Msg, NetworkId, PublicKey, ShardStatus,
@@ -57,6 +57,33 @@ fn mock_result_ok() -> ([u8; 33], TaskResult) {
 	)
 }
 
+fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountId, DispatchError> {
+	let descriptor = TaskDescriptorParams {
+		network: ETHEREUM,
+		function: Function::EvmViewCall {
+			address: Default::default(),
+			input: Default::default(),
+		},
+		start: 0,
+		funds: 100u32.into(),
+		shard_size: 3,
+	};
+	<T as Config>::Shards::create_shard(
+		ETHEREUM,
+		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+		1,
+	);
+	ShardState::<T>::insert(0, ShardStatus::Online);
+	Pallet::<T>::shard_online(0, ETHEREUM);
+	let caller = whitelisted_caller();
+	pallet_balances::Pallet::<T>::resolve_creating(
+		&caller,
+		pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
+	);
+	Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
+	Ok(caller)
+}
+
 benchmarks! {
 	where_clause {  where T: pallet_shards::Config + pallet_members::Config }
 	create_task {
@@ -87,29 +114,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(whitelisted_caller()), descriptor) verify {}
 
 	submit_result {
-		let descriptor = TaskDescriptorParams {
-			network: ETHEREUM,
-			function: Function::EvmViewCall {
-				address: Default::default(),
-				input: Default::default(),
-			},
-			start: 0,
-			funds: 100u32.into(),
-			shard_size: 3,
-		};
-		<T as Config>::Shards::create_shard(
-			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
-		ShardState::<T>::insert(0, ShardStatus::Online);
-		Pallet::<T>::shard_online(0, ETHEREUM);
-		let caller = whitelisted_caller();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
-		);
-		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
+		let caller = create_simple_task::<T>()?;
 		let (pub_key, result) = mock_result_ok();
 		ShardCommitment::<T>::insert(0, vec![pub_key]);
 	}: _(RawOrigin::Signed(caller), 0, result) verify {}
@@ -233,6 +238,38 @@ benchmarks! {
 
 	set_send_message_task_reward {
 	}: _(RawOrigin::Root, 0, 20) verify {}
+
+	sudo_cancel_task {
+		let _ = create_simple_task::<T>()?;
+	}: _(RawOrigin::Root, 0) verify {}
+
+	// TODO: add weight hint for number of tasks to cancel
+	sudo_cancel_tasks {
+		let _ = create_simple_task::<T>()?;
+	}: _(RawOrigin::Root) verify {}
+
+	// TODO: add weight hint for number of tasks to reset
+	reset_tasks {
+		let _ = create_simple_task::<T>()?;
+	}: _(RawOrigin::Root) verify {}
+
+	set_shard_task_limit {
+	}: _(RawOrigin::Root, ETHEREUM, 50) verify {}
+
+	// TODO: add weight hint for number of gateways to unregister
+	unregister_gateways {
+		<T as Config>::Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<T>::insert(0, ShardStatus::Online);
+		Pallet::<T>::shard_online(0, ETHEREUM);
+		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 20)?;
+	}: _(RawOrigin::Root) verify {}
+
+	set_batch_size {
+	}: _(RawOrigin::Root, ETHEREUM, 100, 25) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

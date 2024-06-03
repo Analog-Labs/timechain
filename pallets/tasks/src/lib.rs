@@ -42,7 +42,7 @@ pub mod pallet {
 		fn set_send_message_task_reward() -> Weight;
 		fn sudo_cancel_task() -> Weight;
 		fn sudo_cancel_tasks(n: u32) -> Weight;
-		fn reset_tasks() -> Weight;
+		fn reset_tasks(n: u32) -> Weight;
 		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways() -> Weight;
 		fn set_batch_size() -> Weight;
@@ -89,7 +89,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn reset_tasks() -> Weight {
+		fn reset_tasks(_: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -572,21 +572,30 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks())]
-		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks(*max))]
+		pub fn reset_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
 			ensure_root(origin)?;
+			let mut to_be_reset = 0u32;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
 				ShardTasks::<T>::remove(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
+					if to_be_reset >= max {
+						break;
+					}
 					Self::add_unassigned_task(task.network, task_id);
+					to_be_reset = to_be_reset.saturating_plus_one();
 				}
 			}
+			let mut reset = 0u32;
 			for (_, _, task_id) in UnassignedTasks::<T>::iter() {
 				if let Some(task) = Tasks::<T>::get(task_id) {
+					if reset >= max {
+						break;
+					}
 					TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
+					reset = reset.saturating_plus_one();
 				}
 			}
-
 			for (network, shard, _) in NetworkShards::<T>::iter() {
 				Self::schedule_tasks(network, Some(shard));
 			}

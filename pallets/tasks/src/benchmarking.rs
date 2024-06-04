@@ -263,15 +263,20 @@ benchmarks! {
 	}: _(RawOrigin::Root, ETHEREUM, 50) verify {}
 
 	unregister_gateways {
-		<T as Config>::Shards::create_shard(
-			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
-			1,
-		);
-		ShardState::<T>::insert(0, ShardStatus::Online);
-		Pallet::<T>::shard_online(0, ETHEREUM);
-		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 20)?;
-	}: _(RawOrigin::Root) verify {}
+		// TODO: replace upper bound with PALLET_MAXIMUM
+		let b in 1..100;
+		for i in 0..b {
+			<T as Config>::Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			let j: u64 = i.into();
+			ShardState::<T>::insert(j, ShardStatus::Online);
+			Pallet::<T>::shard_online(j, ETHEREUM);
+			Pallet::<T>::register_gateway(RawOrigin::Root.into(), j, [0u8; 20], 20)?;
+		}
+	}: _(RawOrigin::Root, b.into()) verify {}
 
 	set_batch_size {
 	}: _(RawOrigin::Root, ETHEREUM, 100, 25) verify {}

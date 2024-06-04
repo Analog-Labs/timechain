@@ -44,7 +44,7 @@ pub mod pallet {
 		fn sudo_cancel_tasks(n: u32) -> Weight;
 		fn reset_tasks(n: u32) -> Weight;
 		fn set_shard_task_limit() -> Weight;
-		fn unregister_gateways() -> Weight;
+		fn unregister_gateways(n: u32) -> Weight;
 		fn set_batch_size() -> Weight;
 	}
 
@@ -97,7 +97,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn unregister_gateways() -> Weight {
+		fn unregister_gateways(_: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -616,10 +616,13 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
-		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways(*num_gateways))]
+		pub fn unregister_gateways(origin: OriginFor<T>, num_gateways: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			let _ = Gateway::<T>::clear(u32::MAX, None);
+			let _ = Gateway::<T>::clear(num_gateways, None);
+			// safest to keep this clear_all or add additional weight hint in
+			// follow up. Iterating through only the removed gateways would complicate
+			// things
 			let _ = ShardRegistered::<T>::clear(u32::MAX, None);
 			Self::filter_tasks(|task_id| {
 				let Some(task) = Tasks::<T>::get(task_id) else {

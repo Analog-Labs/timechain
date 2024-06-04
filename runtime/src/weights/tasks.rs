@@ -401,7 +401,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::TaskShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::TaskOutput` (r:0 w:1)
 	/// Proof: `Tasks::TaskOutput` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn unregister_gateways() -> Weight {
+	fn unregister_gateways(_: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `577`
 		//  Estimated: `6517`

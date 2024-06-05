@@ -1,9 +1,13 @@
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{AtBlock, CallContract, CallResult, SubmitResult};
+use rosetta_config_ethereum::ext::types::ext::rlp::RlpStream;
+use rosetta_config_ethereum::{
+	AtBlock, CallContract, CallResult, GetTransactionCount, SubmitResult,
+};
 use schnorr_evm::SigningKey;
+use sha3::Digest;
 use sp_core::crypto::Ss58Codec;
 use std::collections::HashMap;
 use std::future::Future;
@@ -22,7 +26,6 @@ use time_primitives::sp_core::H160;
 use time_primitives::{
 	sp_core, BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId,
 	Runtime, ShardId, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey,
-	TssPublicKey,
 };
 use tokio::time::Instant;
 
@@ -65,6 +68,7 @@ impl std::str::FromStr for Network {
 pub struct Tester {
 	network_id: NetworkId,
 	gateway_contract: PathBuf,
+	proxy_contract: PathBuf,
 	runtime: SubxtClient,
 	wallet: Wallet,
 }
@@ -89,6 +93,7 @@ impl Tester {
 		network: &Network,
 		keyfile: &Path,
 		gateway: &Path,
+		proxy: &Path,
 	) -> Result<Self> {
 		let (conn_blockchain, conn_network) = runtime
 			.get_network(network.id)
@@ -101,6 +106,7 @@ impl Tester {
 		Ok(Self {
 			network_id: network.id,
 			gateway_contract: gateway.into(),
+			proxy_contract: proxy.into(),
 			runtime,
 			wallet,
 		})
@@ -111,7 +117,8 @@ impl Tester {
 		network: &Network,
 		keyfile: &Path,
 	) -> Result<()> {
-		let tester = Tester::new(runtime, network, keyfile, &PathBuf::new()).await?;
+		let tester =
+			Tester::new(runtime, network, keyfile, &PathBuf::new(), &PathBuf::new()).await?;
 		tester.faucet().await;
 		Ok(())
 	}
@@ -157,24 +164,35 @@ impl Tester {
 		Ok((contract_address.0, block_number))
 	}
 
-	pub async fn deploy_gateway(
-		&self,
-		tss_public_key: Vec<TssPublicKey>,
-	) -> Result<([u8; 20], u64)> {
-		let mut tss_keys: Vec<TssKeyR> = vec![];
-		for key in tss_public_key.into_iter() {
-			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
-			let x_coords = hex::encode(&key[1..]);
-			tss_keys.push(TssKeyR {
-				yParity: parity_bit,
-				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-			});
-		}
+	pub async fn deploy_gateway(&self, proxy: Address) -> Result<([u8; 20], u64)> {
+		// let mut tss_keys: Vec<TssKeyR> = vec![];
+		// for key in tss_public_key.into_iter() {
+		// 	let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
+		// 	let x_coords = hex::encode(&key[1..]);
+		// 	tss_keys.push(TssKeyR {
+		// 		yParity: parity_bit,
+		// 		xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+		// 	});
+		// }
+
 		let call = IGateway::constructorCall {
 			networkId: self.network_id,
-			keys: tss_keys,
+			proxy,
 		};
 		self.deploy(&self.gateway_contract, call).await
+	}
+
+	pub async fn deploy_proxy(&self, implementation: Address) -> Result<([u8; 20], u64)> {
+		sol! {
+			contract GatewayProxy {
+				constructor(address implementation, bytes memory initializer) payable;
+			}
+		}
+		let call = GatewayProxy::constructorCall {
+			implementation,
+			initializer: vec![],
+		};
+		self.deploy(&self.proxy_contract, call).await
 	}
 
 	pub async fn deposit_funds(
@@ -361,11 +379,55 @@ impl Tester {
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		gateway_keys.push(shard_public_key);
 
-		let (address, block_height) = self.deploy_gateway(gateway_keys).await?;
-		self.register_gateway_address(shard_id, address, block_height).await?;
+		// get proxy address
+		let calculated_proxy_addr = self.get_proxy_addr().await?;
+		// deploy gateway
+		let (address, _) = self.deploy_gateway(calculated_proxy_addr).await?;
+		// deploy proxy
+		let (proxy_addr, block_height) = self.deploy_proxy(address.into()).await?;
+
+		assert_eq!(calculated_proxy_addr, proxy_addr);
+		// initialize the gateway
+		// todo!()
+
+		// register proxy
+		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
 		tokio::time::sleep(Duration::from_secs(20)).await;
+		Ok(address)
+	}
+
+	pub async fn initialize_gateway(&self) -> Result<()> {
+		sol! {
+			contract Gateway {
+				function initialize(TssKey[] memory keys, uint16[] calldata networks) external;
+			}
+		}
+		todo!()
+	}
+
+	pub async fn get_proxy_addr(&self) -> Result<Address> {
+		let bytes = hex::decode(self.wallet().account().address.strip_prefix("0x").unwrap())?;
+		let mut address_bytes = [0u8; 20];
+		address_bytes.copy_from_slice(&bytes[..20]);
+		let nonce = self
+			.wallet()
+			.query(GetTransactionCount {
+				address: address_bytes.into(),
+				block: AtBlock::Latest,
+			})
+			.await?;
+		let nonce = nonce + 1;
+
+		let mut stream = RlpStream::new_list(2);
+		stream.append(&bytes);
+		stream.append(&nonce);
+
+		let rlp_encoded = stream.out().to_vec();
+		let hash = sha3::Keccak256::digest(&rlp_encoded);
+
+		let address = Address::from_slice(&hash[12..]);
 		Ok(address)
 	}
 

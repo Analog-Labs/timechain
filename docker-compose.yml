@@ -181,6 +181,7 @@ services:
     - './config/wallets/keyfile3:/etc/keyfile3:ro'
     - './config/wallets/alice:/etc/alice:ro'
     - './out:/etc/contracts:ro'
+    - '../analog-gmp/out:/etc/gmp_contracts:ro'
 
   prometheus:
     image: prom/prometheus:v2.36.2

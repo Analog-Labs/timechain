@@ -32,7 +32,9 @@ struct Args {
 	timechain_url: String,
 	#[arg(long, default_value = "/etc/keyfile")]
 	target_keyfile: PathBuf,
-	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
+	#[arg(long, default_value = "/etc/gmp_contracts/GatewayProxy.sol/GatewayProxy.json")]
+	proxy_gateway_contract: PathBuf,
+	#[arg(long, default_value = "/etc/gmp_contracts/Gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
 	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
@@ -98,8 +100,14 @@ async fn main() -> Result<()> {
 	let mut tester = Vec::with_capacity(args.network.len());
 	for network in &args.network {
 		tester.push(
-			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
-				.await?,
+			Tester::new(
+				runtime.clone(),
+				network,
+				&args.target_keyfile,
+				&args.gateway_contract,
+				&args.proxy_gateway_contract,
+			)
+			.await?,
 		);
 
 		// fund chronicle faucets for testing

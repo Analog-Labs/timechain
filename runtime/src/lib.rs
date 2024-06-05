@@ -10,9 +10,17 @@ mod bag_thresholds;
 mod tests;
 mod weights;
 
-// Make the WASM binary available.
+// Make the WASM binary available in native code
 #[cfg(feature = "std")]
-include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+pub mod binaries {
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+}
+
+#[cfg(feature = "std")]
+pub mod fast_binaries {
+	include!(concat!(env!("OUT_DIR"), "/fast_wasm_binary.rs"));
+}
+
 use frame_system::{limits::BlockWeights, EnsureRoot};
 
 use frame_election_provider_support::{
@@ -37,6 +45,7 @@ use pallet_grandpa::{
 use pallet_session::historical as pallet_session_historical;
 pub use runtime_common::{
 	currency::*,
+	prod_or_fast,
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
 };
 use sp_api::impl_runtime_apis;
@@ -145,10 +154,24 @@ pub mod opaque {
 
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
+#[cfg(not(feature = "fast-runtime"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-testnet"),
 	impl_name: create_runtime_str!("analog-testnet"),
+	authoring_version: 1,
+	spec_version: 117,
+	impl_version: 1,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+#[cfg(feature = "fast-runtime")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("analog-fastnet"),
+	impl_name: create_runtime_str!("analog-fastnet"),
 	authoring_version: 1,
 	spec_version: 117,
 	impl_version: 1,
@@ -199,7 +222,7 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 8 * HOURS;
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(8 * HOURS, 5 * MINUTES);
 
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
@@ -380,22 +403,22 @@ impl pallet_im_online::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/8 of the last session for each.
-	pub SignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 8;
-	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 8;
+	// phase durations. 1/8 (1h) of the last session for each.
+	pub SignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 2 * MINUTES);
+	pub UnsignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 2 * MINUTES);
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
 	pub const SignedMaxRefunds: u32 = 16 / 4;
-	// 40 DOTs fixed deposit..
+	// TODO fixed deposit..
 	pub const SignedDepositBase: Balance = 10;
 	// 0.01 DOT per KB of solution data.
 	pub const SignedDepositByte: Balance = 10;
-	// Each good submission will get 1 DOT as reward
+	// TODO Each good submission will get 1 DOT as reward
 	pub SignedRewardBase: Balance = 1000;
 
 	// 4 hour session, 1 hour unsigned phase, 32 offchain executions.
-	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 32;
+	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_fast!(32, 10);
 
 	/// We take the top 22500 nominators as electing voters..
 	pub const MaxElectingVoters: u32 = 22_500;
@@ -415,16 +438,13 @@ generate_solution_type!(
 );
 
 parameter_types! {
-	// Six sessions in an era (24 hours).
-	// TODO
-	// // 28 eras for unbonding (28 days).
-
-	pub const SessionsPerEra: sp_staking::SessionIndex = 1;//6;
-	pub const BondingDuration: sp_staking::EraIndex = 2;//24 * 28;
+	// TODO Needs to be properly configured.
+	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(1, 3);
+	pub const BondingDuration: sp_staking::EraIndex = prod_or_fast!(2, 4);
 	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
-	// 16
+
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
@@ -466,7 +486,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
+	pub const CouncilMotionDuration: BlockNumber = prod_or_fast!(5 * DAYS, HOURS);
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 }
@@ -853,11 +873,10 @@ parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = ANLOG;
-	pub const SpendPeriod: BlockNumber = DAYS;
+	pub const SpendPeriod: BlockNumber = prod_or_fast!(DAYS, HOURS);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
-	pub const ScheduleFee: Balance = 1;
-	pub const PayoutPeriod: u32 = 1;
+	pub const PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 6 * HOURS);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 

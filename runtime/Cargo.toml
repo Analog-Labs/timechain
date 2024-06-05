@@ -178,3 +178,6 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
 ]
+fast-runtime = [
+	"runtime-common/fast-runtime"
+]

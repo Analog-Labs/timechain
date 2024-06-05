@@ -8,8 +8,8 @@ use sp_core::{crypto::UncheckedInto, hex2array};
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 use timechain_runtime::{
-	AccountId, Balance, RuntimeGenesisConfig as GenesisConfig, StakerStatus, ANLOG, TOKEN_DECIMALS,
-	WASM_BINARY,
+	binaries, fast_binaries, AccountId, Balance, RuntimeGenesisConfig as GenesisConfig,
+	StakerStatus, ANLOG, TOKEN_DECIMALS,
 };
 const SS_58_FORMAT: u32 = 12850;
 
@@ -138,8 +138,8 @@ impl GenesisKeysConfig {
 	}
 
 	/// Generate development chain for supplied sub-identifier
-	pub fn to_development_spec(&self, id: &str) -> Result<ChainSpec, String> {
-		let id = "analog_".to_owned() + id;
+	pub fn to_development_spec(&self, subid: &str) -> Result<ChainSpec, String> {
+		let id = "analog_".to_owned() + subid;
 		self.to_chain_spec(id.as_str(), ChainType::Development, 6, 4)
 	}
 
@@ -156,14 +156,20 @@ impl GenesisKeysConfig {
 		shard_size: u16,
 		shard_threshold: u16,
 	) -> Result<ChainSpec, String> {
-		let wasm_binary =
-			WASM_BINARY.ok_or_else(|| "Analog wasm runtime not available".to_string())?;
+		let wasm_binary = match chain_type {
+			ChainType::Live => binaries::WASM_BINARY,
+			ChainType::Development => fast_binaries::WASM_BINARY,
+			ChainType::Local => fast_binaries::WASM_BINARY,
+			_ => None,
+		}
+		.ok_or_else(|| "Analog wasm runtime not available".to_string())?;
 
 		// Determine name from identifier
 		let name = id.to_case(Case::Title);
 
 		// Determine token symbol based on chain type
 		let token_symbol = match chain_type {
+			ChainType::Live => "ANLOG",
 			ChainType::Development => "DANLOG",
 			ChainType::Local => "LANLOG",
 			_ => return Err("Unsupported chain type".to_string()),

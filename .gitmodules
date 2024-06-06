@@ -4,3 +4,6 @@
 [submodule "lib/frost-evm"]
 	path = lib/frost-evm
 	url = https://github.com/analog-labs/frost-evm
+[submodule "analog-gmp"]
+	path = analog-gmp
+	url = git@github.com:Analog-Labs/analog-gmp.git

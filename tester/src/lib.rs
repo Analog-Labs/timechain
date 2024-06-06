@@ -434,7 +434,7 @@ impl Tester {
 		stream.append(&nonce);
 
 		let rlp_encoded = stream.out().to_vec();
-		let hash = sha3::Keccak256::digest(&rlp_encoded);
+		let hash = sha3::Keccak256::digest(rlp_encoded);
 
 		let address = Address::from_slice(&hash[12..]);
 		Ok(address)

@@ -1684,7 +1684,7 @@ fn unregister_gateways_removes_all_gateways_and_shard_registrations() {
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		assert_eq!(ShardRegistered::<Test>::get(0), Some(()));
 		assert_eq!(Gateway::<Test>::get(ETHEREUM), Some([0u8; 20]));
-		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into()));
+		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into(), 1));
 		assert_eq!(ShardRegistered::<Test>::get(0), None);
 		assert_eq!(Gateway::<Test>::get(ETHEREUM), None);
 	});
@@ -1714,7 +1714,7 @@ fn unregister_gateways_sets_all_read_task_outputs_to_err() {
 				expected_failed_tasks.push(task_id);
 			}
 		}
-		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into()));
+		assert_ok!(Tasks::unregister_gateways(RawOrigin::Root.into(), 1));
 		for task_id in expected_failed_tasks.iter() {
 			assert_eq!(
 				TaskOutput::<Test>::get(task_id),

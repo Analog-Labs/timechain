@@ -40,10 +40,11 @@ pub mod pallet {
 		fn set_read_task_reward() -> Weight;
 		fn set_write_task_reward() -> Weight;
 		fn set_send_message_task_reward() -> Weight;
-		fn cancel_task() -> Weight;
-		fn reset_tasks() -> Weight;
+		fn sudo_cancel_task() -> Weight;
+		fn sudo_cancel_tasks(n: u32) -> Weight;
+		fn reset_tasks(n: u32) -> Weight;
 		fn set_shard_task_limit() -> Weight;
-		fn unregister_gateways() -> Weight;
+		fn unregister_gateways(n: u32) -> Weight;
 		fn set_batch_size() -> Weight;
 	}
 
@@ -80,11 +81,15 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn cancel_task() -> Weight {
+		fn sudo_cancel_task() -> Weight {
 			Weight::default()
 		}
 
-		fn reset_tasks() -> Weight {
+		fn sudo_cancel_tasks(_: u32) -> Weight {
+			Weight::default()
+		}
+
+		fn reset_tasks(_: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -92,7 +97,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn unregister_gateways() -> Weight {
+		fn unregister_gateways(_: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -533,7 +538,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(8)]
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
+		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_task())]
 		pub fn sudo_cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			ensure_root(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
@@ -542,36 +547,55 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_task())]
-		pub fn sudo_cancel_tasks(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_tasks(*max))]
+		pub fn sudo_cancel_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
 			ensure_root(origin)?;
+			// TODO (followup): ensure max <= PalletMax which is set according to our current block size limit
+			let mut cancelled = 0;
 			for (network, _, task_id) in UnassignedTasks::<T>::iter() {
+				if cancelled >= max {
+					return Ok(());
+				}
 				Self::cancel_task(task_id, network);
+				cancelled = cancelled.saturating_plus_one();
 			}
 			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
 				if let Some(network) = T::Shards::shard_network(shard_id) {
+					if cancelled >= max {
+						return Ok(());
+					}
 					Self::cancel_task(task_id, network);
+					cancelled = cancelled.saturating_plus_one();
 				}
 			}
 			Ok(())
 		}
 
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks())]
-		pub fn reset_tasks(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks(*max))]
+		pub fn reset_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
 			ensure_root(origin)?;
+			let mut to_be_reset = 0u32;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
 				ShardTasks::<T>::remove(shard_id, task_id);
 				if let Some(task) = Tasks::<T>::get(task_id) {
+					if to_be_reset >= max {
+						break;
+					}
 					Self::add_unassigned_task(task.network, task_id);
+					to_be_reset = to_be_reset.saturating_plus_one();
 				}
 			}
+			let mut reset = 0u32;
 			for (_, _, task_id) in UnassignedTasks::<T>::iter() {
 				if let Some(task) = Tasks::<T>::get(task_id) {
+					if reset >= max {
+						break;
+					}
 					TaskPhaseState::<T>::insert(task_id, task.function.initial_phase());
+					reset = reset.saturating_plus_one();
 				}
 			}
-
 			for (network, shard, _) in NetworkShards::<T>::iter() {
 				Self::schedule_tasks(network, Some(shard));
 			}
@@ -592,10 +616,13 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways())]
-		pub fn unregister_gateways(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways(*num_gateways))]
+		pub fn unregister_gateways(origin: OriginFor<T>, num_gateways: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			let _ = Gateway::<T>::clear(u32::MAX, None);
+			let _ = Gateway::<T>::clear(num_gateways, None);
+			// safest to keep this clear_all or add additional weight hint in
+			// follow up. Iterating through only the removed gateways would complicate
+			// things
 			let _ = ShardRegistered::<T>::clear(u32::MAX, None);
 			Self::filter_tasks(|task_id| {
 				let Some(task) = Tasks::<T>::get(task_id) else {

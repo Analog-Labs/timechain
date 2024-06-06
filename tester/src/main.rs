@@ -32,9 +32,9 @@ struct Args {
 	timechain_url: String,
 	#[arg(long, default_value = "/etc/keyfile")]
 	target_keyfile: PathBuf,
-	#[arg(long, default_value = "/etc/gmp_contracts/GatewayProxy.sol/GatewayProxy.json")]
+	#[arg(long, default_value = "/etc/contracts/GatewayProxy.sol/GatewayProxy.json")]
 	proxy_gateway_contract: PathBuf,
-	#[arg(long, default_value = "/etc/gmp_contracts/Gateway.sol/Gateway.json")]
+	#[arg(long, default_value = "/etc/contracts/Gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
 	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,

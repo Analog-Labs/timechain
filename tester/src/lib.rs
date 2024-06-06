@@ -373,7 +373,11 @@ impl Tester {
 		assert_eq!(calculated_proxy_addr, proxy_addr);
 
 		// initialize the gateway
-		self.initialize_gateway(proxy_addr, gateway_keys).await?;
+		let gateway_admin =
+			hex::decode(self.wallet().account().address.strip_prefix("0x").unwrap())?;
+		let mut address_bytes = [0u8; 20];
+		address_bytes.copy_from_slice(&gateway_admin[..20]);
+		self.initialize_gateway(proxy_addr, gateway_keys, address_bytes.into()).await?;
 
 		// register proxy
 		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
@@ -387,6 +391,7 @@ impl Tester {
 		&self,
 		proxy_address: [u8; 20],
 		tss_public_key: Vec<TssPublicKey>,
+		admin: Address,
 	) -> Result<()> {
 		type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
 
@@ -406,6 +411,7 @@ impl Tester {
 		}];
 
 		let call = Gateway::initializeCall {
+			admin,
 			keys: tss_keys,
 			networks: network,
 		}
@@ -598,7 +604,12 @@ sol! {
 	}
 
 	contract Gateway {
-		function initialize(TssKey[] memory keys, Network[] calldata networks) external;
+		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
+		function upgrade(address newImplementation) external payable;
+		function setAdmin(address newAdmin) external payable;
+		function sudoAddShards(TssKey[] memory shards) external payable;
+		// OBS: remove != revoke (when revoked, you cannot register again)
+		function sudoRemoveShards(TssKey[] memory shards) external payable;
 	}
 }
 

@@ -8,8 +8,8 @@ impl SubxtClient {
 		let storage_query = timechain_runtime::storage().tasks().unassigned_tasks_iter1(network_id);
 		let mut items = self.client.storage().at_latest().await?.iter(storage_query).await?;
 		let mut tasks: Vec<TaskId> = vec![];
-		while let Some(Ok((_, val))) = items.next().await {
-			tasks.push(val);
+		while let Some(Ok(pair)) = items.next().await {
+			tasks.push(pair.value);
 		}
 		Ok(tasks)
 	}

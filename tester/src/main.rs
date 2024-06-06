@@ -11,7 +11,7 @@ use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
-	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
+	test_setup, wait_for_gmp_calls, ChainNetwork, GmpBenchState, Tester, VotingContract,
 };
 use time_primitives::ShardId;
 use tokio::time::{interval_at, Instant};
@@ -25,7 +25,7 @@ const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/k
 #[derive(Parser, Debug)]
 struct Args {
 	#[arg(long, default_values = ["3;ws://ethereum:8545", "6;ws://astar:9944"])]
-	network: Vec<Network>,
+	network: Vec<ChainNetwork>,
 	#[arg(long, default_value = "/etc/alice")]
 	timechain_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://validator:9944")]

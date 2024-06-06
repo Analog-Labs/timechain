@@ -25,7 +25,7 @@ use tc_subxt::{SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
 use time_primitives::{
 	sp_core, BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId,
-	Runtime, ShardId, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssKey,
+	Runtime, ShardId, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
 };
 use tokio::time::Instant;
 
@@ -46,12 +46,12 @@ pub async fn sleep_or_abort(duration: Duration) -> Result<()> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Network {
+pub struct ChainNetwork {
 	pub id: NetworkId,
 	pub url: String,
 }
 
-impl std::str::FromStr for Network {
+impl std::str::FromStr for ChainNetwork {
 	type Err = anyhow::Error;
 
 	fn from_str(network: &str) -> Result<Self> {
@@ -73,8 +73,6 @@ pub struct Tester {
 	wallet: Wallet,
 }
 
-type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
-
 pub async fn subxt_client(keyfile: &Path, url: &str) -> Result<SubxtClient> {
 	while SubxtClient::get_client(url).await.is_err() {
 		println!("waiting for chain to start");
@@ -90,7 +88,7 @@ pub async fn subxt_client(keyfile: &Path, url: &str) -> Result<SubxtClient> {
 impl Tester {
 	pub async fn new(
 		runtime: SubxtClient,
-		network: &Network,
+		network: &ChainNetwork,
 		keyfile: &Path,
 		gateway: &Path,
 		proxy: &Path,
@@ -114,7 +112,7 @@ impl Tester {
 
 	pub async fn wallet_faucet(
 		runtime: SubxtClient,
-		network: &Network,
+		network: &ChainNetwork,
 		keyfile: &Path,
 	) -> Result<()> {
 		let tester =
@@ -165,16 +163,6 @@ impl Tester {
 	}
 
 	pub async fn deploy_gateway(&self, proxy: Address) -> Result<([u8; 20], u64)> {
-		// let mut tss_keys: Vec<TssKeyR> = vec![];
-		// for key in tss_public_key.into_iter() {
-		// 	let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
-		// 	let x_coords = hex::encode(&key[1..]);
-		// 	tss_keys.push(TssKeyR {
-		// 		yParity: parity_bit,
-		// 		xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-		// 	});
-		// }
-
 		let call = IGateway::constructorCall {
 			networkId: self.network_id,
 			proxy,
@@ -183,11 +171,6 @@ impl Tester {
 	}
 
 	pub async fn deploy_proxy(&self, implementation: Address) -> Result<([u8; 20], u64)> {
-		sol! {
-			contract GatewayProxy {
-				constructor(address implementation, bytes memory initializer) payable;
-			}
-		}
 		let call = GatewayProxy::constructorCall {
 			implementation,
 			initializer: vec![],
@@ -203,7 +186,6 @@ impl Tester {
 		is_contract: bool,
 		amount: u128,
 	) -> Result<()> {
-		println!("depositing funds on destination chain");
 		let mut src = [0; 32];
 		src[12..32].copy_from_slice(&source[..]);
 
@@ -216,7 +198,9 @@ impl Tester {
 			source: src.into(),
 		}
 		.abi_encode();
+		println!("dpositing funds on network: {:?} for {:?}", source_network, src);
 		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
+		println!("funds depositted");
 		Ok(())
 	}
 
@@ -358,7 +342,7 @@ impl Tester {
 	}
 
 	pub async fn setup_gmp(&self, redeploy: bool, keyfile: Option<PathBuf>) -> Result<[u8; 20]> {
-		let mut gateway_keys: Vec<[u8; 33]> = vec![];
+		let mut gateway_keys: Vec<TssPublicKey> = vec![];
 		if let Some(file) = keyfile {
 			let bytes = std::fs::read_to_string(file)?;
 			let key: Vec<u8> = serde_json::from_str(&bytes)?;
@@ -387,24 +371,49 @@ impl Tester {
 		let (proxy_addr, block_height) = self.deploy_proxy(address.into()).await?;
 
 		assert_eq!(calculated_proxy_addr, proxy_addr);
+
 		// initialize the gateway
-		// todo!()
+		self.initialize_gateway(proxy_addr, gateway_keys).await?;
 
 		// register proxy
 		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
 		tokio::time::sleep(Duration::from_secs(20)).await;
-		Ok(address)
+		Ok(proxy_addr)
 	}
 
-	pub async fn initialize_gateway(&self) -> Result<()> {
-		sol! {
-			contract Gateway {
-				function initialize(TssKey[] memory keys, uint16[] calldata networks) external;
-			}
+	pub async fn initialize_gateway(
+		&self,
+		proxy_address: [u8; 20],
+		tss_public_key: Vec<TssPublicKey>,
+	) -> Result<()> {
+		type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
+
+		let mut tss_keys: Vec<TssKeyR> = vec![];
+		for key in tss_public_key.into_iter() {
+			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
+			let x_coords = hex::encode(&key[1..]);
+			tss_keys.push(TssKeyR {
+				yParity: parity_bit,
+				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+			});
 		}
-		todo!()
+
+		let network = vec![Network {
+			id: self.network_id,
+			gateway: proxy_address.into(),
+		}];
+
+		let call = Gateway::initializeCall {
+			keys: tss_keys,
+			networks: network,
+		}
+		.abi_encode();
+
+		self.wallet().eth_send_call(proxy_address, call, 0, None, None).await?;
+
+		Ok(())
 	}
 
 	pub async fn get_proxy_addr(&self) -> Result<Address> {
@@ -566,6 +575,30 @@ sol! {
 		function registerGmpContracts(GmpVotingContract[] memory _registered) external;
 		function vote(bool _vote) external;
 		function stats() public view returns (uint256[] memory);
+	}
+}
+
+sol! {
+	contract GatewayProxy {
+		constructor(address implementation, bytes memory initializer) payable;
+	}
+}
+
+sol! {
+	#[derive(Debug, PartialEq, Eq)]
+	struct Network {
+		uint16 id;
+		address gateway;
+	}
+
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct TssKey {
+		uint8 yParity;
+		uint256 xCoord;
+	}
+
+	contract Gateway {
+		function initialize(TssKey[] memory keys, Network[] calldata networks) external;
 	}
 }
 

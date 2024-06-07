@@ -1,8 +1,10 @@
+use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::Duration;
 use sysinfo::System;
 use tc_subxt::ext::futures::{FutureExt, StreamExt};
@@ -45,20 +47,15 @@ struct Args {
 #[derive(Parser, Debug)]
 enum Command {
 	FundWallet,
-	SetupGmp {
-		/// Deploys and registers a new gateway contract even, replacing the existing one.
-		#[clap(long, short = 'r', default_value_t = false)]
-		redeploy: bool,
-		/// optional mnemonic for sudo key
-		#[arg(long)]
-		keyfile: Option<PathBuf>,
+	GatewayUpgrade {
+		proxy_address: String,
 	},
-	SetShardConfig {
-		shard_size: u16,
-		shard_threshold: u16,
+	GatewaySetAdmin {
+		proxy_address: String,
+		admin: String,
 	},
-	WatchTask {
-		task_id: u64,
+	GatewayAddShards {
+		shard_ids: Vec<ShardId>,
 	},
 	GmpBenchmark {
 		tasks: u64,
@@ -73,8 +70,23 @@ enum Command {
 		chain_name: String,
 		chain_network: String,
 	},
+	SetupGmp {
+		/// Deploys and registers a new gateway contract even, replacing the existing one.
+		#[clap(long, short = 'r', default_value_t = false)]
+		redeploy: bool,
+		/// optional mnemonic for sudo key
+		#[arg(long)]
+		keyfile: Option<PathBuf>,
+	},
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
 	#[clap(subcommand)]
 	Test(Test),
+	WatchTask {
+		task_id: u64,
+	},
 }
 
 #[derive(Parser, Debug)]
@@ -126,16 +138,28 @@ async fn main() -> Result<()> {
 			tester[0].setup_gmp(redeploy, keyfile).await?;
 		},
 		Command::RegisterGmpShard { shard_id, keyfile } => {
-			tester[0].register_shard_on_gateway(shard_id, keyfile).await?
+			tester[0].register_shard_on_gateway(shard_id, keyfile).await.unwrap();
 		},
 		Command::RegisterNetwork { chain_name, chain_network } => {
-			tester[0].register_network(chain_name, chain_network).await?
+			tester[0].register_network(chain_name, chain_network).await.unwrap();
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
-			tester[0].set_shard_config(shard_size, shard_threshold).await?;
+			tester[0].set_shard_config(shard_size, shard_threshold).await.unwrap();
 		},
 		Command::WatchTask { task_id } => {
 			tester[0].wait_for_task(task_id).await;
+		},
+		Command::GatewayUpgrade { proxy_address } => {
+			let proxy_address = Address::from_str(&proxy_address)?;
+			tester[0].gateway_update(proxy_address).await.unwrap();
+		},
+		Command::GatewaySetAdmin { proxy_address, admin } => {
+			let proxy_address = Address::from_str(&proxy_address)?;
+			let admin_address = Address::from_str(&admin)?;
+			tester[0].gateway_set_admin(proxy_address, admin_address).await.unwrap();
+		},
+		Command::GatewayAddShards { shard_ids } => {
+			tester[0].gateway_add_shards(shard_ids).await.unwrap();
 		},
 		Command::GmpBenchmark { tasks, test_contract_addresses } => {
 			let contracts = if test_contract_addresses.len() >= 2 {

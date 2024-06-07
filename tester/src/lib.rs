@@ -32,6 +32,8 @@ use tokio::time::Instant;
 // type for eth contract address
 pub type EthContractAddress = [u8; 20];
 
+type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
+
 // A fixed gas cost of executing the gateway contract
 pub const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
 
@@ -149,7 +151,7 @@ impl Tester {
 		&self,
 		path: &Path,
 		constructor: impl SolConstructor,
-	) -> Result<([u8; 20], u64)> {
+	) -> Result<(EthContractAddress, u64)> {
 		println!("Deploying contract from {:?}", self.wallet.account().address);
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor.abi_encode());
@@ -162,7 +164,7 @@ impl Tester {
 		Ok((contract_address.0, block_number))
 	}
 
-	pub async fn deploy_gateway(&self, proxy: Address) -> Result<([u8; 20], u64)> {
+	pub async fn deploy_gateway(&self, proxy: Address) -> Result<(EthContractAddress, u64)> {
 		let call = IGateway::constructorCall {
 			networkId: self.network_id,
 			proxy,
@@ -170,7 +172,7 @@ impl Tester {
 		self.deploy(&self.gateway_contract, call).await
 	}
 
-	pub async fn deploy_proxy(&self, implementation: Address) -> Result<([u8; 20], u64)> {
+	pub async fn deploy_proxy(&self, implementation: Address) -> Result<(EthContractAddress, u64)> {
 		let call = GatewayProxy::constructorCall {
 			implementation,
 			initializer: vec![],
@@ -180,9 +182,9 @@ impl Tester {
 
 	pub async fn deposit_funds(
 		&self,
-		gmp_address: [u8; 20],
+		gmp_address: EthContractAddress,
 		source_network: NetworkId,
-		source: [u8; 20],
+		source: EthContractAddress,
 		is_contract: bool,
 		amount: u128,
 	) -> Result<()> {
@@ -290,7 +292,7 @@ impl Tester {
 	pub async fn register_gateway_address(
 		&self,
 		shard_id: u64,
-		address: [u8; 20],
+		address: EthContractAddress,
 		block_height: u64,
 	) -> Result<()> {
 		let events = self
@@ -341,7 +343,11 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(&self, redeploy: bool, keyfile: Option<PathBuf>) -> Result<[u8; 20]> {
+	pub async fn setup_gmp(
+		&self,
+		redeploy: bool,
+		keyfile: Option<PathBuf>,
+	) -> Result<EthContractAddress> {
 		let mut gateway_keys: Vec<TssPublicKey> = vec![];
 		if let Some(file) = keyfile {
 			let bytes = std::fs::read_to_string(file)?;
@@ -389,12 +395,10 @@ impl Tester {
 
 	pub async fn initialize_gateway(
 		&self,
-		proxy_address: [u8; 20],
+		proxy_address: EthContractAddress,
 		tss_public_key: Vec<TssPublicKey>,
 		admin: Address,
 	) -> Result<()> {
-		type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
-
 		let mut tss_keys: Vec<TssKeyR> = vec![];
 		for key in tss_public_key.into_iter() {
 			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
@@ -512,8 +516,8 @@ impl Tester {
 	pub async fn send_message(
 		&self,
 		source_network: NetworkId,
-		source: [u8; 20],
-		dest: [u8; 20],
+		source: EthContractAddress,
+		dest: EthContractAddress,
 		payload: Vec<u8>,
 		gas_limit: u128,
 	) -> Result<TaskId> {
@@ -533,6 +537,70 @@ impl Tester {
 			},
 		};
 		self.create_task(f, 0).await
+	}
+
+	pub async fn gateway_update(&self, proxy_address: Address) -> Result<()> {
+		let (gateway_addr, _) = self.deploy_gateway(proxy_address).await?;
+		let call = Gateway::upgradeCall {
+			newImplementation: gateway_addr.into(),
+		}
+		.abi_encode();
+		println!("call data for gateway update: {:?}", hex::encode(&call));
+		let result = self.wallet().eth_send_call(proxy_address.into(), call, 0, None, None).await?;
+		match result {
+			SubmitResult::Executed { tx_hash, .. } => {
+				println!("tx successful: {:?}", tx_hash)
+			},
+			SubmitResult::Timeout { tx_hash } => {
+				println!("tx timedout: {:?}", tx_hash)
+			},
+		}
+		Ok(())
+	}
+	pub async fn gateway_set_admin(
+		&self,
+		proxy_address: Address,
+		new_admin: Address,
+	) -> Result<()> {
+		let call = Gateway::setAdminCall { newAdmin: new_admin }.abi_encode();
+		println!("call data for set admin: {:?}", hex::encode(&call));
+		let result = self.wallet().eth_send_call(proxy_address.into(), call, 0, None, None).await?;
+		match result {
+			SubmitResult::Executed { tx_hash, .. } => {
+				println!("tx successful: {:?}", tx_hash)
+			},
+			SubmitResult::Timeout { tx_hash } => {
+				println!("tx timedout: {:?}", tx_hash)
+			},
+		}
+		Ok(())
+	}
+	pub async fn gateway_add_shards(&self, shard_ids: Vec<ShardId>) -> Result<()> {
+		let Some(proxy) = self.runtime.get_gateway(self.network_id).await? else {
+			panic!("No proxy deployed for this network");
+		};
+		let mut tss_keys: Vec<TssKeyR> = vec![];
+		for id in shard_ids {
+			let key = self.runtime.shard_public_key(id).await?;
+			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
+			let x_coords = hex::encode(&key[1..]);
+			tss_keys.push(TssKeyR {
+				yParity: parity_bit,
+				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+			});
+		}
+		let call = Gateway::sudoAddShardsCall { shards: tss_keys }.abi_encode();
+		println!("call data for add shards: {:?}", hex::encode(&call));
+		let result = self.wallet().eth_send_call(proxy.into(), call, 0, None, None).await?;
+		match result {
+			SubmitResult::Executed { tx_hash, .. } => {
+				println!("tx successful: {:?}", tx_hash)
+			},
+			SubmitResult::Timeout { tx_hash } => {
+				println!("tx timedout: {:?}", tx_hash)
+			},
+		}
+		Ok(())
 	}
 }
 
@@ -608,12 +676,10 @@ sol! {
 		function upgrade(address newImplementation) external payable;
 		function setAdmin(address newAdmin) external payable;
 		function sudoAddShards(TssKey[] memory shards) external payable;
-		// OBS: remove != revoke (when revoked, you cannot register again)
-		function sudoRemoveShards(TssKey[] memory shards) external payable;
 	}
 }
 
-pub fn create_evm_call(address: [u8; 20]) -> Function {
+pub fn create_evm_call(address: EthContractAddress) -> Function {
 	Function::EvmCall {
 		address,
 		input: VotingContract::voteCall { _vote: true }.abi_encode(),
@@ -622,7 +688,7 @@ pub fn create_evm_call(address: [u8; 20]) -> Function {
 	}
 }
 
-pub fn create_evm_view_call(address: [u8; 20]) -> Function {
+pub fn create_evm_view_call(address: EthContractAddress) -> Function {
 	Function::EvmViewCall {
 		address,
 		input: VotingContract::statsCall {}.abi_encode(),

@@ -589,7 +589,7 @@ impl Tester {
 		}
 		let call = Gateway::sudoAddShardsCall { shards: tss_keys }.abi_encode();
 		println!("call data for add shards: {:?}", hex::encode(&call));
-		let result = self.wallet().eth_send_call(proxy.into(), call, 0, None, None).await?;
+		let result = self.wallet().eth_send_call(proxy, call, 0, None, None).await?;
 		match result {
 			SubmitResult::Executed { tx_hash, .. } => {
 				println!("tx successful: {:?}", tx_hash)

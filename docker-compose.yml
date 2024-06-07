@@ -180,7 +180,7 @@ services:
     - './config/wallets/keyfile2:/etc/keyfile2:ro'
     - './config/wallets/keyfile3:/etc/keyfile3:ro'
     - './config/wallets/alice:/etc/alice:ro'
-    - './out:/etc/contracts:ro'
+    - './analog-gmp/out:/etc/contracts:ro'
 
   prometheus:
     image: prom/prometheus:v2.36.2

@@ -92,7 +92,7 @@ sol! {
 			bytes data
 		);
 
-		constructor(uint16 networkId, TssKey[] memory keys) payable;
+		constructor(uint16 networkId, address proxy) payable;
 		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
 		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
 		function deposit(bytes32 source, uint16 network) public payable;

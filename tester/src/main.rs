@@ -1,8 +1,10 @@
+use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::Duration;
 use sysinfo::System;
 use tc_subxt::ext::futures::{FutureExt, StreamExt};
@@ -11,7 +13,7 @@ use tc_subxt::timechain_runtime::tasks::events;
 use tc_subxt::SubxtClient;
 use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
-	test_setup, wait_for_gmp_calls, GmpBenchState, Network, Tester, VotingContract,
+	test_setup, wait_for_gmp_calls, ChainNetwork, GmpBenchState, Tester, VotingContract,
 };
 use time_primitives::ShardId;
 use tokio::time::{interval_at, Instant};
@@ -25,14 +27,16 @@ const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/k
 #[derive(Parser, Debug)]
 struct Args {
 	#[arg(long, default_values = ["3;ws://ethereum:8545", "6;ws://astar:9944"])]
-	network: Vec<Network>,
+	network: Vec<ChainNetwork>,
 	#[arg(long, default_value = "/etc/alice")]
 	timechain_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://validator:9944")]
 	timechain_url: String,
 	#[arg(long, default_value = "/etc/keyfile")]
 	target_keyfile: PathBuf,
-	#[arg(long, default_value = "/etc/contracts/gateway.sol/Gateway.json")]
+	#[arg(long, default_value = "/etc/contracts/GatewayProxy.sol/GatewayProxy.json")]
+	proxy_gateway_contract: PathBuf,
+	#[arg(long, default_value = "/etc/contracts/Gateway.sol/Gateway.json")]
 	gateway_contract: PathBuf,
 	#[arg(long, default_value = "/etc/contracts/test_contract.sol/VotingContract.json")]
 	contract: PathBuf,
@@ -43,20 +47,15 @@ struct Args {
 #[derive(Parser, Debug)]
 enum Command {
 	FundWallet,
-	SetupGmp {
-		/// Deploys and registers a new gateway contract even, replacing the existing one.
-		#[clap(long, short = 'r', default_value_t = false)]
-		redeploy: bool,
-		/// optional mnemonic for sudo key
-		#[arg(long)]
-		keyfile: Option<PathBuf>,
+	GatewayUpgrade {
+		proxy_address: String,
 	},
-	SetShardConfig {
-		shard_size: u16,
-		shard_threshold: u16,
+	GatewaySetAdmin {
+		proxy_address: String,
+		admin: String,
 	},
-	WatchTask {
-		task_id: u64,
+	GatewayAddShards {
+		shard_ids: Vec<ShardId>,
 	},
 	GmpBenchmark {
 		tasks: u64,
@@ -71,8 +70,23 @@ enum Command {
 		chain_name: String,
 		chain_network: String,
 	},
+	SetupGmp {
+		/// Deploys and registers a new gateway contract even, replacing the existing one.
+		#[clap(long, short = 'r', default_value_t = false)]
+		redeploy: bool,
+		/// optional mnemonic for sudo key
+		#[arg(long)]
+		keyfile: Option<PathBuf>,
+	},
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
 	#[clap(subcommand)]
 	Test(Test),
+	WatchTask {
+		task_id: u64,
+	},
 }
 
 #[derive(Parser, Debug)]
@@ -98,8 +112,14 @@ async fn main() -> Result<()> {
 	let mut tester = Vec::with_capacity(args.network.len());
 	for network in &args.network {
 		tester.push(
-			Tester::new(runtime.clone(), network, &args.target_keyfile, &args.gateway_contract)
-				.await?,
+			Tester::new(
+				runtime.clone(),
+				network,
+				&args.target_keyfile,
+				&args.gateway_contract,
+				&args.proxy_gateway_contract,
+			)
+			.await?,
 		);
 
 		// fund chronicle faucets for testing
@@ -118,16 +138,28 @@ async fn main() -> Result<()> {
 			tester[0].setup_gmp(redeploy, keyfile).await?;
 		},
 		Command::RegisterGmpShard { shard_id, keyfile } => {
-			tester[0].register_shard_on_gateway(shard_id, keyfile).await?
+			tester[0].register_shard_on_gateway(shard_id, keyfile).await.unwrap();
 		},
 		Command::RegisterNetwork { chain_name, chain_network } => {
-			tester[0].register_network(chain_name, chain_network).await?
+			tester[0].register_network(chain_name, chain_network).await.unwrap();
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
-			tester[0].set_shard_config(shard_size, shard_threshold).await?;
+			tester[0].set_shard_config(shard_size, shard_threshold).await.unwrap();
 		},
 		Command::WatchTask { task_id } => {
 			tester[0].wait_for_task(task_id).await;
+		},
+		Command::GatewayUpgrade { proxy_address } => {
+			let proxy_address = Address::from_str(&proxy_address)?;
+			tester[0].gateway_update(proxy_address).await.unwrap();
+		},
+		Command::GatewaySetAdmin { proxy_address, admin } => {
+			let proxy_address = Address::from_str(&proxy_address)?;
+			let admin_address = Address::from_str(&admin)?;
+			tester[0].gateway_set_admin(proxy_address, admin_address).await.unwrap();
+		},
+		Command::GatewayAddShards { shard_ids } => {
+			tester[0].gateway_add_shards(shard_ids).await.unwrap();
 		},
 		Command::GmpBenchmark { tasks, test_contract_addresses } => {
 			let contracts = if test_contract_addresses.len() >= 2 {

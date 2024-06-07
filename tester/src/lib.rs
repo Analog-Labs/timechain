@@ -200,9 +200,7 @@ impl Tester {
 			source: src.into(),
 		}
 		.abi_encode();
-		println!("dpositing funds on network: {:?} for {:?}", source_network, src);
 		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
-		println!("funds depositted");
 		Ok(())
 	}
 

@@ -5,8 +5,10 @@ use futures::stream::BoxStream;
 use futures::{FutureExt, StreamExt};
 use std::path::Path;
 use std::str::FromStr;
-use subxt::backend::rpc::RpcClient;
-use subxt::tx::{SubmittableExtrinsic, TxPayload, TxStatus};
+use std::time::Duration;
+use subxt::backend::rpc::reconnecting_rpc_client::{Client, ExponentialBackoff};
+use subxt::config::DefaultExtrinsicParamsBuilder;
+use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, Balance, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
@@ -93,13 +95,15 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 		unsafe { std::mem::transmute(account_id) }
 	}
 
-	fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>
+	async fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>
 	where
 		Call: TxPayload,
 	{
+		let params = DefaultExtrinsicParamsBuilder::new().nonce(self.nonce).build();
 		self.client
 			.tx()
-			.create_signed_with_nonce(call, &self.keypair, self.nonce, Default::default())
+			.create_signed(call, &self.keypair, params)
+			.await
 			.unwrap()
 			.into_encoded()
 	}
@@ -122,11 +126,11 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					peer_id,
 					stake_amount,
 				);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::Heartbeat => {
 				let tx = timechain_runtime::tx().members().send_heartbeat();
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::Commitment {
 				shard_id,
@@ -138,29 +142,29 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					commitment,
 					proof_of_knowledge,
 				);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::Ready { shard_id } => {
 				let tx = timechain_runtime::tx().shards().ready(shard_id);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::TaskSignature { task_id, signature } => {
 				let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::TaskHash { task_id, hash } => {
 				let tx = timechain_runtime::tx().tasks().submit_hash(task_id, hash);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::TaskResult { task_id, result } => {
 				let result: task::TaskResult = unsafe { std::mem::transmute(result) };
 				let tx = timechain_runtime::tx().tasks().submit_result(task_id, result);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::CreateTask { task } => {
 				let task_params: task::TaskDescriptorParams = unsafe { std::mem::transmute(task) };
 				let tx = timechain_runtime::tx().tasks().create_task(task_params);
-				self.create_signed_payload(&tx)
+				self.create_signed_payload(&tx).await
 			},
 			Tx::RegisterGateway {
 				shard_id,
@@ -175,7 +179,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					},
 				);
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
-				self.create_signed_payload(&sudo_call)
+				self.create_signed_payload(&sudo_call).await
 			},
 			Tx::SetShardConfig { shard_size, shard_threshold } => {
 				let runtime_call = RuntimeCall::Elections(timechain_runtime::runtime_types::pallet_elections::pallet::Call::set_shard_config {
@@ -183,7 +187,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					shard_threshold,
 				});
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
-				self.create_signed_payload(&sudo_call)
+				self.create_signed_payload(&sudo_call).await
 			},
 			Tx::RegisterNetwork { chain_name, chain_network } => {
 				let runtime_call = RuntimeCall::Networks(
@@ -193,7 +197,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					},
 				);
 				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
-				self.create_signed_payload(&sudo_call)
+				self.create_signed_payload(&sudo_call).await
 			},
 		};
 		let result: Result<TxInBlock> = async {
@@ -308,7 +312,12 @@ impl SubxtClient {
 	}
 
 	pub async fn get_client(url: &str) -> Result<OnlineClient<PolkadotConfig>> {
-		let rpc_client = RpcClient::from_url(url).await?;
+		let rpc_client = Client::builder()
+			.retry_policy(
+				ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)).take(3),
+			)
+			.build(url.to_string())
+			.await?;
 		OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone())
 			.await
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))

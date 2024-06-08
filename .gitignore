@@ -4,3 +4,6 @@
 # forge
 /out
 /cache
+
+# Srtool artifacts
+runtime/target/srtool

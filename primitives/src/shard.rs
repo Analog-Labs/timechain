@@ -8,7 +8,7 @@ use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::traits::{Saturating, Zero};
+use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
@@ -55,7 +55,6 @@ pub enum ShardStatus {
 	Created,
 	Committed,
 	Online,
-	PartialOffline(u16),
 	Offline,
 }
 
@@ -68,14 +67,6 @@ impl Default for ShardStatus {
 impl ShardStatus {
 	pub fn online_member(&self) -> Self {
 		match self {
-			ShardStatus::PartialOffline(count) => {
-				let new_count = count.saturating_less_one();
-				if new_count.is_zero() {
-					ShardStatus::Online
-				} else {
-					ShardStatus::PartialOffline(new_count)
-				}
-			},
 			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
 			_ => *self,
 		}
@@ -83,14 +74,6 @@ impl ShardStatus {
 
 	pub fn offline_member(&self, max: u16) -> Self {
 		match self {
-			ShardStatus::PartialOffline(count) => {
-				let new_count = count.saturating_plus_one();
-				if new_count > max {
-					ShardStatus::Offline
-				} else {
-					ShardStatus::PartialOffline(new_count)
-				}
-			},
 			// if a member goes offline before the group key is submitted,
 			// then the shard will never go online
 			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
@@ -98,7 +81,10 @@ impl ShardStatus {
 				if max.is_zero() {
 					ShardStatus::Offline
 				} else {
-					ShardStatus::PartialOffline(1)
+					//TODO: get from storage
+					//if greater than max then set status offline
+					// else keep online
+					ShardStatus::Online
 				}
 			},
 			_ => *self,

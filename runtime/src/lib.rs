@@ -404,8 +404,8 @@ impl pallet_im_online::Config for Runtime {
 
 parameter_types! {
 	// phase durations. 1/8 (1h) of the last session for each.
-	pub SignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 2 * MINUTES);
-	pub UnsignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 2 * MINUTES);
+	pub SignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
+	pub UnsignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;

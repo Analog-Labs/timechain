@@ -73,7 +73,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Build contracts
-        run: forge build
+        run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --use=0.8.24 --force
       - name: Build tester
         run: cargo build --release -p tester
       - name: Copy contracts

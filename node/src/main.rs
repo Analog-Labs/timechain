@@ -1,5 +1,4 @@
-//! Substrate Node Template CLI library.
-#![warn(missing_docs)]
+//! Substrate Node CLI
 
 mod chain_spec;
 #[cfg(feature = "chronicle")]

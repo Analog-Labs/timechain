@@ -7,7 +7,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::sync::Arc;
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, NetworksApi, ShardsApi, SubmitTransactionApi, TasksApi,
+	BlockHash, MembersApi, NetworksApi, ShardsApi, SubmitTransactionApi, TasksApi,
 };
 
 mod network;
@@ -32,7 +32,6 @@ where
 		+ NetworksApi<B>
 		+ ShardsApi<B>
 		+ TasksApi<B>
-		+ BlockTimeApi<B>
 		+ SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {

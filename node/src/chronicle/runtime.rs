@@ -13,7 +13,7 @@ use tc_subxt::{
 	OnlineClient, PolkadotConfig, StreamOfResults, SubxtClient, TxProgress, TxSubmitter,
 };
 use time_primitives::{
-	AccountId, BlockHash, BlockNumber, BlockTimeApi, Commitment, MemberStatus, MembersApi,
+	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, MembersApi,
 	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
 	ShardsApi, SubmitTransactionApi, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
 	TasksApi, TssSignature,
@@ -31,8 +31,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: BlockTimeApi<B>
-		+ NetworksApi<B>
+	R::Api: NetworksApi<B>
 		+ MembersApi<B>
 		+ ShardsApi<B>
 		+ TasksApi<B>
@@ -73,8 +72,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: BlockTimeApi<B>
-		+ NetworksApi<B>
+	R::Api: NetworksApi<B>
 		+ MembersApi<B>
 		+ ShardsApi<B>
 		+ TasksApi<B>
@@ -86,10 +84,6 @@ where
 
 	fn account_id(&self) -> &AccountId {
 		self.subxt_client.account_id()
-	}
-
-	async fn get_block_time_in_ms(&self) -> Result<u64> {
-		Ok(self.runtime_api().get_block_time_in_msec(self.best_block())?)
 	}
 
 	fn finality_notification_stream(

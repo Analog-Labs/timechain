@@ -1,7 +1,7 @@
-// @generated to prevent rustfmt reformat/check
+// @generated to prevent rustfmt reformat/check,
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+#![recursion_limit = "1024"]
 
 // Automatically generated nomination bagging
 mod bag_thresholds;
@@ -35,6 +35,7 @@ use frame_support::{
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 use codec::{Decode, Encode};
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
@@ -55,8 +56,8 @@ use sp_runtime::{
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentityLookup, NumberFor, OpaqueKeys,
-		Saturating,
+		BlakeTwo256, Block as BlockT, BlockNumberProvider, Hash as HashT, IdentityLookup,
+		NumberFor, OpaqueKeys, Saturating,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, Percent, SaturatedConversion,
@@ -75,8 +76,8 @@ pub use time_primitives::{
 };
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_config, create_default_config},
+	derive_impl,
+	genesis_builder_helper::{build_state, get_preset},
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
@@ -89,6 +90,9 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 pub use pallet_utility::Call as UtilityCall;
 #[cfg(any(feature = "std", test))]
@@ -122,7 +126,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight =
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Nonce = u32;
 
 /// A hash of some data used by the chain.
 pub type Hash = time_primitives::BlockHash;
@@ -133,7 +137,6 @@ pub type Hash = time_primitives::BlockHash;
 /// to even the core data structures.
 pub mod opaque {
 	use super::*;
-
 	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 	/// Opaque block header type.
@@ -142,13 +145,16 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+	/// Opaque block hash type.
+	pub type Hash = <BlakeTwo256 as HashT>::Output;
+}
 
-	impl_opaque_keys! {
-		pub struct SessionKeys {
-			pub babe: Babe,
-			pub grandpa: Grandpa,
-			pub im_online: ImOnline,
-		}
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub babe: Babe,
+		pub grandpa: Grandpa,
+		pub im_online: ImOnline,
+		pub authority_discovery: AuthorityDiscovery,
 	}
 }
 
@@ -262,8 +268,8 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
-	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
-	type Keys = opaque::SessionKeys;
+	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
@@ -312,7 +318,7 @@ impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Nonce = Index;
+	type Nonce = Nonce;
 	/// The index type for blocks.
 	type Block = Block;
 	/// The type for hashing blocks and tries.
@@ -402,6 +408,10 @@ impl pallet_im_online::Config for Runtime {
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 }
 
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+}
+
 parameter_types! {
 	// phase durations. 1/8 (1h) of the last session for each.
 	pub SignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
@@ -442,8 +452,6 @@ parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(1, 3);
 	pub const BondingDuration: sp_staking::EraIndex = prod_or_fast!(2, 4);
 	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
-
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
@@ -573,7 +581,6 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = EraPayout;
 	type NextNewSession = Session;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
@@ -586,6 +593,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -781,6 +789,9 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 	MaximumMultiplier,
 >;
 
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
@@ -818,7 +829,7 @@ where
 		call: RuntimeCall,
 		public: PublicKey,
 		account: AccountId,
-		nonce: Index,
+		nonce: Nonce,
 	) -> Option<(
 		RuntimeCall,
 		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
@@ -977,35 +988,99 @@ impl pallet_networks::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-#[rustfmt::skip]
-construct_runtime!(
-	pub struct Runtime {
-		System: frame_system,
-		Balances: pallet_balances,
-		Timestamp: pallet_timestamp,
-		Babe: pallet_babe,
-		Grandpa: pallet_grandpa,
-		ImOnline: pallet_im_online,
-		Offences: pallet_offences,
-		Authorship: pallet_authorship,
-		Session: pallet_session,
-		Staking: pallet_staking,
-		Council: pallet_collective::<Instance1>,
-		VoterList: pallet_bags_list,
-		Historical: pallet_session_historical,
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-		TransactionPayment: pallet_transaction_payment,
-		Utility: pallet_utility,
-		Sudo: pallet_sudo,
-		Treasury: pallet_treasury,
-		Members: pallet_members,
-		Shards: pallet_shards,
-		Elections: pallet_elections,
-		Tasks: pallet_tasks,
-		Timegraph: pallet_timegraph,
-		Networks: pallet_networks,
-	}
-);
+#[frame_support::runtime]
+mod runtime {
+	use super::*;
+
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+
+	#[runtime::pallet_index(1)]
+	pub type Balances = pallet_balances;
+
+	#[runtime::pallet_index(2)]
+	pub type Timestamp = pallet_timestamp;
+
+	#[runtime::pallet_index(3)]
+	pub type Babe = pallet_babe;
+
+	#[runtime::pallet_index(4)]
+	pub type Grandpa = pallet_grandpa;
+
+	#[runtime::pallet_index(5)]
+	pub type ImOnline = pallet_im_online;
+
+	#[runtime::pallet_index(6)]
+	type AuthorityDiscovery = pallet_authority_discovery;
+
+	#[runtime::pallet_index(7)]
+	pub type Offences = pallet_offences;
+
+	#[runtime::pallet_index(8)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(9)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(10)]
+	pub type Staking = pallet_staking;
+
+	#[runtime::pallet_index(11)]
+	pub type Council = pallet_collective<Instance1>;
+
+	#[runtime::pallet_index(12)]
+	pub type VoterList = pallet_bags_list;
+
+	#[runtime::pallet_index(13)]
+	pub type Historical = pallet_session_historical;
+
+	#[runtime::pallet_index(14)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
+
+	#[runtime::pallet_index(15)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(16)]
+	pub type Utility = pallet_utility;
+
+	#[runtime::pallet_index(17)]
+	pub type Sudo = pallet_sudo;
+
+	#[runtime::pallet_index(18)]
+	pub type Treasury = pallet_treasury;
+
+	#[runtime::pallet_index(19)]
+	pub type Members = pallet_members;
+
+	#[runtime::pallet_index(20)]
+	pub type Shards = pallet_shards;
+
+	#[runtime::pallet_index(21)]
+	pub type Elections = pallet_elections;
+
+	#[runtime::pallet_index(22)]
+	pub type Tasks = pallet_tasks;
+
+	#[runtime::pallet_index(23)]
+	pub type Timegraph = pallet_timegraph;
+
+	#[runtime::pallet_index(24)]
+	pub type Networks = pallet_networks;
+}
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
@@ -1127,13 +1202,13 @@ impl_runtime_apis! {
 
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			opaque::SessionKeys::generate(seed)
+			SessionKeys::generate(seed)
 		}
 
 		fn decode_session_keys(
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-			opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
+			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
 
@@ -1217,8 +1292,14 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			AuthorityDiscovery::authorities()
+		}
+	}
+
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
@@ -1435,12 +1516,16 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			vec![]
 		}
 	}
 }

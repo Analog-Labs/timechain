@@ -14,7 +14,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 	use schnorr_evm::VerifyingKey;
-	use sp_runtime::{traits::Zero, Saturating};
+	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
@@ -301,41 +301,6 @@ pub mod pallet {
 		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Vec<TssPublicKey>> {
 			ShardCommitment::<T>::get(shard_id)
 		}
-		pub fn do_member_online(shard_id: ShardId, status: ShardStatus) {
-			let new_status = match status {
-				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-				_ => status,
-			};
-			ShardState::<T>::insert(shard_id, new_status);
-		}
-		pub fn do_member_offline(shard_id: ShardId, status: ShardStatus, max: u16) {
-			let new_status = match status {
-				// if a member goes offline before the group key is submitted,
-				// then the shard will never go online
-				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-				ShardStatus::Online => {
-					if max.is_zero() {
-						ShardStatus::Offline
-					} else {
-						let shard_members_offline = (Self::get_shard_members(shard_id).len()
-							as u16)
-							.saturating_sub(ShardMembersOnline::<T>::get(shard_id));
-						if shard_members_offline > max {
-							ShardStatus::Offline
-						} else {
-							ShardStatus::Online
-						}
-					}
-				},
-				_ => status,
-			};
-			if matches!(new_status, ShardStatus::Offline) && !matches!(status, ShardStatus::Offline)
-			{
-				Self::remove_shard_offline(shard_id);
-			} else if !matches!(new_status, ShardStatus::Offline) {
-				ShardState::<T>::insert(shard_id, new_status);
-			}
-		}
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
@@ -343,7 +308,11 @@ pub mod pallet {
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			ShardMembersOnline::<T>::mutate(shard_id, |x| *x = x.saturating_plus_one());
-			Self::do_member_online(shard_id, old_status);
+			let new_status = match old_status {
+				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
+				_ => old_status,
+			};
+			ShardState::<T>::insert(shard_id, new_status);
 		}
 
 		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
@@ -356,13 +325,28 @@ pub mod pallet {
 			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
 				return T::DbWeight::get().reads(3);
 			};
-			ShardMembersOnline::<T>::mutate(shard_id, |x| *x = x.saturating_less_one());
-			let total_members = Self::get_shard_members(shard_id).len();
-			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
-			let Ok(max_members_offline) = max_members_offline.try_into() else {
-				return T::DbWeight::get().reads(4);
+			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
+			members_online = members_online.saturating_less_one();
+			ShardMembersOnline::<T>::insert(shard_id, members_online);
+			let new_status = match old_status {
+				// if a member goes offline before the group key is submitted,
+				// then the shard will never go online
+				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
+				ShardStatus::Online => {
+					if members_online < shard_threshold.into() {
+						ShardStatus::Offline
+					} else {
+						ShardStatus::Online
+					}
+				},
+				_ => old_status,
 			};
-			Self::do_member_offline(shard_id, old_status, max_members_offline);
+			if matches!(new_status, ShardStatus::Offline) && !matches!(old_status, ShardStatus::Offline)
+			{
+				Self::remove_shard_offline(shard_id);
+			} else if !matches!(new_status, ShardStatus::Offline) {
+				ShardState::<T>::insert(shard_id, new_status);
+			}
 			T::WeightInfo::member_offline()
 		}
 	}

@@ -266,8 +266,8 @@ fn register_unregister_kills_task() {
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(),));
-		// task still assigned to shard 0
-		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
+		// task not assigned to shard 0
+		assert_eq!(Tasks::task_shard(0).unwrap(), None);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(),));
 		Elections::shard_offline(ETHEREUM, old_shard);

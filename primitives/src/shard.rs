@@ -8,7 +8,6 @@ use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
@@ -61,34 +60,6 @@ pub enum ShardStatus {
 impl Default for ShardStatus {
 	fn default() -> Self {
 		Self::Offline
-	}
-}
-
-impl ShardStatus {
-	pub fn online_member(&self) -> Self {
-		match self {
-			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-			_ => *self,
-		}
-	}
-
-	pub fn offline_member(&self, max: u16) -> Self {
-		match self {
-			// if a member goes offline before the group key is submitted,
-			// then the shard will never go online
-			ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-			ShardStatus::Online => {
-				if max.is_zero() {
-					ShardStatus::Offline
-				} else {
-					//TODO: get from storage
-					//if greater than max then set status offline
-					// else keep online
-					ShardStatus::Online
-				}
-			},
-			_ => *self,
-		}
 	}
 }
 

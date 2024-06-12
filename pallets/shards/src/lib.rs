@@ -341,7 +341,8 @@ pub mod pallet {
 				},
 				_ => old_status,
 			};
-			if matches!(new_status, ShardStatus::Offline) && !matches!(old_status, ShardStatus::Offline)
+			if matches!(new_status, ShardStatus::Offline)
+				&& !matches!(old_status, ShardStatus::Offline)
 			{
 				Self::remove_shard_offline(shard_id);
 			} else if !matches!(new_status, ShardStatus::Offline) {

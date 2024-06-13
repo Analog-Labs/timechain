@@ -333,7 +333,7 @@ pub mod pallet {
 				// then the shard will never go online
 				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
 				ShardStatus::Online => {
-					if members_online < shard_threshold.into() {
+					if members_online < shard_threshold {
 						ShardStatus::Offline
 					} else {
 						ShardStatus::Online

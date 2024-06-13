@@ -941,7 +941,6 @@ pub mod pallet {
 					// return early to prevent division by 0 when choosing from 0 shards
 					return;
 				}
-				// first shard assigned tasks by current block mod shards.len()
 				let first_shard_index = frame_system::Pallet::<T>::block_number()
 					% (network_shards.len() as u32).into();
 				let index = TryInto::<usize>::try_into(first_shard_index).unwrap_or_default();

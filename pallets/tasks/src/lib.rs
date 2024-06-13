@@ -935,8 +935,25 @@ pub mod pallet {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
 			} else {
-				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
-					Self::schedule_tasks_shard(network, shard);
+				let network_shards =
+					NetworkShards::<T>::iter_prefix(network).map(|(s, _)| s).collect::<Vec<_>>();
+				if network_shards.is_empty() {
+					// return early to prevent division by 0 when choosing first shard
+					return;
+				}
+				// first shard assigned tasks is chosen by current block mod the total
+				// shards for the network
+				let first_shard_index = frame_system::Pallet::<T>::block_number()
+					% (network_shards.len() as u32).into();
+				let first_shard_index =
+					TryInto::<usize>::try_into(first_shard_index).unwrap_or_default();
+				let first_shard_assigned_tasks = network_shards[first_shard_index];
+				Self::schedule_tasks_shard(network, first_shard_assigned_tasks);
+				// schedule rest in storage order, could be improved
+				for shard_id in network_shards {
+					if shard_id != first_shard_assigned_tasks {
+						Self::schedule_tasks_shard(network, shard_id);
+					}
 				}
 			}
 		}

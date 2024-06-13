@@ -941,10 +941,11 @@ pub mod pallet {
 					// return early to prevent division by 0 when choosing from 0 shards
 					return;
 				}
-				let first_shard_index = frame_system::Pallet::<T>::block_number()
+				let split_index_as_block = frame_system::Pallet::<T>::block_number()
 					% (network_shards.len() as u32).into();
-				let index = TryInto::<usize>::try_into(first_shard_index).unwrap_or_default();
-				let (front, back) = network_shards.split_at(index);
+				let split_index =
+					TryInto::<usize>::try_into(split_index_as_block).unwrap_or_default();
+				let (front, back) = network_shards.split_at(split_index);
 				for shard in back.iter().chain(front) {
 					Self::schedule_tasks_shard(network, *shard);
 				}

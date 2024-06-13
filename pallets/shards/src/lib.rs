@@ -309,7 +309,9 @@ pub mod pallet {
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			ShardMembersOnline::<T>::mutate(shard_id, |x| *x = x.saturating_plus_one());
 			match old_status {
-				ShardStatus::Created | ShardStatus::Committed => ShardState::<T>::insert(shard_id, ShardStatus::Offline),
+				ShardStatus::Created | ShardStatus::Committed => {
+					ShardState::<T>::insert(shard_id, ShardStatus::Offline)
+				},
 				_ => (),
 			}
 		}

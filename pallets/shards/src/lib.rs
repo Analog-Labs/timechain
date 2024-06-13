@@ -308,11 +308,10 @@ pub mod pallet {
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			ShardMembersOnline::<T>::mutate(shard_id, |x| *x = x.saturating_plus_one());
-			let new_status = match old_status {
-				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-				_ => old_status,
-			};
-			ShardState::<T>::insert(shard_id, new_status);
+			match old_status {
+				ShardStatus::Created | ShardStatus::Committed => ShardState::<T>::insert(shard_id, ShardStatus::Offline),
+				_ => (),
+			}
 		}
 
 		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {

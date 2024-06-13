@@ -107,6 +107,10 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	pub type ShardMembersOnline<T: Config> =
+		StorageMap<_, Blake2_128Concat, ShardId, u16, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -303,8 +307,13 @@ pub mod pallet {
 		fn member_online(id: &AccountId, _network: NetworkId) {
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
-			let new_status = old_status.online_member();
-			ShardState::<T>::insert(shard_id, new_status);
+			ShardMembersOnline::<T>::mutate(shard_id, |x| *x = x.saturating_plus_one());
+			match old_status {
+				ShardStatus::Created | ShardStatus::Committed => {
+					ShardState::<T>::insert(shard_id, ShardStatus::Offline)
+				},
+				_ => (),
+			}
 		}
 
 		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
@@ -317,12 +326,22 @@ pub mod pallet {
 			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
 				return T::DbWeight::get().reads(3);
 			};
-			let total_members = Self::get_shard_members(shard_id).len();
-			let max_members_offline = total_members.saturating_sub(shard_threshold.into());
-			let Ok(max_members_offline) = max_members_offline.try_into() else {
-				return T::DbWeight::get().reads(4);
+			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
+			members_online = members_online.saturating_less_one();
+			ShardMembersOnline::<T>::insert(shard_id, members_online);
+			let new_status = match old_status {
+				// if a member goes offline before the group key is submitted,
+				// then the shard will never go online
+				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
+				ShardStatus::Online => {
+					if members_online < shard_threshold {
+						ShardStatus::Offline
+					} else {
+						ShardStatus::Online
+					}
+				},
+				_ => old_status,
 			};
-			let new_status = old_status.offline_member(max_members_offline);
 			if matches!(new_status, ShardStatus::Offline)
 				&& !matches!(old_status, ShardStatus::Offline)
 			{
@@ -336,10 +355,7 @@ pub mod pallet {
 
 	impl<T: Config> ShardsInterface for Pallet<T> {
 		fn is_shard_online(shard_id: ShardId) -> bool {
-			matches!(
-				ShardState::<T>::get(shard_id),
-				Some(ShardStatus::Online | ShardStatus::PartialOffline(_))
-			)
+			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 
 		fn is_shard_member(member: &AccountId) -> bool {

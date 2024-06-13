@@ -123,33 +123,11 @@ fn dkg_times_out() {
 }
 
 #[test]
-fn member_offline_sets_online_shard_partially_offline() {
-	let shard = shard();
-	new_test_ext().execute_with(|| {
-		create_shard(0, &shard, 1);
-		Shards::member_offline(&shard[0].account_id, ETHEREUM);
-		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
-	});
-}
-
-#[test]
 fn member_offline_above_threshold_sets_online_shard_offline() {
 	let shard = shard();
 	new_test_ext().execute_with(|| {
 		create_shard(0, &shard, 3);
 		Shards::member_offline(&shard[0].account_id, ETHEREUM);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
-	});
-}
-
-#[test]
-fn member_online_sets_partially_offline_shard_back_online() {
-	let shard = shard();
-	new_test_ext().execute_with(|| {
-		create_shard(0, &shard, 1);
-		Shards::member_offline(&shard[0].account_id, ETHEREUM);
-		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::PartialOffline(1)));
-		Shards::member_online(&shard[0].account_id, ETHEREUM);
-		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
 	});
 }

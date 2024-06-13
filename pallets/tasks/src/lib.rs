@@ -935,7 +935,7 @@ pub mod pallet {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
 			} else {
-				let mut network_shards =
+				let network_shards =
 					NetworkShards::<T>::iter_prefix(network).map(|(s, _)| s).collect::<Vec<_>>();
 				if network_shards.is_empty() {
 					// return early to prevent division by 0 when choosing from 0 shards
@@ -945,11 +945,9 @@ pub mod pallet {
 				let first_shard_index = frame_system::Pallet::<T>::block_number()
 					% (network_shards.len() as u32).into();
 				let index = TryInto::<usize>::try_into(first_shard_index).unwrap_or_default();
-				let first_shard = network_shards.remove(index);
-				Self::schedule_tasks_shard(network, first_shard);
-				// schedule rest in storage order, could be improved
-				for shard_id in network_shards {
-					Self::schedule_tasks_shard(network, shard_id);
+				let (front, back) = network_shards.split_at(index);
+				for shard in back.iter().chain(front) {
+					Self::schedule_tasks_shard(network, *shard);
 				}
 			}
 		}

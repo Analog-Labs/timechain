@@ -935,9 +935,15 @@ pub mod pallet {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
 			} else {
-				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+				// assign tasks by least assigned
+				let mut shards = NetworkShards::<T>::iter_prefix(network).collect::<Vec<_>>();
+				shards.sort_by(|a, b| {
+					(ShardTasks::<T>::iter_prefix(a).count())
+						.cmp(&ShardTasks::<T>::iter_prefix(b).count())
+				});
+				shards.into_iter().rev().for_each(|(shard, _)| {
 					Self::schedule_tasks_shard(network, shard);
-				}
+				});
 			}
 		}
 

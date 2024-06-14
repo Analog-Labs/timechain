@@ -935,7 +935,6 @@ pub mod pallet {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
 			} else {
-				// assign tasks by least assigned
 				let mut shards = NetworkShards::<T>::iter_prefix(network).collect::<Vec<_>>();
 				shards.sort_by(|(a, _), (b, _)| {
 					ShardTasks::<T>::iter_prefix(*a)

@@ -36,6 +36,7 @@ type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
 
 // A fixed gas cost of executing the gateway contract
 pub const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
+pub const GATEWAY_BASE_GAS_COST: u128 = 100_000;
 
 pub async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -110,17 +111,6 @@ impl Tester {
 			runtime,
 			wallet,
 		})
-	}
-
-	pub async fn wallet_faucet(
-		runtime: SubxtClient,
-		network: &ChainNetwork,
-		keyfile: &Path,
-	) -> Result<()> {
-		let tester =
-			Tester::new(runtime, network, keyfile, &PathBuf::new(), &PathBuf::new()).await?;
-		tester.faucet().await;
-		Ok(())
 	}
 
 	pub fn wallet(&self) -> &Wallet {
@@ -1413,12 +1403,14 @@ pub async fn deposit_gmp_funds(
 
 	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
 	//how much the user provides the gmp
-	let gmp_gas_limit = gmp_gas_limit.saturating_add(GATEWAY_EXECUTE_GAS_COST);
+	let gmp_gas_limit = gmp_gas_limit
+		.saturating_add(GATEWAY_EXECUTE_GAS_COST)
+		.saturating_add(GATEWAY_BASE_GAS_COST);
 	let deposit_amount = gas_price
 		.saturating_mul(gmp_gas_limit)
-		.saturating_mul(12)
+		.saturating_mul(15)
 		.saturating_mul(total_calls)
-		/ 10; // 20% more, in case of the gas price increase
+		/ 10; // 50% more, in case of the gas price increase
 
 	let remaining_submitable_gas = deposit_amount.saturating_sub(funds_in_contract);
 	println!("funds required for call:     {:?}", deposit_amount);

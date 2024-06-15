@@ -94,6 +94,7 @@ enum Test {
 	Basic,
 	Batch { tasks: u64 },
 	Gmp,
+	ChroniclePayment,
 	Migration,
 	Restart,
 }
@@ -110,6 +111,7 @@ async fn main() -> Result<()> {
 	let args = Args::parse();
 	let runtime = tester::subxt_client(&args.timechain_keyfile, &args.timechain_url).await?;
 	let mut tester = Vec::with_capacity(args.network.len());
+	let mut chronicles = vec![];
 	for network in &args.network {
 		tester.push(
 			Tester::new(
@@ -124,7 +126,16 @@ async fn main() -> Result<()> {
 
 		// fund chronicle faucets for testing
 		for item in CHRONICLE_KEYFILES {
-			Tester::wallet_faucet(runtime.clone(), network, Path::new(item)).await?;
+			let chronicle_tester = Tester::new(
+				runtime.clone(),
+				network,
+				&PathBuf::from(item),
+				&PathBuf::new(),
+				&PathBuf::new(),
+			)
+			.await?;
+			chronicle_tester.faucet().await;
+			chronicles.push(chronicle_tester);
 		}
 	}
 	let contract = args.contract;
@@ -173,6 +184,15 @@ async fn main() -> Result<()> {
 		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await?,
 		Command::Test(Test::Batch { tasks }) => {
 			batch_test(&tester[0], &contract, tasks).await?;
+		},
+		// chronicles are refunded the gas for gmp call
+		Command::Test(Test::ChroniclePayment) => {
+			println!("This test is only available local with single node shard");
+			let starting_balance = chronicles[0].wallet().balance().await?;
+			gmp_test(&tester[0], &tester[1], &contract).await?;
+			let ending_balance = chronicles[0].wallet().balance().await?;
+			println!("Verifying balance");
+			assert!(starting_balance <= ending_balance);
 		},
 		Command::Test(Test::Gmp) => {
 			gmp_test(&tester[0], &tester[1], &contract).await?;
@@ -226,7 +246,7 @@ async fn gmp_benchmark(
 	// get contract stats of src contract
 	let start_stats = stats(src_tester, src_contract, None).await?;
 	// get contract stats of destination contract
-	let dest_stats = stats(src_tester, src_contract, None).await?;
+	let dest_stats = stats(dest_tester, dest_contract, None).await?;
 	println!("stats in start: {:?}", start_stats);
 
 	//get nonce of the caller to manage explicitly
@@ -437,7 +457,6 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 }
 
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
-	src.set_shard_config(1, 1).await?;
 	let (src_contract, dest_contract, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
 
 	println!("submitting vote");

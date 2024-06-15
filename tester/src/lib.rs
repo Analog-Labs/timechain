@@ -1402,7 +1402,7 @@ pub async fn deposit_gmp_funds(
 	};
 
 	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
-	//how much the user provides the gmp
+	// how much the user provides the gmp
 	let gmp_gas_limit = gmp_gas_limit
 		.saturating_add(GATEWAY_EXECUTE_GAS_COST)
 		.saturating_add(GATEWAY_BASE_GAS_COST);

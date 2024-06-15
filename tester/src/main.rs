@@ -221,6 +221,7 @@ async fn gmp_benchmark(
 	let mut sys = System::new_all();
 	let mut memory_usage = vec![];
 	let mut cpu_usage = vec![];
+	let mut is_contract_updated = false;
 
 	// Initialized it to get events from timechain
 	// SubxtClient client doesnt support exporting client to outer space
@@ -381,7 +382,8 @@ async fn gmp_benchmark(
 						format_duration(bench_state.current_duration())
 					);
 				} else {
-					println!("contract updated, waiting for task to complete");
+					is_contract_updated = true;
+					println!("contract updated, waiting for task to complete: {}", format_duration(bench_state.current_duration()));
 				}
 
 				// compute memory usage
@@ -406,7 +408,9 @@ async fn gmp_benchmark(
 				cpu_usage.push(average_cpu_usage);
 
 				// verify if the number of tasks finished matches the number of calls or greater and all tasks are finished
-				if bench_state.get_finished_tasks() >= number_of_calls as usize && bench_state.all_tasks_completed() {
+				if bench_state.get_finished_tasks() >= number_of_calls as usize
+				&& bench_state.all_tasks_completed()
+				&& is_contract_updated {
 					break;
 				} else {
 					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());

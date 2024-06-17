@@ -200,6 +200,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+	/// Priority queue for Register, Unregister, and ReceiveMsg tasks
+	#[pallet::storage]
+	#[pallet::getter(fn system_tasks)]
+	pub type SystemTasks<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn tasks)]
 	pub type Tasks<T: Config> =

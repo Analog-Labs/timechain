@@ -368,7 +368,7 @@ pub mod pallet {
 			result: TaskResult,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let task = Self::get_task(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() {
 				return Ok(());
 			}
@@ -410,7 +410,7 @@ pub mod pallet {
 			hash: Result<[u8; 32], String>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
-			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			ensure!(Self::get_task(task_id).is_some(), Error::<T>::UnknownTask);
 			ensure!(
 				TaskPhaseState::<T>::get(task_id) == TaskPhase::Write,
 				Error::<T>::NotWritePhase
@@ -451,7 +451,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(TaskSignature::<T>::get(task_id).is_none(), Error::<T>::TaskSigned);
-			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
+			ensure!(Self::get_task(task_id).is_some(), Error::<T>::UnknownTask);
 			ensure!(TaskPhaseState::<T>::get(task_id) == TaskPhase::Sign, Error::<T>::NotSignPhase);
 			let Some(shard_id) = TaskShard::<T>::get(task_id) else {
 				return Err(Error::<T>::UnassignedTask.into());
@@ -547,7 +547,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_task())]
 		pub fn sudo_cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
 			ensure_root(origin)?;
-			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let task = Self::get_task(task_id).ok_or(Error::<T>::UnknownTask)?;
 			Self::cancel_task(task_id, task.network);
 			Ok(())
 		}
@@ -584,7 +584,7 @@ pub mod pallet {
 			let mut to_be_reset = 0u32;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
 				ShardTasks::<T>::remove(shard_id, task_id);
-				if let Some(task) = Tasks::<T>::get(task_id) {
+				if let Some(task) = Self::get_task(task_id) {
 					if to_be_reset >= max {
 						break;
 					}
@@ -594,7 +594,7 @@ pub mod pallet {
 			}
 			let mut reset = 0u32;
 			for (_, _, task_id) in UnassignedTasks::<T>::iter() {
-				if let Some(task) = Tasks::<T>::get(task_id) {
+				if let Some(task) = Self::get_task(task_id) {
 					if reset >= max {
 						break;
 					}
@@ -631,7 +631,7 @@ pub mod pallet {
 			// things
 			let _ = ShardRegistered::<T>::clear(u32::MAX, None);
 			Self::filter_tasks(|task_id| {
-				let Some(task) = Tasks::<T>::get(task_id) else {
+				let Some(task) = Self::get_task(task_id) else {
 					return;
 				};
 				if let Function::ReadMessages { .. } = task.function {
@@ -709,7 +709,7 @@ pub mod pallet {
 		}
 
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
-			Tasks::<T>::get(task_id)
+			Some(SystemTasks::<T>::get(task_id).unwrap_or(Tasks::<T>::get(task_id)?))
 		}
 
 		pub fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
@@ -781,7 +781,7 @@ pub mod pallet {
 				return;
 			}
 			Self::filter_tasks(|task_id| {
-				let Some(task) = Tasks::<T>::get(task_id) else {
+				let Some(task) = Self::get_task(task_id) else {
 					return;
 				};
 				if let Function::RegisterShard { shard_id: s } = task.function {
@@ -872,16 +872,31 @@ pub mod pallet {
 					depreciation_rate: T::RewardDeclineRate::get(),
 				},
 			);
-			Tasks::<T>::insert(
-				task_id,
-				TaskDescriptor {
-					owner,
-					network: schedule.network,
-					function: schedule.function,
-					start: schedule.start,
-					shard_size: schedule.shard_size,
-				},
-			);
+			// insert into SystemTasks or regular Tasks
+			match schedule.function {
+				Function::RegisterShard { .. }
+				| Function::UnregisterShard { .. }
+				| Function::ReadMessages { .. } => SystemTasks::<T>::insert(
+					task_id,
+					TaskDescriptor {
+						owner,
+						network: schedule.network,
+						function: schedule.function,
+						start: schedule.start,
+						shard_size: schedule.shard_size,
+					},
+				),
+				_ => Tasks::<T>::insert(
+					task_id,
+					TaskDescriptor {
+						owner,
+						network: schedule.network,
+						function: schedule.function,
+						start: schedule.start,
+						shard_size: schedule.shard_size,
+					},
+				),
+			}
 			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			Self::add_unassigned_task(schedule.network, task_id);
@@ -972,7 +987,7 @@ pub mod pallet {
 			let tasks = (remove_index..insert_index)
 				.filter_map(|index| {
 					<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
-						Tasks::<T>::get(task_id)
+						Self::get_task(task_id)
 							.filter(|task| {
 								task.shard_size == shard_size
 									&& (is_registered
@@ -1084,7 +1099,7 @@ pub mod pallet {
 			task_id: TaskId,
 			shard_id: ShardId,
 		) -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			let task_descriptor = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
+			let task_descriptor = Self::get_task(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let tss_public_key =
 				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
 			let network_id = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;

@@ -147,6 +147,17 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	pub type UnassignedSystemTasks<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		NetworkId,
+		Blake2_128Concat,
+		u64,
+		TaskId,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,

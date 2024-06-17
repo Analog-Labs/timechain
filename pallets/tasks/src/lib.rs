@@ -984,22 +984,38 @@ pub mod pallet {
 			let insert_index = <UATasksInsertIndex<T>>::get(network).unwrap_or(0);
 			let remove_index = <UATasksRemoveIndex<T>>::get(network).unwrap_or(0);
 
-			let tasks = (remove_index..insert_index)
-				.filter_map(|index| {
-					<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
-						Self::get_task(task_id)
-							.filter(|task| {
-								task.shard_size == shard_size
-									&& (is_registered
-										|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
-							})
-							.map(|_| (index, task_id))
-					})
+			let mut system_tasks = Vec::new();
+			let mut tasks = Vec::new();
+			let maybe_assignable_task = |index| {
+				<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
+					Self::get_task(task_id)
+						.filter(|task| {
+							task.shard_size == shard_size
+								&& (is_registered
+									|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+						})
+						.map(|_| (index, task_id))
 				})
-				.take(capacity)
-				.collect::<Vec<_>>();
-			for (index, task) in tasks {
-				Self::assign_task(network, shard_id, index, task);
+			};
+			for index in remove_index..insert_index {
+				let Some((i, task_id)) = maybe_assignable_task(index) else {
+					continue;
+				};
+				if SystemTasks::<T>::get(task_id).is_some() {
+					system_tasks.push((i, task_id));
+				} else if Tasks::<T>::get(task_id).is_some() {
+					tasks.push((i, task_id));
+				}
+			}
+			let mut assigned_tasks = 0;
+			let mut next_index_task_id =
+				|| -> Option<(u64, u64)> { Some(system_tasks.pop().unwrap_or(tasks.pop()?)) };
+			while assigned_tasks < capacity {
+				let Some((i, t)) = next_index_task_id() else {
+					return;
+				};
+				Self::assign_task(network, shard_id, i, t);
+				assigned_tasks = assigned_tasks.saturating_plus_one();
 			}
 		}
 

@@ -5,7 +5,7 @@ description = "A blockchain using the proof of time consensus protocol"
 edition = "2021"
 homepage = "https://analog.one/"
 repository = "https://github.com/Analog-Labs/testnet/"
-version = "0.0.1"
+version = "0.6.0"
 
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]
@@ -21,6 +21,7 @@ static_assertions = "1.1.0"
 
 frame-election-provider-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-executive = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+frame-metadata-hash-extension = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", features = [ "experimental" ], default-features = false }
 frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-try-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
@@ -93,6 +94,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",

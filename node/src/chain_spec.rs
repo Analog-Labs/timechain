@@ -189,7 +189,7 @@ impl GenesisKeysConfig {
 		let token_symbol = match chain_type {
 			ChainType::Live => "ANLOG",
 			ChainType::Development => "DANLOG",
-			ChainType::Local => "LANLOG",
+			ChainType::Local => "DANLOG",
 			_ => return Err("Unsupported chain type".to_string()),
 		};
 

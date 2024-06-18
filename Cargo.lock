@@ -4080,6 +4080,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "frame-metadata-hash-extension"
+version = "0.1.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched#d15675852c7a4e3ec0b9fc1a6b8b5dd1a6d19a7b"
+dependencies = [
+ "array-bytes 6.2.3",
+ "docify",
+ "frame-support 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
+]
+
+[[package]]
 name = "frame-remote-externalities"
 version = "0.35.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?rev=289f5bbf7a45dc0380904a435464b15ec711ed03#289f5bbf7a45dc0380904a435464b15ec711ed03"
@@ -17960,7 +17975,7 @@ dependencies = [
 
 [[package]]
 name = "timechain-node"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-channel 1.9.0",
@@ -17971,6 +17986,7 @@ dependencies = [
  "convert_case 0.6.0",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-metadata-hash-extension",
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
@@ -18036,11 +18052,12 @@ dependencies = [
 
 [[package]]
 name = "timechain-runtime"
-version = "0.0.1"
+version = "0.6.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "frame-system",
  "frame-system-benchmarking",

@@ -149,6 +149,7 @@ pub fn create_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<timechain_runtime::Runtime>::from(
 			tip,
 		),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	);
 
 	let raw_payload = timechain_runtime::SignedPayload::from_raw(
@@ -163,6 +164,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));

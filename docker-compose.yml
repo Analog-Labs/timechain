@@ -81,7 +81,8 @@ services:
     - never
 
   chronicle-eth1:
-    extends: chronicle-eth-template
+    extends:
+      service: chronicle-eth-template
     volumes:
     - './config/wallets/keyfile1:/etc/target_keyfile:ro'
     - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
@@ -93,7 +94,8 @@ services:
     - ethereum
 
   chronicle-eth2:
-    extends: chronicle-eth-template
+    extends:
+      service: chronicle-eth-template
     volumes:
     - './config/wallets/keyfile2:/etc/target_keyfile:ro'
     - './config/wallets/eth-2:/etc/timechain_keyfile:ro'
@@ -104,7 +106,8 @@ services:
     - ethereum
 
   chronicle-eth3:
-    extends: chronicle-eth-template
+    extends:
+      service: chronicle-eth-template
     volumes:
     - './config/wallets/keyfile3:/etc/target_keyfile:ro'
     - './config/wallets/eth-3:/etc/timechain_keyfile:ro'
@@ -132,7 +135,8 @@ services:
     - never
 
   chronicle-astar1:
-    extends: chronicle-astar-template
+    extends:
+      service: chronicle-astar-template
     volumes:
     - './config/wallets/keyfile1:/etc/target_keyfile:ro'
     - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
@@ -144,7 +148,8 @@ services:
     - astar
 
   chronicle-astar2:
-    extends: chronicle-astar-template
+    extends:
+      service: chronicle-astar-template
     volumes:
     - './config/wallets/keyfile2:/etc/target_keyfile:ro'
     - './config/wallets/astar-2:/etc/timechain_keyfile:ro'
@@ -155,7 +160,8 @@ services:
     - astar
 
   chronicle-astar3:
-    extends: chronicle-astar-template
+    extends:
+      service: chronicle-astar-template
     volumes:
     - './config/wallets/keyfile3:/etc/target_keyfile:ro'
     - './config/wallets/astar-3:/etc/timechain_keyfile:ro'

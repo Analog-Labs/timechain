@@ -1,5 +1,7 @@
 //! Service implementation. Specialized wrapper over substrate service.
 
+#![allow(clippy::type_complexity)]
+
 use crate::{cli, rpc};
 
 use futures::prelude::*;
@@ -10,7 +12,6 @@ use polkadot_sdk::*;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
-use sc_consensus_grandpa;
 use sc_network::{
 	event::Event, service::traits::NetworkService, NetworkBackend, NetworkEventStream,
 };
@@ -250,7 +251,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 
 	let hwbench = (!disable_hardware_benchmarks)
 		.then_some(config.database.path().map(|database_path| {
-			let _ = std::fs::create_dir_all(&database_path);
+			let _ = std::fs::create_dir_all(database_path);
 			sc_sysinfo::gather_hwbench(Some(database_path))
 		}))
 		.flatten();
@@ -554,26 +555,24 @@ pub fn new_full(config: Configuration, cli: cli::Cli) -> Result<TaskManager, Ser
 
 	let task_manager = match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p => {
-			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
+			new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
 				cli.no_hardware_benchmarks,
 				#[cfg(feature = "chronicle")]
 				cli.chronicle,
 				|_, _| (),
 			)
-			.map(|NewFullBase { task_manager, .. }| task_manager)?;
-			task_manager
+			.map(|NewFullBase { task_manager, .. }| task_manager)?
 		},
 		sc_network::config::NetworkBackendType::Litep2p => {
-			let task_manager = new_full_base::<sc_network::Litep2pNetworkBackend>(
+			new_full_base::<sc_network::Litep2pNetworkBackend>(
 				config,
 				cli.no_hardware_benchmarks,
 				#[cfg(feature = "chronicle")]
 				cli.chronicle,
 				|_, _| (),
 			)
-			.map(|NewFullBase { task_manager, .. }| task_manager)?;
-			task_manager
+			.map(|NewFullBase { task_manager, .. }| task_manager)?
 		},
 	};
 

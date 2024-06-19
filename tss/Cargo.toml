@@ -1,11 +1,12 @@
 [package]
 name = "tss"
-authors = [ "Dev <Dev@analog.one>" ]
-edition = "2021"
-homepage = "https://www.analog.one/"
-license = "Apache-2.0"
-repository = "https://github.com/Analog-Labs/tesseract/"
 version = "0.0.1"
+license = "Apache-2.0"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 anyhow = "1.0.75"

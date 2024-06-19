@@ -1,13 +1,14 @@
 [package]
 name = "pallet-elections"
-authors = [ "Analog Devs <https://github.com/analog-labs>" ]
-description = "A pallet for selecting members for shards."
-edition = "2021"
-homepage = "https://analog.one"
-license = "Unlicense"
-publish = false
-repository = "https://github.com/Analog-Labs/testnet"
 version = "0.0.1"
+description = "A pallet for selecting members for shards."
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]

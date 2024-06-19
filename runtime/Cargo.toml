@@ -1,11 +1,13 @@
 [package]
 name = "timechain-runtime"
-authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
 description = "A blockchain using the proof of time consensus protocol"
-edition = "2021"
-homepage = "https://analog.one/"
-repository = "https://github.com/Analog-Labs/testnet/"
 version = "0.6.0"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]

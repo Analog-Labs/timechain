@@ -1633,6 +1633,42 @@ fn cancel_task_sets_task_output_to_err() {
 }
 
 #[test]
+fn cancel_task_empties_unassigned_queue() {
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+
+		assert_ok!(Tasks::create_task(
+			RawOrigin::Signed([0; 32].into()).into(),
+			mock_task(ETHEREUM, 3)
+		));
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, ETHEREUM);
+
+		assert_ok!(Tasks::sudo_cancel_task(RawOrigin::Root.into(), 0));
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		for _ in 0..5 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, ETHEREUM);
+		assert_ok!(Tasks::sudo_cancel_tasks(RawOrigin::Root.into(), 6));
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+	});
+}
+
+#[test]
 fn set_shard_task_limit_successfully_limits_task_assignment() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(

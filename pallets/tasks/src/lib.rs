@@ -907,7 +907,7 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			Self::add_unassigned_task(task_network, task_id);
+			Self::remove_unassigned_task(task_network, task_id);
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);

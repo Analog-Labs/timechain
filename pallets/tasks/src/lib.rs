@@ -987,14 +987,10 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
-
-			let insert_index = <UATasksInsertIndex<T>>::get(network).unwrap_or(0);
-			let remove_index = <UATasksRemoveIndex<T>>::get(network).unwrap_or(0);
-
-			// TODO: prioritize UnassignedSystemTasks here
-			let tasks = (remove_index..insert_index)
+			let system_tasks = (<UASystemTasksRemoveIndex<T>>::get(network).unwrap_or(0)
+				..<UASystemTasksInsertIndex<T>>::get(network).unwrap_or(0))
 				.filter_map(|index| {
-					<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
+					<UnassignedSystemTasks<T>>::get(network, index).and_then(|task_id| {
 						Tasks::<T>::get(task_id)
 							.filter(|task| {
 								task.shard_size == shard_size
@@ -1006,6 +1002,26 @@ pub mod pallet {
 				})
 				.take(capacity)
 				.collect::<Vec<_>>();
+			let tasks = if let Some(non_system_capacity) = capacity.checked_sub(system_tasks.len())
+			{
+				let non_system_tasks = (<UATasksRemoveIndex<T>>::get(network).unwrap_or(0)
+					..<UATasksInsertIndex<T>>::get(network).unwrap_or(0))
+					.filter_map(|index| {
+						<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
+							Tasks::<T>::get(task_id)
+								.filter(|task| {
+									task.shard_size == shard_size
+										&& (is_registered
+											|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+								})
+								.map(|_| (index, task_id))
+						})
+					})
+					.take(non_system_capacity);
+				system_tasks.into_iter().chain(non_system_tasks).collect::<Vec<_>>()
+			} else {
+				system_tasks
+			};
 			for (index, task) in tasks {
 				Self::assign_task(network, shard_id, index, task);
 			}
@@ -1015,7 +1031,7 @@ pub mod pallet {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}
-			Self::remove_unassigned_task(network, task_index);
+			Self::remove_unassigned_task(network, task_index, task_id);
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
@@ -1144,7 +1160,7 @@ pub mod pallet {
 
 		pub fn add_unassigned_task(network: NetworkId, function: Function, task_id: TaskId) {
 			match function {
-				// prioritized system tasks
+				// system tasks
 				Function::UnregisterShard { .. }
 				| Function::RegisterShard { .. }
 				| Function::ReadMessages { .. } => {
@@ -1160,27 +1176,54 @@ pub mod pallet {
 			}
 		}
 
-		pub fn remove_unassigned_task(network: NetworkId, task_index: u64) {
-			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
-			let mut remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
+		pub fn remove_unassigned_task(network: NetworkId, task_index: u64, task_id: TaskId) {
+			let Some(task) = Tasks::<T>::get(task_id) else { return };
+			match task.function {
+				// system tasks
+				Function::UnregisterShard { .. }
+				| Function::RegisterShard { .. }
+				| Function::ReadMessages { .. } => {
+					let insert_index = UASystemTasksInsertIndex::<T>::get(network).unwrap_or(0);
+					let mut remove_index = UASystemTasksRemoveIndex::<T>::get(network).unwrap_or(0);
 
-			if remove_index >= insert_index {
-				return;
-			}
+					if remove_index >= insert_index {
+						return;
+					}
 
-			if task_index == remove_index {
-				// TODO: system tasks
-				UnassignedTasks::<T>::remove(network, remove_index);
-				remove_index = remove_index.saturating_add(1);
-				while UnassignedTasks::<T>::get(network, remove_index).is_none()
-					&& remove_index < insert_index
-				{
-					remove_index = remove_index.saturating_add(1);
-				}
-				UATasksRemoveIndex::<T>::insert(network, remove_index);
-			} else {
-				// TODO: system tasks
-				UnassignedTasks::<T>::remove(network, task_index);
+					if task_index == remove_index {
+						UnassignedSystemTasks::<T>::remove(network, remove_index);
+						remove_index = remove_index.saturating_add(1);
+						while UnassignedSystemTasks::<T>::get(network, remove_index).is_none()
+							&& remove_index < insert_index
+						{
+							remove_index = remove_index.saturating_add(1);
+						}
+						UASystemTasksRemoveIndex::<T>::insert(network, remove_index);
+					} else {
+						UnassignedSystemTasks::<T>::remove(network, task_index);
+					}
+				},
+				_ => {
+					let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
+					let mut remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
+
+					if remove_index >= insert_index {
+						return;
+					}
+
+					if task_index == remove_index {
+						UnassignedTasks::<T>::remove(network, remove_index);
+						remove_index = remove_index.saturating_add(1);
+						while UnassignedTasks::<T>::get(network, remove_index).is_none()
+							&& remove_index < insert_index
+						{
+							remove_index = remove_index.saturating_add(1);
+						}
+						UATasksRemoveIndex::<T>::insert(network, remove_index);
+					} else {
+						UnassignedTasks::<T>::remove(network, task_index);
+					}
+				},
 			}
 		}
 	}

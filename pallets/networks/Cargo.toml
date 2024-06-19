@@ -11,16 +11,15 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
-	"derive",
-] }
+scale-codec.workspace = true
+scale-info.workspace = true
 
 frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
 frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true}
+
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
@@ -30,7 +29,7 @@ sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-pa
 [features]
 default = [ "std" ]
 std = [
-	"codec/std",
+	"scale-codec/std",
 	"frame-benchmarking?/std", 
 	"frame-support/std",
 	"frame-system/std",

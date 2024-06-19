@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use crate::BlockNumber;
 use crate::TaskId;
-use codec::{Decode, Encode};
+use scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
 use scale_info::prelude::string::String;

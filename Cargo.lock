@@ -1568,9 +1568,9 @@ checksum = "5ce89b21cab1437276d2650d57e971f9d548a2d9037cc231abdc0562b97498ce"
 
 [[package]]
 name = "bytemuck"
-version = "1.16.0"
+version = "1.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78834c15cb5d5efe3452d58b1e8ba890dd62d21907f867f383358198e56ebca5"
+checksum = "b236fc92302c97ed75b38da1f4917b5cdda4984745740f153a5d3059e48d725e"
 
 [[package]]
 name = "byteorder"
@@ -1750,7 +1750,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "clap",
- "env_logger",
+ "env_logger 0.11.3",
  "futures",
  "hex",
  "lazy_static",
@@ -3375,6 +3375,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_filter"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
+dependencies = [
+ "log",
+ "regex",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3385,6 +3395,19 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38b35839ba51819680ba087cd351788c9a3c476841207e0b8cee0b04722343b9"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "env_filter",
+ "humantime",
+ "log",
 ]
 
 [[package]]
@@ -3741,7 +3764,7 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84f2e425d9790201ba4af4630191feac6dcc98765b118d4d18e91d23c2353866"
 dependencies = [
- "env_logger",
+ "env_logger 0.10.2",
  "log",
 ]
 
@@ -8134,7 +8157,7 @@ dependencies = [
 name = "pallet-elections"
 version = "0.0.1"
 dependencies = [
- "env_logger",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-support 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "frame-system",
@@ -8200,7 +8223,7 @@ dependencies = [
 name = "pallet-members"
 version = "0.0.1"
 dependencies = [
- "env_logger",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-support 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "frame-system",
@@ -17726,7 +17749,6 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
- "parity-scale-codec-derive",
  "runtime-common",
  "scale-info",
  "separator",
@@ -18350,7 +18372,7 @@ version = "0.7.0"
 source = "git+https://github.com/paritytech/try-runtime-cli?tag=v0.7.0#251438fec14dd2a39a129d5c893e653ec4e9cc89"
 dependencies = [
  "clap",
- "env_logger",
+ "env_logger 0.10.2",
  "frame-support 28.0.0 (git+https://github.com/paritytech/polkadot-sdk?rev=289f5bbf7a45dc0380904a435464b15ec711ed03)",
  "parity-scale-codec",
  "sp-core 28.0.0 (git+https://github.com/paritytech/polkadot-sdk?rev=289f5bbf7a45dc0380904a435464b15ec711ed03)",
@@ -18416,7 +18438,7 @@ name = "tss"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "env_logger",
+ "env_logger 0.11.3",
  "frost-evm",
  "rand_core 0.6.4",
  "serde",

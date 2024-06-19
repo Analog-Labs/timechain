@@ -37,7 +37,7 @@ pub struct ChronicleArgs {
 	/// The network to be used from Analog Connector.
 	#[arg(required = false)]
 	#[clap(long)]
-	pub network_id: NetworkId,
+	pub network_id: time_primitives::NetworkId,
 	/// The secret to use for p2p networking.
 	#[clap(long)]
 	pub network_keyfile: Option<std::path::PathBuf>,

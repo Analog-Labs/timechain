@@ -1,4 +1,12 @@
+[workspace.package]
+authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
+edition = "2021"
+homepage = "https://analog.one/"
+license = "GPL-3.0-only"
+repository = "https://github.com/Analog-Labs/timechain"
+
 [workspace]
+resolver = "2"
 members = [
 	"chronicle",
 	"node",
@@ -16,7 +24,10 @@ members = [
 	"tss",
 	"utils/generate-bags",
 ]
-resolver = "2"
+default-members = [
+  "chronicle",
+  "node",
+]
 
 [workspace.dependencies]
 log = { version = "0.4.21", default-features = false }

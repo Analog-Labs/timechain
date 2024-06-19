@@ -1,13 +1,15 @@
 [package]
 name = "timechain-node"
-authors = [ "Analog Devs <https://github.com/analog-labs>" ]
 build = "build.rs"
 description = "A blockchain node using the proof of time consensus."
-edition = "2021"
-homepage = "https://analog.one/"
-repository = "https://github.com/analog-labs/timechain"
 version = "0.6.0"
 default-run = "timechain-node"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see

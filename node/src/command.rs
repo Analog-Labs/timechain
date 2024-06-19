@@ -1,10 +1,13 @@
-use super::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
 use crate::{
+	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 	service::{new_partial, FullClient},
 };
+
+use polkadot_sdk::*;
+
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;

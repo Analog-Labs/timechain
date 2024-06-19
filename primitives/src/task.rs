@@ -1,5 +1,5 @@
 use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
-use codec::{Decode, Encode};
+use scale_codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

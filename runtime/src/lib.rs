@@ -21,6 +21,8 @@ pub mod fast_binaries {
 	include!(concat!(env!("OUT_DIR"), "/fast_wasm_binary.rs"));
 }
 
+//use polkadot_sdk::*;
+
 use frame_system::{limits::BlockWeights, EnsureRoot};
 
 use frame_election_provider_support::{
@@ -37,7 +39,7 @@ use frame_support::{
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
-use codec::{Decode, Encode};
+use scale_codec::{Decode, Encode};
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_grandpa::{
@@ -1243,8 +1245,6 @@ impl_runtime_apis! {
 			_slot: sp_consensus_babe::Slot,
 			authority_id: sp_consensus_babe::AuthorityId,
 		) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-			use codec::Encode;
-
 			Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)

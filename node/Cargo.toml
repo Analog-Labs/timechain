@@ -23,95 +23,107 @@ targets = [ "x86_64-unknown-linux-gnu" ]
 name = "timechain-node"
 
 [dependencies]
-async-channel = "1.9.0"
-async-trait = "0.1.73"
-clap = { version = "4.4.4", features = [ "derive" ] }
-futures = "0.3.28"
+anyhow.workspace = true
+async-channel.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+futures.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+bincode = "1.3.3"
+convert_case = "0.6"
 hex-literal = "0.4.1"
-log = { workspace = true }
-serde = "1.0"
-serde_json = "1.0"
 
-frame-metadata-hash-extension = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-frame-system-rpc-runtime-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-pallet-im-online = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-pallet-transaction-payment = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-authority-discovery  = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-chain-spec = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-cli = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sc-client-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sc-consensus = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-consensus-babe = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-consensus-grandpa = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-consensus-slots = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-executor = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-network = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-network-sync = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-offchain = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-service = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sc-storage-monitor = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-sysinfo = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-telemetry = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-transaction-pool = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-transaction-pool-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-authority-discovery  = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-consensus = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-consensus-babe = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-consensus-grandpa = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-inherents = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-keyring = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-keystore = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-timestamp = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-transaction-storage-proof = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
+polkadot-sdk = { workspace = true, features = [
+	"frame-benchmarking",
+	"frame-benchmarking-cli",
+	"frame-metadata-hash-extension",
+	"frame-system",
+	"frame-system-rpc-runtime-api",
 
-# node 's RPCs deps
+	"pallet-im-online",
+	"pallet-transaction-payment",
+	"pallet-transaction-payment-rpc",
+
+	"sc-authority-discovery",
+	"sc-basic-authorship",
+	"sc-chain-spec",
+	"sc-cli",
+	"sc-client-api",
+	"sc-consensus",
+	"sc-consensus-babe",
+	"sc-consensus-babe-rpc",
+	"sc-consensus-grandpa",
+	"sc-consensus-grandpa-rpc",
+	"sc-consensus-slots",
+	"sc-executor",
+	"sc-network",
+	"sc-network-sync",
+	"sc-offchain",
+	"sc-rpc",
+	"sc-rpc-api",
+	"sc-rpc-spec-v2",
+	"sc-service",
+	"sc-storage-monitor",
+	"sc-sync-state-rpc",
+	"sc-sysinfo",
+	"sc-telemetry",
+	"sc-transaction-pool",
+	"sc-transaction-pool-api",
+
+	"sp-api",
+	"sp-authority-discovery",
+	"sp-block-builder",
+	"sp-blockchain",
+	"sp-consensus",
+	"sp-consensus-babe",
+	"sp-consensus-grandpa",
+	"sp-core",
+	"sp-io",
+	"sp-inherents",
+	"sp-keyring",
+	"sp-keystore",
+	"sp-runtime",
+	"sp-timestamp",
+	"sp-transaction-storage-proof",
+
+	"staging-node-inspect",
+	"substrate-frame-rpc-system",
+	"substrate-state-trie-migration-rpc",
+] }
+
+# node's rpc dependencies
 jsonrpsee = { version = "0.22.1", features = [ "server" ] }
-pallet-transaction-payment-rpc = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-basic-authorship = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-rpc = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-rpc-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-rpc-spec-v2 = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-consensus-babe-rpc = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-consensus-grandpa-rpc = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sc-sync-state-rpc = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-block-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-sp-blockchain = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-substrate-frame-rpc-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
-substrate-state-trie-migration-rpc = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
 
-# These dependencies are used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-benchmarking-cli = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-
-# Local Dependencies
+# node's local dependencies
 chronicle = { path = "../chronicle", optional = true }
 time-primitives = { path = "../primitives" }
 timechain-runtime = { path = "../runtime" }
 tc-subxt = { path = "../tc-subxt", optional = true }
 
-# CLI-specific dependencies
+# node's additional command line interfaces
 try-runtime-cli = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }
-staging-node-inspect = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-anyhow = "1.0.79"
-bincode = "1.3.3"
-convert_case = "0.6"
-tokio = "1.35.1"
-tracing = "0.1.40"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
+polkadot-sdk = { workspace = true, features = [ "substrate-build-script-utils" ] }
 
 [features]
 default = []
 # Dependencies that are only required if runtime benchmarking should be build.
-runtime-benchmarks = ["frame-benchmarking-cli/runtime-benchmarks", "frame-benchmarking/runtime-benchmarks", "timechain-runtime/runtime-benchmarks"]
+runtime-benchmarks = [
+	"polkadot-sdk/runtime-benchmarks",
+	"timechain-runtime/runtime-benchmarks"
+]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = ["timechain-runtime/try-runtime", "try-runtime-cli"]
+try-runtime = [
+	"polkadot-sdk/try-runtime",
+	"timechain-runtime/try-runtime",
+	"try-runtime-cli",
+]
 # runs chronicle with node
 chronicle = ["dep:chronicle", "dep:tc-subxt"]

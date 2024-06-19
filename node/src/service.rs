@@ -233,8 +233,7 @@ pub struct NewFullBase {
 pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	disable_hardware_benchmarks: bool,
-	#[cfg(feature = "chronicle")]
-	chronicle_args: Option<cli::ChronicleArgs>,
+	#[cfg(feature = "chronicle")] chronicle_args: Option<cli::ChronicleArgs>,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
 		&sc_consensus_babe::BabeLink<Block>,

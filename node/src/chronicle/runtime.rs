@@ -13,10 +13,10 @@ use tc_subxt::{
 	OnlineClient, PolkadotConfig, StreamOfResults, SubxtClient, TxProgress, TxSubmitter,
 };
 use time_primitives::{
-	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, MembersApi,
-	NetworkId, NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus,
-	ShardsApi, SubmitTransactionApi, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult,
-	TasksApi, TssSignature,
+	AccountId, BlockHash, BlockNumber, Commitment, MemberStatus, MembersApi, NetworkId,
+	NetworksApi, PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, ShardsApi,
+	SubmitTransactionApi, TaskDescriptor, TaskError, TaskExecution, TaskId, TaskResult, TasksApi,
+	TssSignature,
 };
 
 pub struct Substrate<B: Block, C, R> {
@@ -31,11 +31,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: NetworksApi<B>
-		+ MembersApi<B>
-		+ ShardsApi<B>
-		+ TasksApi<B>
-		+ SubmitTransactionApi<B>,
+	R::Api: NetworksApi<B> + MembersApi<B> + ShardsApi<B> + TasksApi<B> + SubmitTransactionApi<B>,
 {
 	fn best_block(&self) -> B::Hash {
 		self.client.info().best_hash
@@ -72,11 +68,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: HeaderBackend<B> + BlockchainEvents<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: NetworksApi<B>
-		+ MembersApi<B>
-		+ ShardsApi<B>
-		+ TasksApi<B>
-		+ SubmitTransactionApi<B>,
+	R::Api: NetworksApi<B> + MembersApi<B> + ShardsApi<B> + TasksApi<B> + SubmitTransactionApi<B>,
 {
 	fn public_key(&self) -> &PublicKey {
 		self.subxt_client.public_key()

@@ -28,11 +28,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B>
-		+ NetworksApi<B>
-		+ ShardsApi<B>
-		+ TasksApi<B>
-		+ SubmitTransactionApi<B>,
+	R::Api: MembersApi<B> + NetworksApi<B> + ShardsApi<B> + TasksApi<B> + SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
 	let (network, net_request) = if let Some((network, incoming)) = params.network {

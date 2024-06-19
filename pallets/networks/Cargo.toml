@@ -14,28 +14,41 @@ repository.workspace = true
 scale-codec.workspace = true
 scale-info.workspace = true
 
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
+#polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime" ] }
+
 frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true}
+
+frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
 
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
+#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
+
 pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false}
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
-	"scale-codec/std",
-	"frame-benchmarking?/std", 
+    "scale-codec/std",
+	"scale-info/std",
+	#"polkadot-sdk/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
 	"sp-runtime/std",
-	"time-primitives/std"
+	"frame-benchmarking?/std",
+	"time-primitives/std",
 ]
-runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
-try-runtime = [ "frame-support/try-runtime" ]
+runtime-benchmarks = [
+	#"polkadot-sdk/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+    "pallet-balances/runtime-benchmarks",
+]
+try-runtime = [
+	#"polkadot-sdk/try-runtime"
+	"frame-support/try-runtime"
+]

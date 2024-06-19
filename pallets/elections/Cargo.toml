@@ -34,12 +34,11 @@ time-primitives = { path = "../../primitives", default-features = false }
 env_logger.workspace = true
 lazy_static = "1.4.0"
 
-#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io", "sp-keystore" ] }
+#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 
 pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-keystore = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 pallet-shards = { path = "../shards", default-features = false }
 

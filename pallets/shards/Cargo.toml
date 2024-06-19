@@ -18,33 +18,46 @@ log.workspace = true
 scale-codec.workspace = true
 scale-info.workspace = true
 
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
+#polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime", "sp-std" ] }
+
 frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-schnorr-evm = { version = "0.1.2", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
 sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+
+frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
+
+schnorr-evm = { version = "0.1.2", default-features = false }
 
 time-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
+#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
+
 pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
+	"log/std",
 	"scale-codec/std",
-	"frame-benchmarking?/std",
+	"scale-info/std",
+	#"polkadot-sdk/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"schnorr-evm/std",
-	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"frame-benchmarking?/std",
+	"schnorr-evm/std",
 	"time-primitives/std",
 ]
-runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
-try-runtime = [ "frame-support/try-runtime" ]
+runtime-benchmarks = [
+	#"polkadot-sdk/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+]
+try-runtime = [
+	#"polkadot-sdk/try-runtime",
+	"frame-support/try-runtime",
+]

@@ -64,6 +64,7 @@ pub struct ChronicleArgs {
 }
 
 /// Possible subcommands of the main binary.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// The custom inspect subcommand for decoding blocks and extrinsics.

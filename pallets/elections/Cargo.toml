@@ -27,7 +27,6 @@ sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13
 sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
 
 time-primitives = { path = "../../primitives", default-features = false }
 
@@ -35,9 +34,10 @@ time-primitives = { path = "../../primitives", default-features = false }
 env_logger.workspace = true
 lazy_static = "1.4.0"
 
-#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-io", "sp-keystore" ] }
+#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io", "sp-keystore" ] }
 
 pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-keystore = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
@@ -56,14 +56,11 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"frame-benchmarking?/std",
-	"sp-core?/std",
 	"time-primitives/std"
 ]
 runtime-benchmarks = [
 	#"polkadot-sdk/runtime-benchmarks",
-	#"polkadot-sdk/sp-core",
 	"frame-benchmarking/runtime-benchmarks",
-	"sp-core",
 ]
 try-runtime = [
 	#"polkadot-sdk/try-runtime"

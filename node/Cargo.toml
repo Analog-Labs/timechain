@@ -118,12 +118,14 @@ runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
 	"timechain-runtime/runtime-benchmarks"
 ]
-# Enable features that allow the runtime to be tried and debugged. Name might be subject to change
-# in the near future.
+# Enable features that allow the runtime to be tried and debugged.
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"timechain-runtime/try-runtime",
 	"try-runtime-cli",
+]
+fast-runtime = [
+	"timechain-runtime/fast-runtime"
 ]
 # runs chronicle with node
 chronicle = ["dep:chronicle", "dep:tc-subxt"]

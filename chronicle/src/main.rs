@@ -58,6 +58,8 @@ impl ChronicleArgs {
 async fn main() -> Result<()> {
 	tracing_subscriber::fmt()
 		.with_max_level(tracing::Level::DEBUG)
+		.with_file(true)
+		.with_line_number(true)
 		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
 		.init();
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));

@@ -27,8 +27,7 @@ use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::KeystorePtr;
 
-use time_primitives::{AccountId, Balance, BlockNumber};
-use timechain_runtime::{opaque::Block, Hash, Nonce};
+use time_primitives::{AccountId, Balance, Block, BlockHash, BlockNumber, Nonce};
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -43,7 +42,7 @@ pub struct GrandpaDeps<B> {
 	/// Voting round info.
 	pub shared_voter_state: SharedVoterState,
 	/// Authority set info.
-	pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
+	pub shared_authority_set: SharedAuthoritySet<BlockHash, BlockNumber>,
 	/// Receives notifications about justification events from Grandpa.
 	pub justification_stream: GrandpaJustificationStream<Block>,
 	/// Executor to drive the subscription manager in the Grandpa RPC handler.

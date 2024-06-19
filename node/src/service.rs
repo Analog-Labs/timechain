@@ -21,7 +21,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_runtime::traits::Block as BlockT;
 
-use timechain_runtime::{self, opaque::Block, RuntimeApi};
+use time_primitives::{AccountId, Balance, Block, Nonce};
 
 /// Host functions required for runtime and node.
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -37,37 +37,47 @@ pub type HostFunctions =
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 
 /// The full client type definition.
-pub type FullClient = sc_service::TFullClient<Block, RuntimeApi, RuntimeExecutor>;
+pub type FullClient<RuntimeApi> = sc_service::TFullClient<Block, RuntimeApi, RuntimeExecutor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type FullGrandpaBlockImport =
-	sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
+type FullGrandpaBlockImport<RuntimeApi> = sc_consensus_grandpa::GrandpaBlockImport<
+	FullBackend,
+	Block,
+	FullClient<RuntimeApi>,
+	FullSelectChain,
+>;
+
+/// RuntimeApi Api type
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
+pub type TransactionPool<RuntimeApi> = sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
 /// Creates a new partial node.
-pub fn new_partial(
+pub fn new_partial<RuntimeApi>(
 	config: &Configuration,
 ) -> Result<
 	sc_service::PartialComponents<
-		FullClient,
+		FullClient<RuntimeApi>,
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, FullClient>,
+		sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>,
 		(
 			impl Fn(
 				rpc::DenyUnsafe,
 				sc_rpc::SubscriptionTaskExecutor,
 			) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 			(
-				sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
-				sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
+				sc_consensus_babe::BabeBlockImport<
+					Block,
+					FullClient<RuntimeApi>,
+					FullGrandpaBlockImport<RuntimeApi>,
+				>,
+				sc_consensus_grandpa::LinkHalf<Block, FullClient<RuntimeApi>, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
 			),
 			sc_consensus_grandpa::SharedVoterState,
@@ -75,7 +85,16 @@ pub fn new_partial(
 		),
 	>,
 	ServiceError,
-> {
+>
+where
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ sp_consensus_babe::BabeApi<Block>
+		+ sp_consensus_grandpa::GrandpaApi<Block>
+		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+{
 	let telemetry = config
 		.telemetry_endpoints
 		.clone()
@@ -216,30 +235,52 @@ pub fn new_partial(
 
 /// Result of [`new_full_base`].
 #[allow(dead_code)]
-pub struct NewFullBase {
+pub struct NewFullBase<RuntimeApi>
+where
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+{
 	/// The task manager of the node.
 	pub task_manager: TaskManager,
 	/// The client instance of the node.
-	pub client: Arc<FullClient>,
+	pub client: Arc<FullClient<RuntimeApi>>,
 	/// The networking service of the node.
 	pub network: Arc<dyn NetworkService>,
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPool>,
+	pub transaction_pool: Arc<TransactionPool<RuntimeApi>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
 
 /// Creates a full service from the configuration.
-pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
+pub fn new_full_base<Network, RuntimeApi>(
 	config: Configuration,
 	disable_hardware_benchmarks: bool,
 	with_startup_data: impl FnOnce(
-		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
+		&sc_consensus_babe::BabeBlockImport<
+			Block,
+			FullClient<RuntimeApi>,
+			FullGrandpaBlockImport<RuntimeApi>,
+		>,
 		&sc_consensus_babe::BabeLink<Block>,
 	),
-) -> Result<NewFullBase, ServiceError> {
+) -> Result<NewFullBase<RuntimeApi>, ServiceError>
+where
+	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ sp_api::Metadata<Block>
+		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ sp_consensus_babe::BabeApi<Block>
+		+ sp_consensus_grandpa::GrandpaApi<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
+		+ sp_session::SessionKeys<Block>
+		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+{
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks =
@@ -265,9 +306,9 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		select_chain,
 		transaction_pool,
 		other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
-	} = new_partial(&config)?;
+	} = new_partial::<RuntimeApi>(&config)?;
 
-	let metrics = N::register_notification_metrics(
+	let metrics = Network::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
 	let shared_voter_state = rpc_setup;
@@ -275,7 +316,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let auth_disc_public_addresses = config.network.public_addresses.clone();
 
 	let mut net_config =
-		sc_network::config::FullNetworkConfiguration::<_, _, N>::new(&config.network);
+		sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(&config.network);
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let peer_store_handle = net_config.peer_store_handle();
@@ -283,7 +324,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let grandpa_protocol_name =
 		sc_consensus_grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	let (grandpa_protocol_config, grandpa_notification_service) =
-		sc_consensus_grandpa::grandpa_peers_set_config::<_, N>(
+		sc_consensus_grandpa::grandpa_peers_set_config::<_, Network>(
 			grandpa_protocol_name.clone(),
 			metrics.clone(),
 			Arc::clone(&peer_store_handle),
@@ -506,12 +547,28 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration, cli: cli::Cli) -> Result<TaskManager, ServiceError> {
+pub fn new_full<RuntimeApi>(
+	config: Configuration,
+	cli: cli::Cli,
+) -> Result<TaskManager, ServiceError>
+where
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+		+ sp_api::Metadata<Block>
+		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ sp_consensus_babe::BabeApi<Block>
+		+ sp_consensus_grandpa::GrandpaApi<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
+		+ sp_session::SessionKeys<Block>,
+{
 	let database_path = config.database.path().map(Path::to_path_buf);
 
 	let task_manager = match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p => {
-			new_full_base::<sc_network::NetworkWorker<_, _>>(
+			new_full_base::<sc_network::NetworkWorker<_, _>, RuntimeApi>(
 				config,
 				cli.no_hardware_benchmarks,
 				|_, _| (),
@@ -519,7 +576,7 @@ pub fn new_full(config: Configuration, cli: cli::Cli) -> Result<TaskManager, Ser
 			.map(|NewFullBase { task_manager, .. }| task_manager)?
 		},
 		sc_network::config::NetworkBackendType::Litep2p => {
-			new_full_base::<sc_network::Litep2pNetworkBackend>(
+			new_full_base::<sc_network::Litep2pNetworkBackend, RuntimeApi>(
 				config,
 				cli.no_hardware_benchmarks,
 				|_, _| (),

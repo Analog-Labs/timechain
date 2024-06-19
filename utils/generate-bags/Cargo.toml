@@ -11,5 +11,8 @@ repository.workspace = true
 [dependencies]
 clap.workspace = true 
 
-timechain-runtime = { path = "../../runtime" }
-generate-bags = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched" }
+polkadot-sdk = { workspace = true, features = [ "generate-bags" ] }
+
+runtime-common.workspace = true
+mainnet-runtime.workspace = true
+testnet-runtime.workspace = true

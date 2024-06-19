@@ -6,7 +6,6 @@ use rosetta_config_ethereum::{
 	AtBlock, CallContract, CallResult, GetTransactionCount, SubmitResult,
 };
 use schnorr_evm::SigningKey;
-use sp_core::crypto::Ss58Codec;
 use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -18,11 +17,11 @@ use tc_subxt::ext::futures::future::join_all;
 use tc_subxt::ext::futures::stream::BoxStream;
 use tc_subxt::ext::futures::{stream, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient, SubxtTxSubmitter};
-use time_primitives::sp_core::H160;
+use time_primitives::traits::Ss58Codec;
 use time_primitives::{
-	sp_core, BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId,
-	Runtime, ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase,
-	TssPublicKey,
+	BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId, Runtime,
+	ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
+	H160,
 };
 use tokio::time::Instant;
 

@@ -1,6 +1,8 @@
 [package]
-name = "timechain-runtime"
-description = "A blockchain using the proof of time consensus protocol"
+name = "testnet-runtime"
+description = "Official Analog Timechain Testnet Runtime"
+build = "build.rs"
+publish = false
 
 version.workspace = true
 authors.workspace = true
@@ -36,7 +38,9 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-election-provider-multi-phase",
 	"pallet-grandpa",
 	"pallet-im-online",
+	"pallet-multisig",
 	"pallet-offences",
+	"pallet-proxy",
 	"pallet-session",
 	"pallet-staking",
 	"pallet-staking-reward-fn",
@@ -70,21 +74,22 @@ polkadot-sdk = { workspace = true, features = [
 ]}
 
 # Local Dependencies
-pallet-elections = { path = "../pallets/elections", default-features = false }
-pallet-members = { path = "../pallets/members", default-features = false }
-pallet-networks = { path = "../pallets/networks", default-features = false }
-pallet-shards = { path = "../pallets/shards", default-features = false }
-pallet-tasks = { path = "../pallets/tasks", default-features = false }
-pallet-timegraph = { path = "../pallets/timegraph", default-features = false }
-runtime-common = { path = "./common", default-features = false }
-time-primitives = { path = "../primitives", default-features = false }
+pallet-elections.workspace = true
+pallet-members.workspace = true
+pallet-networks.workspace = true
+pallet-shards.workspace = true
+pallet-tasks.workspace = true
+pallet-timegraph.workspace = true
+
+# shared code between runtimes and/or node
+runtime-common.workspace = true
+time-primitives.workspace = true
 
 [dev-dependencies]
 separator = "0.4.1"
 
 [build-dependencies]
-#polkadot-sdk = { workspace = true, features = [ "substrate-wasm-builder" ] } 
-substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", features = [ "metadata-hash" ]}
+substrate-wasm-builder = { workspace = true, optional = true }
 
 [features]
 default = [ "std" ]
@@ -99,15 +104,18 @@ std = [
 	"pallet-shards/std",
 	"pallet-tasks/std",
 	"pallet-timegraph/std",
+
 	"runtime-common/std",
 	"time-primitives/std",
+
+	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
 	"polkadot-sdk/frame-system-benchmarking",
 	"polkadot-sdk/runtime-benchmarks",
-    "polkadot-sdk/pallet-election-provider-support-benchmarking",
-    "polkadot-sdk/pallet-offences-benchmarking",
-    "polkadot-sdk/pallet-session-benchmarking",
+	"polkadot-sdk/pallet-election-provider-support-benchmarking",
+	"polkadot-sdk/pallet-offences-benchmarking",
+	"polkadot-sdk/pallet-session-benchmarking",
 
 	"pallet-elections/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
@@ -115,6 +123,7 @@ runtime-benchmarks = [
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timegraph/runtime-benchmarks",
+
 	"runtime-common/runtime-benchmarks",
 ]
 try-runtime = [

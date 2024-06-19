@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "analog-docs"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "chronicle",
  "pallet-elections",
@@ -287,8 +287,7 @@ dependencies = [
  "pallet-shards",
  "pallet-tasks",
  "pallet-timegraph",
- "timechain-node",
- "timechain-runtime",
+ "testnet-runtime",
 ]
 
 [[package]]
@@ -7755,6 +7754,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "mainnet-runtime"
+version = "0.6.0"
+dependencies = [
+ "log",
+ "pallet-elections",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "pallet-timegraph",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "primitive-types",
+ "runtime-common",
+ "scale-info",
+ "serde_json",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "time-primitives",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11992,6 +12013,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "generate-bags",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -12071,6 +12093,7 @@ dependencies = [
  "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
+ "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
@@ -14178,8 +14201,8 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 name = "runtime-common"
 version = "1.0.0"
 dependencies = [
- "sp-core 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
- "sp-weights 27.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
+ "polkadot-sdk",
+ "time-primitives",
 ]
 
 [[package]]
@@ -19743,6 +19766,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "testnet-runtime"
+version = "0.6.0"
+dependencies = [
+ "log",
+ "pallet-elections",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "pallet-timegraph",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "runtime-common",
+ "scale-info",
+ "separator",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "time-primitives",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19906,6 +19950,7 @@ dependencies = [
  "hex",
  "log",
  "parity-scale-codec",
+ "polkadot-sdk",
  "scale-decode 0.13.1",
  "scale-info",
  "serde",
@@ -19923,8 +19968,10 @@ name = "timechain-generate-bags"
 version = "0.1.0"
 dependencies = [
  "clap",
- "generate-bags",
- "timechain-runtime",
+ "mainnet-runtime",
+ "polkadot-sdk",
+ "runtime-common",
+ "testnet-runtime",
 ]
 
 [[package]]
@@ -19941,34 +19988,15 @@ dependencies = [
  "hex-literal",
  "jsonrpsee 0.22.5",
  "log",
- "polkadot-sdk",
- "serde",
- "serde_json",
- "time-primitives",
- "timechain-runtime",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "timechain-runtime"
-version = "0.6.0"
-dependencies = [
- "log",
- "pallet-elections",
- "pallet-members",
- "pallet-networks",
- "pallet-shards",
- "pallet-tasks",
- "pallet-timegraph",
- "parity-scale-codec",
+ "mainnet-runtime",
  "polkadot-sdk",
  "runtime-common",
- "scale-info",
- "separator",
- "static_assertions",
- "substrate-wasm-builder",
+ "serde",
+ "serde_json",
+ "testnet-runtime",
  "time-primitives",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 use scale_codec::{Decode, Encode};
 
 #[subxt::subxt(
-	runtime_metadata_path = "../config/subxt/timechain.default.scale",
+	runtime_metadata_path = "../config/subxt/mainnet.default.scale",
 	derive_for_all_types = "PartialEq, Clone",
 	substitute_type(
 		path = "time_primitives::shard::MemberStatus",
@@ -35,7 +35,7 @@ use scale_codec::{Decode, Encode};
 pub mod timechain {}
 
 #[subxt::subxt(
-	runtime_metadata_path = "../config/subxt/timechain.development.scale",
+	runtime_metadata_path = "../config/subxt/mainnet.development.scale",
 	derive_for_all_types = "PartialEq, Clone",
 	substitute_type(
 		path = "time_primitives::shard::MemberStatus",
@@ -139,7 +139,7 @@ pub mod development {}
 /// Specifies the targeted timechain variant and metadata
 #[derive(clap::ValueEnum, Clone, Copy, Default, Debug)]
 pub enum Variant {
-	Timechain,
+	Mainnet,
 	Staging,
 	#[default]
 	Testnet,
@@ -151,7 +151,7 @@ pub enum Variant {
 macro_rules! metadata_scope {
 	( $variant:expr, $block:block ) => {
 		match $variant {
-			$crate::metadata::Variant::Timechain => {
+			$crate::metadata::Variant::Mainnet => {
 				use $crate::metadata::timechain as metadata;
 				$block
 			},

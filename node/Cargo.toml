@@ -112,7 +112,10 @@ try-runtime-cli = { git = "https://github.com/paritytech/try-runtime-cli", tag =
 polkadot-sdk = { workspace = true, features = [ "substrate-build-script-utils" ] }
 
 [features]
-default = []
+default = [ "std" ]
+std = [
+	"polkadot-sdk/std"
+]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",

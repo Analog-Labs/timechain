@@ -20,106 +20,53 @@ scale-info.workspace = true
 
 static_assertions = "1.1.0"
 
-#polkadot-sdk = { workspace = true, features = [
-	#"frame-election-provider-support",
-	#"frame-executive",
-	#"frame-metadata-hash-extension",
-	#"frame-support",
-	#"experimental",
-	#"frame-system",
+polkadot-sdk = { workspace = true, features = [
+	"frame-election-provider-support",
+	"frame-executive",
+	"frame-metadata-hash-extension",
+	"frame-support",
+	"frame-system",
 
-	#"pallet-authorship",
-	#"pallet-authority-discovery",
-	#"pallet-babe",
-	#"pallet-bags-list",
-	#"pallet-balances",
-	#"pallet-collective",
-	#"pallet-election-provider-multi-phase",
-	#"pallet-grandpa",
-	#"pallet-im-online",
-	#"pallet-offences",
-	#"pallet-session",
-	#"pallet-staking",
-	#"pallet-staking-reward-fn",
-	#"pallet-sudo",
-	#"pallet-timestamp",
-	#"pallet-transaction-payment",
-	#"pallet-treasury",
-	#"pallet-utility",
+	"pallet-authorship",
+	"pallet-authority-discovery",
+	"pallet-babe",
+	"pallet-bags-list",
+	"pallet-balances",
+	"pallet-collective",
+	"pallet-election-provider-multi-phase",
+	"pallet-grandpa",
+	"pallet-im-online",
+	"pallet-offences",
+	"pallet-session",
+	"pallet-staking",
+	"pallet-staking-reward-fn",
+	"pallet-sudo",
+	"pallet-timestamp",
+	"pallet-transaction-payment",
+	"pallet-treasury",
+	"pallet-utility",
 
-	#"sp-api",
-	#"sp-arithmetic",
-	#"sp-authority-discovery",
-	#"sp-block-builder",
-	#"sp-consensus-babe",
-	#"sp-core",
-	#"sp-genesis-builder",
-	#"sp-inherents",
-	#"sp-io",
-	#"sp-npos-elections",
-	#"sp-offchain",
-	#"sp-runtime",
-	#"sp-session",
-	#"sp-std",
-	#"sp-transaction-pool",
-	#"sp-version",
-	#"sp-staking",
+	"sp-api",
+	"sp-arithmetic",
+	"sp-authority-discovery",
+	"sp-block-builder",
+	"sp-consensus-babe",
+	"sp-core",
+	"sp-genesis-builder",
+	"sp-inherents",
+	"sp-io",
+	"sp-npos-elections",
+	"sp-offchain",
+	"sp-runtime",
+	"sp-session",
+	"sp-std",
+	"sp-transaction-pool",
+	"sp-version",
+	"sp-staking",
 
-	#"frame-system-rpc-runtime-api",
-	#"pallet-transaction-payment-rpc-runtime-api",
-#]}
-
-frame-election-provider-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-executive = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", features = [ "experimental" ], default-features = false }
-frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-try-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
-
-pallet-authorship = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-authority-discovery = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-babe = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-bags-list = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-collective  = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-election-provider-multi-phase = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-grandpa = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-im-online = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-offences = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-session = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, features = [ "historical" ] }
-pallet-staking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-staking-reward-fn = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-sudo = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-timestamp = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-transaction-payment = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-treasury = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-utility = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-
-sp-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-arithmetic = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-authority-discovery = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-block-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-consensus-babe = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-genesis-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false}
-sp-inherents = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-npos-elections = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-offchain = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-session = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-transaction-pool = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-version = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-staking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-
-# Used for the node template's RPCs
-frame-system-rpc-runtime-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-
-# Used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
-frame-system-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
+	"frame-system-rpc-runtime-api",
+	"pallet-transaction-payment-rpc-runtime-api",
+]}
 
 # Local Dependencies
 pallet-elections = { path = "../pallets/elections", default-features = false }
@@ -143,53 +90,7 @@ default = [ "std" ]
 std = [
 	"log/std",
 	"scale-codec/std",
-	#"polkadot-sdk/std",
-
-	"frame-benchmarking?/std",
-	"frame-election-provider-support/std",
-	"frame-executive/std",
-	"frame-metadata-hash-extension/std",
-	"frame-support/std",
-	"frame-system-benchmarking?/std",
-	"frame-system-rpc-runtime-api/std",
-	"frame-system/std",
-	"frame-try-runtime?/std",
-	"pallet-authority-discovery/std",
-	"pallet-authorship/std",
-	"pallet-babe/std",
-	"pallet-bags-list/std",
-	"pallet-balances/std",
-	"pallet-collective/std",
-	"pallet-election-provider-multi-phase/std",
-	"pallet-grandpa/std",
-	"pallet-im-online/std",
-	"pallet-offences/std",
-	"pallet-session/std",
-	"pallet-staking/std",
-	"pallet-staking-reward-fn/std",
-	"pallet-sudo/std",
-	"pallet-timestamp/std",
-	"pallet-transaction-payment-rpc-runtime-api/std",
-	"pallet-transaction-payment/std",
-	"pallet-treasury/std",
-	"pallet-utility/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-arithmetic/std",
-	"sp-authority-discovery/std",
-	"sp-block-builder/std",
-	"sp-consensus-babe/std",
-	"sp-core/std",
-	"sp-genesis-builder/std",
-	"sp-inherents/std",
-	"sp-npos-elections/std",
-	"sp-offchain/std",
-	"sp-runtime/std",
-	"sp-session/std",
-	"sp-staking/std",
-	"sp-std/std",
-	"sp-transaction-pool/std",
-	"sp-version/std",
+	"polkadot-sdk/std",
 
 	"pallet-elections/std",
 	"pallet-members/std",
@@ -201,19 +102,8 @@ std = [
 	"time-primitives/std",
 ]
 runtime-benchmarks = [
-	#"polkadot-sdk/frame-system-benchmarking",
-	#"polkadot-sdk/runtime-benchmarks",
-
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
-	"pallet-grandpa/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
+	"polkadot-sdk/frame-system-benchmarking",
+	"polkadot-sdk/runtime-benchmarks",
 
 	"pallet-elections/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
@@ -224,23 +114,8 @@ runtime-benchmarks = [
 	"runtime-common/runtime-benchmarks",
 ]
 try-runtime = [
-	#"polkadot-sdk/frame-try-runtime",
-	#"polkadot-sdk/try-runtime",
-
-	"frame-executive/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"frame-try-runtime/try-runtime",
-	"pallet-authority-discovery/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-babe/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-grandpa/try-runtime",
-	"pallet-im-online/try-runtime",
-	"pallet-sudo/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"pallet-treasury/try-runtime",
+	"polkadot-sdk/frame-try-runtime",
+	"polkadot-sdk/try-runtime",
 
 	"pallet-elections/try-runtime",
 	"pallet-members/try-runtime",

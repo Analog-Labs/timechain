@@ -47,7 +47,7 @@ tracing = "0.1.40"
 scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
 scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [ "derive" ] }
 
-polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched", default-feature = false }
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }

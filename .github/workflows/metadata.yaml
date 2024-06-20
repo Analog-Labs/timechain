@@ -31,6 +31,18 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: dev
+          profile: testnet
+          buildOpts: --features development
+          scaleFileName: testnet.development.scale
+        - name: testnet
+          profile: testnet
+          buildOpts: ''
+          scaleFileName: testnet.default.scale
     steps:
     - name: Install deps
       run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
@@ -52,16 +64,16 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build 
-        args: --release -p timechain-node
+        args: -p timechain-node --profile ${{ matrix.profile }} ${{ matrix.buildOpts }} --target-dir target/${{ matrix.name }}
 
     # Runs the node (saves the PID), generates the metadata
     # and kills the process afterwards.
     - name: Generate metadata
       run: |
-        ./target/release/timechain-node --dev &
+        ./target/${{ matrix.name }}/${{ matrix.profile }}/timechain-node --dev &
         NODE_PID=$!
         sleep 15
-        subxt metadata --url ws://127.0.0.1:9944 -f bytes > config/subxt/metadata.scale-new
+        subxt metadata --url ws://127.0.0.1:9944 -f bytes > config/subxt/${{ matrix.scaleFileName }}-new
         kill -9 $NODE_PID
     # Calculates the diff and outputs the updated flag.
     - name: Get diff
@@ -69,7 +81,7 @@ jobs:
       run: |
         set +e
         
-        diff config/subxt/metadata.scale-new config/subxt/metadata.scale
+        diff config/subxt/${{ matrix.scaleFileName }}-new config/subxt/${{ matrix.scaleFileName }}
         CODE=$?
 
         set -e
@@ -78,7 +90,7 @@ jobs:
           echo NO DIFF
           echo "updated=false" >> $GITHUB_OUTPUT
         else
-          mv config/subxt/metadata.scale-new config/subxt/metadata.scale
+          mv config/subxt/${{ matrix.scaleFileName }}-new config/subxt/${{ matrix.scaleFileName }}
           echo "updated=true" >> $GITHUB_OUTPUT
         fi
     - name: Checkout PR

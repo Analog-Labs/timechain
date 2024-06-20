@@ -5,6 +5,7 @@ mod benchmarking;
 pub use pallet::*;
 #[cfg(test)]
 mod mock;
+pub mod task_queue;
 #[cfg(test)]
 mod tests;
 

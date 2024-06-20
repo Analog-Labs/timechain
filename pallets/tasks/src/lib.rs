@@ -11,6 +11,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::task_queue::*;
 	use core::num::NonZeroU64;
 	use frame_support::{
 		pallet_prelude::*,
@@ -751,6 +752,24 @@ pub mod pallet {
 		/// The account ID containing the funds for a task.
 		fn task_account(task_id: TaskId) -> T::AccountId {
 			T::PalletId::get().into_sub_account_truncating(task_id)
+		}
+
+		fn ua_sys_task_queue() -> Box<dyn TaskQueue<TaskId>> {
+			Box::new(TaskQueue::<
+				<Self as Store>::UASystemTasksInsertIndex,
+				<Self as Store>::UASystemTasksRemoveIndex,
+				<Self as Store>::UnassignedSystemTasks,
+				u64,
+			>::new())
+		}
+
+		fn ua_non_sys_task_queue() -> Box<dyn TaskQueue<TaskId>> {
+			Box::new(TaskQueue::<
+				<Self as Store>::UATasksInsertIndex,
+				<Self as Store>::UATasksRemoveIndex,
+				<Self as Store>::UnassignedTasks,
+				u64,
+			>::new())
 		}
 
 		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {

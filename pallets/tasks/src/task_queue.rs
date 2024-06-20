@@ -1,7 +1,7 @@
 use codec::{Codec, EncodeLike};
 use core::marker::PhantomData;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
-use time_primitives::NetworkId;
+use time_primitives::{NetworkId, TaskId};
 
 /// Task queue interface.
 pub trait TaskQueueStorage<Item>
@@ -29,13 +29,12 @@ where
 }
 
 /// Transient backing data that is the backbone of the trait object.
-pub struct TaskQueue<Item, I, Q>
+pub struct TaskQueue<Index, Queue>
 where
-	Item: Codec + EncodeLike,
-	I: StorageMap<NetworkId, u64, Query = u64>,
-	Q: StorageDoubleMap<NetworkId, u64, Item, Query = Item>,
+	Index: StorageMap<NetworkId, u64, Query = u64>,
+	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = TaskId>,
 {
 	insert: u64,
 	remove: u64,
-	_phantom: PhantomData<(Item, I, Q)>,
+	_phantom: PhantomData<(Index, Queue)>,
 }

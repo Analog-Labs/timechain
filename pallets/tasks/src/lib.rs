@@ -31,6 +31,8 @@ pub mod pallet {
 		TasksInterface, TransferStake, TssSignature,
 	};
 
+	type TaskIndex = u64;
+
 	pub trait WeightInfo {
 		fn create_task(input_length: u32) -> Weight;
 		fn submit_result(input_length: u32) -> Weight;
@@ -152,18 +154,22 @@ pub mod pallet {
 		Blake2_128Concat,
 		NetworkId,
 		Blake2_128Concat,
-		u64,
+		TaskIndex,
 		TaskId,
 		OptionQuery,
 	>;
 
 	#[pallet::storage]
 	pub type UATasksInsertIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
 	#[pallet::storage]
 	pub type UATasksRemoveIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
+
+	#[pallet::storage]
+	pub type UATaskIndex<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, TaskIndex, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn shard_task_limit)]
@@ -907,7 +913,10 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			Self::add_unassigned_task(task_network, task_id);
+			let task_index = UATaskIndex::<T>::get(task_id);
+			if let Some(task_index) = task_index {
+				Self::remove_unassigned_task(task_network, task_index);
+			}
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);
@@ -1116,10 +1125,11 @@ pub mod pallet {
 		pub fn add_unassigned_task(network: NetworkId, task_id: TaskId) {
 			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
 			UnassignedTasks::<T>::insert(network, insert_index, task_id);
+			UATaskIndex::<T>::insert(task_id, insert_index);
 			UATasksInsertIndex::<T>::insert(network, insert_index.saturating_add(1));
 		}
 
-		pub fn remove_unassigned_task(network: NetworkId, task_index: u64) {
+		pub fn remove_unassigned_task(network: NetworkId, task_index: TaskIndex) {
 			let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
 			let mut remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
 

@@ -65,7 +65,7 @@ use sp_version::RuntimeVersion;
 
 pub use runtime_common::{
 	currency::*,
-	prod_or_fast,
+	prod_or_dev,
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
 };
 pub use time_primitives::{
@@ -162,7 +162,7 @@ impl_opaque_keys! {
 
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
-#[cfg(not(feature = "fast-runtime"))]
+#[cfg(not(feature = "development"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-testnet"),
@@ -175,11 +175,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-#[cfg(feature = "fast-runtime")]
+#[cfg(feature = "development")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-fastnet"),
-	impl_name: create_runtime_str!("analog-fastnet"),
+	spec_name: create_runtime_str!("analog-devnet"),
+	impl_name: create_runtime_str!("analog-devnet"),
 	authoring_version: 1,
 	spec_version: 119,
 	impl_version: 1,
@@ -230,7 +230,7 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(8 * HOURS, 5 * MINUTES);
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(8 * HOURS, 5 * MINUTES);
 
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
@@ -416,8 +416,8 @@ impl pallet_authority_discovery::Config for Runtime {
 
 parameter_types! {
 	// phase durations. 1/8 (1h) of the last session for each.
-	pub SignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
-	pub UnsignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
+	pub SignedPhase: u32 = prod_or_dev!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
+	pub UnsignedPhase: u32 = prod_or_dev!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
@@ -430,7 +430,7 @@ parameter_types! {
 	pub SignedRewardBase: Balance = 1000;
 
 	// 4 hour session, 1 hour unsigned phase, 32 offchain executions.
-	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_fast!(32, 10);
+	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_dev!(32, 10);
 
 	/// We take the top 22500 nominators as electing voters..
 	pub const MaxElectingVoters: u32 = 22_500;
@@ -451,8 +451,8 @@ generate_solution_type!(
 
 parameter_types! {
 	// TODO Needs to be properly configured.
-	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(1, 3);
-	pub const BondingDuration: sp_staking::EraIndex = prod_or_fast!(2, 4);
+	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_dev!(1, 3);
+	pub const BondingDuration: sp_staking::EraIndex = prod_or_dev!(2, 4);
 	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
@@ -496,7 +496,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = prod_or_fast!(5 * DAYS, HOURS);
+	pub const CouncilMotionDuration: BlockNumber = prod_or_dev!(5 * DAYS, HOURS);
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 }
@@ -887,10 +887,10 @@ parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = ANLOG;
-	pub const SpendPeriod: BlockNumber = prod_or_fast!(DAYS, HOURS);
+	pub const SpendPeriod: BlockNumber = prod_or_dev!(DAYS, HOURS);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
-	pub const PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 6 * HOURS);
+	pub const PayoutPeriod: BlockNumber = prod_or_dev!(14 * DAYS, 6 * HOURS);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 

@@ -24,19 +24,19 @@ pub mod currency {
 }
 
 /// Macro to set a value (e.g. when using the `parameter_types` macro) to either
-/// a production value or a testing value (in case the `fast-runtime` feature is
+/// a production value or a development value (in case the `development` feature is
 /// selected).
 ///
 /// Usage:
 /// ```Rust
 /// parameter_types! {
-///     pub const VotingPeriod: BlockNumber = prod_or_fast!(7 * DAYS, 1 * MINUTES);
+///     pub const VotingPeriod: BlockNumber = prod_or_dev!(7 * DAYS, 1 * MINUTES);
 /// }
 /// ```
 #[macro_export]
-macro_rules! prod_or_fast {
+macro_rules! prod_or_dev {
 	($prod:expr, $fast:expr) => {
-		if cfg!(feature = "fast-runtime") {
+		if cfg!(feature = "development") {
 			$fast
 		} else {
 			$prod

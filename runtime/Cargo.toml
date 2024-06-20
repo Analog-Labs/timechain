@@ -124,6 +124,6 @@ try-runtime = [
 	"pallet-tasks/try-runtime",
 	"pallet-timegraph/try-runtime",
 ]
-fast-runtime = [
-	"runtime-common/fast-runtime"
+development = [
+	"runtime-common/development"
 ]

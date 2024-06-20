@@ -127,8 +127,8 @@ try-runtime = [
 	"timechain-runtime/try-runtime",
 	"try-runtime-cli",
 ]
-fast-runtime = [
-	"timechain-runtime/fast-runtime"
+development = [
+	"timechain-runtime/development"
 ]
 # runs chronicle with node
 chronicle = ["dep:chronicle", "dep:tc-subxt"]

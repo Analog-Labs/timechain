@@ -19,4 +19,4 @@ std = [
 	"sp-weights/std",
 ]
 runtime-benchmarks = []
-fast-runtime = []
+development = []

@@ -38,7 +38,7 @@ case "${environment}" in
 		;;
 	development)
 		profile=testnet
-		features=fast-runtime
+		features=development
 		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"

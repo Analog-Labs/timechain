@@ -32,3 +32,6 @@ tracing-subscriber = "0.3.18"
 tc-subxt = { path = "../tc-subxt"}
 time-primitives = { path = "../primitives" }
 
+[features]
+testnet = [ "tc-subxt/testnet" ]
+development = [ "tc-subxt/development" ]

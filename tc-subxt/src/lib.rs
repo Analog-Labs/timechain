@@ -23,8 +23,31 @@ use tokio::sync::oneshot::{self, Sender};
 mod shards;
 mod tasks;
 
+// Pick correct metadata file for subxt integration
+#[cfg(all(not(feature = "testnet"), not(features = "development")))]
 #[subxt::subxt(
-	runtime_metadata_path = "../config/subxt/metadata.scale",
+	runtime_metadata_path = "../config/subxt/timechain.default.scale",
+	derive_for_all_types = "PartialEq, Clone"
+)]
+pub mod timechain_runtime {}
+
+#[cfg(all(not(feature = "testnet"), features = "development"))]
+#[subxt::subxt(
+	runtime_metadata_path = "../config/subxt/timechain.development.scale",
+	derive_for_all_types = "PartialEq, Clone"
+)]
+pub mod timechain_runtime {}
+
+#[cfg(all(feature = "testnet", not(features = "development")))]
+#[subxt::subxt(
+	runtime_metadata_path = "../config/subxt/testnet.default.scale",
+	derive_for_all_types = "PartialEq, Clone"
+)]
+pub mod timechain_runtime {}
+
+#[cfg(all(feature = "testnet", features = "development"))]
+#[subxt::subxt(
+	runtime_metadata_path = "../config/subxt/testnet.development.scale",
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod timechain_runtime {}

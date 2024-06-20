@@ -30,19 +30,24 @@ esac
 # Evaluate optional environment argument
 environment="${1:-development}"
 case "${environment}" in
-	mainnet)
+	timechain|mainnet)
 		profile=production
 		;;
-	testnet)
-		profile=testnet
-		;;
-	development)
+	timechain-dev|mainnet-dev)
 		profile=testnet
 		features=development
 		;;
+		testnet)
+		profile=testnet
+		features=testnet
+		;;
+	testnet-dev|development)
+		profile=testnet
+		features=testnet,development
+		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"
-		echo >&2 "      - options: mainnet testnet development"
+		echo >&2 "      - options: timechain timechain-dev testnet testnet-dev"
 		echo >&2 "      - default: development"
 		exit 1
 		;;

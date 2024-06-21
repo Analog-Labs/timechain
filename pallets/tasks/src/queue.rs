@@ -1,13 +1,18 @@
+use crate::{Config, TaskPhaseState, Tasks};
 use codec::{Codec, EncodeLike};
 use core::marker::PhantomData;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
-use time_primitives::{NetworkId, TaskId};
+use time_primitives::{NetworkId, TaskId, TaskPhase};
 
-pub trait TaskQ {
-	/// Store all changes made in the underlying storage. Always commit on Drop.
-	fn commit(&self);
-	/// Take up to `count` number of items from the queue
-	fn take(&mut self, network: NetworkId, count: usize) -> Vec<TaskId>;
+pub trait TaskQ<T: Config> {
+	/// Return the next `n` assignable tasks
+	fn get_n(
+		&self,
+		//network: NetworkId,
+		n: usize,
+		shard_size: u16,
+		is_registered: bool,
+	) -> Vec<(u64, TaskId)>;
 	/// Remove an item from the queue
 	fn remove(&mut self, network: NetworkId, index: u64, task_id: TaskId);
 	/// Push an item onto the end of the queue.
@@ -50,33 +55,34 @@ where
 	}
 }
 
-impl<InsertIndex, RemoveIndex, Queue> Drop for TaskQueue<InsertIndex, RemoveIndex, Queue>
+impl<T: Config, InsertIndex, RemoveIndex, Queue> TaskQ<T>
+	for TaskQueue<InsertIndex, RemoveIndex, Queue>
 where
 	InsertIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
 	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
 	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
 {
-	/// Commit on `drop`.
-	fn drop(&mut self) {
-		<Self as TaskQ>::commit(self);
-	}
-}
-
-impl<InsertIndex, RemoveIndex, Queue> TaskQ for TaskQueue<InsertIndex, RemoveIndex, Queue>
-where
-	InsertIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
-{
-	/// Store all changes made in the underlying storage
-	// TODO: determine if commit on Drop semantics is helpful or if we should just push changes to storage in the other helper functions.
-	fn commit(&self) {
-		InsertIndex::insert(self.network, self.insert);
-		RemoveIndex::insert(self.network, self.remove);
-	}
-	/// Take up to `count` number of items from the queue
-	fn take(&mut self, network: NetworkId, count: usize) -> Vec<TaskId> {
-		todo!()
+	fn get_n(
+		&self,
+		//network: NetworkId,
+		n: usize,
+		shard_size: u16,
+		is_registered: bool,
+	) -> Vec<(u64, TaskId)> {
+		(self.remove..self.insert)
+			.filter_map(|index| {
+				Queue::get(self.network, index).and_then(|task_id| {
+					Tasks::<T>::get(task_id)
+						.filter(|task| {
+							task.shard_size == shard_size
+								&& (is_registered
+									|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+						})
+						.map(|_| (index, task_id))
+				})
+			})
+			.take(n)
+			.collect::<Vec<_>>()
 	}
 	/// Remove an item from the queue
 	fn remove(&mut self, network: NetworkId, index: u64, task_id: TaskId) {

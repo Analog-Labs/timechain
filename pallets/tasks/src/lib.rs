@@ -756,17 +756,20 @@ pub mod pallet {
 
 		/// Prioritized tasks
 		/// function = {UnRegisterShard, RegisterShard, ReadMessages}
-		fn prioritized_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ> {
+		fn prioritized_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ<T>> {
 			Box::new(
-				TaskQueue::<UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UnassignedTasks<T>>::new(
-					network,
-				),
+				// TODO: type alias inner type? not necessary if only invoked here
+				TaskQueue::<
+					UASystemTasksInsertIndex<T>,
+					UASystemTasksRemoveIndex<T>,
+					UnassignedSystemTasks<T>,
+				>::new(network),
 			)
 		}
 
 		/// Non-prioritized tasks which are assigned only after
 		/// all prioritized tasks are assigned.
-		fn remaining_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ> {
+		fn remaining_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ<T>> {
 			Box::new(
 				TaskQueue::<UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UnassignedTasks<T>>::new(
 					network,
@@ -1009,6 +1012,7 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
+			// TODO: replace this with `new().get_n()` call
 			let system_tasks = (<UASystemTasksRemoveIndex<T>>::get(network).unwrap_or(0)
 				..<UASystemTasksInsertIndex<T>>::get(network).unwrap_or(0))
 				.filter_map(|index| {

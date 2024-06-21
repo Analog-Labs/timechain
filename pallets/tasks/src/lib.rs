@@ -1183,46 +1183,10 @@ pub mod pallet {
 				Function::UnregisterShard { .. }
 				| Function::RegisterShard { .. }
 				| Function::ReadMessages { .. } => {
-					let insert_index = UASystemTasksInsertIndex::<T>::get(network).unwrap_or(0);
-					let mut remove_index = UASystemTasksRemoveIndex::<T>::get(network).unwrap_or(0);
-
-					if remove_index >= insert_index {
-						return;
-					}
-
-					if task_index == remove_index {
-						UnassignedSystemTasks::<T>::remove(network, remove_index);
-						remove_index = remove_index.saturating_add(1);
-						while UnassignedSystemTasks::<T>::get(network, remove_index).is_none()
-							&& remove_index < insert_index
-						{
-							remove_index = remove_index.saturating_add(1);
-						}
-						UASystemTasksRemoveIndex::<T>::insert(network, remove_index);
-					} else {
-						UnassignedSystemTasks::<T>::remove(network, task_index);
-					}
+					Self::prioritized_unassigned_tasks(network).remove(task_index);
 				},
 				_ => {
-					let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
-					let mut remove_index = UATasksRemoveIndex::<T>::get(network).unwrap_or(0);
-
-					if remove_index >= insert_index {
-						return;
-					}
-
-					if task_index == remove_index {
-						UnassignedTasks::<T>::remove(network, remove_index);
-						remove_index = remove_index.saturating_add(1);
-						while UnassignedTasks::<T>::get(network, remove_index).is_none()
-							&& remove_index < insert_index
-						{
-							remove_index = remove_index.saturating_add(1);
-						}
-						UATasksRemoveIndex::<T>::insert(network, remove_index);
-					} else {
-						UnassignedTasks::<T>::remove(network, task_index);
-					}
+					Self::remaining_unassigned_tasks(network).remove(task_index);
 				},
 			}
 		}

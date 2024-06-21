@@ -1,5 +1,4 @@
 use crate::{Config, TaskPhaseState, Tasks};
-use codec::{Codec, EncodeLike};
 use core::marker::PhantomData;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
 use sp_runtime::Saturating;
@@ -11,7 +10,7 @@ pub trait TaskQ<T: Config> {
 	/// Push an item onto the end of the queue.
 	fn push(&self, task_id: TaskId);
 	/// Remove an item from the queue
-	fn remove(&mut self, index: u64, task_id: TaskId);
+	fn remove(&mut self, index: u64);
 }
 
 pub struct TaskQueue<InsertIndex, RemoveIndex, Queue>
@@ -72,7 +71,17 @@ where
 		InsertIndex::insert(self.network, self.insert.saturating_plus_one());
 	}
 	/// Remove an item from the queue
-	fn remove(&mut self, index: u64, task_id: TaskId) {
-		todo!()
+	fn remove(&mut self, index: u64) {
+		if self.remove >= self.insert {
+			return;
+		}
+		Queue::remove(self.network, index);
+		if index == self.remove {
+			self.remove = self.remove.saturating_plus_one();
+			while Queue::get(self.network, self.remove).is_none() && self.remove < self.insert {
+				self.remove = self.remove.saturating_plus_one();
+			}
+			RemoveIndex::insert(self.network, self.remove);
+		}
 	}
 }

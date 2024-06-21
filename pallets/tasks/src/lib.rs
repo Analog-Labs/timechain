@@ -754,22 +754,24 @@ pub mod pallet {
 			T::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
-		fn ua_sys_task_queue() -> Box<dyn TaskQueue<TaskId>> {
-			Box::new(TaskQueue::<
-				<Self as Store>::UASystemTasksInsertIndex,
-				<Self as Store>::UASystemTasksRemoveIndex,
-				<Self as Store>::UnassignedSystemTasks,
-				u64,
-			>::new())
+		/// Prioritized tasks
+		/// function = {UnRegisterShard, RegisterShard, ReadMessages}
+		fn prioritized_unassigned_tasks(n: NetworkId) -> Box<dyn TaskQ> {
+			Box::new(
+				TaskQueue::<UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UnassignedTasks<T>>::new(
+					n,
+				),
+			)
 		}
 
-		fn ua_non_sys_task_queue() -> Box<dyn TaskQueue<TaskId>> {
-			Box::new(TaskQueue::<
-				<Self as Store>::UATasksInsertIndex,
-				<Self as Store>::UATasksRemoveIndex,
-				<Self as Store>::UnassignedTasks,
-				u64,
-			>::new())
+		/// Non-prioritized tasks which are assigned only after
+		/// all prioritized tasks are assigned.
+		fn remaining_unassigned_tasks(n: NetworkId) -> Box<dyn TaskQ> {
+			Box::new(
+				TaskQueue::<UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UnassignedTasks<T>>::new(
+					n,
+				),
+			)
 		}
 
 		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {

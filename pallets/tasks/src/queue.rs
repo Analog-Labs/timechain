@@ -2,21 +2,16 @@ use crate::{Config, TaskPhaseState, Tasks};
 use codec::{Codec, EncodeLike};
 use core::marker::PhantomData;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
+use sp_runtime::Saturating;
 use time_primitives::{NetworkId, TaskId, TaskPhase};
 
 pub trait TaskQ<T: Config> {
 	/// Return the next `n` assignable tasks
 	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)>;
-	/// Remove an item from the queue
-	fn remove(&mut self, network: NetworkId, index: u64, task_id: TaskId);
 	/// Push an item onto the end of the queue.
-	fn push(&mut self, network: NetworkId, task_id: TaskId);
-	/// Pop an item from the start of the queue.
-	///
-	/// Returns `None` if the queue is empty.
-	fn pop(&mut self) -> Option<TaskId>;
-	/// Return whether the queue is empty.
-	fn is_empty(&self) -> bool;
+	fn push(&self, task_id: TaskId);
+	/// Remove an item from the queue
+	fn remove(&mut self, index: u64, task_id: TaskId);
 }
 
 pub struct TaskQueue<InsertIndex, RemoveIndex, Queue>
@@ -25,7 +20,6 @@ where
 	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
 	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
 {
-	// required for commit on Drop semantics
 	network: NetworkId,
 	insert: u64,
 	remove: u64,
@@ -72,22 +66,13 @@ where
 			.take(n)
 			.collect::<Vec<_>>()
 	}
-	/// Remove an item from the queue
-	fn remove(&mut self, network: NetworkId, index: u64, task_id: TaskId) {
-		todo!()
-	}
 	/// Push an item onto the end of the queue.
-	fn push(&mut self, network: NetworkId, task_id: TaskId) {
-		todo!()
+	fn push(&self, task_id: TaskId) {
+		Queue::insert(self.network, self.insert, task_id);
+		InsertIndex::insert(self.network, self.insert.saturating_plus_one());
 	}
-	/// Pop an item from the start of the queue.
-	///
-	/// Returns `None` if the queue is empty.
-	fn pop(&mut self) -> Option<TaskId> {
-		todo!()
-	}
-	/// Return whether the queue is empty.
-	fn is_empty(&self) -> bool {
+	/// Remove an item from the queue
+	fn remove(&mut self, index: u64, task_id: TaskId) {
 		todo!()
 	}
 }

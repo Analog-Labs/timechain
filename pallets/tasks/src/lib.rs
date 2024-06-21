@@ -1168,14 +1168,10 @@ pub mod pallet {
 				Function::UnregisterShard { .. }
 				| Function::RegisterShard { .. }
 				| Function::ReadMessages { .. } => {
-					let insert_index = UASystemTasksInsertIndex::<T>::get(network).unwrap_or(0);
-					UnassignedSystemTasks::<T>::insert(network, insert_index, task_id);
-					UASystemTasksInsertIndex::<T>::insert(network, insert_index.saturating_add(1));
+					Self::prioritized_unassigned_tasks(network).push(task_id);
 				},
 				_ => {
-					let insert_index = UATasksInsertIndex::<T>::get(network).unwrap_or(0);
-					UnassignedTasks::<T>::insert(network, insert_index, task_id);
-					UATasksInsertIndex::<T>::insert(network, insert_index.saturating_add(1));
+					Self::remaining_unassigned_tasks(network).push(task_id);
 				},
 			}
 		}

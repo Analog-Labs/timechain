@@ -5,13 +5,13 @@ mod benchmarking;
 pub use pallet::*;
 #[cfg(test)]
 mod mock;
-pub mod task_queue;
+pub mod queue;
 #[cfg(test)]
 mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::task_queue::*;
+	use crate::queue::*;
 	use core::num::NonZeroU64;
 	use frame_support::{
 		pallet_prelude::*,
@@ -756,20 +756,20 @@ pub mod pallet {
 
 		/// Prioritized tasks
 		/// function = {UnRegisterShard, RegisterShard, ReadMessages}
-		fn prioritized_unassigned_tasks(n: NetworkId) -> Box<dyn TaskQ> {
+		fn prioritized_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ> {
 			Box::new(
 				TaskQueue::<UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UnassignedTasks<T>>::new(
-					n,
+					network,
 				),
 			)
 		}
 
 		/// Non-prioritized tasks which are assigned only after
 		/// all prioritized tasks are assigned.
-		fn remaining_unassigned_tasks(n: NetworkId) -> Box<dyn TaskQ> {
+		fn remaining_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ> {
 			Box::new(
 				TaskQueue::<UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UnassignedTasks<T>>::new(
-					n,
+					network,
 				),
 			)
 		}

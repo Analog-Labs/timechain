@@ -757,14 +757,11 @@ pub mod pallet {
 		/// Prioritized tasks
 		/// function = {UnRegisterShard, RegisterShard, ReadMessages}
 		fn prioritized_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ<T>> {
-			Box::new(
-				// TODO: type alias inner type? not necessary if only invoked here
-				TaskQueue::<
-					UASystemTasksInsertIndex<T>,
-					UASystemTasksRemoveIndex<T>,
-					UnassignedSystemTasks<T>,
-				>::new(network),
-			)
+			Box::new(TaskQueue::<
+				UASystemTasksInsertIndex<T>,
+				UASystemTasksRemoveIndex<T>,
+				UnassignedSystemTasks<T>,
+			>::new(network))
 		}
 
 		/// Non-prioritized tasks which are assigned only after
@@ -1013,37 +1010,18 @@ pub mod pallet {
 				return;
 			}
 			// TODO: replace this with `new().get_n()` call
-			let system_tasks = (<UASystemTasksRemoveIndex<T>>::get(network).unwrap_or(0)
-				..<UASystemTasksInsertIndex<T>>::get(network).unwrap_or(0))
-				.filter_map(|index| {
-					<UnassignedSystemTasks<T>>::get(network, index).and_then(|task_id| {
-						Tasks::<T>::get(task_id)
-							.filter(|task| {
-								task.shard_size == shard_size
-									&& (is_registered
-										|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
-							})
-							.map(|_| (index, task_id))
-					})
-				})
-				.take(capacity)
-				.collect::<Vec<_>>();
+			let system_tasks = Self::prioritized_unassigned_tasks(network).get_n(
+				capacity,
+				shard_size,
+				is_registered,
+			);
 			let tasks = if let Some(non_system_capacity) = capacity.checked_sub(system_tasks.len())
 			{
-				let non_system_tasks = (<UATasksRemoveIndex<T>>::get(network).unwrap_or(0)
-					..<UATasksInsertIndex<T>>::get(network).unwrap_or(0))
-					.filter_map(|index| {
-						<UnassignedTasks<T>>::get(network, index).and_then(|task_id| {
-							Tasks::<T>::get(task_id)
-								.filter(|task| {
-									task.shard_size == shard_size
-										&& (is_registered
-											|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
-								})
-								.map(|_| (index, task_id))
-						})
-					})
-					.take(non_system_capacity);
+				let non_system_tasks = Self::remaining_unassigned_tasks(network).get_n(
+					non_system_capacity,
+					shard_size,
+					is_registered,
+				);
 				system_tasks.into_iter().chain(non_system_tasks).collect::<Vec<_>>()
 			} else {
 				system_tasks

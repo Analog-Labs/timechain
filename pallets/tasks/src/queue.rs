@@ -6,13 +6,7 @@ use time_primitives::{NetworkId, TaskId, TaskPhase};
 
 pub trait TaskQ<T: Config> {
 	/// Return the next `n` assignable tasks
-	fn get_n(
-		&self,
-		//network: NetworkId,
-		n: usize,
-		shard_size: u16,
-		is_registered: bool,
-	) -> Vec<(u64, TaskId)>;
+	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)>;
 	/// Remove an item from the queue
 	fn remove(&mut self, network: NetworkId, index: u64, task_id: TaskId);
 	/// Push an item onto the end of the queue.
@@ -62,13 +56,7 @@ where
 	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
 	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
 {
-	fn get_n(
-		&self,
-		//network: NetworkId,
-		n: usize,
-		shard_size: u16,
-		is_registered: bool,
-	) -> Vec<(u64, TaskId)> {
+	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)> {
 		(self.remove..self.insert)
 			.filter_map(|index| {
 				Queue::get(self.network, index).and_then(|task_id| {

@@ -1009,7 +1009,6 @@ pub mod pallet {
 				// no new tasks assigned if capacity reached or exceeded
 				return;
 			}
-			// TODO: replace this with `new().get_n()` call
 			let system_tasks = Self::prioritized_unassigned_tasks(network).get_n(
 				capacity,
 				shard_size,

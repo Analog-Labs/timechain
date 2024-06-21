@@ -366,7 +366,6 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-		let client_clone = client.clone();
 		let slot_duration = babe_link.config().slot_duration();
 		let babe_config = sc_consensus_babe::BabeParams {
 			keystore: keystore_container.keystore(),
@@ -376,8 +375,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			block_import,
 			sync_oracle: sync_service.clone(),
 			justification_sync_link: sync_service.clone(),
-			create_inherent_data_providers: move |parent, ()| {
-				let client_clone = client_clone.clone();
+			create_inherent_data_providers: move |_, ()| {
 				async move {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
@@ -387,13 +385,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 							slot_duration,
 						);
 
-					let storage_proof =
-						sp_transaction_storage_proof::registration::new_data_provider(
-							&*client_clone,
-							&parent,
-						)?;
-
-					Ok((slot, timestamp, storage_proof))
+					Ok((slot, timestamp))
 				}
 			},
 			force_authoring,

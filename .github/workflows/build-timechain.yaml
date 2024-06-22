@@ -1,0 +1,155 @@
+##########################################################
+#
+#  Workflow for generating the metadata. It's triggered
+#  on each pull request commit, ignoring paths that don't
+#  affect the metadata (mostly the Substrate specifics).
+#
+#  It generates the metadata by running the node and
+#  invoking subxt metadata command. If the generated file
+#  is different than the already present one
+#  (config/subxt/metadata.scale), the Github bot commits
+#  and pushes to the current PR branch.
+#
+##########################################################
+name: Build timechain node, runtime and metadata
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - '**/*.md'
+    - 'tester/**'
+    - 'scripts/**'
+    - 'tc-subxt/**'
+    - 'chronicle/**'
+    - 'tss/**'
+    - 'lib/**'
+
+jobs:
+  build-timechain:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - profile: testnet
+          features: default
+        - profile: testnet
+          features: development
+        - profile: testnet
+          features: runtime-benchmarks
+        - profile: testnet
+          features: try-runtime
+    steps:
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Install rust toolchain
+      run : rustup show
+    - name: Setup and cache sccache
+      uses: visvirial/sccache-action@v1.0.1
+      with:
+        cache-key: sccache-timechain-${{ matrix.profile }}
+    - name: Cache cargo registry and index
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-cache-timechain-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-cache-timechain-
+    - name: Cache cargo build output
+      uses: actions/cache@v3
+      with:
+        path: result
+        key: cargo-build-timechain-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-build-timechain-${{ matrix.profile }}-
+    - name: Build timechain node and runtime
+      uses: actions-rs/cargo@v1
+      with:
+        command: build 
+        args: -p timechain-node --profile ${{ matrix.profile }} --features ${{ matrix.features }} --target-dir result
+    - name: Upload timechain node and runtime
+      uses: actions/upload-artifact@v3
+      with:
+        name: node_${{ matrix.profile }}_${{ matrix.features }}
+        path: result/${{ matrix.profile }}/timechain-node
+    - name: Upload timechain runtime
+      uses: actions/upload-artifact@v3
+      with:
+        name: runtime_${{ matrix.profile }}_${{ matrix.features }}
+        path: result/${{ matrix.profile }}/wbuild/timechain-runtime/timechain_runtime.compact.compressed.wasm
+
+  generate:
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: testnet_default
+          target: testnet.default.scale
+        - name: testnet_development
+          target: testnet.development.scale
+    steps:
+    - name: Install subxt
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --version 0.37.0 subxt-cli
+    - name: Download timechain node
+      uses: actions/download-artifact@v3
+      with:
+        name: node_${{ matrix.name }}
+    - run: chmod +x timechain-node
+    # Runs the node (saves the PID), generates the metadata
+    # and kills the process afterwards.
+    - name: Generate metadata
+      run: |
+        ./timechain-node --dev &
+        NODE_PID=$!
+        sleep 15
+        subxt metadata --url ws://127.0.0.1:9944 -f bytes > config/subxt/${{ matrix.target }}-new
+        kill -9 $NODE_PID
+    # Calculates the diff and outputs the updated flag.
+    - name: Get diff
+      id: diff
+      run: |
+        set +e
+        
+        diff config/subxt/${{ matrix.target }}-new config/subxt/${{ matrix.target }}
+        CODE=$?
+
+        set -e
+
+        if [ $CODE -eq 0 ]; then
+          echo NO DIFF
+          echo "updated=false" >> $GITHUB_OUTPUT
+        else
+          mv config/subxt/${{ matrix.target }}-new config/subxt/${{ matrix.target }}
+          echo "updated=true" >> $GITHUB_OUTPUT
+        fi
+    - name: Checkout PR
+      if: steps.diff.outputs.updated == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh pr checkout ${{ github.event.pull_request.number }}
+    # Github bot commits the change and pushes to the PR branch
+    # NOTE: only if the updated flag from step "Get diff" is true 
+    - name: Commit & Push changes
+      if: steps.diff.outputs.updated == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config user.email "github@analog.one"
+        git config user.name "Github Bot"
+        git commit -am "Update metadata"
+        git push

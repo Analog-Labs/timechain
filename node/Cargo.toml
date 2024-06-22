@@ -105,8 +105,8 @@ time-primitives = { path = "../primitives" }
 timechain-runtime = { path = "../runtime" }
 tc-subxt = { path = "../tc-subxt", optional = true }
 
-# node's additional command line interfaces
-try-runtime-cli = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }
+# additional command line interfaces
+#try-runtime-core = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }
 
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = [ "substrate-build-script-utils" ] }
@@ -125,7 +125,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"timechain-runtime/try-runtime",
-	"try-runtime-cli",
+	#"try-runtime-core",
 ]
 development = [
 	"timechain-runtime/development"

@@ -14,6 +14,10 @@ on:
     - 'utils/**'
     - '**/*.md'
 
+concurrency:
+   group: ${{ github.workflow }}-${{ github.ref }}
+   cancel-in-progress: true
+
 jobs:
   build-chronicle:
     runs-on: ubuntu-latest

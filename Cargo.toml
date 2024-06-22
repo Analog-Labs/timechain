@@ -131,5 +131,5 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [patch.crates-io]
-# Waiting for assignment to be accepted upstream
+# Testnet assginment was not accepted upstream
 ss58-registry = { git = 'https://github.com/Analog-Labs/ss58-registry.git' }

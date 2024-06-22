@@ -1,32 +1,21 @@
-##########################################################
-#
-#  Workflow for generating the metadata. It's triggered
-#  on each pull request commit, ignoring paths that don't
-#  affect the metadata (mostly the Substrate specifics).
-#
-#  It generates the metadata by running the node and
-#  invoking subxt metadata command. If the generated file
-#  is different than the already present one
-#  (config/subxt/metadata.scale), the Github bot commits
-#  and pushes to the current PR branch.
-#
-##########################################################
-name: Build timechain node, runtime and metadata
+name: Compile timechain components
 
 on:
   pull_request:
     paths-ignore:
+    - 'chronicle/**'
+    - 'contracts/**'
     - 'docker/**'
     - 'docs/**'
     - 'infra/**'
     - 'js/**'
-    - '**/*.md'
-    - 'tester/**'
+    - 'lib/**'
     - 'scripts/**'
     - 'tc-subxt/**'
-    - 'chronicle/**'
+    - 'tester/**'
     - 'tss/**'
-    - 'lib/**'
+    - 'utils/**'
+    - '**/*.md'
 
 jobs:
   build-timechain:
@@ -69,24 +58,24 @@ jobs:
     - name: Cache cargo build output
       uses: actions/cache@v3
       with:
-        path: result
+        path: target
         key: cargo-build-timechain-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: cargo-build-timechain-${{ matrix.profile }}-
     - name: Build timechain node and runtime
       uses: actions-rs/cargo@v1
       with:
         command: build 
-        args: -p timechain-node --profile ${{ matrix.profile }} --features ${{ matrix.features }} --target-dir result
-    - name: Upload timechain node and runtime
+        args: -p timechain-node --profile ${{ matrix.profile }} --features ${{ matrix.features }}
+    - name: Upload timechain node
       uses: actions/upload-artifact@v3
       with:
         name: node_${{ matrix.profile }}_${{ matrix.features }}
-        path: result/${{ matrix.profile }}/timechain-node
+        path: target/${{ matrix.profile }}/timechain-node
     - name: Upload timechain runtime
       uses: actions/upload-artifact@v3
       with:
         name: runtime_${{ matrix.profile }}_${{ matrix.features }}
-        path: result/${{ matrix.profile }}/wbuild/timechain-runtime/timechain_runtime.compact.compressed.wasm
+        path: target/${{ matrix.profile }}/wbuild/timechain-runtime/timechain_runtime.compact.compressed.wasm
 
   generate:
     runs-on: ubuntu-latest

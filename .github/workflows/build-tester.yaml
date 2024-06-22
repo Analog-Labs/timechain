@@ -1,0 +1,65 @@
+name: Compile tester tool
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'chronicle/**'
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - 'lib/**'
+    - 'scripts/**'
+    - 'utils/**'
+    - '**/*.md'
+
+jobs:
+  build-tester:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - profile: testnet
+          features: default
+        - profile: testnet
+          features: development
+    steps:
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Install rust toolchain
+      run : rustup show
+    - name: Setup and cache sccache
+      uses: visvirial/sccache-action@v1.0.1
+      with:
+        cache-key: sccache-tester-${{ matrix.profile }}
+    - name: Cache cargo registry and index
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-cache-tester-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-cache-tester-
+    - name: Cache cargo build output
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: cargo-build-tester-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-build-tester-${{ matrix.profile }}-
+    - name: Build tester tool
+      uses: actions-rs/cargo@v1
+      with:
+        command: build 
+        args: -p tester --profile ${{ matrix.profile }} --features ${{ matrix.profile }},${{ matrix.features }}
+    - name: Upload tester tool
+      uses: actions/upload-artifact@v4
+      with:
+        name: tester_${{ matrix.profile }}_${{ matrix.features }}
+        path: target/${{ matrix.profile }}/tester

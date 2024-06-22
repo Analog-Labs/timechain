@@ -33,5 +33,6 @@ tc-subxt = { path = "../tc-subxt"}
 time-primitives = { path = "../primitives" }
 
 [features]
+default = []
 testnet = [ "tc-subxt/testnet" ]
 development = [ "tc-subxt/development" ]

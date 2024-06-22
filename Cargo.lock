@@ -8196,6 +8196,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
+name = "multimap"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "defc4c55412d89136f966bbb339008b474350e5e6e78d2714439c386b3137a03"
+
+[[package]]
 name = "multistream-select"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12839,7 +12845,7 @@ dependencies = [
  "itertools 0.10.5",
  "lazy_static",
  "log",
- "multimap",
+ "multimap 0.8.3",
  "petgraph",
  "prettyplease 0.1.25",
  "prost 0.11.9",
@@ -12860,7 +12866,7 @@ dependencies = [
  "heck 0.5.0",
  "itertools 0.12.1",
  "log",
- "multimap",
+ "multimap 0.10.0",
  "once_cell",
  "petgraph",
  "prettyplease 0.2.20",
@@ -17503,7 +17509,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -17601,7 +17607,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -17645,7 +17651,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -17984,7 +17990,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -18043,7 +18049,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "Inflector",
  "expander",
@@ -18166,7 +18172,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched#d1
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 
 [[package]]
 name = "sp-storage"
@@ -18211,7 +18217,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -18272,7 +18278,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -18422,7 +18428,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#29a8da4f996de3b455ae140f8c1a3de51b878739"
+source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
 dependencies = [
  "impl-trait-for-tuples",
  "log",

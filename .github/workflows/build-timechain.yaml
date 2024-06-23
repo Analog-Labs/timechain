@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   build-timechain:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted-timechain]
     strategy:
       fail-fast: false
       matrix:
@@ -87,7 +87,7 @@ jobs:
         path: target/${{ matrix.profile }}/wbuild/timechain-runtime/timechain_runtime.metadata.scale
 
   update-metadata:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted-timechain]
     needs: [ build-timechain ]
     if: ${{ always() }}
     continue-on-error: true

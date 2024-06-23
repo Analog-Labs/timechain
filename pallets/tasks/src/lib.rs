@@ -610,7 +610,7 @@ pub mod pallet {
 					if to_be_reset >= max {
 						break;
 					}
-					Self::add_unassigned_task(task.network, task.function, task_id);
+					Self::add_unassigned_task(task.network, task_id);
 					to_be_reset = to_be_reset.saturating_plus_one();
 				}
 			}
@@ -930,7 +930,7 @@ pub mod pallet {
 			);
 			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			Self::add_unassigned_task(schedule.network, schedule.function, task_id);
+			Self::add_unassigned_task(schedule.network, task_id);
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Self::schedule_tasks(schedule.network, None);
 			Ok(task_id)
@@ -1170,8 +1170,9 @@ pub mod pallet {
 			}
 		}
 
-		pub fn add_unassigned_task(network: NetworkId, function: Function, task_id: TaskId) {
-			match function {
+		pub fn add_unassigned_task(network: NetworkId, task_id: TaskId) {
+			let Some(task) = Tasks::<T>::get(task_id) else { return };
+			match task.function {
 				// system tasks
 				Function::UnregisterShard { .. }
 				| Function::RegisterShard { .. }
@@ -1214,9 +1215,7 @@ pub mod pallet {
 			// unassign tasks
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				if let Some(task) = Tasks::<T>::get(task_id) {
-					Self::add_unassigned_task(network, task.function, task_id);
-				}
+				Self::add_unassigned_task(network, task_id);
 			});
 			Self::unregister_shard(shard_id, network);
 		}

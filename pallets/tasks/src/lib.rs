@@ -29,11 +29,9 @@ pub mod pallet {
 	use time_primitives::{
 		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
 		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
-		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskPhase, TaskResult,
+		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskIndex, TaskPhase, TaskResult,
 		TasksInterface, TransferStake, TssSignature,
 	};
-
-	type TaskIndex = u64;
 
 	pub trait WeightInfo {
 		fn create_task(input_length: u32) -> Weight;
@@ -156,7 +154,7 @@ pub mod pallet {
 		Blake2_128Concat,
 		NetworkId,
 		Blake2_128Concat,
-		u64,
+		TaskIndex,
 		TaskId,
 		OptionQuery,
 	>;
@@ -174,11 +172,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type UASystemTasksInsertIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
 	#[pallet::storage]
 	pub type UASystemTasksRemoveIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
 	#[pallet::storage]
 	pub type UATasksInsertIndex<T: Config> =
@@ -1035,7 +1033,12 @@ pub mod pallet {
 			}
 		}
 
-		fn assign_task(network: NetworkId, shard_id: ShardId, task_index: u64, task_id: TaskId) {
+		fn assign_task(
+			network: NetworkId,
+			shard_id: ShardId,
+			task_index: TaskIndex,
+			task_id: TaskId,
+		) {
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 			}

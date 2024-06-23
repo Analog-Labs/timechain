@@ -2,7 +2,7 @@ use crate::{Config, TaskPhaseState, Tasks, UATaskIndex};
 use core::marker::PhantomData;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
 use sp_runtime::Saturating;
-use time_primitives::{NetworkId, TaskId, TaskPhase};
+use time_primitives::{NetworkId, TaskId, TaskIndex, TaskPhase};
 
 pub trait TaskQ<T: Config> {
 	/// Return the next `n` assignable tasks.
@@ -10,26 +10,26 @@ pub trait TaskQ<T: Config> {
 	/// Push an item onto the end of the queue.
 	fn push(&self, task_id: TaskId);
 	/// Remove an item from the queue.
-	fn remove(&mut self, index: u64);
+	fn remove(&mut self, index: TaskIndex);
 }
 
 pub struct TaskQueue<InsertIndex, RemoveIndex, Queue>
 where
-	InsertIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
+	InsertIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
+	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
+	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
 {
 	network: NetworkId,
-	insert: u64,
-	remove: u64,
+	insert: TaskIndex,
+	remove: TaskIndex,
 	_phantom: PhantomData<(InsertIndex, RemoveIndex, Queue)>,
 }
 
 impl<InsertIndex, RemoveIndex, Queue> TaskQueue<InsertIndex, RemoveIndex, Queue>
 where
-	InsertIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
+	InsertIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
+	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
+	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
 {
 	pub fn new(n: NetworkId) -> TaskQueue<InsertIndex, RemoveIndex, Queue> {
 		let (insert, remove) = (InsertIndex::get(n).unwrap_or(0), RemoveIndex::get(n).unwrap_or(0));
@@ -45,9 +45,9 @@ where
 impl<T: Config, InsertIndex, RemoveIndex, Queue> TaskQ<T>
 	for TaskQueue<InsertIndex, RemoveIndex, Queue>
 where
-	InsertIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	RemoveIndex: StorageMap<NetworkId, u64, Query = Option<u64>>,
-	Queue: StorageDoubleMap<NetworkId, u64, TaskId, Query = Option<TaskId>>,
+	InsertIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
+	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
+	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
 {
 	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)> {
 		(self.remove..self.insert)
@@ -70,7 +70,7 @@ where
 		UATaskIndex::<T>::insert(task_id, self.insert);
 		InsertIndex::insert(self.network, self.insert.saturating_plus_one());
 	}
-	fn remove(&mut self, index: u64) {
+	fn remove(&mut self, index: TaskIndex) {
 		if self.remove >= self.insert {
 			return;
 		}

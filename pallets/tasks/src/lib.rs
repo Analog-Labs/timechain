@@ -960,15 +960,9 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			// let Some(task) = Tasks::<T>::get(task_id) else {
-			// 	return;
-			// };
-			// Self::add_unassigned_task(task_network, task.function, task_id);
-			// TODO: rewrite this PART FUCK MY LIFE
-			// let task_index = UATaskIndex::<T>::get(task_id);
-			// if let Some(task_index) = task_index {
-			// 	Self::remove_unassigned_task(task_network, task_index);
-			// }
+			if let Some(task_index) = UATaskIndex::<T>::take(task_id) {
+				Self::remove_unassigned_task(task_network, task_index, task_id);
+			}
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);
@@ -1186,7 +1180,7 @@ pub mod pallet {
 			}
 		}
 
-		pub fn remove_unassigned_task(network: NetworkId, task_index: u64, task_id: TaskId) {
+		pub fn remove_unassigned_task(network: NetworkId, task_index: TaskIndex, task_id: TaskId) {
 			let Some(task) = Tasks::<T>::get(task_id) else { return };
 			match task.function {
 				// system tasks

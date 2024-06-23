@@ -1,15 +1,15 @@
-use crate::{Config, TaskPhaseState, Tasks};
+use crate::{Config, TaskPhaseState, Tasks, UATaskIndex};
 use core::marker::PhantomData;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
 use sp_runtime::Saturating;
 use time_primitives::{NetworkId, TaskId, TaskPhase};
 
 pub trait TaskQ<T: Config> {
-	/// Return the next `n` assignable tasks
+	/// Return the next `n` assignable tasks.
 	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)>;
 	/// Push an item onto the end of the queue.
 	fn push(&self, task_id: TaskId);
-	/// Remove an item from the queue
+	/// Remove an item from the queue.
 	fn remove(&mut self, index: u64);
 }
 
@@ -65,12 +65,11 @@ where
 			.take(n)
 			.collect::<Vec<_>>()
 	}
-	/// Push an item onto the end of the queue.
 	fn push(&self, task_id: TaskId) {
 		Queue::insert(self.network, self.insert, task_id);
+		UATaskIndex::<T>::insert(task_id, self.insert);
 		InsertIndex::insert(self.network, self.insert.saturating_plus_one());
 	}
-	/// Remove an item from the queue
 	fn remove(&mut self, index: u64) {
 		if self.remove >= self.insert {
 			return;

@@ -24,6 +24,7 @@ pub mod pallet {
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
 	};
+	use sp_std::boxed::Box;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{

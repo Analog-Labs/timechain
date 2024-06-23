@@ -95,7 +95,7 @@ jobs:
     - name: Checkout pull request
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
+        ref: ${{ github.event.pull_request.base.ref }}
     - name: Download and update Testnet Metadata
       uses: actions/download-artifact@v4
       with:

@@ -22,8 +22,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  setup:
+    runs-on: [self-hosted-timechain]
+    steps:
+    - name: Install dependencies
+      # NOTE: commented because deps are preinstalled
+      if: false
+      run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
+    - name: Install rust toolchain
+      run : rustup show
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Cache cargo registry and index
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-cache-timechain-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-cache-timechain-
+
   build-timechain:
     runs-on: [self-hosted-timechain]
+    needs: [setup]
     strategy:
       fail-fast: false
       matrix:
@@ -37,28 +62,15 @@ jobs:
         - profile: testnet
           features: try-runtime
     steps:
-    - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
     - name: Checkout sources
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         submodules: recursive
-    - name: Install rust toolchain
-      run : rustup show
     - name: Setup and cache sccache
       uses: visvirial/sccache-action@v1.0.1
       with:
         cache-key: sccache-timechain-${{ matrix.profile }}
-    - name: Cache cargo registry and index
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-        key: cargo-cache-timechain-${{ hashFiles('Cargo.lock') }}
-        restore-keys: cargo-cache-timechain-
     - name: Cache cargo build output
       uses: actions/cache@v3
       with:

@@ -3,7 +3,7 @@ use crate::{
 	Error, Event, Gateway, NetworkBatchSize, NetworkOffset, NetworkReadReward,
 	NetworkSendMessageReward, NetworkShards, NetworkWriteReward, ShardRegistered, ShardTaskLimit,
 	ShardTasks, SignerPayout, TaskHash, TaskIdCounter, TaskOutput, TaskPhaseState,
-	TaskRewardConfig, TaskSignature, TaskSigner, UnassignedTasks,
+	TaskRewardConfig, TaskSignature, TaskSigner, UnassignedSystemTasks, UnassignedTasks,
 };
 use frame_support::traits::Get;
 use frame_support::{assert_noop, assert_ok};
@@ -337,9 +337,10 @@ fn shard_offline_removes_tasks() {
 		Tasks::shard_online(1, ETHEREUM);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert_eq!(
-			UnassignedTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>(),
-			vec![3, 2]
+			UnassignedSystemTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>(),
+			vec![2, 3]
 		);
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
 
@@ -434,7 +435,8 @@ fn shard_offline_drops_failed_tasks() {
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_offline(0, ETHEREUM);
 		assert!(ShardTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
-		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
+		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
+		assert_eq!(UnassignedSystemTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
 	});
 }
 

@@ -44,7 +44,7 @@ jobs:
       with:
         cache-key: sccache-chronicle-${{ matrix.profile }}
     - name: Cache cargo registry and index
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -53,7 +53,7 @@ jobs:
         key: cargo-cache-chronicle-${{ hashFiles('Cargo.lock') }}
         restore-keys: cargo-cache-chronicle-
     - name: Cache cargo build output
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: target
         key: cargo-build-chronicle-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}

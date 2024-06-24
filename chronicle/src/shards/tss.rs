@@ -114,6 +114,13 @@ impl Tss {
 		}
 	}
 
+	pub fn on_start(&mut self, request_id: TssId) {
+		match self {
+			Self::Enabled(tss) => tss.on_start(request_id),
+			Self::Disabled(_, _, _) => {},
+		}
+	}
+
 	pub fn on_sign(&mut self, request_id: TssId, data: Vec<u8>) {
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
@@ -131,12 +138,13 @@ impl Tss {
 		}
 	}
 
-	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<Option<TssMessage>> {
+	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<()> {
 		let peer_id = TssPeerId::new(peer_id)?;
-		Ok(match self {
-			Self::Enabled(tss) => tss.on_message(peer_id, msg),
-			Self::Disabled(_, _, _) => None,
-		})
+		match self {
+			Self::Enabled(tss) => tss.on_message(peer_id, msg)?,
+			Self::Disabled(_, _, _) => {},
+		};
+		Ok(())
 	}
 
 	pub fn next_action(&mut self, tss_keyshare_path: &Path) -> Option<TssAction> {

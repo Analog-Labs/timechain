@@ -210,14 +210,7 @@ where
 					);
 					continue;
 				};
-				if let Some(payload) = tss.on_message(peer_id, msg)? {
-					let msg = Message {
-						shard_id,
-						block_number: 0,
-						payload,
-					};
-					self.send_message(&span, peer_id, msg);
-				}
+				tss.on_message(peer_id, msg)?;
 				self.poll_actions(&span, shard_id, n).await;
 			}
 		}
@@ -234,11 +227,11 @@ where
 				shard_id,
 				"running task executor"
 			);
-			let complete_sessions = match executor
+			let (start_sessions, complete_sessions) = match executor
 				.process_tasks(block, block_number, shard_id, self.block_height)
 				.await
 			{
-				Ok(complete_sessions) => complete_sessions,
+				Ok((start_sessions, complete_sessions)) => (start_sessions, complete_sessions),
 				Err(error) => {
 					event!(
 						target: TW_LOG,
@@ -257,6 +250,9 @@ where
 			for session in complete_sessions {
 				tss.on_complete(session);
 			}
+			for session in start_sessions {
+				tss.on_start(session);
+			}
 		}
 		Ok(())
 	}
@@ -273,7 +269,7 @@ where
 					for (peer, payload) in msgs {
 						let msg = Message {
 							shard_id,
-							block_number,
+							block_number: if payload.is_response() { 0 } else { block_number },
 							payload,
 						};
 						self.send_message(span, peer, msg);

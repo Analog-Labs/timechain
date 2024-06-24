@@ -13,7 +13,7 @@ use time_primitives::{
 	sp_core, AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
 	Function, MemberStatus, NetworkId, Payload, PeerId, ProofOfKnowledge, PublicKey, Runtime,
 	ShardId, ShardStatus, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash,
-	TssSignature, TssSigningRequest,
+	TssId, TssSignature, TssSigningRequest,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -201,12 +201,13 @@ impl Mock {
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		task_id: TaskId,
+		task_phase: TaskPhase,
 		payload: &[u8],
 	) -> Result<(TssHash, TssSignature)> {
 		if let Some(mut tss) = self.tss.clone() {
 			let (tx, rx) = oneshot::channel();
 			tss.send(TssSigningRequest {
-				request_id: task_id,
+				request_id: TssId::new(task_id, task_phase),
 				shard_id,
 				block_number,
 				data: payload.to_vec(),
@@ -447,8 +448,9 @@ impl TaskSpawner for Mock {
 		let payload = serde_json::to_string(&function).unwrap();
 		let spawner = self.clone();
 		Box::pin(async move {
-			let (hash, signature) =
-				spawner.tss_sign(block_num, shard_id, task_id, payload.as_bytes()).await?;
+			let (hash, signature) = spawner
+				.tss_sign(block_num, shard_id, task_id, TaskPhase::Read, payload.as_bytes())
+				.await?;
 			spawner
 				.submit_task_result_core(
 					task_id,
@@ -472,7 +474,9 @@ impl TaskSpawner for Mock {
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
 		let spawner = self.clone();
 		Box::pin(async move {
-			let (_hash, sig) = spawner.tss_sign(block_num, shard_id, task_id, &payload).await?;
+			let (_hash, sig) = spawner
+				.tss_sign(block_num, shard_id, task_id, TaskPhase::Sign, &payload)
+				.await?;
 			spawner.submit_task_signature_core(task_id, sig).await?;
 			Ok(())
 		})

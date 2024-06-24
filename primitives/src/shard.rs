@@ -1,6 +1,6 @@
 #[cfg(feature = "std")]
 use crate::BlockNumber;
-use crate::TaskId;
+use crate::{TaskId, TaskPhase};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
@@ -16,7 +16,26 @@ pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
 pub type Commitment = Vec<TssPublicKey>;
-pub type TssId = TaskId;
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct TssId {
+	task_id: TaskId,
+	task_phase: TaskPhase,
+}
+
+impl TssId {
+	pub fn new(task_id: TaskId, task_phase: TaskPhase) -> Self {
+		Self { task_id, task_phase }
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for TssId {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{}-{}", self.task_id, self.task_phase)
+	}
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {

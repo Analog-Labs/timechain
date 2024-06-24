@@ -105,16 +105,22 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.base.ref }}
     - name: Download and update Testnet Metadata
+      id: download-testnet-default-metadata
       uses: actions/download-artifact@v4
+      continue-on-error: true
       with:
         name: metadata_testnet_default
     - name: Download and Testnet Metadata
+      if: steps.download-testnet-default-metadata.outcome == 'success'
       run: mv timechain_runtime.metadata.scale config/subxt/testnet.default.scale
     - name: Download Development Metadata
+      id: download-testnet-development-metadata
       uses: actions/download-artifact@v4
+      continue-on-error: true
       with:
         name: metadata_testnet_development
     - name: Update Development Metadata
+      if: steps.download-testnet-development-metadata.outcome == 'success'
       run: mv timechain_runtime.metadata.scale config/subxt/testnet.development.scale
     - name: Commit any changes to the metadata 
       env:

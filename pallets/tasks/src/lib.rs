@@ -959,7 +959,7 @@ pub mod pallet {
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			if let Some(task_index) = UATaskIndex::<T>::take(task_id) {
+			if let Some(task_index) = UATaskIndex::<T>::get(task_id) {
 				Self::remove_unassigned_task(task_network, task_index, task_id);
 			}
 			TaskPhaseState::<T>::remove(task_id);

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use frost_evm::{
 	keys::{KeyPackage, PublicKeyPackage},
 	round1::{self, SigningCommitments, SigningNonces},
@@ -7,7 +6,7 @@ use frost_evm::{
 };
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct RoastSignerRequest {
@@ -24,21 +23,27 @@ pub struct RoastSignerResponse {
 
 struct RoastSigner {
 	key_package: KeyPackage,
-	data: Vec<u8>,
+	data: Option<Vec<u8>>,
 	coordinators: BTreeMap<Identifier, SigningNonces>,
+	requests: VecDeque<(Identifier, RoastSignerRequest)>,
 }
 
 impl RoastSigner {
-	pub fn new(key_package: KeyPackage, data: Vec<u8>) -> Self {
+	pub fn new(key_package: KeyPackage) -> Self {
 		Self {
 			key_package,
-			data,
+			data: None,
 			coordinators: Default::default(),
+			requests: Default::default(),
 		}
 	}
 
-	pub fn data(&self) -> &[u8] {
-		&self.data
+	pub fn set_data(&mut self, data: Vec<u8>) {
+		self.data = Some(data);
+	}
+
+	pub fn data(&self) -> Option<&[u8]> {
+		self.data.as_deref()
 	}
 
 	pub fn commit(&mut self, coordinator: Identifier) -> SigningCommitments {
@@ -47,24 +52,37 @@ impl RoastSigner {
 		commitment
 	}
 
-	pub fn sign(
-		&mut self,
-		coordinator: Identifier,
-		request: RoastSignerRequest,
-	) -> Result<RoastSignerResponse> {
-		let session_id = request.session_id;
-		let signing_package = SigningPackage::new(request.commitments, &self.data);
-		let nonces = self
-			.coordinators
-			.remove(&coordinator)
-			.expect("we sent the coordinator a commitment");
-		let signature_share = round2::sign(&signing_package, &nonces, &self.key_package)?;
-		let commitment = self.commit(coordinator);
-		Ok(RoastSignerResponse {
-			session_id,
-			signature_share,
-			commitment,
-		})
+	pub fn sign(&mut self, coordinator: Identifier, request: RoastSignerRequest) {
+		self.requests.push_back((coordinator, request));
+	}
+
+	pub fn message(&mut self) -> Option<(Identifier, RoastSignerResponse)> {
+		let data = self.data.as_deref()?;
+		loop {
+			let (coordinator, request) = self.requests.pop_front()?;
+			let session_id = request.session_id;
+			let signing_package = SigningPackage::new(request.commitments, data);
+			let nonces = self
+				.coordinators
+				.remove(&coordinator)
+				.expect("we sent the coordinator a commitment");
+			let signature_share = match round2::sign(&signing_package, &nonces, &self.key_package) {
+				Ok(ss) => ss,
+				Err(err) => {
+					tracing::error!("invalid signing package {err:?}");
+					continue;
+				},
+			};
+			let commitment = self.commit(coordinator);
+			return Some((
+				coordinator,
+				RoastSignerResponse {
+					session_id,
+					signature_share,
+					commitment,
+				},
+			));
+		}
 	}
 }
 
@@ -153,24 +171,32 @@ impl RoastCoordinator {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub enum RoastRequest {
+pub enum RoastMessage {
 	Commit(SigningCommitments),
 	Sign(RoastSignerRequest),
+	Signature(RoastSignerResponse),
 }
 
-impl std::fmt::Display for RoastRequest {
+impl RoastMessage {
+	pub fn is_response(&self) -> bool {
+		matches!(self, Self::Signature(_))
+	}
+}
+
+impl std::fmt::Display for RoastMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Commit(_) => write!(f, "commit"),
 			Self::Sign(_) => write!(f, "sign"),
+			Self::Signature(_) => write!(f, "signature"),
 		}
 	}
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RoastAction {
-	Send(Identifier, RoastRequest),
-	SendMany(Vec<Identifier>, RoastRequest),
+	Send(Identifier, RoastMessage),
+	SendMany(Vec<Identifier>, RoastMessage),
 	Complete([u8; 32], Signature),
 }
 
@@ -188,66 +214,68 @@ impl Roast {
 		threshold: u16,
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
-		data: Vec<u8>,
 		coordinators: BTreeSet<Identifier>,
 	) -> Self {
 		let is_coordinator = coordinators.contains(&id);
 		Self {
-			signer: RoastSigner::new(key_package, data),
+			signer: RoastSigner::new(key_package),
 			coordinator: if is_coordinator { Some(RoastCoordinator::new(threshold)) } else { None },
 			public_key_package,
 			coordinators,
 		}
 	}
 
-	pub fn on_request(
-		&mut self,
-		peer: Identifier,
-		request: RoastRequest,
-	) -> Result<Option<RoastSignerResponse>> {
-		match request {
-			RoastRequest::Commit(commitment) => {
-				if let Some(coordinator) = self.coordinator.as_mut() {
-					coordinator.on_commit(peer, commitment);
-					Ok(None)
-				} else {
-					anyhow::bail!("not coordinator");
-				}
-			},
-			RoastRequest::Sign(request) => Ok(Some(self.signer.sign(peer, request)?)),
-		}
+	pub fn set_data(&mut self, data: Vec<u8>) {
+		self.signer.set_data(data);
 	}
 
-	pub fn on_response(&mut self, peer: Identifier, response: RoastSignerResponse) {
-		if let Some(coordinator) = self.coordinator.as_mut() {
-			coordinator.on_response(peer, response);
+	pub fn on_message(&mut self, peer: Identifier, msg: RoastMessage) {
+		match msg {
+			RoastMessage::Commit(commitment) => {
+				if let Some(coordinator) = self.coordinator.as_mut() {
+					coordinator.on_commit(peer, commitment);
+				}
+			},
+			RoastMessage::Sign(request) => {
+				self.signer.sign(peer, request);
+			},
+			RoastMessage::Signature(response) => {
+				if let Some(coordinator) = self.coordinator.as_mut() {
+					coordinator.on_response(peer, response);
+				}
+			},
 		}
 	}
 
 	pub fn next_action(&mut self) -> Option<RoastAction> {
 		if let Some(coordinator) = self.coordinator.as_mut() {
-			if let Some(session) = coordinator.aggregate_signature() {
-				let signing_package = SigningPackage::new(session.commitments, self.signer.data());
-				if let Ok(signature) = frost_evm::aggregate(
-					&signing_package,
-					&session.signature_shares,
-					&self.public_key_package,
-				) {
-					let hash = VerifyingKey::message_hash(self.signer.data());
-					self.coordinator.take();
-					return Some(RoastAction::Complete(hash, signature));
+			if let Some(data) = self.signer.data() {
+				if let Some(session) = coordinator.aggregate_signature() {
+					let signing_package = SigningPackage::new(session.commitments, data);
+					if let Ok(signature) = frost_evm::aggregate(
+						&signing_package,
+						&session.signature_shares,
+						&self.public_key_package,
+					) {
+						let hash = VerifyingKey::message_hash(data);
+						self.coordinator.take();
+						return Some(RoastAction::Complete(hash, signature));
+					}
 				}
 			}
 			if let Some(request) = coordinator.start_session() {
 				let peers = request.commitments.keys().copied().collect();
-				return Some(RoastAction::SendMany(peers, RoastRequest::Sign(request)));
+				return Some(RoastAction::SendMany(peers, RoastMessage::Sign(request)));
 			}
 		}
 		if let Some(coordinator) = self.coordinators.pop_last() {
 			return Some(RoastAction::Send(
 				coordinator,
-				RoastRequest::Commit(self.signer.commit(coordinator)),
+				RoastMessage::Commit(self.signer.commit(coordinator)),
 			));
+		}
+		if let Some((coordinator, response)) = self.signer.message() {
+			return Some(RoastAction::Send(coordinator, RoastMessage::Signature(response)));
 		}
 		None
 	}
@@ -279,33 +307,25 @@ mod tests {
 						threshold,
 						KeyPackage::try_from(secret_share).unwrap(),
 						public_key_package.clone(),
-						data.to_vec(),
 						coordinators.clone(),
 					),
 				)
 			})
 			.collect();
 		let members: Vec<_> = roasts.keys().copied().collect();
+		for roast in roasts.values_mut() {
+			roast.set_data(data.into());
+		}
 		loop {
 			for from in &members {
 				if let Some(action) = roasts.get_mut(from).unwrap().next_action() {
 					match action {
 						RoastAction::Send(to, commitment) => {
-							if let Some(response) =
-								roasts.get_mut(&to).unwrap().on_request(*from, commitment)?
-							{
-								roasts.get_mut(from).unwrap().on_response(to, response);
-							}
+							roasts.get_mut(&to).unwrap().on_message(*from, commitment);
 						},
 						RoastAction::SendMany(peers, request) => {
 							for to in peers {
-								if let Some(response) = roasts
-									.get_mut(&to)
-									.unwrap()
-									.on_request(*from, request.clone())?
-								{
-									roasts.get_mut(from).unwrap().on_response(to, response);
-								}
+								roasts.get_mut(&to).unwrap().on_message(*from, request.clone());
 							}
 						},
 						RoastAction::Complete(_hash, _signature) => {

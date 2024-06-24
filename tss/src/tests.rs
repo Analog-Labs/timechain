@@ -1,6 +1,6 @@
 use crate::{
 	sum_commitments, verify_proof_of_knowledge, Identifier, ToFrostIdentifier, Tss, TssAction,
-	TssMessage, TssRequest, TssResponse,
+	TssMessage,
 };
 use frost_evm::{Signature, VerifyingKey};
 use std::collections::{BTreeMap, BTreeSet};
@@ -47,32 +47,20 @@ impl TssEvents {
 	}
 }
 
-type RequestFaultInjector = Box<dyn FnMut(Peer, Peer, TssRequest<Id>) -> Option<TssRequest<Id>>>;
-type ResponseFaultInjector = Box<dyn FnMut(Peer, Peer, TssResponse<Id>) -> Option<TssResponse<Id>>>;
+type FaultInjector = Box<dyn FnMut(Peer, Peer, TssMessage<Id>) -> Option<TssMessage<Id>>>;
 
 struct TssTester {
 	tss: Vec<Tss<Id, Peer>>,
 	events: TssEvents,
-	request_fault_injector: RequestFaultInjector,
-	response_fault_injector: ResponseFaultInjector,
+	fault_injector: FaultInjector,
 }
 
 impl TssTester {
 	pub fn new(n: usize, t: usize) -> Self {
-		Self::new_with_fault_injector(
-			n,
-			t,
-			Box::new(|_, _, msg| Some(msg)),
-			Box::new(|_, _, msg| Some(msg)),
-		)
+		Self::new_with_fault_injector(n, t, Box::new(|_, _, msg| Some(msg)))
 	}
 
-	pub fn new_with_fault_injector(
-		n: usize,
-		t: usize,
-		request_fault_injector: RequestFaultInjector,
-		response_fault_injector: ResponseFaultInjector,
-	) -> Self {
+	pub fn new_with_fault_injector(n: usize, t: usize, fault_injector: FaultInjector) -> Self {
 		let members = (0..n).map(|i| Peer(i as _)).collect::<BTreeSet<_>>();
 		let mut tss = Vec::with_capacity(n);
 		for i in 0..n {
@@ -81,12 +69,14 @@ impl TssTester {
 		Self {
 			tss,
 			events: Default::default(),
-			request_fault_injector,
-			response_fault_injector,
+			fault_injector,
 		}
 	}
 
 	pub fn sign(&mut self, id: u8, data: &[u8]) {
+		for tss in &mut self.tss {
+			tss.on_start(id);
+		}
 		for tss in &mut self.tss {
 			tss.on_sign(id, data.to_vec());
 		}
@@ -115,23 +105,13 @@ impl TssTester {
 						},
 						TssAction::Send(msgs) => {
 							for (to, msg) in msgs {
-								let TssMessage::Request(msg) = msg else {
-									continue;
-								};
-								if let Some(msg) = (self.request_fault_injector)(from, to, msg) {
-									let msg = match self.tss[to.0 as usize].on_request(from, msg) {
+								if let Some(msg) = (self.fault_injector)(from, to, msg) {
+									match self.tss[to.0 as usize].on_message(from, msg) {
 										Ok(msg) => msg,
 										Err(error) => {
 											tracing::error!("request error {}", error);
 											continue;
 										},
-									};
-									let Some(msg) = msg else {
-										continue;
-									};
-									if let Some(msg) = (self.response_fault_injector)(to, from, msg)
-									{
-										self.tss[from.0 as usize].on_response(to, msg);
 									}
 								}
 							}

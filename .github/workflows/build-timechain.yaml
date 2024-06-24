@@ -67,10 +67,6 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         submodules: recursive
-    - name: Setup and cache sccache
-      uses: visvirial/sccache-action@v1.0.1
-      with:
-        cache-key: sccache-timechain-${{ matrix.profile }}
     - name: Cache cargo build output
       uses: actions/cache@v3
       with:

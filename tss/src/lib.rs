@@ -212,7 +212,7 @@ where
 	}
 
 	pub fn on_start(&mut self, id: I) {
-		tracing::debug!("{} start {}", self.peer_id, id);
+		tracing::info!("{} start {}", self.peer_id, id);
 		match &mut self.state {
 			TssState::Roast {
 				key_package,

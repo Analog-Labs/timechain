@@ -1,8 +1,8 @@
 ##########################################################
 #
 #  Workflow for building the tester image. It's a CLI tool
-#  used in deployment scripts and apps. The tester CLI 
-#  image includes the tester binary and the compiled 
+#  used in deployment scripts and apps. The tester CLI
+#  image includes the tester binary and the compiled
 #  contracts.
 #
 ##########################################################
@@ -73,7 +73,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Build contracts
-        run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --use=0.8.24 --force
+        run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
       - name: Build tester
         run: cargo build --release -p tester
       - name: Copy contracts

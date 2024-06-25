@@ -15,6 +15,7 @@ futures = { workspace = true, optional = true }
 log.workspace = true
 serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
+scale-decode.workspace = true
 scale-info.workspace = true
 
 alloy-primitives = { version = "0.6.4", default-features = false }

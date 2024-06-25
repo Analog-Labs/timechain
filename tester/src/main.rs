@@ -8,14 +8,12 @@ use std::str::FromStr;
 use std::time::Duration;
 use sysinfo::System;
 use tc_subxt::ext::futures::{FutureExt, StreamExt};
-use tc_subxt::timechain_runtime::runtime_types::time_primitives::task::Payload;
-use tc_subxt::timechain_runtime::tasks::events;
-use tc_subxt::SubxtClient;
+use tc_subxt::{events, MetadataVariant, SubxtClient};
 use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
 	test_setup, wait_for_gmp_calls, ChainNetwork, GmpBenchState, Tester, VotingContract,
 };
-use time_primitives::ShardId;
+use time_primitives::{Payload, ShardId};
 use tokio::time::{interval_at, Instant};
 
 // 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
@@ -28,6 +26,8 @@ const CHRONICLE_KEYFILES: [&str; 3] = ["/etc/keyfile1", "/etc/keyfile2", "/etc/k
 struct Args {
 	#[arg(long, default_values = ["3;ws://ethereum:8545", "6;ws://astar:9944"])]
 	network: Vec<ChainNetwork>,
+	#[arg(long)]
+	timechain_metadata: Option<MetadataVariant>,
 	#[arg(long, default_value = "/etc/alice")]
 	timechain_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://validator:9944")]
@@ -109,7 +109,12 @@ enum Environment {
 async fn main() -> Result<()> {
 	tracing_subscriber::fmt::init();
 	let args = Args::parse();
-	let runtime = tester::subxt_client(&args.timechain_keyfile, &args.timechain_url).await?;
+	let runtime = tester::subxt_client(
+		&args.timechain_keyfile,
+		args.timechain_metadata.unwrap_or_default(),
+		&args.timechain_url,
+	)
+	.await?;
 	let mut tester = Vec::with_capacity(args.network.len());
 	let mut chronicles = vec![];
 	for network in &args.network {

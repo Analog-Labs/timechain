@@ -6,6 +6,7 @@ use futures::channel::mpsc;
 use futures::stream::BoxStream;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tc_subxt::MetadataVariant;
 use time_primitives::{NetworkId, Runtime, TssSigningRequest};
 use tracing::{event, span, Level};
 
@@ -27,6 +28,7 @@ pub struct ChronicleConfig {
 	pub network_id: NetworkId,
 	pub network_keyfile: Option<PathBuf>,
 	pub network_port: Option<u16>,
+	pub timechain_metadata: MetadataVariant,
 	pub timechain_url: String,
 	pub timechain_keyfile: PathBuf,
 	pub target_url: String,

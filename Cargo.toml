@@ -44,8 +44,9 @@ serde_json = { version = "1.0.117", default-features = false }
 tokio = "1.38.0"
 tracing = "0.1.40"
 
-scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
 scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [ "derive" ] }
+scale-decode = { version = "0.13.1", default-features = false, features = [ "derive" ] }
+scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
 
 polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 

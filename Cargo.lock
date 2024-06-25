@@ -277,6 +277,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "analog-docs"
+version = "0.1.0"
+dependencies = [
+ "chronicle",
+ "pallet-elections",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "pallet-timegraph",
+ "timechain-node",
+ "timechain-runtime",
+]
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10536,6 +10551,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
+ "simple-mermaid",
  "sp-core 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-io 30.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-runtime 31.0.1 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",

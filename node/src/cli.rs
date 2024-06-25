@@ -33,7 +33,7 @@ pub struct Cli {
 
 #[cfg(feature = "chronicle")]
 #[derive(Debug, clap::Parser)]
-/// workaround for https://github.com/clap-rs/clap/issues/5092
+/// workaround for <https://github.com/clap-rs/clap/issues/5092>
 #[group(requires_all = ["network_id", "target_url", "target_keyfile", "timechain_keyfile"], multiple = true)]
 pub struct ChronicleArgs {
 	/// The network to be used from Analog Connector.

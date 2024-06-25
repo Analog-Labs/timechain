@@ -1,4 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+//! # Timechain Task Pallet
+//!
+//! Handles individual task sheduling
+//!
+#![doc = simple_mermaid::mermaid!("../docs/tasks_tb.mmd")]
+//!
+//! Additional left-to-right graph.
+//!
+#![doc = simple_mermaid::mermaid!("../docs/tasks_lr.mmd")]
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -483,7 +492,21 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Register gateway
+		/// Registers a new gateway for a network.
+		///
+		/// # Flow
+		///    1. Ensure the origin of the transaction is a root user.
+		///    2. Check if the bootstrap shard is online.
+		///    3. Retrieve the network associated with the bootstrap shard.
+		///    4. Unregister all shards in the network.
+		///    5. Register the bootstrap shard.
+		///    6. Re-register all other shards in the network.
+		///    7. Check if a gateway was already registered for the network.
+		///    8. Register the new gateway address.
+		///    9. Emit a [`Event::GatewayRegistered`] event.
+		///   10. If no gateway was previously registered, calculate the next block height and batch size for message reception.
+		///   11. Receive messages for the network.
+		///   12. Schedule tasks for the network.
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::register_gateway())]
 		pub fn register_gateway(
@@ -599,6 +622,14 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Resets a specified number of tasks.
+		///
+		/// # Flow
+		///  1. Ensure the origin of the transaction is a root user.
+		///  2. Iterate over [`TaskShard`] storage to remove entries and add them to [`UnassignedTasks`] until the specified maximum is reached.
+		///  3. Iterate over [`UnassignedTasks`] storage to reset the task phase state until the specified maximum is reached.
+		///  4. Iterate over [`NetworkShards`] storage to schedule tasks for the network and shard.
+		///  5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks(*max))]
 		pub fn reset_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {

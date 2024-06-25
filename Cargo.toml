@@ -12,6 +12,7 @@ repository = "https://github.com/Analog-Labs/timechain"
 resolver = "2"
 members = [
 	"chronicle",
+	"docs",
 	"node",
 	"pallets/elections",
 	"pallets/members",
@@ -56,6 +57,8 @@ polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
+
+simple-mermaid = "0.1"
 
 [profile.release]
 # Runtime requires unwinding.

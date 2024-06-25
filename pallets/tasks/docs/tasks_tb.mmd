@@ -1,0 +1,165 @@
+graph TB;
+    %% Task Creation
+    A[Create Task] --> L{Shard Online};
+    L -->|Shard Not Online| SSF[Failure State];
+    L -->|Success| B[Unassigned Task];
+    
+    %% Task Assignment and Execution
+    B --> C{Task Scheduled?};
+    C -->|Yes| D[Assign Task to Shard] --> DD["Create Task ID"];
+    DD --> E[Set Initial Phase];
+    
+    
+    E --> CE[Calculate Rewards]
+    CE --> CF[Determine Required Funds]
+
+    CF --> CJ{Task Funder Type}
+    CJ -->|Account| CK[Check and Transfer Funds]
+    CK -->|Insufficient Funds| CL[Use Required Funds]
+    CJ -->|Shard| CM[Distribute Funds to Shard Members]
+    CJ -->|Inflation| CN[Issue Required Funds]
+    
+    
+    CF --> F{Task Execution};
+    F --> W[Sign Phase];
+    W --> SI{Check Signature};
+    
+    %% Task Signature Verification
+    SI -->|Correct| SN{Task ID and Phase check};
+    SI -->|Invalid| SX[Failure State];
+    SN -->|Valid Task and Sign Phase| SM{Verify Signer};
+    SN -->|Invalid| SX;
+    SM -->|Expected Signer| SO{Shard ID check};
+    SM -->|Invalid Signer| SX;
+    SO -->|Assigned Shard| SP[GMP MSG Hash];
+    SO -->|Unassigned Shard| SX;
+    SP -->|Valid Signatures| G[Write Phase];
+    SP -->|Invalid Signatures| SX;
+
+    %% Task Hash Verification
+    G --> WI{Verify Hash};
+    WI -->|Correct| WN{Task ID and Phase check};
+    WI -->|Invalid| WX[Failure State];
+    WN -->|Valid Task and Write Phase| WM{Verify Signer};
+    WN -->|Invalid| WX;
+    WM -->|Expected Signer| WO{Shard ID check};
+    WM -->|Invalid Signer| WX;
+    WO -->|Assigned Shard| WH[Snapshot Write Reward];
+    WO -->|Unassigned Shard| WX;
+    WH --> WV{Verify Hash};
+    WV -->|Valid Hash| H[Start Read Phase];
+    WV -->|Invalid Hash| WX;
+
+    %% Task Result Check
+    H --> I{Check Signature};
+    I -->|Correct| N{Task ID and Phase check};
+    I -->|Invalid| X[Failure State];
+    N -->|Valid Task and Read Phase| M{Task Output Check};
+    N -->|Invalid| X;
+    M -->|Not submitted before| O{Shard ID check};
+    M -->|Result Submitted Before| X;
+    O -->|Assigned Shard| P[Finish Task];
+    O -->|Unassigned Shard| X;
+
+    %% Reward Payout
+    P --> PP[Remove Task from Shards Tasks]--> Q[Reward Payout];
+    
+    %% Task Reset and Unregistration
+    R[Reset Tasks] --> RT1;
+    T[Add Unassigned Tasks];
+    RT8 --> B
+    T --> B;
+    U[Unregister Gateways] --> U2[Clear Gateway and Shard Data];
+    U13 --> T;
+    
+    
+        %% Unregister Gateways Process
+    subgraph Unregister Gateways
+        U2[Ensure root user];
+        U2 --> U3[Clear specified number of gateways];
+        U3 --> U4[Clear all registered shards];
+        U4 --> U5[Filter and process tasks];
+        
+        U5 --> U6{Task Loop};
+        U6 -->|Unassigned Tasks| U7[Iterate over Unassigned Tasks];
+        U7 --> U8[Check task function];
+        U8 --> U9[Task Status];
+       
+        
+        U6 -->|Shard Tasks| U10[Iterate over Shard Tasks];
+        U10 --> U11[Check task function];
+        U11 --> U9;
+        
+
+        U9 --> U13[Return Ok];
+
+        %% Error Handling
+        U9 -->|ReadMessages| U14[Log Error and Return];
+    end
+
+		%% Reset Task Flow
+	subgraph Reset Task;
+    RT1[Ensure Root];
+    RT1 -->|Yes| RT2[Continue];
+    RT1 -->|No| RT3[Failure State];
+    
+    %% Reset Unassigned Tasks
+    RT2 --> RT10["Iterate over unassigned tasks"];
+    RT10 --> RT11{reset < max?};
+    RT11 -->|Yes| RT12["Get Task ID"];
+    RT12 -->|Exists| RT13[Reset TaskPhaseState ];
+    RT13 -->|Initial Phase| RT14[reset += 1];
+    RT14 --> RT2
+    RT11 -->|No| RT15[Stop Iteration];
+
+    %% Reset Tasks Associated with Specific Shards
+    RT2 --> RT4["Iterate over task shards"];
+    RT4 --> RT5{to_be_reset < max?};
+    RT5 -->|Yes| RT6[Remove Tasks from Shard Tasks];
+    RT6 --> RT7[Get Task ID];
+    RT7 -->|Exists| RT8[Add to UnassignedTasks];
+    RT8 -->|Success| RT9[to_be_reset += 1];
+    RT9 --> RT2
+    RT5 -->|No| RT15[Stop Iteration];
+	end
+
+    %% Error Handling and Retrying
+    F -->|Timeout/Error| K[Retry/Cancel Task];
+    K -->|Retry| B;
+    
+
+    %% Styles
+    style A fill:#9f9,stroke:#333,stroke-width:2px;
+    style B fill:#9f9,stroke:#333,stroke-width:2px;
+    style C fill:#f9f,stroke:#333,stroke-width:2px;
+    style D fill:#f9f,stroke:#333,stroke-width:2px;
+    style DD fill:#f9f,stroke:#333,stroke-width:2px;
+    style E fill:#f9f,stroke:#333,stroke-width:2px;
+    style CF fill:#f9f,stroke:#333,stroke-width:2px;
+    style CE fill:#f9f,stroke:#333,stroke-width:2px;
+    style F fill:#f9f,stroke:#333,stroke-width:2px;
+    style W fill:#f9f,stroke:#333,stroke-width:2px;
+    style G fill:#f9f,stroke:#333,stroke-width:2px;
+    style H fill:#f9f,stroke:#333,stroke-width:2px;
+    style I fill:#f9f,stroke:#333,stroke-width:2px;
+    style L fill:#f9f,stroke:#333,stroke-width:2px;
+    style M fill:#f9f,stroke:#333,stroke-width:2px;
+    style N fill:#f9f,stroke:#333,stroke-width:2px;
+    style O fill:#f9f,stroke:#333,stroke-width:2px;
+    style P fill:#f9f,stroke:#333,stroke-width:2px;
+    style Q fill:#f9f,stroke:#333,stroke-width:2px;
+    style R fill:#f9f,stroke:#333,stroke-width:2px;
+    style U6 fill:#f9f,stroke:#333,stroke-width:2px;
+    style T fill:#f9f,stroke:#333,stroke-width:2px;
+    style U fill:#f9f,stroke:#333,stroke-width:2px;
+    style K fill:#f96,stroke:#333,stroke-width:2px;
+    style SSF fill:#f96,stroke:#333,stroke-width:2px;
+    style SX fill:#f96,stroke:#333,stroke-width:2px;
+    style WX fill:#f96,stroke:#333,stroke-width:2px;
+
+    style RT2 fill:#9f9,stroke:#333,stroke-width:2px;
+    style RT3 fill:#f96,stroke:#333,stroke-width:2px;
+    style RT1 fill:#f9f,stroke:#333,stroke-width:2px;
+    style RT5 fill:#f9f,stroke:#333,stroke-width:2px;
+    style RT11 fill:#f9f,stroke:#333,stroke-width:2px;
+    style U14 fill:#f96,stroke:#333,stroke-width:2px;

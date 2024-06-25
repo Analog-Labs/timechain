@@ -37,11 +37,15 @@ First, complete the [Dev Docs Installation](https://docs.substrate.io/v3/getting
 
 ### Build and Run
 
-Use the following command to build the node and run it after build successfully:
+Init git submodules:
+```sh
+git submodule update --init --recursive
+```
 
+Use the following command to build the node and run it after build successfully:
 ```sh
 cargo build --release
-./target/release/timechain-node 
+./target/release/timechain-node
 ```
 
 ## Run Using Docker
@@ -97,7 +101,7 @@ Use the "Prettify JSON" option to improve readability in Grafana or the raw logc
   ```shell
       ./target/release/timechnode --base-path /tmp/bootnode01 --chain ./timechain-staging.json --port 30333 --ws-port 9945 --rpc-port 9933 --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" --validator --rpc-methods Unsafe --name BootNode01
   ```
-  
+
 * [Insert session keys](https://substrate.dev/docs/en/tutorials/start-a-private-network/customchain#add-keys-to-keystore)
 
 * Start your initial validators,

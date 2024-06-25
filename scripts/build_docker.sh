@@ -39,7 +39,7 @@ fi
 # Build docker image
 cargo build -p timechain-node -p chronicle -p tester --target "$rustTarget" --release
 cp tester/contracts/test_contract.sol analog-gmp/src/
-forge build --root analog-gmp --optimize --optimizer-runs=200000 --use=0.8.24 --force
+forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
 rm -rf target/docker
 mkdir -p target/docker
 

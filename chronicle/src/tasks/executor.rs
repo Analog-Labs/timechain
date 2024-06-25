@@ -60,7 +60,7 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<Vec<TssId>> {
+	) -> Result<(Vec<TssId>, Vec<TssId>)> {
 		tracing::span!(target: TW_LOG, tracing::Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
 		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
 			.await
@@ -95,8 +95,9 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<Vec<TssId>> {
+	) -> Result<(Vec<TssId>, Vec<TssId>)> {
 		// get task metadata from runtime
+		let mut start_sessions = vec![];
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
 		tracing::debug!("debug_latency Current Tasks Under processing: {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
@@ -264,6 +265,7 @@ where
 			// Metrics: Increase number of running tasks
 			self.task_counter_metric.inc(&phase, &function_metric_clone);
 			let counter = self.task_counter_metric.clone();
+			start_sessions.push(TssId::new(task_id, phase));
 
 			let handle = tokio::task::spawn(async move {
 				match task.await {
@@ -305,11 +307,11 @@ where
 					tracing::debug!("Task {} aborted", x.task_id);
 					handle.abort();
 				}
-				completed_sessions.push(x.task_id);
+				completed_sessions.push(TssId::new(x.task_id, x.phase));
 				false
 			}
 		});
-		Ok(completed_sessions)
+		Ok((start_sessions, completed_sessions))
 	}
 
 	///

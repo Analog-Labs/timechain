@@ -17,8 +17,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskId, TaskResult, TssHash,
-	TssSignature, TssSigningRequest,
+	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskId, TaskPhase, TaskResult,
+	TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use time_primitives::{IGateway, Msg};
 use tokio::sync::Mutex;
@@ -194,13 +194,14 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		task_id: TaskId,
+		task_phase: TaskPhase,
 		payload: &[u8],
 	) -> Result<(TssHash, TssSignature)> {
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
 			.send(TssSigningRequest {
-				request_id: task_id,
+				request_id: TssId::new(task_id, task_phase),
 				shard_id,
 				block_number,
 				data: payload.to_vec(),
@@ -229,8 +230,9 @@ where
 			Err(payload) => Payload::Error(payload),
 		};
 		tracing::debug!("debug_latency:{} sending read payloa dor signing", task_id);
-		let (_, signature) =
-			self.tss_sign(block_num, shard_id, task_id, &payload.bytes(task_id)).await?;
+		let (_, signature) = self
+			.tss_sign(block_num, shard_id, task_id, TaskPhase::Read, &payload.bytes(task_id))
+			.await?;
 		let result = TaskResult { shard_id, payload, signature };
 		tracing::debug!("debug_latency:{} submitting task result", task_id);
 		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
@@ -274,7 +276,9 @@ where
 		payload: Vec<u8>,
 		block_number: u32,
 	) -> Result<()> {
-		let (_, sig) = self.tss_sign(block_number, shard_id, task_id, &payload).await?;
+		let (_, sig) = self
+			.tss_sign(block_number, shard_id, task_id, TaskPhase::Sign, &payload)
+			.await?;
 		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
 			tracing::error!("Error submitting task signature{:?}", e);
 		}

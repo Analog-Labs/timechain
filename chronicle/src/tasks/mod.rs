@@ -46,5 +46,5 @@ pub trait TaskExecutor {
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<Vec<TssId>>;
+	) -> Result<(Vec<TssId>, Vec<TssId>)>;
 }

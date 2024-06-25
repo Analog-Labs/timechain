@@ -148,7 +148,7 @@ impl TaskDescriptorParams {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TaskPhase {
 	Sign,
 	Write,

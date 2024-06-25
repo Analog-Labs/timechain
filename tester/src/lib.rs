@@ -2,18 +2,17 @@ use alloy_primitives::{Address, U256};
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::ext::types::ext::rlp::RlpStream;
 use rosetta_config_ethereum::{
 	AtBlock, CallContract, CallResult, GetTransactionCount, SubmitResult,
 };
 use schnorr_evm::SigningKey;
-use sha3::Digest;
 use sp_core::crypto::Ss58Codec;
 use std::collections::HashMap;
 use std::future::Future;
 use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
 use tc_subxt::ext::futures::future::join_all;
@@ -54,7 +53,7 @@ pub struct ChainNetwork {
 	pub url: String,
 }
 
-impl std::str::FromStr for ChainNetwork {
+impl FromStr for ChainNetwork {
 	type Err = anyhow::Error;
 
 	fn from_str(network: &str) -> Result<Self> {
@@ -162,12 +161,45 @@ impl Tester {
 		self.deploy(&self.gateway_contract, call).await
 	}
 
-	pub async fn deploy_proxy(&self, implementation: Address) -> Result<(EthContractAddress, u64)> {
-		let call = GatewayProxy::constructorCall {
-			implementation,
-			initializer: vec![],
-		};
-		self.deploy(&self.proxy_contract, call).await
+	pub async fn deploy_proxy(
+		&self,
+		implementation: Address,
+		proxy_addr: Address,
+		admin: Address,
+		tss_public_key: Vec<TssPublicKey>,
+	) -> Result<(EthContractAddress, u64)> {
+		// Build the Gateway initializer
+		let tss_keys: Vec<TssKeyR> = tss_public_key
+			.into_iter()
+			.map(|key| {
+				let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
+				let x_coords = hex::encode(&key[1..]);
+				TssKeyR {
+					yParity: parity_bit,
+					xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
+				}
+			})
+			.collect();
+		let initializer = Gateway::initializeCall {
+			admin: admin.into_array().into(),
+			keys: tss_keys,
+			networks: vec![Network {
+				id: self.network_id,
+				gateway: proxy_addr.into_array().into(),
+			}],
+		}
+		.abi_encode();
+
+		// Deploy the proxy contract
+		let call = GatewayProxy::constructorCall { implementation, initializer };
+		let (actual_addr, block_number) = self.deploy(&self.proxy_contract, call).await?;
+
+		// Check if the proxy address match the expect address
+		let actual_addr: Address = actual_addr.into();
+		if actual_addr != proxy_addr.into_array() {
+			anyhow::bail!("Proxy address mismatch, expect {proxy_addr:?}, got {actual_addr:?}");
+		}
+		Ok((actual_addr.into_array(), block_number))
 	}
 
 	pub async fn deposit_funds(
@@ -289,6 +321,7 @@ impl Tester {
 			.await?
 			.wait_for_success()
 			.await?;
+
 		let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
 		println!("Gateway registered with event {:?}", gateway_event);
 		Ok(())
@@ -357,85 +390,44 @@ impl Tester {
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
 		gateway_keys.push(shard_public_key);
 
-		// get proxy address
-		let calculated_proxy_addr = self.get_proxy_addr().await?;
-		// deploy gateway
-		let (address, _) = self.deploy_gateway(calculated_proxy_addr).await?;
-		// deploy proxy
-		let (proxy_addr, block_height) = self.deploy_proxy(address.into()).await?;
+		// get proxy and admin addresses
+		let proxy_addr = self.get_proxy_addr().await?;
+		let gateway_admin = Address::from_str(self.wallet().account().address.as_str())?;
 
-		assert_eq!(calculated_proxy_addr, proxy_addr);
+		// deploy gateway implementation
+		println!("deploying implementation contract...");
+		let (address, _) = self.deploy_gateway(proxy_addr).await?;
 
-		// initialize the gateway
-		let gateway_admin =
-			hex::decode(self.wallet().account().address.strip_prefix("0x").unwrap())?;
-		let mut address_bytes = [0u8; 20];
-		address_bytes.copy_from_slice(&gateway_admin[..20]);
-		self.initialize_gateway(proxy_addr, gateway_keys, address_bytes.into()).await?;
+		// deploy and initialize gateway proxy
+		println!("deploying proxy contract...");
+		let (proxy_addr, block_height) = self
+			.deploy_proxy(address.into(), proxy_addr, gateway_admin, gateway_keys)
+			.await?;
 
 		// register proxy
 		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
+
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
 		tokio::time::sleep(Duration::from_secs(20)).await;
 		Ok(proxy_addr)
 	}
 
-	pub async fn initialize_gateway(
-		&self,
-		proxy_address: EthContractAddress,
-		tss_public_key: Vec<TssPublicKey>,
-		admin: Address,
-	) -> Result<()> {
-		let mut tss_keys: Vec<TssKeyR> = vec![];
-		for key in tss_public_key.into_iter() {
-			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
-			let x_coords = hex::encode(&key[1..]);
-			tss_keys.push(TssKeyR {
-				yParity: parity_bit,
-				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-			});
-		}
-
-		let network = vec![Network {
-			id: self.network_id,
-			gateway: proxy_address.into(),
-		}];
-
-		let call = Gateway::initializeCall {
-			admin,
-			keys: tss_keys,
-			networks: network,
-		}
-		.abi_encode();
-
-		self.wallet().eth_send_call(proxy_address, call, 0, None, None).await?;
-
-		Ok(())
-	}
-
 	pub async fn get_proxy_addr(&self) -> Result<Address> {
-		let bytes = hex::decode(self.wallet().account().address.strip_prefix("0x").unwrap())?;
-		let mut address_bytes = [0u8; 20];
-		address_bytes.copy_from_slice(&bytes[..20]);
+		// account which is going to deploy the gateway
+		let deployer = Address::from_str(self.wallet().account().address.as_str())?;
+
+		// get deployer's nonce
 		let nonce = self
 			.wallet()
 			.query(GetTransactionCount {
-				address: address_bytes.into(),
+				address: deployer.into_array().into(),
 				block: AtBlock::Latest,
 			})
 			.await?;
-		let nonce = nonce + 1;
 
-		let mut stream = RlpStream::new_list(2);
-		stream.append(&bytes);
-		stream.append(&nonce);
-
-		let rlp_encoded = stream.out().to_vec();
-		let hash = sha3::Keccak256::digest(rlp_encoded);
-
-		let address = Address::from_slice(&hash[12..]);
-		Ok(address)
+		// compute the proxy address
+		Ok(deployer.create(nonce + 1))
 	}
 
 	pub async fn register_shard_on_gateway(

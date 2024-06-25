@@ -346,7 +346,7 @@ async fn gmp_benchmark(
 									let contains_gmp_task = all_gmp_blocks.iter().any(|block| *block == item);
 									if contains_gmp_task {
 										bench_state.add_recv_task(task_id);
-										println!("Contians gmp task");
+										println!("Contains gmp task");
 									}
 								}
 							},

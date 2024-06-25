@@ -58,13 +58,12 @@ impl TssEndpoint {
 		if let Some(port) = config.bind_port {
 			builder.port(port);
 		}
-		builder.enable_dht();
 		builder.handler(handler);
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();
 		loop {
 			tracing::info!("waiting for peer id to be registered");
-			let Ok(addr) = endpoint.discovery().resolve(&peer_id).await else {
+			let Ok(addr) = endpoint.resolve(peer_id).await else {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			};

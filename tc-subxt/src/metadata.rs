@@ -151,20 +151,20 @@ pub enum Variant {
 macro_rules! metadata_scope {
 	( $variant:expr, $block:block ) => {
 		match $variant {
-			crate::metadata::Variant::Timechain => {
-				use crate::metadata::timechain as metadata;
+			$crate::metadata::Variant::Timechain => {
+				use $crate::metadata::timechain as metadata;
 				$block
 			},
-			crate::metadata::Variant::Staging => {
-				use crate::metadata::staging as metadata;
+			$crate::metadata::Variant::Staging => {
+				use $crate::metadata::staging as metadata;
 				$block
 			},
-			crate::metadata::Variant::Testnet => {
-				use crate::metadata::testnet as metadata;
+			$crate::metadata::Variant::Testnet => {
+				use $crate::metadata::testnet as metadata;
 				$block
 			},
-			crate::metadata::Variant::Development => {
-				use crate::metadata::development as metadata;
+			$crate::metadata::Variant::Development => {
+				use $crate::metadata::development as metadata;
 				$block
 			},
 		}

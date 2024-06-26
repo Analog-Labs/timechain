@@ -9,7 +9,6 @@ use schnorr_evm::SigningKey;
 use sp_core::crypto::Ss58Codec;
 use std::collections::HashMap;
 use std::future::Future;
-use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
@@ -343,8 +342,7 @@ impl Tester {
 	}
 
 	pub async fn get_task_phase(&self, task_id: TaskId) -> Option<TaskPhase> {
-		let val = self.runtime.get_task_phase(task_id).await.unwrap();
-		unsafe { transmute(val) }
+		self.runtime.get_task_phase(task_id).await.unwrap()
 	}
 
 	pub async fn get_network_unassigned_tasks(&self, network_id: u16) -> Vec<TaskId> {

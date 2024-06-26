@@ -181,8 +181,6 @@ where
 						continue;
 					}
 
-					tracing::info!("Running write phase {}", task_id);
-
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
 							if let Some(gmp_params) = gmp_params {

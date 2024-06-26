@@ -160,13 +160,13 @@ where
 						Function::SendMessage { msg } => {
 							Message::gmp(msg).to_eip712_bytes(&gmp_params)
 						},
-						_ => anyhow::bail!("invalid task"),
+						_ => anyhow::bail!("invalid task {task_id}"),
 					};
 					self.task_spawner.execute_sign(shard_id, task_id, payload.into(), block_number)
 				},
 				TaskPhase::Write => {
 					let Some(public_key) = self.substrate.get_task_signer(task_id).await? else {
-						tracing::warn!("no signer set for write phase");
+						tracing::warn!("no signer set for write phase for task {task_id}");
 						continue;
 					};
 					if &public_key != self.substrate.public_key() {
@@ -181,7 +181,7 @@ where
 						continue;
 					}
 
-					tracing::info!("Running write phase {}", task_id);
+					tracing::info!("Running write phase for task {}", task_id);
 
 					let function = match function {
 						Function::RegisterShard { shard_id } => {

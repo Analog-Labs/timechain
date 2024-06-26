@@ -1,4 +1,4 @@
-name: Compile chronicle node
+name: Compile chronicle
 
 on:
   pull_request:
@@ -24,18 +24,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - profile: testnet
-          features: default
-        - profile: testnet
-          features: development
+        profile:
+        - production
+        - testnet
     steps:
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
     - name: Checkout sources
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
         submodules: recursive
     - name: Install rust toolchain
       run : rustup show
@@ -58,13 +55,11 @@ jobs:
         path: target
         key: cargo-build-chronicle-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: cargo-build-chronicle-${{ matrix.profile }}-
-    - name: Build chronicle node
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: -p chronicle --profile ${{ matrix.profile }} --features ${{ matrix.profile }},${{ matrix.features }}
-    - name: Upload chronicle node
+    - name: Build chronicle
+      run: cargo build --package chronicle --profile ${{ matrix.profile }}
+    - name: Upload chronicle
       uses: actions/upload-artifact@v4
       with:
-        name: chronicle_${{ matrix.profile }}_${{ matrix.features }}
+        name: chronicle.${{ matrix.profile }}
+        if-no-files-found: error
         path: target/${{ matrix.profile }}/chronicle

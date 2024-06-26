@@ -1,4 +1,4 @@
-name: Compile tester tool
+name: Compile tester
 
 on:
   pull_request:
@@ -23,18 +23,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - profile: testnet
-          features: default
-        - profile: testnet
-          features: development
+        profile:
+        - production
+        - testnet
     steps:
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y musl-tools protobuf-compiler
     - name: Checkout sources
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
         submodules: recursive
     - name: Install rust toolchain
       run : rustup show
@@ -57,13 +54,11 @@ jobs:
         path: target
         key: cargo-build-tester-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: cargo-build-tester-${{ matrix.profile }}-
-    - name: Build tester tool
-      uses: actions-rs/cargo@v1
-      with:
-        command: build 
-        args: -p tester --profile ${{ matrix.profile }} --features ${{ matrix.profile }},${{ matrix.features }}
-    - name: Upload tester tool
+    - name: Build tester
+      run: cargo build --package tester --profile ${{ matrix.profile }}
+    - name: Upload tester
       uses: actions/upload-artifact@v4
       with:
-        name: tester_${{ matrix.profile }}_${{ matrix.features }}
+        name: tester.${{ matrix.profile }}
+        if-no-files-found: error
         path: target/${{ matrix.profile }}/tester

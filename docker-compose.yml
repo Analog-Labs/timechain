@@ -67,6 +67,7 @@ services:
     command:
     - '--network-id=3'
     - '--target-url=ws://ethereum:8545'
+    - '--timechain-metadata=development'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -122,6 +123,7 @@ services:
     command:
     - '--network-id=6'
     - '--target-url=ws://astar:9944'
+    - '--timechain-metadata=development'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -172,7 +174,7 @@ services:
     - astar
 
   tester:
-    image: 'analoglabs/timetester-development'
+    image: 'analoglabs/tester-development'
     profiles:
     - never
     environment:

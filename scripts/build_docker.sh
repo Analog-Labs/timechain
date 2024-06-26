@@ -38,7 +38,7 @@ case "${environment}" in
 		profile=testnet
 		features=default
 		;;
-	development)
+	staging|development)
 		profile=testnet
 		features=development
 		;;
@@ -75,4 +75,4 @@ mv "target/$rustTarget/$profile/chronicle" target/docker
 docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/chronicle-$environment
 
 mv "target/$rustTarget/$profile/tester" target/docker
-docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/timetester-$environment
+docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/tester-$environment

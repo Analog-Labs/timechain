@@ -100,10 +100,10 @@ jobs:
     if: ${{ always() }}
     continue-on-error: true
     steps:
-    - name: Checkout pull request
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.base.ref }}
+    - name: Checkout PR
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh pr checkout ${{ github.event.pull_request.number }}
     - name: Download and update Testnet Metadata
       id: download-testnet-default-metadata
       uses: actions/download-artifact@v4

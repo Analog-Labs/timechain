@@ -988,7 +988,7 @@ pub mod pallet {
 		/// 
 		/// # Flow
 		///  1. Create a task descriptor with `network_id`, `[Function::RegisterShard]` { `shard_id` }, and shard member count.
-		///  2. Start the task with `[TaskFunder::Inflation]`.
+		///  2. Start the task with [`TaskFunder::Inflation`].
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
 			Self::start_task(
 				TaskDescriptorParams::new(
@@ -1068,8 +1068,7 @@ pub mod pallet {
 		/// # Flow
 		///  1. Create task parameters using `TaskDescriptorParams::new` with the following:
 		/// 		- Destination network from `msg.dest_network`.
-		/// 		- Function to send the message [`Function::SendMessage`].
-		/// 		- Number of shard members.
+		/// 		- Function to send the message ([`Function::SendMessage { msg }`][Function::SendMessage]).
 		///  2. Start a task with the created parameters and fund it using [`TaskFunder::Inflation`].
 		///  3. Ensure the task is successfully started and funded using `expect("task funded through inflation")`.
 		///  4. Return the Task ID of the started task.
@@ -1098,7 +1097,6 @@ pub mod pallet {
 		///        - If funded by inflation: Issue the required funds and resolve them to the task account.
 		///    6. Store Task Configuration:
 		///        - Insert task reward configuration into [`TaskRewardConfig::<T>`].
-		///        - Insert task descriptor into [`Tasks::<T>`].
 		///        - Insert the initial phase state into [`TaskPhaseState::<T>`].
 		///    7. Increment and store the task ID counter.
 		///    8. Add the task to the list of unassigned tasks for the specified network.
@@ -1201,7 +1199,7 @@ pub mod pallet {
 		/// Store the result of a task identified by task_id and update associated data if necessary.
 		/// 
 		/// # Flow
-		/// 1. Store result in `TaskOutput` for the specified task_id.
+		/// 1. Store result in [`TaskOutput::<T>`] for the specified task_id.
 		/// 2. If `task_id` has an associated `shard_id`, remove `task_id` from [`ShardTasks::<T>`].
 		fn finish_task(task_id: TaskId, result: TaskResult) {
 			TaskOutput::<T>::insert(task_id, result);
@@ -1215,13 +1213,13 @@ pub mod pallet {
 		/// # Flow
 		///   1. Create a `TaskResult` indicating the task cancellation due to administrative action.
 		///   2. Finalize the task by storing the cancellation result using [`Self::finish_task`].
-		///   3. If `task_id` is indexed as an unassigned task [`UATaskIndex::<T>`], remove it from the unassigned task index for the specified `task_network`.
+		///   3. If `task_id` is indexed as an unassigned task ([`UATaskIndex::<T>`]), remove it from the unassigned task index for the specified `task_network`.
 		///   4. Remove all stored task-related data:
-		///       - Clear the task's phase state [`TaskPhaseState::<T>`].
-		///       - Remove the designated signer for the task [`TaskSigner::<T>`].
-		///       - Clear any stored task signature [`TaskSignature::<T>`].
-		///       - Remove any associated task hash [`TaskHash::<T>`].
-		///   5. Emit an event [`Event::TaskResult`] indicating the cancellation and its result.
+		///       - Clear the task's phase state ([`TaskPhaseState::<T>::remove`]).
+		///       - Remove the designated signer for the task ([`TaskSigner::<T>::remove`]).
+		///       - Clear any stored task signature ([`TaskSignature::<T>::remove`]).
+		///       - Remove any associated task hash ([`TaskHash::<T>::remove`]).
+		///   5. Emit an event ([`Event::TaskResult`]) indicating the cancellation and its result.
 		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
 			let result = TaskResult {
 				shard_id: 0,
@@ -1272,7 +1270,7 @@ pub mod pallet {
 		///       - Collect these shards into a list.
 		///       - Sort the list based on the number of tasks each shard currently has.
 		///       - Iterate through the sorted list in reverse order.
-		///       - For each shard in the list, call [`Self::schedule_tasks_shard(network, shard)`] to schedule tasks.
+		///       - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
 		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
@@ -1292,11 +1290,11 @@ pub mod pallet {
 		///   To schedule tasks for a specified network and optionally for a specific shard, optimizing task allocation based on current workload and system constraints.
 		///   
 		/// # Flow
-		///   1. Count the number of incomplete tasks `tasks` for the specified `shard_id`.
-		///   2. Determine the size of the shard `shard_size` based on the number of shard members.
+		///   1. Count the number of incomplete tasks (`tasks`) for the specified `shard_id`.
+		///   2. Determine the size of the shard (`shard_size`) based on the number of shard members.
 		///   3. Check if the `shard_id` is registered.
-		///   4. Retrieve the maximum allowed tasks `shard_task_limit` for the network, defaulting to 10 if unspecified.
-		///   5. Calculate the remaining capacity `capacity` for new tasks.
+		///   4. Retrieve the maximum allowed tasks (`shard_task_limit`) for the network, defaulting to 10 if unspecified.
+		///   5. Calculate the remaining capacity (`capacity`) for new tasks.
 		///   6. If `capacity` is zero, stop further task assignments.
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.

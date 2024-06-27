@@ -5299,8 +5299,7 @@ checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
 [[package]]
 name = "iroh-base"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c13afc5b57e7204f74df49d1ce73c67d0e9d2a1b588a2985247af52c047ca964"
+source = "git+https://github.com/dvc94ch/iroh#1e83a837b3048932cc0ce31bde4a97a4a33b83cb"
 dependencies = [
  "aead 0.5.2",
  "anyhow",
@@ -5340,8 +5339,7 @@ dependencies = [
 [[package]]
 name = "iroh-metrics"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e767734a4d6b92e0ad0c74afd38240b82a37bdfeb0bb3141245c2a707efa4097"
+source = "git+https://github.com/dvc94ch/iroh#1e83a837b3048932cc0ce31bde4a97a4a33b83cb"
 dependencies = [
  "anyhow",
  "erased_set",
@@ -5361,8 +5359,7 @@ dependencies = [
 [[package]]
 name = "iroh-net"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76677befbb2d205510c9c18f5509157cb8d84cb345420e595f6612c9a1a6f88c"
+source = "git+https://github.com/dvc94ch/iroh#1e83a837b3048932cc0ce31bde4a97a4a33b83cb"
 dependencies = [
  "aead 0.5.2",
  "anyhow",
@@ -8208,8 +8205,7 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 [[package]]
 name = "peernet"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "487d6176cc2aac17659b9e360b0c671284ffaef2c1f43d92475d931fa9262427"
+source = "git+https://github.com/dvc94ch/peernet#f8ae1372178f5f23e714738701df2ce4c583e51e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8413,18 +8409,25 @@ dependencies = [
 
 [[package]]
 name = "pkarr"
-version = "1.1.5"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "242ae92dfb9d2ba3aaa9caf4723e72043bc50729ad05a763771771ba03196ffb"
+checksum = "fcfc0c8c57e10eb27ee787ee77baa03b1bbc4f539f5e19475fc027ac9e540549"
 dependencies = [
  "bytes",
+ "document-features",
  "ed25519-dalek 2.1.1",
- "rand 0.8.5",
- "reqwest 0.11.27",
+ "flume",
+ "futures",
+ "js-sys",
+ "lru 0.12.3",
  "self_cell",
  "simple-dns",
  "thiserror",
- "url",
+ "tracing",
+ "ureq",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "z32",
 ]
 
@@ -10262,9 +10265,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.22.2"
+version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e87c9956bd9807afa1f77e0f7594af32566e830e088a5576d27c5b6f30f49d41"
+checksum = "bf4ef73721ac7bcd79b2b315da7779d8fc09718c6b3d2d1b2d94850eb8c18432"
 dependencies = [
  "log",
  "ring 0.17.8",
@@ -15260,7 +15263,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
 dependencies = [
- "rustls 0.22.2",
+ "rustls 0.22.4",
  "rustls-pki-types",
  "tokio",
 ]
@@ -15324,7 +15327,7 @@ checksum = "c83b561d025642014097b66e6c1bb422783339e0909e4429cde4749d1990bc38"
 dependencies = [
  "futures-util",
  "log",
- "rustls 0.22.2",
+ "rustls 0.22.4",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls 0.25.0",
@@ -15721,7 +15724,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.5",
- "rustls 0.22.2",
+ "rustls 0.22.4",
  "rustls-pki-types",
  "sha1 0.10.6",
  "thiserror",
@@ -15871,6 +15874,22 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
+name = "ureq"
+version = "2.9.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d11a831e3c0b56e438a28308e7c810799e3c118417f342d30ecec080105395cd"
+dependencies = [
+ "base64 0.22.1",
+ "log",
+ "once_cell",
+ "rustls 0.22.4",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.2",
+ "url",
+ "webpki-roots 0.26.1",
+]
 
 [[package]]
 name = "url"

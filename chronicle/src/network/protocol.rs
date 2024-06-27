@@ -59,6 +59,7 @@ impl TssEndpoint {
 			builder.port(port);
 		}
 		builder.handler(handler);
+		builder.relay_map(None);
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();
 		loop {

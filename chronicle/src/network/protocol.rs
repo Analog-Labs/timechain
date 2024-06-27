@@ -59,6 +59,8 @@ impl TssEndpoint {
 			builder.port(port);
 		}
 		builder.handler(handler);
+		builder.republish_interval(Duration::from_secs(60 * 5));
+		builder.publish_ttl(60 * 5 * 4);
 		builder.relay_map(None);
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();

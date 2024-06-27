@@ -1,7 +1,7 @@
-// @generated to prevent rustfmt reformat/check
+//! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+#![recursion_limit = "1024"]
 
 // Automatically generated nomination bagging
 mod bag_thresholds;
@@ -12,17 +12,13 @@ mod weights;
 
 // Make the WASM binary available in native code
 #[cfg(feature = "std")]
-pub mod binaries {
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
+include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-#[cfg(feature = "std")]
-pub mod fast_binaries {
-	include!(concat!(env!("OUT_DIR"), "/fast_wasm_binary.rs"));
-}
+use polkadot_sdk::*;
 
-use frame_system::{limits::BlockWeights, EnsureRoot};
+use scale_codec::{Decode, Encode};
 
+use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 use frame_election_provider_support::{
 	generate_solution_type, onchain, ExtendedBalance, SequentialPhragmen,
 };
@@ -34,49 +30,55 @@ use frame_support::{
 	},
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use frame_system::EnsureRootWithSuccess;
+use frame_system::{limits::BlockWeights, EnsureRoot};
 
-use codec::{Decode, Encode};
-use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
-pub use runtime_common::{
-	currency::*,
-	prod_or_fast,
-	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-};
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
+use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
+
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, BlockNumberProvider, IdentityLookup, NumberFor, OpaqueKeys,
-		Saturating,
+		BlakeTwo256, Block as BlockT, BlockNumberProvider, Hash as HashT, IdentityLookup,
+		NumberFor, OpaqueKeys, Saturating,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, Percent, SaturatedConversion,
 };
-
-use frame_system::EnsureRootWithSuccess;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+
+pub use runtime_common::{
+	currency::*,
+	prod_or_dev,
+	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
+};
 pub use time_primitives::{
 	AccountId, Balance, BlockNumber, ChainName, ChainNetwork, Commitment, DepreciationRate,
 	MemberStatus, MemberStorage, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Signature, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult,
 	TssPublicKey, TssSignature,
 };
+
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_config, create_default_config},
+	derive_impl,
+	genesis_builder_helper::{build_state, get_preset},
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
@@ -86,13 +88,17 @@ pub use frame_support::{
 	weights::{constants::RocksDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
 	PalletId, StorageValue,
 };
+#[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
+#[cfg(any(feature = "std", test))]
 pub use pallet_balances::Call as BalancesCall;
+#[cfg(any(feature = "std", test))]
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
+#[cfg(any(feature = "std", test))]
 pub use pallet_utility::Call as UtilityCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
 pub use sp_runtime::{traits::Bounded, Perbill, Permill, Perquintill};
 use static_assertions::const_assert;
 
@@ -122,7 +128,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight =
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Nonce = u32;
 
 /// A hash of some data used by the chain.
 pub type Hash = time_primitives::BlockHash;
@@ -133,7 +139,6 @@ pub type Hash = time_primitives::BlockHash;
 /// to even the core data structures.
 pub mod opaque {
 	use super::*;
-
 	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 	/// Opaque block header type.
@@ -142,19 +147,22 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+	/// Opaque block hash type.
+	pub type Hash = <BlakeTwo256 as HashT>::Output;
+}
 
-	impl_opaque_keys! {
-		pub struct SessionKeys {
-			pub babe: Babe,
-			pub grandpa: Grandpa,
-			pub im_online: ImOnline,
-		}
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub babe: Babe,
+		pub grandpa: Grandpa,
+		pub im_online: ImOnline,
+		pub authority_discovery: AuthorityDiscovery,
 	}
 }
 
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
-#[cfg(not(feature = "fast-runtime"))]
+#[cfg(not(feature = "development"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-testnet"),
@@ -163,20 +171,20 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 120,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
+	transaction_version: 2,
 	state_version: 1,
 };
 
-#[cfg(feature = "fast-runtime")]
+#[cfg(feature = "development")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-fastnet"),
-	impl_name: create_runtime_str!("analog-fastnet"),
+	spec_name: create_runtime_str!("analog-development"),
+	impl_name: create_runtime_str!("analog-development"),
 	authoring_version: 1,
 	spec_version: 120,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
+	transaction_version: 2,
 	state_version: 1,
 };
 
@@ -222,7 +230,7 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(8 * HOURS, 5 * MINUTES);
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(8 * HOURS, 5 * MINUTES);
 
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
@@ -262,8 +270,8 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
-	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
-	type Keys = opaque::SessionKeys;
+	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
@@ -312,7 +320,7 @@ impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Nonce = Index;
+	type Nonce = Nonce;
 	/// The index type for blocks.
 	type Block = Block;
 	/// The type for hashing blocks and tries.
@@ -402,10 +410,14 @@ impl pallet_im_online::Config for Runtime {
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 }
 
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+}
+
 parameter_types! {
 	// phase durations. 1/8 (1h) of the last session for each.
-	pub SignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
-	pub UnsignedPhase: u32 = prod_or_fast!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
+	pub SignedPhase: u32 = prod_or_dev!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
+	pub UnsignedPhase: u32 = prod_or_dev!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
@@ -418,7 +430,7 @@ parameter_types! {
 	pub SignedRewardBase: Balance = 1000;
 
 	// 4 hour session, 1 hour unsigned phase, 32 offchain executions.
-	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_fast!(32, 10);
+	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_dev!(32, 10);
 
 	/// We take the top 22500 nominators as electing voters..
 	pub const MaxElectingVoters: u32 = 22_500;
@@ -439,11 +451,9 @@ generate_solution_type!(
 
 parameter_types! {
 	// TODO Needs to be properly configured.
-	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(1, 3);
-	pub const BondingDuration: sp_staking::EraIndex = prod_or_fast!(2, 4);
+	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_dev!(1, 3);
+	pub const BondingDuration: sp_staking::EraIndex = prod_or_dev!(2, 4);
 	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
-
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
@@ -486,7 +496,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = prod_or_fast!(5 * DAYS, HOURS);
+	pub const CouncilMotionDuration: BlockNumber = prod_or_dev!(5 * DAYS, HOURS);
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 }
@@ -573,7 +583,6 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = EraPayout;
 	type NextNewSession = Session;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
@@ -586,6 +595,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -781,6 +791,9 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 	MaximumMultiplier,
 >;
 
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
@@ -818,7 +831,7 @@ where
 		call: RuntimeCall,
 		public: PublicKey,
 		account: AccountId,
-		nonce: Index,
+		nonce: Nonce,
 	) -> Option<(
 		RuntimeCall,
 		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
@@ -848,6 +861,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -873,10 +887,10 @@ parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = ANLOG;
-	pub const SpendPeriod: BlockNumber = prod_or_fast!(DAYS, HOURS);
+	pub const SpendPeriod: BlockNumber = prod_or_dev!(DAYS, HOURS);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const MaxBalance: Balance = Balance::max_value();
-	pub const PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 6 * HOURS);
+	pub const PayoutPeriod: BlockNumber = prod_or_dev!(14 * DAYS, 6 * HOURS);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
@@ -912,6 +926,8 @@ impl pallet_treasury::Config for Runtime {
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -977,35 +993,99 @@ impl pallet_networks::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-#[rustfmt::skip]
-construct_runtime!(
-	pub struct Runtime {
-		System: frame_system,
-		Balances: pallet_balances,
-		Timestamp: pallet_timestamp,
-		Babe: pallet_babe,
-		Grandpa: pallet_grandpa,
-		ImOnline: pallet_im_online,
-		Offences: pallet_offences,
-		Authorship: pallet_authorship,
-		Session: pallet_session,
-		Staking: pallet_staking,
-		Council: pallet_collective::<Instance1>,
-		VoterList: pallet_bags_list,
-		Historical: pallet_session_historical,
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-		TransactionPayment: pallet_transaction_payment,
-		Utility: pallet_utility,
-		Sudo: pallet_sudo,
-		Treasury: pallet_treasury,
-		Members: pallet_members,
-		Shards: pallet_shards,
-		Elections: pallet_elections,
-		Tasks: pallet_tasks,
-		Timegraph: pallet_timegraph,
-		Networks: pallet_networks,
-	}
-);
+#[frame_support::runtime]
+mod runtime {
+	use super::*;
+
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+
+	#[runtime::pallet_index(1)]
+	pub type Balances = pallet_balances;
+
+	#[runtime::pallet_index(2)]
+	pub type Timestamp = pallet_timestamp;
+
+	#[runtime::pallet_index(3)]
+	pub type Babe = pallet_babe;
+
+	#[runtime::pallet_index(4)]
+	pub type Grandpa = pallet_grandpa;
+
+	#[runtime::pallet_index(5)]
+	pub type ImOnline = pallet_im_online;
+
+	#[runtime::pallet_index(6)]
+	type AuthorityDiscovery = pallet_authority_discovery;
+
+	#[runtime::pallet_index(7)]
+	pub type Offences = pallet_offences;
+
+	#[runtime::pallet_index(8)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(9)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(10)]
+	pub type Staking = pallet_staking;
+
+	#[runtime::pallet_index(11)]
+	pub type Council = pallet_collective<Instance1>;
+
+	#[runtime::pallet_index(12)]
+	pub type VoterList = pallet_bags_list;
+
+	#[runtime::pallet_index(13)]
+	pub type Historical = pallet_session_historical;
+
+	#[runtime::pallet_index(14)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
+
+	#[runtime::pallet_index(15)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(16)]
+	pub type Utility = pallet_utility;
+
+	#[runtime::pallet_index(17)]
+	pub type Sudo = pallet_sudo;
+
+	#[runtime::pallet_index(18)]
+	pub type Treasury = pallet_treasury;
+
+	#[runtime::pallet_index(19)]
+	pub type Members = pallet_members;
+
+	#[runtime::pallet_index(20)]
+	pub type Shards = pallet_shards;
+
+	#[runtime::pallet_index(21)]
+	pub type Elections = pallet_elections;
+
+	#[runtime::pallet_index(22)]
+	pub type Tasks = pallet_tasks;
+
+	#[runtime::pallet_index(23)]
+	pub type Timegraph = pallet_timegraph;
+
+	#[runtime::pallet_index(24)]
+	pub type Networks = pallet_networks;
+}
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
@@ -1023,6 +1103,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -1040,12 +1121,8 @@ pub type Executive = frame_executive::Executive<
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	polkadot_sdk::frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
@@ -1127,13 +1204,13 @@ impl_runtime_apis! {
 
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			opaque::SessionKeys::generate(seed)
+			SessionKeys::generate(seed)
 		}
 
 		fn decode_session_keys(
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-			opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
+			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
 
@@ -1166,8 +1243,6 @@ impl_runtime_apis! {
 			_slot: sp_consensus_babe::Slot,
 			authority_id: sp_consensus_babe::AuthorityId,
 		) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-			use codec::Encode;
-
 			Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
@@ -1217,8 +1292,14 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			AuthorityDiscovery::authorities()
+		}
+	}
+
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
@@ -1365,7 +1446,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList, list_benchmark};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
@@ -1387,7 +1468,7 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{add_benchmark, baseline, Benchmarking, BenchmarkBatch};
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
@@ -1435,12 +1516,16 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			vec![]
 		}
 	}
 }

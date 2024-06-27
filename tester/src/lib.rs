@@ -9,7 +9,6 @@ use schnorr_evm::SigningKey;
 use sp_core::crypto::Ss58Codec;
 use std::collections::HashMap;
 use std::future::Future;
-use std::intrinsics::transmute;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
@@ -18,13 +17,12 @@ use tabled::{builder::Builder, settings::Style};
 use tc_subxt::ext::futures::future::join_all;
 use tc_subxt::ext::futures::stream::BoxStream;
 use tc_subxt::ext::futures::{stream, StreamExt};
-pub use tc_subxt::timechain_runtime::runtime_types::time_primitives::shard::ShardStatus;
-use tc_subxt::timechain_runtime::tasks::events::{GatewayRegistered, TaskCreated};
-use tc_subxt::{SubxtClient, SubxtTxSubmitter};
+use tc_subxt::{events, MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::sp_core::H160;
 use time_primitives::{
 	sp_core, BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId,
-	Runtime, ShardId, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
+	Runtime, ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase,
+	TssPublicKey,
 };
 use tokio::time::Instant;
 
@@ -75,14 +73,18 @@ pub struct Tester {
 	wallet: Wallet,
 }
 
-pub async fn subxt_client(keyfile: &Path, url: &str) -> Result<SubxtClient> {
+pub async fn subxt_client(
+	keyfile: &Path,
+	metadata: MetadataVariant,
+	url: &str,
+) -> Result<SubxtClient> {
 	while SubxtClient::get_client(url).await.is_err() {
 		println!("waiting for chain to start");
 		sleep_or_abort(Duration::from_secs(10)).await?;
 	}
 
 	let tx_submitter = SubxtTxSubmitter::try_new(url).await.unwrap();
-	let runtime = SubxtClient::with_keyfile(url, keyfile, tx_submitter).await?;
+	let runtime = SubxtClient::with_keyfile(url, metadata, keyfile, tx_submitter).await?;
 	println!("tester key is {:?}", runtime.account_id().to_ss58check());
 	Ok(runtime)
 }
@@ -302,8 +304,8 @@ impl Tester {
 			funds: 10000000000000000,
 		};
 		let events = self.runtime.create_task(params).await?.wait_for_success().await?;
-		let transfer_event = events.find_first::<TaskCreated>().unwrap();
-		let TaskCreated(id) =
+		let transfer_event = events.find_first::<events::TaskCreated>().unwrap();
+		let events::TaskCreated(id) =
 			transfer_event.ok_or(anyhow::anyhow!("Not able to fetch task event"))?;
 		println!("Task registered: {:?}", id);
 		Ok(id)
@@ -321,8 +323,7 @@ impl Tester {
 			.await?
 			.wait_for_success()
 			.await?;
-
-		let gateway_event = events.find_first::<GatewayRegistered>().unwrap();
+		let gateway_event = events.find_first::<events::GatewayRegistered>().unwrap();
 		println!("Gateway registered with event {:?}", gateway_event);
 		Ok(())
 	}
@@ -341,8 +342,7 @@ impl Tester {
 	}
 
 	pub async fn get_task_phase(&self, task_id: TaskId) -> Option<TaskPhase> {
-		let val = self.runtime.get_task_phase(task_id).await.unwrap();
-		unsafe { transmute(val) }
+		self.runtime.get_task_phase(task_id).await.unwrap()
 	}
 
 	pub async fn get_network_unassigned_tasks(&self, network_id: u16) -> Vec<TaskId> {

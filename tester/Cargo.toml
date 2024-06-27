@@ -1,25 +1,38 @@
 [package]
 name = "tester"
 version = "0.1.0"
-edition = "2021"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-alloy-primitives = { version = "0.6.4", features = ["std", "rlp"] }
-alloy-sol-types = { version = "0.6.4" }
-anyhow = "1.0.75"
-clap = { version = "4.4.2", features = [ "derive" ] }
-ethers-solc = "2.0.1"
-getrandom = "0.2.12"
-hex = "0.4.3"
-tabled = "0.15.0"
+anyhow.workspace = true
+clap.workspace = true
+hex.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
+
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
+
+alloy-primitives = { version = "0.6.4", features = ["std", "rlp"] }
+alloy-sol-types = { version = "0.6.4" }
+ethers-solc = "2.0.1"
+getrandom = "0.2.12"
+tabled = "0.15.0"
 schnorr-evm = "0.1.2"
-serde_json = "1.0"
 sha3 = "0.10.8"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 sysinfo = "0.30.10"
+tracing-subscriber = "0.3.18"
+
 tc-subxt = { path = "../tc-subxt"}
 time-primitives = { path = "../primitives" }
-tokio = {version = "1.38.0", features = ["macros", "rt-multi-thread", "signal"]}
-tracing-subscriber = "0.3.18"
+
+[features]
+default = []
+testnet = [ "tc-subxt/testnet" ]
+development = [ "tc-subxt/development" ]

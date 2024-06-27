@@ -63,6 +63,7 @@ jobs:
       - run: cargo +stable fmt --all -- --check
       - run: cargo +stable test --workspace --locked
       - run: cargo +stable check --features runtime-benchmarks
+      - run: cargo +stable check --features try-runtime
 
       - uses: actions-rs/clippy-check@v1
         with:

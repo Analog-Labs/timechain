@@ -1,6 +1,6 @@
 services:
   validator:
-    image: 'analoglabs/timechain-node'
+    image: 'analoglabs/timenode-development'
     command:
     - '--chain=dev'
     - '--base-path=/data'
@@ -63,10 +63,11 @@ services:
     - astar3
 
   chronicle-eth-template:
-    image: 'analoglabs/chronicle'
+    image: 'analoglabs/chronicle-development'
     command:
     - '--network-id=3'
     - '--target-url=ws://ethereum:8545'
+    - '--timechain-metadata=development'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -81,7 +82,8 @@ services:
     - never
 
   chronicle-eth1:
-    extends: chronicle-eth-template
+    extends:
+      service: chronicle-eth-template
     volumes:
     - './config/wallets/keyfile1:/etc/target_keyfile:ro'
     - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
@@ -93,7 +95,8 @@ services:
     - ethereum
 
   chronicle-eth2:
-    extends: chronicle-eth-template
+    extends:
+      service: chronicle-eth-template
     volumes:
     - './config/wallets/keyfile2:/etc/target_keyfile:ro'
     - './config/wallets/eth-2:/etc/timechain_keyfile:ro'
@@ -104,7 +107,8 @@ services:
     - ethereum
 
   chronicle-eth3:
-    extends: chronicle-eth-template
+    extends:
+      service: chronicle-eth-template
     volumes:
     - './config/wallets/keyfile3:/etc/target_keyfile:ro'
     - './config/wallets/eth-3:/etc/timechain_keyfile:ro'
@@ -115,10 +119,11 @@ services:
     - ethereum
 
   chronicle-astar-template:
-    image: 'analoglabs/chronicle'
+    image: 'analoglabs/chronicle-development'
     command:
     - '--network-id=6'
     - '--target-url=ws://astar:9944'
+    - '--timechain-metadata=development'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -132,7 +137,8 @@ services:
     - never
 
   chronicle-astar1:
-    extends: chronicle-astar-template
+    extends:
+      service: chronicle-astar-template
     volumes:
     - './config/wallets/keyfile1:/etc/target_keyfile:ro'
     - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
@@ -144,7 +150,8 @@ services:
     - astar
 
   chronicle-astar2:
-    extends: chronicle-astar-template
+    extends:
+      service: chronicle-astar-template
     volumes:
     - './config/wallets/keyfile2:/etc/target_keyfile:ro'
     - './config/wallets/astar-2:/etc/timechain_keyfile:ro'
@@ -155,7 +162,8 @@ services:
     - astar
 
   chronicle-astar3:
-    extends: chronicle-astar-template
+    extends:
+      service: chronicle-astar-template
     volumes:
     - './config/wallets/keyfile3:/etc/target_keyfile:ro'
     - './config/wallets/astar-3:/etc/timechain_keyfile:ro'
@@ -166,7 +174,7 @@ services:
     - astar
 
   tester:
-    image: 'analoglabs/timechain-tester'
+    image: 'analoglabs/tester-development'
     profiles:
     - never
     environment:

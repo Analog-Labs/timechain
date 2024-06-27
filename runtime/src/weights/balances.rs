@@ -27,6 +27,8 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
+use polkadot_sdk::*;
+
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
@@ -139,4 +141,24 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(5_457_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+
+	/// FIXME: Copied from westend, needs to be generated
+    fn burn_allow_death() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 27_328_000 picoseconds.
+        Weight::from_parts(27_785_000, 0)
+            .saturating_add(Weight::from_parts(0, 0))
+    }
+
+	/// FIXME: Copied from westend, needs to be generated
+    fn burn_keep_alive() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 17_797_000 picoseconds.
+        Weight::from_parts(18_103_000, 0)
+            .saturating_add(Weight::from_parts(0, 0))
+    }
 }

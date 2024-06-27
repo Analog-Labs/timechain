@@ -1,4 +1,12 @@
+[workspace.package]
+authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
+edition = "2021"
+homepage = "https://analog.one/"
+license = "GPL-3.0-only"
+repository = "https://github.com/Analog-Labs/timechain"
+
 [workspace]
+resolver = "2"
 members = [
 	"chronicle",
 	"node",
@@ -16,22 +24,113 @@ members = [
 	"tss",
 	"utils/generate-bags",
 ]
-resolver = "2"
+default-members = [
+  "chronicle",
+  "node",
+]
 
-# Specifying a workspace dependency is similar to package dependencies except:
-# - Dependencies from this table cannot be declared as optional
-# - features declared in this table are additive with the features from [dependencies]
 [workspace.dependencies]
+anyhow = { version =  "1.0.86", default-features = false }
+async-channel = "1.9.0"
+async-stream = "0.3.5"
+async-trait = "0.1.80"
+clap = { version = "4.4.18", features = [ "derive" ] }
+env_logger = "0.11.3"
+futures = "0.3.30" 
+hex = "0.4.3"
+log = { version = "0.4.21", default-features = false }
+serde = { version = "1.0.203", default-features = false, features = [ "derive" ] }
+serde_json = { version = "1.0.117", default-features = false }
+tokio = "1.38.0"
+tracing = "0.1.40"
+
+scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [ "derive" ] }
+scale-decode = { version = "0.13.1", default-features = false, features = [ "derive" ] }
+scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
+
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
 
 [profile.release]
-debug = true
+# Runtime requires unwinding.
+panic = "unwind"
+opt-level = 3
 
-[profile.release-codecov]
+# allow highly optimized production build
+[profile.production]
 inherits = "release"
-strip = false
+lto = true
+codegen-units = 1
+
+# Enable debug features on testnet
+[profile.testnet]
+inherits = "release"
+debug = true
+debug-assertions = true
+overflow-checks = true
+
+# make sure dev builds with backtrace do not slow us down
+[profile.dev.package.backtrace]
+inherits = "release"
+
+# The list of dependencies below (which can be both direct and indirect dependencies) are crates
+# that are suspected to be CPU-intensive, and that are unlikely to require debugging (as some of
+# their debug info might be missing) or to require to be frequently recompiled. We compile these
+# dependencies with `opt-level=3` even in "dev" mode in order to make "dev" mode more usable.
+# The majority of these crates are cryptographic libraries.
+#
+# If you see an error mentioning "profile package spec ... did not match any packages", it
+# probably concerns this list.
+#
+# This list is ordered alphabetically.
+[profile.dev.package]
+blake2 = { opt-level = 3 }
+blake2b_simd = { opt-level = 3 }
+chacha20poly1305 = { opt-level = 3 }
+cranelift-codegen = { opt-level = 3 }
+cranelift-wasm = { opt-level = 3 }
+crc32fast = { opt-level = 3 }
+crossbeam-deque = { opt-level = 3 }
+crypto-mac = { opt-level = 3 }
+curve25519-dalek = { opt-level = 3 }
+ed25519-dalek = { opt-level = 3 }
+flate2 = { opt-level = 3 }
+futures-channel = { opt-level = 3 }
+hash-db = { opt-level = 3 }
+hashbrown = { opt-level = 3 }
+hmac = { opt-level = 3 }
+httparse = { opt-level = 3 }
+integer-sqrt = { opt-level = 3 }
+keccak = { opt-level = 3 }
+libm = { opt-level = 3 }
+librocksdb-sys = { opt-level = 3 }
+libsecp256k1 = { opt-level = 3 }
+libz-sys = { opt-level = 3 }
+mio = { opt-level = 3 }
+nalgebra = { opt-level = 3 }
+num-bigint = { opt-level = 3 }
+parking_lot = { opt-level = 3 }
+parking_lot_core = { opt-level = 3 }
+percent-encoding = { opt-level = 3 }
+polkavm-linker = { opt-level = 3 }
+primitive-types = { opt-level = 3 }
+ring = { opt-level = 3 }
+rustls = { opt-level = 3 }
+sha2 = { opt-level = 3 }
+sha3 = { opt-level = 3 }
+smallvec = { opt-level = 3 }
+snow = { opt-level = 3 }
+substrate-bip39 = { opt-level = 3 }
+twox-hash = { opt-level = 3 }
+uint = { opt-level = 3 }
+wasmi = { opt-level = 3 }
+x25519-dalek = { opt-level = 3 }
+yamux = { opt-level = 3 }
+zeroize = { opt-level = 3 }
 
 [patch.crates-io]
+# Testnet assginment was not accepted upstream
 ss58-registry = { git = 'https://github.com/Analog-Labs/ss58-registry.git' }

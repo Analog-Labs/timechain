@@ -2,7 +2,7 @@ use anyhow::Result;
 use chronicle::ChronicleConfig;
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
-use tc_subxt::{SubxtClient, SubxtTxSubmitter};
+use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::NetworkId;
 
 #[derive(Debug, Parser)]
@@ -22,6 +22,9 @@ pub struct ChronicleArgs {
 	/// key file for connector wallet
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
+	/// Metadata version to use to connect to timechain node.
+	#[clap(long)]
+	pub timechain_metadata: Option<MetadataVariant>,
 	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
@@ -45,6 +48,7 @@ impl ChronicleArgs {
 			network_id: self.network_id,
 			network_keyfile: self.network_keyfile,
 			network_port: self.network_port,
+			timechain_metadata: self.timechain_metadata.unwrap_or_default(),
 			timechain_url: self.timechain_url,
 			timechain_keyfile: self.timechain_keyfile,
 			target_url: self.target_url,
@@ -90,8 +94,12 @@ async fn main() -> Result<()> {
 		}
 	};
 
-	let subxt =
-		SubxtClient::with_keyfile(&config.timechain_url, &config.timechain_keyfile, tx_submitter)
-			.await?;
+	let subxt = SubxtClient::with_keyfile(
+		&config.timechain_url,
+		config.timechain_metadata,
+		&config.timechain_keyfile,
+		tx_submitter,
+	)
+	.await?;
 	chronicle::run_chronicle(config, network, network_requests, subxt).await
 }

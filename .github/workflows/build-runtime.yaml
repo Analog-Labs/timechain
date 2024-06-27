@@ -1,55 +1,122 @@
-name: Build runtime artifacts
+name: Compile runtimes
 
 on:
-  push:
-    branches:
-      - "ci/runtime/**"
+  pull_request:
+    paths-ignore:
+    - 'chronicle/**'
+    - 'contracts/**'
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - 'lib/**'
+    - 'scripts/**'
+    - 'tc-subxt/**'
+    - 'tester/**'
+    - 'tss/**'
+    - 'utils/**'
+    - '**/*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  set-tags:
-    name: Get & set tags
-    runs-on: ubuntu-latest
-    outputs:
-      commit_hash: ${{ steps.get-sha.outputs.sha }}
-      commit_hash8: ${{ steps.get-sha.outputs.sha8 }}
+  setup:
+    runs-on: [ self-hosted-timechain ]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Get SHA
-        id: get-sha
-        run: |
-          sha=$(git log -1 --format='%H')
-          echo "sha=$sha" >> $GITHUB_OUTPUT
-          echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
-          echo "SHA commit:" $sha
+    - name: Install rust toolchain
+      run : rustup show
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Cache cargo registry and index
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-cache-timechain-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-cache-timechain-
 
   build-runtime:
-    name: Build runtimes
-    needs: ["set-tags"]
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted-timechain ]
+    needs: [ setup ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - package: timechain-runtime
+          features: default
+          crate: timechain_runtime
+        - package: timechain-runtime
+          features: development
+          crate: timechain_runtime
     steps:
-      - name: Fetch latest code
-        uses: actions/checkout@v3
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Cache cargo build output
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: cargo-build-${{ matrix.package }}-${{ matrix.features }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-build-${{ matrix.package }}-${{ matrix.features }}-
+    - name: Build timechain runtime
+      run: cargo build --package ${{ matrix.package }} --profile release --features ${{ matrix.features }}
+    - name: Upload timechain runtime
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.package }}.${{ matrix.features }}.wasm
+        if-no-files-found: error
+        path: target/release/wbuild/${{ matrix.package }}/${{ matrix.crate }}.compact.compressed.wasm
+    - name: Upload timechain metadata
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.package }}.${{ matrix.features }}.scale
+        if-no-files-found: error
+        path: target/release/wbuild/${{ matrix.package }}/${{ matrix.crate }}.metadata.scale
 
-      - name: Build timechain runtime
-        id: srtool_build
-        uses: chevdor/srtool-actions@v0.7.0
-        with:
-          image: analoglabs/srtool
-          tag: 1.75.0
-          chain: timechain
-          runtime_dir: "runtime"
-
-      - name: Srtool summary
-        run: |
-          echo '${{ steps.srtool_build.outputs.json }}' | jq . > timechain-srtool-digest.json
-          cat timechain-srtool-digest.json
-          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm_compressed }}"
-
-      - name: Upload timechain runtime artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: timechain-runtime
-          path: |
-            ${{ steps.srtool_build.outputs.wasm_compressed }}
-            timechain-srtool-digest.json
+  update-metadata:
+    runs-on: [ self-hosted-timechain ]
+    needs: [ build-runtime ]
+    if: ${{ always() }}
+    continue-on-error: true
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+    - name: Download and update Testnet Metadata
+      id: download-testnet-default-metadata
+      uses: actions/download-artifact@v4
+      continue-on-error: true
+      with:
+        name: timechain-runtime.default.scale
+    - name: Download and Testnet Metadata
+      if: steps.download-testnet-default-metadata.outcome == 'success'
+      run: mv timechain_runtime.metadata.scale config/subxt/testnet.default.scale
+    - name: Download Development Metadata
+      id: download-testnet-development-metadata
+      uses: actions/download-artifact@v4
+      continue-on-error: true
+      with:
+        name: timechain-runtime.development.scale
+    - name: Update Development Metadata
+      if: steps.download-testnet-development-metadata.outcome == 'success'
+      run: mv timechain_runtime.metadata.scale config/subxt/testnet.development.scale
+    - name: Commit any changes to the metadata 
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if ! git diff --quiet; then
+          git config user.email "github@analog.one"
+          git config user.name "Metadata Update Bot"
+          git commit -am "tc-subxt: Automated metadata update"
+          git push
+        fi

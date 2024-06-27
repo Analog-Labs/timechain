@@ -1,13 +1,28 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //! # Timechain Task Pallet
 //!
-//! Handles individual task sheduling
+//! This chart shows all the extrinsics and events of the task pallet. It categorizes the extrinsics into two types: those that can be called by root or council, and those that can be called by any user. The root or council extrinsics are related to administrative tasks, while user extrinsics are related to task operations and submissions.
+//! 
+//! 
+#![doc = simple_mermaid::mermaid!("../docs/tasks_extrinsics.mmd")]
 //!
-#![doc = simple_mermaid::mermaid!("../docs/tasks_tb.mmd")]
+//! ## **Task Pallet Lifecycle and Operations**
 //!
-//! Additional left-to-right graph.
+// #![doc = simple_mermaid::mermaid!("../docs/tasks_tb.mmd")]
 //!
+//! This flowchart outlines the lifecycle of a task in the task pallet. It starts with task creation and checks if the shard is online. If successful, the task is assigned to a shard and progresses through various phases (sign, write, read). Upon completion, rewards are paid out. Tasks can also be reset, and error handling includes retrying or canceling tasks.
+//! 
 #![doc = simple_mermaid::mermaid!("../docs/tasks_lr.mmd")]
+//!
+//! ## **Unregister Gateways**
+//! This flowchart illustrates the process for unregistering gateways in the task pallet. It ensures that only a root user can perform this action. The process involves clearing a specified number of gateways, all registered shards, and filtering tasks to determine their status and handle them appropriately. Errors during the process are logged and returned.
+//! 
+#![doc = simple_mermaid::mermaid!("../docs/unregister_gateways.mmd")]
+//! ## **Reset Tasks**
+//! This flowchart shows the process for resetting tasks in the task pallet. It ensures that only a root user can initiate the reset. The reset process includes iterating over unassigned tasks and tasks associated with specific shards, resetting their phase state, and adding them back to unassigned tasks if necessary. The iteration stops once the maximum number of tasks to be reset is reached.
+//! 
+#![doc = simple_mermaid::mermaid!("../docs/reset_tasks.mmd")]
+
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

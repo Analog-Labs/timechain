@@ -1,0 +1,79 @@
+graph LR
+
+         C1["Root/Council"]
+         C2["Chronicles Shard Member"]
+         
+         T1["create_task(descriptor)"] 
+         T3["reset_task(task_id)"]
+         
+         T4["submit_result(task_id, result) unsigned"]    
+         T5["submit_hash(task_id, hash)"]
+         T6["submit_signature()"]
+         
+         T7["set_shard_task_limit()"]
+         
+         T8["set_batch_size()"]
+         T9["set_read_task_reward()"]
+         T10["set_write_task_reward()"]
+         T11["set_send_message_task_reward()"]
+     
+         T12["register_gateway()"]
+         T13["unregister_gateways()"]
+         T14["sudo_cancel_task()"]
+         T15["sudo_cancel_tasks()"]
+         
+         E1["TaskCreated(TaskId)"]
+         E2["TaskResult(TaskId, TaskResult)"]
+         E3["GatewayRegistered(NetworkId, [u8; 20], u64)"]
+         
+         E4["ReadTaskRewardSet(NetworkId, BalanceOf)"]
+         E5["WriteTaskRewardSet(NetworkId, BalanceOf)"]
+         E6["SendMessageTaskRewardSet(NetworkId, BalanceOf)"]
+         
+         E7["ShardTaskLimitSet(NetworkId, u32)"]
+         E8["BatchSizeSet(NetworkId, u64, u64)"]
+         
+         C2 --> T1 --> E1 
+         C2 --> T4 --> E2
+         C2 --> T5 
+         C2 --> T6
+ 
+         C1 --> T7 --> E7 
+         C1 --> T8 --> E8
+         C1 --> T9 --> E4
+         C1 --> T10 --> E5
+         C1 --> T11 --> E6
+         C1 --> T12 --> E3
+         C1 --> T13 
+         C1 --> T14
+         C1 --> T15
+         C1 --> T3
+         
+    
+ 
+ style C1 fill:#9f9,stroke:#333,stroke-width:2px
+ style C2 fill:#9f9,stroke:#333,stroke-width:2px
+ 
+ style T1 fill:#f9f,stroke:#333,stroke-width:2px
+ style T3 fill:#f9f,stroke:#333,stroke-width:2px
+ style T4 fill:#f9f,stroke:#333,stroke-width:2px
+ style T5 fill:#f9f,stroke:#333,stroke-width:2px
+ style T6 fill:#f9f,stroke:#333,stroke-width:2px
+ style T7 fill:#f9f,stroke:#333,stroke-width:2px
+ style T8 fill:#f9f,stroke:#333,stroke-width:2px
+ style T9 fill:#f9f,stroke:#333,stroke-width:2px
+ style T10 fill:#f9f,stroke:#333,stroke-width:2px
+ style T11 fill:#f9f,stroke:#333,stroke-width:2px
+ style T12 fill:#f9f,stroke:#333,stroke-width:2px
+ style T13 fill:#f9f,stroke:#333,stroke-width:2px
+ style T14 fill:#f9f,stroke:#333,stroke-width:2px
+ style T15 fill:#f9f,stroke:#333,stroke-width:2px
+ 
+ style E1 fill:#bbf,stroke:#333,stroke-width:2px
+ style E2 fill:#bbf,stroke:#333,stroke-width:2px
+ style E3 fill:#bbf,stroke:#333,stroke-width:2px
+ style E4 fill:#bbf,stroke:#333,stroke-width:2px
+ style E5 fill:#bbf,stroke:#333,stroke-width:2px
+ style E6 fill:#bbf,stroke:#333,stroke-width:2px
+ style E7 fill:#bbf,stroke:#333,stroke-width:2px
+ style E8 fill:#bbf,stroke:#333,stroke-width:2px

@@ -1,0 +1,20 @@
+
+ flowchart TD
+    A[on_initialize] --> B[Initialize weight]
+    B --> C[Is it time for a heartbeat check?]
+    C -- Yes --> D[Iterate through members]
+    D --> E[Has member sent heartbeat?]
+    E -- No --> F[Does member have a network?]
+    F -- Yes --> G[Mark member as offline]
+    G --> H[Update weight]
+    F -- No --> I[Update weight for read]
+    E -- Yes --> J[Update weight for read and write]
+    D --> K[Update weight for drained heartbeats]
+    C -- No --> L[Return weight]
+    H --> L
+    I --> L
+    J --> L
+    K --> L
+
+    %% style extrinsics
+	style A fill:#f9f,stroke:#333,stroke-width:2px;

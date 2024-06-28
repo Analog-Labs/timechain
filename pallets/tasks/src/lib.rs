@@ -58,6 +58,7 @@ pub mod pallet {
 		TasksInterface, TransferStake, TssSignature,
 	};
 
+	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn create_task(input_length: u32) -> Weight;
 		fn submit_result(input_length: u32) -> Weight;
@@ -135,6 +136,7 @@ pub mod pallet {
 
 	type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
+	/// A constant defining the batch size for task processing, set to 32.
 	const BATCH_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(32) };
 
 	#[pallet::pallet]
@@ -173,6 +175,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 	}
 
+	/// Double map storage for unassigned system tasks.
 	#[pallet::storage]
 	pub type UnassignedSystemTasks<T: Config> = StorageDoubleMap<
 		_,
@@ -184,6 +187,7 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Double map storage for unassigned tasks.
 	#[pallet::storage]
 	pub type UnassignedTasks<T: Config> = StorageDoubleMap<
 		_,
@@ -195,39 +199,48 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Map storage for the insert index of unassigned system tasks.
 	#[pallet::storage]
 	pub type UASystemTasksInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
+	/// Map storage for the remove index of unassigned system tasks.	
 	#[pallet::storage]
 	pub type UASystemTasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
+	/// Map storage for the insert index of unassigned tasks.	
 	#[pallet::storage]
 	pub type UATasksInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
+	/// Map storage for the remove index of unassigned tasks.	
 	#[pallet::storage]
 	pub type UATasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
+	/// Map storage for task index by task ID.	
 	#[pallet::storage]
 	pub type UATaskIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskIndex, OptionQuery>;
 
+	/// Map storage for shard task limits.
 	#[pallet::storage]
 	#[pallet::getter(fn shard_task_limit)]
 	pub type ShardTaskLimit<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
+	/// Double map storage for tasks by shard.
 	#[pallet::storage]
 	pub type ShardTasks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
+	/// Map storage for task shard by task ID.	
 	#[pallet::storage]
 	#[pallet::getter(fn task_shard)]
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
+	/// Double map storage for network shards.
 	#[pallet::storage]
 	pub type NetworkShards<T: Config> = StorageDoubleMap<
 		_,
@@ -239,37 +252,46 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	///  Map storage for network batch sizes.
 	#[pallet::storage]
 	pub type NetworkBatchSize<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
+	/// Map storage for network offsets.	
 	#[pallet::storage]
 	pub type NetworkOffset<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
+	/// Storage for task ID counter.	
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+	/// Map storage for tasks.
 	#[pallet::storage]
 	#[pallet::getter(fn tasks)]
 	pub type Tasks<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 
+	/// Map storage for task phase states.	
 	#[pallet::storage]
 	pub type TaskPhaseState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
 
+	/// Map storage for task signatures.	
 	#[pallet::storage]
 	pub type TaskSignature<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TssSignature, OptionQuery>;
 
+	/// Map storage for task signers.	
 	#[pallet::storage]
 	pub type TaskSigner<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, PublicKey, OptionQuery>;
 
+	/// Map storage for task hashes.	
 	#[pallet::storage]
 	pub type TaskHash<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, [u8; 32], OptionQuery>;
 
+	/// Double map storage for phase start times.
 	#[pallet::storage]
 	pub type PhaseStart<T: Config> = StorageDoubleMap<
 		_,
@@ -281,34 +303,42 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Map storage for task outputs.
 	#[pallet::storage]
 	pub type TaskOutput<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskResult, OptionQuery>;
 
+	/// Map storage for registered shards.	
 	#[pallet::storage]
 	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
 
+	/// Map storage for network gateways.
 	#[pallet::storage]
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, [u8; 20], OptionQuery>;
 
+	///  Map storage for received tasks.
 	#[pallet::storage]
 	pub type RecvTasks<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
+	///  Map storage for network read rewards.
 	#[pallet::storage]
 	#[pallet::getter(fn network_read_reward)]
 	pub type NetworkReadReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
+	/// Map storage for network write rewards.	
 	#[pallet::storage]
 	#[pallet::getter(fn network_write_reward)]
 	pub type NetworkWriteReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
+	/// Map storage for network send message rewards.	
 	#[pallet::storage]
 	#[pallet::getter(fn network_send_message_reward)]
 	pub type NetworkSendMessageReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
+	/// Map storage for task reward configurations.	
 	#[pallet::storage]
 	#[pallet::getter(fn task_reward_config)]
 	pub type TaskRewardConfig<T: Config> = StorageMap<
@@ -319,6 +349,7 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Double map storage for signer payouts.
 	#[pallet::storage]
 	#[pallet::getter(fn signer_payout)]
 	pub type SignerPayout<T: Config> = StorageDoubleMap<
@@ -331,6 +362,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Map storage for message tasks.
 	#[pallet::storage]
 	pub type MessageTask<T: Config> =
 		StorageMap<_, Blake2_128Concat, [u8; 32], (TaskId, TaskId), OptionQuery>;
@@ -769,7 +801,7 @@ pub mod pallet {
 		///    1. Ensure the origin of the transaction is a root user.
 		///    2. Clear the specified number of gateways from the `Gateway` storage.
 		///    3. Clear all registered shards from the [`ShardRegistered`] storage.
-		///    4. Filter and process tasks, finishing tasks with a `Function::ReadMessages` function with an error result indicating shard offline or gateway change.
+		///    4. Filter and process tasks, finishing tasks with a [`Function::ReadMessages`] function with an error result indicating shard offline or gateway change.
 		///    5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways(*num_gateways))]
@@ -938,9 +970,9 @@ pub mod pallet {
 		/// 
 		/// # Flow
 		///  1. Insert network_id and block_height into RecvTasks storage.
-		///  2. Create a task descriptor with network_id, Function::ReadMessages { batch_size }, and default shard size.
+		///  2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
 		///  3. Set the task's start field to block_height.
-		///  4. Start the task with TaskFunder::Inflation.
+		///  4. Start the task with [`TaskFunder::Inflation`].
 		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {
 			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
@@ -955,8 +987,8 @@ pub mod pallet {
 		/// Registers a new shard and initiates a task for shard registration.
 		/// 
 		/// # Flow
-		///  1. Create a task descriptor with network_id, Function::RegisterShard { shard_id }, and shard member count.
-		///  2. Start the task with TaskFunder::Inflation.
+		///  1. Create a task descriptor with `network_id`, `[Function::RegisterShard]` { `shard_id` }, and shard member count.
+		///  2. Start the task with `[TaskFunder::Inflation]`.
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
 			Self::start_task(
 				TaskDescriptorParams::new(
@@ -972,8 +1004,8 @@ pub mod pallet {
 		/// Filters and processes tasks using a provided function.
 		/// 
 		/// # Flow
-		///  1. Iterate over all entries in UnassignedTasks and UnassignedSystemTasks.
-		///  2. For each entry, apply the provided function to task_id.
+		///  1. Iterate over all entries in [`UnassignedTasks`] and [`UnassignedSystemTasks`].
+		///  2. For each entry, apply the provided function to `task_id`.
 		///  3. Iterate over all entries in ShardTasks.
 		///  4. For each entry, apply the provided function to task_id.
 		fn filter_tasks<F: Fn(TaskId)>(f: F) {
@@ -1036,9 +1068,9 @@ pub mod pallet {
 		/// # Flow
 		///  1. Create task parameters using `TaskDescriptorParams::new` with the following:
 		/// 		- Destination network from `msg.dest_network`.
-		/// 		- Function to send the message (`Function::SendMessage { msg }`).
+		/// 		- Function to send the message [`Function::SendMessage`].
 		/// 		- Number of shard members.
-		///  2. Start a task with the created parameters and fund it using `TaskFunder::Inflation`.
+		///  2. Start a task with the created parameters and fund it using [`TaskFunder::Inflation`].
 		///  3. Ensure the task is successfully started and funded using `expect("task funded through inflation")`.
 		///  4. Return the Task ID of the started task.
 		fn send_message(shard_id: ShardId, msg: Msg) -> TaskId {
@@ -1056,8 +1088,8 @@ pub mod pallet {
 		/// To initialize and start a task with the given parameters and fund it through various means.
 		/// 
 		/// # Flow
-		///    1. Retrieve the current task ID from `TaskIdCounter::<T>::get()`.
-		///    2. Get the initial phase of the task from `schedule.function.initial_phase()`.
+		///    1. Retrieve the current task ID from [`TaskIdCounter::<T>::get()`].
+		///    2. Get the initial phase of the task from [`Function::initial_phase()`].
 		///    3. Calculate read, write, and send message rewards based on the base rewards and network-specific rewards.
 		///    4. Calculate the required funds based on the task's phase and shard size.
 		///    5. Fund the Task:
@@ -1065,9 +1097,9 @@ pub mod pallet {
 		///        - If funded by a shard: Transfer the required stake from each shard member to the task account.
 		///        - If funded by inflation: Issue the required funds and resolve them to the task account.
 		///    6. Store Task Configuration:
-		///        - Insert task reward configuration into `TaskRewardConfig::<T>`.
-		///        - Insert task descriptor into `Tasks::<T>`.
-		///        - Insert the initial phase state into `TaskPhaseState::<T>`.
+		///        - Insert task reward configuration into [`TaskRewardConfig::<T>`].
+		///        - Insert task descriptor into [`Tasks::<T>`].
+		///        - Insert the initial phase state into [`TaskPhaseState::<T>`].
 		///    7. Increment and store the task ID counter.
 		///    8. Add the task to the list of unassigned tasks for the specified network.
 		///    9. Emit an event indicating the task has been created.
@@ -1169,8 +1201,8 @@ pub mod pallet {
 		/// Store the result of a task identified by task_id and update associated data if necessary.
 		/// 
 		/// # Flow
-		/// 1. Store result in TaskOutput::<T> for the specified task_id.
-		/// 2. If task_id has an associated shard_id, remove task_id from ShardTasks::<T>.
+		/// 1. Store result in `TaskOutput` for the specified task_id.
+		/// 2. If `task_id` has an associated `shard_id`, remove `task_id` from [`ShardTasks::<T>`].
 		fn finish_task(task_id: TaskId, result: TaskResult) {
 			TaskOutput::<T>::insert(task_id, result);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
@@ -1182,14 +1214,14 @@ pub mod pallet {
 		///   
 		/// # Flow
 		///   1. Create a `TaskResult` indicating the task cancellation due to administrative action.
-		///   2. Finalize the task by storing the cancellation result using `Self::finish_task(task_id, result.clone())`.
-		///   3. If `task_id` is indexed as an unassigned task (`UATaskIndex::<T>`), remove it from the unassigned task index for the specified `task_network`.
+		///   2. Finalize the task by storing the cancellation result using [`Self::finish_task`].
+		///   3. If `task_id` is indexed as an unassigned task [`UATaskIndex::<T>`], remove it from the unassigned task index for the specified `task_network`.
 		///   4. Remove all stored task-related data:
-		///       - Clear the task's phase state (`TaskPhaseState::<T>::remove(task_id)`).
-		///       - Remove the designated signer for the task (`TaskSigner::<T>::remove(task_id)`).
-		///       - Clear any stored task signature (`TaskSignature::<T>::remove(task_id)`).
-		///       - Remove any associated task hash (`TaskHash::<T>::remove(task_id)`).
-		///   5. Emit an event (`Event::TaskResult(task_id, result)`) indicating the cancellation and its result.
+		///       - Clear the task's phase state [`TaskPhaseState::<T>`].
+		///       - Remove the designated signer for the task [`TaskSigner::<T>`].
+		///       - Clear any stored task signature [`TaskSignature::<T>`].
+		///       - Remove any associated task hash [`TaskHash::<T>`].
+		///   5. Emit an event [`Event::TaskResult`] indicating the cancellation and its result.
 		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
 			let result = TaskResult {
 				shard_id: 0,
@@ -1211,8 +1243,8 @@ pub mod pallet {
 		/// 
 		/// # Flow
 		///   1. Retrieve the TSS public key for `shard_id`.
-		///   2. Convert the provided `signature` into a `schnorr_evm::Signature`.
-		///   3. Convert the retrieved public key into a `schnorr_evm::VerifyingKey`.
+		///   2. Convert the provided `signature` into a [`schnorr_evm::Signature`].
+		///   3. Convert the retrieved public key into a [`schnorr_evm::VerifyingKey`].
 		///   4. Verify the `signature` against the `data` using the verifying key.
 		///   5. Return `Ok(())` if verification succeeds, or an appropriate error if any step fails.
 		fn validate_signature(
@@ -1234,13 +1266,13 @@ pub mod pallet {
 		///   Schedule tasks for a specified network, optionally targeting a specific shard if provided.
 		///   
 		/// # Flow
-		///   1. If `shard_id` is provided, call `Self::schedule_tasks_shard(network, shard_id)` to schedule tasks for that specific shard.
+		///   1. If `shard_id` is provided, call [`Self::schedule_tasks_shard(network, shard_id)`] to schedule tasks for that specific shard.
 		///   2. If no `shard_id` is provided:
 		///       - Retrieve all shards associated with the `network`.
 		///       - Collect these shards into a list.
 		///       - Sort the list based on the number of tasks each shard currently has.
 		///       - Iterate through the sorted list in reverse order.
-		///       - For each shard in the list, call `Self::schedule_tasks_shard(network, shard)` to schedule tasks.
+		///       - For each shard in the list, call [`Self::schedule_tasks_shard(network, shard)`] to schedule tasks.
 		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
@@ -1260,11 +1292,11 @@ pub mod pallet {
 		///   To schedule tasks for a specified network and optionally for a specific shard, optimizing task allocation based on current workload and system constraints.
 		///   
 		/// # Flow
-		///   1. Count the number of incomplete tasks (`tasks`) for the specified `shard_id`.
-		///   2. Determine the size of the shard (`shard_size`) based on the number of shard members.
+		///   1. Count the number of incomplete tasks `tasks` for the specified `shard_id`.
+		///   2. Determine the size of the shard `shard_size` based on the number of shard members.
 		///   3. Check if the `shard_id` is registered.
-		///   4. Retrieve the maximum allowed tasks (`shard_task_limit`) for the network, defaulting to 10 if unspecified.
-		///   5. Calculate the remaining capacity (`capacity`) for new tasks.
+		///   4. Retrieve the maximum allowed tasks `shard_task_limit` for the network, defaulting to 10 if unspecified.
+		///   5. Calculate the remaining capacity `capacity` for new tasks.
 		///   6. If `capacity` is zero, stop further task assignments.
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
@@ -1465,7 +1497,7 @@ pub mod pallet {
 		///  # Flow
 		///   1. Retrieve the task `task` associated with `task_id` from storage.
 		///   2. Check the function type of the task:
-		///       - If it is a system task [`Function::UnregisterShard`, `Function::RegisterShard`, `Function::ReadMessages`], add `task_id` to the prioritized unassigned tasks list for the `network`.
+		///       - If it is a system task [`Function::UnregisterShard`], [`Function::RegisterShard`], [`Function::ReadMessages`], add `task_id` to the prioritized unassigned tasks list for the `network`.
 		///       - Otherwise, add `task_id` to the remaining unassigned tasks list for the `network`.
 		pub fn add_unassigned_task(network: NetworkId, task_id: TaskId) {
 			let Some(task) = Tasks::<T>::get(task_id) else { return };

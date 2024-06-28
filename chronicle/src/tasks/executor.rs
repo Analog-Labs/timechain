@@ -9,6 +9,7 @@ use time_primitives::{
 	TaskExecution, TaskPhase, TssId,
 };
 use tokio::task::JoinHandle;
+use tracing::{event, span, Level};
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
@@ -56,13 +57,14 @@ where
 
 	async fn process_tasks(
 		&mut self,
+		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<(Vec<TssId>, Vec<TssId>)> {
 		tracing::span!(target: TW_LOG, tracing::Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
-		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
+		TaskExecutor::process_tasks(self, span, block_hash, block_number, shard_id, target_block_height)
 			.await
 	}
 }
@@ -91,11 +93,20 @@ where
 	/// preprocesses the task before sending it for execution in task_spawner.rs
 	pub async fn process_tasks(
 		&mut self,
+		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<(Vec<TssId>, Vec<TssId>)> {
+		let span = span!(
+			target: TW_LOG,
+			parent: span,
+			Level::DEBUG,
+			"on_finality",
+			block = block_hash.to_string(),
+			block_number,
+		);
 		// get task metadata from runtime
 		let mut start_sessions = vec![];
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
@@ -110,11 +121,14 @@ where
 			let task_descr = self.substrate.get_task(block_hash, task_id).await?.unwrap();
 			let target_block_number = task_descr.start;
 			if target_block_height < target_block_number {
-				tracing::debug!(
-					"Task {} is scheduled for future {:?}/{:?}",
+				event!(
+					target: TW_LOG,
+					parent: &span,
+					Level::DEBUG,
 					task_id,
+					format!("Task scheduled for future {:?}/{:?}",
 					target_block_height,
-					target_block_number
+					target_block_number),
 				);
 				continue;
 			}

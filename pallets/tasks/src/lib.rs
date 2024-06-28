@@ -203,22 +203,22 @@ pub mod pallet {
 	pub type UASystemTasksInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
-	/// Map storage for the remove index of unassigned system tasks.	
+	/// Map storage for the remove index of unassigned system tasks.
 	#[pallet::storage]
 	pub type UASystemTasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
-	/// Map storage for the insert index of unassigned tasks.	
+	/// Map storage for the insert index of unassigned tasks.
 	#[pallet::storage]
 	pub type UATasksInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
-	/// Map storage for the remove index of unassigned tasks.	
+	/// Map storage for the remove index of unassigned tasks.
 	#[pallet::storage]
 	pub type UATasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, TaskIndex, OptionQuery>;
 
-	/// Map storage for task index by task ID.	
+	/// Map storage for task index by task ID.
 	#[pallet::storage]
 	pub type UATaskIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskIndex, OptionQuery>;
@@ -234,7 +234,7 @@ pub mod pallet {
 	pub type ShardTasks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ShardId, Blake2_128Concat, TaskId, (), OptionQuery>;
 
-	/// Map storage for task shard by task ID.	
+	/// Map storage for task shard by task ID.
 	#[pallet::storage]
 	#[pallet::getter(fn task_shard)]
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
@@ -256,12 +256,12 @@ pub mod pallet {
 	pub type NetworkBatchSize<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
-	/// Map storage for network offsets.	
+	/// Map storage for network offsets.
 	#[pallet::storage]
 	pub type NetworkOffset<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
-	/// Storage for task ID counter.	
+	/// Storage for task ID counter.
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
@@ -271,22 +271,22 @@ pub mod pallet {
 	pub type Tasks<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskDescriptor, OptionQuery>;
 
-	/// Map storage for task phase states.	
+	/// Map storage for task phase states.
 	#[pallet::storage]
 	pub type TaskPhaseState<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskPhase, ValueQuery>;
 
-	/// Map storage for task signatures.	
+	/// Map storage for task signatures.
 	#[pallet::storage]
 	pub type TaskSignature<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TssSignature, OptionQuery>;
 
-	/// Map storage for task signers.	
+	/// Map storage for task signers.
 	#[pallet::storage]
 	pub type TaskSigner<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, PublicKey, OptionQuery>;
 
-	/// Map storage for task hashes.	
+	/// Map storage for task hashes.
 	#[pallet::storage]
 	pub type TaskHash<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, [u8; 32], OptionQuery>;
 
@@ -307,7 +307,7 @@ pub mod pallet {
 	pub type TaskOutput<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, TaskResult, OptionQuery>;
 
-	/// Map storage for registered shards.	
+	/// Map storage for registered shards.
 	#[pallet::storage]
 	pub type ShardRegistered<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, (), OptionQuery>;
 
@@ -325,19 +325,19 @@ pub mod pallet {
 	pub type NetworkReadReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
-	/// Map storage for network write rewards.	
+	/// Map storage for network write rewards.
 	#[pallet::storage]
 	#[pallet::getter(fn network_write_reward)]
 	pub type NetworkWriteReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
-	/// Map storage for network send message rewards.	
+	/// Map storage for network send message rewards.
 	#[pallet::storage]
 	#[pallet::getter(fn network_send_message_reward)]
 	pub type NetworkSendMessageReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, BalanceOf<T>, ValueQuery>;
 
-	/// Map storage for task reward configurations.	
+	/// Map storage for task reward configurations.
 	#[pallet::storage]
 	#[pallet::getter(fn task_reward_config)]
 	pub type TaskRewardConfig<T: Config> = StorageMap<

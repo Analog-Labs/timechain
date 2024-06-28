@@ -1,15 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! This pallet manages members' registration, heartbeat functionality, and member management within a decentralized network.
-//! 
-//! This flowchart represents the control flow and interactions of callable functions (`register_member`, `send_heartbeat`, `unregister_member`). It shows the decision points, data operations, and event emissions along with error handling where applicable. 
-//! 
-//! 
+//!
+//! This flowchart represents the control flow and interactions of callable functions (`register_member`, `send_heartbeat`, `unregister_member`). It shows the decision points, data operations, and event emissions along with error handling where applicable.
+//!
+//!
 #![doc = simple_mermaid::mermaid!("../docs/member_calls.mmd")]
 //!
 //! This flowchart illustrates the decision-making and steps taken within the on_initialize function, highlighting the main actions and checks performed during the process.
-//! 
-//! 
+//!
+//!
 #![doc = simple_mermaid::mermaid!("../docs/member_hooks.mmd")]
 //!
 
@@ -109,7 +109,7 @@ pub mod pallet {
 		/// [`Event::RegisteredMember`] shard member registration.
 		RegisteredMember(AccountId, NetworkId, PeerId),
 
-		/// [`Event::HeartbeatReceived`] heartbeat reception event.	
+		/// [`Event::HeartbeatReceived`] heartbeat reception event.
 		HeartbeatReceived(AccountId),
 
 		/// [`Event::MemberOnline`]  member online status changes
@@ -118,7 +118,7 @@ pub mod pallet {
 		/// [`Event::MemberOffline`] member offline status changes
 		MemberOffline(AccountId),
 
-		/// [`Event::UnRegisteredMember`] member unregistration event.	
+		/// [`Event::UnRegisteredMember`] member unregistration event.
 		UnRegisteredMember(AccountId, NetworkId),
 	}
 
@@ -164,7 +164,6 @@ pub mod pallet {
 	/// Exposes callable functions to interact with the pallet.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
 		/// `register_member`: Registers a member with specified network ID, public key, peer ID, and bond (staking amount).
 		/// # Flow
 		///	1. Receives `origin` (caller's account), `network` (NetworkId), `public_key` (PublicKey), `peer_id` (PeerId), `bond` (Balance to stake).
@@ -293,7 +292,7 @@ pub mod pallet {
 		}
 
 		/// Retrieves the heartbeat timeout value.
-		/// 
+		///
 		/// This function fetches the timeout duration for heartbeats from the associated configuration.
 		/// The heartbeat timeout is used to determine the maximum allowed duration between heartbeats before considering the node as inactive.
 		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {
@@ -301,7 +300,7 @@ pub mod pallet {
 		}
 
 		/// Retrieves the minimum stake value.
-		/// 
+		///
 		/// This function fetches the minimum required stake from the associated configuration.
 		/// The minimum stake is the least amount of tokens required to participate in staking.
 		pub fn get_min_stake() -> BalanceOf<T> {
@@ -313,7 +312,7 @@ pub mod pallet {
 		/// Transfers a specified amount of stake from one account to another.
 		///
 		/// This function checks if the `from` account has sufficient stake before proceeding with the transfer.
-		/// It unreserves the specified amount from the `from` account, transfers it to the `to` account, 
+		/// It unreserves the specified amount from the `from` account, transfers it to the `to` account,
 		/// and updates the `from` account's remaining stake.
 		/// Returns [`Error::<T>::StakedBelowTransferAmount`] if the `from` account does not have enough stake.
 		fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult {
@@ -348,12 +347,12 @@ pub mod pallet {
 			MemberPublicKey::<T>::get(account)
 		}
 
-    	/// Checks if a specific member is online.
+		/// Checks if a specific member is online.
 		fn is_member_online(account: &AccountId) -> bool {
 			MemberOnline::<T>::get(account).is_some()
 		}
 
-    	/// Retrieves the total stake of all members.
+		/// Retrieves the total stake of all members.
 		fn total_stake() -> u128 {
 			let mut total: u128 = 0;
 			for stake in MemberStake::<T>::iter() {

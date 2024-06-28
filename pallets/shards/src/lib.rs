@@ -2,30 +2,29 @@
 //! # Timechain Shards Pallet
 //!
 //! The Shards pallet manages the lifecycle of shards in a decentralized network. It handles the creation, commitment, readiness, and offline status of shards, along with managing shard members and their statuses. The pallet ensures that members' commitments are valid and all members are ready before transitioning a shard to an online state. It also provides mechanisms for forcefully taking shards offline when needed. The main callable functions (commit, ready, and force_shard_offline) enable members and administrators to interact with the shards, while hooks like on_initialize ensure timely state updates and cleanup. Events are emitted to signal important state changes and actions taken on shards.
-//! 
+//!
 //! ## **Call Functions**
-//! 
-//! This graph represents the workflow of the `commit`, `ready`, and `force_shard_offline` call functions within the Shards pallet. 
+//!
+//! This graph represents the workflow of the `commit`, `ready`, and `force_shard_offline` call functions within the Shards pallet.
 //! ### Commit Flow
-//! 
+//!
 //! The commit process begins with verifying that the request is from an authenticated user. It then checks the member's current status to ensure they are eligible to commit. If the member's status is not as expected, the process returns an `UnexpectedCommit` error. Once the member's status is validated, the required commitment threshold is retrieved, and the length of the commitment is checked for appropriateness. The commitment's validity is verified, and any invalid commitment results in an `InvalidCommitment` error. A valid commitment is stored, followed by a check to see if all necessary commitments have been received. Once all commitments are collected, they are aggregated into a group commitment, which is then stored. The shard state is updated based on these commitments, and the process concludes with the logging of a `ShardCommitted` event.
-//! 
+//!
 //! ### Force Shard Offline Flow
-//! 
+//!
 //! The force shard offline process starts with ensuring the request is from a root user. Upon confirmation, the system calls the `remove_shard_offline` function to begin the shard removal process. This involves removing the shard state, retrieving the network details, and scheduling the `shard_offline` task. The process also includes draining and removing shard members, removing members from the `MemberShard`, and concludes with logging the `ShardOffline` event.
-//! 
+//!
 //! ### Ready Flow
-//! 
+//!
 //! The ready process begins with ensuring the request is from an authenticated user. It checks the member's current status to confirm they are in the correct state to be marked as ready. If the status is not appropriate, an `UnexpectedReady` error is returned. Once the member's status is validated, the system retrieves the network and the member's commitment. The member is then marked as ready, and a check is performed to see if all members are ready. If all members are ready, the shard state is updated to `Online`, and the `shard_online` task is scheduled. The process ends with the logging of a `ShardOnline` event.
 //!  
 #![doc = simple_mermaid::mermaid!("../docs/shard_callfunctions.mmd")]
 //!
 //! ## **on_initialize Hook**
-//! 
+//!
 //! This graph illustrates the workflow of the `on_initialize` function within the Shards pallet. The `on_initialize` function is triggered at the beginning of each block and iterates over the `DkgTimeout` entries to identify any shards that have timed out. For each entry, the function checks if the timeout condition is met. If the condition is met, the function handles the timeout by either removing the `DkgTimeout` entry or marking the shard as offline. In the case where the shard is neither in a Created nor Committed state, the function removes the timeout entry. If the shard is in a Created or Committed state, it proceeds to handle the shard going offline. This involves removing the shard's state and threshold entries, attempting to retrieve the associated network, and marking the shard as offline in the task scheduler. Additionally, the function drains the shard members, removes their entries, handles the shard going offline in the elections module, and finally emits the `ShardOffline` event.
-//! 
+//!
 #![doc = simple_mermaid::mermaid!("../docs/shard_hook.mmd")]
-
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -50,8 +49,7 @@ pub mod pallet {
 		TasksInterface, TssPublicKey,
 	};
 
-
-    /// Trait to define the weights for various extrinsics in the pallet.
+	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
@@ -120,12 +118,12 @@ pub mod pallet {
 	pub type ShardCommitment<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, Commitment, OptionQuery>;
 
-	/// Maps `AccountId` to `ShardId` indicating the shard a member is part of.	
+	/// Maps `AccountId` to `ShardId` indicating the shard a member is part of.
 	#[pallet::storage]
 	pub type MemberShard<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, ShardId, OptionQuery>;
 
-	/// Maps `ShardId` to `u32` indicating the signer index for each shard.	
+	/// Maps `ShardId` to `u32` indicating the signer index for each shard.
 	#[pallet::storage]
 	pub type SignerIndex<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u32, ValueQuery>;
 
@@ -245,7 +243,7 @@ pub mod pallet {
 		}
 
 		///   Marks a shard as ready when a member indicates readiness after commitment.
-		/// 
+		///
 		///  # Flow
 		///		1. Ensure the origin is a signed transaction and the sender has committed.
 		///		2. Retrieve the shard\'s network and commitment.
@@ -323,7 +321,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-
 		/// Handles the internal logic for removing a shard and setting its state to offline.
 		/// Set shard status to offline and keep shard public key if already submitted
 		///   # Flow
@@ -371,7 +368,7 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).collect()
 		}
 		///   Retrieves the threshold value of a specified shard.
-		/// 
+		///
 		///  # Flow
 		///		1. Retrieve and return the threshold value from [`ShardThreshold`] storage.
 		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
@@ -384,7 +381,7 @@ pub mod pallet {
 			ShardState::<T>::get(shard_id).unwrap_or_default()
 		}
 		///   Retrieves the commitment of a specified shard, if available.
-		/// 
+		///
 		///   # Flow
 		///		1. Retrieve and return the commitment from [`ShardCommitment`] storage.
 		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Vec<TssPublicKey>> {
@@ -393,9 +390,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MemberEvents for Pallet<T> {
-
 		///	Updates shard state when a member comes online.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves the `shard_id` associated with the member `id`.
 		///	2. Retrieves the current old_status of the shard.
@@ -413,7 +409,7 @@ pub mod pallet {
 			}
 		}
 		///	Handles shard state adjustments when a member goes offline.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves the `shard_id` associated with the member `id`.
 		///	2. Retrieves the current `old_status`, `shard_threshold`, and `members_online` count.
@@ -459,10 +455,9 @@ pub mod pallet {
 		}
 	}
 
-
 	impl<T: Config> ShardsInterface for Pallet<T> {
 		///	Checks if a specified shard is currently online.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves the `ShardState` for the given `shard_id`.
 		///	2. Returns `true` if the shard status is [`Some(ShardStatus::Online)`], indicating the shard is online; otherwise, returns `false`.
@@ -470,7 +465,7 @@ pub mod pallet {
 			matches!(ShardState::<T>::get(shard_id), Some(ShardStatus::Online))
 		}
 		///	Checks if a specified account is a member of any shard.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves the shard `ID` associated with the member account from [`MemberShard`].
 		///	2. Returns `true` if the shard `ID` is present (`Some`), indicating the account is a member; otherwise, returns `false`.
@@ -478,7 +473,7 @@ pub mod pallet {
 			MemberShard::<T>::get(member).is_some()
 		}
 		///	Checks if there exists a shard with a matching network and size that is online.
-		/// 
+		///
 		///	# Flow
 		///	1. Iterates over all [`ShardNetwork`] entries.
 		///	2. Checks if the network ID matches the specified network parameter.
@@ -493,7 +488,7 @@ pub mod pallet {
 			})
 		}
 		///	Retrieves the network identifier associated with a specified shard.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves and returns the network ID stored in [`ShardNetwork`] for the given `shard_id`.
 
@@ -501,7 +496,7 @@ pub mod pallet {
 			ShardNetwork::<T>::get(shard_id)
 		}
 		///	Retrieves the list of account identifiers that are members of a specified shard.
-		/// 
+		///
 		///	# Flow
 		///	1. Iterates over `ShardMembers` entries with the prefix `shard_id`.
 		///	2. Collects and returns the list of account identifiers (`AccountId`) associated with the shard.
@@ -509,7 +504,7 @@ pub mod pallet {
 			ShardMembers::<T>::iter_prefix(shard_id).map(|(a, _)| a).collect::<Vec<_>>()
 		}
 		///	Creates a new shard with specified network, members, and threshold, initializing its state and storing relevant data.
-		/// 
+		///
 		///	# Flow
 		///	1. Generates a new `shard_id` using [`ShardIdCounter`].
 		///	2. Stores the network ID in [`ShardNetwork`] for the `shard_id`.
@@ -533,7 +528,7 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 		///	Retrieves the next signer\'s public key for the specified shard, updating the signer index.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves the list of members (`AccountId`) for the specified `shard_id`.
 		///	2. Retrieves the current `signer_index` for the shard.
@@ -556,7 +551,7 @@ pub mod pallet {
 			signer
 		}
 		///	Retrieves the TSS public key associated with the specified shard, if available.
-		/// 
+		///
 		///	# Flow
 		///	1. Retrieves the commitment [`Vec<TssPublicKey>`] associated with the `shard_id` from [`ShardCommitment`].
 		///	2. Returns the first element of the commitment [`TssPublicKey`] if it exists; otherwise, returns `None`.
@@ -565,4 +560,3 @@ pub mod pallet {
 		}
 	}
 }
-

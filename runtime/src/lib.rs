@@ -1125,14 +1125,25 @@ mod benches {
 	polkadot_sdk::frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
+		[pallet_babe, Babe]
+		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_elections, Elections]
-		[pallet_timestamp, Timestamp]
+		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
+		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
+		[pallet_grandpa, Grandpa]
+		[pallet_im_online, ImOnline]
 		[pallet_members, Members]
+		[pallet_networks, Networks]
+		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_session, SessionBench::<Runtime>]
 		[pallet_shards, Shards]
+		[pallet_staking, Staking]
+		[pallet_sudo, Sudo]
 		[pallet_tasks, Tasks]
 		[pallet_timegraph, Timegraph]
-		[pallet_networks, Networks]
+		[pallet_timestamp, Timestamp]
+		[pallet_utility, Utility]
 	);
 }
 
@@ -1450,6 +1461,9 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences_benchmarking::Pallet as OffencesBench;
+			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, pallet_elections, Elections);
@@ -1472,9 +1486,15 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences_benchmarking::Pallet as OffencesBench;
+			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl baseline::Config for Runtime {}
+			impl pallet_session_benchmarking::Config for Runtime {}
+			impl pallet_offences_benchmarking::Config for Runtime {}
+			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 
 			use frame_support::traits::{TrackedStorageKey, WhitelistedStorageKeys};
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

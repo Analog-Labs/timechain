@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DOCKER_REPO: analoglabs/timechain
+  DOCKER_REPO: analoglabs/timenode
 
 jobs:
   set-tags:
@@ -34,6 +34,19 @@ jobs:
     name: Build Docker image
     needs: ["set-tags"]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - image: timechain 
+          profile: production
+          features: default
+        - image: testnet 
+          profile: testnet
+          features: default
+        - image: development 
+          profile: testnet
+          features: development
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v3
@@ -51,5 +64,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
+          tags: ${{ env.DOCKER_REPO }}-${{ matrix.image }}:${{ needs.set-tags.outputs.commit_hash8 }}
           file: config/docker/Dockerfile.release
+          build-args: |
+            VCS_REF=${{ needs.set-tags.outputs.commit_hash8 }}
+            PROFILE=${{ matrix.profile }}
+            FEATURES=${{ matrix.features }}

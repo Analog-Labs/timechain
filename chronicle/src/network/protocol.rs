@@ -70,7 +70,7 @@ impl TssEndpoint {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			};
-			if addr.direct_addresses.is_empty() {
+			if addr != endpoint.addr().await?.info {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}

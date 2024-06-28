@@ -243,9 +243,6 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 parameter_types! {
-	// OnChain values are lower.
-	pub MaxOnChainElectingVoters: u32 = 5000;
-	pub MaxOnChainElectableTargets: u16 = 1250;
 	// The maximum winners that can be elected by the Election pallet which is equivalent to the
 	// maximum active validators the staking pallet can have.
 	pub MaxActiveValidators: u32 = 1000;
@@ -608,9 +605,9 @@ parameter_types! {
 	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+		.voters_count(100.into()).targets_count(5_000.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5_000.into()).targets_count(1_250.into()).build();
+		.voters_count(100.into()).targets_count(5_000.into()).build();
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -637,18 +634,16 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 }
 
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
-/// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
-/// since the staking is bounded and the weight pipeline takes hours for this single pallet.
-
+/// to ensure election snapshot will not run out of memory.
 pub struct BenchmarkConfig;
 impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfig {
 	const VOTERS: [u32; 2] = [1000, 2000];
-	const TARGETS: [u32; 2] = [500, 1000];
-	const ACTIVE_VOTERS: [u32; 2] = [500, 800];
+	const ACTIVE_VOTERS: [u32; 2] = [200, 400];
+	const TARGETS: [u32; 2] = [1000, 5000];
 	const DESIRED_TARGETS: [u32; 2] = [200, 400];
-	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
-	const MINER_MAXIMUM_VOTERS: u32 = 1000;
-	const MAXIMUM_TARGETS: u32 = 300;
+	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 100;
+	const MINER_MAXIMUM_VOTERS: u32 = 100;
+	const MAXIMUM_TARGETS: u32 = 5000;
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {

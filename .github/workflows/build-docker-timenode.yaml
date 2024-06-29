@@ -41,15 +41,12 @@ jobs:
         - image: timechain 
           profile: production
           features: default
-          build-variant: prod
-        - image: testnet 
+        - image: test 
           profile: testnet
           features: default
-          build-variant: test
-        - image: development 
+        - image: dev
           profile: testnet
           features: development
-          build-variant: dev
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v3
@@ -73,4 +70,4 @@ jobs:
             VCS_REF=${{ needs.set-tags.outputs.commit_hash8 }}
             PROFILE=${{ matrix.profile }}
             FEATURES=${{ matrix.features }}
-            BUILD_VARIANT=${{ matrix.build-variant }}
+            BUILD_VARIANT=${{ matrix.image }}

@@ -34,6 +34,8 @@ pallet-members = { path = "../members", default-features = false }
 pallet-shards = { path = "../shards", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
+simple-mermaid.workspace = true
+
 [dev-dependencies]
 #polkadot-sdk = { workspace = true, features = [ "sp-io" ] }
 

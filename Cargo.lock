@@ -277,6 +277,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "analog-docs"
+version = "0.1.0"
+dependencies = [
+ "chronicle",
+ "pallet-elections",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "pallet-timegraph",
+ "timechain-node",
+ "timechain-runtime",
+]
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7609,9 +7624,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.21"
+version = "0.4.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
+checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 dependencies = [
  "serde",
  "value-bag",
@@ -8521,9 +8536,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c165a9ab64cf766f73521c0dd2cfdff64f488b8f0b3e621face3462d3db536d7"
+checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -9787,6 +9802,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "simple-mermaid",
  "sp-core 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-io 30.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-keystore 0.34.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
@@ -10379,6 +10395,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
+ "simple-mermaid",
  "sp-core 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-io 30.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-runtime 31.0.1 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
@@ -10536,6 +10553,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
+ "simple-mermaid",
  "sp-core 28.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-io 30.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
  "sp-runtime 31.0.1 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched)",
@@ -17509,7 +17527,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -17607,7 +17625,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -17651,7 +17669,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -17990,7 +18008,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -18049,7 +18067,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "Inflector",
  "expander",
@@ -18172,7 +18190,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched#d1
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 
 [[package]]
 name = "sp-storage"
@@ -18217,7 +18235,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -18278,7 +18296,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -18428,7 +18446,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#dee18249742c4abbf81fcca62b40a868a394c3d4"
+source = "git+https://github.com/paritytech/polkadot-sdk#31986a60b7492659e9a148843a752c2fcbb7d2f3"
 dependencies = [
  "impl-trait-for-tuples",
  "log",

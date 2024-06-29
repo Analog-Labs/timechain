@@ -1,0 +1,19 @@
+graph TD;
+    A[on_initialize] -->|Iterate DkgTimeout| B{Timeout check};
+    B -->|Yes| C[Handle timeout];
+    C --> D[Remove DkgTimeout];
+    C --> E[Handle shard offline];
+    E --> F[Remove shard state];
+    F --> G[Remove shard threshold];
+    F --> H[Retrieve network];
+    H --> I[TaskScheduler: shard_offline];
+    F --> J[Drain shard members];
+    J --> K[Remove member from MemberShard];
+    G -->|Elections: shard_offline| L[Handle shard offline event];
+    L --> M[Deposit ShardOffline event];
+
+ 
+
+
+style A fill:#f9f,stroke:#333,stroke-width:2px;
+style M fill:#bbf,stroke:#333,stroke-width:2px;

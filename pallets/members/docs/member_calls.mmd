@@ -1,0 +1,58 @@
+flowchart TD
+    
+    B[register_member]
+    C[send_heartbeat]
+    D[unregister_member]
+    B --> E[Ensure Signed]
+    E -- Yes --> F[Validate Public Key]
+    F -- Yes --> G[Check Existing Membership]
+    G -- Yes --> H[Unregister Member]
+    H --> I[Validate Minimum Stake]
+    I -- Yes --> J[Reserve Bond]
+    J --> K[Insert Data]
+    K --> L[Mark Online]
+    L --> M[Event: RegisteredMember]
+    M --> N[Call: member_online]
+    N --> O[Return OK]
+    F -- No --> O1[Return Error: InvalidPublicKey]
+    G -- No --> I
+    I -- No --> O2[Return Error: BondBelowMinStake]
+    E -- No --> O3[Return Error: NotSigned]
+    C --> P[Ensure Member]
+    P -- Yes --> Q[Update Heartbeat]
+    Q --> R[Event: HeartbeatReceived]
+    R --> S[Check Online]
+    S -- No --> T[Mark Online]
+    T --> U[Call: member_online]
+    U --> V[Return OK]
+    S -- Yes --> V[Return OK]
+    P -- No --> V1[Return Error: NotMember]
+    D --> W[Ensure Member]
+    W -- Yes --> X[Retrieve Network]
+    X --> Y[Unregister Member From Network]
+    Y --> Z[Unreserve Stake]
+    Z --> AA[Remove Data]
+    AA --> AB[Event: UnRegisteredMember]
+    AB --> AC[Call: member_offline]
+    AC --> AD[Return OK]
+    W -- No --> AD1[Return Error: NotMember]
+    
+        %% style extrinsics
+		style B fill:#f9f,stroke:#333,stroke-width:2px;
+		style C fill:#f9f,stroke:#333,stroke-width:2px;
+		style D fill:#f9f,stroke:#333,stroke-width:2px;
+
+		
+		%% style errors
+		style AD1 fill:#f96,stroke:#333,stroke-width:2px;
+		style V1 fill:#f96,stroke:#333,stroke-width:2px;
+		style O2 fill:#f96,stroke:#333,stroke-width:2px;
+		style O3 fill:#f96,stroke:#333,stroke-width:2px;
+		style O1 fill:#f96,stroke:#333,stroke-width:2px;
+
+		
+		%% style events
+		style AB fill:#bbf,stroke:#333,stroke-width:2px;
+		style R fill:#bbf,stroke:#333,stroke-width:2px;
+		style M fill:#bbf,stroke:#333,stroke-width:2px;
+

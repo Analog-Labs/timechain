@@ -1,0 +1,21 @@
+graph TB;
+    U[Unregister Gateways] --> U2[Ensure Root User];
+    U2 --> U3[Clear Specified Number of Gateways];
+    U3 --> U4[Clear All Registered Shards];
+    U4 --> U5[Filter and Process Tasks];
+    
+    U5 --> U6{Task Loop};
+    U6 -->|Unassigned Tasks| U7[Iterate Over Unassigned Tasks];
+    U7 --> U8[Check Task Function];
+    U8 --> U9[Task Status];
+    
+    U6 -->|Shard Tasks| U10[Iterate Over Shard Tasks];
+    U10 --> U11[Check Task Function];
+    U11 --> U9;
+    
+    U9 --> U13[Return Ok];
+    U9 -->|ReadMessages| U14[Log Error and Return];
+
+    %% Styles
+    style U fill:#f9f,stroke:#333,stroke-width:2px;
+    style U14 fill:#f96,stroke:#333,stroke-width:2px;

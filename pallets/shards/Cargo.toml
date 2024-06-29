@@ -32,6 +32,8 @@ schnorr-evm = { version = "0.1.2", default-features = false }
 
 time-primitives = { path = "../../primitives", default-features = false }
 
+simple-mermaid.workspace = true
+
 [dev-dependencies]
 #polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 

@@ -28,6 +28,8 @@ sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-p
 
 time-primitives = { path = "../../primitives", default-features = false }
 
+simple-mermaid.workspace = true 
+
 [dev-dependencies]
 env_logger.workspace = true
 lazy_static = "1.4.0"

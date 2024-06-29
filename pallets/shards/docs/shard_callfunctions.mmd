@@ -1,0 +1,52 @@
+
+graph TD;
+        X[commit] --> Y[Ensure signed];
+        Y --> Z[Check member status];
+        Z -->|No| AA[Error: UnexpectedCommit];
+        Z -->|Yes| AB[Retrieve threshold];
+        AB --> AC[Check commitment length];
+        AC --> AD[Verify commitment validity];
+        AD --> AE[Store member commitment];
+        AE --> AF[Check all commitments];
+        AF --> AG[Reduce commitments to group commitment];
+        AG --> AH[Store group commitment];
+        AG --> AI[Update shard state];
+        AI --> AJ[Deposit ShardCommitted event];
+        AJ[ShardCommitted];
+
+        AD -->|Error: InvalidCommitment| AK[Handle commitment error];
+
+
+        X2[force_shard_offline] --> Y2[Ensure root];
+        Y2 --> Z2[Call remove_shard_offline];
+        Z2 --> AA2[Remove shard state];
+        AA2 --> AB2[Retrieve network];
+        AB2 --> AC2[TaskScheduler: shard_offline];
+        AA2 --> AD2[Drain and remove shard members];
+        AD2 --> AE2[Remove member from MemberShard];
+        AE2 --> AF2[Deposit ShardOffline event];
+
+        X1[ready] --> Y1[Ensure signed];
+        Y1 --> Z1[Check member status];
+        Z1 -->|No| AA1[Error: UnexpectedReady];
+        Z1 -->|Yes| AB1[Retrieve network];
+        AB1 --> AC1[Retrieve commitment];
+        AC1 --> AD1[Store member as ready];
+        AD1 --> AE1[Check all members ready];
+        AE1 --> AF1[Update shard state to Online];
+        AE1 --> AG1[Deposit ShardOnline event];
+        AF1 --> AH1[TaskScheduler: shard_online];
+
+
+
+
+
+style X fill:#f9f,stroke:#333,stroke-width:2px;
+style AK fill:#f96,stroke:#333,stroke-width:2px;
+style AA fill:#f96,stroke:#333,stroke-width:2px;
+style AJ fill:#bbf,stroke:#333,stroke-width:2px;
+style X2 fill:#f9f,stroke:#333,stroke-width:2px;
+style AF2 fill:#bbf,stroke:#333,stroke-width:2px;
+style X1 fill:#f9f,stroke:#333,stroke-width:2px;
+style AA1 fill:#f96,stroke:#333,stroke-width:2px;
+style AG1 fill:#bbf,stroke:#333,stroke-width:2px;

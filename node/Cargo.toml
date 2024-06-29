@@ -2,14 +2,16 @@
 name = "timechain-node"
 build = "build.rs"
 description = "A blockchain node using the proof of time consensus."
-version = "0.6.0"
 default-run = "timechain-node"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
 license.workspace = true
+license-file.workspace = true
 repository.workspace = true
+readme.workspace = true
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see

@@ -1,6 +1,8 @@
 [package]
 name = "tester"
 version = "0.1.0"
+description = "Utility tool for executing commands on the Timechain and gateway contracts"
+readme = "tester/README.md"
 
 authors.workspace = true
 edition.workspace = true

@@ -3,6 +3,7 @@ name = "pallet-shards"
 version = "4.0.0-dev"
 description = "A pallet for managing shards."
 publish = false
+readme = "pallets/shards/README.md"
 
 authors.workspace = true
 edition.workspace = true

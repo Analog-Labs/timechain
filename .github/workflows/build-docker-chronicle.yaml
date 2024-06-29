@@ -41,6 +41,14 @@ jobs:
     name: Build Docker image
     needs: ["set-tags"]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - image: prod 
+          profile: production
+        - image: dev
+          profile: testnet
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v3
@@ -59,6 +67,9 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
+            ${{ env.DOCKER_REPO }}-${{ matrix.image }}:${{ needs.set-tags.outputs.commit_hash8 }}
             ${{ env.DOCKER_REPO }}:latest
           file: config/docker/Dockerfile.chronicle-release
+          build-args: |
+            VCS_REF=${{ needs.set-tags.outputs.commit_hash8 }}
+            PROFILE=${{ matrix.profile }}

@@ -3,6 +3,7 @@ name = "pallet-timegraph"
 version = "0.0.1"
 description = "A pallet for tokenomics of timegraph."
 publish = false
+readme = "pallets/timegraph/README.md"
 
 authors.workspace = true
 edition.workspace = true

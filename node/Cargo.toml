@@ -2,9 +2,9 @@
 name = "timechain-node"
 build = "build.rs"
 description = "A blockchain node using the proof of time consensus."
-version = "0.6.0"
 default-run = "timechain-node"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

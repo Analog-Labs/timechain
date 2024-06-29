@@ -1,8 +1,8 @@
 [package]
 name = "timechain-runtime"
 description = "A blockchain using the proof of time consensus protocol"
-version = "0.6.0"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

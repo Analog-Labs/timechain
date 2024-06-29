@@ -1,0 +1,24 @@
+# Triggered via !ci-audit tag
+name: Test with cargo audit
+on: pull_request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-audit:
+    runs-on: [self-hosted, general]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-audit') }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install cargo audit
+        run: cargo install cargo-audit --locked
+      - name: Run cargo audit
+        run: |
+          $r = (cargo audit -q --json | ConvertFrom-Json)
+          $e = $?
+          $r.vulnerabilities.list | Select-Object -ExpandProperty Advisory
+          if (!$e) { exit 1 }
+        shell: pwsh

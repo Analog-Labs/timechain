@@ -1,11 +1,18 @@
 name: Generate docs
 on:
   push:
-    paths-ignore:
-      - 'docker/**'
-      - 'infra/**'
-      - 'js/**'
-      - 'scripts/**'
+    paths:
+      - 'chronicle/**'
+      - 'config/subxt/**'
+      - 'docs/**'
+      - 'lib/**'
+      - 'node/**'
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'tc-subxt/**'
+      - 'tss/**'
+      - 'rust-toolchain.toml'
     branches:
       - 'development'
 permissions:
@@ -21,10 +28,11 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Initialize Rust
-        uses: ./.github/actions/rust-init
       - name: Build docs
-        run: cargo doc --no-deps --document-private-items --workspace
+        uses: ./.github/actions/cargo-command
+        with:
+          command: doc
+          args: --workspace --no-deps --document-private-items
       - name: Assemble structure
         env:
           DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow

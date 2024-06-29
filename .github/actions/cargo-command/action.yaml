@@ -1,0 +1,55 @@
+name: "Setup, cache and execute cargo command"
+description: "Install dependencies, rust, cache in- and outputs and run cargo command."
+inputs:
+  command:
+    description: 'Cargo command to run'
+    required: false
+    default: 'build'
+  package:
+    description: 'Limit execution to a specific package'
+    required: false
+  profile:
+    description: 'Profile under which to run cargo command'
+    required: false
+    default: 'release'
+  features:
+    description: 'Feature with which to run cargo command'
+    required: false
+  args:
+    description: 'Additional argument to pass to cargo invocation'
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Install rust toolchain
+      shell: bash
+      run : rustup show
+    - name: Clear cargo registry and index
+      shell: bash
+      run: rm -rf ~/.cargo/registry ~/.cargo/git
+    - name: Cache cargo registry and index
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-
+          cargo-cache-${{ inputs.package || 'workspace' }}-default-
+          cargo-cache-workspace-
+    - name: Cache cargo target folder
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-
+          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-default-
+          cargo-${{ inputs.command }}-${{ inputs.profile }}-workspace-
+    - name: Run cargo ${{ inputs.command }}
+      env:
+        CARGO_TERM_COLOR: always
+      shell: bash
+      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' ${{ inputs.args }}

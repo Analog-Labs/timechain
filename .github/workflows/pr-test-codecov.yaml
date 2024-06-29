@@ -1,0 +1,27 @@
+# Triggered via !ci-codecov tag
+name: Check code coverage
+on: pull_request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-codecov:
+    runs-on: [self-hosted, general]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-codecov') }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Setup llvm-cov for cargo
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Unit Tests
+        # use --tests to measure coverage with all tests
+        # use --test '*' to measure coverage with integration-tests
+        # use --lib to measure coverage with unit-tests
+        run: |
+          cargo llvm-cov test --lib --locked --workspace --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true

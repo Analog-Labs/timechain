@@ -1,17 +1,23 @@
-name: Build Docker timechain node image
-
+name: Build Docker chronicle image
 on:
   push:
+    paths:
+      - 'chronicle/**'
+      - 'config/subxt/**'
+      - 'lib/**'
+      - 'primitives/**'
+      - 'tc-subxt/**'
+      - 'tss/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
     branches:
-      - "ci/binary/**"
-      
+      - 'development'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 env:
-  DOCKER_REPO: analoglabs/timenode
-
+  DOCKER_REPO: analoglabs/chronicle
 jobs:
   set-tags:
     name: Get & set tags
@@ -29,7 +35,6 @@ jobs:
           echo "sha=$sha" >> $GITHUB_OUTPUT
           echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
           echo "SHA commit:" $sha
-
   build-binary:
     name: Build Docker image
     needs: ["set-tags"]
@@ -38,15 +43,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - image: prod 
-          profile: production
-          features: default
-        - image: test 
-          profile: testnet
-          features: default
-        - image: dev
-          profile: testnet
-          features: development
+          - image: prod
+            profile: production
+          - image: dev
+            profile: testnet
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v3
@@ -64,10 +64,10 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.DOCKER_REPO }}-${{ matrix.image }}:${{ needs.set-tags.outputs.commit_hash8 }}
-          file: config/docker/Dockerfile.release
-          build-args: |
+          tags: |
+            ${{ env.DOCKER_REPO }}-${{ matrix.image }}:${{ needs.set-tags.outputs.commit_hash8 }}
+            ${{ env.DOCKER_REPO }}:latest
+          file: config/docker/Dockerfile.chronicle-release
+          build-args: |-
             VCS_REF=${{ needs.set-tags.outputs.commit_hash8 }}
             PROFILE=${{ matrix.profile }}
-            FEATURES=${{ matrix.features }}
-            BUILD_VARIANT=${{ matrix.image }}

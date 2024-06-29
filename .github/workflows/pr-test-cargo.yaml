@@ -1,0 +1,47 @@
+name: Check cargo tests
+on:
+  pull_request:
+    paths-ignore:
+      - 'chronicle/**'
+      - 'config/subxt/**'
+      - 'docs/**'
+      - 'node/**'
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'tc-subxt/**'
+      - 'tester/**'
+      - 'tss/**'
+      - 'utils/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-cargo:
+    runs-on: [self-hosted, general]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - command: clippy
+            args: --all-targets --workspace --examples --tests -- --no-deps -D warnings
+          - command: test
+            args: --workspace --locked
+          - command: check
+            features: runtime-benchmarks
+          - command: check
+            features: try-runtime
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Run cargo command
+        uses: ./.github/actions/cargo-command
+        with:
+          command: ${{ matrix.command }}
+          features: ${{ matrix.features }}
+          args: ${{ matrix.args }}

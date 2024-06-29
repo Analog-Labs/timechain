@@ -1,0 +1,30 @@
+name: Check code formatting
+on:
+  pull_request:
+    paths:
+      - 'chronicle/**'
+      - 'docs/**'
+      - 'node/**'
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'tc-subxt/**'
+      - 'tester/**'
+      - 'tss/**'
+      - 'utils/**'
+      - 'rustfmt.toml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-rustfmt:
+    runs-on: [self-hosted, general]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install rust toolchain
+        run : rustup show
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check

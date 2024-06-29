@@ -1,0 +1,88 @@
+name: Compile runtimes
+on:
+  pull_request:
+    paths:
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-runtime:
+    runs-on: [self-hosted, general]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: timechain-runtime
+            features: default
+            crate: timechain_runtime
+          - package: timechain-runtime
+            features: development
+            crate: timechain_runtime
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build runtime
+        uses: ./.github/actions/cargo-command
+        with:
+          package: ${{ matrix.package }}
+          profile: release
+          features: ${{ matrix.features }}
+      - name: Upload timechain runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}.${{ matrix.features }}.wasm
+          if-no-files-found: error
+          path: target/release/wbuild/${{ matrix.package }}/${{ matrix.crate }}.compact.compressed.wasm
+      - name: Upload timechain metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}.${{ matrix.features }}.scale
+          if-no-files-found: error
+          path: target/release/wbuild/${{ matrix.package }}/${{ matrix.crate }}.metadata.scale
+  update-metadata:
+    runs-on: [self-hosted, general]
+    needs: [build-runtime]
+    if: ${{ always() }}
+    continue-on-error: true
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: recursive
+      - name: Download and update Testnet Metadata
+        id: download-testnet-default-metadata
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: timechain-runtime.default.scale
+      - name: Download and Testnet Metadata
+        if: steps.download-testnet-default-metadata.outcome == 'success'
+        run: mv timechain_runtime.metadata.scale config/subxt/testnet.default.scale
+      - name: Download Development Metadata
+        id: download-testnet-development-metadata
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: timechain-runtime.development.scale
+      - name: Update Development Metadata
+        if: steps.download-testnet-development-metadata.outcome == 'success'
+        run: mv timechain_runtime.metadata.scale config/subxt/testnet.development.scale
+      - name: Commit any changes to the metadata
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git diff --quiet; then
+            git config user.email "github@analog.one"
+            git config user.name "Metadata Update Bot"
+            git commit -am "tc-subxt: Automated metadata update"
+            git push
+          fi

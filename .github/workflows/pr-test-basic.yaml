@@ -1,0 +1,26 @@
+# Triggered via !ci-test-basic tag
+name: Run docker compose
+on: pull_request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-basic:
+    runs-on: [self-hosted, general]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Refresh local deployment
+        run: |
+          docker compose --profile ethereum down -v
+          docker compose --profile astar down -v
+          ./scripts/build_docker.sh
+          docker compose --profile ethereum up -d
+          docker compose --profile astar up -d
+      - name: Run tester
+        run: |
+          docker compose run tester --network-id 3 --target-url ws://ethereum:8545 gmp
+          docker compose run tester --network-id 6 --target-url ws://astar:9944 gmp

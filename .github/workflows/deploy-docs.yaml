@@ -14,17 +14,19 @@ concurrency:
 jobs:
   deploy-docs:
     runs-on: ubuntu-latest
-    env:
-      DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Initialize Rust
         uses: ./.github/actions/rust-init
       - name: Build docs
-        run: cargo doc --no-deps --document-private-items --workspace --target-dir target/docs/$DOCS_HIDEOUT/
-      - name: Copy configurations
-        run: cp docs/robots.txt target/docs/$DOCS_HIDEOUT/
+        run: cargo doc --no-deps --document-private-items --workspace
+      - name: Assemble structure
+        env:
+          DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
+        run: |
+          cp -r target/doc target/docs/$DOCS_HIDEOUT
+          cp docs/robots.txt target/docs/$DOCS_HIDEOUT
       - name: Deploy docs
         uses: actions/upload-pages-artifact@v4
         with:

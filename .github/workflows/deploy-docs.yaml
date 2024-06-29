@@ -17,12 +17,10 @@ jobs:
     env:
       DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
     steps:
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Initialize Rust
+        uses: ./.github/actions/rust-init
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install rust toolchain
-        run: rustup show
       - name: Build docs
         run: cargo doc --no-deps --document-private-items --workspace --target-dir target/docs/$DOCS_HIDEOUT/
       - name: Copy configurations

@@ -790,14 +790,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		///  Unregisters a specified number of gateways.
+		/// Unregisters a specified number of gateways.
 		///
 		/// # Flow
-		///    1. Ensure the origin of the transaction is a root user.
-		///    2. Clear the specified number of gateways from the `Gateway` storage.
-		///    3. Clear all registered shards from the [`ShardRegistered`] storage.
-		///    4. Filter and process tasks, finishing tasks with a [`Function::ReadMessages`] function with an error result indicating shard offline or gateway change.
-		///    5. Return `Ok(())` if all operations succeed.
+		///   1. Ensure the origin of the transaction is a root user.
+		///   2. Clear the specified number of gateways from the `Gateway` storage.
+		///   3. Clear all registered shards from the [`ShardRegistered`] storage.
+		///   4. Filter and process tasks, finishing tasks with a [`Function::ReadMessages`] function with an error result indicating shard offline or gateway change.
+		///   5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways(*num_gateways))]
 		pub fn unregister_gateways(origin: OriginFor<T>, num_gateways: u32) -> DispatchResult {
@@ -825,14 +825,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		///  Sets the batch size and offset for a specific network.
+		/// Sets the batch size and offset for a specific network.
 		///
 		/// # Flow
-		///    1. Ensure the origin of the transaction is a root user.
-		///    2. Insert the new batch size for the specified network into the [`NetworkBatchSize`] storage.
-		///    3. Insert the new offset for the specified network into the [`NetworkOffset`] storage.
-		///    4. Emit an event indicating the batch size and offset have been set.
-		///    5. Return `Ok(())` if all operations succeed.
+		///   1. Ensure the origin of the transaction is a root user.
+		///   2. Insert the new batch size for the specified network into the [`NetworkBatchSize`] storage.
+		///   3. Insert the new offset for the specified network into the [`NetworkOffset`] storage.
+		///   4. Emit an event indicating the batch size and offset have been set.
+		///   5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(13)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
 		pub fn set_batch_size(
@@ -875,58 +875,57 @@ pub mod pallet {
 	}*/
 
 	impl<T: Config> Pallet<T> {
-		///  Retrieves the TSS (Threshold Signature Scheme) signature for a given task.
-		///  Look up the `TssSignature` associated with the provided `task` ID in the storage.
+		/// Retrieves the TSS (Threshold Signature Scheme) signature for a given task.
+		/// Look up the `TssSignature` associated with the provided `task` ID in the storage.
 		pub fn get_task_signature(task: TaskId) -> Option<TssSignature> {
 			TaskSignature::<T>::get(task)
 		}
 
-		///  Retrieves the public key of the signer for a given task.
-		///  Look up the `PublicKey` of the signer associated with the provided `task` ID in the storage.
+		/// Retrieves the public key of the signer for a given task.
+		/// Look up the `PublicKey` of the signer associated with the provided `task` ID in the storage.
 		pub fn get_task_signer(task: TaskId) -> Option<PublicKey> {
 			TaskSigner::<T>::get(task)
 		}
 
-		///  Retrieves the hash for a given task.
-		///  Look up the hash associated with the provided `task` ID in the storage.
+		/// Retrieves the hash for a given task.
+		/// Look up the hash associated with the provided `task` ID in the storage.
 		pub fn get_task_hash(task: TaskId) -> Option<[u8; 32]> {
 			TaskHash::<T>::get(task)
 		}
 
-		///  Retrieves a list of tasks associated with a given shard.
-		///  Look up the tasks associated with the provided `shard_id` in the storage.
+		/// Retrieves a list of tasks associated with a given shard.
+		/// Look up the tasks associated with the provided `shard_id` in the storage.
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
 			ShardTasks::<T>::iter_prefix(shard_id)
 				.map(|(task_id, _)| TaskExecution::new(task_id, TaskPhaseState::<T>::get(task_id)))
 				.collect()
 		}
 
-		///  Retrieves the descriptor for a given task.
-		///  Look up the `TaskDescriptor` associated with the provided `task_id` in the storage.
+		/// Retrieves the descriptor for a given task.
+		/// Look up the `TaskDescriptor` associated with the provided `task_id` in the storage.
 		pub fn get_task(task_id: TaskId) -> Option<TaskDescriptor> {
 			Tasks::<T>::get(task_id)
 		}
 
-		///  Retrieves the gateway address for a given network.
-		///  Look up the gateway address associated with the provided `network` ID in the storage.
+		/// Retrieves the gateway address for a given network.
+		/// Look up the gateway address associated with the provided `network` ID in the storage.
 		pub fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
 			Gateway::<T>::get(network)
 		}
 
-		///  Retrieves the current phase of a given task.
-		///  Look up the current phase of the task associated with the provided `task_id` in the storage.
+		/// Retrieves the current phase of a given task.
+		/// Look up the current phase of the task associated with the provided `task_id` in the storage.
 		pub fn get_task_phase(task_id: TaskId) -> TaskPhase {
 			TaskPhaseState::<T>::get(task_id)
 		}
 
-		///  Retrieves the shard ID associated with a given task.
-		///  Look up the shard ID associated with the provided `task_id` in the storage.
-
+		/// Retrieves the shard ID associated with a given task.
+		/// Look up the shard ID associated with the provided `task_id` in the storage.
 		pub fn get_task_shard(task_id: TaskId) -> Option<ShardId> {
 			TaskShard::<T>::get(task_id)
 		}
 
-		///  Retrieves the result of a given task.
+		/// Retrieves the result of a given task.
 		/// Look up the `TaskResult` associated with the provided `task_id` in the storage.
 		pub fn get_task_result(task_id: TaskId) -> Option<TaskResult> {
 			TaskOutput::<T>::get(task_id)
@@ -962,10 +961,10 @@ pub mod pallet {
 		/// Records the reception of messages for a specific network at a given block height and initiates a task to read these messages in batches.
 		///
 		/// # Flow
-		///  1. Insert network_id and block_height into RecvTasks storage.
-		///  2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
-		///  3. Set the task's start field to block_height.
-		///  4. Start the task with [`TaskFunder::Inflation`].
+		///   1. Insert network_id and block_height into RecvTasks storage.
+		///   2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
+		///   3. Set the task's start field to block_height.
+		///   4. Start the task with [`TaskFunder::Inflation`].
 		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {
 			RecvTasks::<T>::insert(network_id, block_height);
 			let mut task = TaskDescriptorParams::new(
@@ -997,10 +996,10 @@ pub mod pallet {
 		/// Filters and processes tasks using a provided function.
 		///
 		/// # Flow
-		///  1. Iterate over all entries in [`UnassignedTasks`] and [`UnassignedSystemTasks`].
-		///  2. For each entry, apply the provided function to `task_id`.
-		///  3. Iterate over all entries in ShardTasks.
-		///  4. For each entry, apply the provided function to task_id.
+		///   1. Iterate over all entries in [`UnassignedTasks`] and [`UnassignedSystemTasks`].
+		///   2. For each entry, apply the provided function to `task_id`.
+		///   3. Iterate over all entries in ShardTasks.
+		///   4. For each entry, apply the provided function to task_id.
 		fn filter_tasks<F: Fn(TaskId)>(f: F) {
 			for (_network, _, task_id) in
 				UnassignedTasks::<T>::iter().chain(UnassignedSystemTasks::<T>::iter())
@@ -1014,14 +1013,14 @@ pub mod pallet {
 		/// Unregisters a shard and processes related tasks.
 		///
 		/// # Flow
-		/// Check if the shard with shard_id is registered.
-		/// If the shard is registered:
-		///  - Start a task to unregister the shard.
-		///  - Fund the task using inflation.
-		/// If the shard is not registered:
-		///  - Iterate through existing tasks.
-		///  - For each task, check if it is a registration task for the same shard.
-		/// If a matching task is found, finish the task indicating the shard is offline or the gateway has changed.
+		///   1. Check if the shard with shard_id is registered.
+		///   2.  If the shard is registered:
+		///     - Start a task to unregister the shard.
+		///     - Fund the task using inflation.
+		///   3. If the shard is not registered:
+		///     - Iterate through existing tasks.
+		///     - For each task, check if it is a registration task for the same shard.
+		///   4. If a matching task is found, finish the task indicating the shard is offline or the gateway has changed.
 
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
 			if ShardRegistered::<T>::take(shard_id).is_some() {
@@ -1058,12 +1057,12 @@ pub mod pallet {
 		/// To initiate a task that sends a message to a specified destination network, leveraging the inflation funding mechanism.
 		///
 		/// # Flow
-		///  1. Create task parameters using `TaskDescriptorParams::new` with the following:
-		/// 		- Destination network from `msg.dest_network`.
-		/// 		- Function to send the message ([`Function::SendMessage { msg }`][Function::SendMessage]).
-		///  2. Start a task with the created parameters and fund it using [`TaskFunder::Inflation`].
-		///  3. Ensure the task is successfully started and funded using `expect("task funded through inflation")`.
-		///  4. Return the Task ID of the started task.
+		///   1. Create task parameters using `TaskDescriptorParams::new` with the following:
+		///     - Destination network from `msg.dest_network`.
+		///    	- Function to send the message ([`Function::SendMessage { msg }`][Function::SendMessage]).
+		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Inflation`].
+		///   3. Ensure the task is successfully started and funded using `expect("task funded through inflation")`.
+		///   4. Return the Task ID of the started task.
 		fn send_message(shard_id: ShardId, msg: Msg) -> TaskId {
 			Self::start_task(
 				TaskDescriptorParams::new(
@@ -1084,12 +1083,12 @@ pub mod pallet {
 		///    3. Calculate read, write, and send message rewards based on the base rewards and network-specific rewards.
 		///    4. Calculate the required funds based on the task's phase and shard size.
 		///    5. Fund the Task:
-		///        - If funded by an account: Transfer the necessary funds from the account to the task account.
-		///        - If funded by a shard: Transfer the required stake from each shard member to the task account.
-		///        - If funded by inflation: Issue the required funds and resolve them to the task account.
+		///      - If funded by an account: Transfer the necessary funds from the account to the task account.
+		///      - If funded by a shard: Transfer the required stake from each shard member to the task account.
+		///      - If funded by inflation: Issue the required funds and resolve them to the task account.
 		///    6. Store Task Configuration:
-		///        - Insert task reward configuration into [`TaskRewardConfig::<T>`].
-		///        - Insert the initial phase state into [`TaskPhaseState::<T>`].
+		///      - Insert task reward configuration into [`TaskRewardConfig::<T>`].
+		///      - Insert the initial phase state into [`TaskPhaseState::<T>`].
 		///    7. Increment and store the task ID counter.
 		///    8. Add the task to the list of unassigned tasks for the specified network.
 		///    9. Emit an event indicating the task has been created.
@@ -1175,10 +1174,10 @@ pub mod pallet {
 		/// To update the phase of a task in a decentralized application, ensuring accurate tracking and execution based on its current state.
 		///
 		/// # Flow
-		/// 1. Retrieve the current block number.
-		/// 2. Update the task's phase state to reflect the new phase.
-		/// 3. Record the start of this new phase with the current block number for future reference.
-		/// 4. If the phase transition involves TaskPhase::Write, determine the next designated signer for the shard and store this information, preparing for subsequent actions or validations required in the workflow.
+		///   1. Retrieve the current block number.
+		///   2. Update the task's phase state to reflect the new phase.
+		///   3. Record the start of this new phase with the current block number for future reference.
+		///   4. If the phase transition involves TaskPhase::Write, determine the next designated signer for the shard and store this information, preparing for subsequent actions or validations required in the workflow.
 		fn start_phase(shard_id: ShardId, task_id: TaskId, phase: TaskPhase) {
 			let block = frame_system::Pallet::<T>::block_number();
 			TaskPhaseState::<T>::insert(task_id, phase);
@@ -1191,8 +1190,8 @@ pub mod pallet {
 		/// Store the result of a task identified by task_id and update associated data if necessary.
 		///
 		/// # Flow
-		/// 1. Store result in [`TaskOutput::<T>`] for the specified task_id.
-		/// 2. If `task_id` has an associated `shard_id`, remove `task_id` from [`ShardTasks::<T>`].
+		///   1. Store result in [`TaskOutput::<T>`] for the specified task_id.
+		///   2. If `task_id` has an associated `shard_id`, remove `task_id` from [`ShardTasks::<T>`].
 		fn finish_task(task_id: TaskId, result: TaskResult) {
 			TaskOutput::<T>::insert(task_id, result);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
@@ -1200,17 +1199,17 @@ pub mod pallet {
 			}
 		}
 
-		///   Cancel a task identified by `task_id` on a specified network.
+		/// Cancel a task identified by `task_id` on a specified network.
 		///   
 		/// # Flow
 		///   1. Create a `TaskResult` indicating the task cancellation due to administrative action.
 		///   2. Finalize the task by storing the cancellation result using [`Self::finish_task`].
 		///   3. If `task_id` is indexed as an unassigned task ([`UATaskIndex::<T>`]), remove it from the unassigned task index for the specified `task_network`.
 		///   4. Remove all stored task-related data:
-		///       - Clear the task's phase state ([`TaskPhaseState::<T>::remove`]).
-		///       - Remove the designated signer for the task ([`TaskSigner::<T>::remove`]).
-		///       - Clear any stored task signature ([`TaskSignature::<T>::remove`]).
-		///       - Remove any associated task hash ([`TaskHash::<T>::remove`]).
+		///     - Clear the task's phase state ([`TaskPhaseState::<T>::remove`]).
+		///     - Remove the designated signer for the task ([`TaskSigner::<T>::remove`]).
+		///     - Clear any stored task signature ([`TaskSignature::<T>::remove`]).
+		///     - Remove any associated task hash ([`TaskHash::<T>::remove`]).
 		///   5. Emit an event ([`Event::TaskResult`]) indicating the cancellation and its result.
 		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
 			let result = TaskResult {
@@ -1229,7 +1228,7 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskResult(task_id, result));
 		}
 
-		///   Validate a TSS (Threshold Signature Scheme) signature for data associated with a specific shard.
+		/// Validate a TSS (Threshold Signature Scheme) signature for data associated with a specific shard.
 		///
 		/// # Flow
 		///   1. Retrieve the TSS public key for `shard_id`.
@@ -1253,16 +1252,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		///   Schedule tasks for a specified network, optionally targeting a specific shard if provided.
+		/// Schedule tasks for a specified network, optionally targeting a specific shard if provided.
 		///   
 		/// # Flow
 		///   1. If `shard_id` is provided, call [`Self::schedule_tasks_shard(network, shard_id)`] to schedule tasks for that specific shard.
 		///   2. If no `shard_id` is provided:
-		///       - Retrieve all shards associated with the `network`.
-		///       - Collect these shards into a list.
-		///       - Sort the list based on the number of tasks each shard currently has.
-		///       - Iterate through the sorted list in reverse order.
-		///       - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
+		///     - Retrieve all shards associated with the `network`.
+		///     - Collect these shards into a list.
+		///     - Sort the list based on the number of tasks each shard currently has.
+		///     - Iterate through the sorted list in reverse order.
+		///     - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
 		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
 			if let Some(shard_id) = shard_id {
 				Self::schedule_tasks_shard(network, shard_id);
@@ -1279,7 +1278,8 @@ pub mod pallet {
 			}
 		}
 
-		///   To schedule tasks for a specified network and optionally for a specific shard, optimizing task allocation based on current workload and system constraints.
+		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing
+		/// task allocation based on current workload and system constraints.
 		///   
 		/// # Flow
 		///   1. Count the number of incomplete tasks (`tasks`) for the specified `shard_id`.
@@ -1323,7 +1323,7 @@ pub mod pallet {
 			}
 		}
 
-		///   Assign a task to a specific shard within a network, managing task allocation and phase initialization.
+		/// Assign a task to a specific shard within a network, managing task allocation and phase initialization.
 		///   
 		/// # Flow
 		///   1. If the task was previously assigned to another shard, remove it from there.
@@ -1346,7 +1346,7 @@ pub mod pallet {
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
 		}
 
-		///  Applies the depreciation rate to calculate the remaining reward.
+		/// Applies the depreciation rate to calculate the remaining reward.
 		///
 		/// # Flow
 		///   1. Calculate the remaining reward by applying the depreciation rate to the initial reward amount.
@@ -1372,7 +1372,7 @@ pub mod pallet {
 			remaining
 		}
 
-		///  Records the write reward for a task signer.
+		/// Records the write reward for a task signer.
 		///
 		/// # Flow
 		///   1. Record the reward amount for the task signer in the appropriate storage.
@@ -1398,7 +1398,7 @@ pub mod pallet {
 			);
 		}
 
-		///  Distributes rewards to shard members and signers upon task completion.
+		/// Distributes rewards to shard members and signers upon task completion.
 		///
 		/// # Flow
 		///   1. Calculate the total reward for the task.
@@ -1482,13 +1482,13 @@ pub mod pallet {
 			}
 		}
 
-		///  Manage the assignment of tasks to networks based on their function type, prioritizing system tasks differently from others.
+		/// Manage the assignment of tasks to networks based on their function type, prioritizing system tasks differently from others.
 		///   
-		///  # Flow
+		/// # Flow
 		///   1. Retrieve the task `task` associated with `task_id` from storage.
 		///   2. Check the function type of the task:
-		///       - If it is a system task [`Function::UnregisterShard`], [`Function::RegisterShard`], [`Function::ReadMessages`], add `task_id` to the prioritized unassigned tasks list for the `network`.
-		///       - Otherwise, add `task_id` to the remaining unassigned tasks list for the `network`.
+		///     - If it is a system task [`Function::UnregisterShard`], [`Function::RegisterShard`], [`Function::ReadMessages`], add `task_id` to the prioritized unassigned tasks list for the `network`.
+		///     - Otherwise, add `task_id` to the remaining unassigned tasks list for the `network`.
 		pub fn add_unassigned_task(network: NetworkId, task_id: TaskId) {
 			let Some(task) = Tasks::<T>::get(task_id) else { return };
 			match task.function {
@@ -1507,11 +1507,10 @@ pub mod pallet {
 		/// Removes an unassigned task from the appropriate list based on its function type.
 		///
 		/// # Flow
-		///
-		///  1. Retrieve the task associated with task_id
-		///  2.  Determine the function type of the task
-		///  3.  Remove system tasks from the prioritized list
-		///  4.  Remove other tasks from the remaining list
+		///   1. Retrieve the task associated with task_id
+		///   2.  Determine the function type of the task
+		///   3.  Remove system tasks from the prioritized list
+		///   4.  Remove other tasks from the remaining list
 		pub fn remove_unassigned_task(network: NetworkId, task_index: TaskIndex, task_id: TaskId) {
 			let Some(task) = Tasks::<T>::get(task_id) else { return };
 			match task.function {

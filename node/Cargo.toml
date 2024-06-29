@@ -9,7 +9,9 @@ authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
 license.workspace = true
+license-file.workspace = true
 repository.workspace = true
+readme.workspace = true
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see

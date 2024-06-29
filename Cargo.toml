@@ -3,6 +3,8 @@ authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
 edition = "2021"
 homepage = "https://analog.one/"
 license = "GPL-3.0-only"
+license-file = "LICENSE"
+readme = "README.md"
 repository = "https://github.com/Analog-Labs/timechain"
 
 [workspace]

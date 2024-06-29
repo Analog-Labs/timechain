@@ -16,10 +16,10 @@ jobs:
   build-docs:
     runs-on: ubuntu-latest
     steps:
-    - name: Initialize Rust
-      uses: ./.github/actions/rust-init
     - name: Checkout sources
       uses: actions/checkout@v4
+    - name: Initialize Rust
+      uses: ./.github/actions/rust-init
     - name: Build docs
       run: cargo doc --no-deps --document-private-items --workspace
     - name: Upload docs

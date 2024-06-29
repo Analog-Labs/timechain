@@ -1,0 +1,33 @@
+name: Generate docs
+on:
+  push:
+    paths-ignore:
+      - 'docker/**'
+      - 'infra/**'
+      - 'js/**'
+      - 'scripts/**'
+    branches:
+      - 'development'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    env:
+      DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install rust toolchain
+        run: rustup show
+      - name: Build docs
+        run: cargo doc --no-deps --document-private-items --workspace --target-dir target/docs/$DOCS_HIDEOUT/
+      - name: Copy configurations
+        run: cp docs/robots.txt target/docs/$DOCS_HIDEOUT/
+      - name: Deploy docs
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: target/docs

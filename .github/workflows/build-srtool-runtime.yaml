@@ -31,9 +31,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - package: timechain
+        - chain: timechain
           features: default
-        - package: timechain
+        - chain: timechain
           features: development
     steps:
       - name: Fetch latest code
@@ -47,7 +47,7 @@ jobs:
         with:
           image: analoglabs/srtool
           tag: 1.75.0
-          chain: ${{ matrix.package }}
+          chain: ${{ matrix.chain }}
           runtime_dir: "runtime"
 
       - name: Srtool summary

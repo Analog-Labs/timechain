@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - image: release 
+        - image: prod 
           profile: production
         - image: dev
           profile: testnet

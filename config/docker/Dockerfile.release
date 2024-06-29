@@ -4,6 +4,9 @@ FROM analoglabs/substrate-builder:1.78.0 as builder
 
 ARG PROFILE
 ARG FEATURES=default
+ARG VCS_REF
+
+ENV SUBSTRATE_CLI_GIT_COMMIT_HASH=$VCS_REF
 
 WORKDIR /build
 
@@ -27,7 +30,7 @@ LABEL description="Multistage Dockerfile for building Analog Timechain" \
 	one.analog.image.authors="branimir@analog.one" \
 	one.analog.image.vendor="Analog One Foundation" \
 	one.analog.image.description="Analog Timechain" \
-	one.analog.image.source="https://github.com/Analog-Labs/testnet" \
+	one.analog.image.source="https://github.com/Analog-Labs/timechain" \
 	one.analog.image.commit="${VCS_REF}"
     
 COPY --from=builder /build/target/$PROFILE/timechain-node timechain-node

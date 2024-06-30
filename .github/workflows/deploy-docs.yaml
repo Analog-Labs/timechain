@@ -28,6 +28,6 @@ jobs:
           cp -r target/doc target/docs/$DOCS_HIDEOUT
           cp docs/robots.txt target/docs/$DOCS_HIDEOUT
       - name: Deploy docs
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           path: target/docs

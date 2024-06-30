@@ -12,14 +12,7 @@ mod weights;
 
 // Make the WASM binary available in native code
 #[cfg(feature = "std")]
-pub mod binaries {
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
-
-#[cfg(feature = "std")]
-pub mod fast_binaries {
-	include!(concat!(env!("OUT_DIR"), "/fast_wasm_binary.rs"));
-}
+include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame_system::{limits::BlockWeights, EnsureRoot};
 

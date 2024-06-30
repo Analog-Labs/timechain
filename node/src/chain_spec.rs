@@ -8,8 +8,8 @@ use sp_core::{crypto::UncheckedInto, hex2array};
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 use timechain_runtime::{
-	binaries, fast_binaries, AccountId, Balance, RuntimeGenesisConfig as GenesisConfig,
-	StakerStatus, ANLOG, TOKEN_DECIMALS,
+	AccountId, Balance, RuntimeGenesisConfig as GenesisConfig, StakerStatus, ANLOG, TOKEN_DECIMALS,
+	WASM_BINARY,
 };
 const SS_58_FORMAT: u32 = 12850;
 
@@ -157,9 +157,9 @@ impl GenesisKeysConfig {
 		shard_threshold: u16,
 	) -> Result<ChainSpec, String> {
 		let wasm_binary = match chain_type {
-			ChainType::Live => binaries::WASM_BINARY,
-			ChainType::Development => fast_binaries::WASM_BINARY,
-			ChainType::Local => fast_binaries::WASM_BINARY,
+			ChainType::Live => WASM_BINARY,
+			ChainType::Development => WASM_BINARY,
+			ChainType::Local => WASM_BINARY,
 			_ => None,
 		}
 		.ok_or_else(|| "Analog wasm runtime not available".to_string())?;

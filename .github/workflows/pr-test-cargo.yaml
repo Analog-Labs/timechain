@@ -1,7 +1,8 @@
 name: Check cargo tests
 on:
   pull_request:
-    paths-ignore:
+    paths:
+      - '.github/workflows/pr-test-cargo.yaml'
       - 'chronicle/**'
       - 'config/subxt/**'
       - 'docs/**'

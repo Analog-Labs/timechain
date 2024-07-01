@@ -2,6 +2,7 @@ name: Generate docs
 on:
   pull_request:
     paths:
+      - '.github/workflows/pr-build-docs.yaml'
       - 'chronicle/**'
       - 'config/subxt/**'
       - 'docs/**'

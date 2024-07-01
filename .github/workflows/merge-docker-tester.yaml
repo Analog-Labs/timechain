@@ -1,15 +1,8 @@
-##########################################################
-#
-#  Workflow for building the tester image. It's a CLI tool
-#  used in deployment scripts and apps. The tester CLI
-#  image includes the tester binary and the compiled
-#  contracts.
-#
-##########################################################
 name: Build Docker tester image
 on:
   push:
     paths:
+      - '.github/workflows/merge-docker-tester.yaml'
       - 'analog-gmp/**'
       - 'config/subxt/**'
       - 'primitives/**'

@@ -2,6 +2,7 @@ name: Build Docker chronicle image
 on:
   push:
     paths:
+      - '.github/workflows/merge-docker-chronicle.yaml'
       - 'chronicle/**'
       - 'config/subxt/**'
       - 'lib/**'

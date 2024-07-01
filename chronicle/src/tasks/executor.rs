@@ -62,7 +62,7 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<(Vec<TssId>, Vec<TssId>)> {
-		let span = span!(target: TW_LOG, tracing::Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
+		let span = span!(target: TW_LOG, Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
 		TaskExecutor::process_tasks(
 			self,
 			&span,
@@ -118,8 +118,14 @@ where
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
 		tracing::debug!("debug_latency Current Tasks Under processing: {:?}", tasks);
 		for executable_task in tasks.iter().clone() {
-			tracing::debug!("debug_latency:{} in execution", executable_task);
 			let task_id = executable_task.task_id;
+			event!(
+				target: TW_LOG,
+				parent: &span,
+				Level::DEBUG,
+				task_id,
+				"task in execution",
+			);
 			if self.running_tasks.contains_key(executable_task) {
 				continue;
 			}
@@ -132,7 +138,9 @@ where
 					parent: &span,
 					Level::DEBUG,
 					task_id,
-					"task scheduled for future execution",
+					"task scheduled for future {:?}/{:?}",
+					target_block_height,
+					target_block_number,
 				);
 				continue;
 			}
@@ -153,8 +161,12 @@ where
 			let task = match phase {
 				TaskPhase::Sign => {
 					let Some(gmp_params) = self.gmp_params(shard_id, block_hash).await? else {
-						tracing::warn!(
-							"gmp not configured for {shard_id:?}, skipping task {task_id}"
+						event!(
+							target: TW_LOG,
+							parent: &span,
+							Level::INFO,
+							task_id,
+							"gmp not configured for {shard_id:?}, skipping task",
 						);
 						continue;
 					};
@@ -184,7 +196,13 @@ where
 				},
 				TaskPhase::Write => {
 					let Some(public_key) = self.substrate.get_task_signer(task_id).await? else {
-						tracing::warn!("no signer set for write phase for task {task_id}");
+						event!(
+							target: TW_LOG,
+							parent: &span,
+							Level::INFO,
+							task_id,
+							"no signer set for write phase",
+						);
 						continue;
 					};
 					if &public_key != self.substrate.public_key() {
@@ -193,13 +211,23 @@ where
 					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
 
 					if gmp_params.is_none() && function.initial_phase() == TaskPhase::Sign {
-						tracing::warn!(
-							"gmp not configured for {shard_id:?}, skipping task {task_id}"
+						event!(
+							target: TW_LOG,
+							parent: &span,
+							Level::INFO,
+							task_id,
+							"gmp not configured for {shard_id:?}, skipping task",
 						);
 						continue;
 					}
 
-					tracing::info!("Running write phase for task {}", task_id);
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::INFO,
+						task_id,
+						"Running write phase",
+					);
 
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
@@ -264,7 +292,13 @@ where
 					self.task_spawner.execute_write(task_id, function)
 				},
 				TaskPhase::Read => {
-					tracing::debug!("debug_latency:{} getting task_hash", task_id);
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::DEBUG,
+						task_id,
+						"Getting task_hash",
+					);
 					let function = if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
 						Function::EvmTxReceipt { tx }
 					} else {
@@ -322,7 +356,13 @@ where
 				true
 			} else {
 				if !handle.is_finished() {
-					tracing::debug!("Task {} aborted", x.task_id);
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::DEBUG,
+						x.task_id,
+						"task aborted",
+					);
 					handle.abort();
 				}
 				completed_sessions.push(TssId::new(x.task_id, x.phase));

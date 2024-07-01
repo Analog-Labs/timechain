@@ -2,6 +2,7 @@ name: Deploy docs
 on:
   push:
     paths:
+      - '.github/actions/cargo-command/**'
       - '.github/workflows/merge-pages-docs.yaml'
       - 'chronicle/**'
       - 'config/subxt/**'

@@ -2,6 +2,7 @@ name: Compile runtimes
 on:
   pull_request:
     paths:
+      - '.github/actions/cargo-command/**'
       - '.github/workflows/pr-build-runtime.yaml'
       - 'pallets/**'
       - 'primitives/**'

@@ -2,6 +2,7 @@ name: Compile node
 on:
   pull_request:
     paths:
+      - '.github/actions/cargo-command/**'
       - '.github/workflows/pr-build-node.yaml'
       - 'node/**'
       - 'primitives/**'

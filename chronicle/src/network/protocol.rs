@@ -58,17 +58,19 @@ impl TssEndpoint {
 		if let Some(port) = config.bind_port {
 			builder.port(port);
 		}
-		builder.enable_dht();
 		builder.handler(handler);
+		builder.republish_interval(Duration::from_secs(60 * 5));
+		builder.publish_ttl(60 * 5 * 4);
+		builder.relay_map(None);
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();
 		loop {
 			tracing::info!("waiting for peer id to be registered");
-			let Ok(addr) = endpoint.discovery().resolve(&peer_id).await else {
+			let Ok(addr) = endpoint.resolve(peer_id).await else {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			};
-			if addr.direct_addresses.is_empty() {
+			if addr != endpoint.addr().await?.info {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}

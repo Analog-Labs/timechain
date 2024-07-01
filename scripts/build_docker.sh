@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -e
 
@@ -27,6 +27,29 @@ case "$(uname -m)" in
         ;;
 esac
 
+# Evaluate optional environment argument
+environment="${1:-development}"
+case "${environment}" in
+	timechain)
+		profile=production
+		features=default
+		;;
+	testnet)
+		profile=testnet
+		features=default
+		;;
+	staging|development)
+		profile=testnet
+		features=development
+		;;
+	*)
+		echo >&2 "ERROR - unsupported environment: ${1}"
+		echo >&2 "      - options: timechain testnet development"
+		echo >&2 "      - default: development"
+		exit 1
+		;;
+esac
+
 # Check if the musl linker is installed
 # "$muslLinker" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '$muslLinker' linker for compile"; exit 1; }
 
@@ -37,17 +60,19 @@ if ! rustup target list | grep -q "$rustTarget"; then
 fi
 
 # Build docker image
-cargo build -p timechain-node -p chronicle -p tester --target "$rustTarget" --release
+cargo build -p timechain-node -p chronicle -p tester --target "$rustTarget" --profile "$profile" --features "$features"
+
 cp tester/contracts/test_contract.sol analog-gmp/src/
 forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
+
 rm -rf target/docker
 mkdir -p target/docker
 
-mv "target/$rustTarget/release/timechain-node" target/docker
-docker build target/docker -f config/docker/Dockerfile -t analoglabs/timechain-node
+mv "target/$rustTarget/$profile/timechain-node" target/docker
+docker build target/docker -f config/docker/Dockerfile -t analoglabs/timenode-$environment
 
-mv "target/$rustTarget/release/chronicle" target/docker
-docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/chronicle
+mv "target/$rustTarget/$profile/chronicle" target/docker
+docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/chronicle-$environment
 
-mv "target/$rustTarget/release/tester" target/docker
-docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/timechain-tester
+mv "target/$rustTarget/$profile/tester" target/docker
+docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/tester-$environment

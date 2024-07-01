@@ -1,0 +1,56 @@
+flowchart TB
+
+    %% Task Creation
+    A[Create Task] --> L{Shard Online};
+    L -->|Shard Not Online| SSF[Failure State];
+    L -->|Success| B[Unassigned Task];
+    
+    %% Task Assignment and Execution
+    B --> C{Task Scheduled?};
+    C -->|Yes| D[Assign Task to Shard];
+    D --> E[Set Initial Phase];
+    E --> Fund[Add funds from inflation];
+    
+
+    
+    
+
+    %% Reward Payout
+    P --> Q[Reward Payout];
+    
+    %% Task Reset and Unregistration
+    R[Reset Tasks] --> S[Remove Shard Tasks];
+    S --> T[Add Unassigned Tasks];
+    T --> B;
+    U[Unregister Gateways] --> V[Clear Gateway and Shard Data];
+    V --> B;
+    %% Fund --> F[Task Execution];
+		Fund --> W
+	  subgraph TaskExecution
+	    W[Sign Phase];
+	    W --> G 
+	    G --> H
+	    G[Write Phase];
+	    H[Read Phase];
+	    P[Finish Task];
+	    H --> P; 
+	    W --> F[Failure State];
+	    G --> F;
+	    H --> F; 
+    
+    end
+    %% Error Handling and Retrying
+    K[Retry/Cancel Task];
+    K -->|Retry| B;
+    
+    
+    F -- Timeout/Error --> K 
+
+    
+    %% Styles
+    style A fill:#f9f,stroke:#333,stroke-width:2px;
+    style F fill:#f96,stroke:#333,stroke-width:2px;
+    style R fill:#f9f,stroke:#333,stroke-width:2px;
+    style U fill:#f9f,stroke:#333,stroke-width:2px;
+    style K fill:#f96,stroke:#333,stroke-width:2px;
+    style SSF fill:#f96,stroke:#333,stroke-width:2px;

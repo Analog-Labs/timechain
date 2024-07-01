@@ -1,18 +1,20 @@
 [package]
 name = "tss"
-authors = [ "Dev <Dev@analog.one>" ]
-edition = "2021"
-homepage = "https://www.analog.one/"
-license = "Apache-2.0"
-repository = "https://github.com/Analog-Labs/tesseract/"
 version = "0.0.1"
+license = "Apache-2.0"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
-anyhow = "1.0.75"
+anyhow.workspace = true
+serde.workspace = true
+tracing.workspace = true
+
 frost-evm = { version = "0.1.1", features = ["serde"] }
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-serde = { version = "1.0.188", features = [ "derive" ] }
-tracing = "0.1.37"
 
 [dev-dependencies]
-env_logger = "0.10.0"
+env_logger.workspace = true

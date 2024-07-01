@@ -1,5 +1,4 @@
-//! Substrate Node Template CLI library.
-#![warn(missing_docs)]
+//! Substrate Node CLI
 
 mod chain_spec;
 #[cfg(feature = "chronicle")]
@@ -10,6 +9,8 @@ mod benchmarking;
 mod cli;
 mod command;
 mod rpc;
+
+use polkadot_sdk::*;
 
 fn main() -> sc_cli::Result<()> {
 	command::run()

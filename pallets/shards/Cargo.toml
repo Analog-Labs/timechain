@@ -1,49 +1,66 @@
 [package]
 name = "pallet-shards"
-authors = [ "Analog Devs <https://github.com/analog-labs>" ]
-description = "A pallet for managing shards."
-edition = "2021"
-homepage = "https://analog.one"
-license = "Unlicense"
-publish = false
-repository = "https://github.com/Analog-Labs/testnet"
 version = "4.0.0-dev"
+description = "A pallet for managing shards."
+publish = false
+readme = "pallets/shards/README.md"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6", default-features = false, features = [
-	"derive",
-] }
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false, optional = true }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
-log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+log.workspace = true
+scale-codec.workspace = true
+scale-info.workspace = true
+
+#polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime", "sp-std" ] }
+
+frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+
+frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
+
 schnorr-evm = { version = "0.1.2", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false, optional = true }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
+
 time-primitives = { path = "../../primitives", default-features = false }
 
+simple-mermaid.workspace = true
+
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.9.0", default-features = false }
+#polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
+
+pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
-	"codec/std",
-	"frame-benchmarking?/std",
+	"log/std",
+	"scale-codec/std",
+	"scale-info/std",
+	#"polkadot-sdk/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"schnorr-evm/std",
-	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"frame-benchmarking?/std",
+	"schnorr-evm/std",
 	"time-primitives/std",
 ]
-runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
-try-runtime = [ "frame-support/try-runtime" ]
+runtime-benchmarks = [
+	#"polkadot-sdk/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+]
+try-runtime = [
+	#"polkadot-sdk/try-runtime",
+	"frame-support/try-runtime",
+]

@@ -7,7 +7,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block;
 use std::sync::Arc;
 use time_primitives::{
-	BlockHash, BlockTimeApi, MembersApi, NetworksApi, ShardsApi, SubmitTransactionApi, TasksApi,
+	BlockHash, MembersApi, NetworksApi, ShardsApi, SubmitTransactionApi, TasksApi,
 };
 
 mod network;
@@ -28,12 +28,7 @@ where
 	B: Block<Hash = BlockHash>,
 	C: BlockchainEvents<B> + HeaderBackend<B> + 'static,
 	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	R::Api: MembersApi<B>
-		+ NetworksApi<B>
-		+ ShardsApi<B>
-		+ TasksApi<B>
-		+ BlockTimeApi<B>
-		+ SubmitTransactionApi<B>,
+	R::Api: MembersApi<B> + NetworksApi<B> + ShardsApi<B> + TasksApi<B> + SubmitTransactionApi<B>,
 	N: NetworkRequest + NetworkSigner + Send + Sync + 'static,
 {
 	let (network, net_request) = if let Some((network, incoming)) = params.network {

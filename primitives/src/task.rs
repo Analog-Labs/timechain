@@ -1,5 +1,6 @@
 use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
-use codec::{Decode, Encode};
+use scale_codec::{Decode, Encode};
+use scale_decode::DecodeAsType;
 use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -64,7 +65,7 @@ impl Function {
 	}
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub struct TaskResult {
 	pub shard_id: ShardId,
 	pub payload: Payload,
@@ -72,7 +73,7 @@ pub struct TaskResult {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub enum Payload {
 	Hashed([u8; 32]),
 	Error(String),
@@ -90,7 +91,7 @@ impl Payload {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub struct Msg {
 	pub source_network: NetworkId,
 	pub source: [u8; 32],

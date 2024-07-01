@@ -2,15 +2,25 @@
 ### Uses custom substrate builder (Dockerfile in infra repo)
 FROM analoglabs/substrate-builder:1.78.0 as builder
 
+ARG PROFILE
+ARG FEATURES=default
+ARG VCS_REF
+ARG BUILD_VARIANT
+
+ENV SUBSTRATE_CLI_GIT_COMMIT_HASH=$BUILD_VARIANT-$VCS_REF
+
 WORKDIR /build
 
 COPY . .
 
-RUN cargo build -p timechain-node --locked --release
+RUN cargo build -p timechain-node --locked --profile $PROFILE --features $FEATURES
 
 ### Release stage
 # Copies the binary from the builder stage into a fresh scratch image
 FROM ubuntu:22.04
+
+ARG PROFILE
+ARG VCS_REF
 
 ## TODO: change repo name to timechain
 ## TODO: add a documentation label
@@ -21,7 +31,8 @@ LABEL description="Multistage Dockerfile for building Analog Timechain" \
 	one.analog.image.authors="branimir@analog.one" \
 	one.analog.image.vendor="Analog One Foundation" \
 	one.analog.image.description="Analog Timechain" \
-	one.analog.image.source="https://github.com/Analog-Labs/testnet"
+	one.analog.image.source="https://github.com/Analog-Labs/timechain" \
+	one.analog.image.commit="${VCS_REF}"
     
-COPY --from=builder /build/target/release/timechain-node timechain-node
+COPY --from=builder /build/target/$PROFILE/timechain-node timechain-node
 ENTRYPOINT ["/timechain-node"]

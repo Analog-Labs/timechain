@@ -15,19 +15,13 @@ use time_primitives::{
 	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskDescriptor,
 	TaskDescriptorParams, TaskExecution, TaskId, TaskResult, TssSignature,
 };
-use timechain_runtime::runtime_types::sp_runtime::MultiSigner as MetadataMultiSigner;
-use timechain_runtime::runtime_types::time_primitives::task;
-use timechain_runtime::runtime_types::timechain_runtime::RuntimeCall;
 use tokio::sync::oneshot::{self, Sender};
+
+pub mod events;
+mod metadata;
 
 mod shards;
 mod tasks;
-
-#[subxt::subxt(
-	runtime_metadata_path = "../config/subxt/metadata.scale",
-	derive_for_all_types = "PartialEq, Clone"
-)]
-pub mod timechain_runtime {}
 
 pub use subxt::backend::{
 	rpc::{rpc_params, RpcParams},
@@ -39,6 +33,9 @@ pub use subxt::utils::AccountId32;
 pub use subxt::{ext, tx, utils};
 pub use subxt::{OnlineClient, PolkadotConfig};
 pub use subxt_signer::sr25519::Keypair;
+
+use metadata::MultiSigner;
+pub use metadata::Variant as MetadataVariant;
 
 pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient<PolkadotConfig>>;
 pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>;
@@ -64,6 +61,7 @@ pub enum Tx {
 
 struct SubxtWorker<T: TxSubmitter> {
 	client: OnlineClient<PolkadotConfig>,
+	metadata: MetadataVariant,
 	keypair: Keypair,
 	nonce: u64,
 	tx_submitter: T,
@@ -72,11 +70,13 @@ struct SubxtWorker<T: TxSubmitter> {
 impl<T: TxSubmitter> SubxtWorker<T> {
 	pub async fn new(
 		client: OnlineClient<PolkadotConfig>,
+		metadata: MetadataVariant,
 		keypair: Keypair,
 		tx_submitter: T,
 	) -> Result<Self> {
 		let mut me = Self {
 			client,
+			metadata,
 			keypair,
 			nonce: 0,
 			tx_submitter,
@@ -116,90 +116,98 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 
 	pub async fn submit(&mut self, tx: (Tx, Sender<TxInBlock>)) {
 		let (transaction, sender) = tx;
-		let tx = match transaction {
-			Tx::RegisterMember { network, peer_id, stake_amount } => {
-				let public_key = self.public_key();
-				let public_key: MetadataMultiSigner = unsafe { std::mem::transmute(public_key) };
-				let tx = timechain_runtime::tx().members().register_member(
-					network,
-					public_key,
-					peer_id,
-					stake_amount,
-				);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::Heartbeat => {
-				let tx = timechain_runtime::tx().members().send_heartbeat();
-				self.create_signed_payload(&tx).await
-			},
-			Tx::Commitment {
-				shard_id,
-				commitment,
-				proof_of_knowledge,
-			} => {
-				let tx = timechain_runtime::tx().shards().commit(
+		let tx = metadata_scope!(self.metadata, {
+			match transaction {
+				Tx::RegisterMember { network, peer_id, stake_amount } => {
+					let public_key: MultiSigner = unsafe { std::mem::transmute(self.public_key()) };
+					let payload = metadata::tx().members().register_member(
+						network,
+						subxt::utils::Static(public_key),
+						peer_id,
+						stake_amount,
+					);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::Heartbeat => {
+					let payload = metadata::tx().members().send_heartbeat();
+					self.create_signed_payload(&payload).await
+				},
+				Tx::Commitment {
 					shard_id,
 					commitment,
 					proof_of_knowledge,
-				);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::Ready { shard_id } => {
-				let tx = timechain_runtime::tx().shards().ready(shard_id);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::TaskSignature { task_id, signature } => {
-				let tx = timechain_runtime::tx().tasks().submit_signature(task_id, signature);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::TaskHash { task_id, hash } => {
-				let tx = timechain_runtime::tx().tasks().submit_hash(task_id, hash);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::TaskResult { task_id, result } => {
-				let result: task::TaskResult = unsafe { std::mem::transmute(result) };
-				let tx = timechain_runtime::tx().tasks().submit_result(task_id, result);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::CreateTask { task } => {
-				let task_params: task::TaskDescriptorParams = unsafe { std::mem::transmute(task) };
-				let tx = timechain_runtime::tx().tasks().create_task(task_params);
-				self.create_signed_payload(&tx).await
-			},
-			Tx::RegisterGateway {
-				shard_id,
-				address,
-				block_height,
-			} => {
-				let runtime_call = RuntimeCall::Tasks(
-					timechain_runtime::runtime_types::pallet_tasks::pallet::Call::register_gateway {
-						bootstrap: shard_id,
-						address,
-						block_height,
-					},
-				);
-				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
-				self.create_signed_payload(&sudo_call).await
-			},
-			Tx::SetShardConfig { shard_size, shard_threshold } => {
-				let runtime_call = RuntimeCall::Elections(timechain_runtime::runtime_types::pallet_elections::pallet::Call::set_shard_config {
-					shard_size,
-					shard_threshold,
-				});
-				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
-				self.create_signed_payload(&sudo_call).await
-			},
-			Tx::RegisterNetwork { chain_name, chain_network } => {
-				let runtime_call = RuntimeCall::Networks(
-					timechain_runtime::runtime_types::pallet_networks::pallet::Call::add_network {
-						chain_name,
-						chain_network,
-					},
-				);
-				let sudo_call = timechain_runtime::tx().sudo().sudo(runtime_call);
-				self.create_signed_payload(&sudo_call).await
-			},
-		};
+				} => {
+					let payload =
+						metadata::tx().shards().commit(shard_id, commitment, proof_of_knowledge);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::Ready { shard_id } => {
+					let payload = metadata::tx().shards().ready(shard_id);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::TaskSignature { task_id, signature } => {
+					let payload = metadata::tx().tasks().submit_signature(task_id, signature);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::TaskHash { task_id, hash } => {
+					let payload = metadata::tx().tasks().submit_hash(task_id, hash);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::TaskResult { task_id, result } => {
+					use metadata::runtime_types::time_primitives::task;
+					let result: task::TaskResult = unsafe { std::mem::transmute(result) };
+					let payload = metadata::tx().tasks().submit_result(task_id, result);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::CreateTask { task } => {
+					use metadata::runtime_types::time_primitives::task;
+					let task_params: task::TaskDescriptorParams =
+						unsafe { std::mem::transmute(task) };
+					let payload = metadata::tx().tasks().create_task(task_params);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::RegisterGateway {
+					shard_id,
+					address,
+					block_height,
+				} => {
+					use metadata::runtime_types::timechain_runtime::RuntimeCall;
+					let runtime_call = RuntimeCall::Tasks(
+						metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
+							bootstrap: shard_id,
+							address,
+							block_height,
+						},
+					);
+
+					let payload = metadata::tx().sudo().sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::SetShardConfig { shard_size, shard_threshold } => {
+					use metadata::runtime_types::timechain_runtime::RuntimeCall;
+					let runtime_call = RuntimeCall::Elections(
+						metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+							shard_size,
+							shard_threshold,
+						},
+					);
+					let payload = metadata::tx().sudo().sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::RegisterNetwork { chain_name, chain_network } => {
+					use metadata::runtime_types::timechain_runtime::RuntimeCall;
+					let runtime_call = RuntimeCall::Networks(
+						metadata::runtime_types::pallet_networks::pallet::Call::add_network {
+							chain_name,
+							chain_network,
+						},
+					);
+					let payload = metadata::tx().sudo().sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+			}
+		});
+
 		let result: Result<TxInBlock> = async {
 			let mut tx_progress = self.tx_submitter.submit(tx).await?;
 			while let Some(status) = tx_progress.next().await {
@@ -276,21 +284,28 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient<PolkadotConfig>,
+	metadata: metadata::Variant,
 	tx: mpsc::UnboundedSender<(Tx, Sender<TxInBlock>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
 
 impl SubxtClient {
-	pub async fn new<T: TxSubmitter>(url: &str, keypair: Keypair, tx_submitter: T) -> Result<Self> {
+	pub async fn new<T: TxSubmitter>(
+		url: &str,
+		metadata: MetadataVariant,
+		keypair: Keypair,
+		tx_submitter: T,
+	) -> Result<Self> {
 		let client = Self::get_client(url).await?;
-		let worker = SubxtWorker::new(client.clone(), keypair, tx_submitter).await?;
+		let worker = SubxtWorker::new(client.clone(), metadata, keypair, tx_submitter).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();
 		Ok(Self {
 			client,
+			metadata,
 			tx,
 			public_key,
 			account_id,
@@ -299,6 +314,7 @@ impl SubxtClient {
 
 	pub async fn with_keyfile<T: TxSubmitter>(
 		url: &str,
+		metadata: MetadataVariant,
 		keyfile: &Path,
 		tx_submitter: T,
 	) -> Result<Self> {
@@ -306,9 +322,8 @@ impl SubxtClient {
 			.context("failed to read substrate keyfile")
 			.with_context(|| keyfile.display().to_string())?;
 		let secret = SecretUri::from_str(&content).context("failed to parse substrate keyfile")?;
-		let keypair =
-			Keypair::from_uri(&secret).context("substrate keyfile contains invalid suri")?;
-		Self::new(url, keypair, tx_submitter).await
+		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
+		Self::new(url, metadata, keypair, tx_submitter).await
 	}
 
 	pub async fn get_client(url: &str) -> Result<OnlineClient<PolkadotConfig>> {
@@ -427,8 +442,10 @@ impl Runtime for SubxtClient {
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {
-		let runtime_call = timechain_runtime::apis().networks_api().get_network(network);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().networks_api().get_network(network);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
@@ -437,28 +454,36 @@ impl Runtime for SubxtClient {
 		_: BlockHash,
 		account: &AccountId,
 	) -> Result<Option<PeerId>> {
-		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
-		let runtime_call = timechain_runtime::apis().members_api().get_member_peer_id(account);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let account = AccountId32(*(account.as_ref()));
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().members_api().get_member_peer_id(account);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
-		let runtime_call = timechain_runtime::apis().members_api().get_heartbeat_timeout();
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().members_api().get_heartbeat_timeout();
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_min_stake(&self) -> Result<Balance> {
-		let runtime_call = timechain_runtime::apis().members_api().get_min_stake();
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().members_api().get_min_stake();
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_shards(&self, _: BlockHash, account: &AccountId) -> Result<Vec<ShardId>> {
 		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
-		let runtime_call = timechain_runtime::apis().shards_api().get_shards(account);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().shards_api().get_shards(account);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
@@ -467,20 +492,26 @@ impl Runtime for SubxtClient {
 		_: BlockHash,
 		shard_id: ShardId,
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
-		let runtime_call = timechain_runtime::apis().shards_api().get_shard_members(shard_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().shards_api().get_shard_members(shard_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_shard_threshold(&self, _: BlockHash, shard_id: ShardId) -> Result<u16> {
-		let runtime_call = timechain_runtime::apis().shards_api().get_shard_threshold(shard_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().shards_api().get_shard_threshold(shard_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_shard_status(&self, _: BlockHash, shard_id: ShardId) -> Result<ShardStatus> {
-		let runtime_call = timechain_runtime::apis().shards_api().get_shard_status(shard_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().shards_api().get_shard_status(shard_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
@@ -489,44 +520,58 @@ impl Runtime for SubxtClient {
 		_: BlockHash,
 		shard_id: ShardId,
 	) -> Result<Option<Commitment>> {
-		let runtime_call = timechain_runtime::apis().shards_api().get_shard_commitment(shard_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_shard_tasks(&self, _: BlockHash, shard_id: ShardId) -> Result<Vec<TaskExecution>> {
-		let runtime_call = timechain_runtime::apis().tasks_api().get_shard_tasks(shard_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().tasks_api().get_shard_tasks(shard_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_task(&self, _: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>> {
-		let runtime_call = timechain_runtime::apis().tasks_api().get_task(task_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().tasks_api().get_task(task_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>> {
-		let runtime_call = timechain_runtime::apis().tasks_api().get_task_signature(task_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().tasks_api().get_task_signature(task_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
-		let runtime_call = timechain_runtime::apis().tasks_api().get_task_signer(task_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().tasks_api().get_task_signer(task_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
 	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>> {
-		let runtime_call = timechain_runtime::apis().tasks_api().get_task_hash(task_id);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().tasks_api().get_task_hash(task_id);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>> {
-		let runtime_call = timechain_runtime::apis().tasks_api().get_gateway(network);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = metadata_scope!(self.metadata, {
+			let runtime_call = metadata::apis().tasks_api().get_gateway(network);
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
 		Ok(data)
 	}
 

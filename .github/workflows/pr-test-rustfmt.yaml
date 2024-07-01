@@ -26,6 +26,6 @@ jobs:
         with:
           submodules: recursive
       - name: Install rust toolchain
-        run : rustup show
+        run: rustup show
       - name: Run cargo fmt
         run: cargo fmt --all -- --check

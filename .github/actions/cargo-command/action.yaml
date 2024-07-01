@@ -23,7 +23,7 @@ runs:
   steps:
     - name: Install rust toolchain
       shell: bash
-      run : rustup show
+      run: rustup show
     - name: Install cargo-cache
       shell: bash
       run: cargo install cargo-cache

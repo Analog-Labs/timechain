@@ -9,7 +9,7 @@ use time_primitives::{
 	TaskExecution, TaskPhase, TssId,
 };
 use tokio::task::JoinHandle;
-use tracing::{event, span, Level};
+use tracing::{event, span, Level, Span};
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
@@ -57,15 +57,21 @@ where
 
 	async fn process_tasks(
 		&mut self,
-		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<(Vec<TssId>, Vec<TssId>)> {
-		tracing::span!(target: TW_LOG, tracing::Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
-		TaskExecutor::process_tasks(self, span, block_hash, block_number, shard_id, target_block_height)
-			.await
+		let span = span!(target: TW_LOG, tracing::Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
+		TaskExecutor::process_tasks(
+			self,
+			&span,
+			block_hash,
+			block_number,
+			shard_id,
+			target_block_height,
+		)
+		.await
 	}
 }
 
@@ -103,7 +109,7 @@ where
 			target: TW_LOG,
 			parent: span,
 			Level::DEBUG,
-			"on_finality",
+			"process_tasks",
 			block = block_hash.to_string(),
 			block_number,
 		);
@@ -126,9 +132,7 @@ where
 					parent: &span,
 					Level::DEBUG,
 					task_id,
-					format!("Task scheduled for future {:?}/{:?}",
-					target_block_height,
-					target_block_number),
+					"task scheduled for future execution",
 				);
 				continue;
 			}

@@ -1,5 +1,5 @@
 # Triggered via !ci-test-basic tag
-name: Run docker compose
+name: Check basic integration
 on: pull_request
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

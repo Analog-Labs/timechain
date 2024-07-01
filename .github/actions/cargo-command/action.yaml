@@ -24,9 +24,12 @@ runs:
     - name: Install rust toolchain
       shell: bash
       run : rustup show
-    - name: Clear cargo registry and index
+    - name: Install cargo-cache
       shell: bash
-      run: rm -rf ~/.cargo/registry ~/.cargo/git
+      run: cargo install cargo-cache
+    - name: Cleanup cargo cache
+      shell: bash
+      run: cargo cache --autoclean
     - name: Cache cargo registry and index
       uses: actions/cache@v4
       with:

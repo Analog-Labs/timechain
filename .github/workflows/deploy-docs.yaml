@@ -8,8 +8,12 @@ on:
       - 'scripts/**'
     branches:
       - 'development'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: true
 jobs:
   deploy-docs:
@@ -26,10 +30,11 @@ jobs:
           DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
         run: |
           mkdir target/docs
-          touch target/docs/.nojekyll
           cp -r target/doc target/docs/$DOCS_HIDEOUT
           cp docs/robots.txt target/docs/$DOCS_HIDEOUT
-      - name: Deploy docs
+      - name: Upload docs
         uses: actions/upload-pages-artifact@v3
         with:
           path: target/docs
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4 

@@ -99,7 +99,6 @@ where
 	/// preprocesses the task before sending it for execution in task_spawner.rs
 	pub async fn process_tasks(
 		&mut self,
-		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,

@@ -1,17 +1,15 @@
 use substrate_wasm_builder::WasmBuilder;
 
 fn main() {
-	WasmBuilder::new()
-		.with_current_project()
-		.export_heap_base()
-		.import_memory()
+	#[cfg(not(feature = "development"))]
+	WasmBuilder::init_with_defaults()
+		.enable_metadata()
+		.enable_metadata_hash("TANLOG", 12)
 		.build();
 
-	WasmBuilder::new()
-		.with_current_project()
-		.set_file_name("fast_wasm_binary.rs")
-		.enable_feature("fast-runtime")
-		.export_heap_base()
-		.import_memory()
+	#[cfg(feature = "development")]
+	WasmBuilder::init_with_defaults()
+		.enable_metadata()
+		.enable_metadata_hash("DANLOG", 12)
 		.build();
 }

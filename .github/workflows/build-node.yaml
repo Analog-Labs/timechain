@@ -1,0 +1,79 @@
+name: Compile node
+
+on:
+  pull_request:
+    paths-ignore:
+    - 'chronicle/**'
+    - 'contracts/**'
+    - 'docker/**'
+    - 'docs/**'
+    - 'infra/**'
+    - 'js/**'
+    - 'lib/**'
+    - 'scripts/**'
+    - 'tc-subxt/**'
+    - 'tester/**'
+    - 'tss/**'
+    - 'utils/**'
+    - '**/*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    runs-on: [ self-hosted-timechain ]
+    steps:
+    - name: Install rust toolchain
+      run : rustup show
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Cache cargo registry and index
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-cache-timechain-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-cache-timechain-
+
+  build-node:
+    runs-on: [ self-hosted-timechain ]
+    needs: [ setup ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - profile: production
+          features: default
+        - profile: testnet
+          features: default
+        - profile: testnet
+          features: development
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: recursive
+    - name: Cache cargo build output
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: cargo-build-timenode-${{ matrix.profile }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-build-timenode-${{ matrix.profile }}-
+    - name: Build timechain node
+      env:
+        SKIP_WASM_BUILD: true
+      run: cargo build --package timechain-node --profile ${{ matrix.profile }} --features ${{ matrix.features }}
+    - name: Upload timechain node
+      uses: actions/upload-artifact@v4
+      with:
+        name: timenode.${{ matrix.profile }}.${{ matrix.features }}
+        if-no-files-found: error
+        path: target/${{ matrix.profile }}/timechain-node

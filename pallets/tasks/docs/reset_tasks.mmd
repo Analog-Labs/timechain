@@ -1,0 +1,28 @@
+graph TB;
+	RT[Reset Task] --> RT1[Ensure Root User];
+    RT1 -->|Yes| RT2[Continue];
+    RT1 -->|No| RT3[Failure State];
+    
+    %% Reset Unassigned Tasks
+    RT2 --> RT10["Iterate Over Unassigned Tasks"];
+    RT10 --> RT11{Reset < Max?};
+    RT11 -->|Yes| RT12["Get Task ID"];
+    RT12 -->|Exists| RT13[Reset TaskPhaseState];
+    RT13 -->|Initial Phase| RT14[Reset += 1];
+    RT14 --> RT2;
+    RT11 -->|No| RT15[Stop Iteration];
+
+    %% Reset Tasks Associated with Specific Shards
+    RT2 --> RT4["Iterate Over Task Shards"];
+    RT4 --> RT5{To_be_reset < Max?};
+    RT5 -->|Yes| RT6[Remove Tasks from Shard Tasks];
+    RT6 --> RT7[Get Task ID];
+    RT7 -->|Exists| RT8[Add to Unassigned Tasks];
+    RT8 -->|Success| RT9[To_be_reset += 1];
+    RT9 --> RT2;
+    RT5 -->|No| RT15[Stop Iteration];
+
+    %% Styles
+    style RT fill:#f9f,stroke:#333,stroke-width:2px;
+    style RT3 fill:#f96,stroke:#333,stroke-width:2px;
+    

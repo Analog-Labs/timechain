@@ -1,16 +1,32 @@
 [package]
 name = "tc-subxt"
 version = "0.1.0"
-edition = "2021"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-anyhow = "1.0.75"
-async-stream = "0.3.5"
-async-trait = "0.1.73"
-futures = "0.3.30"
-hex = "0.4"
+anyhow.workspace = true
+async-stream.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+futures.workspace = true
+hex.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+scale-codec.workspace = true
+scale-decode.workspace = true
+scale-info.workspace = true
+
 subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
 subxt-signer = { version = "0.37.0", features = ["subxt"]}
+
 time-primitives = { path = "../primitives" }
-tokio = "1.35.1"
-tracing = "0.1.40"
+
+[features]
+testnet = []
+development = []

@@ -1,16 +1,24 @@
 use convert_case::{Case, Casing};
 use hex_literal::hex;
+use serde::{Deserialize, Serialize};
+
+use polkadot_sdk::*;
+
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sc_chain_spec::ChainSpecExtension;
 use sc_service::{config::TelemetryEndpoints, ChainType};
+
+use sp_authority_discovery::AuthorityId as DiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::UncheckedInto, hex2array};
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
+
 use timechain_runtime::{
-	binaries, fast_binaries, AccountId, Balance, RuntimeGenesisConfig as GenesisConfig,
-	StakerStatus, ANLOG, TOKEN_DECIMALS,
+	AccountId, Balance, Block, StakerStatus, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
 };
+
 const SS_58_FORMAT: u32 = 12850;
 
 /// Total supply of token is 90_570_710.
@@ -57,8 +65,23 @@ const FIVE: [u8; 32] =
 const SIX: [u8; 32] =
 	hex2array!("1880104772db7b947f3f8ccdcab3650d7179c44551d22dd0cca5dc852a140563");
 
+/// Node `ChainSpec` extensions.
+///
+/// Additional parameters for some Substrate core modules,
+/// customizable from the chain spec.
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+	/// Block numbers with known hashes.
+	pub fork_blocks: sc_client_api::ForkBlocks<Block>,
+	/// Known bad block hashes.
+	pub bad_blocks: sc_client_api::BadBlocks<Block>,
+	/// The light sync state extension used by the sync-state rpc.
+	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+}
+
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// Helper to parse genesis keys json
 #[derive(serde::Deserialize)]
@@ -66,7 +89,7 @@ pub struct GenesisKeysConfig {
 	/// Keys used to bootstrap validator session keys.
 	/// Will match and register session keys to stashes and self-stake them.
 	/// Balance to be staked is controlled by PER_VALIDATOR_UNLOCKED
-	bootstraps: Vec<(BabeId, GrandpaId, ImOnlineId)>,
+	bootstraps: Vec<(BabeId, GrandpaId, ImOnlineId, DiscoveryId)>,
 	/// Stashes to be used for chronicles, balances controlled by PER_CHRONICLE_STASH
 	chronicles: Vec<AccountId>,
 	/// Optional controller account that will control all nominates stakes
@@ -95,6 +118,7 @@ impl Default for GenesisKeysConfig {
 			bootstraps: vec![(
 				Alice.to_raw_public().unchecked_into(),
 				Ed25519Keyring::Alice.to_raw_public().unchecked_into(),
+				Alice.to_raw_public().unchecked_into(),
 				Alice.to_raw_public().unchecked_into(),
 			)],
 			chronicles: vec![
@@ -157,9 +181,9 @@ impl GenesisKeysConfig {
 		shard_threshold: u16,
 	) -> Result<ChainSpec, String> {
 		let wasm_binary = match chain_type {
-			ChainType::Live => binaries::WASM_BINARY,
-			ChainType::Development => fast_binaries::WASM_BINARY,
-			ChainType::Local => fast_binaries::WASM_BINARY,
+			ChainType::Live => WASM_BINARY,
+			ChainType::Development => WASM_BINARY,
+			ChainType::Local => WASM_BINARY,
 			_ => None,
 		}
 		.ok_or_else(|| "Analog wasm runtime not available".to_string())?;
@@ -171,7 +195,7 @@ impl GenesisKeysConfig {
 		let token_symbol = match chain_type {
 			ChainType::Live => "ANLOG",
 			ChainType::Development => "DANLOG",
-			ChainType::Local => "LANLOG",
+			ChainType::Local => "DANLOG",
 			_ => return Err("Unsupported chain type".to_string()),
 		};
 
@@ -284,10 +308,11 @@ impl GenesisKeysConfig {
 				(
 					self.controller.clone().unwrap_or(self.stakes[i].clone()),
 					self.stakes[i].clone(),
-					timechain_runtime::opaque::SessionKeys {
+					timechain_runtime::SessionKeys {
 						babe: x.0.clone(),
 						grandpa: x.1.clone(),
 						im_online: x.2.clone(),
+						authority_discovery: x.3.clone(),
 					},
 				)
 			})
@@ -341,9 +366,10 @@ impl GenesisKeysConfig {
 		});
 
 		// Put it all together ...
-		let mut builder = ChainSpec::builder(wasm_binary, None)
+		let mut builder = ChainSpec::builder(wasm_binary, Default::default())
 			.with_name(&name)
 			.with_id(id)
+			.with_protocol_id(id)
 			.with_chain_type(chain_type)
 			.with_properties(properties)
 			.with_genesis_config_patch(genesis_patch);

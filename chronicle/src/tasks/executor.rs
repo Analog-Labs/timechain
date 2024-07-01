@@ -62,7 +62,13 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<(Vec<TssId>, Vec<TssId>)> {
-		let span = span!(target: TW_LOG, Level::INFO, "process_tasks", shard_id, block_number, target_block_height);
+		let span = span!(
+			target: TW_LOG,
+			Level::DEBUG,
+			"process_tasks",
+			block = block_hash.to_string(),
+			block_number,
+		);
 		TaskExecutor::process_tasks(
 			self,
 			&span,
@@ -99,6 +105,7 @@ where
 	/// preprocesses the task before sending it for execution in task_spawner.rs
 	pub async fn process_tasks(
 		&mut self,
+		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,

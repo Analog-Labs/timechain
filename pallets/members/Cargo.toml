@@ -1,10 +1,10 @@
 [package]
 name = "pallet-members"
-version = "0.0.1"
 description = "A pallet for storing members for shards."
 publish = false
 readme = "pallets/members/README.md"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

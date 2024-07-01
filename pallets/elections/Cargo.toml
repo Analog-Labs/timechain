@@ -1,10 +1,10 @@
 [package]
 name = "pallet-elections"
-version = "0.0.1"
 description = "A pallet for selecting members for shards."
 publish = false
 readme = "pallets/elections/README.md"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

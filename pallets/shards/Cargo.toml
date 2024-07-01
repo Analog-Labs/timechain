@@ -1,10 +1,10 @@
 [package]
 name = "pallet-shards"
-version = "4.0.0-dev"
 description = "A pallet for managing shards."
 publish = false
 readme = "pallets/shards/README.md"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

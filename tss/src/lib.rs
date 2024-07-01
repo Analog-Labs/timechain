@@ -7,6 +7,7 @@ use frost_evm::Scalar;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use tracing::Value;
 
 pub use frost_evm::frost_core::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
@@ -105,8 +106,8 @@ pub struct Tss<I, P> {
 
 impl<I, P> Tss<I, P>
 where
-	I: Clone + Ord + std::fmt::Display,
-	P: Clone + Ord + std::fmt::Display + ToFrostIdentifier,
+	I: Clone + Ord + std::fmt::Display + Value,
+	P: Clone + Ord + std::fmt::Display + ToFrostIdentifier + Value,
 {
 	pub fn new(
 		peer_id: P,
@@ -122,12 +123,12 @@ where
 		let coordinators: BTreeSet<_> =
 			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
 		let is_coordinator = coordinators.contains(&frost_id);
-		tracing::debug!(
-			"{} initialize {}/{} coordinator = {}",
-			peer_id,
+		tracing::info!(
+			peer_id = peer_id,
+			"initialize {}/{} coordinator = {}",
 			threshold,
 			members.len(),
-			is_coordinator
+			is_coordinator,
 		);
 		let committed = recover.is_some();
 		Self {
@@ -174,7 +175,7 @@ where
 	}
 
 	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) -> Result<()> {
-		tracing::debug!("{} on_message {} {}", self.peer_id, peer_id, msg);
+		tracing::info!(peer_id = self.peer_id, "on_message from peer_id={peer_id} msg={msg}",);
 		if self.peer_id == peer_id {
 			anyhow::bail!("{} received message from self", self.peer_id);
 		}
@@ -201,7 +202,7 @@ where
 	}
 
 	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
-		tracing::debug!("{} commit", self.peer_id);
+		tracing::info!(peer_id = self.peer_id, "commit",);
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
 				dkg.on_commit(commitment);
@@ -212,7 +213,7 @@ where
 	}
 
 	pub fn on_start(&mut self, id: I) {
-		tracing::info!("{} start {}", self.peer_id, id);
+		tracing::info!(peer_id = self.peer_id, "start {}", id);
 		match &mut self.state {
 			TssState::Roast {
 				key_package,
@@ -236,7 +237,7 @@ where
 	}
 
 	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
-		tracing::debug!("{} sign {}", self.peer_id, id);
+		tracing::info!(peer_id = self.peer_id, "sign {}", id);
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
 				if let Some(session) = signing_sessions.get_mut(&id) {
@@ -252,7 +253,7 @@ where
 	}
 
 	pub fn on_complete(&mut self, id: I) {
-		tracing::debug!("{} complete {}", self.peer_id, id);
+		tracing::info!(peer_id = self.peer_id, "complete {}", id);
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
 				signing_sessions.remove(&id);

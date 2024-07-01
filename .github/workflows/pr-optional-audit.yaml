@@ -1,6 +1,8 @@
 # Triggered via !ci-audit tag
 name: Check cargo audit
-on: pull_request
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, reopened, synchronize]
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

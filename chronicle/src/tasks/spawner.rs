@@ -11,7 +11,6 @@ use schnorr_evm::VerifyingKey;
 use std::{
 	future::Future,
 	num::NonZeroU64,
-	path::PathBuf,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -25,12 +24,13 @@ use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
+	pub wallet: Arc<Wallet>,
 	pub tss: mpsc::Sender<TssSigningRequest>,
-	pub blockchain: String,
-	pub network: String,
+	// pub blockchain: String,
+	// pub network: String,
 	pub network_id: NetworkId,
-	pub url: String,
-	pub keyfile: PathBuf,
+	// pub url: String,
+	// pub keyfile: PathBuf,
 	pub substrate: S,
 }
 
@@ -48,19 +48,19 @@ where
 	S: Runtime,
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
-		let wallet = Arc::new(
-			Wallet::new(
-				params.blockchain.parse()?,
-				&params.network,
-				&params.url,
-				Some(&params.keyfile),
-				None,
-			)
-			.await?,
-		);
+		// let wallet = Arc::new(
+		// 	Wallet::new(
+		// 		params.blockchain.parse()?,
+		// 		// &params.network,
+		// 		&params.url,
+		// 		Some(&params.keyfile),
+		// 		None,
+		// 	)
+		// 	.await?,
+		// );
 		Ok(Self {
 			tss: params.tss,
-			wallet,
+			wallet: params.wallet,
 			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
 			network_id: params.network_id,
@@ -98,11 +98,103 @@ where
 				)
 				.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 				let log = IGateway::GmpCreated::decode_log(&log, true)?;
-				Ok::<IGateway::GmpCreated, anyhow::Error>(log.data)
+				anyhow::Result::Ok(log.data)
 			})
-			.collect::<Result<Vec<_>, _>>()?;
+			.collect::<Result<Vec<IGateway::GmpCreated>, anyhow::Error>>()?;
 		Ok(logs)
 	}
+
+	// ///
+	// /// Retrieve gmp executed event from gateway contract
+	// pub async fn get_gmp_executed_tx_receipt(
+	// 	&self,
+	// 	gateway_contract: [u8; 20],
+	// 	gmp_id: B256,
+	// ) -> Result<Option<(TransactionReceipt, IGateway::GmpExecuted)>> {
+	// 	// Query the GmpInfo from the gateway contract
+	// 	let gmp_info = self
+	// 		.wallet
+	// 		.query(CallContract {
+	// 			from: None,
+	// 			to: gateway_contract.into(),
+	// 			value: 0u64.into(),
+	// 			data: IGateway::gmpInfoCall { id: gmp_id }.abi_encode(),
+	// 			block: AtBlock::Latest,
+	// 		})
+	// 		.await?;
+	// 	if let Some(revert_message) = gmp_info.revert_msg() {
+	// 		anyhow::bail!("gmp info call reverted: {revert_message:?}");
+	// 	}
+	// 	let gmp_info = match gmp_info {
+	// 		CallResult::Success(gmp_info) => IGateway::GmpInfo::abi_decode(&gmp_info, true)?,
+	// 		CallResult::Revert(bytes) => {
+	// 			anyhow::bail!("gmp info call failed with error: {:?}", hex::encode(bytes));
+	// 		},
+	// 		CallResult::Error => {
+	// 			anyhow::bail!("gmp info call failed with error");
+	// 		},
+	// 	};
+	// 	if gmp_info.status == IGateway::GmpStatus::NOT_FOUND {
+	// 		return Ok(None);
+	// 	}
+
+	// 	// Query the GmpExecuted event from the gateway contract
+	// 	let maybe_gmp_executed = self
+	// 		.wallet
+	// 		.query(GetLogs {
+	// 			contracts: vec![gateway_contract.into()],
+	// 			topics: vec![IGateway::GmpExecuted::SIGNATURE_HASH.0.into(), gmp_id.0.into()],
+	// 			block: FilterBlockOption::Range {
+	// 				from_block: None,
+	// 				to_block: Some(gmp_info.blockNumber.into()),
+	// 			},
+	// 		})
+	// 		.await?
+	// 		.into_iter()
+	// 		.find_map(|log| {
+	// 			// Must have a transaction hash
+	// 			let tx_hash = log.transaction_hash.map(|tx_hash| B256::from(tx_hash.0))?;
+
+	// 			// if any GmpCreated message is received collect them and returns
+	// 			let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
+	// 			let log = alloy_primitives::Log::new(
+	// 				gateway_contract.into(),
+	// 				topics,
+	// 				log.data.0.to_vec().into(),
+	// 			)?;
+
+	// 			// Check if the log is a GmpExecuted event
+	// 			if matches!(log.topics().first(), Some(&IGateway::GmpExecuted::SIGNATURE_HASH)) {
+	// 				return None;
+	// 			}
+
+	// 			// Decode the GmpExecuted event
+	// 			let gmp_executed_event = match IGateway::GmpExecuted::decode_log(&log, true) {
+	// 				Ok(log) => log.data,
+	// 				Err(err) => {
+	// 					tracing::warn!(
+	// 						"Failed to decode GmpExecuted for tx {tx_hash:?}, err: {err:?}"
+	// 					);
+	// 					return None;
+	// 				},
+	// 			};
+
+	// 			Option::Some((tx_hash, gmp_executed_event))
+	// 		});
+
+	// 	// Retrieve tx receipt for the GmpExecuted event
+	// 	let Some((tx_hash, gmp_executed)) = maybe_gmp_executed else {
+	// 		return Ok(None);
+	// 	};
+
+	// 	let Some(tx_receipt) = self.wallet.eth_transaction_receipt(tx_hash.0).await? else {
+	// 		// This should not happen, but if it does, log a warning and return None
+	// 		tracing::warn!("Transaction receipt for GmpExecuted not found, gmp_id: '{gmp_id:?}', tx_hash: '{tx_hash:?}'");
+	// 		return Ok(None);
+	// 	};
+
+	// 	Result::Ok(Some((tx_receipt, gmp_executed)))
+	// }
 
 	///
 	/// executes the task function

@@ -4,6 +4,7 @@ use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
 use anyhow::Result;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
+use rosetta_client::Wallet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tc_subxt::MetadataVariant;
@@ -56,14 +57,22 @@ pub async fn run_chronicle(
 		.await?
 		.ok_or(anyhow::anyhow!("Network Id not supported"))?;
 
+	let wallet = Arc::new(
+		Wallet::new(
+			chain.parse()?,
+			&subchain,
+			&config.target_url,
+			Some(&config.target_keyfile),
+			None,
+		)
+		.await?,
+	);
+
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let task_spawner_params = TaskSpawnerParams {
+		wallet: Arc::clone(&wallet),
 		tss: tss_tx,
-		blockchain: chain,
-		network: subchain,
 		network_id: config.network_id,
-		url: config.target_url,
-		keyfile: config.target_keyfile,
 		substrate: substrate.clone(),
 	};
 	let task_spawner = loop {
@@ -84,6 +93,7 @@ pub async fn run_chronicle(
 	tracing::info!("Target wallet address: {:?}", task_spawner.target_address());
 
 	run_chronicle_with_spawner(
+		wallet,
 		config.network_id,
 		network,
 		net_request,
@@ -96,6 +106,7 @@ pub async fn run_chronicle(
 }
 
 async fn run_chronicle_with_spawner(
+	wallet: Arc<Wallet>,
 	network_id: NetworkId,
 	network: Arc<dyn Network>,
 	net_request: BoxStream<'static, (PeerId, Message)>,
@@ -114,6 +125,7 @@ async fn run_chronicle_with_spawner(
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
 	let task_executor = TaskExecutor::new(TaskExecutorParams {
+		wallet,
 		network: network_id,
 		task_spawner,
 		substrate: substrate.clone(),
@@ -137,6 +149,7 @@ mod tests {
 	use std::time::Duration;
 	use time_primitives::sp_runtime::traits::IdentifyAccount;
 	use time_primitives::{AccountId, Function, Msg, ShardStatus, TaskDescriptor};
+	use rosetta_client::Blockchain;
 
 	async fn chronicle(mut mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
@@ -144,9 +157,21 @@ mod tests {
 			create_iroh_network(NetworkConfig { secret: None, bind_port: None })
 				.await
 				.unwrap();
+		let wallet = Arc::new(
+			Wallet::new(
+				Blockchain::Ethereum,
+				"dev".into(),
+				"http://localhost:8545".into(),
+				None,
+				None,
+			)
+			.await
+			.unwrap(),
+		);
 		let (tss_tx, tss_rx) = mpsc::channel(10);
 		mock.with_tss(tss_tx);
 		run_chronicle_with_spawner(
+			wallet,
 			network_id,
 			network,
 			network_requests,

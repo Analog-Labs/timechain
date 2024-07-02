@@ -137,6 +137,7 @@ pub struct TaskDescriptorParams {
 }
 
 impl TaskDescriptorParams {
+	#[must_use]
 	pub fn new(network: NetworkId, function: Function, shard_size: u16) -> Self {
 		Self {
 			network,
@@ -181,7 +182,8 @@ pub struct TaskExecution {
 }
 
 impl TaskExecution {
-	pub fn new(task_id: TaskId, phase: TaskPhase) -> Self {
+	#[must_use]
+	pub const fn new(task_id: TaskId, phase: TaskPhase) -> Self {
 		Self { task_id, phase }
 	}
 }
@@ -193,13 +195,13 @@ impl std::fmt::Display for TaskExecution {
 	}
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub struct DepreciationRate<BlockNumber> {
 	pub blocks: BlockNumber,
 	pub percent: Percent,
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 /// Struct representing a task's reward configuration
 /// Stored at task creation
 pub struct RewardConfig<Balance, BlockNumber> {

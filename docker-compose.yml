@@ -6,17 +6,19 @@ services:
     - '--base-path=/data'
     - '--rpc-cors=all'
     - '--unsafe-rpc-external'
+    - '--rpc-port=9955'
     - '--rpc-methods=unsafe'
     - '--prometheus-external'
     - '--prometheus-port=9090'
     - '--alice'
     - '--validator'
     - '--force-authoring'
+    - '--no-telemetry'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     labels:
       prometheus-scrape.enabled: 'true'
     ports:
-      - 9944:9944
+      - 9955:9955
     profiles:
     - ethereum
     - ethereum3
@@ -68,7 +70,7 @@ services:
     - '--network-id=3'
     - '--target-url=ws://ethereum:8545'
     - '--timechain-metadata=development'
-    - '--timechain-url=ws://validator:9944'
+    - '--timechain-url=ws://validator:9955'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--tss-keyshare-cache=/etc'
@@ -122,9 +124,9 @@ services:
     image: 'analoglabs/chronicle-development'
     command:
     - '--network-id=6'
-    - '--target-url=ws://astar:9944'
+    - '--target-url=ws://astar:9955'
     - '--timechain-metadata=development'
-    - '--timechain-url=ws://validator:9944'
+    - '--timechain-url=ws://validator:9955'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     environment:

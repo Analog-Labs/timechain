@@ -1,6 +1,6 @@
 use crate::{Function, Msg, NetworkId, TssPublicKey, TssSignature};
 use alloy_primitives::private::Vec;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, Eip712Domain, SolCall, SolStruct};
 
 const EIP712_NAME: &str = "Analog Gateway Contract";
@@ -70,9 +70,9 @@ sol! {
 	interface IGateway {
 		event GmpExecuted(
 			bytes32 indexed id,
-			bytes32 indexed source,
+			GmpSender indexed source,
 			address indexed dest,
-			uint256 status,
+			GmpStatus status,
 			bytes32 result
 		);
 
@@ -92,18 +92,56 @@ sol! {
 			bytes data
 		);
 
+		#[derive(Debug, Default, PartialEq, Eq)]
+		enum GmpStatus {
+			#[default]
+			NOT_FOUND,
+			SUCCESS,
+			REVERT,
+			INSUFFICIENT_FUNDS,
+			PENDING
+		}
+
+		type GmpSender is bytes32;
+
+		#[derive(Debug, PartialEq, Eq)]
+		struct GmpInfo {
+			GmpStatus status;
+			uint64 blockNumber;
+		}
+
 		constructor(uint16 networkId, address proxy) payable;
 		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
 		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
 		function deposit(bytes32 source, uint16 network) public payable;
 		function depositOf(bytes32 source, uint16 networkId) external view returns (uint256);
+		function gmpInfo(bytes32 id) external view returns (GmpInfo memory);
+	}
+}
+
+impl GmpMessage {
+	#[must_use]
+	pub fn gmp_id(&self, gateway_contract: Address) -> B256 {
+		let domain_separator = self.eip712_domain_separator(gateway_contract);
+		let hash = self.eip712_signing_hash(&domain_separator);
+		B256::from(hash)
+	}
+
+	fn eip712_domain_separator(&self, gateway_contract: Address) -> Eip712Domain {
+		Eip712Domain {
+			name: Some(EIP712_NAME.into()),
+			version: Some(EIP712_VERSION.into()),
+			chain_id: Some(U256::from(self.destNetwork)),
+			verifying_contract: Some(gateway_contract),
+			salt: None,
+		}
 	}
 }
 
 impl From<TssPublicKey> for TssKey {
 	fn from(bytes: TssPublicKey) -> Self {
 		Self {
-			yParity: if bytes[0] % 2 == 0 { 0 } else { 1 },
+			yParity: u8::from(bytes[0] % 2 != 0),
 			xCoord: U256::from_be_slice(&bytes[1..]),
 		}
 	}
@@ -119,14 +157,15 @@ impl Message {
 	pub fn update_keys(
 		revoke: impl IntoIterator<Item = TssPublicKey>,
 		register: impl IntoIterator<Item = TssPublicKey>,
-	) -> Message {
+	) -> Self {
 		Self::UpdateKeys(UpdateKeysMessage {
 			revoke: revoke.into_iter().map(TssKey::from).collect(),
 			register: register.into_iter().map(TssKey::from).collect(),
 		})
 	}
 
-	pub fn gmp(msg: Msg) -> Message {
+	#[must_use]
+	pub fn gmp(msg: Msg) -> Self {
 		Self::Gmp(GmpMessage {
 			source: msg.source.into(),
 			srcNetwork: msg.source_network,
@@ -141,9 +180,9 @@ impl Message {
 	fn payload(self, signature: Signature) -> Vec<u8> {
 		match self {
 			Self::UpdateKeys(message) => {
-				IGateway::updateKeysCall { message, signature }.abi_encode()
+				IGateway::updateKeysCall { signature, message }.abi_encode()
 			},
-			Self::Gmp(message) => IGateway::executeCall { message, signature }.abi_encode(),
+			Self::Gmp(message) => IGateway::executeCall { signature, message }.abi_encode(),
 		}
 	}
 
@@ -154,12 +193,22 @@ impl Message {
 		}
 	}
 
+	#[must_use]
+	pub fn uuid(&self, params: &GmpParams) -> B256 {
+		use sha3::Digest;
+		let bytes = self.to_eip712_bytes(params);
+		let hash: [u8; 32] = sha3::Keccak256::digest(bytes).into();
+		B256::from(hash)
+	}
+
+	#[must_use]
 	pub fn to_eip712_bytes(&self, params: &GmpParams) -> Eip712Bytes {
 		let hash = self.eip712_hash_struct();
 		params.to_eip712_bytes(hash)
 	}
 
 	/// Converts `Message` into `Function::EvmCall`
+	#[must_use]
 	pub fn into_evm_call(self, params: &GmpParams, signature: TssSignature) -> Function {
 		let signature = Signature {
 			xCoord: TssKey::from(params.tss_public_key).xCoord,

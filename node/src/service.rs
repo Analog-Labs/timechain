@@ -234,7 +234,7 @@ pub struct NewFullBase {
 pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	disable_hardware_benchmarks: bool,
-	#[cfg(feature = "chronicle")] chronicle_args: Option<cli::ChronicleArgs>,
+	chronicle_args: Option<cli::ChronicleArgs>,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
 		&sc_consensus_babe::BabeLink<Block>,
@@ -291,9 +291,9 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	// registering time p2p protocol
-	#[cfg(feature = "chronicle")]
+
 	let (protocol_tx, protocol_rx) = async_channel::bounded(10);
-	#[cfg(feature = "chronicle")]
+
 	net_config.add_request_response_protocol(crate::chronicle::protocol_config(protocol_tx));
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
@@ -479,7 +479,6 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		);
 	}
 
-	#[cfg(feature = "chronicle")]
 	{
 		if let Some(args) = chronicle_args {
 			let config = chronicle::ChronicleConfig {
@@ -548,7 +547,6 @@ pub fn new_full(config: Configuration, cli: cli::Cli) -> Result<TaskManager, Ser
 			new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
 				cli.no_hardware_benchmarks,
-				#[cfg(feature = "chronicle")]
 				cli.chronicle,
 				|_, _| (),
 			)
@@ -558,7 +556,6 @@ pub fn new_full(config: Configuration, cli: cli::Cli) -> Result<TaskManager, Ser
 			new_full_base::<sc_network::Litep2pNetworkBackend>(
 				config,
 				cli.no_hardware_benchmarks,
-				#[cfg(feature = "chronicle")]
 				cli.chronicle,
 				|_, _| (),
 			)

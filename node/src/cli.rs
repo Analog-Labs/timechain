@@ -25,13 +25,11 @@ pub struct Cli {
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 
-	#[cfg(feature = "chronicle")]
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub chronicle: Option<ChronicleArgs>,
 }
 
-#[cfg(feature = "chronicle")]
 #[derive(Debug, clap::Parser)]
 /// workaround for <https://github.com/clap-rs/clap/issues/5092>
 #[group(requires_all = ["network_id", "target_url", "target_keyfile", "timechain_keyfile"], multiple = true)]

@@ -1,33 +1,23 @@
-##########################################################
-#
-#  Workflow for building the tester image. It's a CLI tool
-#  used in deployment scripts and apps. The tester CLI
-#  image includes the tester binary and the compiled
-#  contracts.
-#
-##########################################################
 name: Build Docker tester image
-
 on:
   push:
     paths:
-      - 'tester/**'
+      - '.github/workflows/merge-docker-tester.yaml'
+      - 'analog-gmp/**'
+      - 'config/subxt/**'
       - 'primitives/**'
       - 'tc-subxt/**'
-      - 'contracts/**'
-      - 'config/**'
-      - 'runtime/**'
-      - 'pallets/**'
+      - 'tester/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
     branches:
       - 'development'
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 env:
   DOCKER_REPO: analoglabs/tester
-
 jobs:
   set-tags:
     name: Get & set tags
@@ -45,7 +35,6 @@ jobs:
           echo "sha=$sha" >> $GITHUB_OUTPUT
           echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
           echo "SHA commit:" $sha
-
   build-binary:
     name: Build Docker image
     needs: ["set-tags"]

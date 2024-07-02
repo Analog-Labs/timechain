@@ -1,0 +1,26 @@
+# Triggered via !ci-benchmark tag
+name: Update runtime benchmarks
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, reopened, synchronize]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  update-benchmarks:
+    runs-on: [self-hosted, benchmark]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark') }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Run benchmarking script
+        run: ./scripts/benchmarking.sh
+      - name: Commit updated weights
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: './runtime/src/weights'
+          default_author: github_actions
+          author_name: Github Actions
+          message: 'Add generated weights'

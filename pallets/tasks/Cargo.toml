@@ -1,10 +1,10 @@
 [package]
 name = "pallet-tasks"
-version = "0.0.1"
 description = "A pallet for storing task(s) schedule info."
 publish = false
 readme = "pallets/tasks/README.md"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

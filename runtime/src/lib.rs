@@ -243,6 +243,10 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 parameter_types! {
+	// The maximum number of nominating and validating accounts
+	pub const MaxElectingNominators: u32 = 100;
+	pub const MaxElectableValidators: u16 = 5000;
+
 	// The maximum winners that can be elected by the Election pallet which is equivalent to the
 	// maximum active validators the staking pallet can have.
 	pub MaxActiveValidators: u32 = 1000;
@@ -428,12 +432,6 @@ parameter_types! {
 
 	// 4 hour session, 1 hour unsigned phase, 32 offchain executions.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_dev!(32, 10);
-
-	/// We take the top 22500 nominators as electing voters..
-	pub const MaxElectingVoters: u32 = 22_500;
-	/// ... and all of the validators as electable targets. Whilst this is the case, we cannot and
-	/// shall not increase the size of the validator intentions.
-	pub const MaxElectableTargets: u16 = u16::MAX;
 }
 
 generate_solution_type!(
@@ -442,7 +440,7 @@ generate_solution_type!(
 		VoterIndex = u32,
 		TargetIndex = u16,
 		Accuracy = sp_runtime::PerU16,
-		MaxVoters = MaxElectingVoters,
+		MaxVoters = MaxElectingNominators,
 	>(16)
 );
 
@@ -605,9 +603,9 @@ parameter_types! {
 	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(100.into()).targets_count(5_000.into()).build();
+		.voters_count(MaxElectingNominators::get().into()).targets_count((MaxElectableValidators::get() as u32).into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(100.into()).targets_count(5_000.into()).build();
+		.voters_count(MaxElectingNominators::get().into()).targets_count((MaxElectableValidators::get() as u32).into()).build();
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -641,9 +639,9 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
 	const ACTIVE_VOTERS: [u32; 2] = [200, 400];
 	const TARGETS: [u32; 2] = [1000, 5000];
 	const DESIRED_TARGETS: [u32; 2] = [200, 400];
-	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 100;
-	const MINER_MAXIMUM_VOTERS: u32 = 100;
-	const MAXIMUM_TARGETS: u32 = 5000;
+	const SNAPSHOT_MAXIMUM_VOTERS: u32 = MaxElectingNominators::get();
+	const MINER_MAXIMUM_VOTERS: u32 = MaxElectingNominators::get();
+	const MAXIMUM_TARGETS: u32 = MaxElectableValidators::get() as u32;
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {

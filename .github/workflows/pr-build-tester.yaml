@@ -1,0 +1,42 @@
+name: Compile tester
+on:
+  pull_request:
+    paths:
+      - '.github/actions/cargo-command/**'
+      - '.github/workflows/pr-build-tester.yaml'
+      - 'analog-gmp/**'
+      - 'config/subxt/**'
+      - 'primitives/**'
+      - 'tc-subxt/**'
+      - 'tester/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-tester:
+    runs-on: [self-hosted, general]
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - production
+          - testnet
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build tester
+        uses: ./.github/actions/cargo-command
+        with:
+          package: tester
+          profile: ${{ matrix.profile }}
+      - name: Upload tester
+        uses: actions/upload-artifact@v4
+        with:
+          name: tester.${{ matrix.profile }}
+          if-no-files-found: error
+          path: target/${{ matrix.profile }}/tester

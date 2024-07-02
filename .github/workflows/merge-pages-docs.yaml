@@ -1,0 +1,52 @@
+name: Deploy docs
+on:
+  push:
+    paths:
+      - '.github/actions/cargo-command/**'
+      - '.github/workflows/merge-pages-docs.yaml'
+      - 'chronicle/**'
+      - 'config/subxt/**'
+      - 'docs/**'
+      - 'lib/**'
+      - 'node/**'
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'tc-subxt/**'
+      - 'tss/**'
+      - 'rust-toolchain.toml'
+    branches:
+      - 'development'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Build docs
+        uses: ./.github/actions/cargo-command
+        with:
+          command: doc
+          args: --workspace --no-deps --document-private-items
+      - name: Assemble structure
+        env:
+          DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
+        run: |
+          mkdir target/docs
+          cp -r target/doc target/docs/$DOCS_HIDEOUT
+          cp docs/robots.txt target/docs/$DOCS_HIDEOUT
+      - name: Upload docs
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/docs
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

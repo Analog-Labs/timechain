@@ -7,7 +7,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  update-benchmarks:
+  build-benchmark:
     runs-on: [self-hosted, benchmark]
     if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark') }}
     steps:
@@ -15,12 +15,69 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Run benchmarking script
-        run: ./scripts/benchmarking.sh
-      - name: Commit updated weights
-        uses: EndBug/add-and-commit@v9
+      - name: Build runtime benchmarks
+        uses: ./.github/actions/cargo-command
         with:
-          add: './runtime/src/weights'
-          default_author: github_actions
-          author_name: Github Actions
-          message: 'Add generated weights'
+          package: timechain-node
+          feature: runtime-benchmarks
+      - name: Upload runtime benchmarks
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-benchmarks
+          if-no-files-found: error
+          path: target/release/timechain-node
+  run-benchmark:
+    needs: [build-benchmark]
+    runs-on: [self-hosted, benchmark]
+    strategy:
+      fail-fast: false
+      matrix:
+        chain: [staging, development]
+        pallet: [elections, members, networks, shards, tasks, timegraph]
+    steps:
+      - name: Download runtime benchmarks
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-benchmarks
+      - name: Prepare runtime benchmarks
+        run: chmod +x timechain-node && mkdir -p weights
+      - name: Run runtime benchmarks
+        run: ./timechain-node benchmark pallet --chain ${{ matrix.chain }} --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./weights/${{ matrix.pallet }}.rs
+      - name: Upload weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: weights-${{ matrix.chain }}-${{ matrix.pallet }}
+          if-no-files-found: error
+          path: weights/${{ matrix.pallet }}.rs
+  update-weights:
+    needs: [run-benchmark]
+    runs-on: [self-hosted, benchmark]
+    if: ${{ always() }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: recursive
+      - name: Download mainnet weights
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: runtimes/mainnet/weights
+          pattern: weights-staging-*
+          merge-multiple: true
+      - name: Download testnet weights
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: runtimes/testnet/weights
+          pattern: weights-development-*
+          merge-multiple: true
+      - name: Commit updated weights
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "github@analog.one"
+          git config user.name "Weights Update Bot"
+          git commit -am "runtimes: update pallet weights"
+          git push

@@ -17,7 +17,8 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, Runtime, ShardId, ShardStatus, TssId, TssSignature, TssSigningRequest,
+	BlockHash, BlockNumber, Runtime, ShardId, ShardStatus, TaskExecution, TssSignature,
+	TssSigningRequest,
 };
 use tokio::time::{sleep, Duration};
 use tracing::{event, span, Level, Span};
@@ -41,8 +42,8 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	tss_states: HashMap<ShardId, Tss>,
 	executor_states: HashMap<ShardId, T>,
 	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
-	requests: BTreeMap<BlockNumber, Vec<(ShardId, TssId, Vec<u8>)>>,
-	channels: HashMap<TssId, oneshot::Sender<([u8; 32], TssSignature)>>,
+	requests: BTreeMap<BlockNumber, Vec<(ShardId, TaskExecution, Vec<u8>)>>,
+	channels: HashMap<TaskExecution, oneshot::Sender<([u8; 32], TssSignature)>>,
 	#[allow(clippy::type_complexity)]
 	outgoing_requests: FuturesUnordered<
 		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,

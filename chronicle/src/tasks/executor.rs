@@ -6,7 +6,7 @@ use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	BlockHash, BlockNumber, Function, GmpParams, Message, NetworkId, Runtime, ShardId,
-	TaskExecution, TaskPhase, TssId,
+	TaskExecution, TaskPhase,
 };
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level, Span};
@@ -61,7 +61,7 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<(Vec<TssId>, Vec<TssId>)> {
+	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)> {
 		let span = span!(
 			target: TW_LOG,
 			Level::DEBUG,
@@ -110,7 +110,7 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<(Vec<TssId>, Vec<TssId>)> {
+	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)> {
 		let span = span!(
 			target: TW_LOG,
 			parent: span,
@@ -123,7 +123,7 @@ where
 		let mut start_sessions = vec![];
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
 		tracing::debug!("debug_latency Current Tasks Under processing: {:?}", tasks);
-		for executable_task in tasks.iter().clone() {
+		for executable_task in tasks.iter().copied() {
 			let task_id = executable_task.task_id;
 			event!(
 				target: TW_LOG,
@@ -132,7 +132,7 @@ where
 				task_id,
 				"task in execution",
 			);
-			if self.running_tasks.contains_key(executable_task) {
+			if self.running_tasks.contains_key(&executable_task) {
 				continue;
 			}
 			// gets task details
@@ -323,7 +323,7 @@ where
 			// Metrics: Increase number of running tasks
 			self.task_counter_metric.inc(&phase, &function_metric_clone);
 			let counter = self.task_counter_metric.clone();
-			start_sessions.push(TssId::new(task_id, phase));
+			start_sessions.push(executable_task);
 
 			let handle = tokio::task::spawn(async move {
 				match task.await {
@@ -357,8 +357,8 @@ where
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		// remove from running task if task is completed or we dont receive anymore from pallet
-		self.running_tasks.retain(|x, handle| {
-			if tasks.contains(x) {
+		self.running_tasks.retain(|executable_task, handle| {
+			if tasks.contains(executable_task) {
 				true
 			} else {
 				if !handle.is_finished() {
@@ -366,12 +366,12 @@ where
 						target: TW_LOG,
 						parent: &span,
 						Level::DEBUG,
-						x.task_id,
+						executable_task.task_id,
 						"task aborted",
 					);
 					handle.abort();
 				}
-				completed_sessions.push(TssId::new(x.task_id, x.phase));
+				completed_sessions.push(*executable_task);
 				false
 			}
 		});

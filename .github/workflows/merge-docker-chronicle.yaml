@@ -39,8 +39,8 @@ jobs:
           echo "SHA commit:" $sha
   build-binary:
     name: Build Docker image
-    needs: ["self-hosted", "container"]
-    runs-on: ubuntu-latest
+    needs: ["set-tags"]
+    runs-on: ["self-hosted", "container"]
     strategy:
       fail-fast: false
       matrix:

@@ -24,41 +24,6 @@ pub struct Cli {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
-
-	#[allow(missing_docs)]
-	#[clap(flatten)]
-	pub chronicle: Option<ChronicleArgs>,
-}
-
-#[derive(Debug, clap::Parser)]
-/// workaround for <https://github.com/clap-rs/clap/issues/5092>
-#[group(requires_all = ["network_id", "target_url", "target_keyfile", "timechain_keyfile"], multiple = true)]
-pub struct ChronicleArgs {
-	/// The network to be used from Analog Connector.
-	#[arg(required = false)]
-	#[clap(long)]
-	pub network_id: time_primitives::NetworkId,
-	/// The secret to use for p2p networking.
-	#[clap(long)]
-	pub network_keyfile: Option<std::path::PathBuf>,
-	/// The port to bind to for p2p networking.
-	#[clap(long)]
-	pub bind_port: Option<u16>,
-	/// Enables iroh networking.
-	#[clap(long)]
-	pub enable_iroh: bool,
-	/// The address of Analog Connector.
-	#[arg(required = false)]
-	#[clap(long)]
-	pub target_url: String,
-	/// key file for connector wallet
-	#[arg(required = false)]
-	#[clap(long)]
-	pub target_keyfile: std::path::PathBuf,
-	/// keyfile having an account with funds for timechain.
-	#[arg(required = false)]
-	#[clap(long)]
-	pub timechain_keyfile: std::path::PathBuf,
 }
 
 /// Possible subcommands of the main binary.

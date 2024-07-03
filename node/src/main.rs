@@ -2,7 +2,6 @@
 
 mod chain_spec;
 
-mod chronicle;
 #[macro_use]
 mod service;
 mod benchmarking;

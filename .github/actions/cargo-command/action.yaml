@@ -52,4 +52,4 @@ runs:
       env:
         CARGO_TERM_COLOR: always
       shell: bash
-      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' ${{ inputs.args }} --message-format json | cargo-action-fmt
+      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' --message-format json ${{ inputs.args }} | cargo-action-fmt

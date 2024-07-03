@@ -30,6 +30,7 @@ sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-p
 frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
 
 time-primitives = { path = "../../primitives", default-features = false }
+simple-mermaid.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true

@@ -979,7 +979,7 @@ pub mod pallet {
 		/// Registers a new shard and initiates a task for shard registration.
 		///
 		/// # Flow
-		///  1. Create a task descriptor with `network_id`, `[Function::RegisterShard]` { `shard_id` }, and shard member count.
+		///  1. Create a task descriptor with `network_id`, [`Function::RegisterShard`] { `shard_id` }, and shard member count.
 		///  2. Start the task with [`TaskFunder::Inflation`].
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
 			Self::start_task(

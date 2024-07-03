@@ -1,0 +1,30 @@
+flowchart TD
+    DepositCall["deposit()"]
+    DepositCall --> EnsureSigned1[Ensure origin is signed]
+    EnsureSigned1 --> EnsureAmountPositive1[Ensure amount > 0]
+    EnsureAmountPositive1 --> EnsureNotSelf1[Ensure sender != receiver]
+    EnsureNotSelf1 --> TransferFunds1[Transfer funds from sender to receiver]
+    TransferFunds1 --> GetDepositSequence[Get current deposit sequence number for receiver]
+    GetDepositSequence --> IncrementDepositSequence[Increment deposit sequence number and update storage]
+    IncrementDepositSequence --> EmitDepositEvent[Emit Deposit event]
+    
+
+    WithdrawCall["withdraw()"]
+    WithdrawCall --> EnsureSigned2[Ensure origin is signed]
+    EnsureSigned2 --> EnsureAmountPositive2[Ensure amount > 0]
+    EnsureAmountPositive2 --> EnsureNotSelf2[Ensure sender != receiver]
+    EnsureNotSelf2 --> GetWithdrawalSequence[Get current withdrawal sequence number for sender]
+    GetWithdrawalSequence --> EnsureSequenceMatch[Ensure provided sequence matches the next expected withdrawal sequence]
+    EnsureSequenceMatch --> TransferFunds2[Transfer funds from sender to receiver]
+    TransferFunds2 --> IncrementWithdrawalSequence[Increment withdrawal sequence number and update storage]
+    IncrementWithdrawalSequence --> EmitWithdrawalEvent[Emit Withdrawal event]
+    
+
+
+%% style extrinsics
+style DepositCall fill:#f9f,stroke:#333,stroke-width:2px;
+style WithdrawCall fill:#f9f,stroke:#333,stroke-width:2px;
+
+%% style events
+style EmitWithdrawalEvent fill:#bbf,stroke:#333,stroke-width:2px;
+style EmitDepositEvent fill:#bbf,stroke:#333,stroke-width:2px;

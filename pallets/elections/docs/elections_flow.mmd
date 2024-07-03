@@ -1,0 +1,63 @@
+flowchart TB
+
+
+
+        New3[set_shard_config] --> setShardConfig1[Ensure root]
+        validateShard[Validate shard_size >= shard_threshold]
+        updateStorage[Update ShardSize and ShardThreshold]
+        emitEvent[Emit ShardConfigSet event]
+        iterateUnassigned[Iterate through Unassigned members]
+        tryElectShard1[try_elect_shard]
+        
+        setShardConfig1 --> validateShard
+        validateShard -->|Valid| updateStorage
+        updateStorage --> emitEvent
+        emitEvent --> iterateUnassigned
+        iterateUnassigned --> tryElectShard1
+
+    
+        New2[member_online] --> memberOnline1[Check if member is shard member]
+        checkElectable[Check if member is electable]
+        insertUnassigned[Insert member to Unassigned]
+        tryElectShard2[try_elect_shard]
+        notifyShards1[Notify Shards interface]
+        
+        memberOnline1 -->|No| checkElectable
+        checkElectable --> insertUnassigned
+        insertUnassigned --> tryElectShard2
+        tryElectShard2 --> notifyShards1
+        
+        memberOnline1 -->|Yes| notifyShards2[Notify Shards interface]
+
+
+        shardOffline1[shard_offline]
+        insertUnassignedShard[Insert shard members to Unassigned]
+        tryElectShard3[try_elect_shard]
+        
+        shardOffline1 --> insertUnassignedShard
+        insertUnassignedShard --> tryElectShard3
+        
+        memberOffline[member_offline]
+		    memberOffline --> removeUnassigned[Remove member from Unassigned]
+		    removeUnassigned --> notifyShards3[Notify Shards interface]
+
+    
+
+ 
+
+    %%tryElectShard1 -->|Calls| tryElectShard4
+    %%tryElectShard3 -->|Calls| tryElectShard4
+    %%tryElectShard2 -->|Calls| tryElectShard4
+    %%createShard -->|Calls| New1
+
+%% styles
+style New2 fill:#9f9,stroke:#333,stroke-width:2px;
+style New3 fill:#9f9,stroke:#333,stroke-width:2px
+style memberOffline fill:#9f9,stroke:#333,stroke-width:2px;
+style shardOffline1 fill:#9f9,stroke:#333,stroke-width:2px;
+style tryElectShard1 fill:#9f9,stroke:#333,stroke-width:2px;
+style tryElectShard2 fill:#9f9,stroke:#333,stroke-width:2px;
+style tryElectShard3 fill:#9f9,stroke:#333,stroke-width:2px;
+
+
+style emitEvent fill:#bbf,stroke:#333,stroke-width:2px;

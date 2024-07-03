@@ -34,4 +34,4 @@ jobs:
         with:
           command: clippy
           features: runtime-benchmarks,try-runtime
-          args: --all-targets --examples --tests -- --no-deps -D warnings
+          args: --all-targets -- -D warnings

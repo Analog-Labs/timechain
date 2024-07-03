@@ -28,4 +28,4 @@ jobs:
       - name: Install rust toolchain
         run: rustup show
       - name: Run cargo fmt
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all --check

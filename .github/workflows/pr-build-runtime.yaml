@@ -85,6 +85,6 @@ jobs:
             echo "metadata changes detected: committing updated metadata"
             git config user.email "github@analog.one"
             git config user.name "Metadata Update Bot"
-            git commit -am "tc-subxt: Automated metadata update"
+            git commit -am "tc-subxt: Automatic metadata update"
             git push
           fi

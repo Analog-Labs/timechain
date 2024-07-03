@@ -419,8 +419,14 @@ mod tests {
 		while let Some((block_hash, block_number)) =
 			mock.finality_notification_stream().next().await
 		{
+			let span = span!(
+				Level::DEBUG,
+				"task_executor_smoke",
+				block = block_hash.to_string(),
+				block_number,
+			);
 			task_executor
-				.process_tasks(block_hash, block_number, shard, target_block_height)
+				.process_tasks(&span, block_hash, block_number, shard, target_block_height)
 				.await
 				.unwrap();
 			tracing::info!("Watching for result");

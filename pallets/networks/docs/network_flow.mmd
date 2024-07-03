@@ -1,0 +1,32 @@
+graph TD
+    B[add_network]
+    B --> C{Ensure Root}
+    C -->|Root| D[Call insert_network]
+    C -->|Not Root| E[Return Error::NotRoot]
+    
+    D --> F{Check Network Exists}
+    F -->|Exists| G[Return Error::NetworkExists]
+    F -->|Doesn't Exist| H[Get NetworkIdCounter]
+    
+    H --> I{Check Overflow}
+    I -->|Overflow| J[Return Error::NetworkIdOverflow]
+    I -->|No Overflow| K[Increment NetworkIdCounter]
+    
+    K --> L[Store Network in Networks]
+    L --> M[Update NetworkIdCounter]
+    
+    M --> N[Emit NetworkAdded Event]
+    N --> O[Return Ok]
+
+
+
+%% style extrinsics
+style B fill:#f9f,stroke:#333,stroke-width:2px;
+
+%% style errors
+style E fill:#f96,stroke:#333,stroke-width:2px;
+style G fill:#f96,stroke:#333,stroke-width:2px;
+style J fill:#f96,stroke:#333,stroke-width:2px;
+
+%% style events
+style N fill:#bbf,stroke:#333,stroke-width:2px;

@@ -215,6 +215,7 @@ pub fn new_partial(
 }
 
 /// Result of [`new_full_base`].
+#[allow(dead_code)]
 pub struct NewFullBase {
 	/// The task manager of the node.
 	pub task_manager: TaskManager,

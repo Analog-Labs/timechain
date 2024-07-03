@@ -37,12 +37,12 @@ jobs:
           - image: prod
             profile: production
             features: default
-          # - image: test
-          #   profile: testnet
-          #   features: default
-          # - image: dev
-          #   profile: testnet
-          #   features: development
+          - image: test
+            profile: testnet
+            features: default
+          - image: dev
+            profile: testnet
+            features: development
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v3
@@ -57,7 +57,7 @@ jobs:
         uses: ./.github/actions/buildah-action
         with:
           image_name: ${{ env.DOCKER_REPO }}-${{ matrix.image }}:${{ needs.set-tags.outputs.commit_hash8 }}
-          containerfile: ./config/docker/Dockerfile.release
+          containerfile: ./config/docker/Dockerfile.timenode-release
           context: .
           volume: ${{ github.workspace }}/target:/build/target
           username: ${{ secrets.DOCKERHUB_USERNAME }}

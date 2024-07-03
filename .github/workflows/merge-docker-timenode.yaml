@@ -47,19 +47,19 @@ jobs:
       - name: Fetch latest code
         uses: actions/checkout@v3
       - name: Create target dir
-        run: mkdir ${{ github.workspace }}/target
+        run: mkdir -p ${{ github.workspace }}/target/${{ matrix.profile }}
       - name: Cache Rust deps
         uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/target/${{matrix.profile}}
-          key: docker-timechain-${{ hashFiles('Cargo.lock') }}
+          key: docker-timechain-${{ matrix.profile }}-${{ hashFiles('Cargo.lock', 'config/docker/Dockerfile.timenode-release') }}
       - name: Build OCI Image
         uses: ./.github/actions/buildah-action
         with:
           image_name: ${{ env.DOCKER_REPO }}-${{ matrix.image }}:${{ needs.set-tags.outputs.commit_hash8 }}
           containerfile: ./config/docker/Dockerfile.timenode-release
           context: .
-          volume: ${{ github.workspace }}/target:/build/target
+          volume: ${{ github.workspace }}/target/${{ matrix.profile }}:/build/target/${{ matrix.profile }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           registry: docker.io

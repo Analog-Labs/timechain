@@ -14,12 +14,12 @@ WORKDIR /build
 COPY . .
 
 RUN cargo build -p timechain-node --locked --profile $PROFILE --features $FEATURES
+RUN mv /build/target/$PROFILE/timechain-node /build/timechain-node
 
 ### Release stage
 # Copies the binary from the builder stage into a fresh scratch image
 FROM ubuntu:22.04
 
-ARG PROFILE
 ARG VCS_REF
 
 ## TODO: change repo name to timechain
@@ -34,5 +34,5 @@ LABEL description="Multistage Dockerfile for building Analog Timechain" \
 	one.analog.image.source="https://github.com/Analog-Labs/timechain" \
 	one.analog.image.commit="${VCS_REF}"
     
-COPY --from=builder /build/target/$PROFILE/timechain-node timechain-node
+COPY --from=builder /build/timechain-node timechain-node
 ENTRYPOINT ["/timechain-node"]

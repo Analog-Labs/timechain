@@ -1,4 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+//! This pallet provides functionality for users to deposit and withdraw funds. It maintains a sequence for deposits and withdrawals to ensure order and prevent replay attacks.
+//!
+//!
+#![doc = simple_mermaid::mermaid!("../docs/timegraph_flows.mmd")]
 
 pub use pallet::*;
 
@@ -44,11 +48,13 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 	}
 
+	///Stores the next deposit sequence number for each account.
 	#[pallet::storage]
 	#[pallet::getter(fn next_deposit_sequence)]
 	pub type NextDepositSequence<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
+	///Stores the next withdrawal sequence number for each account.
 	#[pallet::storage]
 	#[pallet::getter(fn next_withdrawal_sequence)]
 	pub type NextWithdrawalSequence<T: Config> =
@@ -57,7 +63,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Deposit event
 		Deposit(T::AccountId, T::AccountId, BalanceOf<T>, u64),
+		/// Withdrawal Event
 		Withdrawal(T::AccountId, T::AccountId, BalanceOf<T>, u64),
 	}
 
@@ -75,7 +83,15 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// The extrinsic from timegraph user to deposit funds into the timegraph account
+		/// The extrinsic from timegraph allows user to deposit funds into the timegraph account
+		///
+		/// #  Flow
+		/// 1. Ensure the origin is a signed account.
+		/// 2. Validate the amount is greater than zero.
+		/// 3. Ensure the sender and receiver are not the same.
+		/// 4. Transfer the funds.
+		/// 5. Increment the deposit sequence number.
+		/// 6. Emit a [`Event::Deposit`] event.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::deposit())]
 		pub fn deposit(
@@ -96,7 +112,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// The extrinsic from timegraph account to refund the token to the user
+		/// The extrinsic from timegraph allows account to refund the token to the user
+		///
+		/// # Flow
+		/// 1. Ensure the origin is a signed account.
+		/// 2. Validate the amount is greater than zero.
+		/// 3. Ensure the sender and receiver are not the same.
+		/// 4. Validate the withdrawal sequence number.
+		/// 5. Transfer the funds.
+		/// 6. Increment the withdrawal sequence number.
+		/// 7. Emit a [`Event::Withdrawal`] event.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
 		pub fn withdraw(

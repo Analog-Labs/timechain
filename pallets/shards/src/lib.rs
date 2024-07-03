@@ -22,7 +22,7 @@
 //! not as expected, the process returns an `UnexpectedCommit` error. Once the status is validated,
 //! the required commitment threshold is retrieved, and the length of the commitment is checked for
 //! appropriateness. The commitment is validated, and any invalid commitment results in an
-//! [`InvalidCommitment`] error. A valid commitment is stored, followed by a check to see if all
+//! `InvalidCommitment` error. A valid commitment is stored, followed by a check to see if all
 //! necessary commitments have been received. Once all commitments are collected, they are aggregated
 //! into a group commitment, which is then stored. The shard state is updated based on these
 //! commitments, and the process concludes with the logging of a `ShardCommitted` event.
@@ -284,7 +284,7 @@ pub mod pallet {
 		/// # Flow
 		///   1. Ensure the origin is a signed transaction and the sender has committed.
 		///   2. Retrieve the network and commitment of the shard.
-		///   3. Update the status of the shard to [`Ready`].
+		///   3. Update the status of the shard to `Ready`.
 		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
 		///   5. Notify the task scheduler that the shard is online.
 		#[pallet::call_index(1)]

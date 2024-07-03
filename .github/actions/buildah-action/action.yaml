@@ -46,9 +46,11 @@ runs:
     - name: Setup environment
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y buildah
-
+        buildah -h
+        if [ $? -ne 0 ]; then
+          sudo apt-get update
+          sudo apt-get install -y buildah
+        fi
     - name: Build the image
       shell: bash
       run: |

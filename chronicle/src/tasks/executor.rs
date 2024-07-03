@@ -203,7 +203,6 @@ where
 						continue;
 					}
 					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
-
 					if gmp_params.is_none() && function.initial_phase() == TaskPhase::Sign {
 						tracing::warn!(
 							"gmp not configured for {shard_id:?}, skipping task {task_id}"
@@ -499,8 +498,8 @@ mod tests {
 	use super::*;
 	use crate::mock::Mock;
 	use futures::StreamExt;
-	use time_primitives::{Msg, TaskDescriptor};
 	use rosetta_client::Blockchain;
+	use time_primitives::{Msg, TaskDescriptor};
 
 	#[tokio::test]
 	async fn task_executor_smoke() -> Result<()> {

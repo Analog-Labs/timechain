@@ -2,12 +2,16 @@ use alloy_primitives::B256;
 use alloy_sol_types::SolEvent;
 use anyhow::{Context as _, Result};
 use futures::channel::{mpsc, oneshot};
-use futures::{FutureExt, SinkExt, Stream};
+use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
+use rosetta_config_ethereum::query::GetBlock;
 use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption};
+use rosetta_config_ethereum::{AtBlock, GetTransactionReceipt, SubmitResult, TransactionReceipt};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
+use std::hash::Hash;
+use std::time::Duration;
 use std::{
 	future::Future,
 	num::NonZeroU64,
@@ -15,12 +19,14 @@ use std::{
 	sync::Arc,
 	task::{Context, Poll},
 };
+use tc_subxt::ext::subxt_core::tx;
 use time_primitives::{
 	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskId, TaskPhase, TaskResult,
 	TssHash, TssId, TssSignature, TssSigningRequest,
 };
 use time_primitives::{IGateway, Msg};
 use tokio::sync::Mutex;
+use tokio::time::error::Elapsed;
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
@@ -281,6 +287,76 @@ where
 		})
 	}
 
+	/// Wait for the transaction to be finalized, returns `Ok(None)` on timeout
+	// TODO: Move this to connector
+	async fn wait_for_finality(
+		&self,
+		tx_status: &SubmitResult,
+		timeout: Duration,
+	) -> Result<Option<TransactionReceipt>> {
+		// Transaction receipt polling interval
+		const POLLING_INTERVAL: Duration = Duration::from_secs(30);
+		let now = std::time::Instant::now();
+
+		// Wait for the transaction receipt
+		let tx_receipt = match tx_status {
+			SubmitResult::Executed { receipt, .. } => receipt.clone(),
+			SubmitResult::Timeout { tx_hash } => {
+				loop {
+					let receipt =
+						self.wallet.query(GetTransactionReceipt { tx_hash: *tx_hash }).await?;
+					if let Some(receipt) = receipt {
+						break receipt;
+					}
+
+					// Check if the timeout has elapsed
+					let elapsed = now.elapsed();
+					if elapsed >= timeout {
+						return Ok(None);
+					}
+
+					// Sleep for POLLING_INTERVAL or until the timeout
+					let sleep_duration = (timeout - elapsed).min(POLLING_INTERVAL);
+					tokio::time::sleep(sleep_duration).await;
+				}
+			},
+		};
+
+		// Retrieve the block number of the transaction receipt
+		let receipt_block_number = match tx_receipt.block_number {
+			Some(block_number) => block_number,
+			None => {
+				let Some(block_number) = self
+					.wallet
+					.query(GetBlock(AtBlock::At(tx_receipt.block_hash.into())))
+					.await?
+					.map(|block| block.header().number())
+				else {
+					anyhow::bail!(
+						"block number not for block {:?} and tx {:?}",
+						tx_receipt.block_hash,
+						tx_receipt.transaction_hash
+					);
+				};
+				block_number
+			},
+		};
+
+		// wait for the transaction to be finalized
+		let mut finalized_block_stream = BlockStream::new(&self.wallet);
+		loop {
+			let Some(finalized_block_number) = finalized_block_stream.next().await else {
+				break Ok(None);
+			};
+			if receipt_block_number <= finalized_block_number {
+				break Ok(Some(tx_receipt));
+			}
+			if now.elapsed() > timeout {
+				break Ok(None);
+			}
+		}
+	}
+
 	async fn tss_sign(
 		&self,
 		block_number: BlockNumber,
@@ -346,14 +422,36 @@ where
 					amount,
 					gas_limit,
 				} => {
-					let _guard = self.wallet_guard.lock().await;
-					self.wallet.eth_send_call(address, input.clone(), amount, None, gas_limit).await
+					let result = {
+						let _guard = self.wallet_guard.lock().await;
+						self.wallet
+							.eth_send_call(address, input.clone(), amount, None, gas_limit)
+							.await
+					};
+
+					match result {
+						Ok(ref tx_status) => {
+							// Wait for the transaction to be finalized, timeout after 1 hour
+							match self
+								.wait_for_finality(tx_status, Duration::from_secs(60 * 60))
+								.await
+							{
+								Ok(Some(receipt)) => result,
+								Ok(None) => Err(anyhow::format_err!(
+									"transaction receipt not found {:?}",
+									tx_status.tx_hash()
+								)),
+								Err(err) => Err(err),
+							}
+						},
+						Err(error) => Err(error),
+					}
 				},
 				_ => anyhow::bail!("not a write function {function:?}"),
 			}
 		}
 		.await
-		.map(|s| s.tx_hash().0)
+		.map(|res| res.tx_hash().0)
 		.map_err(|err| err.to_string());
 		if let Err(e) = self.substrate.submit_task_hash(task_id, submission).await {
 			tracing::error!("Error submitting task hash {:?}", e);

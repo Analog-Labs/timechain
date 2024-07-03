@@ -146,10 +146,10 @@ async fn run_chronicle_with_spawner(
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
+	use rosetta_client::Blockchain;
 	use std::time::Duration;
 	use time_primitives::sp_runtime::traits::IdentifyAccount;
 	use time_primitives::{AccountId, Function, Msg, ShardStatus, TaskDescriptor};
-	use rosetta_client::Blockchain;
 
 	async fn chronicle(mut mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");

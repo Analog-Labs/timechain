@@ -337,7 +337,7 @@ where
 				// Metrics: Decrease number of running tasks
 				counter.dec(&phase, &function_metric_clone);
 			});
-			self.running_tasks.insert(executable_task.clone(), handle);
+			self.running_tasks.insert(executable_task, handle);
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		// remove from running task if task is completed or we dont receive anymore from pallet

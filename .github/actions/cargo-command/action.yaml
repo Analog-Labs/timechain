@@ -26,10 +26,7 @@ runs:
       run: rustup show
     - name: Install cargo-cache
       shell: bash
-      run: cargo install cargo-cache
-    - name: Cleanup cargo cache
-      shell: bash
-      run: cargo cache --autoclean
+      run: cargo install cargo-action-fmt
     - name: Cache cargo registry and index
       uses: actions/cache@v4
       with:
@@ -55,4 +52,4 @@ runs:
       env:
         CARGO_TERM_COLOR: always
       shell: bash
-      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' ${{ inputs.args }}
+      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' ${{ inputs.args }} --message-format json | cargo-action-fmt

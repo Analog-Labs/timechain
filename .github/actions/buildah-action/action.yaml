@@ -78,13 +78,13 @@ runs:
 
     - name: Login to registry
       shell: bash
-      if: ${{ inputs.registry }} && ${{ inputs.username }} && ${{ inputs.password }}
+      if: ${{ inputs.push == 'true' && inputs.registry && inputs.username && inputs.password }}
       run: |
         echo ${{ inputs.password }} | buildah login -u ${{ inputs.username }} --password-stdin ${{ inputs.registry }}
 
     - name: Push the image
       shell: bash
-      if: ${{ inputs.push }} == 'true'
+      if: ${{ inputs.push == 'true' }} 
       run: |
         buildah push ${{ inputs.image_name }}:${{ github.sha }} ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
 

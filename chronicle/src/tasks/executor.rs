@@ -9,7 +9,7 @@ use time_primitives::{
 	TaskExecution, TaskPhase,
 };
 use tokio::task::JoinHandle;
-use tracing::{event, span, Level, Span};
+use tracing::{event, span, Level};
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
@@ -62,22 +62,8 @@ where
 		shard_id: ShardId,
 		target_block_height: u64,
 	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)> {
-		let span = span!(
-			target: TW_LOG,
-			Level::DEBUG,
-			"process_tasks",
-			block = block_hash.to_string(),
-			block_number,
-		);
-		TaskExecutor::process_tasks(
-			self,
-			&span,
-			block_hash,
-			block_number,
-			shard_id,
-			target_block_height,
-		)
-		.await
+		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
+			.await
 	}
 }
 
@@ -105,7 +91,6 @@ where
 	/// preprocesses the task before sending it for execution in task_spawner.rs
 	pub async fn process_tasks(
 		&mut self,
-		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
@@ -113,7 +98,6 @@ where
 	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)> {
 		let span = span!(
 			target: TW_LOG,
-			parent: span,
 			Level::DEBUG,
 			"process_tasks",
 			block = block_hash.to_string(),

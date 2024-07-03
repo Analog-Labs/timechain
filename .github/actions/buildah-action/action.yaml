@@ -86,5 +86,5 @@ runs:
       shell: bash
       if: ${{ inputs.push == 'true' }} 
       run: |
-        buildah push ${{ inputs.image_name }}:${{ github.sha }} ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+        buildah push ${{ inputs.image_name }} ${{ inputs.registry }}/${{ inputs.image_name }}
 

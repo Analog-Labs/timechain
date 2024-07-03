@@ -74,7 +74,7 @@ runs:
           done
         fi
 
-        echo "buildah bud $VOLUME_OPTION $BUILD_ARGS_OPTION $TAG_OPTIONS --format oci -f ${{ inputs.containerfile }} -t ${{ inputs.image_name }} ${{ inputs.context }}"
+        buildah bud $VOLUME_OPTION $BUILD_ARGS_OPTION $TAG_OPTIONS --format oci -f ${{ inputs.containerfile }} -t ${{ inputs.image_name }} ${{ inputs.context }}
 
     - name: Login to registry
       shell: bash

@@ -243,9 +243,10 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 parameter_types! {
-	// OnChain values are lower.
-	pub MaxOnChainElectingVoters: u32 = 5000;
-	pub MaxOnChainElectableTargets: u16 = 1250;
+	// The maximum number of nominating and validating accounts
+	pub const MaxElectingNominators: u32 = 100;
+	pub const MaxElectableValidators: u16 = 5000;
+
 	// The maximum winners that can be elected by the Election pallet which is equivalent to the
 	// maximum active validators the staking pallet can have.
 	pub MaxActiveValidators: u32 = 1000;
@@ -431,12 +432,6 @@ parameter_types! {
 
 	// 4 hour session, 1 hour unsigned phase, 32 offchain executions.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / prod_or_dev!(32, 10);
-
-	/// We take the top 22500 nominators as electing voters..
-	pub const MaxElectingVoters: u32 = 22_500;
-	/// ... and all of the validators as electable targets. Whilst this is the case, we cannot and
-	/// shall not increase the size of the validator intentions.
-	pub const MaxElectableTargets: u16 = u16::MAX;
 }
 
 generate_solution_type!(
@@ -445,7 +440,7 @@ generate_solution_type!(
 		VoterIndex = u32,
 		TargetIndex = u16,
 		Accuracy = sp_runtime::PerU16,
-		MaxVoters = MaxElectingVoters,
+		MaxVoters = MaxElectingNominators,
 	>(16)
 );
 
@@ -608,9 +603,9 @@ parameter_types! {
 	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+		.voters_count(MaxElectingNominators::get().into()).targets_count((MaxElectableValidators::get() as u32).into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5_000.into()).targets_count(1_250.into()).build();
+		.voters_count(MaxElectingNominators::get().into()).targets_count((MaxElectableValidators::get() as u32).into()).build();
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -637,18 +632,16 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 }
 
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
-/// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
-/// since the staking is bounded and the weight pipeline takes hours for this single pallet.
-
+/// to ensure election snapshot will not run out of memory.
 pub struct BenchmarkConfig;
 impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfig {
 	const VOTERS: [u32; 2] = [1000, 2000];
-	const TARGETS: [u32; 2] = [500, 1000];
-	const ACTIVE_VOTERS: [u32; 2] = [500, 800];
+	const ACTIVE_VOTERS: [u32; 2] = [200, 400];
+	const TARGETS: [u32; 2] = [1000, 5000];
 	const DESIRED_TARGETS: [u32; 2] = [200, 400];
-	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
-	const MINER_MAXIMUM_VOTERS: u32 = 1000;
-	const MAXIMUM_TARGETS: u32 = 300;
+	const SNAPSHOT_MAXIMUM_VOTERS: u32 = MaxElectingNominators::get();
+	const MINER_MAXIMUM_VOTERS: u32 = MaxElectingNominators::get();
+	const MAXIMUM_TARGETS: u32 = MaxElectableValidators::get() as u32;
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {
@@ -1125,14 +1118,25 @@ mod benches {
 	polkadot_sdk::frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
+		[pallet_babe, Babe]
+		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_elections, Elections]
-		[pallet_timestamp, Timestamp]
+		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
+		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
+		[pallet_grandpa, Grandpa]
+		[pallet_im_online, ImOnline]
 		[pallet_members, Members]
+		[pallet_networks, Networks]
+		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_session, SessionBench::<Runtime>]
 		[pallet_shards, Shards]
+		[pallet_staking, Staking]
+		[pallet_sudo, Sudo]
 		[pallet_tasks, Tasks]
 		[pallet_timegraph, Timegraph]
-		[pallet_networks, Networks]
+		[pallet_timestamp, Timestamp]
+		[pallet_utility, Utility]
 	);
 }
 
@@ -1450,6 +1454,9 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences_benchmarking::Pallet as OffencesBench;
+			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmark!(list, extra, pallet_elections, Elections);
@@ -1472,9 +1479,15 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
+			use pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences_benchmarking::Pallet as OffencesBench;
+			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl baseline::Config for Runtime {}
+			impl pallet_session_benchmarking::Config for Runtime {}
+			impl pallet_offences_benchmarking::Config for Runtime {}
+			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 
 			use frame_support::traits::{TrackedStorageKey, WhitelistedStorageKeys};
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

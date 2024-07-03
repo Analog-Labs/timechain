@@ -57,6 +57,11 @@ jobs:
       #     password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Create target dir
         run: mkdir ${{ github.workspace }}/target
+      - name: Cache Rust deps
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/target/${{matrix.profile}}
+          key: docker-timechain-${{ hashFiles('Cargo.lock') }}
       - name: Build OCI Image
         uses: ./.github/actions/buildah-action
         with:

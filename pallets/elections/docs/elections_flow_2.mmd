@@ -1,0 +1,41 @@
+flowchart TD
+
+        tryElectShard4[try_elect_shard]
+        checkNewShard[Check if new shard can be formed]
+        removeSelectedMembers[Remove selected members from Unassigned]
+        createShard[Create shard using Shards interface]
+        
+        tryElectShard4 --> checkNewShard
+        checkNewShard -->|Yes| removeSelectedMembers
+        removeSelectedMembers --> createShard
+
+    
+
+        New1[new_shard_members] --> newShardMembers2[Retrieve required shard size]
+        collectUnassigned[Collect unassigned members and filter online members]
+        checkEnoughMembers[Enough members to form shard?]
+        returnNone[Return None]
+        sortMembers[Sort members by stake]
+        selectTopMembers[Select top members to form shard]
+        returnSelected[Return selected members]
+        
+        newShardMembers2 --> collectUnassigned
+        collectUnassigned --> checkEnoughMembers
+        checkEnoughMembers -->|No| returnNone
+        checkEnoughMembers -->|Yes| sortMembers
+        sortMembers --> selectTopMembers
+        selectTopMembers --> returnSelected
+        
+        
+    setElectable[set_electable]
+    setElectable -->|Ensure root| clearElectable[Clear current electable list]
+    clearElectable --> insertElectable[Insert new electable members]
+ 
+
+        
+        
+%% styles
+
+style New1 fill:#9f9,stroke:#333,stroke-width:2px;
+style tryElectShard4 fill:#9f9,stroke:#333,stroke-width:2px;
+style setElectable fill:#9f9,stroke:#333,stroke-width:2px;

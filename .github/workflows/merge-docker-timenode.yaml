@@ -55,6 +55,8 @@ jobs:
       #   with:
       #     username: ${{ secrets.DOCKERHUB_USERNAME }}
       #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Create target dir
+        run: mkdir ${{ github.workspace }}/target
       - name: Build OCI Image
         uses: ./.github/actions/buildah-action
         with:

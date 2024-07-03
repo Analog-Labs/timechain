@@ -6,7 +6,7 @@ inputs:
     required: false
     default: 'build'
   package:
-    description: 'Limit execution to a specific package'
+    description: 'Limit execution to a specific package, assumes workspace if unset'
     required: false
   profile:
     description: 'Profile under which to run cargo command'
@@ -52,4 +52,4 @@ runs:
       env:
         CARGO_TERM_COLOR: always
       shell: bash
-      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' --message-format json ${{ inputs.args }} | cargo-action-fmt
+      run: cargo ${{ inputs.command }} ${{ inputs.package == '' && '--workspace' || '--package' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' --message-format json ${{ inputs.args }} | cargo-action-fmt

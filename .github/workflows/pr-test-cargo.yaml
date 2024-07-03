@@ -29,13 +29,14 @@ jobs:
       matrix:
         include:
           - command: clippy
-            args: --all-targets --workspace --examples --tests -- --no-deps -D warnings
-          - command: test
-            args: --workspace --locked
+            args: --all-targets --all-features --examples --tests -- --no-deps -D warnings
           - command: check
             features: runtime-benchmarks
           - command: check
             features: try-runtime
+          - command: test
+            args: --no-run
+            after: cargo test --workspace
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -47,3 +48,6 @@ jobs:
           command: ${{ matrix.command }}
           features: ${{ matrix.features }}
           args: ${{ matrix.args }}
+      - name: Run optional command
+        if: ${{ matrix.after != '' }}
+        run: ${{ matrix.after }}

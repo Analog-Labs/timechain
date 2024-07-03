@@ -35,7 +35,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: ${{ matrix.package }}
-          profile: release
           features: ${{ matrix.features }}
       - name: Upload timechain runtime
         uses: actions/upload-artifact@v4

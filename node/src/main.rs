@@ -1,8 +1,6 @@
 //! Substrate Node CLI
 
 mod chain_spec;
-#[cfg(feature = "chronicle")]
-mod chronicle;
 #[macro_use]
 mod service;
 mod benchmarking;

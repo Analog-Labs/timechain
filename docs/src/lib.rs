@@ -6,7 +6,7 @@
 //! ## The Timechain Protocol
 //!
 //! The Analog Timechain is a substrate based solochain. It utilizes
-//! Babe and Grandpa to power its [`timechain_node`] and [`timechain_runtime`].
+//! Babe and Grandpa to power its `timechain_node` and [`timechain_runtime`].
 //!
 //! On top of that it runs the Timechain protocol to attest and relay data
 //! between various chains. This protocol is executed by shards of [`chronicle`] nodes.

@@ -366,8 +366,6 @@ async fn gmp_benchmark(
 						let task_id = task_result.0;
 						let task_payload = task_result.1;
 
-
-
 						match task_payload.payload {
 							Payload::Gmp(msgs) => {
 								bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);

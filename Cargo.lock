@@ -2301,6 +2301,7 @@ dependencies = [
  "tracing-panic",
  "tracing-subscriber 0.3.18",
  "tss",
+ "valuable",
 ]
 
 [[package]]

@@ -7,6 +7,7 @@ pub use time_primitives::TssId;
 pub use tss::{
 	ProofOfKnowledge, Signature, SigningKey, VerifiableSecretSharingCommitment, VerifyingKey,
 };
+use valuable::Valuable;
 
 pub type TssMessage = tss::TssMessage<TssId>;
 
@@ -23,7 +24,7 @@ pub enum Tss {
 	Disabled(SigningKey, Option<TssAction>, bool),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Valuable)]
 pub struct TssPeerId(PeerId);
 
 impl TssPeerId {

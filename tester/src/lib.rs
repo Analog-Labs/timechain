@@ -983,7 +983,7 @@ impl GmpBenchState {
 	fn print_send_message_task_latencies(&self) {
 		let tasks = self.get_success_tasks();
 
-		if tasks.len() < 1 {
+		if tasks.is_empty() {
 			return;
 		}
 

@@ -33,5 +33,4 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: clippy
-          features: [runtime-benchmarks, try-runtime]
-          args: --all-targets -- -D warnings
+          args: --all-targets --all-features -- -D warnings

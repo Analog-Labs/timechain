@@ -35,7 +35,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: ${{ matrix.package }}
-          profile: release
           features: ${{ matrix.features }}
       - name: Upload timechain runtime
         uses: actions/upload-artifact@v4
@@ -86,6 +85,6 @@ jobs:
             echo "metadata changes detected: committing updated metadata"
             git config user.email "github@analog.one"
             git config user.name "Metadata Update Bot"
-            git commit -am "tc-subxt: Automated metadata update"
+            git commit -am "tc-subxt: Automatic metadata update"
             git push
           fi

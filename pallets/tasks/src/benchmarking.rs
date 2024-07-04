@@ -136,7 +136,7 @@ benchmarks! {
 		let mut i = 0u8;
 		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
 			let member = [i; 32];
-			let member_account: AccountId = member.clone().into();
+			let member_account: AccountId = member.into();
 			pallet_balances::Pallet::<T>::resolve_creating(
 				&member_account,
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
@@ -144,7 +144,7 @@ benchmarks! {
 			pallet_members::Pallet::<T>::register_member(
 				RawOrigin::Signed(member_account).into(),
 				ETHEREUM,
-				public_key(member.clone()),
+				public_key(member),
 				member,
 				<T as pallet_members::Config>::MinStake::get(),
 			)?;
@@ -172,7 +172,7 @@ benchmarks! {
 		pallet_members::Pallet::<T>::register_member(
 			RawOrigin::Signed(assigned_signer.clone()).into(),
 			ETHEREUM,
-			public_key(raw_signer.clone()),
+			public_key(raw_signer),
 			raw_signer,
 			<T as pallet_members::Config>::MinStake::get(),
 		)?;
@@ -191,7 +191,7 @@ benchmarks! {
 		let mut i = 0u8;
 		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
 			let member = [i; 32];
-			let member_account: AccountId = member.clone().into();
+			let member_account: AccountId = member.into();
 			pallet_balances::Pallet::<T>::resolve_creating(
 				&member_account,
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
@@ -199,7 +199,7 @@ benchmarks! {
 			pallet_members::Pallet::<T>::register_member(
 				RawOrigin::Signed(member_account).into(),
 				ETHEREUM,
-				public_key(member.clone()),
+				public_key(member),
 				member,
 				<T as pallet_members::Config>::MinStake::get(),
 			)?;
@@ -213,7 +213,7 @@ benchmarks! {
 		ShardState::<T>::insert(0, ShardStatus::Online);
 		Pallet::<T>::shard_online(0, ETHEREUM);
 		let raw_caller = [0u8; 32];
-		let caller: AccountId = raw_caller.clone().into();
+		let caller: AccountId = raw_caller.into();
 		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
 		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
 		let (pub_key, signature) = mock_submit_sig();
@@ -276,7 +276,7 @@ benchmarks! {
 			Pallet::<T>::shard_online(j, ETHEREUM);
 			Pallet::<T>::register_gateway(RawOrigin::Root.into(), j, [0u8; 20], 20)?;
 		}
-	}: _(RawOrigin::Root, b.into()) verify {}
+	}: _(RawOrigin::Root, b) verify {}
 
 	set_batch_size {
 	}: _(RawOrigin::Root, ETHEREUM, 100, 25) verify {}

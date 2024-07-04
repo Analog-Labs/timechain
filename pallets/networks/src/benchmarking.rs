@@ -19,7 +19,7 @@ benchmarks! {
 		for _ in 0..b {
 			network.push('b');
 		}
-	}: _(RawOrigin::Root, name.into(), network.into())
+	}: _(RawOrigin::Root, name, network)
 	verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

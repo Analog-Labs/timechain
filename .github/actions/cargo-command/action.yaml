@@ -6,7 +6,7 @@ inputs:
     required: false
     default: 'build'
   package:
-    description: 'Limit execution to a specific package'
+    description: 'Limit execution to a specific package, assumes workspace if unset'
     required: false
   profile:
     description: 'Profile under which to run cargo command'
@@ -18,6 +18,14 @@ inputs:
   args:
     description: 'Additional argument to pass to cargo invocation'
     required: false
+  cache:
+    description: 'Whether to enable registry, index and compile output caching'
+    required: false
+    default: true
+  annotate:
+    description: 'Whether to provide errors as GitHub annotations'
+    required: false
+    default: true
 runs:
   using: "composite"
   steps:
@@ -25,31 +33,34 @@ runs:
       shell: bash
       run: rustup show
     - name: Install cargo-cache
+      if: ${{ inputs.annotate }}
       shell: bash
       run: cargo install cargo-action-fmt
     - name: Cache cargo registry and index
+      if: ${{ inputs.cache }}
       uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-
+          cargo-cache-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-
           cargo-cache-${{ inputs.package || 'workspace' }}-default-
           cargo-cache-workspace-
     - name: Cache cargo target folder
+      if: ${{ inputs.cache }}
       uses: actions/cache@v4
       with:
         path: target
-        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-
+          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-
           cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-default-
           cargo-${{ inputs.command }}-${{ inputs.profile }}-workspace-
     - name: Run cargo ${{ inputs.command }}
       env:
         CARGO_TERM_COLOR: always
       shell: bash
-      run: cargo ${{ inputs.command }} ${{ inputs.package != '' && '--package' || '' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' --message-format json ${{ inputs.args }} | cargo-action-fmt
+      run: cargo ${{ inputs.command }} ${{ inputs.package && '--package' || '--workspace' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ join(inputs.features,',') }}' ${{ inputs.annotate && '--message-format json' || '' }} ${{ inputs.args }} ${{ inputs.annotate && '| cargo-action-fmt' || '' }}

@@ -1,0 +1,85 @@
+name: 'Buildah OCI Image'
+description: 'A composite action to build OCI images using Buildah'
+
+inputs:
+  image_name:
+    description: 'The name of the image to build'
+    required: true
+  containerfile:
+    description: 'Path to the Containerfile'
+    required: true
+  context:
+    description: 'Build context directory'
+    default: '.'
+  volume:
+    description: 'Optional volume bind mount'
+    required: false
+  username:
+    description: 'Registry username'
+    required: false
+  password:
+    description: 'Registry password'
+    required: false
+  registry:
+    description: 'Registry URL'
+    required: false
+  build_args:
+    description: 'Optional build arguments for Buildah'
+    required: false
+  push:
+    description: 'Push the image to the registry'
+    required: false
+  tags:
+    description: 'Image tags'
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup environment
+      shell: bash
+      run: |
+        buildah -h
+        if [ $? -ne 0 ]; then
+          sudo apt-get update
+          sudo apt-get install -y buildah
+        fi
+    - name: Build the image
+      shell: bash
+      run: |
+        VOLUME_OPTION=""
+        if [ -n "${{ inputs.volume }}" ]; then
+          VOLUME_OPTION="--volume ${{ inputs.volume }}"
+        fi
+
+        BUILD_ARGS_OPTION=""
+        if [ -n "${{ inputs.build_args }}" ]; then
+          while IFS= read -r line; do
+            if [ -n "$line" ]; then
+              BUILD_ARGS_OPTION="$BUILD_ARGS_OPTION --build-arg $line"
+            fi
+          done <<< "${{ inputs.build_args }}"
+        fi
+
+        TAG_OPTIONS=""
+        if [ -n "${{ inputs.tags }}" ]; then
+          IFS=',' read -ra TAG_ARRAY <<< "${{ inputs.tags }}"
+          for TAG in "${TAG_ARRAY[@]}"; do
+            TAG_OPTIONS="$TAG_OPTIONS -t ${{ inputs.image_name }}:$TAG"
+          done
+        fi
+
+        buildah bud $VOLUME_OPTION $BUILD_ARGS_OPTION $TAG_OPTIONS --format oci -f ${{ inputs.containerfile }} -t ${{ inputs.image_name }} ${{ inputs.context }}
+
+    - name: Login to registry
+      shell: bash
+      if: ${{ inputs.push == 'true' && inputs.registry && inputs.username && inputs.password }}
+      run: |
+        echo ${{ inputs.password }} | buildah login -u ${{ inputs.username }} --password-stdin ${{ inputs.registry }}
+
+    - name: Push the image
+      shell: bash
+      if: ${{ inputs.push == 'true' }} 
+      run: |
+        buildah push ${{ inputs.image_name }} ${{ inputs.registry }}/${{ inputs.image_name }}
+

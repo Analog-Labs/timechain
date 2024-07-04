@@ -756,7 +756,7 @@ impl GmpBenchState {
 		self.errored_tasks.insert(task_id, reason);
 	}
 
-	fn get_unerrored_tasks(&self) -> HashMap<TaskId, TaskPhaseInfo> {
+	fn get_success_tasks(&self) -> HashMap<TaskId, TaskPhaseInfo> {
 		self.tasks
 			.iter()
 			.filter_map(|(task_id, task_info)| {
@@ -913,7 +913,7 @@ impl GmpBenchState {
 			println!("{:#?}", self.errored_tasks);
 		}
 
-		let tasks = self.get_unerrored_tasks();
+		let tasks = self.get_success_tasks();
 
 		let mut builder = Builder::new();
 		builder.push_record([
@@ -981,7 +981,7 @@ impl GmpBenchState {
 	///
 	/// print average delays find in task execution
 	fn print_send_message_task_latencies(&self) {
-		let tasks = self.get_unerrored_tasks();
+		let tasks = self.get_success_tasks();
 
 		if tasks.len() < 1 {
 			return;

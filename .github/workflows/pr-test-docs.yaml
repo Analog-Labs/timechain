@@ -1,42 +1,39 @@
-name: Compile tester
+name: Check docs generation
 on:
   pull_request:
     paths:
       - '.github/actions/cargo-command/**'
-      - '.github/workflows/pr-build-tester.yaml'
-      - 'analog-gmp/**'
+      - '.github/workflows/pr-test-docs.yaml'
+      - 'chronicle/**'
       - 'config/subxt/**'
+      - 'docs/**'
+      - 'lib/**'
+      - 'node/**'
+      - 'pallets/**'
       - 'primitives/**'
+      - 'runtime/**'
       - 'tc-subxt/**'
-      - 'tester/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
+      - 'tss/**'
       - 'rust-toolchain.toml'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  build-tester:
+  build-docs:
     runs-on: [self-hosted, general]
-    strategy:
-      fail-fast: false
-      matrix:
-        profile:
-          - production
-          - testnet
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build tester
+      - name: Build docs
         uses: ./.github/actions/cargo-command
         with:
-          package: tester
-          profile: ${{ matrix.profile }}
-      - name: Upload tester
+          command: doc
+          args: --no-deps --document-private-items
+      - name: Upload docs
         uses: actions/upload-artifact@v4
         with:
-          name: tester.${{ matrix.profile }}
+          name: docs
           if-no-files-found: error
-          path: target/${{ matrix.profile }}/tester
+          path: target/doc

@@ -17,8 +17,8 @@ use std::{
 	task::{Context, Poll},
 };
 use time_primitives::{
-	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskId, TaskPhase, TaskResult,
-	TssHash, TssId, TssSignature, TssSigningRequest,
+	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskExecution, TaskId, TaskPhase,
+	TaskResult, TssHash, TssSignature, TssSigningRequest,
 };
 use time_primitives::{IGateway, Msg};
 use tokio::sync::Mutex;
@@ -201,7 +201,7 @@ where
 		self.tss
 			.clone()
 			.send(TssSigningRequest {
-				request_id: TssId::new(task_id, task_phase),
+				request_id: TaskExecution::new(task_id, task_phase),
 				shard_id,
 				block_number,
 				data: payload.to_vec(),

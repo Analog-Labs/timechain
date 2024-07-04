@@ -395,8 +395,8 @@ impl pallet_offences::Config for Runtime {
 
 parameter_types! {
 	pub NposSolutionPriority: TransactionPriority =
-		Perbill::from_percent(90) * TransactionPriority::max_value();
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+		Perbill::from_percent(90) * TransactionPriority::MAX;
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl pallet_im_online::Config for Runtime {
@@ -882,7 +882,7 @@ parameter_types! {
 	pub const ProposalBondMinimum: Balance = ANLOG;
 	pub const SpendPeriod: BlockNumber = prod_or_dev!(DAYS, HOURS);
 	pub const Burn: Permill = Permill::from_percent(50);
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	pub const PayoutPeriod: BlockNumber = prod_or_dev!(14 * DAYS, 6 * HOURS);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }

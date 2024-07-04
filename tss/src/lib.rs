@@ -211,43 +211,39 @@ where
 		}
 	}
 
-	pub fn on_start(&mut self, id: I) {
-		tracing::info!("{} start {}", self.peer_id, id);
+	fn get_or_insert_session(&mut self, id: I) -> Option<&mut Roast> {
 		match &mut self.state {
 			TssState::Roast {
 				key_package,
 				public_key_package,
 				signing_sessions,
 				..
-			} => {
-				let roast = Roast::new(
+			} => Some(signing_sessions.entry(id).or_insert_with(|| {
+				Roast::new(
 					self.frost_id,
 					self.threshold,
 					key_package.clone(),
 					public_key_package.clone(),
 					self.coordinators.clone(),
-				);
-				signing_sessions.insert(id, roast);
-			},
-			_ => {
-				tracing::error!("not ready to sign");
-			},
+				)
+			})),
+			_ => None,
+		}
+	}
+
+	pub fn on_start(&mut self, id: I) {
+		tracing::info!("{} start {}", self.peer_id, id);
+		if self.get_or_insert_session(id).is_none() {
+			tracing::error!("not ready to sign");
 		}
 	}
 
 	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
 		tracing::debug!("{} sign {}", self.peer_id, id);
-		match &mut self.state {
-			TssState::Roast { signing_sessions, .. } => {
-				if let Some(session) = signing_sessions.get_mut(&id) {
-					session.set_data(data);
-				} else {
-					tracing::info!("signing session already complete");
-				}
-			},
-			_ => {
-				tracing::error!("not ready to sign");
-			},
+		if let Some(session) = self.get_or_insert_session(id) {
+			session.set_data(data)
+		} else {
+			tracing::error!("not ready to sign");
 		}
 	}
 

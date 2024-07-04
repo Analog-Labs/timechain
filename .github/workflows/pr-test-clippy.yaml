@@ -1,9 +1,9 @@
-name: Check testsuite
+name: Check code linter
 on:
   pull_request:
     paths:
       - '.github/actions/cargo-command/**'
-      - '.github/workflows/pr-test-cargo.yaml'
+      - '.github/workflows/pr-test-clippy.yaml'
       - 'chronicle/**'
       - 'config/subxt/**'
       - 'docs/**'
@@ -22,23 +22,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  test-cargo:
+  test-clippy:
     runs-on: [self-hosted, general]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build testsuite
+      - name: Run clippy linter
         uses: ./.github/actions/cargo-command
         with:
-          command: test
+          command: clippy
           features: [runtime-benchmarks, try-runtime]
-          args: --no-run
-      - name: Run testsuite
-        uses: ./.github/actions/cargo-command
-        with:
-          command: test
-          features: [runtime-benchmarks, try-runtime]
-          cache: false
-          annotate: false
+          args: --all-targets -- -D warnings

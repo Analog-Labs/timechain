@@ -14,31 +14,24 @@ inputs:
   volume:
     description: 'Optional volume bind mount'
     required: false
-    default: ''
   username:
     description: 'Registry username'
     required: false
-    default: ''
   password:
     description: 'Registry password'
     required: false
-    default: ''
   registry:
     description: 'Registry URL'
     required: false
-    default: ''
   build_args:
     description: 'Optional build arguments for Buildah'
     required: false
-    default: ''
   push:
     description: 'Push the image to the registry'
     required: false
-    default: 'false'
   tags:
     description: 'Image tags'
     required: false
-    default: ''
 
 runs:
   using: "composite"

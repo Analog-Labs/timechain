@@ -33,12 +33,12 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          features: runtime-benchmarks,try-runtime
+          features: [runtime-benchmarks, try-runtime]
           args: --no-run
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          features: runtime-benchmarks,try-runtime
+          features: [runtime-benchmarks, try-runtime]
           cache: false
           annotate: false

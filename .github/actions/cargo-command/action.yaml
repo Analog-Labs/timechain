@@ -44,9 +44,9 @@ runs:
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-
+          cargo-cache-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-
           cargo-cache-${{ inputs.package || 'workspace' }}-default-
           cargo-cache-workspace-
     - name: Cache cargo target folder
@@ -54,13 +54,13 @@ runs:
       uses: actions/cache@v4
       with:
         path: target
-        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.features || 'default' }}-
+          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ join(inputs.features,'_') || 'default' }}-
           cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-default-
           cargo-${{ inputs.command }}-${{ inputs.profile }}-workspace-
     - name: Run cargo ${{ inputs.command }}
       env:
         CARGO_TERM_COLOR: always
       shell: bash
-      run: cargo ${{ inputs.command }} ${{ inputs.package && '--package' || '--workspace' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.features }}' ${{ inputs.annotate && '--message-format json' || '' }} ${{ inputs.args }} ${{ inputs.annotate && '| cargo-action-fmt' || '' }}
+      run: cargo ${{ inputs.command }} ${{ inputs.package && '--package' || '--workspace' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ join(inputs.features,',') }}' ${{ inputs.annotate && '--message-format json' || '' }} ${{ inputs.args }} ${{ inputs.annotate && '| cargo-action-fmt' || '' }}

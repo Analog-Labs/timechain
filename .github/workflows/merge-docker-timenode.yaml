@@ -29,7 +29,7 @@ jobs:
   build-binary:
     name: Build Docker image
     needs: ["set-tags"]
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "container"]
     strategy:
       fail-fast: false
       matrix:

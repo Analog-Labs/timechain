@@ -17,6 +17,7 @@ serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
 scale-decode.workspace = true
 scale-info.workspace = true
+valuable.workspace = true
 
 alloy-primitives = { version = "0.6.4", default-features = false }
 alloy-sol-types = { version = "0.6.4", default-features = false }
@@ -33,7 +34,7 @@ sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-p
 
 [features]
 default = ["std"]
-std = ["scale-codec/std", "frame-support/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std"]
+std = ["scale-codec/std", "frame-support/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "valuable/std"]
 
 [dev-dependencies]
 hex.workspace = true

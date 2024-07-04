@@ -9,8 +9,8 @@ use crate::{TaskId, TaskPhase};
 use scale_codec::{Decode, Encode};
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
-
 use sp_std::vec::Vec;
+use valuable::Valuable;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
@@ -21,7 +21,7 @@ pub type ProofOfKnowledge = [u8; 65];
 pub type Commitment = Vec<TssPublicKey>;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Valuable)]
 pub struct TssId {
 	task_id: TaskId,
 	task_phase: TaskPhase,

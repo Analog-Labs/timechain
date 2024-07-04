@@ -6,6 +6,7 @@ use scale_info::{prelude::string::String, TypeInfo};
 use serde::{Deserialize, Serialize};
 use sp_runtime::Percent;
 use sp_std::vec::Vec;
+use valuable::Valuable;
 
 pub type TaskId = u64;
 pub type TaskIndex = u64;
@@ -149,7 +150,9 @@ impl TaskDescriptorParams {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+	Debug, Clone, Copy, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Hash, Valuable,
+)]
 pub enum TaskPhase {
 	Sign,
 	Write,

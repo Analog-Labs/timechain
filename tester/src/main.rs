@@ -430,7 +430,7 @@ async fn gmp_benchmark(
 					}
 					break;
 				} else {
-					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());
+					println!("task_ids: {:?}:{:?}, completed: {:?}:{:?}", bench_state.task_ids().len(), bench_state.task_ids(), bench_state.get_finished_tasks().len(), bench_state.get_finished_tasks());
 				}
 			}
 			_ = tokio::signal::ctrl_c() => {

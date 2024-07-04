@@ -987,20 +987,19 @@ impl GmpBenchState {
 			return;
 		}
 
-		let unassigned_latencies: Vec<Duration> =
-			tasks.iter().map(|(_, info)| info.unassigned_time().unwrap()).collect();
+		let mut unassigned_latencies = Vec::with_capacity(tasks.len());
+		let mut sign_latencies = Vec::with_capacity(tasks.len());
+		let mut write_latencies = Vec::with_capacity(tasks.len());
+		let mut read_latencies = Vec::with_capacity(tasks.len());
+		let mut total_latencies = Vec::with_capacity(tasks.len());
 
-		let sign_latencies: Vec<Duration> =
-			tasks.iter().map(|(_, info)| info.sign_to_write_duration().unwrap()).collect();
-
-		let write_latencies: Vec<Duration> =
-			tasks.iter().map(|(_, info)| info.write_to_read_duration().unwrap()).collect();
-
-		let read_latencies: Vec<Duration> =
-			tasks.iter().map(|(_, info)| info.read_to_finish_duration().unwrap()).collect();
-
-		let total_latencies: Vec<Duration> =
-			tasks.iter().map(|(_, info)| info.total_execution_duration().unwrap()).collect();
+		for (_, info) in tasks.iter() {
+			unassigned_latencies.push(info.unassigned_time().unwrap());
+			sign_latencies.push(info.sign_to_write_duration().unwrap());
+			write_latencies.push(info.write_to_read_duration().unwrap());
+			read_latencies.push(info.read_to_finish_duration().unwrap());
+			total_latencies.push(info.total_execution_duration().unwrap());
+		}
 
 		let average_unassigned_latency =
 			sum_duration(unassigned_latencies.clone()) / unassigned_latencies.len() as u32;

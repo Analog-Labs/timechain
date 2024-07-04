@@ -1,6 +1,5 @@
 name: Build Docker timechain node image
 on:
-  pull_request:
   push:
     branches:
       - "ci/binary/**"

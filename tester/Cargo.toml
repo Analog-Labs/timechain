@@ -36,5 +36,3 @@ time-primitives = { path = "../primitives" }
 
 [features]
 default = []
-testnet = [ "tc-subxt/testnet" ]
-development = [ "tc-subxt/development" ]

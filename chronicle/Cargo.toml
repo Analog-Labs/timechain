@@ -48,5 +48,3 @@ surf = { version = "2.3.2", default-features = false, features = [ "h1-client-ru
 
 [features]
 default = []
-testnet = [ "tc-subxt/testnet" ]
-development = [ "tc-subxt/development" ]

@@ -4,10 +4,13 @@ ARG PROFILE
 
 WORKDIR /build
 
+# The /build/bin folder will be used for any artifacts needed for later stages
+RUN mkdir /build/bin
+
 COPY . .
 
 RUN CARGO_HTTP_CHECK_REVOKE=false cargo build --profile $PROFILE --locked -p chronicle
-RUN mkdir -p /build/bin && mv /build/target/$PROFILE/chronicle /build/bin/chronicle
+RUN mv /build/target/$PROFILE/chronicle /build/bin/chronicle
 
 FROM ubuntu:22.04
 

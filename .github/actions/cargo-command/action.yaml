@@ -33,11 +33,11 @@ runs:
       shell: bash
       run: rustup show
     - name: Install cargo-cache
-      if: ${{ inputs.annotate }}
+      if: ${{ fromJSON(inputs.annotate) }}
       shell: bash
       run: cargo install cargo-action-fmt
     - name: Cache cargo registry and index
-      if: ${{ inputs.cache }}
+      if: ${{ fromJSON(inputs.cache) }}
       uses: actions/cache@v4
       with:
         path: |
@@ -50,7 +50,7 @@ runs:
           cargo-cache-${{ inputs.package || 'workspace' }}-default-
           cargo-cache-workspace-
     - name: Cache cargo target folder
-      if: ${{ inputs.cache }}
+      if: ${{ fromJSON(inputs.cache) }}
       uses: actions/cache@v4
       with:
         path: target
@@ -63,4 +63,4 @@ runs:
       env:
         CARGO_TERM_COLOR: always
       shell: bash
-      run: cargo ${{ inputs.command }} ${{ inputs.package && '--package' || '--workspace' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.feature }}' ${{ inputs.annotate && '--message-format json' || '' }} ${{ inputs.args }} ${{ inputs.annotate && '| cargo-action-fmt' || '' }}
+      run: cargo ${{ inputs.command }} ${{ inputs.package && '--package' || '--workspace' }} ${{ inputs.package }} --profile '${{ inputs.profile }}' --features '${{ inputs.feature }}' ${{ fromJSON(inputs.annotate) && '--message-format json' || '' }} ${{ inputs.args }} ${{ fromJSON(inputs.annotate) && '| cargo-action-fmt' || '' }}

@@ -57,7 +57,8 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"frame-benchmarking?/std",
-	"time-primitives/std"
+	"time-primitives/std",
+	"pallet-balances/std"
 ]
 runtime-benchmarks = [
 	#"polkadot-sdk/runtime-benchmarks",

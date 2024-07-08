@@ -40,6 +40,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame-benchmarking?/std",
+	"pallet-balances/std",
 ]
 runtime-benchmarks = [
 	#"polkadot-sdk/runtime-benchmarks",

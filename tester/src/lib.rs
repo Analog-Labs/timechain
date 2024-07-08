@@ -7,7 +7,7 @@ use rosetta_config_ethereum::{
 };
 use schnorr_evm::SigningKey;
 use sp_core::crypto::Ss58Codec;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -683,6 +683,7 @@ pub struct GmpBenchState {
 	gmp_execution_duration: Duration,
 	pub tasks: HashMap<TaskId, TaskPhaseInfo>,
 	recv_tasks: HashMap<TaskId, RecvTaskPhase>,
+	errored_tasks: HashMap<TaskId, String>,
 	total_src_gas: Vec<u128>,
 }
 
@@ -695,6 +696,7 @@ impl GmpBenchState {
 			total_deposit: Default::default(),
 			tasks: HashMap::with_capacity(total_calls as usize),
 			recv_tasks: Default::default(),
+			errored_tasks: Default::default(),
 			total_src_gas: Vec::with_capacity(total_calls as usize),
 		}
 	}
@@ -742,12 +744,29 @@ impl GmpBenchState {
 		}
 	}
 
-	pub fn task_ids(&self) -> Vec<TaskId> {
+	pub fn task_ids(&self) -> BTreeSet<TaskId> {
 		self.tasks.keys().cloned().collect()
 	}
 
 	pub fn recv_task_ids(&self) -> Vec<TaskId> {
 		self.recv_tasks.keys().cloned().collect()
+	}
+
+	pub fn add_errored_tasks(&mut self, task_id: TaskId, reason: String) {
+		self.errored_tasks.insert(task_id, reason);
+	}
+
+	fn get_success_tasks(&self) -> HashMap<TaskId, TaskPhaseInfo> {
+		self.tasks
+			.iter()
+			.filter_map(|(task_id, task_info)| {
+				if !self.errored_tasks.contains_key(task_id) {
+					Some((*task_id, task_info.clone()))
+				} else {
+					None
+				}
+			})
+			.collect::<_>()
 	}
 
 	pub fn finish_task(&mut self, task_id: TaskId) {
@@ -761,8 +780,9 @@ impl GmpBenchState {
 		}
 	}
 
-	pub async fn sync_phase(&mut self, src_tester: &Tester) {
-		let unassigned_tasks = src_tester.get_network_unassigned_tasks(3).await;
+	pub async fn sync_phase(&mut self, dest_tester: &Tester) {
+		let unassigned_tasks =
+			dest_tester.get_network_unassigned_tasks(dest_tester.network_id()).await;
 		// update recv_tasks status
 		for (task_id, phase) in self.recv_tasks.iter_mut() {
 			// if task is unassigned then skip it
@@ -782,7 +802,7 @@ impl GmpBenchState {
 				continue;
 			}
 
-			let task_state = src_tester.get_task_phase(*task_id).await;
+			let task_state = dest_tester.get_task_phase(*task_id).await;
 
 			if let Some(task_state) = task_state {
 				phase.shift_phase(task_state)
@@ -854,21 +874,15 @@ impl GmpBenchState {
 	}
 
 	fn print_recv_message_latencies(&self) {
-		let creation_latencies: Vec<Duration> = self
-			.recv_tasks
-			.values()
+		let recv_tasks = self.recv_tasks.values();
+		let creation_latencies: Vec<Duration> = recv_tasks
+			.clone()
 			.map(|info| info.start_time.unwrap().duration_since(self.gmp_start_time))
 			.collect();
-		let start_latencies: Vec<Duration> = self
-			.recv_tasks
-			.values()
-			.map(|info| info.get_start_duration().unwrap())
-			.collect();
-		let finish_latencies: Vec<Duration> = self
-			.recv_tasks
-			.values()
-			.map(|info| info.get_execution_time().unwrap())
-			.collect();
+		let start_latencies: Vec<Duration> =
+			recv_tasks.clone().map(|info| info.get_start_duration().unwrap()).collect();
+		let finish_latencies: Vec<Duration> =
+			recv_tasks.clone().map(|info| info.get_execution_time().unwrap()).collect();
 
 		let average_creation_latency =
 			sum_duration(creation_latencies.clone()) / creation_latencies.len() as u32;
@@ -894,6 +908,13 @@ impl GmpBenchState {
 	///
 	/// print average delays in send message tasks during benchmark
 	fn print_send_message_analysis(&self) {
+		if !self.errored_tasks.is_empty() {
+			println!("Following tasks failed:");
+			println!("{:#?}", self.errored_tasks);
+		}
+
+		let tasks = self.get_success_tasks();
+
 		let mut builder = Builder::new();
 		builder.push_record([
 			"task_id",
@@ -913,8 +934,7 @@ impl GmpBenchState {
 		let total_spent_time = self.gmp_execution_duration;
 
 		// calculate task duration for each task
-		let all_task_phase_duration: Vec<_> = self
-			.tasks
+		let all_task_phase_duration: Vec<_> = tasks
 			.iter()
 			.map(|(k, v)| {
 				(
@@ -961,26 +981,25 @@ impl GmpBenchState {
 	///
 	/// print average delays find in task execution
 	fn print_send_message_task_latencies(&self) {
-		let unassigned_latencies: Vec<Duration> =
-			self.tasks.values().map(|info| info.unassigned_time().unwrap()).collect();
+		let tasks = self.get_success_tasks();
 
-		let sign_latencies: Vec<Duration> =
-			self.tasks.values().map(|info| info.sign_to_write_duration().unwrap()).collect();
+		if tasks.is_empty() {
+			return;
+		}
 
-		let write_latencies: Vec<Duration> =
-			self.tasks.values().map(|info| info.write_to_read_duration().unwrap()).collect();
+		let mut unassigned_latencies = Vec::with_capacity(tasks.len());
+		let mut sign_latencies = Vec::with_capacity(tasks.len());
+		let mut write_latencies = Vec::with_capacity(tasks.len());
+		let mut read_latencies = Vec::with_capacity(tasks.len());
+		let mut total_latencies = Vec::with_capacity(tasks.len());
 
-		let read_latencies: Vec<Duration> = self
-			.tasks
-			.values()
-			.map(|info| info.read_to_finish_duration().unwrap())
-			.collect();
-
-		let total_latencies: Vec<Duration> = self
-			.tasks
-			.values()
-			.map(|info| info.total_execution_duration().unwrap())
-			.collect();
+		for (_, info) in tasks.iter() {
+			unassigned_latencies.push(info.unassigned_time().unwrap());
+			sign_latencies.push(info.sign_to_write_duration().unwrap());
+			write_latencies.push(info.write_to_read_duration().unwrap());
+			read_latencies.push(info.read_to_finish_duration().unwrap());
+			total_latencies.push(info.total_execution_duration().unwrap());
+		}
 
 		let average_unassigned_latency =
 			sum_duration(unassigned_latencies.clone()) / unassigned_latencies.len() as u32;
@@ -1014,8 +1033,12 @@ impl GmpBenchState {
 		self.tasks.iter().all(|(_, phase)| phase.finish_time.is_some())
 	}
 
-	pub fn get_finished_tasks(&self) -> usize {
-		self.tasks.iter().filter(|(_, phase)| phase.finish_time.is_some()).count()
+	pub fn get_finished_tasks(&self) -> BTreeSet<TaskId> {
+		self.tasks
+			.iter()
+			.filter(|(_, phase)| phase.finish_time.is_some())
+			.map(|(id, _)| *id)
+			.collect::<BTreeSet<_>>()
 	}
 }
 
@@ -1075,7 +1098,7 @@ impl RecvTaskPhase {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TaskPhaseInfo {
 	pub insert_time: Instant,
 	pub sign_phase_start: Option<Instant>,

@@ -525,14 +525,13 @@ pub mod pallet {
 					Self::start_phase(shard_id, task_id, TaskPhase::Read);
 				},
 				Err(err) => {
-					Self::finish_task(
-						task_id,
-						TaskResult {
-							shard_id,
-							payload: Payload::Error(err),
-							signature: [0; 64],
-						},
-					);
+					let result = TaskResult {
+						shard_id,
+						payload: Payload::Error(err),
+						signature: [0; 64],
+					};
+					Self::finish_task(task_id, result.clone());
+					Self::deposit_event(Event::TaskResult(task_id, result));
 				},
 			}
 			Ok(())

@@ -233,26 +233,26 @@ where
 			for session in start_sessions {
 				tss.on_start(session);
 			}
-			while let Some(n) = self.messages.keys().copied().next() {
-				if n > block_number {
-					break;
-				}
-				for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
-					let Some(tss) = self.tss_states.get_mut(&shard_id) else {
-						event!(
-							target: TW_LOG,
-							parent: &span,
-							Level::INFO,
-							shard_id,
-							"dropping message {} from {:?}",
-							msg,
-							peer_id,
-						);
-						continue;
-					};
-					tss.on_message(peer_id, msg)?;
-					self.poll_actions(&span, shard_id, n).await;
-				}
+		}
+		while let Some(n) = self.messages.keys().copied().next() {
+			if n > block_number {
+				break;
+			}
+			for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
+				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::INFO,
+						shard_id,
+						"dropping message {} from {:?}",
+						msg,
+						peer_id,
+					);
+					continue;
+				};
+				tss.on_message(peer_id, msg)?;
+				self.poll_actions(&span, shard_id, n).await;
 			}
 		}
 		Ok(())

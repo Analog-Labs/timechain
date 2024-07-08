@@ -190,7 +190,7 @@ where
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg);
 				} else {
-					anyhow::bail!("invalid signing session");
+					tracing::info!("invalid signing session {}", id);
 				}
 			},
 			(_, msg) => {

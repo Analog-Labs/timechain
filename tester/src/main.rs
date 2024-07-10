@@ -366,15 +366,22 @@ async fn gmp_benchmark(
 						let task_id = task_result.0;
 						let task_payload = task_result.1;
 
+						match task_payload.payload {
+							Payload::Gmp(msgs) => {
+								bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
+							},
+							Payload::Error(error) => {
+								bench_state.add_errored_tasks(task_id, error);
+							},
+							_ => {}
+						}
+
 						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
 							bench_state.finish_task(task_id);
 						}
-						if let Payload::Gmp(msgs) = task_payload.payload {
-							bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
-						};
 					}
 					// update task phase
-					bench_state.sync_phase(src_tester).await;
+					bench_state.sync_phase(dest_tester).await;
 				}
 			}
 			_ = one_min_tick.tick() => {
@@ -413,12 +420,15 @@ async fn gmp_benchmark(
 				cpu_usage.push(average_cpu_usage);
 
 				// verify if the number of tasks finished matches the number of calls or greater and all tasks are finished
-				if bench_state.get_finished_tasks() >= number_of_calls as usize
-				&& bench_state.all_tasks_completed()
-				&& is_contract_updated {
+				if bench_state.get_finished_tasks().len() >= number_of_calls as usize
+				&& bench_state.all_tasks_completed() {
+					println!("all tasks Completed");
+					if !is_contract_updated {
+						println!("Contract was not able to update completely");
+					}
 					break;
 				} else {
-					println!("task_ids: {:?}, completed: {:?}", bench_state.task_ids(), bench_state.get_finished_tasks());
+					println!("task_ids: {:?}:{:?}, completed: {:?}:{:?}", bench_state.task_ids().len(), bench_state.task_ids(), bench_state.get_finished_tasks().len(), bench_state.get_finished_tasks());
 				}
 			}
 			_ = tokio::signal::ctrl_c() => {

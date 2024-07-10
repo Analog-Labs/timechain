@@ -2,7 +2,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Future, Stream};
 use std::pin::Pin;
-use time_primitives::{BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskId, TssId};
+use time_primitives::{
+	BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskExecution, TaskId,
+};
 
 pub mod executor;
 pub mod spawner;
@@ -46,5 +48,5 @@ pub trait TaskExecutor {
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<(Vec<TssId>, Vec<TssId>)>;
+	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)>;
 }

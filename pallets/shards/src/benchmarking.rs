@@ -27,7 +27,7 @@ benchmarks! {
 				Pallet::<T>::commit(
 					RawOrigin::Signed(member.clone()).into(),
 					0,
-					vec![public_key.clone()],
+					vec![public_key],
 					[0; 65],
 				)?;
 			}
@@ -45,7 +45,7 @@ benchmarks! {
 			Pallet::<T>::commit(
 				RawOrigin::Signed(member.clone()).into(),
 				0,
-				vec![public_key.clone()],
+				vec![public_key],
 				[0; 65],
 			)?;
 		}

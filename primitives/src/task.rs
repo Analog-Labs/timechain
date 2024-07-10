@@ -176,8 +176,8 @@ impl Default for TaskPhase {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TaskExecution {
 	pub task_id: TaskId,
 	pub phase: TaskPhase,
@@ -192,7 +192,7 @@ impl TaskExecution {
 #[cfg(feature = "std")]
 impl std::fmt::Display for TaskExecution {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.task_id)
+		write!(f, "{}-{}", self.task_id, self.phase)
 	}
 }
 

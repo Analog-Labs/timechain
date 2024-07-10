@@ -6,10 +6,10 @@ use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	BlockHash, BlockNumber, Function, GmpParams, Message, NetworkId, Runtime, ShardId,
-	TaskExecution, TaskPhase, TssId,
+	TaskExecution, TaskPhase,
 };
 use tokio::task::JoinHandle;
-use tracing::{event, span, Level, Span};
+use tracing::{event, span, Level};
 
 /// Set of properties we need to run our gadget
 #[derive(Clone)]
@@ -61,23 +61,9 @@ where
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<(Vec<TssId>, Vec<TssId>)> {
-		let span = span!(
-			target: TW_LOG,
-			Level::DEBUG,
-			"process_tasks",
-			block = block_hash.to_string(),
-			block_number,
-		);
-		TaskExecutor::process_tasks(
-			self,
-			&span,
-			block_hash,
-			block_number,
-			shard_id,
-			target_block_height,
-		)
-		.await
+	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)> {
+		TaskExecutor::process_tasks(self, block_hash, block_number, shard_id, target_block_height)
+			.await
 	}
 }
 
@@ -105,15 +91,13 @@ where
 	/// preprocesses the task before sending it for execution in task_spawner.rs
 	pub async fn process_tasks(
 		&mut self,
-		span: &Span,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<(Vec<TssId>, Vec<TssId>)> {
+	) -> Result<(Vec<TaskExecution>, Vec<TaskExecution>)> {
 		let span = span!(
 			target: TW_LOG,
-			parent: span,
 			Level::DEBUG,
 			"process_tasks",
 			block = block_hash.to_string(),
@@ -123,7 +107,7 @@ where
 		let mut start_sessions = vec![];
 		let tasks = self.substrate.get_shard_tasks(block_hash, shard_id).await?;
 		tracing::debug!("debug_latency Current Tasks Under processing: {:?}", tasks);
-		for executable_task in tasks.iter().clone() {
+		for executable_task in tasks.iter().copied() {
 			let task_id = executable_task.task_id;
 			event!(
 				target: TW_LOG,
@@ -132,7 +116,7 @@ where
 				task_id,
 				"task in execution",
 			);
-			if self.running_tasks.contains_key(executable_task) {
+			if self.running_tasks.contains_key(&executable_task) {
 				continue;
 			}
 			// gets task details
@@ -323,7 +307,7 @@ where
 			// Metrics: Increase number of running tasks
 			self.task_counter_metric.inc(&phase, &function_metric_clone);
 			let counter = self.task_counter_metric.clone();
-			start_sessions.push(TssId::new(task_id, phase));
+			start_sessions.push(executable_task);
 
 			let handle = tokio::task::spawn(async move {
 				match task.await {
@@ -353,12 +337,12 @@ where
 				// Metrics: Decrease number of running tasks
 				counter.dec(&phase, &function_metric_clone);
 			});
-			self.running_tasks.insert(executable_task.clone(), handle);
+			self.running_tasks.insert(executable_task, handle);
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		// remove from running task if task is completed or we dont receive anymore from pallet
-		self.running_tasks.retain(|x, handle| {
-			if tasks.contains(x) {
+		self.running_tasks.retain(|executable_task, handle| {
+			if tasks.contains(executable_task) {
 				true
 			} else {
 				if !handle.is_finished() {
@@ -366,12 +350,12 @@ where
 						target: TW_LOG,
 						parent: &span,
 						Level::DEBUG,
-						x.task_id,
+						executable_task.task_id,
 						"task aborted",
 					);
 					handle.abort();
 				}
-				completed_sessions.push(TssId::new(x.task_id, x.phase));
+				completed_sessions.push(*executable_task);
 				false
 			}
 		});
@@ -435,14 +419,8 @@ mod tests {
 		while let Some((block_hash, block_number)) =
 			mock.finality_notification_stream().next().await
 		{
-			let span = span!(
-				Level::DEBUG,
-				"task_executor_smoke",
-				block = block_hash.to_string(),
-				block_number,
-			);
 			task_executor
-				.process_tasks(&span, block_hash, block_number, shard, target_block_height)
+				.process_tasks(block_hash, block_number, shard, target_block_height)
 				.await
 				.unwrap();
 			tracing::info!("Watching for result");

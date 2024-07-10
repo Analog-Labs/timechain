@@ -8,13 +8,13 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-use time_primitives::{BlockNumber, ShardId, TssId};
+use time_primitives::{BlockNumber, ShardId, TaskExecution};
 
 mod protocol;
 
 pub use time_primitives::PeerId;
 
-pub type TssMessage = tss::TssMessage<TssId>;
+pub type TssMessage = tss::TssMessage<TaskExecution>;
 
 pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 

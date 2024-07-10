@@ -1,4 +1,5 @@
 #![cfg(feature = "runtime-benchmarks")]
+#![allow(clippy::duplicated_attributes)]
 use super::*;
 
 #[allow(unused)]

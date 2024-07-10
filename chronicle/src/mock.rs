@@ -13,7 +13,7 @@ use time_primitives::{
 	sp_core, AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
 	Function, MemberStatus, NetworkId, Payload, PeerId, ProofOfKnowledge, PublicKey, Runtime,
 	ShardId, ShardStatus, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash,
-	TssId, TssSignature, TssSigningRequest,
+	TssSignature, TssSigningRequest,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -207,7 +207,7 @@ impl Mock {
 		if let Some(mut tss) = self.tss.clone() {
 			let (tx, rx) = oneshot::channel();
 			tss.send(TssSigningRequest {
-				request_id: TssId::new(task_id, task_phase),
+				request_id: TaskExecution::new(task_id, task_phase),
 				shard_id,
 				block_number,
 				data: payload.to_vec(),

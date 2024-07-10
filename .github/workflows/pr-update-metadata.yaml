@@ -1,9 +1,9 @@
-name: Compile runtimes
+name: Update metadata
 on:
   pull_request:
     paths:
       - '.github/actions/cargo-command/**'
-      - '.github/workflows/pr-build-runtime.yaml'
+      - '.github/workflows/pr-update-metadata.yaml'
       - 'pallets/**'
       - 'primitives/**'
       - 'runtime/**'
@@ -21,10 +21,10 @@ jobs:
       matrix:
         include:
           - package: timechain-runtime
-            features: default
+            feature: default
             crate: timechain_runtime
           - package: timechain-runtime
-            features: development
+            feature: development
             crate: timechain_runtime
     steps:
       - name: Checkout sources
@@ -35,18 +35,17 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: ${{ matrix.package }}
-          profile: release
-          features: ${{ matrix.features }}
+          feature: ${{ matrix.feature }}
       - name: Upload timechain runtime
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.package }}.${{ matrix.features }}.wasm
+          name: ${{ matrix.package }}.${{ matrix.feature }}.wasm
           if-no-files-found: error
           path: target/release/wbuild/${{ matrix.package }}/${{ matrix.crate }}.compact.compressed.wasm
       - name: Upload timechain metadata
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.package }}.${{ matrix.features }}.scale
+          name: ${{ matrix.package }}.${{ matrix.feature }}.scale
           if-no-files-found: error
           path: target/release/wbuild/${{ matrix.package }}/${{ matrix.crate }}.metadata.scale
   update-metadata:
@@ -86,6 +85,6 @@ jobs:
             echo "metadata changes detected: committing updated metadata"
             git config user.email "github@analog.one"
             git config user.name "Metadata Update Bot"
-            git commit -am "tc-subxt: Automated metadata update"
+            git commit -am "tc-subxt: Automatic metadata update"
             git push
           fi

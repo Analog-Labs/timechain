@@ -14,6 +14,19 @@ use time_primitives::{Commitment, ProofOfKnowledge};
 /// Since benchmarks are no-std and we need std computation on constructing proof so
 /// these values are taken by running the code in pallets/shards/src/tests.rs
 /// in a seperate tests and then taking the data from commitment and pok and using them here.
+
+pub const ALICE_COMMITMENT: [u8; 33] = [
+	3, 27, 132, 197, 86, 123, 18, 100, 64, 153, 93, 62, 213, 170, 186, 5, 101, 215, 30, 24, 52, 96,
+	72, 25, 255, 156, 23, 245, 233, 213, 221, 7, 143,
+];
+pub const BOB_COMMITMENT: [u8; 33] = [
+	2, 77, 75, 108, 209, 54, 16, 50, 202, 155, 210, 174, 185, 217, 0, 170, 77, 69, 217, 234, 216,
+	10, 201, 66, 51, 116, 196, 81, 167, 37, 77, 7, 102,
+];
+pub const CHARLIE_COMMITMENT: [u8; 33] = [
+	2, 83, 31, 230, 6, 129, 52, 80, 61, 39, 35, 19, 50, 39, 200, 103, 172, 143, 166, 200, 60, 83,
+	126, 154, 68, 195, 197, 189, 189, 203, 31, 227, 55,
+];
 pub const ALICE_POK: ProofOfKnowledge = [
 	2, 130, 142, 156, 2, 13, 251, 97, 156, 208, 17, 0, 246, 123, 48, 97, 171, 221, 27, 179, 198,
 	196, 203, 31, 198, 249, 181, 23, 239, 34, 197, 193, 206, 128, 187, 250, 214, 213, 204, 223,
@@ -35,18 +48,9 @@ pub const CHARLIE_POK: ProofOfKnowledge = [
 
 pub fn get_commitment(member: [u8; 32]) -> Commitment {
 	let commitment = match member {
-		ALICE => [
-			3, 27, 132, 197, 86, 123, 18, 100, 64, 153, 93, 62, 213, 170, 186, 5, 101, 215, 30, 24,
-			52, 96, 72, 25, 255, 156, 23, 245, 233, 213, 221, 7, 143,
-		],
-		BOB => [
-			2, 77, 75, 108, 209, 54, 16, 50, 202, 155, 210, 174, 185, 217, 0, 170, 77, 69, 217,
-			234, 216, 10, 201, 66, 51, 116, 196, 81, 167, 37, 77, 7, 102,
-		],
-		CHARLIE => [
-			2, 83, 31, 230, 6, 129, 52, 80, 61, 39, 35, 19, 50, 39, 200, 103, 172, 143, 166, 200,
-			60, 83, 126, 154, 68, 195, 197, 189, 189, 203, 31, 227, 55,
-		],
+		ALICE => ALICE_COMMITMENT,
+		BOB => BOB_COMMITMENT,
+		CHARLIE => CHARLIE_COMMITMENT,
 		_ => {
 			panic!("Invalid member")
 		},

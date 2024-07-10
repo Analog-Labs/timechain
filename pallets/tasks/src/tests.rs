@@ -1848,6 +1848,46 @@ fn test_assingment_with_diff_shard_size() {
 		assert_eq!(
 			UATasksRemoveIndex::<Test>::get(ETHEREUM),
 			UATasksInsertIndex::<Test>::get(ETHEREUM)
-		)
+		);
+	});
+}
+
+#[test]
+fn balanced_distribution_of_tasks_among_shards() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 4;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+		}
+
+		for _ in 0..200 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>().len(),
+			200
+		);
+		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 50));
+		for i in 0..NUM_SHARDS {
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		assert!(UnassignedTasks::<Test>::iter()
+			.map(|(_, _, t)| t)
+			.collect::<Vec<_>>()
+			.is_empty());
+		for i in 0..NUM_SHARDS {
+			assert_eq!(
+				ShardTasks::<Test>::iter_prefix(i).map(|(t, _)| t).collect::<Vec<_>>().len(),
+				50
+			);
+		}
 	});
 }

@@ -770,7 +770,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		///  Sets the task limit for a specific shard.
+		///  Sets the task limit for a specific network.
 		/// # Flow
 		///    1. Ensure the origin of the transaction is a root user.
 		///    2. Insert the new task limit for the specified network into the [`ShardTaskLimit`] storage.

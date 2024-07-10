@@ -1875,7 +1875,7 @@ fn balanced_distribution_of_tasks_among_shards() {
 			UnassignedTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>().len(),
 			200
 		);
-		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 50));
+		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 200));
 		for i in 0..NUM_SHARDS {
 			Tasks::shard_online(i, ETHEREUM);
 		}

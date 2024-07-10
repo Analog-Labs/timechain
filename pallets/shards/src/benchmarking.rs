@@ -11,6 +11,9 @@ pub const CHARLIE: [u8; 32] = [3u8; 32];
 pub const ETHEREUM: NetworkId = 0;
 use time_primitives::{Commitment, ProofOfKnowledge};
 
+/// Since benchmarks are no-std and we need std computation on constructing proof so
+/// these values are taken by running the code in pallets/shards/src/tests.rs
+/// in a seperate tests and then taking the data from commitment and pok and using them here.
 pub const ALICE_POK: ProofOfKnowledge = [
 	2, 130, 142, 156, 2, 13, 251, 97, 156, 208, 17, 0, 246, 123, 48, 97, 171, 221, 27, 179, 198,
 	196, 203, 31, 198, 249, 181, 23, 239, 34, 197, 193, 206, 128, 187, 250, 214, 213, 204, 223,

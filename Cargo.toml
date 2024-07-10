@@ -46,7 +46,6 @@ serde = { version = "1.0.203", default-features = false, features = [ "derive" ]
 serde_json = { version = "1.0.117", default-features = false }
 tokio = "1.38.0"
 tracing = "0.1.40"
-valuable = { version = "0.1.0", features = ["derive"] }
 
 scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [ "derive" ] }
 scale-decode = { version = "0.13.1", default-features = false, features = [ "derive" ] }

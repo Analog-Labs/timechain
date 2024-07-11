@@ -9,6 +9,7 @@ use crate::TaskExecution;
 use scale_codec::{Decode, Encode};
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
+
 use sp_std::vec::Vec;
 
 pub type TssPublicKey = [u8; 33];

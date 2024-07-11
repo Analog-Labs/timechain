@@ -1,3 +1,14 @@
+//! # Roast Module Documentation
+//! The Roast module implements a state machine for managing the Robust Online Asynchronous Schnorr Threshold (ROAST) protocol. This protocol allows a distributed set of signers to collaboratively generate Schnorr signatures in a secure and robust manner, ensuring that the signature process can continue even if some participants fail to respond or act maliciously.
+//! 
+//! ## Overview
+//! The main components of the Roast module include:
+//! 
+//! - 'RoastSigner': Manages the signing process for a single participant.
+//! - 'RoastCoordinator': Coordinates the signing process, ensuring that enough participants have committed to generate a signature.
+//! - 'RoastSession': Manages a single signing session, tracking commitments and signature shares.
+//! - 'Roast': The main state machine that brings together the RoastSigner and RoastCoordinator to manage the overall ROAST protocol.
+//! 
 use frost_evm::{
 	keys::{KeyPackage, PublicKeyPackage},
 	round1::{self, SigningCommitments, SigningNonces},
@@ -8,12 +19,14 @@ use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
+/// Represents a signing request sent to a RoastSigner.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct RoastSignerRequest {
 	session_id: u16,
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 }
 
+/// Represents a response from a RoastSigner containing a signature share and a new commitment.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct RoastSignerResponse {
 	session_id: u16,
@@ -29,6 +42,7 @@ struct RoastSigner {
 }
 
 impl RoastSigner {
+	/// Creates a new `RoastSigner` instance with the given key package.
 	pub fn new(key_package: KeyPackage) -> Self {
 		Self {
 			key_package,
@@ -38,24 +52,29 @@ impl RoastSigner {
 		}
 	}
 
+	/// Sets the data to be signed.
 	pub fn set_data(&mut self, data: Vec<u8>) {
 		self.data = Some(data);
 	}
 
+	/// Returns the data to be signed, if any.
 	pub fn data(&self) -> Option<&[u8]> {
 		self.data.as_deref()
 	}
 
+	/// Commits to the signing process for a coordinator.
 	pub fn commit(&mut self, coordinator: Identifier) -> SigningCommitments {
 		let (nonces, commitment) = round1::commit(self.key_package.signing_share(), &mut OsRng);
 		self.coordinators.insert(coordinator, nonces);
 		commitment
 	}
 
+	/// Handles a signing request from a coordinator.
 	pub fn sign(&mut self, coordinator: Identifier, request: RoastSignerRequest) {
 		self.requests.push_back((coordinator, request));
 	}
 
+	/// Generates a message with the signature share for a coordinator.
 	pub fn message(&mut self) -> Option<(Identifier, RoastSignerResponse)> {
 		let data = self.data.as_deref()?;
 		loop {
@@ -86,12 +105,14 @@ impl RoastSigner {
 	}
 }
 
+/// Manages a single signing session, tracking commitments and signature shares.
 struct RoastSession {
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 	signature_shares: HashMap<Identifier, SignatureShare>,
 }
 
 impl RoastSession {
+	/// Creates a new `RoastSession` instance with the given commitments.
 	fn new(commitments: BTreeMap<Identifier, SigningCommitments>) -> Self {
 		Self {
 			commitments,
@@ -99,17 +120,20 @@ impl RoastSession {
 		}
 	}
 
+	/// Handles a signature share from a peer.
 	fn on_signature_share(&mut self, peer: Identifier, signature_share: SignatureShare) {
 		if self.commitments.contains_key(&peer) {
 			self.signature_shares.insert(peer, signature_share);
 		}
 	}
 
+	/// Checks if the session is complete, i.e., if all required signature shares have been received.
 	fn is_complete(&self) -> bool {
 		self.commitments.len() == self.signature_shares.len()
 	}
 }
 
+/// Coordinates the signing process, ensuring that enough participants have committed to generate a signature.
 struct RoastCoordinator {
 	threshold: u16,
 	session_id: u16,
@@ -119,6 +143,7 @@ struct RoastCoordinator {
 }
 
 impl RoastCoordinator {
+	/// Creates a new `RoastCoordinator` instance with the given threshold.
 	fn new(threshold: u16) -> Self {
 		Self {
 			threshold,
@@ -129,6 +154,7 @@ impl RoastCoordinator {
 		}
 	}
 
+	/// Handles a commitment from a peer.
 	fn on_commit(&mut self, peer: Identifier, commitment: SigningCommitments) {
 		if !self.committed.contains(&peer) {
 			self.commitments.insert(peer, commitment);
@@ -136,6 +162,7 @@ impl RoastCoordinator {
 		}
 	}
 
+	/// Handles a response from a peer.
 	fn on_response(&mut self, peer: Identifier, message: RoastSignerResponse) {
 		if let Some(session) = self.sessions.get_mut(&message.session_id) {
 			self.commitments.insert(peer, message.commitment);
@@ -143,6 +170,7 @@ impl RoastCoordinator {
 		}
 	}
 
+	/// Starts a new signing session if enough commitments have been received.
 	fn start_session(&mut self) -> Option<RoastSignerRequest> {
 		if self.commitments.len() < self.threshold as _ {
 			tracing::debug!("commitments {}/{}", self.commitments.len(), self.threshold);
@@ -159,6 +187,7 @@ impl RoastCoordinator {
 		Some(RoastSignerRequest { session_id, commitments })
 	}
 
+	/// Aggregates the signature shares from a complete session.
 	fn aggregate_signature(&mut self) -> Option<RoastSession> {
 		let session_id = self
 			.sessions
@@ -170,6 +199,7 @@ impl RoastCoordinator {
 	}
 }
 
+/// Represents a message exchanged between Roast participants.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum RoastMessage {
 	Commit(SigningCommitments),
@@ -178,6 +208,7 @@ pub enum RoastMessage {
 }
 
 impl RoastMessage {
+	/// Checks if the message is a response.
 	pub fn is_response(&self) -> bool {
 		matches!(self, Self::Signature(_))
 	}
@@ -193,6 +224,7 @@ impl std::fmt::Display for RoastMessage {
 	}
 }
 
+/// Represents an action to be taken by the Roast state machine.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RoastAction {
 	Send(Identifier, RoastMessage),
@@ -200,7 +232,8 @@ pub enum RoastAction {
 	Complete([u8; 32], Signature),
 }
 
-/// ROAST state machine.
+
+/// The main state machine that manages the overall ROAST protocol by integrating ['RoastSigner'] and ['RoastCoordinator'].
 pub struct Roast {
 	signer: RoastSigner,
 	coordinator: Option<RoastCoordinator>,
@@ -209,6 +242,7 @@ pub struct Roast {
 }
 
 impl Roast {
+	/// Creates a new `Roast` instance with the given parameters.
 	pub fn new(
 		id: Identifier,
 		threshold: u16,
@@ -225,10 +259,12 @@ impl Roast {
 		}
 	}
 
+	/// Sets the data to be signed.
 	pub fn set_data(&mut self, data: Vec<u8>) {
 		self.signer.set_data(data);
 	}
 
+	 /// Handles an incoming message from a peer.
 	pub fn on_message(&mut self, peer: Identifier, msg: RoastMessage) {
 		match msg {
 			RoastMessage::Commit(commitment) => {
@@ -247,6 +283,7 @@ impl Roast {
 		}
 	}
 
+	/// Determines the next action to be taken by the state machine.
 	pub fn next_action(&mut self) -> Option<RoastAction> {
 		if let Some(coordinator) = self.coordinator.as_mut() {
 			if let Some(data) = self.signer.data() {
@@ -287,6 +324,7 @@ mod tests {
 	use anyhow::Result;
 	use frost_evm::keys::{generate_with_dealer, IdentifierList};
 
+	/// The module includes a test for the Roast protocol to ensure its correctness.
 	#[test]
 	fn test_roast() -> Result<()> {
 		env_logger::try_init().ok();

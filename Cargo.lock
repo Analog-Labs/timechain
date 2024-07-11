@@ -20586,6 +20586,7 @@ dependencies = [
  "frost-evm",
  "rand_core 0.6.4",
  "serde",
+ "simple-mermaid",
  "tracing",
 ]
 

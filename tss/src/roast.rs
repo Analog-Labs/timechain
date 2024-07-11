@@ -1,14 +1,14 @@
 //! # Roast Module Documentation
 //! The Roast module implements a state machine for managing the Robust Online Asynchronous Schnorr Threshold (ROAST) protocol. This protocol allows a distributed set of signers to collaboratively generate Schnorr signatures in a secure and robust manner, ensuring that the signature process can continue even if some participants fail to respond or act maliciously.
-//! 
+//!
 //! ## Overview
 //! The main components of the Roast module include:
-//! 
+//!
 //! - 'RoastSigner': Manages the signing process for a single participant.
 //! - 'RoastCoordinator': Coordinates the signing process, ensuring that enough participants have committed to generate a signature.
 //! - 'RoastSession': Manages a single signing session, tracking commitments and signature shares.
 //! - 'Roast': The main state machine that brings together the RoastSigner and RoastCoordinator to manage the overall ROAST protocol.
-//! 
+//!
 use frost_evm::{
 	keys::{KeyPackage, PublicKeyPackage},
 	round1::{self, SigningCommitments, SigningNonces},
@@ -232,7 +232,6 @@ pub enum RoastAction {
 	Complete([u8; 32], Signature),
 }
 
-
 /// The main state machine that manages the overall ROAST protocol by integrating ['RoastSigner'] and ['RoastCoordinator'].
 pub struct Roast {
 	signer: RoastSigner,
@@ -264,7 +263,7 @@ impl Roast {
 		self.signer.set_data(data);
 	}
 
-	 /// Handles an incoming message from a peer.
+	/// Handles an incoming message from a peer.
 	pub fn on_message(&mut self, peer: Identifier, msg: RoastMessage) {
 		match msg {
 			RoastMessage::Commit(commitment) => {

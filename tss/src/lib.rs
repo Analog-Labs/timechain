@@ -1,8 +1,8 @@
 #![allow(clippy::large_enum_variant)]
 //!
-//! # Threshold Signature Scheme (TSS) 
+//! # Threshold Signature Scheme (TSS)
 //! The TSS (Threshold Signature Scheme) module handles cryptographic operations related to distributed key generation (DKG) and signature generation using the Roast protocol. This flowchart illustrates the key states and actions within the TSS module.
-//! 
+//!
 #![doc = simple_mermaid::mermaid!("../docs/tss.mmd")]
 
 use crate::dkg::{Dkg, DkgAction, DkgMessage};
